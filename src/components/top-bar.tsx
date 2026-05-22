@@ -18,7 +18,7 @@ export function TopBar() {
     .toString().split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
 
   return (
-    <header className="h-12 border-b bg-card flex items-center px-2 gap-1 sticky top-0 z-30">
+    <header className="h-12 border-b border-border bg-background flex items-center px-2 gap-1 sticky top-0 z-30">
       <SidebarTrigger />
       <div className="flex-1" />
       <Button variant="ghost" size="icon" aria-label="Phone" asChild><Link to="/phone"><Phone className="h-4 w-4" /></Link></Button>
