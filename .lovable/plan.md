@@ -1,37 +1,60 @@
-# Fix light/dark theme for navigation (sidebar + topbar)
+# Build missing pages (mock UI)
 
-## Problem
+Scope: add the pages from the original AgencyOS spec that don't yet exist, all with mock data and themed via existing tokens. No backend wiring, no schema changes.
 
-In `src/styles.css`, the `--sidebar*` tokens are hardcoded to dark navy in **both** `:root` (light) and `.dark`. So toggling theme only flips the main content area — the sidebar stays dark navy in light mode, which looks broken next to the white app surface.
+## New routes
 
-The topbar itself is fine (uses `bg-card`, `border-b`), but its border/icon contrast needs a quick check in both modes.
+**Back Office** (rename/extend existing `back-office.tsx` sub-layout):
+- `/back-office/case-design` — submit a case for advanced design help; list of in-flight cases with status badges (New, In Review, Quoted, Closed).
+- `/back-office/advanced-desk` — concierge desk request form + threaded conversation mock.
+- `/back-office/recruiting-funnels` — gallery of funnel templates, "Create funnel" CTA, list of agent's funnels (slug, published toggle, views).
+- `/back-office/client-marketing` — landing-page templates gallery, agent's landing pages list (slug, published toggle, leads count).
+- Keep existing `recruiting-tracker`. Remove/replace `compliance` and `support` (not in spec) — move their content into the items above where it fits, otherwise delete.
 
-## Changes (CSS-only, no component logic touched)
+**Resources** (rename existing `resources.tsx` sub-layout to match spec):
+- `/resources/new-agent-guide` — onboarding checklist + linked articles.
+- `/resources/agent-handbook` — table of contents + long-form sections (mock markdown).
+- `/resources/scripts` — keep existing.
+- `/resources/state-licenses` — license table (state, number, issued, expires, status), "Upload license" button, expiration warnings, DOI quick links per state.
+- `/resources/agent-academy` — course catalog grid (course title, duration, progress bar, "Start"/"Resume").
+- Remove `forms`, `marketing`, `training` (not in spec) or repurpose under the above.
 
-**`src/styles.css` — light theme (`:root`)**: replace the dark-navy sidebar tokens with a light surface so the sidebar matches the rest of the app in light mode:
-- `--sidebar`: near-white tinted (`oklch(0.985 0.005 250)`)
-- `--sidebar-foreground`: dark text (`oklch(0.25 0.04 264)`)
-- `--sidebar-primary`: keep brand blue
-- `--sidebar-primary-foreground`: white
-- `--sidebar-accent`: subtle hover (`oklch(0.95 0.02 257)`)
-- `--sidebar-accent-foreground`: dark text
-- `--sidebar-border`: `oklch(0.92 0.01 257)`
-- `--sidebar-ring`: brand blue
+**Sophai (Workspace addition)**:
+- `/sophai/settings` — toggles: Policy Recovery, SMS Follow-up, Birthday Messages, Beneficiary Engagement; per-toggle description + last-run timestamp.
+- `/sophai/activity` — feed of Sophai actions (client, activity_type, outcome, timestamp) with type filters.
+- (AI Assistant chat stays as-is on `/ai-assistant`.)
 
-**`src/styles.css` — dark theme (`.dark`)**: keep the existing dark sidebar tokens (already correct).
+**Gamification**:
+- `/challenges` — current daily/weekly/monthly/quarterly challenges as cards with progress bars + targets; trophy case strip at top showing earned trophies.
 
-**`src/components/top-bar.tsx`**: change `bg-card` → `bg-background` (matches main surface) and ensure the border uses `border-border` explicitly so contrast is consistent in both themes. Icons already inherit `foreground` via the Button ghost variant — no change needed.
+## Sidebar updates (`src/components/app-sidebar.tsx`)
 
-**`src/components/app-sidebar.tsx`**: no logic changes. The header's `bg-primary` brand tile + `text-primary-foreground` already work in both themes.
+Realign group items to spec exactly:
+- Contracting group: Invite Agent, Contract Requests, Transfer Requests, Commission Grids, Annuity Training, Carriers.
+- Resources group: New Agent Guide, Agent Handbook, Scripts, State Licenses, Agent Academy.
+- Back Office group: Case Design, Advanced Desk, Recruiting Funnels, Recruiting Tracker, Client Marketing.
+- Workspace group: add AI Assistant entries for Sophai Settings + Sophai Activity, and Challenges under My Business.
+
+Each menu item gets an appropriate `lucide-react` icon and points to the new route.
+
+## Mock data
+
+Add `src/lib/mock/` modules per page (e.g. `landingPages.ts`, `funnels.ts`, `licenses.ts`, `academy.ts`, `sophaiActivity.ts`, `challenges.ts`) returning typed arrays consumed by the routes. Keep shapes aligned with the spec's table columns so a future swap to Supabase queries is mechanical.
+
+## Components reused
+
+- `KpiCard`, `StatusBadge`, `TemperatureBadge` already exist.
+- Use shadcn `Card`, `Table`, `Tabs`, `Switch`, `Progress`, `Dialog`, `Badge`, `Button` consistently. No new primitives.
+
+## Out of scope (defer)
+
+- Sophai topbar shield dropdown, onboarding wizard, wallet/billing — covered by the other two options from the question; not built here.
+- Real Supabase tables/RLS — deferred until you pick "Wire real backend".
+- Auth-protected loaders — pages render under `_authenticated` shell only.
 
 ## Verification
 
-- Toggle theme via the topbar sun/moon button on `/dashboard`.
-- Light mode: sidebar = light surface, dark text, blue active state, visible group labels.
-- Dark mode: sidebar = dark navy, light text, blue active state.
-- Active route highlight readable in both modes.
-- Topbar border + icon contrast readable in both modes.
-
-## Out of scope
-
-No new components, no layout changes, no route changes.
+- Every new route renders with no console errors in light + dark mode.
+- Sidebar groups expand to show all spec sub-items; active highlight works.
+- Each page has a unique `head()` with `title` + `description`.
+- No broken `<Link to>` targets (tsc enforces).
