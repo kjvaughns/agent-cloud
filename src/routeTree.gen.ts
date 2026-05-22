@@ -34,6 +34,10 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
+import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
+import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
+import { Route as AuthenticatedToolsInboundCallsRouteImport } from './routes/_authenticated/tools/inbound-calls'
 import { Route as AuthenticatedSophaiSettingsRouteImport } from './routes/_authenticated/sophai/settings'
 import { Route as AuthenticatedSophaiActivityRouteImport } from './routes/_authenticated/sophai/activity'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
@@ -51,6 +55,10 @@ import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './
 import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
 import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
+import { Route as AuthenticatedAccountProducerProfileRouteImport } from './routes/_authenticated/account/producer-profile'
+import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
+import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
+import { Route as AuthenticatedAccountFaqRouteImport } from './routes/_authenticated/account/faq'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -182,6 +190,29 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const AuthenticatedToolsQuoterRoute =
+  AuthenticatedToolsQuoterRouteImport.update({
+    id: '/tools/quoter',
+    path: '/tools/quoter',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedToolsNeedsAnalysisRoute =
+  AuthenticatedToolsNeedsAnalysisRouteImport.update({
+    id: '/tools/needs-analysis',
+    path: '/tools/needs-analysis',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
+  id: '/tools/leads',
+  path: '/tools/leads',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedToolsInboundCallsRoute =
+  AuthenticatedToolsInboundCallsRouteImport.update({
+    id: '/tools/inbound-calls',
+    path: '/tools/inbound-calls',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSophaiSettingsRoute =
   AuthenticatedSophaiSettingsRouteImport.update({
     id: '/settings',
@@ -284,6 +315,29 @@ const AuthenticatedBackOfficeAdvancedDeskRoute =
     path: '/advanced-desk',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedAccountProducerProfileRoute =
+  AuthenticatedAccountProducerProfileRouteImport.update({
+    id: '/account/producer-profile',
+    path: '/account/producer-profile',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAccountMyLandingPageRoute =
+  AuthenticatedAccountMyLandingPageRouteImport.update({
+    id: '/account/my-landing-page',
+    path: '/account/my-landing-page',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAccountHelpRoute =
+  AuthenticatedAccountHelpRouteImport.update({
+    id: '/account/help',
+    path: '/account/help',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedAccountFaqRoute = AuthenticatedAccountFaqRouteImport.update({
+  id: '/account/faq',
+  path: '/account/faq',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -309,6 +363,10 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/account/help': typeof AuthenticatedAccountHelpRoute
+  '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
+  '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -326,6 +384,10 @@ export interface FileRoutesByFullPath {
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
   '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
+  '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
+  '/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
+  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesByTo {
@@ -351,6 +413,10 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/account/help': typeof AuthenticatedAccountHelpRoute
+  '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
+  '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -368,6 +434,10 @@ export interface FileRoutesByTo {
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
   '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
+  '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
+  '/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
+  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesById {
@@ -396,6 +466,10 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
+  '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
+  '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -413,6 +487,10 @@ export interface FileRoutesById {
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/_authenticated/sophai/activity': typeof AuthenticatedSophaiActivityRoute
   '/_authenticated/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
+  '/_authenticated/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
+  '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
+  '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRouteTypes {
@@ -441,6 +519,10 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/account/faq'
+    | '/account/help'
+    | '/account/my-landing-page'
+    | '/account/producer-profile'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -458,6 +540,10 @@ export interface FileRouteTypes {
     | '/resources/state-licenses'
     | '/sophai/activity'
     | '/sophai/settings'
+    | '/tools/inbound-calls'
+    | '/tools/leads'
+    | '/tools/needs-analysis'
+    | '/tools/quoter'
     | '/contracting/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -483,6 +569,10 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/account/faq'
+    | '/account/help'
+    | '/account/my-landing-page'
+    | '/account/producer-profile'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -500,6 +590,10 @@ export interface FileRouteTypes {
     | '/resources/state-licenses'
     | '/sophai/activity'
     | '/sophai/settings'
+    | '/tools/inbound-calls'
+    | '/tools/leads'
+    | '/tools/needs-analysis'
+    | '/tools/quoter'
     | '/contracting'
   id:
     | '__root__'
@@ -527,6 +621,10 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/sophai'
     | '/_authenticated/team'
+    | '/_authenticated/account/faq'
+    | '/_authenticated/account/help'
+    | '/_authenticated/account/my-landing-page'
+    | '/_authenticated/account/producer-profile'
     | '/_authenticated/back-office/advanced-desk'
     | '/_authenticated/back-office/case-design'
     | '/_authenticated/back-office/client-marketing'
@@ -544,6 +642,10 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/state-licenses'
     | '/_authenticated/sophai/activity'
     | '/_authenticated/sophai/settings'
+    | '/_authenticated/tools/inbound-calls'
+    | '/_authenticated/tools/leads'
+    | '/_authenticated/tools/needs-analysis'
+    | '/_authenticated/tools/quoter'
     | '/_authenticated/contracting/'
   fileRoutesById: FileRoutesById
 }
@@ -733,6 +835,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
+    '/_authenticated/tools/quoter': {
+      id: '/_authenticated/tools/quoter'
+      path: '/tools/quoter'
+      fullPath: '/tools/quoter'
+      preLoaderRoute: typeof AuthenticatedToolsQuoterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tools/needs-analysis': {
+      id: '/_authenticated/tools/needs-analysis'
+      path: '/tools/needs-analysis'
+      fullPath: '/tools/needs-analysis'
+      preLoaderRoute: typeof AuthenticatedToolsNeedsAnalysisRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tools/leads': {
+      id: '/_authenticated/tools/leads'
+      path: '/tools/leads'
+      fullPath: '/tools/leads'
+      preLoaderRoute: typeof AuthenticatedToolsLeadsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tools/inbound-calls': {
+      id: '/_authenticated/tools/inbound-calls'
+      path: '/tools/inbound-calls'
+      fullPath: '/tools/inbound-calls'
+      preLoaderRoute: typeof AuthenticatedToolsInboundCallsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/sophai/settings': {
       id: '/_authenticated/sophai/settings'
       path: '/settings'
@@ -852,6 +982,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeAdvancedDeskRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/account/producer-profile': {
+      id: '/_authenticated/account/producer-profile'
+      path: '/account/producer-profile'
+      fullPath: '/account/producer-profile'
+      preLoaderRoute: typeof AuthenticatedAccountProducerProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account/my-landing-page': {
+      id: '/_authenticated/account/my-landing-page'
+      path: '/account/my-landing-page'
+      fullPath: '/account/my-landing-page'
+      preLoaderRoute: typeof AuthenticatedAccountMyLandingPageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account/help': {
+      id: '/_authenticated/account/help'
+      path: '/account/help'
+      fullPath: '/account/help'
+      preLoaderRoute: typeof AuthenticatedAccountHelpRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account/faq': {
+      id: '/_authenticated/account/faq'
+      path: '/account/faq'
+      fullPath: '/account/faq'
+      preLoaderRoute: typeof AuthenticatedAccountFaqRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -968,6 +1126,14 @@ interface AuthenticatedRouteChildren {
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
   AuthenticatedSophaiRoute: typeof AuthenticatedSophaiRouteWithChildren
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
+  AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
+  AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
+  AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
+  AuthenticatedToolsInboundCallsRoute: typeof AuthenticatedToolsInboundCallsRoute
+  AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
+  AuthenticatedToolsNeedsAnalysisRoute: typeof AuthenticatedToolsNeedsAnalysisRoute
+  AuthenticatedToolsQuoterRoute: typeof AuthenticatedToolsQuoterRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -989,6 +1155,16 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
   AuthenticatedSophaiRoute: AuthenticatedSophaiRouteWithChildren,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
+  AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,
+  AuthenticatedAccountMyLandingPageRoute:
+    AuthenticatedAccountMyLandingPageRoute,
+  AuthenticatedAccountProducerProfileRoute:
+    AuthenticatedAccountProducerProfileRoute,
+  AuthenticatedToolsInboundCallsRoute: AuthenticatedToolsInboundCallsRoute,
+  AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
+  AuthenticatedToolsNeedsAnalysisRoute: AuthenticatedToolsNeedsAnalysisRoute,
+  AuthenticatedToolsQuoterRoute: AuthenticatedToolsQuoterRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
