@@ -7,11 +7,17 @@ export interface KpiCardProps {
   label: string;
   value: string;
   delta?: number; // percent
+  change?: string; // pre-formatted, e.g. "+18%"
   icon?: LucideIcon;
   hint?: string;
 }
 
-export function KpiCard({ label, value, delta, icon: Icon, hint }: KpiCardProps) {
+export function KpiCard({ label, value, delta, change, icon: Icon, hint }: KpiCardProps) {
+  if (change && typeof delta !== "number") {
+    const n = parseFloat(change.replace(/[^\d.\-]/g, ""));
+    if (!Number.isNaN(n)) delta = change.trim().startsWith("-") ? -Math.abs(n) : n;
+  }
+
   const positive = (delta ?? 0) >= 0;
   return (
     <Card className="p-5">
