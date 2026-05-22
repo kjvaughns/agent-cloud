@@ -1,0 +1,96 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { Cloud, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [{ title: "Sign in — Agent Cloud" }] }),
+  component: LoginPage,
+});
+
+function LoginPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Welcome back");
+    navigate({ to: "/dashboard" });
+  }
+
+  async function onGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
+    });
+    if (error) toast.error(error.message);
+  }
+
+  return <AuthShell title="Welcome back" subtitle="Sign in to your Agent Cloud workspace">
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@agency.com" />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot?</Link>
+        </div>
+        <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+      </Button>
+    </form>
+    <div className="relative my-6">
+      <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+      <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+    </div>
+    <Button variant="outline" className="w-full" onClick={onGoogle}>Continue with Google</Button>
+    <p className="mt-6 text-center text-sm text-muted-foreground">
+      New here? <Link to="/signup" className="text-primary font-medium hover:underline">Create account</Link>
+    </p>
+  </AuthShell>;
+}
+
+export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      <div className="hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-12">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Cloud className="h-5 w-5" /></div>
+          <span className="text-lg font-bold tracking-tight">Agent Cloud</span>
+        </div>
+        <div className="space-y-4 max-w-md">
+          <h2 className="text-4xl font-bold leading-tight">Your entire agency, in one cloud.</h2>
+          <p className="text-sidebar-foreground/70 text-lg">
+            Pipeline, contracting, calls, SMS, analytics, and a downline command center — built for life insurance teams.
+          </p>
+        </div>
+        <p className="text-sm text-sidebar-foreground/50">© Agent Cloud 2026</p>
+      </div>
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm">
+          <div className="mb-6 lg:hidden flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Cloud className="h-4 w-4" /></div>
+            <span className="font-bold">Agent Cloud</span>
+          </div>
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <p className="text-sm text-muted-foreground mt-1 mb-6">{subtitle}</p>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
