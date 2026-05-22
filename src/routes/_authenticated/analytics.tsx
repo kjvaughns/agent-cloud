@@ -34,7 +34,13 @@ const sourceMix = [
   { name: "Web Leads", count: 17 },
   { name: "Cold Call", count: 9 },
 ];
-const COLORS = ["#3B82F6","#22C55E","#F59E0B","#A855F7","#64748B"];
+const COLORS = [
+  "var(--color-chart-1)",
+  "var(--color-chart-2)",
+  "var(--color-chart-3)",
+  "var(--color-chart-5)",
+  "var(--color-muted-foreground)",
+];
 
 function AnalyticsPage() {
   return (
@@ -60,12 +66,12 @@ function AnalyticsPage() {
               <h3 className="font-semibold mb-3">Premium trend</h3>
               <ResponsiveContainer width="100%" height={260}>
                 <AreaChart data={premiumTrend}>
-                  <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4} /><stop offset="100%" stopColor="#3B82F6" stopOpacity={0} /></linearGradient></defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Area type="monotone" dataKey="ap" stroke="#3B82F6" strokeWidth={2} fill="url(#g1)" />
+                  <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient></defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
+                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                  <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-card-foreground)" }} />
+                  <Area type="monotone" dataKey="ap" stroke="var(--color-primary)" strokeWidth={2} fill="url(#g1)" />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent></Card>
@@ -103,11 +109,11 @@ function AnalyticsPage() {
             <h3 className="font-semibold mb-3">Lead sources</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={sourceMix}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                <Bar dataKey="count" fill="#3B82F6" radius={[6,6,0,0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                <XAxis dataKey="name" stroke="var(--color-muted-foreground)" fontSize={12} />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
+                <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-card-foreground)" }} />
+                <Bar dataKey="count" fill="var(--color-primary)" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent></Card>
