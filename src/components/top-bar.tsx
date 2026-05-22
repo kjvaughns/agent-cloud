@@ -8,7 +8,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 export function TopBar() {
   const { theme, toggle } = useTheme();
@@ -21,11 +21,12 @@ export function TopBar() {
     <header className="h-12 border-b bg-card flex items-center px-2 gap-1 sticky top-0 z-30">
       <SidebarTrigger />
       <div className="flex-1" />
-      <Button variant="ghost" size="icon" aria-label="Phone"><Phone className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" aria-label="SMS"><MessageSquare className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" aria-label="Notifications">
-        <Bell className="h-4 w-4" />
+      <Button variant="ghost" size="icon" aria-label="Phone" asChild><Link to="/phone"><Phone className="h-4 w-4" /></Link></Button>
+      <Button variant="ghost" size="icon" aria-label="SMS" asChild><Link to="/phone"><MessageSquare className="h-4 w-4" /></Link></Button>
+      <Button variant="ghost" size="icon" aria-label="Notifications" asChild>
+        <Link to="/notifications"><Bell className="h-4 w-4" /></Link>
       </Button>
+
       <Button variant="ghost" size="icon" onClick={toggle} aria-label="Theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
