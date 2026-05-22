@@ -1,45 +1,37 @@
+# Fix light/dark theme for navigation (sidebar + topbar)
 
-# Full UI Audit & Fix Pass
+## Problem
 
-## Goal
-Walk every route in the app, catch UI/runtime/workflow errors, and fix them so each page renders and its primary action works.
+In `src/styles.css`, the `--sidebar*` tokens are hardcoded to dark navy in **both** `:root` (light) and `.dark`. So toggling theme only flips the main content area — the sidebar stays dark navy in light mode, which looks broken next to the white app surface.
 
-## Approach
+The topbar itself is fine (uses `bg-card`, `border-b`), but its border/icon contrast needs a quick check in both modes.
 
-### 1. Inventory
-Routes to audit (from `src/routes/`):
-- Public: `/login`, `/signup`, `/forgot-password`, `/reset-password`
-- Auth shell: `/_authenticated` (sidebar + topbar)
-- Pages: `/dashboard`, `/pipeline`, `/post-deal`, `/contracting` (+ children: index, carriers, invite, transfers, commission-grids, annuity-training), `/back-office` (+ compliance, licensing, recruiting-tracker, support), `/book-of-business`, `/calendar`, `/phone`, `/notifications`, `/analytics`, `/finances`, `/news-feed`, `/announcements`, `/team`, `/ai-assistant`, `/resources` (+ scripts, forms, training, marketing)
+## Changes (CSS-only, no component logic touched)
 
-### 2. Audit each route for
-- **Build/runtime errors**: bad imports (e.g. earlier `formatCurrency` vs `fmtCurrency`), missing exports, undefined components, type errors
-- **Blank screens / SSR crashes**: top-level `localStorage`/`window` access, unguarded `process.env`, throws in render
-- **Routing**: `<Link to="...">` targets that don't exist, missing `params`, hash-anchor abuse, missing `<Outlet />` in layouts
-- **Workflow gaps**: buttons with no handler, forms that don't submit, dropdowns with no items, tabs that 404
-- **Auth flow**: login → redirect, signup, forgot/reset password, sign-out, protected redirects preserve `redirect` param
-- **Design tokens**: hardcoded colors instead of semantic tokens; light/dark contrast
-- **A11y**: icon-only buttons missing `aria-label`, image `alt`, single `<main>`, heading order
+**`src/styles.css` — light theme (`:root`)**: replace the dark-navy sidebar tokens with a light surface so the sidebar matches the rest of the app in light mode:
+- `--sidebar`: near-white tinted (`oklch(0.985 0.005 250)`)
+- `--sidebar-foreground`: dark text (`oklch(0.25 0.04 264)`)
+- `--sidebar-primary`: keep brand blue
+- `--sidebar-primary-foreground`: white
+- `--sidebar-accent`: subtle hover (`oklch(0.95 0.02 257)`)
+- `--sidebar-accent-foreground`: dark text
+- `--sidebar-border`: `oklch(0.92 0.01 257)`
+- `--sidebar-ring`: brand blue
 
-### 3. Method
-For each route file: read it, trace its imports, click through it in the browser preview, capture console + network errors, then fix in place. Group fixes by file to minimize churn.
+**`src/styles.css` — dark theme (`.dark`)**: keep the existing dark sidebar tokens (already correct).
 
-### 4. Fixes will be surgical
-- Repair broken imports / missing exports in `src/lib/*` and shared components
-- Wire up dead buttons to their intended action or a `toast` placeholder
-- Replace hardcoded colors with tokens from `src/styles.css`
-- Add missing `aria-label`s and `<Outlet />`s
-- Keep all business logic and data shapes unchanged — UI/presentation only
+**`src/components/top-bar.tsx`**: change `bg-card` → `bg-background` (matches main surface) and ensure the border uses `border-border` explicitly so contrast is consistent in both themes. Icons already inherit `foreground` via the Button ghost variant — no change needed.
 
-### 5. Verification per page
-- Page renders without console errors
-- Primary CTA works (or shows a clear toast if backend not wired)
-- Nav links resolve, tabs switch, drawers/dialogs open & close
-- Light + dark themes both readable
+**`src/components/app-sidebar.tsx`**: no logic changes. The header's `bg-primary` brand tile + `text-primary-foreground` already work in both themes.
+
+## Verification
+
+- Toggle theme via the topbar sun/moon button on `/dashboard`.
+- Light mode: sidebar = light surface, dark text, blue active state, visible group labels.
+- Dark mode: sidebar = dark navy, light text, blue active state.
+- Active route highlight readable in both modes.
+- Topbar border + icon contrast readable in both modes.
 
 ## Out of scope
-- New features, schema changes, new backend logic
-- Visual redesign — only fixing what's broken or inconsistent
 
-## Deliverable
-A single summary listing every page audited, issues found, and fixes applied.
+No new components, no layout changes, no route changes.
