@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { FilePlus, Sparkles, CheckCircle2 } from "lucide-react";
-import { formatCurrency } from "@/lib/format";
+import { fmtCurrency } from "@/lib/format";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
   component: PostDealPage,
@@ -84,7 +84,7 @@ function PostDealPage() {
               <CardDescription>Live calc based on your contract level</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{formatCurrency(commission)}</div>
+              <div className="text-3xl font-bold">{fmtCurrency(commission)}</div>
               <div className="text-xs text-muted-foreground mt-1">{product.toUpperCase()} @ {product === "iul" ? "105%" : product === "term" ? "85%" : "6%"} target</div>
             </CardContent>
           </Card>
@@ -110,7 +110,7 @@ function PostDealPage() {
                 { client: "K. Nguyen", premium: 4500, status: "UW Review" },
               ].map((d) => (
                 <div key={d.client} className="flex items-center justify-between">
-                  <div><div className="font-medium">{d.client}</div><div className="text-xs text-muted-foreground">{formatCurrency(d.premium)} AP</div></div>
+                  <div><div className="font-medium">{d.client}</div><div className="text-xs text-muted-foreground">{fmtCurrency(d.premium)} AP</div></div>
                   <Badge variant="secondary">{d.status}</Badge>
                 </div>
               ))}
