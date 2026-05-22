@@ -7,10 +7,11 @@ export const Route = createFileRoute("/_authenticated/resources")({
 });
 
 const TABS = [
+  { label: "New Agent Guide", url: "/resources/new-agent-guide" },
+  { label: "Agent Handbook", url: "/resources/agent-handbook" },
   { label: "Scripts", url: "/resources/scripts" },
-  { label: "Forms & Docs", url: "/resources/forms" },
-  { label: "Training", url: "/resources/training" },
-  { label: "Marketing", url: "/resources/marketing" },
+  { label: "State Licenses", url: "/resources/state-licenses" },
+  { label: "Agent Academy", url: "/resources/agent-academy" },
 ];
 
 function ResourcesLayout() {
@@ -19,7 +20,7 @@ function ResourcesLayout() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><FolderOpen className="h-7 w-7" /> Resources</h1>
-        <p className="text-muted-foreground mt-1">Scripts, forms, training, and marketing collateral.</p>
+        <p className="text-muted-foreground mt-1">Guides, scripts, licensing, and Agent Academy.</p>
       </div>
       <div className="border-b flex gap-1 overflow-x-auto">
         {TABS.map((t) => (

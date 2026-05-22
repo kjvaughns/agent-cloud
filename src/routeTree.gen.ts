@@ -32,19 +32,13 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
-import { Route as AuthenticatedResourcesTrainingRouteImport } from './routes/_authenticated/resources/training'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
-import { Route as AuthenticatedResourcesMarketingRouteImport } from './routes/_authenticated/resources/marketing'
-import { Route as AuthenticatedResourcesFormsRouteImport } from './routes/_authenticated/resources/forms'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
-import { Route as AuthenticatedBackOfficeSupportRouteImport } from './routes/_authenticated/back-office/support'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
-import { Route as AuthenticatedBackOfficeLicensingRouteImport } from './routes/_authenticated/back-office/licensing'
-import { Route as AuthenticatedBackOfficeComplianceRouteImport } from './routes/_authenticated/back-office/compliance'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -166,28 +160,10 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
-const AuthenticatedResourcesTrainingRoute =
-  AuthenticatedResourcesTrainingRouteImport.update({
-    id: '/training',
-    path: '/training',
-    getParentRoute: () => AuthenticatedResourcesRoute,
-  } as any)
 const AuthenticatedResourcesScriptsRoute =
   AuthenticatedResourcesScriptsRouteImport.update({
     id: '/scripts',
     path: '/scripts',
-    getParentRoute: () => AuthenticatedResourcesRoute,
-  } as any)
-const AuthenticatedResourcesMarketingRoute =
-  AuthenticatedResourcesMarketingRouteImport.update({
-    id: '/marketing',
-    path: '/marketing',
-    getParentRoute: () => AuthenticatedResourcesRoute,
-  } as any)
-const AuthenticatedResourcesFormsRoute =
-  AuthenticatedResourcesFormsRouteImport.update({
-    id: '/forms',
-    path: '/forms',
     getParentRoute: () => AuthenticatedResourcesRoute,
   } as any)
 const AuthenticatedContractingTransfersRoute =
@@ -220,28 +196,10 @@ const AuthenticatedContractingAnnuityTrainingRoute =
     path: '/annuity-training',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
-const AuthenticatedBackOfficeSupportRoute =
-  AuthenticatedBackOfficeSupportRouteImport.update({
-    id: '/support',
-    path: '/support',
-    getParentRoute: () => AuthenticatedBackOfficeRoute,
-  } as any)
 const AuthenticatedBackOfficeRecruitingTrackerRoute =
   AuthenticatedBackOfficeRecruitingTrackerRouteImport.update({
     id: '/recruiting-tracker',
     path: '/recruiting-tracker',
-    getParentRoute: () => AuthenticatedBackOfficeRoute,
-  } as any)
-const AuthenticatedBackOfficeLicensingRoute =
-  AuthenticatedBackOfficeLicensingRouteImport.update({
-    id: '/licensing',
-    path: '/licensing',
-    getParentRoute: () => AuthenticatedBackOfficeRoute,
-  } as any)
-const AuthenticatedBackOfficeComplianceRoute =
-  AuthenticatedBackOfficeComplianceRouteImport.update({
-    id: '/compliance',
-    path: '/compliance',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
 
@@ -267,19 +225,13 @@ export interface FileRoutesByFullPath {
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
-  '/back-office/compliance': typeof AuthenticatedBackOfficeComplianceRoute
-  '/back-office/licensing': typeof AuthenticatedBackOfficeLicensingRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
-  '/back-office/support': typeof AuthenticatedBackOfficeSupportRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
-  '/resources/forms': typeof AuthenticatedResourcesFormsRoute
-  '/resources/marketing': typeof AuthenticatedResourcesMarketingRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
-  '/resources/training': typeof AuthenticatedResourcesTrainingRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesByTo {
@@ -303,19 +255,13 @@ export interface FileRoutesByTo {
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
-  '/back-office/compliance': typeof AuthenticatedBackOfficeComplianceRoute
-  '/back-office/licensing': typeof AuthenticatedBackOfficeLicensingRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
-  '/back-office/support': typeof AuthenticatedBackOfficeSupportRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
-  '/resources/forms': typeof AuthenticatedResourcesFormsRoute
-  '/resources/marketing': typeof AuthenticatedResourcesMarketingRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
-  '/resources/training': typeof AuthenticatedResourcesTrainingRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesById {
@@ -342,19 +288,13 @@ export interface FileRoutesById {
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
-  '/_authenticated/back-office/compliance': typeof AuthenticatedBackOfficeComplianceRoute
-  '/_authenticated/back-office/licensing': typeof AuthenticatedBackOfficeLicensingRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
-  '/_authenticated/back-office/support': typeof AuthenticatedBackOfficeSupportRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
-  '/_authenticated/resources/forms': typeof AuthenticatedResourcesFormsRoute
-  '/_authenticated/resources/marketing': typeof AuthenticatedResourcesMarketingRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
-  '/_authenticated/resources/training': typeof AuthenticatedResourcesTrainingRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRouteTypes {
@@ -381,19 +321,13 @@ export interface FileRouteTypes {
     | '/post-deal'
     | '/resources'
     | '/team'
-    | '/back-office/compliance'
-    | '/back-office/licensing'
     | '/back-office/recruiting-tracker'
-    | '/back-office/support'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
-    | '/resources/forms'
-    | '/resources/marketing'
     | '/resources/scripts'
-    | '/resources/training'
     | '/contracting/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -417,19 +351,13 @@ export interface FileRouteTypes {
     | '/post-deal'
     | '/resources'
     | '/team'
-    | '/back-office/compliance'
-    | '/back-office/licensing'
     | '/back-office/recruiting-tracker'
-    | '/back-office/support'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
-    | '/resources/forms'
-    | '/resources/marketing'
     | '/resources/scripts'
-    | '/resources/training'
     | '/contracting'
   id:
     | '__root__'
@@ -455,19 +383,13 @@ export interface FileRouteTypes {
     | '/_authenticated/post-deal'
     | '/_authenticated/resources'
     | '/_authenticated/team'
-    | '/_authenticated/back-office/compliance'
-    | '/_authenticated/back-office/licensing'
     | '/_authenticated/back-office/recruiting-tracker'
-    | '/_authenticated/back-office/support'
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
-    | '/_authenticated/resources/forms'
-    | '/_authenticated/resources/marketing'
     | '/_authenticated/resources/scripts'
-    | '/_authenticated/resources/training'
     | '/_authenticated/contracting/'
   fileRoutesById: FileRoutesById
 }
@@ -643,32 +565,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
-    '/_authenticated/resources/training': {
-      id: '/_authenticated/resources/training'
-      path: '/training'
-      fullPath: '/resources/training'
-      preLoaderRoute: typeof AuthenticatedResourcesTrainingRouteImport
-      parentRoute: typeof AuthenticatedResourcesRoute
-    }
     '/_authenticated/resources/scripts': {
       id: '/_authenticated/resources/scripts'
       path: '/scripts'
       fullPath: '/resources/scripts'
       preLoaderRoute: typeof AuthenticatedResourcesScriptsRouteImport
-      parentRoute: typeof AuthenticatedResourcesRoute
-    }
-    '/_authenticated/resources/marketing': {
-      id: '/_authenticated/resources/marketing'
-      path: '/marketing'
-      fullPath: '/resources/marketing'
-      preLoaderRoute: typeof AuthenticatedResourcesMarketingRouteImport
-      parentRoute: typeof AuthenticatedResourcesRoute
-    }
-    '/_authenticated/resources/forms': {
-      id: '/_authenticated/resources/forms'
-      path: '/forms'
-      fullPath: '/resources/forms'
-      preLoaderRoute: typeof AuthenticatedResourcesFormsRouteImport
       parentRoute: typeof AuthenticatedResourcesRoute
     }
     '/_authenticated/contracting/transfers': {
@@ -706,13 +607,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingAnnuityTrainingRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
-    '/_authenticated/back-office/support': {
-      id: '/_authenticated/back-office/support'
-      path: '/support'
-      fullPath: '/back-office/support'
-      preLoaderRoute: typeof AuthenticatedBackOfficeSupportRouteImport
-      parentRoute: typeof AuthenticatedBackOfficeRoute
-    }
     '/_authenticated/back-office/recruiting-tracker': {
       id: '/_authenticated/back-office/recruiting-tracker'
       path: '/recruiting-tracker'
@@ -720,39 +614,17 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
-    '/_authenticated/back-office/licensing': {
-      id: '/_authenticated/back-office/licensing'
-      path: '/licensing'
-      fullPath: '/back-office/licensing'
-      preLoaderRoute: typeof AuthenticatedBackOfficeLicensingRouteImport
-      parentRoute: typeof AuthenticatedBackOfficeRoute
-    }
-    '/_authenticated/back-office/compliance': {
-      id: '/_authenticated/back-office/compliance'
-      path: '/compliance'
-      fullPath: '/back-office/compliance'
-      preLoaderRoute: typeof AuthenticatedBackOfficeComplianceRouteImport
-      parentRoute: typeof AuthenticatedBackOfficeRoute
-    }
   }
 }
 
 interface AuthenticatedBackOfficeRouteChildren {
-  AuthenticatedBackOfficeComplianceRoute: typeof AuthenticatedBackOfficeComplianceRoute
-  AuthenticatedBackOfficeLicensingRoute: typeof AuthenticatedBackOfficeLicensingRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
-  AuthenticatedBackOfficeSupportRoute: typeof AuthenticatedBackOfficeSupportRoute
 }
 
 const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren =
   {
-    AuthenticatedBackOfficeComplianceRoute:
-      AuthenticatedBackOfficeComplianceRoute,
-    AuthenticatedBackOfficeLicensingRoute:
-      AuthenticatedBackOfficeLicensingRoute,
     AuthenticatedBackOfficeRecruitingTrackerRoute:
       AuthenticatedBackOfficeRecruitingTrackerRoute,
-    AuthenticatedBackOfficeSupportRoute: AuthenticatedBackOfficeSupportRoute,
   }
 
 const AuthenticatedBackOfficeRouteWithChildren =
@@ -789,18 +661,12 @@ const AuthenticatedContractingRouteWithChildren =
   )
 
 interface AuthenticatedResourcesRouteChildren {
-  AuthenticatedResourcesFormsRoute: typeof AuthenticatedResourcesFormsRoute
-  AuthenticatedResourcesMarketingRoute: typeof AuthenticatedResourcesMarketingRoute
   AuthenticatedResourcesScriptsRoute: typeof AuthenticatedResourcesScriptsRoute
-  AuthenticatedResourcesTrainingRoute: typeof AuthenticatedResourcesTrainingRoute
 }
 
 const AuthenticatedResourcesRouteChildren: AuthenticatedResourcesRouteChildren =
   {
-    AuthenticatedResourcesFormsRoute: AuthenticatedResourcesFormsRoute,
-    AuthenticatedResourcesMarketingRoute: AuthenticatedResourcesMarketingRoute,
     AuthenticatedResourcesScriptsRoute: AuthenticatedResourcesScriptsRoute,
-    AuthenticatedResourcesTrainingRoute: AuthenticatedResourcesTrainingRoute,
   }
 
 const AuthenticatedResourcesRouteWithChildren =
@@ -861,3 +727,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
