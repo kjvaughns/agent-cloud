@@ -2,7 +2,10 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen, Briefcase,
-  Megaphone, Newspaper, Bell, FilePlus, Cloud,
+  Megaphone, Newspaper, Bell, FilePlus, Cloud, UserPlus, ArrowLeftRight,
+  Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
+  Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
+  Shield, Activity, Target,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -18,43 +21,59 @@ const groups = [
       { title: "Notifications", url: "/notifications", icon: Bell },
       { title: "Announcements", url: "/announcements", icon: Megaphone },
       { title: "News Feed", url: "/news-feed", icon: Newspaper },
+      { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
       { title: "Pipeline", url: "/pipeline", icon: KanbanSquare },
       { title: "Calendar", url: "/calendar", icon: Calendar },
       { title: "Phone & SMS", url: "/phone", icon: Phone },
       { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-      { title: "Team", url: "/team", icon: Users },
+      { title: "Sophai Settings", url: "/sophai/settings", icon: Shield },
+      { title: "Sophai Activity", url: "/sophai/activity", icon: Activity },
     ],
   },
   {
     label: "My Business",
     items: [
+      { title: "Team", url: "/team", icon: Users },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
       { title: "Finances", url: "/finances", icon: Wallet },
+      { title: "Challenges", url: "/challenges", icon: Target },
     ],
   },
   {
     label: "Contracting",
     items: [
-      { title: "Contracting", url: "/contracting", icon: FileSignature },
+      { title: "My Contracts", url: "/contracting", icon: FileSignature },
+      { title: "Invite Agent", url: "/contracting/invite", icon: UserPlus },
+      { title: "Transfer Requests", url: "/contracting/transfers", icon: ArrowLeftRight },
+      { title: "Commission Grids", url: "/contracting/commission-grids", icon: Percent },
+      { title: "Annuity Training", url: "/contracting/annuity-training", icon: GraduationCap },
+      { title: "Carriers", url: "/contracting/carriers", icon: Building2 },
     ],
   },
   {
     label: "Resources",
     items: [
-      { title: "Resources", url: "/resources/scripts", icon: FolderOpen },
+      { title: "New Agent Guide", url: "/resources/new-agent-guide", icon: BookText },
+      { title: "Agent Handbook", url: "/resources/agent-handbook", icon: Library },
+      { title: "Scripts", url: "/resources/scripts", icon: ScrollText },
+      { title: "State Licenses", url: "/resources/state-licenses", icon: IdCard },
+      { title: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
     ],
   },
   {
     label: "Back Office",
     items: [
-      { title: "Back Office", url: "/back-office/recruiting-tracker", icon: Briefcase },
+      { title: "Case Design", url: "/back-office/case-design", icon: ClipboardList },
+      { title: "Advanced Desk", url: "/back-office/advanced-desk", icon: BriefcaseIcon },
+      { title: "Recruiting Funnels", url: "/back-office/recruiting-funnels", icon: Globe },
+      { title: "Recruiting Tracker", url: "/back-office/recruiting-tracker", icon: Briefcase },
+      { title: "Client Marketing", url: "/back-office/client-marketing", icon: MegaIcon },
     ],
   },
 ];
@@ -81,7 +100,7 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {g.items.map((it) => {
-                  const active = path === it.url || path.startsWith(it.url + "/");
+                  const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
                   return (
                     <SidebarMenuItem key={it.url}>
                       <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
