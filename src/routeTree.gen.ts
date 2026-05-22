@@ -21,9 +21,16 @@ import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookOfBusinessRouteImport } from './routes/_authenticated/book-of-business'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
+import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
+import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
+import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
+import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -85,6 +92,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedContractingRoute =
+  AuthenticatedContractingRouteImport.update({
+    id: '/contracting',
+    path: '/contracting',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -101,6 +114,42 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedContractingIndexRoute =
+  AuthenticatedContractingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingTransfersRoute =
+  AuthenticatedContractingTransfersRouteImport.update({
+    id: '/transfers',
+    path: '/transfers',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingInviteRoute =
+  AuthenticatedContractingInviteRouteImport.update({
+    id: '/invite',
+    path: '/invite',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingCommissionGridsRoute =
+  AuthenticatedContractingCommissionGridsRouteImport.update({
+    id: '/commission-grids',
+    path: '/commission-grids',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingCarriersRoute =
+  AuthenticatedContractingCarriersRouteImport.update({
+    id: '/carriers',
+    path: '/carriers',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingAnnuityTrainingRoute =
+  AuthenticatedContractingAnnuityTrainingRouteImport.update({
+    id: '/annuity-training',
+    path: '/annuity-training',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -111,12 +160,19 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
+  '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
+  '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/invite': typeof AuthenticatedContractingInviteRoute
+  '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,6 +189,12 @@ export interface FileRoutesByTo {
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
+  '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
+  '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/invite': typeof AuthenticatedContractingInviteRoute
+  '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/contracting': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -145,12 +207,19 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
+  '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
+  '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
+  '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -163,12 +232,19 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/book-of-business'
     | '/calendar'
+    | '/contracting'
     | '/dashboard'
     | '/finances'
     | '/notifications'
     | '/phone'
     | '/pipeline'
     | '/team'
+    | '/contracting/annuity-training'
+    | '/contracting/carriers'
+    | '/contracting/commission-grids'
+    | '/contracting/invite'
+    | '/contracting/transfers'
+    | '/contracting/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -185,6 +261,12 @@ export interface FileRouteTypes {
     | '/phone'
     | '/pipeline'
     | '/team'
+    | '/contracting/annuity-training'
+    | '/contracting/carriers'
+    | '/contracting/commission-grids'
+    | '/contracting/invite'
+    | '/contracting/transfers'
+    | '/contracting'
   id:
     | '__root__'
     | '/'
@@ -196,12 +278,19 @@ export interface FileRouteTypes {
     | '/_authenticated/analytics'
     | '/_authenticated/book-of-business'
     | '/_authenticated/calendar'
+    | '/_authenticated/contracting'
     | '/_authenticated/dashboard'
     | '/_authenticated/finances'
     | '/_authenticated/notifications'
     | '/_authenticated/phone'
     | '/_authenticated/pipeline'
     | '/_authenticated/team'
+    | '/_authenticated/contracting/annuity-training'
+    | '/_authenticated/contracting/carriers'
+    | '/_authenticated/contracting/commission-grids'
+    | '/_authenticated/contracting/invite'
+    | '/_authenticated/contracting/transfers'
+    | '/_authenticated/contracting/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -299,6 +388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting': {
+      id: '/_authenticated/contracting'
+      path: '/contracting'
+      fullPath: '/contracting'
+      preLoaderRoute: typeof AuthenticatedContractingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
       path: '/calendar'
@@ -320,13 +416,84 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting/': {
+      id: '/_authenticated/contracting/'
+      path: '/'
+      fullPath: '/contracting/'
+      preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/transfers': {
+      id: '/_authenticated/contracting/transfers'
+      path: '/transfers'
+      fullPath: '/contracting/transfers'
+      preLoaderRoute: typeof AuthenticatedContractingTransfersRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/invite': {
+      id: '/_authenticated/contracting/invite'
+      path: '/invite'
+      fullPath: '/contracting/invite'
+      preLoaderRoute: typeof AuthenticatedContractingInviteRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/commission-grids': {
+      id: '/_authenticated/contracting/commission-grids'
+      path: '/commission-grids'
+      fullPath: '/contracting/commission-grids'
+      preLoaderRoute: typeof AuthenticatedContractingCommissionGridsRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/carriers': {
+      id: '/_authenticated/contracting/carriers'
+      path: '/carriers'
+      fullPath: '/contracting/carriers'
+      preLoaderRoute: typeof AuthenticatedContractingCarriersRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/annuity-training': {
+      id: '/_authenticated/contracting/annuity-training'
+      path: '/annuity-training'
+      fullPath: '/contracting/annuity-training'
+      preLoaderRoute: typeof AuthenticatedContractingAnnuityTrainingRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
   }
 }
+
+interface AuthenticatedContractingRouteChildren {
+  AuthenticatedContractingAnnuityTrainingRoute: typeof AuthenticatedContractingAnnuityTrainingRoute
+  AuthenticatedContractingCarriersRoute: typeof AuthenticatedContractingCarriersRoute
+  AuthenticatedContractingCommissionGridsRoute: typeof AuthenticatedContractingCommissionGridsRoute
+  AuthenticatedContractingInviteRoute: typeof AuthenticatedContractingInviteRoute
+  AuthenticatedContractingTransfersRoute: typeof AuthenticatedContractingTransfersRoute
+  AuthenticatedContractingIndexRoute: typeof AuthenticatedContractingIndexRoute
+}
+
+const AuthenticatedContractingRouteChildren: AuthenticatedContractingRouteChildren =
+  {
+    AuthenticatedContractingAnnuityTrainingRoute:
+      AuthenticatedContractingAnnuityTrainingRoute,
+    AuthenticatedContractingCarriersRoute:
+      AuthenticatedContractingCarriersRoute,
+    AuthenticatedContractingCommissionGridsRoute:
+      AuthenticatedContractingCommissionGridsRoute,
+    AuthenticatedContractingInviteRoute: AuthenticatedContractingInviteRoute,
+    AuthenticatedContractingTransfersRoute:
+      AuthenticatedContractingTransfersRoute,
+    AuthenticatedContractingIndexRoute: AuthenticatedContractingIndexRoute,
+  }
+
+const AuthenticatedContractingRouteWithChildren =
+  AuthenticatedContractingRoute._addFileChildren(
+    AuthenticatedContractingRouteChildren,
+  )
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBookOfBusinessRoute: typeof AuthenticatedBookOfBusinessRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -339,6 +506,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBookOfBusinessRoute: AuthenticatedBookOfBusinessRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
