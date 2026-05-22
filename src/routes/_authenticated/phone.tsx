@@ -58,7 +58,7 @@ function Keypad() {
           ))}
         </div>
         <div className="flex gap-2 mt-4">
-          <Button className="flex-1 h-12 bg-emerald-600 hover:bg-emerald-700 text-white"><PhoneCall className="h-5 w-5" /> Call</Button>
+          <Button className="flex-1 h-12 bg-success text-success-foreground hover:bg-success/90"><PhoneCall className="h-5 w-5" /> Call</Button>
           <Button variant="outline" className="h-12" onClick={() => setNum((n) => n.slice(0, -1))}><Delete className="h-5 w-5" /></Button>
         </div>
       </CardContent></Card>

@@ -53,15 +53,15 @@ function FinancesPage() {
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={forecast}>
             <defs>
-              <linearGradient id="paid" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#22C55E" stopOpacity={0.5} /><stop offset="100%" stopColor="#22C55E" stopOpacity={0} /></linearGradient>
-              <linearGradient id="proj" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3B82F6" stopOpacity={0.4} /><stop offset="100%" stopColor="#3B82F6" stopOpacity={0} /></linearGradient>
+              <linearGradient id="paid" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} /><stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} /></linearGradient>
+              <linearGradient id="proj" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
-            <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} formatter={(v: number) => fmtCurrency(v)} />
-            <Area type="monotone" dataKey="projected" stroke="#3B82F6" strokeWidth={2} fill="url(#proj)" name="Projected" />
-            <Area type="monotone" dataKey="paid" stroke="#22C55E" strokeWidth={2} fill="url(#paid)" name="Paid" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
+            <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
+            <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-card-foreground)" }} formatter={(v: number) => fmtCurrency(v)} />
+            <Area type="monotone" dataKey="projected" stroke="var(--color-primary)" strokeWidth={2} fill="url(#proj)" name="Projected" />
+            <Area type="monotone" dataKey="paid" stroke="var(--color-success)" strokeWidth={2} fill="url(#paid)" name="Paid" />
           </AreaChart>
         </ResponsiveContainer>
       </CardContent></Card>
