@@ -16,7 +16,10 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
+import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/phone'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookOfBusinessRouteImport } from './routes/_authenticated/book-of-business'
 
 const SignupRoute = SignupRouteImport.update({
@@ -53,9 +56,25 @@ const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
   path: '/pipeline',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedPhoneRoute = AuthenticatedPhoneRouteImport.update({
+  id: '/phone',
+  path: '/phone',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedBookOfBusinessRoute =
@@ -72,7 +91,10 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
 }
 export interface FileRoutesByTo {
@@ -82,7 +104,10 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
 }
 export interface FileRoutesById {
@@ -94,7 +119,10 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_authenticated/book-of-business': typeof AuthenticatedBookOfBusinessRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
 }
 export interface FileRouteTypes {
@@ -106,7 +134,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/book-of-business'
+    | '/calendar'
     | '/dashboard'
+    | '/notifications'
+    | '/phone'
     | '/pipeline'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -116,7 +147,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/book-of-business'
+    | '/calendar'
     | '/dashboard'
+    | '/notifications'
+    | '/phone'
     | '/pipeline'
   id:
     | '__root__'
@@ -127,7 +161,10 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_authenticated/book-of-business'
+    | '/_authenticated/calendar'
     | '/_authenticated/dashboard'
+    | '/_authenticated/notifications'
+    | '/_authenticated/phone'
     | '/_authenticated/pipeline'
   fileRoutesById: FileRoutesById
 }
@@ -191,11 +228,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPipelineRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/phone': {
+      id: '/_authenticated/phone'
+      path: '/phone'
+      fullPath: '/phone'
+      preLoaderRoute: typeof AuthenticatedPhoneRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/book-of-business': {
@@ -210,13 +268,19 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedBookOfBusinessRoute: typeof AuthenticatedBookOfBusinessRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedPhoneRoute: typeof AuthenticatedPhoneRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBookOfBusinessRoute: AuthenticatedBookOfBusinessRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedPhoneRoute: AuthenticatedPhoneRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
 }
 
@@ -235,3 +299,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
