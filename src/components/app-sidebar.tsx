@@ -5,12 +5,12 @@ import {
   Megaphone, Newspaper, Bell, FilePlus, Cloud, UserPlus, ArrowLeftRight,
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
-  Shield, Activity, Target,
+  Shield, Activity, Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
-  SidebarMenuItem, useSidebar,
+  SidebarMenuItem, SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
 
 const groups = [
@@ -76,12 +76,42 @@ const groups = [
       { title: "Client Marketing", url: "/back-office/client-marketing", icon: MegaIcon },
     ],
   },
+  {
+    label: "Tools",
+    items: [
+      { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
+      { title: "Quoter", url: "/tools/quoter", icon: Quote },
+      { title: "Leads", url: "/tools/leads", icon: Target },
+      { title: "Inbound Calls", url: "/tools/inbound-calls", icon: PhoneIncoming },
+    ],
+  },
+];
+
+const accountItems = [
+  { title: "Help Center", url: "/account/help", icon: LifeBuoy },
+  { title: "FAQ", url: "/account/faq", icon: HelpCircle },
+  { title: "Producer Profile", url: "/account/producer-profile", icon: IdCard },
+  { title: "My Landing Page", url: "/account/my-landing-page", icon: Globe },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
+
+  const renderItem = (it: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }) => {
+    const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
+    return (
+      <SidebarMenuItem key={it.url}>
+        <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
+          <Link to={it.url}>
+            <it.icon className="h-4 w-4" />
+            <span>{it.title}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -98,24 +128,19 @@ export function AppSidebar() {
           <SidebarGroup key={g.label}>
             {!collapsed && <SidebarGroupLabel>{g.label}</SidebarGroupLabel>}
             <SidebarGroupContent>
-              <SidebarMenu>
-                {g.items.map((it) => {
-                  const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
-                  return (
-                    <SidebarMenuItem key={it.url}>
-                      <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
-                        <Link to={it.url}>
-                          <it.icon className="h-4 w-4" />
-                          <span>{it.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
+              <SidebarMenu>{g.items.map(renderItem)}</SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          {!collapsed && <SidebarGroupLabel>Account</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu>{accountItems.map(renderItem)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>
   );
