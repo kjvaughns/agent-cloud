@@ -15,3 +15,7 @@ export const phone = (raw: string | null | undefined) => {
   if (d.length !== 10) return raw;
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
 };
+
+export const fmtCurrency = money;
+export const fmtPhone = phone;
+
