@@ -16,6 +16,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
+import { Route as AuthenticatedSophaiRouteImport } from './routes/_authenticated/sophai'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
@@ -25,6 +26,7 @@ import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
+import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookOfBusinessRouteImport } from './routes/_authenticated/book-of-business'
 import { Route as AuthenticatedBackOfficeRouteImport } from './routes/_authenticated/back-office'
@@ -32,13 +34,23 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as AuthenticatedSophaiSettingsRouteImport } from './routes/_authenticated/sophai/settings'
+import { Route as AuthenticatedSophaiActivityRouteImport } from './routes/_authenticated/sophai/activity'
+import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
+import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
+import { Route as AuthenticatedResourcesAgentHandbookRouteImport } from './routes/_authenticated/resources/agent-handbook'
+import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes/_authenticated/resources/agent-academy'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
+import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './routes/_authenticated/back-office/recruiting-funnels'
+import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
+import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
+import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -72,6 +84,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSophaiRoute = AuthenticatedSophaiRouteImport.update({
+  id: '/sophai',
+  path: '/sophai',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
@@ -121,6 +138,11 @@ const AuthenticatedContractingRoute =
     path: '/contracting',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
+  id: '/challenges',
+  path: '/challenges',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -160,10 +182,46 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const AuthenticatedSophaiSettingsRoute =
+  AuthenticatedSophaiSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedSophaiRoute,
+  } as any)
+const AuthenticatedSophaiActivityRoute =
+  AuthenticatedSophaiActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedSophaiRoute,
+  } as any)
+const AuthenticatedResourcesStateLicensesRoute =
+  AuthenticatedResourcesStateLicensesRouteImport.update({
+    id: '/state-licenses',
+    path: '/state-licenses',
+    getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
 const AuthenticatedResourcesScriptsRoute =
   AuthenticatedResourcesScriptsRouteImport.update({
     id: '/scripts',
     path: '/scripts',
+    getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
+const AuthenticatedResourcesNewAgentGuideRoute =
+  AuthenticatedResourcesNewAgentGuideRouteImport.update({
+    id: '/new-agent-guide',
+    path: '/new-agent-guide',
+    getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
+const AuthenticatedResourcesAgentHandbookRoute =
+  AuthenticatedResourcesAgentHandbookRouteImport.update({
+    id: '/agent-handbook',
+    path: '/agent-handbook',
+    getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
+const AuthenticatedResourcesAgentAcademyRoute =
+  AuthenticatedResourcesAgentAcademyRouteImport.update({
+    id: '/agent-academy',
+    path: '/agent-academy',
     getParentRoute: () => AuthenticatedResourcesRoute,
   } as any)
 const AuthenticatedContractingTransfersRoute =
@@ -202,6 +260,30 @@ const AuthenticatedBackOfficeRecruitingTrackerRoute =
     path: '/recruiting-tracker',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedBackOfficeRecruitingFunnelsRoute =
+  AuthenticatedBackOfficeRecruitingFunnelsRouteImport.update({
+    id: '/recruiting-funnels',
+    path: '/recruiting-funnels',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
+const AuthenticatedBackOfficeClientMarketingRoute =
+  AuthenticatedBackOfficeClientMarketingRouteImport.update({
+    id: '/client-marketing',
+    path: '/client-marketing',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
+const AuthenticatedBackOfficeCaseDesignRoute =
+  AuthenticatedBackOfficeCaseDesignRouteImport.update({
+    id: '/case-design',
+    path: '/case-design',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
+const AuthenticatedBackOfficeAdvancedDeskRoute =
+  AuthenticatedBackOfficeAdvancedDeskRouteImport.update({
+    id: '/advanced-desk',
+    path: '/advanced-desk',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -215,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
@@ -224,14 +307,25 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
+  '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
+  '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
+  '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesByTo {
@@ -246,6 +340,7 @@ export interface FileRoutesByTo {
   '/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/challenges': typeof AuthenticatedChallengesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
@@ -254,14 +349,25 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
+  '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
+  '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
+  '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRoutesById {
@@ -278,6 +384,7 @@ export interface FileRoutesById {
   '/_authenticated/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/_authenticated/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
@@ -287,14 +394,25 @@ export interface FileRoutesById {
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
+  '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/_authenticated/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
+  '/_authenticated/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
+  '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/_authenticated/sophai/activity': typeof AuthenticatedSophaiActivityRoute
+  '/_authenticated/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
 }
 export interface FileRouteTypes {
@@ -311,6 +429,7 @@ export interface FileRouteTypes {
     | '/back-office'
     | '/book-of-business'
     | '/calendar'
+    | '/challenges'
     | '/contracting'
     | '/dashboard'
     | '/finances'
@@ -320,14 +439,25 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/sophai'
     | '/team'
+    | '/back-office/advanced-desk'
+    | '/back-office/case-design'
+    | '/back-office/client-marketing'
+    | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/resources/agent-academy'
+    | '/resources/agent-handbook'
+    | '/resources/new-agent-guide'
     | '/resources/scripts'
+    | '/resources/state-licenses'
+    | '/sophai/activity'
+    | '/sophai/settings'
     | '/contracting/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -342,6 +472,7 @@ export interface FileRouteTypes {
     | '/back-office'
     | '/book-of-business'
     | '/calendar'
+    | '/challenges'
     | '/dashboard'
     | '/finances'
     | '/news-feed'
@@ -350,14 +481,25 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/sophai'
     | '/team'
+    | '/back-office/advanced-desk'
+    | '/back-office/case-design'
+    | '/back-office/client-marketing'
+    | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/resources/agent-academy'
+    | '/resources/agent-handbook'
+    | '/resources/new-agent-guide'
     | '/resources/scripts'
+    | '/resources/state-licenses'
+    | '/sophai/activity'
+    | '/sophai/settings'
     | '/contracting'
   id:
     | '__root__'
@@ -373,6 +515,7 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office'
     | '/_authenticated/book-of-business'
     | '/_authenticated/calendar'
+    | '/_authenticated/challenges'
     | '/_authenticated/contracting'
     | '/_authenticated/dashboard'
     | '/_authenticated/finances'
@@ -382,14 +525,25 @@ export interface FileRouteTypes {
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
     | '/_authenticated/resources'
+    | '/_authenticated/sophai'
     | '/_authenticated/team'
+    | '/_authenticated/back-office/advanced-desk'
+    | '/_authenticated/back-office/case-design'
+    | '/_authenticated/back-office/client-marketing'
+    | '/_authenticated/back-office/recruiting-funnels'
     | '/_authenticated/back-office/recruiting-tracker'
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
+    | '/_authenticated/resources/agent-academy'
+    | '/_authenticated/resources/agent-handbook'
+    | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
+    | '/_authenticated/resources/state-licenses'
+    | '/_authenticated/sophai/activity'
+    | '/_authenticated/sophai/settings'
     | '/_authenticated/contracting/'
   fileRoutesById: FileRoutesById
 }
@@ -451,6 +605,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/sophai': {
+      id: '/_authenticated/sophai'
+      path: '/sophai'
+      fullPath: '/sophai'
+      preLoaderRoute: typeof AuthenticatedSophaiRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources': {
@@ -516,6 +677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/challenges': {
+      id: '/_authenticated/challenges'
+      path: '/challenges'
+      fullPath: '/challenges'
+      preLoaderRoute: typeof AuthenticatedChallengesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
       path: '/calendar'
@@ -565,11 +733,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
+    '/_authenticated/sophai/settings': {
+      id: '/_authenticated/sophai/settings'
+      path: '/settings'
+      fullPath: '/sophai/settings'
+      preLoaderRoute: typeof AuthenticatedSophaiSettingsRouteImport
+      parentRoute: typeof AuthenticatedSophaiRoute
+    }
+    '/_authenticated/sophai/activity': {
+      id: '/_authenticated/sophai/activity'
+      path: '/activity'
+      fullPath: '/sophai/activity'
+      preLoaderRoute: typeof AuthenticatedSophaiActivityRouteImport
+      parentRoute: typeof AuthenticatedSophaiRoute
+    }
+    '/_authenticated/resources/state-licenses': {
+      id: '/_authenticated/resources/state-licenses'
+      path: '/state-licenses'
+      fullPath: '/resources/state-licenses'
+      preLoaderRoute: typeof AuthenticatedResourcesStateLicensesRouteImport
+      parentRoute: typeof AuthenticatedResourcesRoute
+    }
     '/_authenticated/resources/scripts': {
       id: '/_authenticated/resources/scripts'
       path: '/scripts'
       fullPath: '/resources/scripts'
       preLoaderRoute: typeof AuthenticatedResourcesScriptsRouteImport
+      parentRoute: typeof AuthenticatedResourcesRoute
+    }
+    '/_authenticated/resources/new-agent-guide': {
+      id: '/_authenticated/resources/new-agent-guide'
+      path: '/new-agent-guide'
+      fullPath: '/resources/new-agent-guide'
+      preLoaderRoute: typeof AuthenticatedResourcesNewAgentGuideRouteImport
+      parentRoute: typeof AuthenticatedResourcesRoute
+    }
+    '/_authenticated/resources/agent-handbook': {
+      id: '/_authenticated/resources/agent-handbook'
+      path: '/agent-handbook'
+      fullPath: '/resources/agent-handbook'
+      preLoaderRoute: typeof AuthenticatedResourcesAgentHandbookRouteImport
+      parentRoute: typeof AuthenticatedResourcesRoute
+    }
+    '/_authenticated/resources/agent-academy': {
+      id: '/_authenticated/resources/agent-academy'
+      path: '/agent-academy'
+      fullPath: '/resources/agent-academy'
+      preLoaderRoute: typeof AuthenticatedResourcesAgentAcademyRouteImport
       parentRoute: typeof AuthenticatedResourcesRoute
     }
     '/_authenticated/contracting/transfers': {
@@ -614,15 +824,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/back-office/recruiting-funnels': {
+      id: '/_authenticated/back-office/recruiting-funnels'
+      path: '/recruiting-funnels'
+      fullPath: '/back-office/recruiting-funnels'
+      preLoaderRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
+    '/_authenticated/back-office/client-marketing': {
+      id: '/_authenticated/back-office/client-marketing'
+      path: '/client-marketing'
+      fullPath: '/back-office/client-marketing'
+      preLoaderRoute: typeof AuthenticatedBackOfficeClientMarketingRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
+    '/_authenticated/back-office/case-design': {
+      id: '/_authenticated/back-office/case-design'
+      path: '/case-design'
+      fullPath: '/back-office/case-design'
+      preLoaderRoute: typeof AuthenticatedBackOfficeCaseDesignRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
+    '/_authenticated/back-office/advanced-desk': {
+      id: '/_authenticated/back-office/advanced-desk'
+      path: '/advanced-desk'
+      fullPath: '/back-office/advanced-desk'
+      preLoaderRoute: typeof AuthenticatedBackOfficeAdvancedDeskRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
   }
 }
 
 interface AuthenticatedBackOfficeRouteChildren {
+  AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
+  AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRoute
+  AuthenticatedBackOfficeClientMarketingRoute: typeof AuthenticatedBackOfficeClientMarketingRoute
+  AuthenticatedBackOfficeRecruitingFunnelsRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
 }
 
 const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren =
   {
+    AuthenticatedBackOfficeAdvancedDeskRoute:
+      AuthenticatedBackOfficeAdvancedDeskRoute,
+    AuthenticatedBackOfficeCaseDesignRoute:
+      AuthenticatedBackOfficeCaseDesignRoute,
+    AuthenticatedBackOfficeClientMarketingRoute:
+      AuthenticatedBackOfficeClientMarketingRoute,
+    AuthenticatedBackOfficeRecruitingFunnelsRoute:
+      AuthenticatedBackOfficeRecruitingFunnelsRoute,
     AuthenticatedBackOfficeRecruitingTrackerRoute:
       AuthenticatedBackOfficeRecruitingTrackerRoute,
   }
@@ -661,18 +911,43 @@ const AuthenticatedContractingRouteWithChildren =
   )
 
 interface AuthenticatedResourcesRouteChildren {
+  AuthenticatedResourcesAgentAcademyRoute: typeof AuthenticatedResourcesAgentAcademyRoute
+  AuthenticatedResourcesAgentHandbookRoute: typeof AuthenticatedResourcesAgentHandbookRoute
+  AuthenticatedResourcesNewAgentGuideRoute: typeof AuthenticatedResourcesNewAgentGuideRoute
   AuthenticatedResourcesScriptsRoute: typeof AuthenticatedResourcesScriptsRoute
+  AuthenticatedResourcesStateLicensesRoute: typeof AuthenticatedResourcesStateLicensesRoute
 }
 
 const AuthenticatedResourcesRouteChildren: AuthenticatedResourcesRouteChildren =
   {
+    AuthenticatedResourcesAgentAcademyRoute:
+      AuthenticatedResourcesAgentAcademyRoute,
+    AuthenticatedResourcesAgentHandbookRoute:
+      AuthenticatedResourcesAgentHandbookRoute,
+    AuthenticatedResourcesNewAgentGuideRoute:
+      AuthenticatedResourcesNewAgentGuideRoute,
     AuthenticatedResourcesScriptsRoute: AuthenticatedResourcesScriptsRoute,
+    AuthenticatedResourcesStateLicensesRoute:
+      AuthenticatedResourcesStateLicensesRoute,
   }
 
 const AuthenticatedResourcesRouteWithChildren =
   AuthenticatedResourcesRoute._addFileChildren(
     AuthenticatedResourcesRouteChildren,
   )
+
+interface AuthenticatedSophaiRouteChildren {
+  AuthenticatedSophaiActivityRoute: typeof AuthenticatedSophaiActivityRoute
+  AuthenticatedSophaiSettingsRoute: typeof AuthenticatedSophaiSettingsRoute
+}
+
+const AuthenticatedSophaiRouteChildren: AuthenticatedSophaiRouteChildren = {
+  AuthenticatedSophaiActivityRoute: AuthenticatedSophaiActivityRoute,
+  AuthenticatedSophaiSettingsRoute: AuthenticatedSophaiSettingsRoute,
+}
+
+const AuthenticatedSophaiRouteWithChildren =
+  AuthenticatedSophaiRoute._addFileChildren(AuthenticatedSophaiRouteChildren)
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
@@ -681,6 +956,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBackOfficeRoute: typeof AuthenticatedBackOfficeRouteWithChildren
   AuthenticatedBookOfBusinessRoute: typeof AuthenticatedBookOfBusinessRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
@@ -690,6 +966,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
+  AuthenticatedSophaiRoute: typeof AuthenticatedSophaiRouteWithChildren
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
 }
 
@@ -700,6 +977,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBackOfficeRoute: AuthenticatedBackOfficeRouteWithChildren,
   AuthenticatedBookOfBusinessRoute: AuthenticatedBookOfBusinessRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
@@ -709,6 +987,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
+  AuthenticatedSophaiRoute: AuthenticatedSophaiRouteWithChildren,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
 }
 
@@ -727,13 +1006,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
