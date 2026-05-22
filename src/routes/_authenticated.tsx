@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
@@ -18,12 +19,19 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const defaultOpen = typeof window !== "undefined"
-    ? localStorage.getItem("sidebar-open") !== "false"
-    : true;
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    setOpen(localStorage.getItem("sidebar-open") !== "false");
+  }, []);
+
+  function persistSidebarOpen(nextOpen: boolean) {
+    setOpen(nextOpen);
+    localStorage.setItem("sidebar-open", String(nextOpen));
+  }
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen} onOpenChange={(o) => localStorage.setItem("sidebar-open", String(o))}>
+    <SidebarProvider open={open} onOpenChange={persistSidebarOpen}>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
