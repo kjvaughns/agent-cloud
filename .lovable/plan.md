@@ -1,60 +1,60 @@
-# Build missing pages (mock UI)
+## Gap audit — Agent Cloud spec vs current build
 
-Scope: add the pages from the original AgencyOS spec that don't yet exist, all with mock data and themed via existing tokens. No backend wiring, no schema changes.
+I read the full 1697-line spec and inventoried the current routes, sidebar, and components. Here's what's present, what's thin, and what's entirely missing — grouped so you can pick a next slice.
 
-## New routes
+### ✅ Already in place (at least as mock UI)
+- Auth shell: login / signup / forgot-password / reset-password
+- Sidebar groups: Overview, Workspace, My Business, Contracting, Resources, Back Office
+- Pages: Dashboard, Notifications, Announcements, News Feed, Post a Deal, Pipeline, Calendar, Phone, AI Assistant, Team, Book of Business, Analytics, Finances, Challenges
+- Contracting children: index, Invite, Transfers, Commission Grids, Annuity Training, Carriers
+- Resources children: Scripts, State Licenses, New Agent Guide, Agent Handbook, Agent Academy
+- Back Office children: Case Design, Advanced Desk, Recruiting Funnels, Recruiting Tracker, Client Marketing
+- Sophai: Settings, Activity
 
-**Back Office** (rename/extend existing `back-office.tsx` sub-layout):
-- `/back-office/case-design` — submit a case for advanced design help; list of in-flight cases with status badges (New, In Review, Quoted, Closed).
-- `/back-office/advanced-desk` — concierge desk request form + threaded conversation mock.
-- `/back-office/recruiting-funnels` — gallery of funnel templates, "Create funnel" CTA, list of agent's funnels (slug, published toggle, views).
-- `/back-office/client-marketing` — landing-page templates gallery, agent's landing pages list (slug, published toggle, leads count).
-- Keep existing `recruiting-tracker`. Remove/replace `compliance` and `support` (not in spec) — move their content into the items above where it fits, otherwise delete.
+### 🟡 Pages that exist but are thin vs spec
+| Page | Missing per spec |
+|---|---|
+| Dashboard | Enrollment Tracker donut, time-range filter bar, dual-series production trend chart, 10 color-coded policy-status cards, Quick Overview cards |
+| Pipeline | Client detail drawer needs all 9 tabs (Needs Analysis, Notes, Schedule, Beneficiaries, Referrals, Financials, Client Care, Policies, Email) with Sophai tips |
+| Post a Deal | New/Existing client toggle, inline beneficiaries, auto-calc annual premium |
+| Phone | Three tabs (Telephone keypad, SMS thread, Dial Lists), Settings panel, Wallet page with pricing table + usage breakdown |
+| AI Assistant | 3-step activation flow + Policy Recovery panel stats |
+| Team | Overview / Roster / Organization tabs, activation queue, org chart |
+| Book of Business | Agents vs Carrier source toggle, filters |
+| Analytics | 10 tabs (Daily/Overview/Individual/Team/Carriers/Trends/Policy/Quality/Recruiting/AI Coach), AI Insights cards, Trophy Cabinet |
+| Finances | 12-month forecast chart, full payout schedule table, "how payouts are calculated" explainer, carrier/product/month breakdown |
+| Contracting | Tabs: My / Downline (agent×carrier matrix) / Work Inbox |
+| Calendar | Auto-generated event types (birthday, policy starting, beneficiary check-in, lapse follow-up) |
 
-**Resources** (rename existing `resources.tsx` sub-layout to match spec):
-- `/resources/new-agent-guide` — onboarding checklist + linked articles.
-- `/resources/agent-handbook` — table of contents + long-form sections (mock markdown).
-- `/resources/scripts` — keep existing.
-- `/resources/state-licenses` — license table (state, number, issued, expires, status), "Upload license" button, expiration warnings, DOI quick links per state.
-- `/resources/agent-academy` — course catalog grid (course title, duration, progress bar, "Start"/"Resume").
-- Remove `forms`, `marketing`, `training` (not in spec) or repurpose under the above.
+### 🔴 Entirely missing
+**Sidebar groups & pages**
+- **Tools group** — `/tools/needs-analysis`, `/tools/quoter`, `/tools/leads` (States/Marketplace/Dialer/My Orders), `/tools/inbound-calls`
+- **Account group** — `/account/producer-profile` (3 tabs incl. E&O, Banking, DL, AML, agreement), `/account/my-landing-page`, `/account/help`, `/account/faq`
+- **Top bar** — Phone, Chat, Shield (Sophai Recovery dropdown), Bell dropdown, theme toggle wiring
 
-**Sophai (Workspace addition)**:
-- `/sophai/settings` — toggles: Policy Recovery, SMS Follow-up, Birthday Messages, Beneficiary Engagement; per-toggle description + last-run timestamp.
-- `/sophai/activity` — feed of Sophai actions (client, activity_type, outcome, timestamp) with type filters.
-- (AI Assistant chat stays as-is on `/ai-assistant`.)
+**Public / unauthenticated routes**
+- `/join/[token]` — invitation link landing
+- `/agent/[agent-slug]/[template-slug]` — deployed marketing landing pages
+- `/myagent/[agent-slug]` — public agent landing page
 
-**Gamification**:
-- `/challenges` — current daily/weekly/monthly/quarterly challenges as cards with progress bars + targets; trophy case strip at top showing earned trophies.
+**Onboarding**
+- First-login wizard: phone, producer profile, fund wallet, sign agreement
 
-## Sidebar updates (`src/components/app-sidebar.tsx`)
+**Backend (currently 100% mock)**
+- No Supabase schema, RLS, or seed data
+- No commission calc engine (75/25 standard, GTL 50% capped + 6-month tail, override spread)
+- No Twilio / Stripe / AI integrations
+- Roles table (`user_roles` + `has_role` SECURITY DEFINER) not set up
 
-Realign group items to spec exactly:
-- Contracting group: Invite Agent, Contract Requests, Transfer Requests, Commission Grids, Annuity Training, Carriers.
-- Resources group: New Agent Guide, Agent Handbook, Scripts, State Licenses, Agent Academy.
-- Back Office group: Case Design, Advanced Desk, Recruiting Funnels, Recruiting Tracker, Client Marketing.
-- Workspace group: add AI Assistant entries for Sophai Settings + Sophai Activity, and Challenges under My Business.
+### Proposed next slices (pick one)
 
-Each menu item gets an appropriate `lucide-react` icon and points to the new route.
+1. **Sidebar completeness + Tools & Account mock pages** — finish the nav surface so every spec route resolves; ~10 new mock pages (Tools×4, Account×4, top-bar dropdowns). UI-only.
+2. **Fatten thin pages to match spec** — Dashboard + Analytics + Finances + Pipeline drawer + Phone tabs. Biggest visual upgrade, still UI-only.
+3. **Public routes + onboarding flow** — `/join/[token]`, `/myagent/[slug]`, deployed landing template, first-login wizard. UI-only.
+4. **Wire real backend (Phase 1 MVP)** — Supabase schema for profiles/clients/policies/carriers/commission_grids + RLS + roles + auth flow + seed data. Replace mock for Pipeline, Post a Deal, Book of Business, Carriers.
+5. **Commission engine** — `commission_schedule` table + calculation logic (standard 75/25, GTL exception, override spread via recursive CTE) feeding Finances payouts.
 
-## Mock data
+### Recommendation
+Do **slice 1** next (sidebar + Tools + Account + top-bar). It's the smallest amount of work that makes the navigation feel complete and gets every spec route to resolve. Then slice 2 to make the existing pages look "real," then move to backend.
 
-Add `src/lib/mock/` modules per page (e.g. `landingPages.ts`, `funnels.ts`, `licenses.ts`, `academy.ts`, `sophaiActivity.ts`, `challenges.ts`) returning typed arrays consumed by the routes. Keep shapes aligned with the spec's table columns so a future swap to Supabase queries is mechanical.
-
-## Components reused
-
-- `KpiCard`, `StatusBadge`, `TemperatureBadge` already exist.
-- Use shadcn `Card`, `Table`, `Tabs`, `Switch`, `Progress`, `Dialog`, `Badge`, `Button` consistently. No new primitives.
-
-## Out of scope (defer)
-
-- Sophai topbar shield dropdown, onboarding wizard, wallet/billing — covered by the other two options from the question; not built here.
-- Real Supabase tables/RLS — deferred until you pick "Wire real backend".
-- Auth-protected loaders — pages render under `_authenticated` shell only.
-
-## Verification
-
-- Every new route renders with no console errors in light + dark mode.
-- Sidebar groups expand to show all spec sub-items; active highlight works.
-- Each page has a unique `head()` with `title` + `description`.
-- No broken `<Link to>` targets (tsc enforces).
+Tell me which slice (or combination) to build and I'll execute.
