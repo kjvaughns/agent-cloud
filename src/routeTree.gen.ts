@@ -15,12 +15,15 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/phone'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookOfBusinessRouteImport } from './routes/_authenticated/book-of-business'
+import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -51,6 +54,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
   id: '/pipeline',
   path: '/pipeline',
@@ -67,6 +75,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -83,6 +96,11 @@ const AuthenticatedBookOfBusinessRoute =
     path: '/book-of-business',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -90,12 +108,15 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/finances': typeof AuthenticatedFinancesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
+  '/team': typeof AuthenticatedTeamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -103,12 +124,15 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/finances': typeof AuthenticatedFinancesRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
+  '/team': typeof AuthenticatedTeamRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -118,12 +142,15 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,12 +160,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/analytics'
     | '/book-of-business'
     | '/calendar'
     | '/dashboard'
+    | '/finances'
     | '/notifications'
     | '/phone'
     | '/pipeline'
+    | '/team'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -146,12 +176,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/analytics'
     | '/book-of-business'
     | '/calendar'
     | '/dashboard'
+    | '/finances'
     | '/notifications'
     | '/phone'
     | '/pipeline'
+    | '/team'
   id:
     | '__root__'
     | '/'
@@ -160,12 +193,15 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/signup'
+    | '/_authenticated/analytics'
     | '/_authenticated/book-of-business'
     | '/_authenticated/calendar'
     | '/_authenticated/dashboard'
+    | '/_authenticated/finances'
     | '/_authenticated/notifications'
     | '/_authenticated/phone'
     | '/_authenticated/pipeline'
+    | '/_authenticated/team'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -221,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/team': {
+      id: '/_authenticated/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/pipeline': {
       id: '/_authenticated/pipeline'
       path: '/pipeline'
@@ -240,6 +283,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/finances': {
+      id: '/_authenticated/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof AuthenticatedFinancesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/dashboard': {
@@ -263,25 +313,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBookOfBusinessRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/analytics': {
+      id: '/_authenticated/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBookOfBusinessRoute: typeof AuthenticatedBookOfBusinessRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPhoneRoute: typeof AuthenticatedPhoneRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBookOfBusinessRoute: AuthenticatedBookOfBusinessRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPhoneRoute: AuthenticatedPhoneRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
