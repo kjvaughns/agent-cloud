@@ -1,37 +1,23 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated")({
+  beforeLoad: async ({ location }) => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      throw redirect({
+        to: "/login",
+        search: { redirect: location.href },
+      });
+    }
+  },
   component: AuthenticatedLayout,
 });
 
 function AuthenticatedLayout() {
-  const [status, setStatus] = useState<"checking" | "ok" | "out">("checking");
-
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setStatus(data.session ? "ok" : "out");
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
-      setStatus(s ? "ok" : "out");
-    });
-    return () => { mounted = false; subscription.unsubscribe(); };
-  }, []);
-
-  if (status === "checking") {
-    return <div className="min-h-screen grid place-items-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
-  }
-  if (status === "out") {
-    throw redirect({ to: "/login" });
-  }
-
   const defaultOpen = typeof window !== "undefined"
     ? localStorage.getItem("sidebar-open") !== "false"
     : true;
