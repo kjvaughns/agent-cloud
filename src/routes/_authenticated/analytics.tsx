@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import confetti from "canvas-confetti";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -113,14 +112,23 @@ function ChallengeCards() {
 
   useEffect(() => {
     if (!q.data) return;
+    let cancelled = false;
+    const celebrate = async () => {
+      const { default: confetti } = await import("canvas-confetti");
+      if (!cancelled) confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+    };
+
     for (const c of q.data) {
       if (c.completed && !completedRef.current.has(c.id)) {
         completedRef.current.add(c.id);
-        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        celebrate();
       } else if (c.completed) {
         completedRef.current.add(c.id);
       }
     }
+    return () => {
+      cancelled = true;
+    };
   }, [q.data]);
 
   const colors = { daily: "bg-blue-500", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
