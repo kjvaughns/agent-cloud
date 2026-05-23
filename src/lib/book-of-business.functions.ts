@@ -14,7 +14,7 @@ export const listBookOfBusiness = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: rows, error } = await supabase.rpc("get_book_of_business", {
       _scope: data.scope,
-      _agent_id: data.agentId ?? null,
+      _agent_id: data.agentId ?? undefined,
     });
     if (error) throw new Error(error.message);
     return (rows ?? []) as any[];
