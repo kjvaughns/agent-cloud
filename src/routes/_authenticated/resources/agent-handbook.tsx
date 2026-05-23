@@ -1,55 +1,52 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { getHandbookSections } from "@/lib/resources.functions";
+import { Button } from "@/components/ui/button";
+import { Printer } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/resources/agent-handbook")({
-  head: () => ({
-    meta: [
-      { title: "Agent Handbook — Agent Cloud" },
-      { name: "description", content: "The complete agent handbook: code of conduct, commissions, chargebacks, and compliance." },
-    ],
-  }),
-  component: HandbookPage,
+  head: () => ({ meta: [{ title: "Agent Handbook — Agent Cloud" }] }),
+  component: Page,
 });
 
-const TOC = [
-  { id: "code-of-conduct", title: "1. Code of Conduct" },
-  { id: "commissions", title: "2. Commissions & Advances" },
-  { id: "chargebacks", title: "3. Chargebacks & Persistency" },
-  { id: "compliance", title: "4. Compliance & Suitability" },
-  { id: "ce", title: "5. Continuing Education" },
-  { id: "leaving", title: "6. Releasing & Transfers" },
-];
+function Page() {
+  const fn = useServerFn(getHandbookSections);
+  const { data: sections = [] } = useQuery({ queryKey: ["handbook"], queryFn: () => fn() });
+  const [active, setActive] = useState<string | null>(null);
 
-const SECTIONS = [
-  { id: "code-of-conduct", title: "Code of Conduct", body: "All agents represent Agent Cloud and its carriers with integrity. No misrepresentation of products, replacement without clear benefit, or pressure tactics. Suitability is the standard, not the floor." },
-  { id: "commissions", title: "Commissions & Advances", body: "Commissions are paid on issued and paid policies. Advances are issued at the carrier's discretion, capped per your contract level. Year-1 commissions vest after 12 months of paid premium." },
-  { id: "chargebacks", title: "Chargebacks & Persistency", body: "Chargebacks occur when a policy lapses within the advance period. Persistency below 75% over a rolling 12 months may trigger carrier review and contract level adjustment." },
-  { id: "compliance", title: "Compliance & Suitability", body: "Document needs analysis for every IUL and annuity sale. Retain illustrations and signed disclosures for 7 years. Replacement sales require completed comparison and reason-why letters." },
-  { id: "ce", title: "Continuing Education", body: "Track your CE credits in State Licenses. Most states require 24 hours every 2 years, including 3 hours of ethics. Carrier-specific annuity training is required annually." },
-  { id: "leaving", title: "Releasing & Transfers", body: "Releases follow your contracted upline hierarchy. Use Transfer Requests to move existing contracts. Standard release window is 6 months after last submitted business unless waived." },
-];
-
-function HandbookPage() {
   return (
-    <div className="grid lg:grid-cols-4 gap-6">
-      <Card className="lg:col-span-1 h-fit sticky top-16">
-        <CardHeader><CardTitle className="text-base">Table of contents</CardTitle></CardHeader>
-        <CardContent className="space-y-1">
-          {TOC.map((t) => (
-            <a key={t.id} href={`#${t.id}`} className="block text-sm py-1.5 px-2 rounded hover:bg-muted text-muted-foreground hover:text-foreground">{t.title}</a>
-          ))}
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Agent Handbook</h1>
+          <p className="text-muted-foreground">Your complete guide to being a successful Agent Cloud partner</p>
+        </div>
+        <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" /> Print</Button>
+      </div>
 
-      <div className="lg:col-span-3 space-y-6">
-        {SECTIONS.map((s) => (
-          <Card key={s.id} id={s.id}>
-            <CardHeader><CardTitle>{s.title}</CardTitle></CardHeader>
-            <CardContent className="prose prose-sm max-w-none text-foreground/90 leading-relaxed">
-              <p>{s.body}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid lg:grid-cols-[240px_1fr] gap-6">
+        <aside className="lg:sticky lg:top-4 lg:self-start space-y-1 text-sm">
+          <div className="font-semibold mb-2 text-muted-foreground uppercase text-xs">Contents</div>
+          {sections.map((s: any) => (
+            <a
+              key={s.slug}
+              href={`#${s.slug}`}
+              onClick={() => setActive(s.slug)}
+              className={`block px-3 py-2 rounded hover:bg-muted ${active === s.slug ? "bg-muted font-medium" : ""}`}
+            >
+              {s.title}
+            </a>
+          ))}
+        </aside>
+        <article className="prose prose-sm dark:prose-invert max-w-none space-y-8">
+          {sections.map((s: any) => (
+            <section key={s.slug} id={s.slug} className="scroll-mt-4">
+              <div dangerouslySetInnerHTML={{ __html: s.content_html }} />
+            </section>
+          ))}
+        </article>
       </div>
     </div>
   );
