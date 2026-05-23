@@ -124,7 +124,7 @@ function PublicAgentPage() {
         {d.specialties.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">What I Help With</h2>
-            <div className="flex flex-wrap gap-2">{d.specialties.map((s) => <Badge key={s} className="text-sm py-1">{s}</Badge>)}</div>
+            <div className="flex flex-wrap gap-2">{d.specialties.map((s: string) => <Badge key={s} className="text-sm py-1">{s}</Badge>)}</div>
           </section>
         )}
 
