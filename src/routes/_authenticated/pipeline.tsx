@@ -197,6 +197,34 @@ function PipelinePage() {
   );
 }
 
+function PipelineSkeleton() {
+  return (
+    <div className="h-full overflow-x-auto">
+      <div className="flex gap-4 h-full min-w-max pb-2">
+        {STAGE_COLS.map((col) => (
+          <div key={col.key} className={cn("w-80 shrink-0 flex flex-col rounded-xl border", col.tint)}>
+            <div className="px-4 py-3 border-b">
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="flex-1 p-2 space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="bg-card border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-36" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function KanbanColumn({ stage, label, tint, header, count, children }: { stage: Stage; label: string; tint: string; header: string; count: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
