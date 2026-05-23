@@ -482,6 +482,62 @@ export type Database = {
           },
         ]
       }
+      commission_schedule: {
+        Row: {
+          agent_id: string
+          amount: number
+          carrier: string | null
+          created_at: string
+          id: string
+          is_gtl: boolean
+          paid_at: string | null
+          payment_date: string
+          payment_type: string
+          policy_id: string
+          product: string | null
+          source_agent_id: string | null
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          amount?: number
+          carrier?: string | null
+          created_at?: string
+          id?: string
+          is_gtl?: boolean
+          paid_at?: string | null
+          payment_date: string
+          payment_type: string
+          policy_id: string
+          product?: string | null
+          source_agent_id?: string | null
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          carrier?: string | null
+          created_at?: string
+          id?: string
+          is_gtl?: boolean
+          paid_at?: string | null
+          payment_date?: string
+          payment_type?: string
+          policy_id?: string
+          product?: string | null
+          source_agent_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_schedule_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_history: {
         Row: {
           agent_id: string
@@ -835,6 +891,7 @@ export type Database = {
           effective_date: string | null
           face_amount: number | null
           id: string
+          is_gtl: boolean
           monthly_premium: number | null
           policy_number: string | null
           posted_at: string
@@ -850,6 +907,7 @@ export type Database = {
           effective_date?: string | null
           face_amount?: number | null
           id?: string
+          is_gtl?: boolean
           monthly_premium?: number | null
           policy_number?: string | null
           posted_at?: string
@@ -865,6 +923,7 @@ export type Database = {
           effective_date?: string | null
           face_amount?: number | null
           id?: string
+          is_gtl?: boolean
           monthly_premium?: number | null
           policy_number?: string | null
           posted_at?: string
