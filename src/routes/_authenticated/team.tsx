@@ -33,9 +33,7 @@ const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => get
 
 export const Route = createFileRoute("/_authenticated/team")({
   head: () => ({ meta: [{ title: "Team Command Center — Agent Cloud" }] }),
-  ssr: false,
   loader: ({ context }) => {
-    if (typeof window === "undefined") return;
     return Promise.all([
       context.queryClient.ensureQueryData(downlineQO),
       context.queryClient.ensureQueryData(kpisQO),

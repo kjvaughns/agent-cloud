@@ -29,7 +29,7 @@ const RANGES: { value: string; label: string; days: number | null }[] = [
 ];
 
 function Dashboard() {
-  const [range, setRange] = useState("all");
+  const [range, setRange] = useState("30d");
   const [metric, setMetric] = useState<"prod" | "policies">("prod");
 
   const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
