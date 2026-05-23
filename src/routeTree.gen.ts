@@ -38,6 +38,7 @@ import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_aut
 import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
+import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
@@ -215,6 +216,12 @@ const ApiPublicFunnelApplyRoute = ApiPublicFunnelApplyRouteImport.update({
   path: '/api/public/funnel-apply',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentAgentSlugTemplateSlugRoute =
+  AgentAgentSlugTemplateSlugRouteImport.update({
+    id: '/agent/$agentSlug/$templateSlug',
+    path: '/agent/$agentSlug/$templateSlug',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedToolsQuoterRoute =
   AuthenticatedToolsQuoterRouteImport.update({
     id: '/tools/quoter',
@@ -419,6 +426,7 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
@@ -474,6 +482,7 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
@@ -532,6 +541,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
@@ -590,6 +600,7 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
@@ -645,6 +656,7 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
@@ -702,6 +714,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/needs-analysis'
     | '/_authenticated/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
@@ -717,6 +730,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
   JoinSlugRoute: typeof JoinSlugRoute
+  AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
@@ -926,6 +940,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/funnel-apply'
       fullPath: '/api/public/funnel-apply'
       preLoaderRoute: typeof ApiPublicFunnelApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent/$agentSlug/$templateSlug': {
+      id: '/agent/$agentSlug/$templateSlug'
+      path: '/agent/$agentSlug/$templateSlug'
+      fullPath: '/agent/$agentSlug/$templateSlug'
+      preLoaderRoute: typeof AgentAgentSlugTemplateSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tools/quoter': {
@@ -1279,6 +1300,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
   JoinSlugRoute: JoinSlugRoute,
+  AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
