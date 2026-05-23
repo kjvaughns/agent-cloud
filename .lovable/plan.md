@@ -1,75 +1,72 @@
-# Finances Page Build Plan
+## Contracting Section — Build Plan
 
-Replace the existing placeholder `src/routes/_authenticated/finances.tsx` with a full Finances page driven by a new `commission_schedule` table and auto-generation logic.
+All 6 route files already exist as stubs; this plan replaces them with full implementations and adds the missing backend pieces.
 
-## 1. Database changes (migration)
+### 1. Database migrations
 
-**New table** `commission_schedule`:
-- `id`, `policy_id` (FK policies), `agent_id` (FK profiles), `source_agent_id` (nullable, for overrides)
-- `payment_date date`, `payment_type text` (advance/deferred/override/renewal)
-- `amount numeric`, `status text default 'pending'`, `paid_at timestamptz`
-- `carrier text`, `product text`, `is_gtl boolean default false`
-- RLS: owner (`agent_id = auth.uid()`) + downline + admin (mirrors existing pattern)
-- Indexes on `(agent_id, payment_date)` and `(agent_id, status)`
+Additions to existing tables:
+- `carriers`: add `is_annuity_carrier bool default false`, `active bool default true`, `advance_cap_amount numeric`, `advance_cap_months int`. Keep existing `advance_cap` text for display fallback.
+- `contract_requests`: add `submitted_at timestamptz`, `issue_description text`.
+- `agent_commission_levels`: add `assigned_by uuid`, `assigned_at timestamptz default now()`, unique `(agent_id, carrier_id)`.
 
-**Schema additions:**
-- Add `level_pct numeric` lookup convenience (already have `assigned_pct` on `agent_commission_levels` — reuse it)
-- Add `is_gtl boolean` flag to `policies` (or derive from product name)
+New table:
+- `producer_documents` (`agent_id`, `doc_type`, `file_url`, `start_date`, `expiration_date`) with owner RLS.
 
-**Trigger** `generate_commission_schedule()` on `policies` INSERT/UPDATE where `status='active'`:
-- Computes total_year1 = annual_premium × agent's assigned_pct for carrier
-- Standard: 75% advance on effective_date, 25%/3 split across months 10–12
-- GTL: MIN(50%, $600) advance, balance split across months 7–12
-- Walks `profiles.upline_id` up to 5 levels, inserts override rows for each positive spread
+Storage:
+- Create private bucket `producer-docs` with RLS so an agent can read/write only objects under their own `{agent_id}/...` prefix; uplines/admins can read downline objects.
 
-## 2. Server functions (`src/lib/finances.functions.ts`)
+Seed:
+- Insert/upsert the 15 carriers from the spec with phone, hours, speed, pay frequency, `is_annuity_carrier=true` for Athene / F&G / Prudential, `agent_portal_url`, `training_url`, placeholder `about_text`, `ideal_client`.
 
-All protected with `requireSupabaseAuth`, scoped to current agent:
-- `getFinancesSummary()` — returns Today / 90-day forecast / MTD / YTD / Direct total / Override total
-- `getForecast12Months()` — monthly aggregates grouped by direct vs override
-- `getPayoutSchedule({ status, type, carrier, dateRange })` — filtered rows for table
-- `getBreakdownByCarrier()`, `getBreakdownByProduct()`, `getBreakdownByMonth()`, `getOverrideAgents()` — analytics tabs
+### 2. Server functions (`src/lib/contracting.functions.ts`)
 
-## 3. UI (`src/routes/_authenticated/finances.tsx`)
+All use `requireSupabaseAuth`:
+- `listMyContracts()` — current agent's `contract_requests` joined with carrier.
+- `createContractRequest({ carrier_id, notes })` — validates annuity gate (block if carrier `is_annuity_carrier` and no `aml_certificate` row).
+- `listDownlineContractMatrix()` — agents in `is_in_downline(auth.uid(), agent_id)` × all carriers; returns latest status per cell.
+- `assignDownlineContract({ agent_id, carrier_id, level_id })` — upsert `agent_commission_levels` (level must be ≤ uploader's level for that carrier) + insert `contract_requests`.
+- `updateContractStatus({ id, status, writing_number?, issue_description? })` — owner or upline only; state-machine guard.
+- `listWorkInbox()` — pending downline contracts, transfer_requests awaiting approval, missing commission-level assignments.
+- `listTransferRequests()`, `respondTransferRequest({ id, decision })`.
+- `listInvitationLinks()`, `createInvitationLink({ name, assignments })`, `deleteInvitationLink({ id })`. Token = `crypto.randomUUID()`.
+- `getCommissionGridForCarrier({ carrier_id })` — returns rows where `level_pct <= agent's assigned level_pct` for that carrier; rows above are filtered server-side.
+- `uploadAnnuityCertSignedUrl()` — returns signed upload URL into `producer-docs/{uid}/aml_certificate.pdf`; companion `recordAnnuityCert({ file_url })` writes `producer_documents`.
+- `getMyAnnuityCert()`.
+- `listCarriers({ search?, filter? })`.
 
-Replace existing file. Sections in order:
+### 3. Pages
 
-**Header** — "Finances" + "Financial analytics & forecasting"
+`/contracting/requests` (`contracting/index.tsx`)
+- Tabs: My Contracts | Downline Contracts | Work Inbox.
+- My Contracts: status-chip filter row with counts, single-open shadcn `Accordion` of carrier cards, status badges (Requested/Submitted/Processing/Issue/Active/Rejected with spec colors), expanded view shows writing number + agent portal link + activated date + orange alert if Issue.
+- "+ Create Request" `Dialog`: searchable carrier `Command` combobox + notes; annuity gate error with link to `/contracting/annuity-training`.
+- Downline Contracts: sticky-header matrix (`<table>`), colored dot per cell, "+" for empty cell opens assign modal (level dropdown restricted to ≤ upline's level), click filled cell opens status-update modal.
+- Work Inbox: list of pending action items with Review/Fix buttons routing to the right tab.
 
-**4 KPI cards** (reuse `KpiCard`) — Today, 90-Day Forecast (green), MTD, YTD
+`/contracting/invite`
+- Form: link name + dynamic assignments rows (carrier + level), level options restricted to ≤ current agent's level. Validation banner when empty. Submit creates row.
+- "My Invitation Links" table: name, carrier count, created date, copy URL (`${origin}/join/${token}`) with toast, delete confirm dialog.
 
-**2 commission-type cards** — Direct (blue accent) / Override (green accent)
+`/contracting/transfers`
+- Empty state per spec; otherwise cards with carrier, from/to upline names, status badge, Accept/Decline buttons.
 
-**12-month forecast chart** — Recharts `LineChart`, solid blue (direct) + dashed green (override), legend
+`/contracting/commission-grids`
+- Single-open accordion of carriers the agent is contracted with. Sub-sections per age group, table with gold-highlighted row for the agent's own level. Rows above level never come back from the server.
 
-**Collapsible "How payouts are calculated"** — shadcn `Accordion` with Standard / GTL / Override examples
+`/contracting/annuity-training`
+- Training info card + WebCE link.
+- Conditional: yellow alert + dropzone (PDF, ≤10MB) when no cert; green banner + filename/date/preview + Replace button when present. Upload via signed URL into `producer-docs`.
 
-**Scheduled Payouts table:**
-- Filter row: Status, Type, Carrier, Date range (shadcn `Select` + `Popover` calendar)
-- Sortable columns; colored badges per Type and Status
-- Row click → policy detail modal (reuse `client-detail-drawer` pattern or new minimal modal)
+`/contracting/carriers`
+- Search input + filter tabs (All / Weekly Pay / Monthly Pay / Fast <5 days).
+- 2-col grid of carrier cards with phone/hours/speed/pay/cap/ideal client, Agent Portal + Training buttons, full-width About button opening a shadcn `Sheet` drawer with `about_text`. Annuity carriers get an "Annuity" badge.
 
-**Breakdown tabs** (shadcn `Tabs`) — By Carrier (bar + table), By Product (table), By Month (area chart + table), By Agent overrides (table)
+### 4. Shared bits
+- `src/components/contracting/status-badge.tsx` — single source of truth for status color mapping (reused on chips, cards, matrix).
+- All currency via `Intl.NumberFormat`, all dates via `date-fns`.
+- Skeleton loaders on every list; empty states per spec.
+- Sidebar already lists these 6 routes — no nav changes needed.
 
-**Empty states** — friendly copy + "Post a Deal" CTA linking to `/post-deal`
-
-**Loading** — `Skeleton` on every card/chart/table while queries pending
-
-**Responsive** — KPIs `grid-cols-2 md:grid-cols-4`, chart wrapper scrolls on mobile
-
-## 4. Navigation
-
-Confirm `app-sidebar.tsx` "My Business" group already links to `/finances` (it does — no change expected, will verify).
-
-## Technical notes
-
-- Use TanStack Query pattern: `queryOptions` + `ensureQueryData` in loader + `useSuspenseQuery` in component
-- All money via `fmtCurrency` from `src/lib/format.ts`
-- Semantic tokens only (no raw hex); badge colors via existing tailwind utility patterns already in `finances.tsx`
-- Loader gated under `_authenticated`, so no SSR auth race
-
-## Open questions
-
-1. **Policy detail modal** — should clicking a payout row open a full policy drawer (deal details, beneficiaries, contact history) or just a lightweight payment-history popover for that policy?
-2. **Renewal payments** — spec lists "Renewal" as a payment type and badge, but the auto-generation logic only emits advance/deferred/override. Should renewals be generated automatically (e.g., year 2+ at a fixed renewal %) or only inserted manually for now?
-3. **GTL detection** — flag via new `policies.is_gtl` column, or by matching `product ILIKE '%GTL%'`?
+### 5. Out of scope (call out, don't build)
+- Public `/join/[token]` onboarding page — flagged for a follow-up; invitation links will be generated and copyable now.
+- Admin tools to seed `commission_grids` rows — seeding a representative GTL/Mutual of Omaha grid only; full grids belong to a separate import flow.
