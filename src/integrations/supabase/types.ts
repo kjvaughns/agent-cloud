@@ -521,6 +521,7 @@ export type Database = {
           advance_cap_months: number | null
           agent_portal_url: string | null
           contracting_speed_days: number | null
+          datalink_enabled: boolean
           hours: string | null
           id: string
           ideal_client: string | null
@@ -528,6 +529,7 @@ export type Database = {
           name: string
           pay_frequency: string | null
           phone: string | null
+          surelc_carrier_code: string | null
           training_url: string | null
           website: string | null
         }
@@ -539,6 +541,7 @@ export type Database = {
           advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
+          datalink_enabled?: boolean
           hours?: string | null
           id?: string
           ideal_client?: string | null
@@ -546,6 +549,7 @@ export type Database = {
           name: string
           pay_frequency?: string | null
           phone?: string | null
+          surelc_carrier_code?: string | null
           training_url?: string | null
           website?: string | null
         }
@@ -557,6 +561,7 @@ export type Database = {
           advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
+          datalink_enabled?: boolean
           hours?: string | null
           id?: string
           ideal_client?: string | null
@@ -564,6 +569,7 @@ export type Database = {
           name?: string
           pay_frequency?: string | null
           phone?: string | null
+          surelc_carrier_code?: string | null
           training_url?: string | null
           website?: string | null
         }
@@ -693,6 +699,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      change_requests: {
+        Row: {
+          agent_id: string
+          carrier_id: string | null
+          contract_request_id: string | null
+          id: string
+          new_level_name: string | null
+          new_level_pct: number | null
+          new_upline_id: string | null
+          other_description: string | null
+          request_type: string
+          resolved_at: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+        }
+        Insert: {
+          agent_id: string
+          carrier_id?: string | null
+          contract_request_id?: string | null
+          id?: string
+          new_level_name?: string | null
+          new_level_pct?: number | null
+          new_upline_id?: string | null
+          other_description?: string | null
+          request_type: string
+          resolved_at?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+        }
+        Update: {
+          agent_id?: string
+          carrier_id?: string | null
+          contract_request_id?: string | null
+          id?: string
+          new_level_name?: string | null
+          new_level_pct?: number | null
+          new_upline_id?: string | null
+          other_description?: string | null
+          request_type?: string
+          resolved_at?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+        }
+        Relationships: []
       }
       client_financials: {
         Row: {
@@ -1195,27 +1249,69 @@ export type Database = {
       }
       invitation_links: {
         Row: {
+          agent_completed_at: string | null
+          agent_started_at: string | null
           carrier_assignments: Json
           created_at: string
           created_by: string
+          existing_agent_id: string | null
+          expires_at: string
           id: string
+          invite_signature_html: string | null
+          last_resent_at: string | null
+          linked_agent_id: string | null
           name: string
+          new_agent_email: string | null
+          new_agent_first_name: string | null
+          new_agent_last_name: string | null
+          onboarding_step: number
+          sent_on_behalf_of: string | null
+          status: string
+          surelc_agent_id: string | null
           token: string
         }
         Insert: {
+          agent_completed_at?: string | null
+          agent_started_at?: string | null
           carrier_assignments?: Json
           created_at?: string
           created_by: string
+          existing_agent_id?: string | null
+          expires_at?: string
           id?: string
+          invite_signature_html?: string | null
+          last_resent_at?: string | null
+          linked_agent_id?: string | null
           name: string
+          new_agent_email?: string | null
+          new_agent_first_name?: string | null
+          new_agent_last_name?: string | null
+          onboarding_step?: number
+          sent_on_behalf_of?: string | null
+          status?: string
+          surelc_agent_id?: string | null
           token: string
         }
         Update: {
+          agent_completed_at?: string | null
+          agent_started_at?: string | null
           carrier_assignments?: Json
           created_at?: string
           created_by?: string
+          existing_agent_id?: string | null
+          expires_at?: string
           id?: string
+          invite_signature_html?: string | null
+          last_resent_at?: string | null
+          linked_agent_id?: string | null
           name?: string
+          new_agent_email?: string | null
+          new_agent_first_name?: string | null
+          new_agent_last_name?: string | null
+          onboarding_step?: number
+          sent_on_behalf_of?: string | null
+          status?: string
+          surelc_agent_id?: string | null
           token?: string
         }
         Relationships: [
@@ -1417,6 +1513,39 @@ export type Database = {
           },
         ]
       }
+      onboarding_documents: {
+        Row: {
+          agent_id: string
+          doc_type: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          invitation_id: string | null
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          agent_id: string
+          doc_type: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          invitation_id?: string | null
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          agent_id?: string
+          doc_type?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          invitation_id?: string | null
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       policies: {
         Row: {
           agent_id: string
@@ -1559,6 +1688,7 @@ export type Database = {
           gender: string | null
           google_oauth_connected: boolean
           id: string
+          invite_signature_html: string | null
           last_active_at: string | null
           last_name: string | null
           npn_number: string | null
@@ -1582,6 +1712,7 @@ export type Database = {
           gender?: string | null
           google_oauth_connected?: boolean
           id: string
+          invite_signature_html?: string | null
           last_active_at?: string | null
           last_name?: string | null
           npn_number?: string | null
@@ -1605,6 +1736,7 @@ export type Database = {
           gender?: string | null
           google_oauth_connected?: boolean
           id?: string
+          invite_signature_html?: string | null
           last_active_at?: string | null
           last_name?: string | null
           npn_number?: string | null
@@ -2215,6 +2347,33 @@ export type Database = {
         }
         Relationships: []
       }
+      surelc_progress: {
+        Row: {
+          agent_id: string
+          completed: boolean
+          id: string
+          invitation_id: string | null
+          last_synced_at: string
+          section_name: string
+        }
+        Insert: {
+          agent_id: string
+          completed?: boolean
+          id?: string
+          invitation_id?: string | null
+          last_synced_at?: string
+          section_name: string
+        }
+        Update: {
+          agent_id?: string
+          completed?: boolean
+          id?: string
+          invitation_id?: string | null
+          last_synced_at?: string
+          section_name?: string
+        }
+        Relationships: []
+      }
       transfer_requests: {
         Row: {
           agent_id: string
@@ -2453,6 +2612,7 @@ export type Database = {
           last_name: string
         }[]
       }
+      get_invite_by_token: { Args: { _token: string }; Returns: Json }
       get_policy_analytics: { Args: never; Returns: Json }
       get_quality_metrics: { Args: never; Returns: Json }
       get_recruiting_funnel: { Args: never; Returns: Json }
