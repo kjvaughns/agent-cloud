@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, useHydrated } from "@tanstack/react-router";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -46,13 +46,13 @@ export const Route = createFileRoute("/_authenticated/pipeline")({
     { title: "Pipeline — Agent Cloud" },
     { name: "description", content: "Kanban CRM for tracking your insurance leads through every stage." },
   ]}),
-  loader: ({ context }) => context.queryClient.ensureQueryData(pipelineQO),
   component: PipelinePage,
 });
 
 function PipelinePage() {
   const qc = useQueryClient();
-  const { data: clients } = useSuspenseQuery(pipelineQO);
+  const hydrated = useHydrated();
+  const { data: clients = [], isLoading } = useQuery({ ...pipelineQO, enabled: hydrated });
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"pipeline" | "sold">("pipeline");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -97,6 +97,7 @@ function PipelinePage() {
 
   const pipelineClients = filtered.filter((c: any) => c.stage !== "sold");
   const soldClients = filtered.filter((c: any) => c.stage === "sold");
+  const showSkeleton = !hydrated || isLoading;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const onDragEnd = (e: DragEndEvent) => {
@@ -133,27 +134,31 @@ function PipelinePage() {
         </TabsList>
 
         <TabsContent value="pipeline" className="flex-1 min-h-0">
-          <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-            <div className="h-full overflow-x-auto">
-              <div className="flex gap-4 h-full min-w-max pb-2">
-                {STAGE_COLS.map((col) => {
-                  const cards = pipelineClients.filter((c: any) => c.stage === col.key);
-                  return (
-                    <KanbanColumn key={col.key} stage={col.key} label={col.label} tint={col.tint} header={col.header} count={cards.length}>
-                      {cards.length === 0 && (
-                        <div className="text-xs text-muted-foreground text-center py-8 px-2">
-                          No clients here yet. Drag a card or add a new client.
-                        </div>
-                      )}
-                      {cards.map((c: any) => (
-                        <LeadCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
-                      ))}
-                    </KanbanColumn>
-                  );
-                })}
+          {showSkeleton ? (
+            <PipelineSkeleton />
+          ) : (
+            <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+              <div className="h-full overflow-x-auto">
+                <div className="flex gap-4 h-full min-w-max pb-2">
+                  {STAGE_COLS.map((col) => {
+                    const cards = pipelineClients.filter((c: any) => c.stage === col.key);
+                    return (
+                      <KanbanColumn key={col.key} stage={col.key} label={col.label} tint={col.tint} header={col.header} count={cards.length}>
+                        {cards.length === 0 && (
+                          <div className="text-xs text-muted-foreground text-center py-8 px-2">
+                            No clients here yet. Drag a card or add a new client.
+                          </div>
+                        )}
+                        {cards.map((c: any) => (
+                          <LeadCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
+                        ))}
+                      </KanbanColumn>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </DndContext>
+            </DndContext>
+          )}
         </TabsContent>
 
         <TabsContent value="sold" className="flex-1 min-h-0 overflow-y-auto">
@@ -188,6 +193,34 @@ function PipelinePage() {
       <ClientDetailDrawer clientId={openId} onClose={() => setOpenId(null)} />
       <AddClientDialog open={addOpen} onOpenChange={setAddOpen} />
       <ImportClientsDialog open={importOpen} onOpenChange={setImportOpen} />
+    </div>
+  );
+}
+
+function PipelineSkeleton() {
+  return (
+    <div className="h-full overflow-x-auto">
+      <div className="flex gap-4 h-full min-w-max pb-2">
+        {STAGE_COLS.map((col) => (
+          <div key={col.key} className={cn("w-80 shrink-0 flex flex-col rounded-xl border", col.tint)}>
+            <div className="px-4 py-3 border-b">
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="flex-1 p-2 space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} className="bg-card border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3 w-36" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
