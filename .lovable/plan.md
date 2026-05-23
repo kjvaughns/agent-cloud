@@ -1,72 +1,95 @@
-## Contracting Section — Build Plan
+# Pipeline (CRM) — Implementation Plan
 
-All 6 route files already exist as stubs; this plan replaces them with full implementations and adds the missing backend pieces.
+Rebuild `/pipeline` from mock data into a fully Supabase-backed CRM with a 3-column kanban, Sold list, Add/Import flows, and a rich slide-out client detail panel with 9 tabs. Realtime + optimistic drag-and-drop.
 
-### 1. Database migrations
+## Database
 
-Additions to existing tables:
-- `carriers`: add `is_annuity_carrier bool default false`, `active bool default true`, `advance_cap_amount numeric`, `advance_cap_months int`. Keep existing `advance_cap` text for display fallback.
-- `contract_requests`: add `submitted_at timestamptz`, `issue_description text`.
-- `agent_commission_levels`: add `assigned_by uuid`, `assigned_at timestamptz default now()`, unique `(agent_id, carrier_id)`.
+All tables already exist (`clients`, `beneficiaries`, `client_financials`, `contact_history`, `life_events`, `needs_analysis`, `calendar_events`, `policies`) with proper RLS.
 
-New table:
-- `producer_documents` (`agent_id`, `doc_type`, `file_url`, `start_date`, `expiration_date`) with owner RLS.
+Single migration needed:
+- Enable Supabase Realtime on `clients` and `contact_history` (ALTER PUBLICATION supabase_realtime ADD TABLE …).
+- The current `clients.stage` is a `pipeline_stage` enum. Confirm enum values include `new`, `callback`, `almost_there`, `sold`. If not, ALTER TYPE to add missing values (additive only).
 
-Storage:
-- Create private bucket `producer-docs` with RLS so an agent can read/write only objects under their own `{agent_id}/...` prefix; uplines/admins can read downline objects.
+## Server functions (`src/lib/pipeline.functions.ts`)
 
-Seed:
-- Insert/upsert the 15 carriers from the spec with phone, hours, speed, pay frequency, `is_annuity_carrier=true` for Athene / F&G / Prudential, `agent_portal_url`, `training_url`, placeholder `about_text`, `ideal_client`.
+All use `requireSupabaseAuth`; RLS handles agent/downline scoping.
 
-### 2. Server functions (`src/lib/contracting.functions.ts`)
+- `listPipelineClients()` → all clients for current agent grouped/returned flat; includes `is_beneficiary_of` derived field via join on `beneficiaries`.
+- `createClient(input)` — zod-validated insert.
+- `updateClient({id, patch})` — partial update (used by inline edits + drag/drop stage change).
+- `importClients({rows})` — bulk insert from CSV (server-side zod validation, max 1000 rows).
+- `markClientSold(id)`.
+- Detail panel:
+  - `getClientDetail(id)` → client + financials + beneficiaries + contact_history + life_events + needs_analysis + policies + upcoming calendar_events.
+  - `upsertFinancials`, `addBeneficiary` / `updateBeneficiary` / `deleteBeneficiary` (with 100% sum check),
+  - `addLifeEvent` / `deleteLifeEvent`,
+  - `logContact({type, note})` (writes contact_history, also bumps `last_opened_at`),
+  - `saveNeedsAnswer({question_key, response})`,
+  - `scheduleEvent({title, start_at, end_at, notes})` (writes calendar_events),
+  - `touchLastOpened(id)` called when drawer opens.
 
-All use `requireSupabaseAuth`:
-- `listMyContracts()` — current agent's `contract_requests` joined with carrier.
-- `createContractRequest({ carrier_id, notes })` — validates annuity gate (block if carrier `is_annuity_carrier` and no `aml_certificate` row).
-- `listDownlineContractMatrix()` — agents in `is_in_downline(auth.uid(), agent_id)` × all carriers; returns latest status per cell.
-- `assignDownlineContract({ agent_id, carrier_id, level_id })` — upsert `agent_commission_levels` (level must be ≤ uploader's level for that carrier) + insert `contract_requests`.
-- `updateContractStatus({ id, status, writing_number?, issue_description? })` — owner or upline only; state-machine guard.
-- `listWorkInbox()` — pending downline contracts, transfer_requests awaiting approval, missing commission-level assignments.
-- `listTransferRequests()`, `respondTransferRequest({ id, decision })`.
-- `listInvitationLinks()`, `createInvitationLink({ name, assignments })`, `deleteInvitationLink({ id })`. Token = `crypto.randomUUID()`.
-- `getCommissionGridForCarrier({ carrier_id })` — returns rows where `level_pct <= agent's assigned level_pct` for that carrier; rows above are filtered server-side.
-- `uploadAnnuityCertSignedUrl()` — returns signed upload URL into `producer-docs/{uid}/aml_certificate.pdf`; companion `recordAnnuityCert({ file_url })` writes `producer_documents`.
-- `getMyAnnuityCert()`.
-- `listCarriers({ search?, filter? })`.
+## Frontend
 
-### 3. Pages
+### Route
+`src/routes/_authenticated/pipeline.tsx` — rewrite.
 
-`/contracting/requests` (`contracting/index.tsx`)
-- Tabs: My Contracts | Downline Contracts | Work Inbox.
-- My Contracts: status-chip filter row with counts, single-open shadcn `Accordion` of carrier cards, status badges (Requested/Submitted/Processing/Issue/Active/Rejected with spec colors), expanded view shows writing number + agent portal link + activated date + orange alert if Issue.
-- "+ Create Request" `Dialog`: searchable carrier `Command` combobox + notes; annuity gate error with link to `/contracting/annuity-training`.
-- Downline Contracts: sticky-header matrix (`<table>`), colored dot per cell, "+" for empty cell opens assign modal (level dropdown restricted to ≤ upline's level), click filled cell opens status-update modal.
-- Work Inbox: list of pending action items with Review/Fix buttons routing to the right tab.
+### Page chrome
+- Header: title "Pipeline" / "Track your sales leads", right actions `Import Clients` + `Add Client` (primary).
+- Search input (debounced, filters by name/phone client-side over loaded list).
+- Tabs: `Pipeline (N)` / `Sold (N)` — counts from query data.
 
-`/contracting/invite`
-- Form: link name + dynamic assignments rows (carrier + level), level options restricted to ≤ current agent's level. Validation banner when empty. Submit creates row.
-- "My Invitation Links" table: name, carrier count, created date, copy URL (`${origin}/join/${token}`) with toast, delete confirm dialog.
+### Kanban (Pipeline tab)
+- 3 columns: New / Cold (`new`), Callback (`callback`), Almost There (`almost_there`).
+- Column tints via semantic tokens.
+- `@dnd-kit/core` for drag and drop. On drop: optimistic `setQueryData` then `updateClient` mutation; rollback on error.
+- Lead card: avatar initials, name, phone, last_opened_at, temperature badge (hot/warm/cold with red/orange/slate), score pill (color band), "Beneficiary of …" line when applicable.
+- Empty column placeholder text.
 
-`/contracting/transfers`
-- Empty state per spec; otherwise cards with carrier, from/to upline names, status badge, Accept/Decline buttons.
+### Sold tab
+- Flat card grid of clients where `stage='sold'`; each card shows latest policy fields (carrier/product/policy_number/effective_date/monthly_premium) via join.
 
-`/contracting/commission-grids`
-- Single-open accordion of carriers the agent is contracted with. Sub-sections per age group, table with gold-highlighted row for the agent's own level. Rows above level never come back from the server.
+### Add Client modal
+- shadcn Dialog + react-hook-form + zod. Fields per spec. Temperature + Stage selectors. On success: invalidate `pipeline` query.
 
-`/contracting/annuity-training`
-- Training info card + WebCE link.
-- Conditional: yellow alert + dropzone (PDF, ≤10MB) when no cert; green banner + filename/date/preview + Replace button when present. Upload via signed URL into `producer-docs`.
+### Import Clients modal
+- CSV parsed client-side (papaparse). Validate headers, show first 5 rows preview, then call `importClients` with parsed rows.
 
-`/contracting/carriers`
-- Search input + filter tabs (All / Weekly Pay / Monthly Pay / Fast <5 days).
-- 2-col grid of carrier cards with phone/hours/speed/pay/cap/ideal client, Agent Portal + Training buttons, full-width About button opening a shadcn `Sheet` drawer with `about_text`. Annuity carriers get an "Annuity" badge.
+### Client Detail Drawer (`src/components/pipeline/client-detail-drawer.tsx`)
+- shadcn Sheet, ~50vw on desktop, full-width on mobile. Replaces existing generic drawer for pipeline use.
+- Header: avatar, name, temperature badge, phone; right `Call` / `SMS` actions (call → `tel:`, SMS → existing /phone with prefill).
+- Stage progress bar: 4 clickable steps; click moves stage via `updateClient`.
+- Right buttons: `Submit Case for Design` (links to /post-deal prefilled), `Mark Sold` (green).
+- Two-column body: Left = inline-editable contact info (click cell → input, blur/Enter saves, debounced mutation). Right = tabs.
 
-### 4. Shared bits
-- `src/components/contracting/status-badge.tsx` — single source of truth for status color mapping (reused on chips, cards, matrix).
-- All currency via `Intl.NumberFormat`, all dates via `date-fns`.
-- Skeleton loaders on every list; empty states per spec.
-- Sidebar already lists these 6 routes — no nav changes needed.
+### Tabs (right column components under `src/components/pipeline/tabs/`)
+1. **Needs Analysis** — scripted 5-step flow with Sophai tip per question; progress bar; persists each answer via `saveNeedsAnswer`. Conditional branches per spec.
+2. **Notes** — Tiptap editor (`@tiptap/react`, `@tiptap/starter-kit`) with Bold/Italic/Lists/Clear toolbar. `Add Note` + `Medical Note` (flag). Renders saved notes (newest first) using `contact_history` rows of type `note` (medical flagged via `note` prefix tag).
+3. **Schedule** — `Schedule on Calendar` opens dialog with shadcn Calendar + time picker + event_type select → `scheduleEvent`. Lists upcoming events (start_at > now).
+4. **Beneficiaries** — table + add/edit dialog; percentage-sum warning when ≠ 100%.
+5. **Referrals** — simple list backed by `contact_history` entries of type `referral` (no new table — store name/phone/relationship in `note` JSON string). Add via dialog.
+6. **Financials** — fields bound to `client_financials` (upsert on blur); total monthly income computed live; info banner.
+7. **Client Care** — communication prefs (write to `clients.preferred_contact`/`best_time_to_call`/`communication_notes`), contact history timeline with filter chips, `Log Contact` dialog, Life Events section with add/delete.
+8. **Policies** — locked card with `Mark Sold` when stage ≠ sold; otherwise table of policies + `Add Policy` link to /post-deal?client_id=…
+9. **Email** — yellow banner when no email; otherwise 3 hardcoded templates (We Just Spoke / Quote / Check In) → compose view with `{{firstName}}` substituted; `Send` opens `mailto:` link (server-side email out of scope here).
 
-### 5. Out of scope (call out, don't build)
-- Public `/join/[token]` onboarding page — flagged for a follow-up; invitation links will be generated and copyable now.
-- Admin tools to seed `commission_grids` rows — seeding a representative GTL/Mutual of Omaha grid only; full grids belong to a separate import flow.
+### Realtime
+- Subscribe to `clients` table changes in the page component → invalidate `pipeline` query.
+- Subscribe to `contact_history` for the open client_id in drawer → invalidate detail query.
+
+### Dependencies to add
+- `@dnd-kit/core`, `@dnd-kit/sortable`
+- `papaparse` + `@types/papaparse`
+- `@tiptap/react`, `@tiptap/starter-kit`
+
+## Out of scope (call out for follow-up)
+- Sending real email (mailto: only for now).
+- Score % auto-recalc engine — score is read-only display from existing `score_pct` column.
+- Bulk drag of multiple cards.
+- Mobile-stack accordion polish (basic responsive only).
+
+## Technical notes
+- Query keys: `['pipeline','list']`, `['pipeline','detail', clientId]`.
+- All mutations: optimistic where safe (stage move, inline edits), then invalidate on settle.
+- Sanitize Tiptap HTML on read with DOMPurify before render.
+- CSV import capped at 1000 rows; row-level zod validation with error report back to UI.
+- Keep all colors via design tokens; temperature badge variants in `tailwind`-style cva.
