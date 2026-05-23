@@ -36,7 +36,8 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     phone: z.string().min(7).max(30).optional().nullable(),
   }).parse(d))
   .handler(async ({ data }) => {
-    const { data: inv } = await supabaseAdmin.rpc("get_invite_by_token", { _token: data.token });
+    const { data: invRaw } = await supabaseAdmin.rpc("get_invite_by_token", { _token: data.token });
+    const inv = invRaw as any;
     if (!inv || inv.expired) throw new Error("Invite expired or not found");
     if (inv.linked_agent_id) throw new Error("This invite has already been used");
 
