@@ -135,31 +135,49 @@ export type Database = {
       calendar_events: {
         Row: {
           agent_id: string
+          all_day: boolean
           client_id: string | null
+          color: string | null
           end_at: string | null
           event_type: Database["public"]["Enums"]["event_type"]
           id: string
+          is_auto_generated: boolean
           notes: string | null
+          policy_id: string | null
+          recurrence_rule: string | null
+          reminder_minutes: number | null
           start_at: string
           title: string
         }
         Insert: {
           agent_id: string
+          all_day?: boolean
           client_id?: string | null
+          color?: string | null
           end_at?: string | null
           event_type: Database["public"]["Enums"]["event_type"]
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
+          policy_id?: string | null
+          recurrence_rule?: string | null
+          reminder_minutes?: number | null
           start_at: string
           title: string
         }
         Update: {
           agent_id?: string
+          all_day?: boolean
           client_id?: string | null
+          color?: string | null
           end_at?: string | null
           event_type?: Database["public"]["Enums"]["event_type"]
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
+          policy_id?: string | null
+          recurrence_rule?: string | null
+          reminder_minutes?: number | null
           start_at?: string
           title?: string
         }
@@ -1662,6 +1680,11 @@ export type Database = {
         | "policy_anniversary"
         | "beneficiary_checkin"
         | "lapse_follow_up"
+        | "policy_starting_soon"
+        | "follow_up"
+        | "meeting"
+        | "call"
+        | "other"
       pipeline_stage: "new" | "callback" | "almost_there" | "sold"
       policy_status:
         | "active"
@@ -1840,6 +1863,11 @@ export const Constants = {
         "policy_anniversary",
         "beneficiary_checkin",
         "lapse_follow_up",
+        "policy_starting_soon",
+        "follow_up",
+        "meeting",
+        "call",
+        "other",
       ],
       pipeline_stage: ["new", "callback", "almost_there", "sold"],
       policy_status: [
