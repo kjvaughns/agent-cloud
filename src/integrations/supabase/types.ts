@@ -17,6 +17,8 @@ export type Database = {
       agent_commission_levels: {
         Row: {
           agent_id: string
+          assigned_at: string
+          assigned_by: string | null
           assigned_pct: number | null
           carrier_id: string
           commission_level: string | null
@@ -24,6 +26,8 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          assigned_at?: string
+          assigned_by?: string | null
           assigned_pct?: number | null
           carrier_id: string
           commission_level?: string | null
@@ -31,6 +35,8 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
           assigned_pct?: number | null
           carrier_id?: string
           commission_level?: string | null
@@ -228,12 +234,16 @@ export type Database = {
       carriers: {
         Row: {
           about_text: string | null
+          active: boolean
           advance_cap: string | null
+          advance_cap_amount: number | null
+          advance_cap_months: number | null
           agent_portal_url: string | null
           contracting_speed_days: number | null
           hours: string | null
           id: string
           ideal_client: string | null
+          is_annuity_carrier: boolean
           name: string
           pay_frequency: string | null
           phone: string | null
@@ -242,12 +252,16 @@ export type Database = {
         }
         Insert: {
           about_text?: string | null
+          active?: boolean
           advance_cap?: string | null
+          advance_cap_amount?: number | null
+          advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
           hours?: string | null
           id?: string
           ideal_client?: string | null
+          is_annuity_carrier?: boolean
           name: string
           pay_frequency?: string | null
           phone?: string | null
@@ -256,12 +270,16 @@ export type Database = {
         }
         Update: {
           about_text?: string | null
+          active?: boolean
           advance_cap?: string | null
+          advance_cap_amount?: number | null
+          advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
           hours?: string | null
           id?: string
           ideal_client?: string | null
+          is_annuity_carrier?: boolean
           name?: string
           pay_frequency?: string | null
           phone?: string | null
@@ -589,9 +607,11 @@ export type Database = {
           agent_id: string
           carrier_id: string
           id: string
+          issue_description: string | null
           notes: string | null
           requested_at: string
           status: Database["public"]["Enums"]["contract_status"]
+          submitted_at: string | null
           writing_number: string | null
         }
         Insert: {
@@ -599,9 +619,11 @@ export type Database = {
           agent_id: string
           carrier_id: string
           id?: string
+          issue_description?: string | null
           notes?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["contract_status"]
+          submitted_at?: string | null
           writing_number?: string | null
         }
         Update: {
@@ -609,9 +631,11 @@ export type Database = {
           agent_id?: string
           carrier_id?: string
           id?: string
+          issue_description?: string | null
           notes?: string | null
           requested_at?: string
           status?: Database["public"]["Enums"]["contract_status"]
+          submitted_at?: string | null
           writing_number?: string | null
         }
         Relationships: [
@@ -953,6 +977,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      producer_documents: {
+        Row: {
+          agent_id: string
+          created_at: string
+          doc_type: string
+          expiration_date: string | null
+          file_name: string | null
+          file_url: string | null
+          id: string
+          start_date: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          doc_type: string
+          expiration_date?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          start_date?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          doc_type?: string
+          expiration_date?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          start_date?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
