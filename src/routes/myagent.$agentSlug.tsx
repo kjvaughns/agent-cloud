@@ -101,7 +101,7 @@ function PublicAgentPage() {
     }
   };
 
-  const initials = d.name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  const initials = d.name.split(" ").map((p: string) => p[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
