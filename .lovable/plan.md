@@ -1,74 +1,73 @@
-## Advanced Back Office — Build Plan
+# Account Section Build Plan
 
-Build two new pages under "Your Back Office": **Case Design** (expert underwriting consultation) and **Advanced Desk** (retirement planning center). Minimal v1 scope for the planner.
+## Database (migration)
 
----
+**Extend `profiles`**: add `npn_number text`, `date_of_birth date`, `gender text`, `ssn_encrypted text` (pgsodium), `street_address`, `city`, `state_code char(2)`, `zip_code`, `agent_slug text unique`, `google_oauth_connected bool`. (Many may already exist; ALTER IF NOT EXISTS pattern.)
 
-### Database (one migration)
+**New tables** (all RLS: agent owns rows, admin full, upline read-only where relevant):
+- `producer_documents` (agent_id, doc_type, file_url, file_name, metadata jsonb, start_date, expiration_date, uploaded_at) — already exists per `agent_completion`; extend if needed.
+- `background_questions` (agent_id, question_number, answer bool, explanation text, updated_at) — unique(agent_id, question_number).
+- `producer_agreements` (agent_id unique, signature_name, signed_date, agreement_version, signature_image_url, pdf_url).
+- `agent_landing_pages` (agent_id unique, published bool, contact_email, contact_phone, custom_message, specialties jsonb, carriers jsonb, licensed_states jsonb, updated_at).
+- `faq_items` (id, section, question, answer, sort_order) — public read, admin write. Seed with ~15 items.
 
-**`case_design_requests`** — full spec as written. RLS: agent sees own + admin sees all. Admin can update `status` / `response_html` / `responded_at`.
+**Storage bucket**: `agent-documents` (private). RLS: agents read/write under `{agent_id}/...` path; admins read all.
 
-**`retirement_cases`** — full spec as written. RLS: agent owns + downline read + admin all. Trigger keeps `updated_at` fresh.
+**SSN encryption**: pgsodium extension. Create `ssn_set(agent_id, ssn text)` and `ssn_reveal(agent_id)` SECURITY DEFINER functions using pgsodium key. Reveal writes to `ssn_audit_log` (agent_id, revealed_by, revealed_at).
 
----
+**Slug generation**: trigger on profiles insert/update to populate `agent_slug` from name with numeric suffix on conflict.
 
-### Sidebar
-Add two new entries to the existing "Your Back Office" group in `app-sidebar.tsx`:
-- Case Design → `/back-office/case-design`
-- Advanced Desk → `/back-office/advanced-desk`
+## Server functions (`src/lib/account.functions.ts`)
 
----
+All `requireSupabaseAuth`:
+- `getProducerProfile` — returns profile + docs metadata + bg questions + agreement + completion %. SSN always masked (`***-**-NNNN`).
+- `updateProducerProfile(input)` — Zod-validated patch of profile fields (no SSN).
+- `setSsn(ssn)` — calls `ssn_set` RPC, stores last4 in profile for masking.
+- `revealSsn()` — calls `ssn_reveal`, returns plain SSN once; logs audit.
+- `uploadDocument({ doc_type, file_path, metadata, start_date, expiration_date })` — inserts/upserts `producer_documents`, file already uploaded client-side to bucket via signed upload.
+- `getDocumentSignedUrl(doc_id)` — 1h signed URL.
+- `saveBackgroundQuestions(answers[])`.
+- `signProducerAgreement(name)` — renders typed-name as PNG (jsPDF/canvas server-side using `@napi-rs/canvas` is not Worker-safe; instead generate SVG → store as `.svg` in bucket), creates PDF link placeholder; row inserted with signature_name + signed_date.
+- `getLandingPage` / `saveLandingPage(input)` / `togglePublished(bool)`.
+- `generateBioAi({ context })` — calls Lovable AI gateway (gemini-3-flash-preview) with system prompt; returns 2-3 sentence bio.
+- `searchFaq(q)` — returns all items (client filters); admin: `upsertFaqItem`.
 
-### Page 1: Case Design — `/_authenticated/back-office/case-design.tsx`
+**Public server route** `src/routes/api/public/landing-lead.ts` — POST: validates payload, looks up agent by slug, inserts `clients` row (stage='new', temperature='warm', agent_id=agent), inserts notification. Rate-limited via simple per-IP check.
 
-- Header + 2-column info section + 3 service highlight cards + 3-step process strip
-- **Submission form** (client typeahead OR manual; coverage, product, health, height/weight, tobacco, prior decline conditional, occupation, hobbies, notes). Zod validation; required fields = coverage, product, primary condition.
-- On submit: server fn inserts `case_design_requests` (`status='pending'`) + writes a `notifications` row. Success card replaces form area.
-- **My Submissions** table below, hidden when empty. Status badges (Pending/Complete/Needs Info). Clicking a "Complete" row opens a Sheet with the underwriter's `response_html` (sanitized render).
+## Routes
 
-### Page 1b: Admin review — `/_authenticated/back-office/case-design/admin.tsx`
-- Gated by `has_role('admin')`; non-admins redirected.
-- Table of all pending/recent cases. Row click → Sheet with full case details, a status dropdown, and a rich-text-ish textarea for `response_html` (basic markdown→HTML on save). Saving sets `responded_at = now()` and notifies the agent.
+**Authenticated (under `_authenticated/account/`)**:
+- `producer-profile.tsx` — header with completion ring (SVG), 3 tabs (shadcn Tabs):
+  - **Profile Information**: collapsible Accordion sections (Personal, Address, Contact, E&O, Banking, DL, AML, User Account, Signed Agreement). Each section: read mode → Edit pencil → inline fields. SSN show-reveal button (10s timer, audit). Document uploads use direct Supabase Storage upload then call `uploadDocument`. Sticky Save Changes bar.
+  - **Background Questions**: 7 Y/N radio groups with conditional textarea, Save button.
+  - **Integrations**: 5 display-only cards (Google Calendar, Outlook, Zapier, Twilio, Stripe) with "Coming soon" toast on Connect.
+- `my-landing-page.tsx` — Published toggle (instant save), live URL + copy, Preview opens Sheet rendering same component as public page, Save button. Form sections: Contact, Profile Photo upload, Custom Message (500 char) + Generate with AI modal, What I Help With checkboxes, Carriers checkboxes (sorted alpha), States Licensed In chip grid + Select All.
+- `faq.tsx` — Search input, accordion grouped by section, client-side filter.
+- `help.tsx` — Simple page with link to external help center + embedded contact info.
 
----
+**Public**:
+- `src/routes/myagent.$agentSlug.tsx` — public landing page rendering agent profile + lead form. Loader calls public server fn `getPublicLandingPage(slug)` (uses supabaseAdmin, returns only safe fields). Form POSTs to `/api/public/landing-lead`.
 
-### Page 2: Advanced Desk — `/_authenticated/back-office/advanced-desk.tsx`
+## Sidebar
 
-Three top-level tabs: **Planner | Case Tracker | Needs Attention**.
+Add "Account" group with 4 entries (Help Center, FAQ, Producer Profile, My Landing Page).
 
-#### Planner (minimal v1)
-- Left input panel (380px): demographics, savings & growth, assumptions modal, accounts list (Add Account dropdown with all 16 types stored as `accounts` jsonb rows: `{id, type, name, balance, monthly_contrib, return_pct, tax_class}`), income sources modal, linked policies (search from `policies` table for this client), expenses/healthcare inputs.
-- Top metric row (5 cards) with green/yellow/red coloring on success probability.
-- **Analysis tabs (only 4 in v1)**: Summary, What-If, Cash Flow, Report. The other 9 tabs (Risk, Income, Expenses, Taxes, Health, Roth, Floor, Legacy, Scenarios) render a "Coming soon" placeholder.
-  - **Summary**: circular gauge of readiness score + narrative paragraph (template-driven, not AI) + top-3 recommended actions (rule-based).
-  - **What-If**: 4 debounced sliders (retire age, monthly contribution, expected return, part-time income toggle) updating a small Recharts line of nest egg trajectory.
-  - **Cash Flow**: year-by-year table + Recharts stacked area chart (growth phase / distribution phase / guaranteed income overlay).
-  - **Report**: "Print Report" button using `window.print()` + a print stylesheet. No jsPDF.
-- **Calc engine** (`src/lib/retirement-calc.ts`, pure functions): deterministic projection only. Success probability = heuristic (portfolio-lasts-to-life-expectancy yes/no with simple stress test at -2% return), not Monte Carlo.
-- **Auto-save**: once a case is loaded/created from Case Tracker, debounce inputs 2s and call `saveRetirementCase` server fn. Scratch work without a case lives in component state.
+## Components
 
-#### Case Tracker
-- "+ New Case" → client search → creates `retirement_cases` row (status=draft) and switches to Planner tab with that case loaded.
-- Table: Client | Created | Status | Nest Egg | Success % | Last Modified | Next Meeting. Row click loads case into Planner.
+- `<CompletionRing pct={n} />` — animated SVG ring.
+- `<MaskedField>` — generic show/hide with timer + audit callback.
+- `<DocumentUploadField>` — handles bucket upload + signed URL view button.
+- `<StateChipGrid>` — 51 states toggle grid, mobile collapses to multi-select.
+- `<LandingPagePreview>` — pure component reused by Preview modal and public route.
 
-#### Needs Attention
-- Server fn returns cases matching: success_probability_pct < 70 OR updated_at < now()-90d OR (retirement_age - current_age) <= 5.
-- Alert cards with "Open Case" button switching to Planner.
+## Out of scope (v1)
 
----
+- Real OAuth flows (Google Calendar/Outlook/Zapier).
+- E&O/Banking/DL/AML are stored with metadata; no carrier-side verification.
+- Generated signed agreement PDF — store typed name + date only; "Download PDF" generates client-side via jsPDF on click.
+- Photo cropping UI — accept square upload, no crop tool.
+- Profile photo bucket separate from documents; reuse `agent-documents` under `{agent_id}/avatar/`.
 
-### Server functions (`src/lib/back-office.functions.ts`)
+## Verification
 
-`submitCaseDesign`, `listMyCases`, `getCaseDetail`, `listAllCasesAdmin`, `updateCaseResponseAdmin`, `createRetirementCase`, `saveRetirementCase`, `listRetirementCases`, `getRetirementCase`, `getNeedsAttention`. All use `requireSupabaseAuth`.
-
----
-
-### Out of scope for v1 (explicit)
-- 9 analysis tabs (Risk/Income/Expenses/Taxes/Health/Roth/Floor/Legacy/Scenarios) — placeholders only
-- Monte Carlo 1000-path simulation — replaced with heuristic
-- jsPDF report — replaced with `window.print()`
-- AI-generated Summary narrative — replaced with template
-- Scenario comparison saving
-- Recharts fan chart, glide-path allocation viz
-
-These can be added in follow-up requests without schema changes.
+After build: load `/account/producer-profile`, complete a section, upload a doc, reveal SSN (check audit row), toggle landing page published, view public `/myagent/{slug}`, submit lead, confirm client+notification created.
