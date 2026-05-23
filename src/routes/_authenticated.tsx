@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ location }) => {
+    // Session lives in localStorage — only check on the client.
+    // Server-side (SSR/prerender) has no storage, so getSession() would
+    // always return null and bounce signed-in users back to /login.
+    if (typeof window === "undefined") return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
       throw redirect({
