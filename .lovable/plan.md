@@ -1,57 +1,64 @@
+## Recruiting Back Office — Build Plan
 
-## Resources Section Build Plan
+### 1. Database migration (extend existing tables)
 
-Build 5 pages under a new "Resources" sidebar group, with rich seeded content and read-only frontends (admins edit via DB).
+`recruiting_funnels` — add: `template_slug text default 'get-contracted-now'`, `page_views int default 0`, `applications int default 0`. Make `slug` unique + not null. Set `published` default to `true`.
 
-### 1. Database migration
+`recruiting_prospects` — add: `funnel_id uuid` (nullable, FK funnels), `source text`, `linked_agent_id uuid` (FK profiles). Stage enum already matches the 5 required values.
 
-Add columns:
-- `profiles`: `npn_number text`, `date_of_birth date`, `street_address text`, `city text`, `state text`, `zip_code text`
+New tables:
+- `recruiting_prospect_stage_history` — `prospect_id`, `from_stage`, `to_stage`, `changed_by`, `changed_at`. Trigger on `recruiting_prospects` UPDATE inserts a row when stage changes.
+- `recruiting_prospect_notes` — `prospect_id`, `agent_id`, `note`, `created_at`.
 
-New tables (all RLS: SELECT for authenticated; admin-only writes unless noted):
-- `handbook_sections` (sort_order, title, slug unique, content_html, updated_at)
-- `scripts_v2` — extend existing `scripts` table: add `short_description`, `long_description`, `content_html`, `accent_color`, `sort_order` (keep existing `category`, `title`)
-- `academy_courses` (title, slug, category, instructor_name, duration_minutes, thumbnail_url, sort_order, published, featured bool)
-- `academy_modules` (course_id, title, sort_order, video_url, content_html, quiz jsonb, resource_urls jsonb)
-- `course_progress` (agent_id, course_id, module_id, completed, completed_at, quiz_score) — owner RLS
+`landing_pages` — add: `lead_count int default 0`. Existing schema already has the rest.
 
-`states_reference` and `state_licenses` already exist — reuse. Seed `states_reference` with all 51 rows (timezone, license_fee_cents, doi_url, prelicensing_url) if missing.
+`profiles` — add `agent_slug text unique` (auto-set on signup from first_name+last_name+suffix).
 
-Seed:
-- 7 handbook sections (Welcome, Commission, Carriers, Client Standards, Compliance, Recruiting, Tools) with realistic long-form HTML
-- 6 scripts (Basic, Needs Analysis, Objection, Mortgage Protection, Beneficiary, Check-In) with full content_html + accent colors
-- 8 academy courses + featured flag on "Final Expense Mastery"
-- 51 states_reference rows
+RLS: owner_modify / downline_select pattern on all new tables, matching siblings.
 
-License expiry notification: DB function + trigger, or a daily cron — for v1, compute client-side and surface banner (skip cron to keep scope tight).
+### 2. Public routes (no auth)
 
-### 2. Sidebar
+- `src/routes/api/public/funnel-view.ts` — POST `{slug}`, increments `page_views` via `supabaseAdmin`. Fire-and-forget from public funnel page.
+- `src/routes/api/public/funnel-apply.ts` — POST `{slug, first_name, last_name, email, phone, state, npn?, message?}`. Validates with zod, inserts `recruiting_prospects` (stage=new, funnel_id, recruiter_id from funnel), increments `applications`, inserts a notification for the recruiter.
+- `src/routes/api/public/lead-submit.ts` — POST `{agent_slug, template_slug, first_name, last_name, phone, email, state, best_time}`. Inserts `clients` (stage=new) for that agent, increments `lead_count`, sends notification.
+- `src/routes/join/$slug.tsx` — public recruiting funnel page. Loader uses `supabaseAdmin` to fetch funnel + recruiter profile. Renders headline, benefits, application form. Fires page-view ping on mount. On submit shows success screen.
+- `src/routes/agent/$agentSlug/$templateSlug.tsx` — public landing page. Loader fetches agent profile + landing_page record by `agent_slug + template_slug`. Renders generic template with the chosen theme config.
 
-Add "Resources" group to `src/components/app-sidebar.tsx` with 5 child links.
+### 3. Authenticated routes
 
-### 3. Routes (all under `_authenticated`)
+`src/routes/_authenticated/back-office/`
+- `recruiting-funnels.tsx` — tabs (Create New / My Websites). Template card with Create / Preview / Flyer (Flyer = toast "coming soon"). Create modal (name + slug + uniqueness check). My Websites list with stats (views, applications, conversion %, recruited production via SUM(annual_premium) on policies where agent.upline came through this funnel — computed in server fn).
+- `recruiting-tracker.tsx` — stats row + 5-column kanban (@hello-pangea/dnd already in project if available, else native HTML5 DnD). Optimistic stage update via server fn. Add Prospect modal. Prospect detail Sheet/Drawer with stage history, notes timeline, manual stage buttons, delete.
+- `client-marketing.tsx` — 3-col template grid (10 themes config), Quick Deploy (1-click upsert landing_pages row + copy URL toast), Preview modal, My Deployed Pages table.
 
-- `src/routes/_authenticated/resources/new-agent-guide.tsx` — 8-step checklist with progress ring; reads from profiles, producer_documents, contract_requests, agent_phone_settings, wallet, policies via one server fn `getOnboardingStatus`. Action buttons link to existing routes.
-- `src/routes/_authenticated/resources/handbook.tsx` — sticky TOC sidebar + scroll-spy, print/PDF (window.print + html2pdf via dynamic import — or just print for v1).
-- `src/routes/_authenticated/resources/scripts.tsx` — search + category filter pills + 3-col card grid; clicking opens full-screen Dialog with formatted script, Print/Copy buttons.
-- `src/routes/_authenticated/resources/state-licenses.tsx` — summary stats row, search + timezone filter + sort, licensed-first grid, add/edit license modal, expiry banner.
-- `src/routes/_authenticated/resources/academy.tsx` — featured banner, category tabs, course card grid. Card click → toast "Course viewer coming soon" (per chosen scope).
+### 4. Server functions (`src/lib/recruiting.functions.ts`, `src/lib/marketing.functions.ts`)
 
-### 4. Server functions
+All use `requireSupabaseAuth`. Functions:
+- `listFunnels`, `createFunnel`, `deleteFunnel`, `getFunnelStats(id)`
+- `listProspects`, `createProspect`, `updateProspectStage`, `deleteProspect`, `getProspectDetail(id)`, `addProspectNote`
+- `getRecruitingStats` (totals + breakdown by stage + conversion)
+- `listLandingPages`, `quickDeployLandingPage(template_slug)`, `deleteLandingPage`
+- `ensureAgentSlug` (called on first deploy)
 
-`src/lib/resources.functions.ts`:
-- `getOnboardingStatus` — returns 8 booleans + percent
-- `getHandbookSections`, `getScripts`, `getCourses` (public reads via authed supabase)
-- `getMyLicenses`, `upsertLicense`, `getStatesReference`
+### 5. Landing page template config
 
-### 5. Components
+`src/lib/landing-templates.ts` exports an array of 10 templates: `{slug, name, category, gradient, headline, subhead, bullets[], cta_label, theme_class}`. The public landing page component reads the matching config and renders one generic layout themed by gradient.
 
-- `OnboardingChecklist`, `ProgressRing`, `ScriptCard`, `ScriptViewerDialog`, `StateLicenseCard`, `LicenseFormDialog`, `HandbookTOC`, `CourseCard`, `FeaturedCourseBanner`
+### 6. Sidebar
 
-### Out of scope
+Add "Your Back Office" group to `src/components/app-sidebar.tsx` with 3 children pointing to the new routes.
 
-- Admin edit UIs (DB-only)
-- Course viewer page + quiz logic + progress tracking UI (cards only)
-- PDF export of handbook (print only)
-- Cron-based expiry notifications (client-side banner only)
-- Real video assets in academy (thumbnail gradients + icons)
+### 7. Out of scope (v1)
+
+- Flyer PDF generation
+- Onboarded → invitation email send
+- Custom landing-page slug editor (only default `agent_slug/template_slug` URL; `custom_slug` column unused)
+- Per-template bespoke layouts/calculators (single generic template + 10 themes)
+- Lead/prospect CSV export
+
+### Technical notes
+
+- Page-view tracking: TSS public route + `supabaseAdmin` (RPC alternative rejected).
+- Optimistic kanban updates with React Query `useMutation` + `onMutate` cache rewrite.
+- Slug uniqueness checked server-side; collision returns typed error rendered inline in modal.
+- Notifications use existing `notifications` table.

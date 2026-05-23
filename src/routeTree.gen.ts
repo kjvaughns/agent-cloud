@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSophaiRouteImport } from './routes/_authenticated/sophai'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
@@ -34,6 +35,10 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
+import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
+import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
+import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
@@ -88,6 +93,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinSlugRoute = JoinSlugRouteImport.update({
+  id: '/join/$slug',
+  path: '/join/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
@@ -190,6 +200,27 @@ const AuthenticatedContractingIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const ApiPublicLeadSubmitRoute = ApiPublicLeadSubmitRouteImport.update({
+  id: '/api/public/lead-submit',
+  path: '/api/public/lead-submit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicFunnelViewRoute = ApiPublicFunnelViewRouteImport.update({
+  id: '/api/public/funnel-view',
+  path: '/api/public/funnel-view',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicFunnelApplyRoute = ApiPublicFunnelApplyRouteImport.update({
+  id: '/api/public/funnel-apply',
+  path: '/api/public/funnel-apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentAgentSlugTemplateSlugRoute =
+  AgentAgentSlugTemplateSlugRouteImport.update({
+    id: '/agent/$agentSlug/$templateSlug',
+    path: '/agent/$agentSlug/$templateSlug',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedToolsQuoterRoute =
   AuthenticatedToolsQuoterRouteImport.update({
@@ -369,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -394,6 +426,10 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -420,6 +456,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -445,6 +482,10 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -474,6 +515,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -499,6 +541,10 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -528,6 +574,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/join/$slug'
     | '/account/faq'
     | '/account/help'
     | '/account/my-landing-page'
@@ -553,6 +600,10 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesByTo: FileRoutesByTo
@@ -579,6 +630,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/join/$slug'
     | '/account/faq'
     | '/account/help'
     | '/account/my-landing-page'
@@ -604,6 +656,10 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/contracting'
     | '/api/public/hooks/fetch-news'
   id:
@@ -632,6 +688,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/sophai'
     | '/_authenticated/team'
+    | '/join/$slug'
     | '/_authenticated/account/faq'
     | '/_authenticated/account/help'
     | '/_authenticated/account/my-landing-page'
@@ -657,6 +714,10 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/needs-analysis'
     | '/_authenticated/tools/quoter'
+    | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/_authenticated/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesById: FileRoutesById
@@ -668,6 +729,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  JoinSlugRoute: typeof JoinSlugRoute
+  AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
+  ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
+  ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
+  ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
 }
 
@@ -713,6 +779,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$slug': {
+      id: '/join/$slug'
+      path: '/join/$slug'
+      fullPath: '/join/$slug'
+      preLoaderRoute: typeof JoinSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/team': {
@@ -847,6 +920,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/contracting/'
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/api/public/lead-submit': {
+      id: '/api/public/lead-submit'
+      path: '/api/public/lead-submit'
+      fullPath: '/api/public/lead-submit'
+      preLoaderRoute: typeof ApiPublicLeadSubmitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/funnel-view': {
+      id: '/api/public/funnel-view'
+      path: '/api/public/funnel-view'
+      fullPath: '/api/public/funnel-view'
+      preLoaderRoute: typeof ApiPublicFunnelViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/funnel-apply': {
+      id: '/api/public/funnel-apply'
+      path: '/api/public/funnel-apply'
+      fullPath: '/api/public/funnel-apply'
+      preLoaderRoute: typeof ApiPublicFunnelApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent/$agentSlug/$templateSlug': {
+      id: '/agent/$agentSlug/$templateSlug'
+      path: '/agent/$agentSlug/$templateSlug'
+      fullPath: '/agent/$agentSlug/$templateSlug'
+      preLoaderRoute: typeof AgentAgentSlugTemplateSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tools/quoter': {
       id: '/_authenticated/tools/quoter'
@@ -1198,6 +1299,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  JoinSlugRoute: JoinSlugRoute,
+  AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
+  ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
+  ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
+  ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
 }
 export const routeTree = rootRouteImport

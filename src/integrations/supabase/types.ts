@@ -1066,6 +1066,7 @@ export type Database = {
           created_at: string
           custom_slug: string | null
           id: string
+          lead_count: number
           published: boolean | null
           template_slug: string
           title: string | null
@@ -1075,6 +1076,7 @@ export type Database = {
           created_at?: string
           custom_slug?: string | null
           id?: string
+          lead_count?: number
           published?: boolean | null
           template_slug: string
           title?: string | null
@@ -1084,6 +1086,7 @@ export type Database = {
           created_at?: string
           custom_slug?: string | null
           id?: string
+          lead_count?: number
           published?: boolean | null
           template_slug?: string
           title?: string | null
@@ -1354,6 +1357,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          agent_slug: string | null
           avatar_url: string | null
           city: string | null
           created_at: string
@@ -1372,6 +1376,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          agent_slug?: string | null
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -1390,6 +1395,7 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          agent_slug?: string | null
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -1420,27 +1426,36 @@ export type Database = {
       recruiting_funnels: {
         Row: {
           agent_id: string
+          applications: number
           created_at: string
           id: string
           name: string
-          published: boolean | null
-          slug: string | null
+          page_views: number
+          published: boolean
+          slug: string
+          template_slug: string
         }
         Insert: {
           agent_id: string
+          applications?: number
           created_at?: string
           id?: string
           name: string
-          published?: boolean | null
-          slug?: string | null
+          page_views?: number
+          published?: boolean
+          slug: string
+          template_slug?: string
         }
         Update: {
           agent_id?: string
+          applications?: number
           created_at?: string
           id?: string
           name?: string
-          published?: boolean | null
-          slug?: string | null
+          page_views?: number
+          published?: boolean
+          slug?: string
+          template_slug?: string
         }
         Relationships: [
           {
@@ -1452,41 +1467,145 @@ export type Database = {
           },
         ]
       }
+      recruiting_prospect_notes: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          note: string
+          prospect_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          note: string
+          prospect_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          prospect_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruiting_prospect_notes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiting_prospect_notes_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "recruiting_prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recruiting_prospect_stage_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          from_stage: string | null
+          id: string
+          prospect_id: string
+          to_stage: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          from_stage?: string | null
+          id?: string
+          prospect_id: string
+          to_stage: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          from_stage?: string | null
+          id?: string
+          prospect_id?: string
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recruiting_prospect_stage_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiting_prospect_stage_history_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "recruiting_prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recruiting_prospects: {
         Row: {
           created_at: string
           email: string | null
           first_name: string
+          funnel_id: string | null
           id: string
           last_name: string | null
+          linked_agent_id: string | null
           notes: string | null
           phone: string | null
           recruiter_id: string
+          source: string | null
           stage: Database["public"]["Enums"]["recruiting_stage"]
         }
         Insert: {
           created_at?: string
           email?: string | null
           first_name: string
+          funnel_id?: string | null
           id?: string
           last_name?: string | null
+          linked_agent_id?: string | null
           notes?: string | null
           phone?: string | null
           recruiter_id: string
+          source?: string | null
           stage?: Database["public"]["Enums"]["recruiting_stage"]
         }
         Update: {
           created_at?: string
           email?: string | null
           first_name?: string
+          funnel_id?: string | null
           id?: string
           last_name?: string | null
+          linked_agent_id?: string | null
           notes?: string | null
           phone?: string | null
           recruiter_id?: string
+          source?: string | null
           stage?: Database["public"]["Enums"]["recruiting_stage"]
         }
         Relationships: [
+          {
+            foreignKeyName: "recruiting_prospects_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "recruiting_funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recruiting_prospects_linked_agent_id_fkey"
+            columns: ["linked_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recruiting_prospects_recruiter_id_fkey"
             columns: ["recruiter_id"]
@@ -2062,6 +2181,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_funnel_applications: {
+        Args: { _slug: string }
+        Returns: undefined
+      }
+      increment_funnel_views: { Args: { _slug: string }; Returns: undefined }
+      increment_landing_leads: { Args: { _id: string }; Returns: undefined }
       is_in_downline: {
         Args: { _target: string; _upline: string }
         Returns: boolean
