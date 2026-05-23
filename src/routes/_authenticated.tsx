@@ -48,11 +48,10 @@ function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void 
 }
 
 export const Route = createFileRoute("/_authenticated")({
+  // Session lives in localStorage; SSR has nothing useful to render for
+  // authenticated pages, so skip it entirely and ship the client shell faster.
+  ssr: false,
   beforeLoad: async ({ location }) => {
-    // Session lives in localStorage — only check on the client.
-    // Server-side (SSR/prerender) has no storage, so getSession() would
-    // always return null and bounce signed-in users back to /login.
-    if (typeof window === "undefined") return;
     const { data } = await supabase.auth.getSession();
     if (!data.session) {
       throw redirect({
