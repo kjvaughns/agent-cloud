@@ -59,6 +59,7 @@ import { Route as AuthenticatedAccountProducerProfileRouteImport } from './route
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
 import { Route as AuthenticatedAccountFaqRouteImport } from './routes/_authenticated/account/faq'
+import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -338,6 +339,11 @@ const AuthenticatedAccountFaqRoute = AuthenticatedAccountFaqRouteImport.update({
   path: '/account/faq',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
+  id: '/api/public/hooks/fetch-news',
+  path: '/api/public/hooks/fetch-news',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -389,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -439,6 +446,7 @@ export interface FileRoutesByTo {
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
+  '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -492,6 +500,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -545,6 +554,7 @@ export interface FileRouteTypes {
     | '/tools/needs-analysis'
     | '/tools/quoter'
     | '/contracting/'
+    | '/api/public/hooks/fetch-news'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -595,6 +605,7 @@ export interface FileRouteTypes {
     | '/tools/needs-analysis'
     | '/tools/quoter'
     | '/contracting'
+    | '/api/public/hooks/fetch-news'
   id:
     | '__root__'
     | '/'
@@ -647,6 +658,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/needs-analysis'
     | '/_authenticated/tools/quoter'
     | '/_authenticated/contracting/'
+    | '/api/public/hooks/fetch-news'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -656,6 +668,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1010,6 +1023,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountFaqRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/hooks/fetch-news': {
+      id: '/api/public/hooks/fetch-news'
+      path: '/api/public/hooks/fetch-news'
+      fullPath: '/api/public/hooks/fetch-news'
+      preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1178,6 +1198,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
