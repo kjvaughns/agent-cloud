@@ -111,7 +111,7 @@ export const getCarrierBreakdown = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { start, end } = range(data);
     const { data: r, error } = await context.supabase.rpc("get_carrier_breakdown", {
-      _start: start, _end: end, _agent: data.agentId ?? null,
+      _start: start, _end: end, _agent: data.agentId ?? undefined,
     });
     if (error) throw new Error(error.message);
     return r as { rows: { carrier: string; deals: number; premium: number; avg_deal: number; top_agent: string|null }[] };
