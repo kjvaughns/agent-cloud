@@ -1559,6 +1559,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_book_of_business: {
+        Args: { _agent_id?: string; _scope: string }
+        Returns: {
+          agent_first_name: string
+          agent_id: string
+          agent_last_name: string
+          annual_premium: number
+          carrier_id: string
+          carrier_integration: string
+          carrier_name: string
+          client_first_name: string
+          client_id: string
+          client_last_name: string
+          effective_date: string
+          face_amount: number
+          id: string
+          is_gtl: boolean
+          monthly_premium: number
+          policy_number: string
+          posted_at: string
+          product: string
+          status: Database["public"]["Enums"]["policy_status"]
+        }[]
+      }
+      get_downline_agents: {
+        Args: never
+        Returns: {
+          first_name: string
+          id: string
+          last_name: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
