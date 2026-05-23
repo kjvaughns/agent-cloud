@@ -14,6 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_courses: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          featured: boolean | null
+          id: string
+          instructor_name: string | null
+          module_count: number | null
+          published: boolean | null
+          slug: string
+          sort_order: number | null
+          thumbnail_url: string | null
+          title: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          featured?: boolean | null
+          id?: string
+          instructor_name?: string | null
+          module_count?: number | null
+          published?: boolean | null
+          slug: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          featured?: boolean | null
+          id?: string
+          instructor_name?: string | null
+          module_count?: number | null
+          published?: boolean | null
+          slug?: string
+          sort_order?: number | null
+          thumbnail_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      academy_modules: {
+        Row: {
+          content_html: string | null
+          course_id: string
+          id: string
+          quiz: Json | null
+          resource_urls: Json | null
+          sort_order: number | null
+          title: string
+          video_url: string | null
+        }
+        Insert: {
+          content_html?: string | null
+          course_id: string
+          id?: string
+          quiz?: Json | null
+          resource_urls?: Json | null
+          sort_order?: number | null
+          title: string
+          video_url?: string | null
+        }
+        Update: {
+          content_html?: string | null
+          course_id?: string
+          id?: string
+          quiz?: Json | null
+          resource_urls?: Json | null
+          sort_order?: number | null
+          title?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
@@ -790,6 +879,51 @@ export type Database = {
           },
         ]
       }
+      course_progress: {
+        Row: {
+          agent_id: string
+          completed: boolean
+          completed_at: string | null
+          course_id: string
+          id: string
+          module_id: string
+          quiz_score: number | null
+        }
+        Insert: {
+          agent_id: string
+          completed?: boolean
+          completed_at?: string | null
+          course_id: string
+          id?: string
+          module_id: string
+          quiz_score?: number | null
+        }
+        Update: {
+          agent_id?: string
+          completed?: boolean
+          completed_at?: string | null
+          course_id?: string
+          id?: string
+          module_id?: string
+          quiz_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_progress_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dial_list_entries: {
         Row: {
           called_at: string | null
@@ -863,6 +997,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      handbook_sections: {
+        Row: {
+          content_html: string | null
+          id: string
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_html?: string | null
+          id?: string
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_html?: string | null
+          id?: string
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       invitation_links: {
         Row: {
@@ -1194,39 +1355,57 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          city: string | null
           created_at: string
+          date_of_birth: string | null
           email: string | null
           first_name: string | null
           id: string
           last_active_at: string | null
           last_name: string | null
+          npn_number: string | null
           phone: string | null
+          state: string | null
           status: string
+          street_address: string | null
           upline_id: string | null
+          zip_code: string | null
         }
         Insert: {
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
           first_name?: string | null
           id: string
           last_active_at?: string | null
           last_name?: string | null
+          npn_number?: string | null
           phone?: string | null
+          state?: string | null
           status?: string
+          street_address?: string | null
           upline_id?: string | null
+          zip_code?: string | null
         }
         Update: {
           avatar_url?: string | null
+          city?: string | null
           created_at?: string
+          date_of_birth?: string | null
           email?: string | null
           first_name?: string | null
           id?: string
           last_active_at?: string | null
           last_name?: string | null
+          npn_number?: string | null
           phone?: string | null
+          state?: string | null
           status?: string
+          street_address?: string | null
           upline_id?: string | null
+          zip_code?: string | null
         }
         Relationships: [
           {
@@ -1340,24 +1519,39 @@ export type Database = {
       }
       scripts: {
         Row: {
+          accent_color: string | null
           category: Database["public"]["Enums"]["script_category"]
+          content_html: string | null
           content_markdown: string | null
           created_at: string
           id: string
+          long_description: string | null
+          short_description: string | null
+          sort_order: number | null
           title: string
         }
         Insert: {
+          accent_color?: string | null
           category: Database["public"]["Enums"]["script_category"]
+          content_html?: string | null
           content_markdown?: string | null
           created_at?: string
           id?: string
+          long_description?: string | null
+          short_description?: string | null
+          sort_order?: number | null
           title: string
         }
         Update: {
+          accent_color?: string | null
           category?: Database["public"]["Enums"]["script_category"]
+          content_html?: string | null
           content_markdown?: string | null
           created_at?: string
           id?: string
+          long_description?: string | null
+          short_description?: string | null
+          sort_order?: number | null
           title?: string
         }
         Relationships: []
