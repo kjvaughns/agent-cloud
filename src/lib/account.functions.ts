@@ -105,7 +105,7 @@ export const getDocumentSignedUrl = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const { data: doc } = await supabase.from("producer_documents").select("file_url,agent_id").eq("id", data.doc_id).maybeSingle();
-    if (!doc || doc.agent_id !== userId) throw new Error("not found");
+    if (!doc || doc.agent_id !== userId || !doc.file_url) throw new Error("not found");
     const { data: signed, error } = await supabase.storage.from("agent-documents").createSignedUrl(doc.file_url, 3600);
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl };
