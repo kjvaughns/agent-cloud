@@ -59,6 +59,42 @@ export type Database = {
           },
         ]
       }
+      agent_phone_settings: {
+        Row: {
+          agent_id: string
+          created_at: string
+          forwarding_enabled: boolean
+          forwarding_number: string | null
+          id: string
+          phone_number: string | null
+          sms_registration_status: string
+          twilio_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          forwarding_enabled?: boolean
+          forwarding_number?: string | null
+          id?: string
+          phone_number?: string | null
+          sms_registration_status?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          forwarding_enabled?: boolean
+          forwarding_number?: string | null
+          id?: string
+          phone_number?: string | null
+          sms_registration_status?: string
+          twilio_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           body_html: string | null
@@ -206,6 +242,7 @@ export type Database = {
           direction: string
           duration_seconds: number | null
           id: string
+          outcome: string | null
           phone_number: string
           recording_url: string | null
           summary: string | null
@@ -217,6 +254,7 @@ export type Database = {
           direction: string
           duration_seconds?: number | null
           id?: string
+          outcome?: string | null
           phone_number: string
           recording_url?: string | null
           summary?: string | null
@@ -228,6 +266,7 @@ export type Database = {
           direction?: string
           duration_seconds?: number | null
           id?: string
+          outcome?: string | null
           phone_number?: string
           recording_url?: string | null
           summary?: string | null
@@ -679,21 +718,27 @@ export type Database = {
           client_id: string
           id: string
           list_id: string
+          notes: string | null
           outcome: string | null
+          position: number
         }
         Insert: {
           called_at?: string | null
           client_id: string
           id?: string
           list_id: string
+          notes?: string | null
           outcome?: string | null
+          position?: number
         }
         Update: {
           called_at?: string | null
           client_id?: string
           id?: string
           list_id?: string
+          notes?: string | null
           outcome?: string | null
+          position?: number
         }
         Relationships: [
           {
@@ -1216,23 +1261,29 @@ export type Database = {
         Row: {
           agent_id: string
           client_id: string | null
+          created_at: string
           id: string
           last_message_at: string
           phone_number: string
+          unread_count: number
         }
         Insert: {
           agent_id: string
           client_id?: string | null
+          created_at?: string
           id?: string
           last_message_at?: string
           phone_number: string
+          unread_count?: number
         }
         Update: {
           agent_id?: string
           client_id?: string | null
+          created_at?: string
           id?: string
           last_message_at?: string
           phone_number?: string
+          unread_count?: number
         }
         Relationships: [
           {
@@ -1257,27 +1308,33 @@ export type Database = {
           conversation_id: string
           direction: string
           id: string
+          is_auto: boolean
           media_url: string | null
           sent_at: string
           status: string | null
+          twilio_sid: string | null
         }
         Insert: {
           body?: string | null
           conversation_id: string
           direction: string
           id?: string
+          is_auto?: boolean
           media_url?: string | null
           sent_at?: string
           status?: string | null
+          twilio_sid?: string | null
         }
         Update: {
           body?: string | null
           conversation_id?: string
           direction?: string
           id?: string
+          is_auto?: boolean
           media_url?: string | null
           sent_at?: string
           status?: string | null
+          twilio_sid?: string | null
         }
         Relationships: [
           {
@@ -1583,6 +1640,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          stripe_payment_id: string | null
           type: Database["public"]["Enums"]["wallet_txn_type"]
         }
         Insert: {
@@ -1591,6 +1649,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          stripe_payment_id?: string | null
           type: Database["public"]["Enums"]["wallet_txn_type"]
         }
         Update: {
@@ -1599,6 +1658,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          stripe_payment_id?: string | null
           type?: Database["public"]["Enums"]["wallet_txn_type"]
         }
         Relationships: [

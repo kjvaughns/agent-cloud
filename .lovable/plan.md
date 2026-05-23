@@ -1,61 +1,90 @@
-## Calendar Page — Implementation Plan
+# My Phone — UI + DB (Twilio/Stripe stubbed)
 
-Replace the existing mock `/calendar` route with a fully wired calendar backed by the `calendar_events` table, plus auto-event generation via DB triggers.
+Rebuild `/phone` per the spec, wired to Supabase for data + realtime. No Twilio calls/SMS actually transmit; no Stripe wallet top-up. Wallet button, Sophai auto-send, voicemail audio, and MMS uploads are deferred.
 
-### 1. Database migration
+## 1. Database migration
 
-Extend `calendar_events`:
-- Add columns: `policy_id uuid`, `all_day boolean default false`, `reminder_minutes integer`, `is_auto_generated boolean default false`, `recurrence_rule text`, `color text`
-- Expand the `event_type` enum to include: `appointment`, `birthday`, `policy_starting_soon`, `beneficiary_checkin`, `lapse_follow_up`, `policy_anniversary`, `follow_up`, `meeting`, `call`, `other` (keep existing values, add missing ones via `ALTER TYPE ... ADD VALUE`)
-- Index on `(agent_id, start_at)`
+Existing tables to extend (additive only, RLS already correct):
 
-Auto-event triggers (security definer functions):
-- `clients` AFTER INSERT/UPDATE of `date_of_birth` → insert annual `birthday` event (next upcoming birthday)
-- `policies` AFTER INSERT with `effective_date` → insert `policy_starting_soon` (effective_date − 30d). Replace existing `policy_after_insert` follow-up to use `policy_starting_soon` type
-- `policies` AFTER UPDATE when status → `active` → insert `policy_anniversary` (effective_date + 1y, recurrence `FREQ=YEARLY`). Extend existing `policy_status_lapse_followup` to write `lapse_follow_up` type instead of generic `followup`
-- `beneficiaries` AFTER INSERT → look up client's most recent active policy, insert annual `beneficiary_checkin` on its anniversary
+- `call_logs`: add `outcome text` ('connected'|'no_answer'|'voicemail'|'busy').
+- `sms_conversations`: add `unread_count int default 0`, `created_at timestamptz default now()`.
+- `sms_messages`: add `twilio_sid text`, `is_auto bool default false`.
+- `dial_list_entries`: add `position int default 0`, `notes text`.
+- `wallet_transactions`: add `stripe_payment_id text` (forward-compat).
 
-RLS already covers agent ownership; no changes needed.
+New table:
 
-Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE public.calendar_events`.
+- `agent_phone_settings(id, agent_id uuid unique → profiles, phone_number text, twilio_sid text, forwarding_number text, forwarding_enabled bool default false, sms_registration_status text default 'pending')` + owner RLS + auto-row on `handle_new_user` (or upsert-on-read in server fn).
 
-### 2. Server functions (`src/lib/calendar.functions.ts`)
+Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE sms_messages, sms_conversations;`.
 
-All protected with `requireSupabaseAuth`:
-- `listEvents({ rangeStart, rangeEnd })` → events in window for current agent
-- `createEvent(input)` → inserts manual event (`is_auto_generated=false`)
-- `updateEvent({ id, ...fields })`
-- `deleteEvent({ id })`
+Trigger: on `sms_messages` insert with `direction='inbound'`, bump `sms_conversations.unread_count` and `last_message_at`.
 
-### 3. Calendar page (`src/routes/_authenticated/calendar.tsx`)
+## 2. Server functions (`src/lib/phone.functions.ts`)
 
-Rewrite the existing mock page:
-- Header: Today / prev / next, month-year title, view toggle (Day/Week/Month), mini-calendar popover, `+ Create` button
-- View persisted in `localStorage` (`calendar:view`)
-- **Month view**: 7-col grid, today highlighted, ≤3 event pills + "+N more" popover, color-coded by event type, click day → create modal pre-filled, click pill → detail drawer
-- **Week view**: 7 columns × hourly rows 6am–9pm, events as colored blocks, red "now" line
-- **Day view**: single column hourly list
-- Lapse Follow-Up pills get a pulsing red dot
-- Empty-month copy: "No events this month — enjoy the quiet!"
-- Skeleton loader while loading
-- Realtime subscribe → invalidate query on `calendar_events` changes
+All `requireSupabaseAuth`, validated with zod.
 
-Components (under `src/components/calendar/`):
-- `MonthView.tsx`, `WeekView.tsx`, `DayView.tsx`
-- `EventPill.tsx` (color + icon by type)
-- `CreateEventModal.tsx` (title, type, client search, date, all-day, start/end time, notes, reminder)
-- `EventDetailDrawer.tsx` (details, auto-generated badge, Call/SMS quick actions if client linked, Edit/Delete)
-- `MiniCalendar.tsx`
+- `getPhoneOverview()` — phone settings (upsert default), top-nav unread count.
+- `updatePhoneSettings({ forwarding_number, forwarding_enabled, phone_number? })`.
+- `listConversations({ filter: 'all'|'unread' })` — joins clients for name/avatar initials.
+- `getConversation({ id })` + `listMessages({ conversationId })`.
+- `markConversationRead({ id })` — sets `unread_count=0`.
+- `sendSms({ conversationId?, toPhone?, body })` — stubbed: inserts `sms_messages` row `direction='outbound'`, `status='sent'`, no Twilio. Creates conversation if needed.
+- `startConversation({ clientId?, phoneNumber })`.
+- `listRecents({ limit })` / `getCallLog({ id })`.
+- `logCall({ phone, clientId?, direction, duration_seconds, outcome })` — stub used by dialer end-call.
+- `listDialLists()` / `getDialList({ id })` (with entries + client joins + progress).
+- `createDialList({ name, clientIds[] })` / `updateDialList` / `deleteDialList`.
+- `recordDialOutcome({ entryId, outcome, notes? })` — sets `called_at=now()`.
+- `searchClientsForPhone({ q })`.
 
-Color/icon map kept in `src/lib/calendar-meta.ts` matching spec (Blue/Pink/Green/Orange/Red/Purple + lucide icons).
+## 3. Routes
 
-### Out of scope (not implementing this turn)
-- Drag-to-reschedule
-- Print stylesheet
-- Reminder-to-notification cron job (table column reserved; cron job can be added later)
-- Mobile swipe gestures
+- `src/routes/_authenticated/phone.tsx` — full rewrite of the existing mock page. Tab state via search param `?tab=phone|sms|dial`. Sidebar label change "Phone & SMS" → "My Phone".
+- Drop wallet tab from `/phone`. Keep a disabled "Wallet" button in the top bar with a "Coming soon" tooltip (spec calls for the button; deferring functionality).
 
-### Technical notes
-- Data fetched via `useSuspenseQuery` with `queryKey: ['calendar', rangeStart, rangeEnd]`
-- Recurrence handled client-side: annual events expanded into the visible window by adjusting year
-- Client search in modal uses existing `clients` table scoped by RLS
+## 4. Components (`src/components/phone/`)
+
+```
+PhoneTopBar.tsx        # number, status dot, Wallet (disabled), Settings
+PhoneSettingsDrawer.tsx
+telephone/
+  TelephonePanel.tsx   # owns dialer/active-call/sub-tab state
+  Dialer.tsx           # input + 3x4 keypad + green call btn
+  ActiveCall.tsx       # name, timer (setInterval), 2x3 control grid
+  Recents.tsx
+  Voicemail.tsx        # static empty state ("No voicemails yet")
+sms/
+  ConversationList.tsx # search, All/Unread, realtime, unread badges
+  MessageThread.tsx    # auto-scroll, sent/received bubbles, Sophai label
+  MessageComposer.tsx  # textarea, Enter-to-send, char counter, attach disabled
+  NewMessageModal.tsx  # client typeahead OR raw number
+dial/
+  DialListGrid.tsx     # cards w/ progress
+  DialListEditor.tsx   # modal w/ client search + pipeline-stage import
+  DialingSession.tsx   # full-screen overlay, contact 7/15, outcome picker
+```
+
+Shared:
+- `src/lib/phone-format.ts` (E.164 ↔ display, already partial in `lib/format.ts` — reuse).
+- Top-nav phone + chat-bubble icons → wire to `/phone` and `/phone?tab=sms`; chat icon shows unread badge (query `getPhoneOverview` cached in root via TanStack Query).
+
+## 5. Realtime + caching
+
+- Single Supabase Realtime subscription mounted in `phone.tsx` for `sms_messages` + `sms_conversations`; on event call `queryClient.invalidateQueries(['phone'])`.
+- Active call: `setInterval` 1s ticker in `ActiveCall`.
+- Dialer "call" action: opens `ActiveCall` immediately (stub), random connect after 1.5s; "End Call" calls `logCall` then prompts "Add note to client" if duration > 30s (writes to `contact_history`).
+
+## 6. Out of scope (explicit)
+
+- Twilio Voice/SMS network calls, capability tokens, webhooks, MMS upload.
+- Wallet top-ups, Stripe, pricing/usage rollup, low-balance banner. Wallet tables stay untouched.
+- Sophai auto-send logic (column + label rendering only).
+- Voicemail audio playback (empty state only).
+- Number provisioning / Twilio number picker (settings shows current `phone_number` text + read-only registration status).
+
+## 7. Verification
+
+After migration + code, manually exercise: send SMS → row appears + realtime updates list; create dial list from 3 clients → start session → record outcomes → progress bar updates; place stub call → log row appears in Recents; settings drawer saves forwarding number.
+
+Approve to start with the migration.
