@@ -1,73 +1,99 @@
-# Account Section Build Plan
+## Scope
 
-## Database (migration)
+Three surfaces:
+1. `/contracting/invite` — 2-step upline invite form + "My Sent Invites" table
+2. `/join/$token` — public 5-step agent onboarding (account → personal → carriers → agreement → SureLC)
+3. `/contracting/onboarding` — upline dashboard with 4 tabs (Invite Manager, Document Manager, Change Requests, SuranceBay Progress)
 
-**Extend `profiles`**: add `npn_number text`, `date_of_birth date`, `gender text`, `ssn_encrypted text` (pgsodium), `street_address`, `city`, `state_code char(2)`, `zip_code`, `agent_slug text unique`, `google_oauth_connected bool`. (Many may already exist; ALTER IF NOT EXISTS pattern.)
+SureLC integration is **stubbed**: "Open SuranceBay" returns a mock URL and seeds fake progress rows that randomly advance on the manual Refresh. No email sending — success modal shows copyable invite link; agents already on Agent Cloud get an in-app notification.
 
-**New tables** (all RLS: agent owns rows, admin full, upline read-only where relevant):
-- `producer_documents` (agent_id, doc_type, file_url, file_name, metadata jsonb, start_date, expiration_date, uploaded_at) — already exists per `agent_completion`; extend if needed.
-- `background_questions` (agent_id, question_number, answer bool, explanation text, updated_at) — unique(agent_id, question_number).
-- `producer_agreements` (agent_id unique, signature_name, signed_date, agreement_version, signature_image_url, pdf_url).
-- `agent_landing_pages` (agent_id unique, published bool, contact_email, contact_phone, custom_message, specialties jsonb, carriers jsonb, licensed_states jsonb, updated_at).
-- `faq_items` (id, section, question, answer, sort_order) — public read, admin write. Seed with ~15 items.
+## Database migration
 
-**Storage bucket**: `agent-documents` (private). RLS: agents read/write under `{agent_id}/...` path; admins read all.
+Extend existing `invitation_links` (already has token, name, carrier_assignments, created_by) with:
+- `sent_on_behalf_of`, `existing_agent_id`, `linked_agent_id` (uuid → profiles)
+- `new_agent_first_name`, `new_agent_last_name`, `new_agent_email` (text)
+- `invite_signature_html` (text)
+- `status` (text default 'pending'), `onboarding_step` (int default 0)
+- `agent_started_at`, `agent_completed_at`, `expires_at` (default now()+30d)
+- `surelc_agent_id` (text)
 
-**SSN encryption**: pgsodium extension. Create `ssn_set(agent_id, ssn text)` and `ssn_reveal(agent_id)` SECURITY DEFINER functions using pgsodium key. Reveal writes to `ssn_audit_log` (agent_id, revealed_by, revealed_at).
+New tables (all with RLS as specified):
+- `surelc_progress` (agent_id, invitation_id, section_name, completed, last_synced_at; UNIQUE(agent_id, section_name))
+- `change_requests` (submitted_by, agent_id, carrier_id, contract_request_id, request_type, other_description, new_upline_id, new_level_name, new_level_pct, status default 'deferred', submitted_at, resolved_at)
+- `onboarding_documents` (agent_id, invitation_id, uploaded_by, doc_type, file_url, file_name, uploaded_at)
 
-**Slug generation**: trigger on profiles insert/update to populate `agent_slug` from name with numeric suffix on conflict.
+Extend `profiles` with `invite_signature_html` (text). Extend `carriers` with `surelc_carrier_code` (text), `datalink_enabled` (bool default false).
 
-## Server functions (`src/lib/account.functions.ts`)
+RLS: invites/progress/change-requests/docs all scoped to owner + downline-select + admin, mirroring existing pattern (`is_in_downline`, `has_role`). Public token lookup handled via a SECURITY DEFINER function `get_invite_by_token(token)` returning only safe fields (no PII of upline beyond name).
 
-All `requireSupabaseAuth`:
-- `getProducerProfile` — returns profile + docs metadata + bg questions + agreement + completion %. SSN always masked (`***-**-NNNN`).
-- `updateProducerProfile(input)` — Zod-validated patch of profile fields (no SSN).
-- `setSsn(ssn)` — calls `ssn_set` RPC, stores last4 in profile for masking.
-- `revealSsn()` — calls `ssn_reveal`, returns plain SSN once; logs audit.
-- `uploadDocument({ doc_type, file_path, metadata, start_date, expiration_date })` — inserts/upserts `producer_documents`, file already uploaded client-side to bucket via signed upload.
-- `getDocumentSignedUrl(doc_id)` — 1h signed URL.
-- `saveBackgroundQuestions(answers[])`.
-- `signProducerAgreement(name)` — renders typed-name as PNG (jsPDF/canvas server-side using `@napi-rs/canvas` is not Worker-safe; instead generate SVG → store as `.svg` in bucket), creates PDF link placeholder; row inserted with signature_name + signed_date.
-- `getLandingPage` / `saveLandingPage(input)` / `togglePublished(bool)`.
-- `generateBioAi({ context })` — calls Lovable AI gateway (gemini-3-flash-preview) with system prompt; returns 2-3 sentence bio.
-- `searchFaq(q)` — returns all items (client filters); admin: `upsertFaqItem`.
+Storage: reuse existing private `agent-documents` bucket for onboarding docs (path prefix `onboarding/{agent_id}/`).
 
-**Public server route** `src/routes/api/public/landing-lead.ts` — POST: validates payload, looks up agent by slug, inserts `clients` row (stage='new', temperature='warm', agent_id=agent), inserts notification. Rate-limited via simple per-IP check.
+## Server functions (`src/lib/contracting.functions.ts`)
 
-## Routes
+Auth-protected (requireSupabaseAuth):
+- `getMyContractedCarriers` — returns carriers where current user has agent_commission_levels, with their level_pct (used to gate carrier/level options on invite form)
+- `searchDownlineAgents(query)` — typeahead for existing-agent + new-upline pickers
+- `createInvite(payload)` — validates levels ≤ upline's, inserts invitation_links, returns `{ id, token, url }`
+- `listMyInvites({ scope: 'mine' | 'downline' })`
+- `addCarriersToInvite`, `updateInviteCarrierLevel`, `deleteInvite`, `resendInvite` (no-op email; bumps a timestamp)
+- `saveInviteSignature(html)` → profiles.invite_signature_html
+- `listOnboardingDocsForAgent(agentId)`, `uploadOnboardingDoc(agentId, docType, fileMeta)`, `getDocSignedUrl(id)`
+- `submitChangeRequest(payload)` — validates contract active 90+ days
+- `listChangeRequests`, `updateChangeRequest` (admin only), `deleteChangeRequest`
+- `listSurelcProgress({ scope })`, `refreshSurelcProgress(agentId)` — stub: random advance of incomplete sections
 
-**Authenticated (under `_authenticated/account/`)**:
-- `producer-profile.tsx` — header with completion ring (SVG), 3 tabs (shadcn Tabs):
-  - **Profile Information**: collapsible Accordion sections (Personal, Address, Contact, E&O, Banking, DL, AML, User Account, Signed Agreement). Each section: read mode → Edit pencil → inline fields. SSN show-reveal button (10s timer, audit). Document uploads use direct Supabase Storage upload then call `uploadDocument`. Sticky Save Changes bar.
-  - **Background Questions**: 7 Y/N radio groups with conditional textarea, Save button.
-  - **Integrations**: 5 display-only cards (Google Calendar, Outlook, Zapier, Twilio, Stripe) with "Coming soon" toast on Connect.
-- `my-landing-page.tsx` — Published toggle (instant save), live URL + copy, Preview opens Sheet rendering same component as public page, Save button. Form sections: Contact, Profile Photo upload, Custom Message (500 char) + Generate with AI modal, What I Help With checkboxes, Carriers checkboxes (sorted alpha), States Licensed In chip grid + Select All.
-- `faq.tsx` — Search input, accordion grouped by section, client-side filter.
-- `help.tsx` — Simple page with link to external help center + embedded contact info.
+Public (no middleware, used by `/join/$token`):
+- `getInviteByToken(token)` — calls SECURITY DEFINER function; returns upline name + carriers + status. Returns 404-ish if expired.
+- `acceptInviteCreateAccount(payload)` — signs up new user via supabaseAdmin, links invitation_links.linked_agent_id, sets agent_started_at, sets profiles upline_id = invite.created_by
+- `acceptInviteLinkExisting(token)` — called after login; links existing user to invite
+- `saveOnboardingPersonalInfo(token, fields)` — updates profiles + SSN via existing `ssn_set`; bumps onboarding_step=1
+- `saveOnboardingCarrierChoices(token, choices)` — creates contract_requests rows (status='requested'); bumps step=2
+- `signOnboardingAgreement(token, name)` — inserts producer_agreements row; bumps step=3, sets agent_completed_at; notifies upline
+- `startSurelcSso(token)` — stub: returns `https://example.com/surelc-stub/{surelc_agent_id}`; seeds 8 surelc_progress rows (all incomplete); bumps step=4, sets invitation_links.status='in_surelc'
 
-**Public**:
-- `src/routes/myagent.$agentSlug.tsx` — public landing page rendering agent profile + lead form. Loader calls public server fn `getPublicLandingPage(slug)` (uses supabaseAdmin, returns only safe fields). Form POSTs to `/api/public/landing-lead`.
+## Routes & components
 
-## Sidebar
+**Authenticated routes** (under `_authenticated/contracting/`):
+- `invite.tsx` — 2-step wizard (Stepper, AgentInfoStep, CarrierLevelsStep, SuccessPanel) + SentInvitesTable below
+- `onboarding.tsx` — tab layout (Tabs from shadcn) with 4 tab components:
+  - `InviteManagerTab` — toggle direct/all-downline, search, filter, expandable rows w/ per-carrier status, Add Carriers modal, Edit Level modal
+  - `DocumentManagerTab` — agent selector, doc cards (E&O, AML, Banking, Driver's License, Agreement) with upload/replace/view
+  - `ChangeRequestsTab` — submit modal + table; admin sees edit/delete-status controls
+  - `SurelcProgressTab` — per-agent progress cards, manual Refresh button calling `refreshSurelcProgress`
 
-Add "Account" group with 4 entries (Help Center, FAQ, Producer Profile, My Landing Page).
+**Public routes** (top-level, not under `_authenticated`):
+- `join.$token.tsx` — single page with internal `step` state driven by `invitation_links.onboarding_step`. Renders Step0Account / Step1Personal / Step2Carriers / Step3Agreement / Step4Surelc. Loaders use public server fns; mutations call useServerFn.
 
-## Components
+**Components** (`src/components/contracting/`):
+- `CarrierLevelPicker` — checkbox card + product-group rows with locked-level logic
+- `LevelDropdown` — capped at upline pct
+- `MaskedSsnInput` — reuses existing pattern from Producer Profile
+- `InviteStatusBadge`, `ContractStatusBadge`, `SurelcSectionRow`
+- `DocumentCard` — used in both onboarding dashboard and (later) agent self-service
 
-- `<CompletionRing pct={n} />` — animated SVG ring.
-- `<MaskedField>` — generic show/hide with timer + audit callback.
-- `<DocumentUploadField>` — handles bucket upload + signed URL view button.
-- `<StateChipGrid>` — 51 states toggle grid, mobile collapses to multi-select.
-- `<LandingPagePreview>` — pure component reused by Preview modal and public route.
+Add sidebar nav links: "Invite Agent" → `/contracting/invite`, "Onboarding Dashboard" → `/contracting/onboarding`.
+
+## Validation rules
+
+- Invite: ≥1 carrier, every selected carrier has a level. Levels checked server-side against `agent_commission_levels` for `created_by`.
+- Onboarding personal: zod for SSN (9 digits), DOB, ZIP (5), phone (10).
+- Carrier selection: ≥1 carrier set to "Yes".
+- Change request: server-side check that referenced `contract_requests.activated_at < now() - 90 days`.
+- Token resolution: expired or used tokens return a friendly "expired" state.
 
 ## Out of scope (v1)
 
-- Real OAuth flows (Google Calendar/Outlook/Zapier).
-- E&O/Banking/DL/AML are stored with metadata; no carrier-side verification.
-- Generated signed agreement PDF — store typed name + date only; "Download PDF" generates client-side via jsPDF on click.
-- Photo cropping UI — accept square upload, no crop tool.
-- Profile photo bucket separate from documents; reuse `agent-documents` under `{agent_id}/avatar/`.
+- Real SureLC / NIPR API calls — stubbed
+- Real email sending — copy-link only, in-app notifications
+- Draw-to-sign signature pad — type-to-sign only
+- Carrier-added in-app email — replaced with notification row
+- Realtime auto-refresh (Supabase Realtime) — explicit Refresh button + 60s polling on dashboard
+- Photo cropping, fax integration, NIPR lookup button
 
 ## Verification
 
-After build: load `/account/producer-profile`, complete a section, upload a doc, reveal SSN (check audit row), toggle landing page published, view public `/myagent/{slug}`, submit lead, confirm client+notification created.
+1. Migration applies cleanly; `supabase--linter` passes.
+2. As upline: open `/contracting/invite`, select 2 carriers + levels, send → success modal with copyable URL.
+3. Open URL in incognito → step 0 → create new account → walk through 4 steps → reach SureLC stub button.
+4. Click stub button → opens example.com URL; back in dashboard, SuranceBay Progress tab shows new agent with 8 incomplete sections; Refresh advances some.
+5. Onboarding dashboard: Invite Manager shows the invite as "In SureLC"; Document Manager allows upload; Change Requests submission blocked unless a 90-day-active contract exists.
