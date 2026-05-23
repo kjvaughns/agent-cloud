@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Mail, Phone, Eye, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Trash2 } from "lucide-react";
+import { UserPlus, Mail, Phone, Eye, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import {
