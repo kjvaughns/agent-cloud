@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const ScopeSchema = z.object({
   scope: z.enum(["hierarchy", "mine", "agent"]),
-  agentId: z.string().uuid().optional().nullable(),
+  agentId: z.string().uuid().optional(),
 });
 
 export const listBookOfBusiness = createServerFn({ method: "POST" })
