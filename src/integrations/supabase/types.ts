@@ -148,6 +148,45 @@ export type Database = {
           },
         ]
       }
+      agent_landing_pages: {
+        Row: {
+          agent_id: string
+          carriers: Json
+          contact_email: string | null
+          contact_phone: string | null
+          custom_message: string | null
+          id: string
+          licensed_states: Json
+          published: boolean
+          specialties: Json
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          carriers?: Json
+          contact_email?: string | null
+          contact_phone?: string | null
+          custom_message?: string | null
+          id?: string
+          licensed_states?: Json
+          published?: boolean
+          specialties?: Json
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          carriers?: Json
+          contact_email?: string | null
+          contact_phone?: string | null
+          custom_message?: string | null
+          id?: string
+          licensed_states?: Json
+          published?: boolean
+          specialties?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_phone_settings: {
         Row: {
           agent_id: string
@@ -284,6 +323,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      background_questions: {
+        Row: {
+          agent_id: string
+          answer: boolean
+          explanation: string | null
+          id: string
+          question_number: number
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          answer: boolean
+          explanation?: string | null
+          id?: string
+          question_number: number
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          answer?: boolean
+          explanation?: string | null
+          id?: string
+          question_number?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       beneficiaries: {
         Row: {
@@ -1073,6 +1139,33 @@ export type Database = {
           },
         ]
       }
+      faq_items: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          section: string
+          sort_order: number
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question: string
+          section: string
+          sort_order?: number
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question?: string
+          section?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       handbook_sections: {
         Row: {
           content_html: string | null
@@ -1397,6 +1490,30 @@ export type Database = {
           },
         ]
       }
+      producer_agreements: {
+        Row: {
+          agent_id: string
+          agreement_version: string
+          id: string
+          signature_name: string
+          signed_date: string
+        }
+        Insert: {
+          agent_id: string
+          agreement_version?: string
+          id?: string
+          signature_name: string
+          signed_date?: string
+        }
+        Update: {
+          agent_id?: string
+          agreement_version?: string
+          id?: string
+          signature_name?: string
+          signed_date?: string
+        }
+        Relationships: []
+      }
       producer_documents: {
         Row: {
           agent_id: string
@@ -1439,11 +1556,15 @@ export type Database = {
           date_of_birth: string | null
           email: string | null
           first_name: string | null
+          gender: string | null
+          google_oauth_connected: boolean
           id: string
           last_active_at: string | null
           last_name: string | null
           npn_number: string | null
           phone: string | null
+          ssn_encrypted: string | null
+          ssn_last4: string | null
           state: string | null
           status: string
           street_address: string | null
@@ -1458,11 +1579,15 @@ export type Database = {
           date_of_birth?: string | null
           email?: string | null
           first_name?: string | null
+          gender?: string | null
+          google_oauth_connected?: boolean
           id: string
           last_active_at?: string | null
           last_name?: string | null
           npn_number?: string | null
           phone?: string | null
+          ssn_encrypted?: string | null
+          ssn_last4?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
@@ -1477,11 +1602,15 @@ export type Database = {
           date_of_birth?: string | null
           email?: string | null
           first_name?: string | null
+          gender?: string | null
+          google_oauth_connected?: boolean
           id?: string
           last_active_at?: string | null
           last_name?: string | null
           npn_number?: string | null
           phone?: string | null
+          ssn_encrypted?: string | null
+          ssn_last4?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
@@ -2000,6 +2129,27 @@ export type Database = {
           },
         ]
       }
+      ssn_audit_log: {
+        Row: {
+          agent_id: string
+          id: string
+          revealed_at: string
+          revealed_by: string
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          revealed_at?: string
+          revealed_by: string
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          revealed_at?: string
+          revealed_by?: string
+        }
+        Relationships: []
+      }
       state_licenses: {
         Row: {
           agent_id: string
@@ -2352,6 +2502,8 @@ export type Database = {
       }
       seed_agent_challenges: { Args: { _agent: string }; Returns: undefined }
       send_team_reminder: { Args: { _target: string }; Returns: Json }
+      ssn_reveal: { Args: never; Returns: string }
+      ssn_set: { Args: { _ssn: string }; Returns: undefined }
     }
     Enums: {
       app_role: "agent" | "manager" | "admin"
