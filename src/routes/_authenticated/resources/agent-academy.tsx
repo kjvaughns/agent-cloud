@@ -41,7 +41,7 @@ function Page() {
           <CardContent className="pt-6">
             <div className="text-xs uppercase opacity-80">Featured Course</div>
             <div className="text-2xl font-bold mt-1">{featured.title}</div>
-            <div className="opacity-90 mt-1">{featured.description} · {featured.module_count} modules · {fmtDuration(featured.duration_minutes)}</div>
+            <div className="opacity-90 mt-1">{featured.description} · {featured.module_count} modules · {fmtDuration(featured.duration_minutes ?? 0)}</div>
             <Button variant="secondary" className="mt-4" onClick={() => toast.info("Course viewer coming soon")}>
               <Play className="h-4 w-4 mr-1" /> Start Course
             </Button>
