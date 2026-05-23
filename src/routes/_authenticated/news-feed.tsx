@@ -1,80 +1,96 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { format } from "date-fns";
+import { Newspaper, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageCircle, Share2, Trophy, TrendingUp } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { listNewsArticles } from "@/lib/news.functions";
 
 export const Route = createFileRoute("/_authenticated/news-feed")({
+  head: () => ({ meta: [{ title: "News Feed — Agent Cloud" }] }),
   component: NewsFeedPage,
 });
 
-const POSTS = [
-  { id: 1, author: "Marcus Chen", role: "Director", initials: "MC", time: "20m", type: "win", body: "Just placed a $48K AP IUL on a 42yo physician. Sophai's objection script for cost concerns was money. 🔥", likes: 34, comments: 8 },
-  { id: 2, author: "Priya Singh", role: "Manager", initials: "PS", time: "1h", type: "milestone", body: "Hit $250K AP for the month! Team Apex is stacking wins. Recruiting 3 more agents this week — DM if interested.", likes: 87, comments: 21 },
-  { id: 3, author: "James O'Connor", role: "Agent", initials: "JO", time: "3h", type: "question", body: "Anyone have a great script for objection: 'I need to talk to my spouse'? Lost two deals this week on that.", likes: 12, comments: 19 },
-  { id: 4, author: "Sara Lopez", role: "Director", initials: "SL", time: "6h", type: "tip", body: "PRO TIP: always lead with the term-vs-permanent comparison. Visual sells. Sophai now generates that chart automatically.", likes: 56, comments: 14 },
+const CATEGORIES = [
+  { value: "all", label: "All" },
+  { value: "Life Insurance", label: "Life Insurance" },
+  { value: "Medicare", label: "Medicare" },
+  { value: "Annuities", label: "Annuities" },
+  { value: "Regulations", label: "Regulations" },
 ];
 
-const TYPE_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  win: { label: "Win", icon: Trophy, color: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
-  milestone: { label: "Milestone", icon: TrendingUp, color: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
-  question: { label: "Question", icon: MessageCircle, color: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
-  tip: { label: "Tip", icon: Trophy, color: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
-};
-
 function NewsFeedPage() {
+  const [cat, setCat] = useState("all");
+  const list = useServerFn(listNewsArticles);
+  const { data, isLoading, refetch, isFetching, dataUpdatedAt } = useQuery({
+    queryKey: ["news", cat],
+    queryFn: () => list({ data: { category: cat } }),
+  });
+
+  const items = data ?? [];
+
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">News Feed</h1>
-        <p className="text-muted-foreground mt-1">What your agency is talking about.</p>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Newspaper className="h-6 w-6" /> News Feed
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Stay informed with the latest insurance industry insights and market developments
+        </p>
+        <div className="flex items-center gap-3 mt-3 text-sm text-muted-foreground">
+          <span>Last updated: {dataUpdatedAt ? format(new Date(dataUpdatedAt), "MMM d, yyyy 'at' h:mm a") : "—"}</span>
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-3">
-          <div className="flex gap-3">
-            <Avatar><AvatarFallback>YO</AvatarFallback></Avatar>
-            <Textarea placeholder="Share a win, ask for help, drop a tip..." className="resize-none" />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm">Add Photo</Button>
-            <Button size="sm">Post</Button>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs value={cat} onValueChange={setCat}>
+        <TabsList>
+          {CATEGORIES.map((c) => (
+            <TabsTrigger key={c.value} value={c.value}>{c.label}</TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      <div className="space-y-4">
-        {POSTS.map((p) => {
-          const meta = TYPE_META[p.type];
-          const Icon = meta.icon;
-          return (
-            <Card key={p.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar><AvatarFallback>{p.initials}</AvatarFallback></Avatar>
-                    <div>
-                      <div className="font-medium text-sm">{p.author}</div>
-                      <div className="text-xs text-muted-foreground">{p.role} · {p.time}</div>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className={meta.color}><Icon className="h-3 w-3 mr-1" />{meta.label}</Badge>
+      {isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-44" />)}
+        </div>
+      ) : !items.length ? (
+        <div className="text-center py-20 border rounded-lg">
+          <Newspaper className="h-12 w-12 mx-auto text-muted-foreground/40" />
+          <p className="mt-4 font-medium">News feed is currently unavailable.</p>
+          <p className="text-sm text-muted-foreground">Please check back later.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {items.map((a) => (
+            <Card key={a.id} className="hover:shadow-md transition">
+              <CardContent className="p-5 flex flex-col h-full">
+                <div className="flex items-center justify-between mb-3">
+                  {a.category && <Badge variant="secondary">{a.category}</Badge>}
+                  {a.source_name && <span className="text-xs text-muted-foreground">{a.source_name}</span>}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm">{p.body}</p>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-3">
-                  <button className="flex items-center gap-1 hover:text-foreground"><Heart className="h-4 w-4" />{p.likes}</button>
-                  <button className="flex items-center gap-1 hover:text-foreground"><MessageCircle className="h-4 w-4" />{p.comments}</button>
-                  <button className="flex items-center gap-1 hover:text-foreground"><Share2 className="h-4 w-4" />Share</button>
+                <h3 className="font-semibold text-base leading-snug mb-2 line-clamp-2">{a.title}</h3>
+                {a.summary && <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{a.summary}</p>}
+                <div className="mt-auto flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{a.published_at ? format(new Date(a.published_at), "MMM d, yyyy") : ""}</span>
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                    Read <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
