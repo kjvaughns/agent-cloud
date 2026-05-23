@@ -29,7 +29,7 @@ const groups = [
     items: [
       { title: "Pipeline", url: "/pipeline", icon: KanbanSquare },
       { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "Phone & SMS", url: "/phone", icon: Phone },
+      { title: "My Phone", url: "/phone", icon: Phone },
       { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
       { title: "Sophai Settings", url: "/sophai/settings", icon: Shield },
       { title: "Sophai Activity", url: "/sophai/activity", icon: Activity },

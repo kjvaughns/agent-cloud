@@ -33,8 +33,8 @@ export function TopBar() {
       <SidebarTrigger />
       <div className="flex-1" />
 
-      <Button variant="ghost" size="icon" aria-label="Phone" asChild><Link to="/phone"><Phone className="h-4 w-4" /></Link></Button>
-      <Button variant="ghost" size="icon" aria-label="SMS" asChild><Link to="/phone"><MessageSquare className="h-4 w-4" /></Link></Button>
+      <Button variant="ghost" size="icon" aria-label="Phone" asChild><Link to="/phone" search={{ tab: "phone" }}><Phone className="h-4 w-4" /></Link></Button>
+      <Button variant="ghost" size="icon" aria-label="SMS" asChild><Link to="/phone" search={{ tab: "sms" }}><MessageSquare className="h-4 w-4" /></Link></Button>
 
       {/* Sophai Policy Recovery */}
       <DropdownMenu>
