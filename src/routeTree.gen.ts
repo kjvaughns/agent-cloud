@@ -65,6 +65,7 @@ import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
 import { Route as AuthenticatedAccountFaqRouteImport } from './routes/_authenticated/account/faq'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
+import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design.admin'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -375,6 +376,12 @@ const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   path: '/api/public/hooks/fetch-news',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedBackOfficeCaseDesignAdminRoute =
+  AuthenticatedBackOfficeCaseDesignAdminRouteImport.update({
+    id: '/admin',
+    path: '/admin',
+    getParentRoute: () => AuthenticatedBackOfficeCaseDesignRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -406,7 +413,7 @@ export interface FileRoutesByFullPath {
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
@@ -431,6 +438,7 @@ export interface FileRoutesByFullPath {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRoutesByTo {
@@ -462,7 +470,7 @@ export interface FileRoutesByTo {
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
@@ -487,6 +495,7 @@ export interface FileRoutesByTo {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
+  '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRoutesById {
@@ -521,7 +530,7 @@ export interface FileRoutesById {
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
+  '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
@@ -546,6 +555,7 @@ export interface FileRoutesById {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/_authenticated/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
 export interface FileRouteTypes {
@@ -605,6 +615,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
     | '/contracting/'
+    | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -661,6 +672,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
     | '/contracting'
+    | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
   id:
     | '__root__'
@@ -719,6 +731,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/lead-submit'
     | '/_authenticated/contracting/'
+    | '/_authenticated/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
   fileRoutesById: FileRoutesById
 }
@@ -1131,12 +1144,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/back-office/case-design/admin': {
+      id: '/_authenticated/back-office/case-design/admin'
+      path: '/admin'
+      fullPath: '/back-office/case-design/admin'
+      preLoaderRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeCaseDesignRoute
+    }
   }
 }
 
+interface AuthenticatedBackOfficeCaseDesignRouteChildren {
+  AuthenticatedBackOfficeCaseDesignAdminRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRoute
+}
+
+const AuthenticatedBackOfficeCaseDesignRouteChildren: AuthenticatedBackOfficeCaseDesignRouteChildren =
+  {
+    AuthenticatedBackOfficeCaseDesignAdminRoute:
+      AuthenticatedBackOfficeCaseDesignAdminRoute,
+  }
+
+const AuthenticatedBackOfficeCaseDesignRouteWithChildren =
+  AuthenticatedBackOfficeCaseDesignRoute._addFileChildren(
+    AuthenticatedBackOfficeCaseDesignRouteChildren,
+  )
+
 interface AuthenticatedBackOfficeRouteChildren {
   AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRoute
+  AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   AuthenticatedBackOfficeClientMarketingRoute: typeof AuthenticatedBackOfficeClientMarketingRoute
   AuthenticatedBackOfficeRecruitingFunnelsRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
@@ -1147,7 +1182,7 @@ const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren
     AuthenticatedBackOfficeAdvancedDeskRoute:
       AuthenticatedBackOfficeAdvancedDeskRoute,
     AuthenticatedBackOfficeCaseDesignRoute:
-      AuthenticatedBackOfficeCaseDesignRoute,
+      AuthenticatedBackOfficeCaseDesignRouteWithChildren,
     AuthenticatedBackOfficeClientMarketingRoute:
       AuthenticatedBackOfficeClientMarketingRoute,
     AuthenticatedBackOfficeRecruitingFunnelsRoute:

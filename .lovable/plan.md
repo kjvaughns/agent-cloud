@@ -1,64 +1,74 @@
-## Recruiting Back Office — Build Plan
+## Advanced Back Office — Build Plan
 
-### 1. Database migration (extend existing tables)
+Build two new pages under "Your Back Office": **Case Design** (expert underwriting consultation) and **Advanced Desk** (retirement planning center). Minimal v1 scope for the planner.
 
-`recruiting_funnels` — add: `template_slug text default 'get-contracted-now'`, `page_views int default 0`, `applications int default 0`. Make `slug` unique + not null. Set `published` default to `true`.
+---
 
-`recruiting_prospects` — add: `funnel_id uuid` (nullable, FK funnels), `source text`, `linked_agent_id uuid` (FK profiles). Stage enum already matches the 5 required values.
+### Database (one migration)
 
-New tables:
-- `recruiting_prospect_stage_history` — `prospect_id`, `from_stage`, `to_stage`, `changed_by`, `changed_at`. Trigger on `recruiting_prospects` UPDATE inserts a row when stage changes.
-- `recruiting_prospect_notes` — `prospect_id`, `agent_id`, `note`, `created_at`.
+**`case_design_requests`** — full spec as written. RLS: agent sees own + admin sees all. Admin can update `status` / `response_html` / `responded_at`.
 
-`landing_pages` — add: `lead_count int default 0`. Existing schema already has the rest.
+**`retirement_cases`** — full spec as written. RLS: agent owns + downline read + admin all. Trigger keeps `updated_at` fresh.
 
-`profiles` — add `agent_slug text unique` (auto-set on signup from first_name+last_name+suffix).
+---
 
-RLS: owner_modify / downline_select pattern on all new tables, matching siblings.
+### Sidebar
+Add two new entries to the existing "Your Back Office" group in `app-sidebar.tsx`:
+- Case Design → `/back-office/case-design`
+- Advanced Desk → `/back-office/advanced-desk`
 
-### 2. Public routes (no auth)
+---
 
-- `src/routes/api/public/funnel-view.ts` — POST `{slug}`, increments `page_views` via `supabaseAdmin`. Fire-and-forget from public funnel page.
-- `src/routes/api/public/funnel-apply.ts` — POST `{slug, first_name, last_name, email, phone, state, npn?, message?}`. Validates with zod, inserts `recruiting_prospects` (stage=new, funnel_id, recruiter_id from funnel), increments `applications`, inserts a notification for the recruiter.
-- `src/routes/api/public/lead-submit.ts` — POST `{agent_slug, template_slug, first_name, last_name, phone, email, state, best_time}`. Inserts `clients` (stage=new) for that agent, increments `lead_count`, sends notification.
-- `src/routes/join/$slug.tsx` — public recruiting funnel page. Loader uses `supabaseAdmin` to fetch funnel + recruiter profile. Renders headline, benefits, application form. Fires page-view ping on mount. On submit shows success screen.
-- `src/routes/agent/$agentSlug/$templateSlug.tsx` — public landing page. Loader fetches agent profile + landing_page record by `agent_slug + template_slug`. Renders generic template with the chosen theme config.
+### Page 1: Case Design — `/_authenticated/back-office/case-design.tsx`
 
-### 3. Authenticated routes
+- Header + 2-column info section + 3 service highlight cards + 3-step process strip
+- **Submission form** (client typeahead OR manual; coverage, product, health, height/weight, tobacco, prior decline conditional, occupation, hobbies, notes). Zod validation; required fields = coverage, product, primary condition.
+- On submit: server fn inserts `case_design_requests` (`status='pending'`) + writes a `notifications` row. Success card replaces form area.
+- **My Submissions** table below, hidden when empty. Status badges (Pending/Complete/Needs Info). Clicking a "Complete" row opens a Sheet with the underwriter's `response_html` (sanitized render).
 
-`src/routes/_authenticated/back-office/`
-- `recruiting-funnels.tsx` — tabs (Create New / My Websites). Template card with Create / Preview / Flyer (Flyer = toast "coming soon"). Create modal (name + slug + uniqueness check). My Websites list with stats (views, applications, conversion %, recruited production via SUM(annual_premium) on policies where agent.upline came through this funnel — computed in server fn).
-- `recruiting-tracker.tsx` — stats row + 5-column kanban (@hello-pangea/dnd already in project if available, else native HTML5 DnD). Optimistic stage update via server fn. Add Prospect modal. Prospect detail Sheet/Drawer with stage history, notes timeline, manual stage buttons, delete.
-- `client-marketing.tsx` — 3-col template grid (10 themes config), Quick Deploy (1-click upsert landing_pages row + copy URL toast), Preview modal, My Deployed Pages table.
+### Page 1b: Admin review — `/_authenticated/back-office/case-design/admin.tsx`
+- Gated by `has_role('admin')`; non-admins redirected.
+- Table of all pending/recent cases. Row click → Sheet with full case details, a status dropdown, and a rich-text-ish textarea for `response_html` (basic markdown→HTML on save). Saving sets `responded_at = now()` and notifies the agent.
 
-### 4. Server functions (`src/lib/recruiting.functions.ts`, `src/lib/marketing.functions.ts`)
+---
 
-All use `requireSupabaseAuth`. Functions:
-- `listFunnels`, `createFunnel`, `deleteFunnel`, `getFunnelStats(id)`
-- `listProspects`, `createProspect`, `updateProspectStage`, `deleteProspect`, `getProspectDetail(id)`, `addProspectNote`
-- `getRecruitingStats` (totals + breakdown by stage + conversion)
-- `listLandingPages`, `quickDeployLandingPage(template_slug)`, `deleteLandingPage`
-- `ensureAgentSlug` (called on first deploy)
+### Page 2: Advanced Desk — `/_authenticated/back-office/advanced-desk.tsx`
 
-### 5. Landing page template config
+Three top-level tabs: **Planner | Case Tracker | Needs Attention**.
 
-`src/lib/landing-templates.ts` exports an array of 10 templates: `{slug, name, category, gradient, headline, subhead, bullets[], cta_label, theme_class}`. The public landing page component reads the matching config and renders one generic layout themed by gradient.
+#### Planner (minimal v1)
+- Left input panel (380px): demographics, savings & growth, assumptions modal, accounts list (Add Account dropdown with all 16 types stored as `accounts` jsonb rows: `{id, type, name, balance, monthly_contrib, return_pct, tax_class}`), income sources modal, linked policies (search from `policies` table for this client), expenses/healthcare inputs.
+- Top metric row (5 cards) with green/yellow/red coloring on success probability.
+- **Analysis tabs (only 4 in v1)**: Summary, What-If, Cash Flow, Report. The other 9 tabs (Risk, Income, Expenses, Taxes, Health, Roth, Floor, Legacy, Scenarios) render a "Coming soon" placeholder.
+  - **Summary**: circular gauge of readiness score + narrative paragraph (template-driven, not AI) + top-3 recommended actions (rule-based).
+  - **What-If**: 4 debounced sliders (retire age, monthly contribution, expected return, part-time income toggle) updating a small Recharts line of nest egg trajectory.
+  - **Cash Flow**: year-by-year table + Recharts stacked area chart (growth phase / distribution phase / guaranteed income overlay).
+  - **Report**: "Print Report" button using `window.print()` + a print stylesheet. No jsPDF.
+- **Calc engine** (`src/lib/retirement-calc.ts`, pure functions): deterministic projection only. Success probability = heuristic (portfolio-lasts-to-life-expectancy yes/no with simple stress test at -2% return), not Monte Carlo.
+- **Auto-save**: once a case is loaded/created from Case Tracker, debounce inputs 2s and call `saveRetirementCase` server fn. Scratch work without a case lives in component state.
 
-### 6. Sidebar
+#### Case Tracker
+- "+ New Case" → client search → creates `retirement_cases` row (status=draft) and switches to Planner tab with that case loaded.
+- Table: Client | Created | Status | Nest Egg | Success % | Last Modified | Next Meeting. Row click loads case into Planner.
 
-Add "Your Back Office" group to `src/components/app-sidebar.tsx` with 3 children pointing to the new routes.
+#### Needs Attention
+- Server fn returns cases matching: success_probability_pct < 70 OR updated_at < now()-90d OR (retirement_age - current_age) <= 5.
+- Alert cards with "Open Case" button switching to Planner.
 
-### 7. Out of scope (v1)
+---
 
-- Flyer PDF generation
-- Onboarded → invitation email send
-- Custom landing-page slug editor (only default `agent_slug/template_slug` URL; `custom_slug` column unused)
-- Per-template bespoke layouts/calculators (single generic template + 10 themes)
-- Lead/prospect CSV export
+### Server functions (`src/lib/back-office.functions.ts`)
 
-### Technical notes
+`submitCaseDesign`, `listMyCases`, `getCaseDetail`, `listAllCasesAdmin`, `updateCaseResponseAdmin`, `createRetirementCase`, `saveRetirementCase`, `listRetirementCases`, `getRetirementCase`, `getNeedsAttention`. All use `requireSupabaseAuth`.
 
-- Page-view tracking: TSS public route + `supabaseAdmin` (RPC alternative rejected).
-- Optimistic kanban updates with React Query `useMutation` + `onMutate` cache rewrite.
-- Slug uniqueness checked server-side; collision returns typed error rendered inline in modal.
-- Notifications use existing `notifications` table.
+---
+
+### Out of scope for v1 (explicit)
+- 9 analysis tabs (Risk/Income/Expenses/Taxes/Health/Roth/Floor/Legacy/Scenarios) — placeholders only
+- Monte Carlo 1000-path simulation — replaced with heuristic
+- jsPDF report — replaced with `window.print()`
+- AI-generated Summary narrative — replaced with template
+- Scenario comparison saving
+- Recharts fan chart, glide-path allocation viz
+
+These can be added in follow-up requests without schema changes.

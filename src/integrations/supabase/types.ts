@@ -503,6 +503,81 @@ export type Database = {
         }
         Relationships: []
       }
+      case_design_requests: {
+        Row: {
+          additional_conditions: string | null
+          additional_notes: string | null
+          agent_id: string
+          client_id: string | null
+          client_name_manual: string | null
+          coverage_amount: number | null
+          created_at: string
+          height_in: number | null
+          hobbies: string | null
+          id: string
+          medications: string | null
+          occupation: string | null
+          primary_condition: string | null
+          prior_decline: boolean | null
+          prior_decline_details: string | null
+          product_type: string | null
+          responded_at: string | null
+          responded_by: string | null
+          response_html: string | null
+          status: string
+          tobacco_use: string | null
+          weight_lbs: number | null
+        }
+        Insert: {
+          additional_conditions?: string | null
+          additional_notes?: string | null
+          agent_id: string
+          client_id?: string | null
+          client_name_manual?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          height_in?: number | null
+          hobbies?: string | null
+          id?: string
+          medications?: string | null
+          occupation?: string | null
+          primary_condition?: string | null
+          prior_decline?: boolean | null
+          prior_decline_details?: string | null
+          product_type?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_html?: string | null
+          status?: string
+          tobacco_use?: string | null
+          weight_lbs?: number | null
+        }
+        Update: {
+          additional_conditions?: string | null
+          additional_notes?: string | null
+          agent_id?: string
+          client_id?: string | null
+          client_name_manual?: string | null
+          coverage_amount?: number | null
+          created_at?: string
+          height_in?: number | null
+          hobbies?: string | null
+          id?: string
+          medications?: string | null
+          occupation?: string | null
+          primary_condition?: string | null
+          prior_decline?: boolean | null
+          prior_decline_details?: string | null
+          product_type?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
+          response_html?: string | null
+          status?: string
+          tobacco_use?: string | null
+          weight_lbs?: number | null
+        }
+        Relationships: []
+      }
       challenges: {
         Row: {
           agent_id: string
@@ -1633,6 +1708,90 @@ export type Database = {
           id?: string
           sent_at?: string
           sent_by?: string
+        }
+        Relationships: []
+      }
+      retirement_cases: {
+        Row: {
+          accounts: Json
+          agent_id: string
+          client_id: string | null
+          created_at: string
+          current_age: number | null
+          current_savings: number | null
+          expected_return_pct: number | null
+          expenses_monthly: number | null
+          healthcare_inflation_pct: number | null
+          healthcare_monthly: number | null
+          id: string
+          income_sources: Json
+          inflation_pct: number | null
+          life_expectancy: number | null
+          linked_policy_ids: Json
+          monthly_contribution: number | null
+          next_meeting_date: string | null
+          projected_monthly_income: number | null
+          projected_nest_egg: number | null
+          retirement_age: number | null
+          status: string
+          success_probability_pct: number | null
+          title: string | null
+          updated_at: string
+          withdrawal_rate_pct: number | null
+        }
+        Insert: {
+          accounts?: Json
+          agent_id: string
+          client_id?: string | null
+          created_at?: string
+          current_age?: number | null
+          current_savings?: number | null
+          expected_return_pct?: number | null
+          expenses_monthly?: number | null
+          healthcare_inflation_pct?: number | null
+          healthcare_monthly?: number | null
+          id?: string
+          income_sources?: Json
+          inflation_pct?: number | null
+          life_expectancy?: number | null
+          linked_policy_ids?: Json
+          monthly_contribution?: number | null
+          next_meeting_date?: string | null
+          projected_monthly_income?: number | null
+          projected_nest_egg?: number | null
+          retirement_age?: number | null
+          status?: string
+          success_probability_pct?: number | null
+          title?: string | null
+          updated_at?: string
+          withdrawal_rate_pct?: number | null
+        }
+        Update: {
+          accounts?: Json
+          agent_id?: string
+          client_id?: string | null
+          created_at?: string
+          current_age?: number | null
+          current_savings?: number | null
+          expected_return_pct?: number | null
+          expenses_monthly?: number | null
+          healthcare_inflation_pct?: number | null
+          healthcare_monthly?: number | null
+          id?: string
+          income_sources?: Json
+          inflation_pct?: number | null
+          life_expectancy?: number | null
+          linked_policy_ids?: Json
+          monthly_contribution?: number | null
+          next_meeting_date?: string | null
+          projected_monthly_income?: number | null
+          projected_nest_egg?: number | null
+          retirement_age?: number | null
+          status?: string
+          success_probability_pct?: number | null
+          title?: string | null
+          updated_at?: string
+          withdrawal_rate_pct?: number | null
         }
         Relationships: []
       }
