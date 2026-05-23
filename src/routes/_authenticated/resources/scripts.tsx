@@ -1,59 +1,108 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
+import { getScripts } from "@/lib/resources.functions";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Phone, FileText, Star } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Search, Printer, Copy, ScrollText } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/resources/scripts")({
-  component: ScriptsPage,
+  head: () => ({ meta: [{ title: "Scripts — Agent Cloud" }] }),
+  component: Page,
 });
 
-const SCRIPTS = [
-  { id: 1, title: "IUL Discovery Call — 20 min", cat: "Discovery", product: "IUL", rating: 4.9, uses: 1240 },
-  { id: 2, title: "Final Expense Telesales Pitch", cat: "Pitch", product: "FE", rating: 4.8, uses: 980 },
-  { id: 3, title: "Annuity Rollover Rebuttal Pack", cat: "Objection", product: "Annuity", rating: 4.7, uses: 645 },
-  { id: 4, title: "Term Life Quick Quote", cat: "Pitch", product: "Term", rating: 4.6, uses: 1530 },
-  { id: 5, title: "Recruit Interview — Existing Agent", cat: "Recruiting", product: "—", rating: 4.9, uses: 420 },
-  { id: 6, title: "Voicemail Script That Gets Callbacks", cat: "Outreach", product: "All", rating: 4.5, uses: 2100 },
+const CATS = [
+  { key: "all", label: "All" },
+  { key: "basic", label: "Opening" },
+  { key: "needs_analysis", label: "Needs Analysis" },
+  { key: "objection_handling", label: "Objection Handling" },
+  { key: "mortgage_protection", label: "Mortgage" },
+  { key: "beneficiary", label: "Beneficiary" },
+  { key: "check_in", label: "Follow-Up" },
 ];
 
-function ScriptsPage() {
+function Page() {
+  const fn = useServerFn(getScripts);
+  const { data: scripts = [] } = useQuery({ queryKey: ["scripts"], queryFn: () => fn() });
+  const [q, setQ] = useState("");
+  const [cat, setCat] = useState("all");
+  const [open, setOpen] = useState<any>(null);
+
+  const filtered = useMemo(() => scripts.filter((s: any) =>
+    (cat === "all" || s.category === cat) &&
+    (q === "" || s.title.toLowerCase().includes(q.toLowerCase()))
+  ), [scripts, q, cat]);
+
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search scripts..." className="pl-9" />
-        </div>
-        <Button>Upload Script</Button>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-3xl font-bold flex items-center gap-2"><ScrollText className="h-7 w-7" /> Scripts</h1>
+        <p className="text-muted-foreground">Access proven sales scripts, objection handling guides, and conversation templates to close more deals.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {SCRIPTS.map((s) => (
-          <Card key={s.id} className="hover:shadow-md transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  {s.cat === "Pitch" || s.cat === "Outreach" ? <Phone className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
-                  {s.title}
-                </CardTitle>
-              </div>
-              <div className="flex gap-2 mt-2">
-                <Badge variant="secondary">{s.cat}</Badge>
-                <Badge variant="outline">{s.product}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" />{s.rating}</span>
-                <span>{s.uses.toLocaleString()} uses</span>
-              </div>
-              <Button variant="outline" size="sm" className="w-full mt-3">Open</Button>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search scripts..." className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {CATS.map((c) => (
+          <Badge
+            key={c.key}
+            variant={cat === c.key ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setCat(c.key)}
+          >{c.label}</Badge>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((s: any) => (
+          <Card key={s.id} className="overflow-hidden flex flex-col">
+            <div className="h-1.5" style={{ background: s.accent_color || "hsl(var(--primary))" }} />
+            <CardContent className="pt-5 flex-1 flex flex-col">
+              <Badge variant="outline" className="self-start mb-2 capitalize">{String(s.category).replace(/_/g, " ")}</Badge>
+              <div className="font-semibold">{s.title}</div>
+              <div className="text-sm mt-1">{s.short_description}</div>
+              <div className="text-xs text-muted-foreground mt-2 flex-1">{s.long_description}</div>
+              <Button
+                className="mt-4 self-start"
+                style={{ background: s.accent_color, borderColor: s.accent_color }}
+                onClick={() => setOpen(s)}
+              >View Script</Button>
             </CardContent>
           </Card>
         ))}
+        {filtered.length === 0 && <div className="text-sm text-muted-foreground">No scripts match.</div>}
       </div>
+
+      <Dialog open={!!open} onOpenChange={(v) => !v && setOpen(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {open?.title}
+              {open && <Badge variant="outline" className="capitalize">{String(open.category).replace(/_/g, " ")}</Badge>}
+            </DialogTitle>
+          </DialogHeader>
+          {open && (
+            <>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4 mr-1" /> Print</Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  const tmp = document.createElement("div"); tmp.innerHTML = open.content_html || "";
+                  navigator.clipboard.writeText(tmp.innerText); toast.success("Script copied");
+                }}><Copy className="h-4 w-4 mr-1" /> Copy</Button>
+              </div>
+              <article className="prose prose-sm dark:prose-invert max-w-none mt-3" dangerouslySetInnerHTML={{ __html: open.content_html || "" }} />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
