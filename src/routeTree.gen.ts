@@ -17,6 +17,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as MyagentAgentSlugRouteImport } from './routes/myagent.$agentSlug'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSophaiRouteImport } from './routes/_authenticated/sophai'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
@@ -106,6 +107,11 @@ const MyagentAgentSlugRoute = MyagentAgentSlugRouteImport.update({
 const JoinSlugRoute = JoinSlugRouteImport.update({
   id: '/join/$slug',
   path: '/join/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
@@ -419,6 +425,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
@@ -478,6 +485,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
@@ -540,6 +548,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
   '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
@@ -602,6 +611,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
     | '/account/faq'
@@ -661,6 +671,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
     | '/account/faq'
@@ -722,6 +733,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/sophai'
     | '/_authenticated/team'
+    | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
     | '/_authenticated/account/faq'
@@ -766,6 +778,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   JoinSlugRoute: typeof JoinSlugRoute
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
@@ -832,6 +845,13 @@ declare module '@tanstack/react-router' {
       path: '/join/$slug'
       fullPath: '/join/$slug'
       preLoaderRoute: typeof JoinSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/team': {
@@ -1374,6 +1394,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  InviteTokenRoute: InviteTokenRoute,
   JoinSlugRoute: JoinSlugRoute,
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
