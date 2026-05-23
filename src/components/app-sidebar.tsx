@@ -40,7 +40,7 @@ const groups = [
     items: [
       { title: "Team", url: "/team", icon: Users },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Business Analytics", url: "/analytics", icon: BarChart3 },
       { title: "Finances", url: "/finances", icon: Wallet },
       { title: "Challenges", url: "/challenges", icon: Target },
     ],
