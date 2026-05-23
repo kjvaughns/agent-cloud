@@ -1120,8 +1120,10 @@ export type Database = {
           email: string | null
           first_name: string | null
           id: string
+          last_active_at: string | null
           last_name: string | null
           phone: string | null
+          status: string
           upline_id: string | null
         }
         Insert: {
@@ -1130,8 +1132,10 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id: string
+          last_active_at?: string | null
           last_name?: string | null
           phone?: string | null
+          status?: string
           upline_id?: string | null
         }
         Update: {
@@ -1140,8 +1144,10 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           id?: string
+          last_active_at?: string | null
           last_name?: string | null
           phone?: string | null
+          status?: string
           upline_id?: string | null
         }
         Relationships: [
@@ -1232,6 +1238,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      reminder_log: {
+        Row: {
+          agent_id: string
+          id: string
+          sent_at: string
+          sent_by: string
+        }
+        Insert: {
+          agent_id: string
+          id?: string
+          sent_at?: string
+          sent_by: string
+        }
+        Update: {
+          agent_id?: string
+          id?: string
+          sent_at?: string
+          sent_by?: string
+        }
+        Relationships: []
       }
       scripts: {
         Row: {
@@ -1676,6 +1703,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      agent_completion: { Args: { _agent: string }; Returns: Json }
       get_book_of_business: {
         Args: { _agent_id?: string; _scope: string }
         Returns: {
@@ -1712,6 +1740,28 @@ export type Database = {
           last_name: string
         }[]
       }
+      get_team_alerts: { Args: never; Returns: Json }
+      get_team_downline: {
+        Args: never
+        Returns: {
+          completion_pct: number
+          contracts_count: number
+          created_at: string
+          depth_level: number
+          email: string
+          first_name: string
+          id: string
+          last_active_at: string
+          last_name: string
+          missing: Json
+          phone: string
+          policies_count: number
+          premium_total: number
+          status: string
+          upline_id: string
+        }[]
+      }
+      get_team_kpis: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1723,6 +1773,7 @@ export type Database = {
         Args: { _target: string; _upline: string }
         Returns: boolean
       }
+      send_team_reminder: { Args: { _target: string }; Returns: Json }
     }
     Enums: {
       app_role: "agent" | "manager" | "admin"

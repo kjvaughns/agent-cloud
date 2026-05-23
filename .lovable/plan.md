@@ -1,90 +1,83 @@
-# My Phone — UI + DB (Twilio/Stripe stubbed)
+## My Team — Team Command Center
 
-Rebuild `/phone` per the spec, wired to Supabase for data + realtime. No Twilio calls/SMS actually transmit; no Stripe wallet top-up. Wallet button, Sophai auto-send, voicemail audio, and MMS uploads are deferred.
+Replace the mock `src/routes/_authenticated/team.tsx` with a full database-backed implementation across three tabs (Overview, Roster, Organization).
 
-## 1. Database migration
+### 1. Database migration
 
-Existing tables to extend (additive only, RLS already correct):
+New columns / tables:
+- `profiles.status` (text, default `'pending'`) — values: `active | pending | inactive | terminated`.
+- `profiles.last_active_at` (timestamptz, nullable).
+- `reminder_log` table: `id, agent_id, sent_by, sent_at` — enforces 1 reminder per agent per 24h. RLS: sender can read/insert own rows; downline visibility for managers.
 
-- `call_logs`: add `outcome text` ('connected'|'no_answer'|'voicemail'|'busy').
-- `sms_conversations`: add `unread_count int default 0`, `created_at timestamptz default now()`.
-- `sms_messages`: add `twilio_sid text`, `is_auto bool default false`.
-- `dial_list_entries`: add `position int default 0`, `notes text`.
-- `wallet_transactions`: add `stripe_payment_id text` (forward-compat).
+Trigger:
+- `bump_last_active()` AFTER INSERT on `policies`, `call_logs`, `sms_messages` (via conversation join) — sets `profiles.last_active_at = now()` for the acting agent.
 
-New table:
+RPC functions (SECURITY DEFINER, search_path=public):
+- `get_team_downline()` → recursive CTE returning `id, first_name, last_name, email, phone, upline_id, status, last_active_at, created_at, depth_level, contracts_count, policies_count, premium_total, completion_pct`.
+- `get_team_kpis()` → `{ total, active, active_writers (sold last 30d), pending, contracts_total, contracts_active_pct, depth_distribution: [{level, count}], max_depth }`.
+- `get_team_alerts()` → returns 3 alert kinds: stale_login (last_active_at < now()-14d), lapse_pending agents, stuck contract_requests (status='issue', 7d+).
+- `get_activation_queue()` → downline agents with `completion_pct < 100`, plus `missing: text[]` derived from producer_documents (eo_certificate, banking, drivers_license, aml_certificate) + profile fields.
+- `send_reminder(target_agent uuid)` → checks reminder_log throttle; inserts notification + reminder_log row; returns `{ok, reason}`.
 
-- `agent_phone_settings(id, agent_id uuid unique → profiles, phone_number text, twilio_sid text, forwarding_number text, forwarding_enabled bool default false, sms_registration_status text default 'pending')` + owner RLS + auto-row on `handle_new_user` (or upsert-on-read in server fn).
+Completion % weights match spec (NPN 10 / DOB 5 / address 10 / E&O 20 / banking 15 / DL 10 / AML 20 / signed agreement 10). NPN + signed agreement aren't on schema yet — treat as 0 for now (max achievable 85%) and note in code; alternative is to add `profiles.npn` later.
 
-Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE sms_messages, sms_conversations;`.
+### 2. Server functions (`src/lib/team.functions.ts`)
 
-Trigger: on `sms_messages` insert with `direction='inbound'`, bump `sms_conversations.unread_count` and `last_message_at`.
+Auth-protected via `requireSupabaseAuth`, each wraps an RPC call:
+- `getTeamOverview` → kpis + alerts + activation queue + new agents (7d) + recently active (top 10 by last_active_at).
+- `getTeamRoster({ search, status, depthLevel })` → filtered downline.
+- `getTeamOrg` → downline as nested tree (built from flat CTE result client-side or server-side).
+- `getAgentDetail(agentId)` → profile + contracts list + production breakdown + last 5 activity items.
+- `sendAgentReminder(agentId)` → calls RPC, returns throttle status.
+- `deactivateAgent(agentId)` → sets status='terminated' (manager/admin only; enforced by `has_role` check inside fn).
 
-## 2. Server functions (`src/lib/phone.functions.ts`)
+### 3. Frontend (`src/routes/_authenticated/team.tsx` + components)
 
-All `requireSupabaseAuth`, validated with zod.
+Route file owns header + Tabs. Extract subviews into `src/components/team/`:
+- `team/kpi-row.tsx` — 5 KpiCards.
+- `team/depth-chart.tsx` — horizontal bar chart (plain divs, no extra dep).
+- `team/activation-queue.tsx` — agent cards with missing-items list, Send Reminder + View Profile buttons.
+- `team/new-agents.tsx`, `team/recently-active.tsx`, `team/team-alerts.tsx`.
+- `team/roster-table.tsx` — search + filters + sortable paginated table (25/page, client-side pagination over fetched downline).
+- `team/agent-detail-drawer.tsx` — right-side Sheet, 400px, sections: profile completion, contracts, production, recent activity, actions.
+- `team/org-chart.tsx` — custom recursive tree:
+  - Root = current user, recursive child render of downline tree.
+  - Container with `transform: scale(zoom) translate(x,y)`; `+ / - / Reset` controls; pointer drag-to-pan handler.
+  - Node card: avatar initials, name, status dot, contracts count; left border color by status.
+  - Click node toggles subtree expand/collapse (local Map<id, bool>).
+  - Hover → Tooltip with email, production, policies, last active, View button → opens detail drawer.
+  - Default state for >50 agents: only L1 expanded.
 
-- `getPhoneOverview()` — phone settings (upsert default), top-nav unread count.
-- `updatePhoneSettings({ forwarding_number, forwarding_enabled, phone_number? })`.
-- `listConversations({ filter: 'all'|'unread' })` — joins clients for name/avatar initials.
-- `getConversation({ id })` + `listMessages({ conversationId })`.
-- `markConversationRead({ id })` — sets `unread_count=0`.
-- `sendSms({ conversationId?, toPhone?, body })` — stubbed: inserts `sms_messages` row `direction='outbound'`, `status='sent'`, no Twilio. Creates conversation if needed.
-- `startConversation({ clientId?, phoneNumber })`.
-- `listRecents({ limit })` / `getCallLog({ id })`.
-- `logCall({ phone, clientId?, direction, duration_seconds, outcome })` — stub used by dialer end-call.
-- `listDialLists()` / `getDialList({ id })` (with entries + client joins + progress).
-- `createDialList({ name, clientIds[] })` / `updateDialList` / `deleteDialList`.
-- `recordDialOutcome({ entryId, outcome, notes? })` — sets `called_at=now()`.
-- `searchClientsForPhone({ q })`.
+Page header:
+- Title "Team Command Center", subtitle "{total} agents · {maxDepth} depth level".
+- `[+ Invite]` button → `navigate({to: "/contracting/invite"})` (route already exists in contracting/).
 
-## 3. Routes
+UX details:
+- Default tab = `overview`.
+- Skeleton loaders on each section while queries load.
+- Empty state for zero downline: CTA card → invite link.
+- Sidebar badge: read activation queue count via shared TanStack Query key so `app-sidebar` can show `My Team (X)` — add a small `useActivationQueueCount` hook, wire into the existing sidebar item.
+- Toasts via `sonner` for Send Reminder (success / "already sent today" / error).
+- Mobile: tabs become a `Select`; roster table degrades to card list.
 
-- `src/routes/_authenticated/phone.tsx` — full rewrite of the existing mock page. Tab state via search param `?tab=phone|sms|dial`. Sidebar label change "Phone & SMS" → "My Phone".
-- Drop wallet tab from `/phone`. Keep a disabled "Wallet" button in the top bar with a "Coming soon" tooltip (spec calls for the button; deferring functionality).
+### 4. Files to create / edit
 
-## 4. Components (`src/components/phone/`)
+Create:
+- `supabase/migrations/<timestamp>_team_command_center.sql`
+- `src/lib/team.functions.ts`
+- `src/components/team/*.tsx` (kpi-row, depth-chart, activation-queue, new-agents, recently-active, team-alerts, roster-table, agent-detail-drawer, org-chart, index re-exports)
 
-```
-PhoneTopBar.tsx        # number, status dot, Wallet (disabled), Settings
-PhoneSettingsDrawer.tsx
-telephone/
-  TelephonePanel.tsx   # owns dialer/active-call/sub-tab state
-  Dialer.tsx           # input + 3x4 keypad + green call btn
-  ActiveCall.tsx       # name, timer (setInterval), 2x3 control grid
-  Recents.tsx
-  Voicemail.tsx        # static empty state ("No voicemails yet")
-sms/
-  ConversationList.tsx # search, All/Unread, realtime, unread badges
-  MessageThread.tsx    # auto-scroll, sent/received bubbles, Sophai label
-  MessageComposer.tsx  # textarea, Enter-to-send, char counter, attach disabled
-  NewMessageModal.tsx  # client typeahead OR raw number
-dial/
-  DialListGrid.tsx     # cards w/ progress
-  DialListEditor.tsx   # modal w/ client search + pipeline-stage import
-  DialingSession.tsx   # full-screen overlay, contact 7/15, outcome picker
-```
+Edit:
+- `src/routes/_authenticated/team.tsx` — full rewrite.
+- `src/components/app-sidebar.tsx` — wire activation-queue badge count.
 
-Shared:
-- `src/lib/phone-format.ts` (E.164 ↔ display, already partial in `lib/format.ts` — reuse).
-- Top-nav phone + chat-bubble icons → wire to `/phone` and `/phone?tab=sms`; chat icon shows unread badge (query `getPhoneOverview` cached in root via TanStack Query).
+### Out of scope (per prior decisions)
+- No email sending (notifications only).
+- No edge functions / cron.
+- No wallet interaction.
 
-## 5. Realtime + caching
-
-- Single Supabase Realtime subscription mounted in `phone.tsx` for `sms_messages` + `sms_conversations`; on event call `queryClient.invalidateQueries(['phone'])`.
-- Active call: `setInterval` 1s ticker in `ActiveCall`.
-- Dialer "call" action: opens `ActiveCall` immediately (stub), random connect after 1.5s; "End Call" calls `logCall` then prompts "Add note to client" if duration > 30s (writes to `contact_history`).
-
-## 6. Out of scope (explicit)
-
-- Twilio Voice/SMS network calls, capability tokens, webhooks, MMS upload.
-- Wallet top-ups, Stripe, pricing/usage rollup, low-balance banner. Wallet tables stay untouched.
-- Sophai auto-send logic (column + label rendering only).
-- Voicemail audio playback (empty state only).
-- Number provisioning / Twilio number picker (settings shows current `phone_number` text + read-only registration status).
-
-## 7. Verification
-
-After migration + code, manually exercise: send SMS → row appears + realtime updates list; create dial list from 3 clients → start session → record outcomes → progress bar updates; place stub call → log row appears in Recents; settings drawer saves forwarding number.
-
-Approve to start with the migration.
+### Technical notes
+- All downline data flows through `is_in_downline` / new RPCs — RLS unchanged on base tables.
+- Org chart uses pure CSS/flex + transform; no new npm dependency.
+- `last_active_at` trigger uses `SECURITY DEFINER` to update profiles regardless of caller's RLS.
+- Reminder throttle: `WHERE sent_at > now() - interval '24 hours'` inside RPC, returns `{ok:false, reason:'throttled'}` instead of raising.
