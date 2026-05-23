@@ -34,6 +34,7 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
@@ -193,6 +194,11 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const ApiPublicLeadSubmitRoute = ApiPublicLeadSubmitRouteImport.update({
+  id: '/api/public/lead-submit',
+  path: '/api/public/lead-submit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicFunnelViewRoute = ApiPublicFunnelViewRouteImport.update({
   id: '/api/public/funnel-view',
   path: '/api/public/funnel-view',
@@ -408,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -461,6 +468,7 @@ export interface FileRoutesByTo {
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -517,6 +525,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
+  '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -573,6 +582,7 @@ export interface FileRouteTypes {
     | '/tools/quoter'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesByTo: FileRoutesByTo
@@ -626,6 +636,7 @@ export interface FileRouteTypes {
     | '/tools/quoter'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/contracting'
     | '/api/public/hooks/fetch-news'
   id:
@@ -681,6 +692,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/quoter'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
+    | '/api/public/lead-submit'
     | '/_authenticated/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesById: FileRoutesById
@@ -694,6 +706,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
+  ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
 }
 
@@ -873,6 +886,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/contracting/'
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/api/public/lead-submit': {
+      id: '/api/public/lead-submit'
+      path: '/api/public/lead-submit'
+      fullPath: '/api/public/lead-submit'
+      preLoaderRoute: typeof ApiPublicLeadSubmitRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/funnel-view': {
       id: '/api/public/funnel-view'
@@ -1240,6 +1260,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
+  ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
 }
 export const routeTree = rootRouteImport
