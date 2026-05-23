@@ -1,119 +1,512 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent } from "@/components/ui/card";
-import { KpiCard } from "@/components/kpi-card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { fmtCurrency } from "@/lib/format";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { Download, DollarSign } from "lucide-react";
+import { getFinancesData } from "@/lib/finances.functions";
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
+  Calendar as CalendarIcon,
+  TrendingUp,
+  DollarSign,
+  Users,
+  Info,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
-  head: () => ({ meta: [
-    { title: "Finances — Agent Cloud" },
-    { name: "description", content: "Commissions paid, pending, and forecasted earnings." },
-  ]}),
+  head: () => ({
+    meta: [
+      { title: "Finances — Agent Cloud" },
+      { name: "description", content: "Commission earnings, payouts, and forecasting." },
+    ],
+  }),
   component: FinancesPage,
 });
 
-const forecast = Array.from({ length: 12 }, (_, i) => ({
-  month: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][i],
-  paid: i < 5 ? 4200 + i * 600 : 0,
-  pending: i < 5 ? 800 + i * 120 : 0,
-  projected: 4200 + i * 720,
-}));
+type Row = Awaited<ReturnType<typeof getFinancesData>>["rows"][number];
 
-const commissions = [
-  { date: "May 21", client: "John Smith", carrier: "Mutual of Omaha", product: "Term 20", amount: 1284, status: "Paid" },
-  { date: "May 18", client: "Mary Garcia", carrier: "Americo", product: "Final Expense", amount: 642, status: "Paid" },
-  { date: "May 16", client: "Robert Lee", carrier: "Aetna", product: "Whole Life", amount: 1820, status: "Pending" },
-  { date: "May 14", client: "Patricia Brown", carrier: "Foresters", product: "IUL", amount: 2415, status: "Pending" },
-  { date: "May 10", client: "Michael Davis", carrier: "Gerber Life", product: "Final Expense", amount: 318, status: "Chargeback" },
-];
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function FinancesPage() {
+  const fn = useServerFn(getFinancesData);
+  const { data, isLoading } = useQuery({
+    queryKey: ["finances"],
+    queryFn: () => fn(),
+  });
+
+  const rows: Row[] = data?.rows ?? [];
+
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [carrierFilter, setCarrierFilter] = useState<string>("all");
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const startOfYear = new Date(today.getFullYear(), 0, 1);
+  const in90 = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+  const stats = useMemo(() => {
+    let todayTotal = 0, forecast90 = 0, mtd = 0, ytd = 0, direct = 0, override = 0;
+    for (const r of rows) {
+      const d = new Date(r.payment_date);
+      if (r.payment_date === todayStr && r.status === "paid") todayTotal += r.amount;
+      if (d >= today && d <= in90) forecast90 += r.amount;
+      if (d >= startOfMonth && d <= today && r.status === "paid") mtd += r.amount;
+      if (d >= startOfYear && d <= today && r.status === "paid") ytd += r.amount;
+      if (r.payment_type === "override") override += r.amount;
+      else direct += r.amount;
+    }
+    return { todayTotal, forecast90, mtd, ytd, direct, override };
+  }, [rows]);
+
+  const forecastData = useMemo(() => {
+    const months: { key: string; label: string; direct: number; override: number }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      months.push({
+        key: monthKey(d),
+        label: `${MONTH_LABELS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`,
+        direct: 0,
+        override: 0,
+      });
+    }
+    const idx = new Map(months.map((m, i) => [m.key, i]));
+    for (const r of rows) {
+      const d = new Date(r.payment_date);
+      const k = monthKey(d);
+      const i = idx.get(k);
+      if (i === undefined) continue;
+      if (r.payment_type === "override") months[i].override += r.amount;
+      else months[i].direct += r.amount;
+    }
+    return months;
+  }, [rows]);
+
+  const carriers = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[],
+    [rows],
+  );
+
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (typeFilter !== "all" && r.payment_type !== typeFilter) return false;
+      if (carrierFilter !== "all" && r.carrier !== carrierFilter) return false;
+      return true;
+    });
+  }, [rows, statusFilter, typeFilter, carrierFilter]);
+
+  const byCarrier = useMemo(() => {
+    const m = new Map<string, { name: string; policies: Set<string>; direct: number; override: number }>();
+    for (const r of rows) {
+      const k = r.carrier ?? "Unknown";
+      if (!m.has(k)) m.set(k, { name: k, policies: new Set(), direct: 0, override: 0 });
+      const e = m.get(k)!;
+      e.policies.add(r.policy_id);
+      if (r.payment_type === "override") e.override += r.amount;
+      else e.direct += r.amount;
+    }
+    return Array.from(m.values())
+      .map((e) => ({ name: e.name, count: e.policies.size, direct: e.direct, override: e.override, total: e.direct + e.override }))
+      .sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  const byProduct = useMemo(() => {
+    const m = new Map<string, { name: string; policies: Set<string>; total: number }>();
+    for (const r of rows) {
+      const k = r.product ?? "Unknown";
+      if (!m.has(k)) m.set(k, { name: k, policies: new Set(), total: 0 });
+      const e = m.get(k)!;
+      e.policies.add(r.policy_id);
+      e.total += r.amount;
+    }
+    return Array.from(m.values())
+      .map((e) => ({ name: e.name, count: e.policies.size, total: e.total, avg: e.total / Math.max(1, e.policies.size) }))
+      .sort((a, b) => b.total - a.total);
+  }, [rows]);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+        </div>
+        <Skeleton className="h-72" />
+      </div>
+    );
+  }
+
+  const hasData = rows.length > 0;
+
   return (
     <div className="p-6 space-y-4">
-      <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Finances</h1>
-          <p className="text-sm text-muted-foreground">Commission earnings, pending payouts, and forecasts.</p>
-        </div>
-        <Button variant="outline"><Download className="h-4 w-4" /> Export 1099</Button>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Finances</h1>
+        <p className="text-sm text-muted-foreground">Financial analytics &amp; forecasting</p>
       </div>
 
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="YTD earnings" value={fmtCurrency(38420)} change="+22%" />
-        <KpiCard label="Pending payouts" value={fmtCurrency(6240)} />
-        <KpiCard label="Projected EOY" value={fmtCurrency(112000)} change="+18%" />
-        <KpiCard label="Avg commission" value={fmtCurrency(984)} />
+        <KpiTile
+          icon={<CalendarIcon className="h-4 w-4 text-muted-foreground" />}
+          label="Today"
+          value={fmtCurrency(stats.todayTotal)}
+          sub={today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          zeroIsRed
+        />
+        <KpiTile
+          icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
+          label="Forecast 90-Day"
+          value={fmtCurrency(stats.forecast90)}
+          sub="Expected next 90 days"
+          valueClass="text-emerald-600"
+        />
+        <KpiTile
+          label="Month-to-Date (MTD)"
+          value={fmtCurrency(stats.mtd)}
+          sub={today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+        />
+        <KpiTile
+          label="Year-to-Date (YTD)"
+          value={fmtCurrency(stats.ytd)}
+          sub={`Since Jan 1, ${today.getFullYear()}`}
+        />
       </div>
 
-      <Card><CardContent className="p-4">
-        <h3 className="font-semibold mb-3">12-month forecast</h3>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={forecast}>
-            <defs>
-              <linearGradient id="paid" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.5} /><stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} /></linearGradient>
-              <linearGradient id="proj" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
-            <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${v/1000}k`} />
-            <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8, color: "var(--color-card-foreground)" }} formatter={(v: number) => fmtCurrency(v)} />
-            <Area type="monotone" dataKey="projected" stroke="var(--color-primary)" strokeWidth={2} fill="url(#proj)" name="Projected" />
-            <Area type="monotone" dataKey="paid" stroke="var(--color-success)" strokeWidth={2} fill="url(#paid)" name="Paid" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent></Card>
+      {/* Direct vs Override */}
+      <div className="grid md:grid-cols-2 gap-3">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <DollarSign className="h-4 w-4 text-blue-500" /> Direct Commissions
+            </div>
+            <div className="text-2xl font-bold mt-1">{fmtCurrency(stats.direct)}</div>
+            <p className="text-xs text-muted-foreground">Your personal production</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-4 w-4 text-emerald-500" /> Override Commissions
+            </div>
+            <div className="text-2xl font-bold mt-1">{fmtCurrency(stats.override)}</div>
+            <p className="text-xs text-muted-foreground">From downline production</p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2"><CardContent className="p-0">
-          <div className="p-4 border-b font-semibold">Recent commissions</div>
-          <Table>
-            <TableHeader><TableRow>
-              <TableHead>Date</TableHead><TableHead>Client</TableHead><TableHead>Carrier</TableHead>
-              <TableHead>Product</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Status</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
-              {commissions.map((c, i) => (
-                <TableRow key={i}>
-                  <TableCell>{c.date}</TableCell>
-                  <TableCell className="font-medium">{c.client}</TableCell>
-                  <TableCell>{c.carrier}</TableCell>
-                  <TableCell>{c.product}</TableCell>
-                  <TableCell className="text-right font-mono">{fmtCurrency(c.amount)}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${
-                      c.status === "Paid" ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" :
-                      c.status === "Pending" ? "bg-amber-500/15 text-amber-600 border-amber-500/30" :
-                      "bg-rose-500/15 text-rose-600 border-rose-500/30"
-                    }`}>{c.status}</span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3"><DollarSign className="h-4 w-4 text-emerald-500" /><h3 className="font-semibold">Breakdown by carrier</h3></div>
-          <div className="space-y-3">
-            {[
-              { name: "Mutual of Omaha", amount: 12400, pct: 32 },
-              { name: "Americo", amount: 8240, pct: 21 },
-              { name: "Aetna", amount: 6120, pct: 16 },
-              { name: "Foresters", amount: 5840, pct: 15 },
-              { name: "Other", amount: 5820, pct: 16 },
-            ].map((c) => (
-              <div key={c.name}>
-                <div className="flex justify-between text-sm"><span>{c.name}</span><span className="font-mono">{fmtCurrency(c.amount)}</span></div>
-                <div className="h-1.5 rounded-full bg-muted mt-1 overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: `${c.pct}%` }} />
-                </div>
-              </div>
-            ))}
+      {/* Forecast chart */}
+      <Card>
+        <CardContent className="p-4">
+          <h3 className="font-semibold mb-3">12-month rolling forecast</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={forecastData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
+              <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+              <Tooltip
+                contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
+                formatter={(v: number) => fmtCurrency(v)}
+              />
+              <Legend />
+              <Line type="monotone" dataKey="direct" stroke="#3b82f6" strokeWidth={2} name="Direct" dot={false} />
+              <Line type="monotone" dataKey="override" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* How payouts are calculated */}
+      <Card>
+        <CardContent className="p-2">
+          <Accordion type="single" collapsible>
+            <AccordionItem value="how" className="border-0">
+              <AccordionTrigger className="px-3">
+                <span className="flex items-center gap-2 font-semibold text-sm">
+                  <Info className="h-4 w-4" /> How payouts are calculated
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="px-3 space-y-4 text-sm">
+                <section>
+                  <h4 className="font-semibold mb-1">Standard Products (most carriers)</h4>
+                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                    <li>75% of first-year commission is paid on the effective date (advance)</li>
+                    <li>Remaining 25% is split equally across months 10, 11, and 12</li>
+                  </ul>
+                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Annual Premium: $1,200
+Agent Commission Level: 80%
+Total Year 1: $1,200 × 80% = $960
+Advance: $960 × 75% = $720
+Month 10/11/12: $960 × 25% / 3 = $80 each`}</pre>
+                </section>
+                <section>
+                  <h4 className="font-semibold mb-1">GTL (Group Term Life) Exception</h4>
+                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                    <li>Advance = 50% of first-year commission, capped at $600</li>
+                    <li>Balance split equally across months 7–12</li>
+                  </ul>
+                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Total Year 1: $900
+Advance: MIN($900 × 50%, $600) = $450
+Balance: $900 - $450 = $450
+Months 7-12: $450 / 6 = $75/month`}</pre>
+                </section>
+                <section>
+                  <h4 className="font-semibold mb-1">Override Commissions</h4>
+                  <p className="text-muted-foreground">
+                    Override = Downline annual premium × (Your level % − Direct downline's level %).
+                    You at 80%, downline at 70% → you earn 10% override. Each level earns only the spread, never the full amount.
+                  </p>
+                </section>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      {/* Scheduled payouts */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="p-4 border-b flex flex-col gap-3">
+            <div>
+              <h3 className="font-semibold">Scheduled Payouts</h3>
+              <p className="text-xs text-muted-foreground">Your upcoming and past commission payments</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  <SelectItem value="advance">Advance</SelectItem>
+                  <SelectItem value="deferred">Deferred</SelectItem>
+                  <SelectItem value="override">Override</SelectItem>
+                  <SelectItem value="renewal">Renewal</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={carrierFilter} onValueChange={setCarrierFilter}>
+                <SelectTrigger className="w-44"><SelectValue placeholder="Carrier" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All carriers</SelectItem>
+                  {carriers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </CardContent></Card>
-      </div>
+
+          {!hasData ? (
+            <EmptyState
+              title="No commission payments scheduled yet"
+              body="Post your first deal to see your payout schedule here."
+              cta={<Button asChild><Link to="/post-deal">Post a Deal</Link></Button>}
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Payment Date</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Carrier</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Policy #</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{new Date(r.payment_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="font-medium">{r.client_name}</TableCell>
+                    <TableCell>{r.carrier ?? "—"}</TableCell>
+                    <TableCell>{r.product ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.policy_number ?? "—"}</TableCell>
+                    <TableCell><TypeBadge type={r.payment_type} /></TableCell>
+                    <TableCell className="text-right font-mono">{fmtCurrency(r.amount)}</TableCell>
+                    <TableCell><StatusBadge status={r.status} /></TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No payments match the current filters.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Breakdown tabs */}
+      <Card>
+        <CardContent className="p-4">
+          <Tabs defaultValue="carrier">
+            <TabsList>
+              <TabsTrigger value="carrier">By Carrier</TabsTrigger>
+              <TabsTrigger value="product">By Product</TabsTrigger>
+              <TabsTrigger value="month">By Month</TabsTrigger>
+              <TabsTrigger value="overrides">By Agent (Overrides)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="carrier" className="space-y-4 pt-4">
+              {byCarrier.length === 0 ? (
+                <EmptyState title="No carrier data yet" body="Post a deal to see commissions break down by carrier." />
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={byCarrier} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                      <XAxis type="number" tickFormatter={(v) => `$${Math.round(v / 1000)}k`} stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <YAxis type="category" dataKey="name" width={120} stroke="var(--color-muted-foreground)" fontSize={12} />
+                      <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
+                      <Bar dataKey="total" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                    <TableBody>{byCarrier.map((c) => (
+                      <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.override)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(c.total)}</TableCell></TableRow>
+                    ))}</TableBody>
+                  </Table>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="product" className="pt-4">
+              {byProduct.length === 0 ? (
+                <EmptyState title="No product data yet" body="Once you post deals, products will appear here." />
+              ) : (
+                <Table>
+                  <TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Avg Premium</TableHead><TableHead className="text-right">Total Commission</TableHead></TableRow></TableHeader>
+                  <TableBody>{byProduct.map((p) => (
+                    <TableRow key={p.name}><TableCell>{p.name}</TableCell><TableCell className="text-right">{p.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(p.avg)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(p.total)}</TableCell></TableRow>
+                  ))}</TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            <TabsContent value="month" className="space-y-4 pt-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={forecastData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
+                  <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
+                  <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
+                  <Area type="monotone" dataKey="direct" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Direct" />
+                  <Area type="monotone" dataKey="override" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Override" />
+                </AreaChart>
+              </ResponsiveContainer>
+              <Table>
+                <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableBody>{forecastData.map((m) => (
+                  <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(m.direct + m.override)}</TableCell></TableRow>
+                ))}</TableBody>
+              </Table>
+            </TabsContent>
+
+            <TabsContent value="overrides" className="pt-4">
+              <EmptyState
+                title="No override commissions yet"
+                body="Grow your downline to start earning override income."
+              />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function KpiTile({
+  icon, label, value, sub, valueClass, zeroIsRed,
+}: { icon?: React.ReactNode; label: string; value: string; sub?: string; valueClass?: string; zeroIsRed?: boolean }) {
+  const isZero = value.includes("0.00") || value === "$0";
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">{label}</span>
+          {icon}
+        </div>
+        <div className={`text-2xl font-bold mt-1 ${valueClass ?? ""} ${zeroIsRed && isZero ? "text-rose-500" : ""}`}>{value}</div>
+        {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TypeBadge({ type }: { type: Row["payment_type"] }) {
+  const cls = {
+    advance: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+    deferred: "bg-purple-500/15 text-purple-600 border-purple-500/30",
+    override: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+    renewal: "bg-gray-500/15 text-gray-600 border-gray-500/30",
+  }[type];
+  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{type}</span>;
+}
+
+function StatusBadge({ status }: { status: Row["status"] }) {
+  const cls = status === "paid"
+    ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
+    : "bg-amber-500/15 text-amber-600 border-amber-500/30";
+  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{status}</span>;
+}
+
+function EmptyState({ title, body, cta }: { title: string; body: string; cta?: React.ReactNode }) {
+  return (
+    <div className="p-10 text-center space-y-2">
+      <h4 className="font-semibold">{title}</h4>
+      <p className="text-sm text-muted-foreground">{body}</p>
+      {cta && <div className="pt-2">{cta}</div>}
     </div>
   );
 }
