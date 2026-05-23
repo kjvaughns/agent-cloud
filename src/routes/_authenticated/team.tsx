@@ -667,6 +667,3 @@ function AgentDetailDrawer({ agentId, onClose }: { agentId: string | null; onClo
     </Sheet>
   );
 }
-
-// Re-import for empty state icon
-import { Users } from "lucide-react";
