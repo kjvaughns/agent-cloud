@@ -34,6 +34,8 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
+import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
@@ -191,6 +193,16 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const ApiPublicFunnelViewRoute = ApiPublicFunnelViewRouteImport.update({
+  id: '/api/public/funnel-view',
+  path: '/api/public/funnel-view',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicFunnelApplyRoute = ApiPublicFunnelApplyRouteImport.update({
+  id: '/api/public/funnel-apply',
+  path: '/api/public/funnel-apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedToolsQuoterRoute =
   AuthenticatedToolsQuoterRouteImport.update({
     id: '/tools/quoter',
@@ -394,6 +406,8 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -445,6 +459,8 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -499,6 +515,8 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
+  '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
+  '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
 }
@@ -553,6 +571,8 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
     | '/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesByTo: FileRoutesByTo
@@ -604,6 +624,8 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/needs-analysis'
     | '/tools/quoter'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
     | '/contracting'
     | '/api/public/hooks/fetch-news'
   id:
@@ -657,6 +679,8 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/needs-analysis'
     | '/_authenticated/tools/quoter'
+    | '/api/public/funnel-apply'
+    | '/api/public/funnel-view'
     | '/_authenticated/contracting/'
     | '/api/public/hooks/fetch-news'
   fileRoutesById: FileRoutesById
@@ -668,6 +692,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
+  ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
 }
 
@@ -847,6 +873,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/contracting/'
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/api/public/funnel-view': {
+      id: '/api/public/funnel-view'
+      path: '/api/public/funnel-view'
+      fullPath: '/api/public/funnel-view'
+      preLoaderRoute: typeof ApiPublicFunnelViewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/funnel-apply': {
+      id: '/api/public/funnel-apply'
+      path: '/api/public/funnel-apply'
+      fullPath: '/api/public/funnel-apply'
+      preLoaderRoute: typeof ApiPublicFunnelApplyRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tools/quoter': {
       id: '/_authenticated/tools/quoter'
@@ -1198,8 +1238,20 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
+  ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
