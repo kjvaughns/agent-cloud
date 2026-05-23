@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSophaiRouteImport } from './routes/_authenticated/sophai'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
@@ -91,6 +92,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinSlugRoute = JoinSlugRouteImport.update({
+  id: '/join/$slug',
+  path: '/join/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
@@ -387,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -441,6 +448,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -498,6 +506,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/join/$slug': typeof JoinSlugRoute
   '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/join/$slug'
     | '/account/faq'
     | '/account/help'
     | '/account/my-landing-page'
@@ -609,6 +619,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/sophai'
     | '/team'
+    | '/join/$slug'
     | '/account/faq'
     | '/account/help'
     | '/account/my-landing-page'
@@ -665,6 +676,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/sophai'
     | '/_authenticated/team'
+    | '/join/$slug'
     | '/_authenticated/account/faq'
     | '/_authenticated/account/help'
     | '/_authenticated/account/my-landing-page'
@@ -704,6 +716,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  JoinSlugRoute: typeof JoinSlugRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
@@ -752,6 +765,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$slug': {
+      id: '/join/$slug'
+      path: '/join/$slug'
+      fullPath: '/join/$slug'
+      preLoaderRoute: typeof JoinSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/team': {
@@ -1258,6 +1278,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  JoinSlugRoute: JoinSlugRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
