@@ -1,83 +1,79 @@
-## My Team — Team Command Center
+# Business Analytics — `/analytics`
 
-Replace the mock `src/routes/_authenticated/team.tsx` with a full database-backed implementation across three tabs (Overview, Roster, Organization).
+A 10-tab analytics suite with AI insights (Lovable AI / Gemini), sales challenges with auto-update triggers, trophy cabinet, and AI coaching.
 
-### 1. Database migration
+## Database migration
 
-New columns / tables:
-- `profiles.status` (text, default `'pending'`) — values: `active | pending | inactive | terminated`.
-- `profiles.last_active_at` (timestamptz, nullable).
-- `reminder_log` table: `id, agent_id, sent_by, sent_at` — enforces 1 reminder per agent per 24h. RLS: sender can read/insert own rows; downline visibility for managers.
+New tables:
+- `ai_insights` — `agent_id`, `insight_type` (needs_attention | learn_from | risk_alert | coaching), `title`, `body`, `action_text`, `action_url`, `dollar_impact numeric`, `agent_name text`, `tab text` (overview | coach), `generated_at`, `dismissed bool`. RLS: owner + downline + admin (same pattern as other tables).
+- `analytics_insight_cache` — `agent_id`, `cache_key text` (`overview` | `coach`), `payload jsonb`, `generated_at`. Used for 4h TTL.
 
-Trigger:
-- `bump_last_active()` AFTER INSERT on `policies`, `call_logs`, `sms_messages` (via conversation join) — sets `profiles.last_active_at = now()` for the acting agent.
+Extend `challenges` (already exists with `agent_id`, `period`, `type`, `target_value`, `current_value`, `description`, `created_at`): add `start_date date`, `end_date date`, `completed bool default false`. Existing `trophies` table is fine (`agent_id`, `challenge_id`, `period`, `earned_at`).
 
-RPC functions (SECURITY DEFINER, search_path=public):
-- `get_team_downline()` → recursive CTE returning `id, first_name, last_name, email, phone, upline_id, status, last_active_at, created_at, depth_level, contracts_count, policies_count, premium_total, completion_pct`.
-- `get_team_kpis()` → `{ total, active, active_writers (sold last 30d), pending, contracts_total, contracts_active_pct, depth_distribution: [{level, count}], max_depth }`.
-- `get_team_alerts()` → returns 3 alert kinds: stale_login (last_active_at < now()-14d), lapse_pending agents, stuck contract_requests (status='issue', 7d+).
-- `get_activation_queue()` → downline agents with `completion_pct < 100`, plus `missing: text[]` derived from producer_documents (eo_certificate, banking, drivers_license, aml_certificate) + profile fields.
-- `send_reminder(target_agent uuid)` → checks reminder_log throttle; inserts notification + reminder_log row; returns `{ok, reason}`.
+Functions / triggers:
+- `seed_agent_challenges(_agent uuid)` — RPC that ensures one active row per period (daily/weekly/monthly/quarterly) for the current window. Defaults: 10 calls/day, 3 deals/week, $5000 premium/month, 3 recruits/quarter.
+- `bump_challenge_progress()` trigger on `call_logs` (calls), `policies` (deals + premium), `profiles` insert (recruiting for upline). Updates matching active challenge row, marks `completed=true` and inserts trophy when hit.
+- `get_analytics_overview(_start, _end)` — KPIs, deltas vs prior period, conversion, monthly growth, top carriers, status grid, persistency approximations.
+- `get_daily_report()` — today's activity counts, active agents, lapse-pending list, upcoming effective dates.
+- `get_agent_analytics(_agent, _start, _end)` — individual tab data.
+- `get_team_leaderboard(_start, _end)` — ranked downline w/ trend arrow vs prior period.
+- `get_carrier_breakdown(_start, _end, _agent uuid default null)` — carrier cards + table.
+- `get_trends_12mo()` — 12-month series, MoM growth, YTD vs LY, best/worst months.
+- `get_policy_analytics()` — status distribution, stacked-area series, at-risk list.
+- `get_quality_metrics()` — 13-month persistency (approximation: effective_date <= now - 13mo and status = 'active' / total such policies), 12-month lapse rate, by carrier, by agent.
+- `get_recruiting_funnel()` — counts by `recruiting_prospects.stage`, conversion, avg days, monthly onboarded.
 
-Completion % weights match spec (NPN 10 / DOB 5 / address 10 / E&O 20 / banking 15 / DL 10 / AML 20 / signed agreement 10). NPN + signed agreement aren't on schema yet — treat as 0 for now (max achievable 85%) and note in code; alternative is to add `profiles.npn` later.
+## Server functions (`src/lib/analytics.functions.ts`)
 
-### 2. Server functions (`src/lib/team.functions.ts`)
+Thin wrappers over RPCs + the two AI endpoints:
+- `getAnalyticsOverview`, `getDailyReport`, `getAgentAnalytics`, `getTeamLeaderboard`, `getCarrierBreakdown`, `getTrends`, `getPolicyAnalytics`, `getQualityMetrics`, `getRecruitingFunnel`, `getChallenges`, `getTrophies`, `seedChallenges`.
+- `getAIInsights({ tab: 'overview' | 'coach', force?: boolean })` — checks `analytics_insight_cache` (4h TTL); if stale or `force`, gathers summary stats, calls Lovable AI Gateway (`google/gemini-3-flash-preview`) with a tool-calling schema returning structured cards, writes cache + rows in `ai_insights`, returns cards. All protected with `requireSupabaseAuth`.
 
-Auth-protected via `requireSupabaseAuth`, each wraps an RPC call:
-- `getTeamOverview` → kpis + alerts + activation queue + new agents (7d) + recently active (top 10 by last_active_at).
-- `getTeamRoster({ search, status, depthLevel })` → filtered downline.
-- `getTeamOrg` → downline as nested tree (built from flat CTE result client-side or server-side).
-- `getAgentDetail(agentId)` → profile + contracts list + production breakdown + last 5 activity items.
-- `sendAgentReminder(agentId)` → calls RPC, returns throttle status.
-- `deactivateAgent(agentId)` → sets status='terminated' (manager/admin only; enforced by `has_role` check inside fn).
+## Frontend (`src/routes/_authenticated/analytics.tsx` + `src/components/analytics/`)
 
-### 3. Frontend (`src/routes/_authenticated/team.tsx` + components)
+Components:
+- `AnalyticsHeader` — title, subtitle, date-range dropdown (state: 7/30/90/YTD/All/custom), `AI Insights` + `Refresh AI` buttons.
+- `ChallengeCards` — 4 cards (Daily blue, Weekly green, Monthly purple, Quarterly orange) with animated progress fills; gold border + confetti when 100%.
+- `TrophyCabinet` — summary row + dot breakdown + "View All" modal (3-col grid, sorted newest).
+- Tabs (shadcn `Tabs`, default `overview`, lazy-mount each panel):
+  - `OverviewPanel` — AI insight cards (3 colored variants), 4 KPI cards w/ deltas, conversion + growth large cards w/ small charts, top carriers bar chart + table.
+  - `DailyReportPanel` — 4 sections + Generate button (calls `getAIInsights({tab:'daily'})` variant — reuse coach prompt with daily context).
+  - `IndividualPanel` — agent dropdown (downline via existing `get_downline_agents`), KPI row, 6-month BarChart, status pie, top-carrier bar, activity timeline.
+  - `TeamPanel` — KPI row + leaderboard table (self row highlighted) + stacked bar chart per agent/month.
+  - `CarriersPanel` — agent filter + date filter + cards grid + table.
+  - `TrendsPanel` — area chart w/ $/# toggle, MoM growth bars, YTD vs LY, best/worst.
+  - `PolicyPanel` — status pie + breakdown table + stacked area + at-risk table w/ Follow Up → opens SMS route.
+  - `QualityPanel` — persistency/lapse/duration metrics, lapse trend line w/ 15% ref line, carrier + agent quality tables.
+  - `RecruitingPanel` — funnel visualization + conversion + monthly bar chart.
+  - `AICoachPanel` — `Refresh Coaching` button + 4-6 coaching cards from `getAIInsights({tab:'coach'})` (always last 30d).
+- Skeleton loaders during AI fetches; `Export CSV` buttons on Team/Carriers/Quality/Policy tables (client-side CSV).
 
-Route file owns header + Tabs. Extract subviews into `src/components/team/`:
-- `team/kpi-row.tsx` — 5 KpiCards.
-- `team/depth-chart.tsx` — horizontal bar chart (plain divs, no extra dep).
-- `team/activation-queue.tsx` — agent cards with missing-items list, Send Reminder + View Profile buttons.
-- `team/new-agents.tsx`, `team/recently-active.tsx`, `team/team-alerts.tsx`.
-- `team/roster-table.tsx` — search + filters + sortable paginated table (25/page, client-side pagination over fetched downline).
-- `team/agent-detail-drawer.tsx` — right-side Sheet, 400px, sections: profile completion, contracts, production, recent activity, actions.
-- `team/org-chart.tsx` — custom recursive tree:
-  - Root = current user, recursive child render of downline tree.
-  - Container with `transform: scale(zoom) translate(x,y)`; `+ / - / Reset` controls; pointer drag-to-pan handler.
-  - Node card: avatar initials, name, status dot, contracts count; left border color by status.
-  - Click node toggles subtree expand/collapse (local Map<id, bool>).
-  - Hover → Tooltip with email, production, policies, last active, View button → opens detail drawer.
-  - Default state for >50 agents: only L1 expanded.
+Charts: Recharts `ResponsiveContainer` everywhere, tooltips on all series.
 
-Page header:
-- Title "Team Command Center", subtitle "{total} agents · {maxDepth} depth level".
-- `[+ Invite]` button → `navigate({to: "/contracting/invite"})` (route already exists in contracting/).
+Confetti: add `canvas-confetti` dep; fire from `ChallengeCard` when newly completed (track via `useRef` of last `completed` per challenge id).
 
-UX details:
-- Default tab = `overview`.
-- Skeleton loaders on each section while queries load.
-- Empty state for zero downline: CTA card → invite link.
-- Sidebar badge: read activation queue count via shared TanStack Query key so `app-sidebar` can show `My Team (X)` — add a small `useActivationQueueCount` hook, wire into the existing sidebar item.
-- Toasts via `sonner` for Send Reminder (success / "already sent today" / error).
-- Mobile: tabs become a `Select`; roster table degrades to card list.
+## Sidebar
 
-### 4. Files to create / edit
+`src/components/app-sidebar.tsx`: under "My Business", add `Business Analytics` → `/analytics` (BarChart3 icon).
+
+## Out of scope
+
+- No real-time challenge updates beyond DB triggers (page refetches on focus via TanStack Query).
+- No sound effects.
+- Trophy "earned" modal is a card + confetti, not full-screen takeover.
+- Custom date range UI uses two date inputs (no fancy calendar popover beyond shadcn `Calendar`).
+- Recruiting funnel pageview/application metrics — schema doesn't track them, so that table is omitted (only the stage funnel + monthly bars).
+- AI Daily Tip reuses the coach endpoint with a "daily tip" subtype rather than a third prompt.
+
+## Files
 
 Create:
-- `supabase/migrations/<timestamp>_team_command_center.sql`
-- `src/lib/team.functions.ts`
-- `src/components/team/*.tsx` (kpi-row, depth-chart, activation-queue, new-agents, recently-active, team-alerts, roster-table, agent-detail-drawer, org-chart, index re-exports)
+- `supabase/migrations/<ts>_business_analytics.sql`
+- `src/lib/analytics.functions.ts`
+- `src/components/analytics/{AnalyticsHeader,ChallengeCards,TrophyCabinet,OverviewPanel,DailyReportPanel,IndividualPanel,TeamPanel,CarriersPanel,TrendsPanel,PolicyPanel,QualityPanel,RecruitingPanel,AICoachPanel,AIInsightCard,KpiCard}.tsx`
+- `src/lib/csv.ts` (tiny helper)
 
 Edit:
-- `src/routes/_authenticated/team.tsx` — full rewrite.
-- `src/components/app-sidebar.tsx` — wire activation-queue badge count.
-
-### Out of scope (per prior decisions)
-- No email sending (notifications only).
-- No edge functions / cron.
-- No wallet interaction.
-
-### Technical notes
-- All downline data flows through `is_in_downline` / new RPCs — RLS unchanged on base tables.
-- Org chart uses pure CSS/flex + transform; no new npm dependency.
-- `last_active_at` trigger uses `SECURITY DEFINER` to update profiles regardless of caller's RLS.
-- Reminder throttle: `WHERE sent_at > now() - interval '24 hours'` inside RPC, returns `{ok:false, reason:'throttled'}` instead of raising.
+- `src/components/app-sidebar.tsx` (add nav item)
+- `src/routes/_authenticated/analytics.tsx` (rewrite to host new layout)
+- `package.json` (add `canvas-confetti` + types)
