@@ -8,6 +8,7 @@ import {
   Scripts,
   isRedirect,
 } from "@tanstack/react-router";
+import { Cloud, AlertTriangle, RotateCcw, Home } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
@@ -16,6 +17,9 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-6">
+          <Cloud className="h-8 w-8 text-muted-foreground" />
+        </div>
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -26,6 +30,7 @@ function NotFoundComponent() {
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
+            <Home className="mr-2 h-4 w-4" />
             Go home
           </Link>
         </div>
@@ -42,6 +47,9 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mb-6">
+          <AlertTriangle className="h-8 w-8 text-destructive" />
+        </div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           This page didn't load
         </h1>
@@ -56,12 +64,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
+            <RotateCcw className="mr-2 h-4 w-4" />
             Try again
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
+            <Home className="mr-2 h-4 w-4" />
             Go home
           </a>
         </div>
@@ -75,14 +85,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Agent Cloud" },
+      { name: "description", content: "Life insurance agency management platform — pipeline, contracting, calls, SMS, analytics, and a downline command center." },
+      { name: "author", content: "Agent Cloud" },
+      { property: "og:title", content: "Agent Cloud" },
+      { property: "og:description", content: "Life insurance agency management platform — pipeline, contracting, calls, SMS, analytics, and a downline command center." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:site", content: "@AgentCloud" },
     ],
     links: [
       {
