@@ -1,68 +1,90 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { ArrowRight } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { getOnboardingStatus } from "@/lib/resources.functions";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Check, ArrowRight, BookOpen, ScrollText, GraduationCap } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/resources/new-agent-guide")({
-  head: () => ({
-    meta: [
-      { title: "New Agent Guide — Agent Cloud" },
-      { name: "description", content: "Step-by-step onboarding checklist for brand-new life insurance agents." },
-    ],
-  }),
-  component: NewAgentGuidePage,
+  head: () => ({ meta: [{ title: "New Agent Guide — Agent Cloud" }] }),
+  component: Page,
 });
 
-const CHECKLIST = [
-  { done: true, title: "Get your life-only license", note: "Pre-licensing course, state exam, fingerprints." },
-  { done: true, title: "Sign your independent agent agreement", note: "E-signed, returned to upline." },
-  { done: true, title: "Request your first 3 carrier contracts", note: "Mutual of Omaha, Americo, Foresters." },
-  { done: false, title: "Build your dial list", note: "Upload 100 contacts or import from your CRM." },
-  { done: false, title: "Run your first 3-way call", note: "Shadow with your upline before going solo." },
-  { done: false, title: "Post your first deal", note: "Submit through Post a Deal — track in Book of Business." },
+const STEPS: { key: keyof Steps; title: string; desc: string; href: string; cta: string }[] = [
+  { key: "profile", title: "Complete Your Producer Profile", desc: "Add your NPN, date of birth, address, and personal information.", href: "/account/producer-profile", cta: "Go to Producer Profile" },
+  { key: "eo", title: "Upload Your E&O Insurance", desc: "Upload your Errors & Omissions certificate. Required before contracting.", href: "/account/producer-profile", cta: "Upload E&O Certificate" },
+  { key: "aml", title: "Upload Your AML Certificate", desc: "Complete free AML training and upload your certificate.", href: "/account/producer-profile", cta: "Complete AML Training" },
+  { key: "banking", title: "Upload Banking Information", desc: "Add your bank account info for commission direct deposit.", href: "/account/producer-profile", cta: "Add Banking Info" },
+  { key: "contract", title: "Get Your First Carrier Contract", desc: "Request a contract with your first carrier to start writing business.", href: "/contracting/carriers", cta: "Request Contract" },
+  { key: "phone", title: "Add Your Phone Number", desc: "Set up your business phone number to call and text clients.", href: "/phone", cta: "Set Up Phone" },
+  { key: "wallet", title: "Fund Your Wallet", desc: "Add funds to your wallet to enable SMS, calls, and AI features.", href: "/finances", cta: "Add Funds" },
+  { key: "deal", title: "Post Your First Deal", desc: "Post your first policy to start tracking your book of business.", href: "/post-deal", cta: "Post a Deal" },
 ];
 
-const ARTICLES = [
-  { title: "Day 1 — Set up your Agent Cloud workspace", read: "4 min" },
-  { title: "Understanding commission levels and chargebacks", read: "7 min" },
-  { title: "Choosing your first 3 carriers", read: "5 min" },
-  { title: "Your first 100 contacts — where to start", read: "6 min" },
-];
+type Steps = { profile: boolean; eo: boolean; aml: boolean; banking: boolean; contract: boolean; phone: boolean; wallet: boolean; deal: boolean };
 
-function NewAgentGuidePage() {
+function Page() {
+  const fn = useServerFn(getOnboardingStatus);
+  const { data, isLoading } = useQuery({ queryKey: ["onboarding-status"], queryFn: () => fn() });
+
   return (
-    <div className="grid lg:grid-cols-3 gap-6">
-      <Card className="lg:col-span-2">
-        <CardHeader><CardTitle>Onboarding checklist</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {CHECKLIST.map((c, i) => (
-            <label key={i} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/40 cursor-pointer">
-              <Checkbox checked={c.done} className="mt-0.5" />
-              <div className="flex-1">
-                <div className={c.done ? "line-through text-muted-foreground" : "font-medium"}>{c.title}</div>
-                <div className="text-sm text-muted-foreground">{c.note}</div>
-              </div>
-              {c.done && <Badge variant="secondary" className="bg-success/15 text-success">Done</Badge>}
-            </label>
-          ))}
-        </CardContent>
-      </Card>
+    <div className="space-y-6 max-w-4xl">
+      <div>
+        <h1 className="text-3xl font-bold">New Agent Guide</h1>
+        <p className="text-muted-foreground">Everything you need to get started and writing business fast</p>
+      </div>
 
       <Card>
-        <CardHeader><CardTitle>Starter articles</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {ARTICLES.map((a, i) => (
-            <a key={i} href="#" className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/40 border">
-              <div>
-                <div className="font-medium text-sm">{a.title}</div>
-                <div className="text-xs text-muted-foreground">{a.read} read</div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
-            </a>
-          ))}
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-semibold">Your Setup Progress</div>
+            <div className="text-sm text-muted-foreground">{data?.completed ?? 0} of 8 steps complete ({data?.pct ?? 0}%)</div>
+          </div>
+          <Progress value={data?.pct ?? 0} />
         </CardContent>
       </Card>
+
+      <div className="space-y-3">
+        {STEPS.map((step, i) => {
+          const done = data?.steps?.[step.key] ?? false;
+          return (
+            <Card key={step.key} className={done ? "border-green-500/40 bg-green-500/5" : ""}>
+              <CardContent className="pt-6 flex items-start gap-4">
+                <div className={`shrink-0 w-9 h-9 rounded-full grid place-items-center ${done ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                  {done ? <Check className="h-5 w-5" /> : <span className="text-sm font-semibold">{i + 1}</span>}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold">Step {i + 1}: {step.title}</div>
+                  <div className="text-sm text-muted-foreground mt-1">{step.desc}</div>
+                </div>
+                <Button asChild variant={done ? "outline" : "default"} size="sm">
+                  <Link to={step.href}>{step.cta} <ArrowRight className="h-4 w-4 ml-1" /></Link>
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 pt-4">
+        {[
+          { icon: BookOpen, label: "Read the Agent Handbook", to: "/resources/agent-handbook" },
+          { icon: ScrollText, label: "Review Sales Scripts", to: "/resources/scripts" },
+          { icon: GraduationCap, label: "Start Agent Academy", to: "/resources/agent-academy" },
+        ].map((r) => (
+          <Card key={r.to} className="hover:bg-muted/40 transition">
+            <Link to={r.to}>
+              <CardContent className="pt-6 flex items-center gap-3">
+                <r.icon className="h-6 w-6 text-primary" />
+                <div className="font-medium">{r.label}</div>
+              </CardContent>
+            </Link>
+          </Card>
+        ))}
+      </div>
+      {isLoading && <div className="text-xs text-muted-foreground">Loading status…</div>}
     </div>
   );
 }
