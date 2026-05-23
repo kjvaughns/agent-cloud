@@ -870,6 +870,42 @@ export type Database = {
           },
         ]
       }
+      news_articles: {
+        Row: {
+          category: string | null
+          fetched_at: string
+          id: string
+          image_url: string | null
+          published_at: string | null
+          source_name: string | null
+          summary: string | null
+          title: string
+          url: string
+        }
+        Insert: {
+          category?: string | null
+          fetched_at?: string
+          id?: string
+          image_url?: string | null
+          published_at?: string | null
+          source_name?: string | null
+          summary?: string | null
+          title: string
+          url: string
+        }
+        Update: {
+          category?: string | null
+          fetched_at?: string
+          id?: string
+          image_url?: string | null
+          published_at?: string | null
+          source_name?: string | null
+          summary?: string | null
+          title?: string
+          url?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -877,6 +913,7 @@ export type Database = {
           id: string
           read: boolean | null
           title: string
+          type: string | null
           user_id: string
         }
         Insert: {
@@ -885,6 +922,7 @@ export type Database = {
           id?: string
           read?: boolean | null
           title: string
+          type?: string | null
           user_id: string
         }
         Update: {
@@ -893,6 +931,7 @@ export type Database = {
           id?: string
           read?: boolean | null
           title?: string
+          type?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1582,6 +1621,10 @@ export type Database = {
           product: string
           status: Database["public"]["Enums"]["policy_status"]
         }[]
+      }
+      get_dashboard_metrics: {
+        Args: { _range_end: string; _range_start: string }
+        Returns: Json
       }
       get_downline_agents: {
         Args: never
