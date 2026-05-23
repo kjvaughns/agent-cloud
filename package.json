@@ -52,6 +52,7 @@
     "@tiptap/extension-link": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -79,6 +80,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^1.7.0",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^22.16.5",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.0",

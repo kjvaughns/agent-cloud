@@ -95,6 +95,75 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_insights: {
+        Row: {
+          action_text: string | null
+          action_url: string | null
+          agent_id: string
+          agent_name: string | null
+          body: string | null
+          dismissed: boolean
+          dollar_impact: number | null
+          generated_at: string
+          id: string
+          insight_type: string
+          tab: string
+          title: string
+        }
+        Insert: {
+          action_text?: string | null
+          action_url?: string | null
+          agent_id: string
+          agent_name?: string | null
+          body?: string | null
+          dismissed?: boolean
+          dollar_impact?: number | null
+          generated_at?: string
+          id?: string
+          insight_type: string
+          tab?: string
+          title: string
+        }
+        Update: {
+          action_text?: string | null
+          action_url?: string | null
+          agent_id?: string
+          agent_name?: string | null
+          body?: string | null
+          dismissed?: boolean
+          dollar_impact?: number | null
+          generated_at?: string
+          id?: string
+          insight_type?: string
+          tab?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      analytics_insight_cache: {
+        Row: {
+          agent_id: string
+          cache_key: string
+          generated_at: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          agent_id: string
+          cache_key: string
+          generated_at?: string
+          id?: string
+          payload: Json
+        }
+        Update: {
+          agent_id?: string
+          cache_key?: string
+          generated_at?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           body_html: string | null
@@ -348,31 +417,40 @@ export type Database = {
       challenges: {
         Row: {
           agent_id: string
+          completed: boolean
           created_at: string
           current_value: number | null
           description: string | null
+          end_date: string | null
           id: string
           period: string | null
+          start_date: string | null
           target_value: number | null
           type: Database["public"]["Enums"]["challenge_type"]
         }
         Insert: {
           agent_id: string
+          completed?: boolean
           created_at?: string
           current_value?: number | null
           description?: string | null
+          end_date?: string | null
           id?: string
           period?: string | null
+          start_date?: string | null
           target_value?: number | null
           type: Database["public"]["Enums"]["challenge_type"]
         }
         Update: {
           agent_id?: string
+          completed?: boolean
           created_at?: string
           current_value?: number | null
           description?: string | null
+          end_date?: string | null
           id?: string
           period?: string | null
+          start_date?: string | null
           target_value?: number | null
           type?: Database["public"]["Enums"]["challenge_type"]
         }
@@ -1704,6 +1782,14 @@ export type Database = {
     }
     Functions: {
       agent_completion: { Args: { _agent: string }; Returns: Json }
+      get_agent_analytics: {
+        Args: { _agent: string; _end: string; _start: string }
+        Returns: Json
+      }
+      get_analytics_overview: {
+        Args: { _end: string; _start: string }
+        Returns: Json
+      }
       get_book_of_business: {
         Args: { _agent_id?: string; _scope: string }
         Returns: {
@@ -1728,6 +1814,11 @@ export type Database = {
           status: Database["public"]["Enums"]["policy_status"]
         }[]
       }
+      get_carrier_breakdown: {
+        Args: { _agent?: string; _end: string; _start: string }
+        Returns: Json
+      }
+      get_daily_report: { Args: never; Returns: Json }
       get_dashboard_metrics: {
         Args: { _range_end: string; _range_start: string }
         Returns: Json
@@ -1740,6 +1831,9 @@ export type Database = {
           last_name: string
         }[]
       }
+      get_policy_analytics: { Args: never; Returns: Json }
+      get_quality_metrics: { Args: never; Returns: Json }
+      get_recruiting_funnel: { Args: never; Returns: Json }
       get_team_alerts: { Args: never; Returns: Json }
       get_team_downline: {
         Args: never
@@ -1762,6 +1856,11 @@ export type Database = {
         }[]
       }
       get_team_kpis: { Args: never; Returns: Json }
+      get_team_leaderboard: {
+        Args: { _end: string; _start: string }
+        Returns: Json
+      }
+      get_trends_12mo: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1773,6 +1872,7 @@ export type Database = {
         Args: { _target: string; _upline: string }
         Returns: boolean
       }
+      seed_agent_challenges: { Args: { _agent: string }; Returns: undefined }
       send_team_reminder: { Args: { _target: string }; Returns: Json }
     }
     Enums: {
