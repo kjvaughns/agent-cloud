@@ -107,7 +107,12 @@ export const updateCaseDesignAdmin = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: role } = await supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
     if (!role) throw new Error("Forbidden");
-    const patch: Record<string, unknown> = { status: data.status };
+    const patch: {
+      status: string;
+      response_html?: string | null;
+      responded_at?: string;
+      responded_by?: string;
+    } = { status: data.status };
     if (data.response_html !== undefined) patch.response_html = data.response_html;
     if (data.status === "complete") {
       patch.responded_at = new Date().toISOString();
