@@ -48,7 +48,7 @@ export const updateProducerProfile = createServerFn({ method: "POST" })
       patch[k] = v;
     }
     if (Object.keys(patch).length === 0) return { ok: true };
-    const { error } = await supabase.from("profiles").update(patch).eq("id", userId);
+    const { error } = await supabase.from("profiles").update(patch as never).eq("id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
