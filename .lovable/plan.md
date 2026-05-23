@@ -1,79 +1,57 @@
-# Business Analytics — `/analytics`
 
-A 10-tab analytics suite with AI insights (Lovable AI / Gemini), sales challenges with auto-update triggers, trophy cabinet, and AI coaching.
+## Resources Section Build Plan
 
-## Database migration
+Build 5 pages under a new "Resources" sidebar group, with rich seeded content and read-only frontends (admins edit via DB).
 
-New tables:
-- `ai_insights` — `agent_id`, `insight_type` (needs_attention | learn_from | risk_alert | coaching), `title`, `body`, `action_text`, `action_url`, `dollar_impact numeric`, `agent_name text`, `tab text` (overview | coach), `generated_at`, `dismissed bool`. RLS: owner + downline + admin (same pattern as other tables).
-- `analytics_insight_cache` — `agent_id`, `cache_key text` (`overview` | `coach`), `payload jsonb`, `generated_at`. Used for 4h TTL.
+### 1. Database migration
 
-Extend `challenges` (already exists with `agent_id`, `period`, `type`, `target_value`, `current_value`, `description`, `created_at`): add `start_date date`, `end_date date`, `completed bool default false`. Existing `trophies` table is fine (`agent_id`, `challenge_id`, `period`, `earned_at`).
+Add columns:
+- `profiles`: `npn_number text`, `date_of_birth date`, `street_address text`, `city text`, `state text`, `zip_code text`
 
-Functions / triggers:
-- `seed_agent_challenges(_agent uuid)` — RPC that ensures one active row per period (daily/weekly/monthly/quarterly) for the current window. Defaults: 10 calls/day, 3 deals/week, $5000 premium/month, 3 recruits/quarter.
-- `bump_challenge_progress()` trigger on `call_logs` (calls), `policies` (deals + premium), `profiles` insert (recruiting for upline). Updates matching active challenge row, marks `completed=true` and inserts trophy when hit.
-- `get_analytics_overview(_start, _end)` — KPIs, deltas vs prior period, conversion, monthly growth, top carriers, status grid, persistency approximations.
-- `get_daily_report()` — today's activity counts, active agents, lapse-pending list, upcoming effective dates.
-- `get_agent_analytics(_agent, _start, _end)` — individual tab data.
-- `get_team_leaderboard(_start, _end)` — ranked downline w/ trend arrow vs prior period.
-- `get_carrier_breakdown(_start, _end, _agent uuid default null)` — carrier cards + table.
-- `get_trends_12mo()` — 12-month series, MoM growth, YTD vs LY, best/worst months.
-- `get_policy_analytics()` — status distribution, stacked-area series, at-risk list.
-- `get_quality_metrics()` — 13-month persistency (approximation: effective_date <= now - 13mo and status = 'active' / total such policies), 12-month lapse rate, by carrier, by agent.
-- `get_recruiting_funnel()` — counts by `recruiting_prospects.stage`, conversion, avg days, monthly onboarded.
+New tables (all RLS: SELECT for authenticated; admin-only writes unless noted):
+- `handbook_sections` (sort_order, title, slug unique, content_html, updated_at)
+- `scripts_v2` — extend existing `scripts` table: add `short_description`, `long_description`, `content_html`, `accent_color`, `sort_order` (keep existing `category`, `title`)
+- `academy_courses` (title, slug, category, instructor_name, duration_minutes, thumbnail_url, sort_order, published, featured bool)
+- `academy_modules` (course_id, title, sort_order, video_url, content_html, quiz jsonb, resource_urls jsonb)
+- `course_progress` (agent_id, course_id, module_id, completed, completed_at, quiz_score) — owner RLS
 
-## Server functions (`src/lib/analytics.functions.ts`)
+`states_reference` and `state_licenses` already exist — reuse. Seed `states_reference` with all 51 rows (timezone, license_fee_cents, doi_url, prelicensing_url) if missing.
 
-Thin wrappers over RPCs + the two AI endpoints:
-- `getAnalyticsOverview`, `getDailyReport`, `getAgentAnalytics`, `getTeamLeaderboard`, `getCarrierBreakdown`, `getTrends`, `getPolicyAnalytics`, `getQualityMetrics`, `getRecruitingFunnel`, `getChallenges`, `getTrophies`, `seedChallenges`.
-- `getAIInsights({ tab: 'overview' | 'coach', force?: boolean })` — checks `analytics_insight_cache` (4h TTL); if stale or `force`, gathers summary stats, calls Lovable AI Gateway (`google/gemini-3-flash-preview`) with a tool-calling schema returning structured cards, writes cache + rows in `ai_insights`, returns cards. All protected with `requireSupabaseAuth`.
+Seed:
+- 7 handbook sections (Welcome, Commission, Carriers, Client Standards, Compliance, Recruiting, Tools) with realistic long-form HTML
+- 6 scripts (Basic, Needs Analysis, Objection, Mortgage Protection, Beneficiary, Check-In) with full content_html + accent colors
+- 8 academy courses + featured flag on "Final Expense Mastery"
+- 51 states_reference rows
 
-## Frontend (`src/routes/_authenticated/analytics.tsx` + `src/components/analytics/`)
+License expiry notification: DB function + trigger, or a daily cron — for v1, compute client-side and surface banner (skip cron to keep scope tight).
 
-Components:
-- `AnalyticsHeader` — title, subtitle, date-range dropdown (state: 7/30/90/YTD/All/custom), `AI Insights` + `Refresh AI` buttons.
-- `ChallengeCards` — 4 cards (Daily blue, Weekly green, Monthly purple, Quarterly orange) with animated progress fills; gold border + confetti when 100%.
-- `TrophyCabinet` — summary row + dot breakdown + "View All" modal (3-col grid, sorted newest).
-- Tabs (shadcn `Tabs`, default `overview`, lazy-mount each panel):
-  - `OverviewPanel` — AI insight cards (3 colored variants), 4 KPI cards w/ deltas, conversion + growth large cards w/ small charts, top carriers bar chart + table.
-  - `DailyReportPanel` — 4 sections + Generate button (calls `getAIInsights({tab:'daily'})` variant — reuse coach prompt with daily context).
-  - `IndividualPanel` — agent dropdown (downline via existing `get_downline_agents`), KPI row, 6-month BarChart, status pie, top-carrier bar, activity timeline.
-  - `TeamPanel` — KPI row + leaderboard table (self row highlighted) + stacked bar chart per agent/month.
-  - `CarriersPanel` — agent filter + date filter + cards grid + table.
-  - `TrendsPanel` — area chart w/ $/# toggle, MoM growth bars, YTD vs LY, best/worst.
-  - `PolicyPanel` — status pie + breakdown table + stacked area + at-risk table w/ Follow Up → opens SMS route.
-  - `QualityPanel` — persistency/lapse/duration metrics, lapse trend line w/ 15% ref line, carrier + agent quality tables.
-  - `RecruitingPanel` — funnel visualization + conversion + monthly bar chart.
-  - `AICoachPanel` — `Refresh Coaching` button + 4-6 coaching cards from `getAIInsights({tab:'coach'})` (always last 30d).
-- Skeleton loaders during AI fetches; `Export CSV` buttons on Team/Carriers/Quality/Policy tables (client-side CSV).
+### 2. Sidebar
 
-Charts: Recharts `ResponsiveContainer` everywhere, tooltips on all series.
+Add "Resources" group to `src/components/app-sidebar.tsx` with 5 child links.
 
-Confetti: add `canvas-confetti` dep; fire from `ChallengeCard` when newly completed (track via `useRef` of last `completed` per challenge id).
+### 3. Routes (all under `_authenticated`)
 
-## Sidebar
+- `src/routes/_authenticated/resources/new-agent-guide.tsx` — 8-step checklist with progress ring; reads from profiles, producer_documents, contract_requests, agent_phone_settings, wallet, policies via one server fn `getOnboardingStatus`. Action buttons link to existing routes.
+- `src/routes/_authenticated/resources/handbook.tsx` — sticky TOC sidebar + scroll-spy, print/PDF (window.print + html2pdf via dynamic import — or just print for v1).
+- `src/routes/_authenticated/resources/scripts.tsx` — search + category filter pills + 3-col card grid; clicking opens full-screen Dialog with formatted script, Print/Copy buttons.
+- `src/routes/_authenticated/resources/state-licenses.tsx` — summary stats row, search + timezone filter + sort, licensed-first grid, add/edit license modal, expiry banner.
+- `src/routes/_authenticated/resources/academy.tsx` — featured banner, category tabs, course card grid. Card click → toast "Course viewer coming soon" (per chosen scope).
 
-`src/components/app-sidebar.tsx`: under "My Business", add `Business Analytics` → `/analytics` (BarChart3 icon).
+### 4. Server functions
 
-## Out of scope
+`src/lib/resources.functions.ts`:
+- `getOnboardingStatus` — returns 8 booleans + percent
+- `getHandbookSections`, `getScripts`, `getCourses` (public reads via authed supabase)
+- `getMyLicenses`, `upsertLicense`, `getStatesReference`
 
-- No real-time challenge updates beyond DB triggers (page refetches on focus via TanStack Query).
-- No sound effects.
-- Trophy "earned" modal is a card + confetti, not full-screen takeover.
-- Custom date range UI uses two date inputs (no fancy calendar popover beyond shadcn `Calendar`).
-- Recruiting funnel pageview/application metrics — schema doesn't track them, so that table is omitted (only the stage funnel + monthly bars).
-- AI Daily Tip reuses the coach endpoint with a "daily tip" subtype rather than a third prompt.
+### 5. Components
 
-## Files
+- `OnboardingChecklist`, `ProgressRing`, `ScriptCard`, `ScriptViewerDialog`, `StateLicenseCard`, `LicenseFormDialog`, `HandbookTOC`, `CourseCard`, `FeaturedCourseBanner`
 
-Create:
-- `supabase/migrations/<ts>_business_analytics.sql`
-- `src/lib/analytics.functions.ts`
-- `src/components/analytics/{AnalyticsHeader,ChallengeCards,TrophyCabinet,OverviewPanel,DailyReportPanel,IndividualPanel,TeamPanel,CarriersPanel,TrendsPanel,PolicyPanel,QualityPanel,RecruitingPanel,AICoachPanel,AIInsightCard,KpiCard}.tsx`
-- `src/lib/csv.ts` (tiny helper)
+### Out of scope
 
-Edit:
-- `src/components/app-sidebar.tsx` (add nav item)
-- `src/routes/_authenticated/analytics.tsx` (rewrite to host new layout)
-- `package.json` (add `canvas-confetti` + types)
+- Admin edit UIs (DB-only)
+- Course viewer page + quiz logic + progress tracking UI (cards only)
+- PDF export of handbook (print only)
+- Cron-based expiry notifications (client-side banner only)
+- Real video assets in academy (thumbnail gradients + icons)
