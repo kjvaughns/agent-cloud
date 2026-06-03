@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
-import { Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil, AlertTriangle, Flame, Thermometer, Snowflake, Heart } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil, AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 
@@ -16,12 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { phone as fmtPhone, money } from "@/lib/format";
+import { phone as fmtPhone, money, formatPhone, formatDob, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getClientDetail, touchLastOpened, updateClient, markClientSold, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
-  logContact, saveNeedsAnswer, scheduleEvent,
+  logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
+  listCarriers, addPolicy,
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 
@@ -40,6 +41,8 @@ const STAGES: { key: Stage; label: string }[] = [
   { key: "almost_there", label: "Almost There" },
   { key: "sold", label: "Sold" },
 ];
+
+const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 const detailQO = (id: string) => queryOptions({
   queryKey: ["pipeline", "detail", id],
@@ -250,9 +253,89 @@ function EditableField({ label, client, field, type, select }: { label: string; 
 
 // ============ Right column tabs ============
 function RightTabs({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateClient);
+  const updateMut = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: any }) => updateFn({ data: { id, patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+    onError: (e: any) => toast.error(e?.message ?? "Update failed"),
+  });
+
+  // Contact form state
+  const [contactForm, setContactForm] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (detail?.client) {
+      setContactForm({
+        first_name: detail.client.first_name ?? "",
+        last_name: detail.client.last_name ?? "",
+        phone: detail.client.phone ?? "",
+        phone_type: detail.client.phone_type ?? "mobile",
+        email: detail.client.email ?? "",
+        date_of_birth: detail.client.date_of_birth ?? "",
+        street_address: detail.client.street_address ?? "",
+        city: detail.client.city ?? "",
+        state: detail.client.state ?? "",
+        zip_code: detail.client.zip_code ?? "",
+      });
+    }
+  }, [detail?.client?.id]);
+
+  const streetRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!streetRef.current || !(window as any).google?.maps?.places) return;
+    const ac = new (window as any).google.maps.places.Autocomplete(streetRef.current, {
+      types: ["address"],
+      componentRestrictions: { country: "us" },
+    });
+    ac.addListener("place_changed", () => {
+      const place = ac.getPlace();
+      const comps = place.address_components ?? [];
+      const get = (type: string, short = false) => comps.find((c: any) => c.types.includes(type))?.[short ? "short_name" : "long_name"] ?? "";
+      const street = `${get("street_number")} ${get("route")}`.trim();
+      const city = get("locality") || get("sublocality");
+      const state = get("administrative_area_level_1", true);
+      const zip = get("postal_code");
+      setContactForm(f => ({ ...f, street_address: street, city, state, zip_code: zip }));
+      updateMut.mutate({ id: detail.client.id, patch: { street_address: street, city, state, zip_code: zip } });
+    });
+  }, [detail?.client?.id]);
+
+  const saveField = (key: string, value: string) => {
+    updateMut.mutate({ id: detail.client.id, patch: { [key]: value } });
+  };
+
+  // Health form state
+  const [healthForm, setHealthForm] = useState<Record<string, any>>({});
+  useEffect(() => {
+    if (detail?.health) setHealthForm(detail.health);
+  }, [detail?.health]);
+
+  const upsertHealthFn = useServerFn(upsertClientHealth);
+  const healthMut = useMutation({
+    mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const saveHealth = (key: string, value: any) => healthMut.mutate({ [key]: value });
+
+  // Banking form state
+  const [bankingForm, setBankingForm] = useState<Record<string, any>>({});
+  const [showAcct, setShowAcct] = useState(false);
+  useEffect(() => {
+    if (detail?.banking) setBankingForm(detail.banking);
+  }, [detail?.banking]);
+
+  const upsertBankingFn = useServerFn(upsertClientBanking);
+  const bankingMut = useMutation({
+    mutationFn: (patch: any) => upsertBankingFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const saveBanking = (key: string, value: any) => bankingMut.mutate({ [key]: value });
+
   return (
     <Tabs defaultValue="needs">
       <TabsList className="flex flex-wrap h-auto justify-start">
+        <TabsTrigger value="contact">Contact</TabsTrigger>
         <TabsTrigger value="needs">Needs Analysis</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
         <TabsTrigger value="schedule">Schedule</TabsTrigger>
@@ -260,9 +343,112 @@ function RightTabs({ detail }: { detail: any }) {
         <TabsTrigger value="referrals">Referrals</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="care">Client Care</TabsTrigger>
+        <TabsTrigger value="health">Health</TabsTrigger>
+        <TabsTrigger value="banking">Banking</TabsTrigger>
         <TabsTrigger value="policies">Policies</TabsTrigger>
         <TabsTrigger value="email">Email</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="contact" className="mt-4">
+        <div className="space-y-4 p-1">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>First Name</Label>
+              <Input value={contactForm.first_name ?? ""} onChange={e => setContactForm(f => ({...f, first_name: e.target.value}))} onBlur={e => saveField("first_name", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Last Name</Label>
+              <Input value={contactForm.last_name ?? ""} onChange={e => setContactForm(f => ({...f, last_name: e.target.value}))} onBlur={e => saveField("last_name", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Phone</Label>
+            <div className="flex gap-2">
+              <Input className="flex-1" value={contactForm.phone ?? ""}
+                onChange={e => setContactForm(f => ({...f, phone: formatPhone(e.target.value)}))}
+                onBlur={e => saveField("phone", e.target.value)}
+                placeholder="(555) 555-5555" />
+              <Select value={contactForm.phone_type ?? "mobile"} onValueChange={v => { setContactForm(f => ({...f, phone_type: v})); saveField("phone_type", v); }}>
+                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mobile">Mobile</SelectItem>
+                  <SelectItem value="home">Home</SelectItem>
+                  <SelectItem value="work">Work</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Email</Label>
+            <Input type="email" value={contactForm.email ?? ""} onChange={e => setContactForm(f => ({...f, email: e.target.value}))} onBlur={e => saveField("email", e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Date of Birth</Label>
+            <Input value={contactForm.date_of_birth ?? ""} placeholder="MM/DD/YYYY"
+              onChange={e => setContactForm(f => ({...f, date_of_birth: formatDob(e.target.value)}))}
+              onBlur={e => saveField("date_of_birth", e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Street Address</Label>
+            <Input ref={streetRef} value={contactForm.street_address ?? ""}
+              onChange={e => setContactForm(f => ({...f, street_address: e.target.value}))}
+              onBlur={e => saveField("street_address", e.target.value)}
+              placeholder="123 Main St" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1 space-y-1">
+              <Label>City</Label>
+              <Input value={contactForm.city ?? ""} onChange={e => setContactForm(f => ({...f, city: e.target.value}))} onBlur={e => saveField("city", e.target.value)} />
+            </div>
+            <div className="col-span-1 space-y-1">
+              <Label>State</Label>
+              <Select value={contactForm.state ?? ""} onValueChange={v => { setContactForm(f => ({...f, state: v})); saveField("state", v); }}>
+                <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
+                <SelectContent>
+                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-1 space-y-1">
+              <Label>ZIP</Label>
+              <Input value={contactForm.zip_code ?? ""} onChange={e => setContactForm(f => ({...f, zip_code: e.target.value.replace(/\D/g, "").slice(0, 5)}))} onBlur={e => saveField("zip_code", e.target.value)} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Temperature</Label>
+            <div className="flex gap-2">
+              {(["hot","warm","cold"] as const).map(t => (
+                <Button key={t} size="sm" variant={detail.client.temperature === t ? "default" : "outline"}
+                  className={detail.client.temperature === t ? (t === "hot" ? "bg-red-600 hover:bg-red-700 border-red-600" : t === "warm" ? "bg-orange-500 hover:bg-orange-600 border-orange-500" : "") : ""}
+                  onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { temperature: t } }); }}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Stage</Label>
+            <div className="flex gap-2 flex-wrap">
+              {(["new","callback","almost_there","sold"] as const).map(s => {
+                const STAGE_LABELS: Record<string, string> = { new: "New", callback: "Callback", almost_there: "Almost There", sold: "Sold" };
+                return (
+                  <Button key={s} size="sm" variant={detail.client.stage === s ? "default" : "outline"}
+                    onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { stage: s } }); }}>
+                    {STAGE_LABELS[s]}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </TabsContent>
 
       <TabsContent value="needs" className="mt-4"><NeedsAnalysisTab detail={detail} /></TabsContent>
       <TabsContent value="notes" className="mt-4"><NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} /></TabsContent>
@@ -271,6 +457,118 @@ function RightTabs({ detail }: { detail: any }) {
       <TabsContent value="referrals" className="mt-4"><ReferralsTab detail={detail} /></TabsContent>
       <TabsContent value="financials" className="mt-4"><FinancialsTab detail={detail} /></TabsContent>
       <TabsContent value="care" className="mt-4"><ClientCareTab detail={detail} /></TabsContent>
+
+      <TabsContent value="health" className="mt-4">
+        <div className="space-y-4 p-1">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>Height (ft)</Label>
+              <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Height (in)</Label>
+              <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Weight (lbs)</Label>
+              <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Tobacco Use</Label>
+            <div className="flex gap-2">
+              <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
+              <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Primary Physician</Label>
+            <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Physician Phone</Label>
+            <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Medical Conditions</Label>
+            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Current Medications</Label>
+            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Medical Notes</Label>
+            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="banking" className="mt-4">
+        <div className="space-y-4 p-1">
+          <div className="space-y-1">
+            <Label>Bank Name</Label>
+            <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Account Type</Label>
+            <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="checking">Checking</SelectItem>
+                <SelectItem value="savings">Savings</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Routing Number</Label>
+            <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
+          </div>
+
+          <div className="space-y-1">
+            <Label>Account Number</Label>
+            <div className="relative">
+              <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
+              <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Draft Date</Label>
+            <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
+              <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+              <SelectContent>
+                {Array.from({length: 28}, (_, i) => i + 1).map(d => (
+                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Payment Method</Label>
+            <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bank_draft">Bank Draft</SelectItem>
+                <SelectItem value="credit_card">Credit Card</SelectItem>
+                <SelectItem value="money_order">Money Order</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </TabsContent>
+
       <TabsContent value="policies" className="mt-4"><PoliciesTab detail={detail} /></TabsContent>
       <TabsContent value="email" className="mt-4"><EmailTab detail={detail} /></TabsContent>
     </Tabs>
@@ -763,46 +1061,114 @@ function ClientCareTab({ detail }: { detail: any }) {
 }
 
 // ----- Policies -----
+const statusCls: Record<string, string> = {
+  active: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  lapsed: "bg-red-100 text-red-700 border-red-200",
+  in_review: "bg-amber-100 text-amber-700 border-amber-200",
+  pending: "bg-slate-100 text-slate-600 border-slate-200",
+};
+
 function PoliciesTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
-  const soldFn = useServerFn(markClientSold);
-  const soldMut = useMutation({ mutationFn: () => soldFn({ data: { id: detail.client.id } }), onSuccess: () => { qc.invalidateQueries({ queryKey: ["pipeline"] }); toast.success("Marked sold"); } });
+  const [addPolOpen, setAddPolOpen] = useState(false);
+  const [polForm, setPolForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", annual_premium: "", monthly_premium: "", face_amount: "", effective_date: "" });
 
-  if (detail.client.stage !== "sold") {
-    return (
-      <div className="border rounded-md p-6 text-center space-y-3 bg-muted/30">
-        <div className="text-sm text-muted-foreground">Move this client to "Sold" to add and view their policies.</div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => soldMut.mutate()}><CheckCircle2 className="h-4 w-4" /> Mark Sold</Button>
-      </div>
-    );
-  }
+  const listCarriersFn = useServerFn(listCarriers);
+  const { data: carriers = [] } = useQuery({
+    queryKey: ["carriers"],
+    queryFn: () => listCarriersFn(),
+    staleTime: 5 * 60_000,
+  });
+
+  const addPolicyFn = useServerFn(addPolicy);
+  const addPolMut = useMutation({
+    mutationFn: () => addPolicyFn({ data: {
+      client_id: detail.client.id,
+      carrier_id: polForm.carrier_id || null,
+      policy_number: polForm.policy_number,
+      product: polForm.product,
+      status: polForm.status,
+      annual_premium: polForm.annual_premium ? Number(polForm.annual_premium) : null,
+      monthly_premium: polForm.monthly_premium ? Number(polForm.monthly_premium) : null,
+      face_amount: polForm.face_amount ? Number(polForm.face_amount) : null,
+      effective_date: polForm.effective_date || null,
+    }}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] });
+      setAddPolOpen(false);
+      setPolForm({ carrier_id: "", policy_number: "", product: "", status: "active", annual_premium: "", monthly_premium: "", face_amount: "", effective_date: "" });
+    },
+  });
 
   return (
     <div className="space-y-3">
+      <Button onClick={() => setAddPolOpen(true)}><Plus className="h-4 w-4" /> Add Policy</Button>
       {detail.policies.length === 0 ? (
         <div className="text-sm text-muted-foreground">No policies yet for this client.</div>
       ) : (
-        <div className="border rounded-md overflow-hidden text-sm">
-          <table className="w-full">
-            <thead className="bg-muted/40 text-xs">
-              <tr><th className="text-left p-2">Carrier</th><th className="text-left p-2">Product</th><th className="text-left p-2">Policy #</th><th className="text-left p-2">Status</th><th className="text-left p-2">Monthly</th><th className="text-left p-2">Effective</th></tr>
-            </thead>
-            <tbody>
-              {detail.policies.map((p: any) => (
-                <tr key={p.id} className="border-t">
-                  <td className="p-2">{p.carriers?.name ?? "—"}</td>
-                  <td className="p-2">{p.product ?? "—"}</td>
-                  <td className="p-2">{p.policy_number ?? "—"}</td>
-                  <td className="p-2 capitalize">{p.status}</td>
-                  <td className="p-2">{money(p.monthly_premium)}</td>
-                  <td className="p-2">{p.effective_date ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-2">
+          {detail.policies.map((pol: any) => (
+            <details key={pol.id} className="rounded-lg border bg-card">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
+                <div>
+                  <div className="font-medium text-sm">{pol.carriers?.name ?? "—"} — {pol.product ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">#{pol.policy_number ?? "—"}</div>
+                </div>
+                <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
+                  {pol.status ?? "—"}
+                </span>
+              </summary>
+              <div className="px-4 pb-4 pt-2 text-sm space-y-1 border-t">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><span className="text-muted-foreground">Face Amount:</span> {money(pol.face_amount)}</div>
+                  <div><span className="text-muted-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
+                  <div><span className="text-muted-foreground">Annual:</span> {money(pol.annual_premium)}</div>
+                  <div><span className="text-muted-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+                </div>
+              </div>
+            </details>
+          ))}
         </div>
       )}
-      <Button asChild variant="outline"><a href={`/post-deal?client_id=${detail.client.id}`}><Plus className="h-4 w-4" /> Add Policy</a></Button>
+
+      <Dialog open={addPolOpen} onOpenChange={setAddPolOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Policy</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Field label="Carrier">
+              <Select value={polForm.carrier_id} onValueChange={v => setPolForm(f => ({...f, carrier_id: v}))}>
+                <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
+                <SelectContent>
+                  {(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Policy Number"><Input value={polForm.policy_number} onChange={e => setPolForm(f => ({...f, policy_number: e.target.value}))} /></Field>
+            <Field label="Product"><Input value={polForm.product} onChange={e => setPolForm(f => ({...f, product: e.target.value}))} /></Field>
+            <Field label="Status">
+              <Select value={polForm.status} onValueChange={v => setPolForm(f => ({...f, status: v}))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_review">In Review</SelectItem>
+                  <SelectItem value="lapsed">Lapsed</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Face Amount"><Input type="number" value={polForm.face_amount} onChange={e => setPolForm(f => ({...f, face_amount: e.target.value}))} /></Field>
+              <Field label="Monthly Premium"><Input type="number" value={polForm.monthly_premium} onChange={e => setPolForm(f => ({...f, monthly_premium: e.target.value}))} /></Field>
+              <Field label="Annual Premium"><Input type="number" value={polForm.annual_premium} onChange={e => setPolForm(f => ({...f, annual_premium: e.target.value}))} /></Field>
+              <Field label="Effective Date"><Input type="date" value={polForm.effective_date} onChange={e => setPolForm(f => ({...f, effective_date: e.target.value}))} /></Field>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddPolOpen(false)}>Cancel</Button>
+            <Button onClick={() => addPolMut.mutate()} disabled={addPolMut.isPending}>Save Policy</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

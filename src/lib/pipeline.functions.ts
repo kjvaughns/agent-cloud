@@ -174,6 +174,8 @@ export const getClientDetail = createServerFn({ method: "GET" })
       { data: needs_analysis },
       { data: policies },
       { data: events },
+      { data: health },
+      { data: banking },
     ] = await Promise.all([
       supabase.from("clients").select("*").eq("id", data.id).single(),
       supabase.from("client_financials").select("*").eq("client_id", data.id).maybeSingle(),
@@ -181,10 +183,12 @@ export const getClientDetail = createServerFn({ method: "GET" })
       supabase.from("contact_history").select("*").eq("client_id", data.id).order("created_at", { ascending: false }),
       supabase.from("life_events").select("*").eq("client_id", data.id).order("event_date", { ascending: false }),
       supabase.from("needs_analysis").select("*").eq("client_id", data.id).order("created_at", { ascending: true }),
-      supabase.from("policies").select("*,carriers(name)").eq("client_id", data.id).order("posted_at", { ascending: false }),
+      supabase.from("policies").select("*,carriers(name,id)").eq("client_id", data.id).order("posted_at", { ascending: false }),
       supabase.from("calendar_events").select("*").eq("client_id", data.id).gte("start_at", new Date().toISOString()).order("start_at"),
+      supabase.from("client_health").select("*").eq("client_id", data.id).maybeSingle(),
+      supabase.from("client_banking").select("*").eq("client_id", data.id).maybeSingle(),
     ]);
-    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: contact_history ?? [], life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [] };
+    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: contact_history ?? [], life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [], health: health ?? null, banking: banking ?? null };
   });
 
 export const touchLastOpened = createServerFn({ method: "POST" })
@@ -342,6 +346,94 @@ export const saveNeedsAnswer = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
     return { ok: true };
+  });
+
+// ---------- Health ----------
+const healthSchema = z.object({
+  client_id: z.string().uuid(),
+  height_ft: z.number().int().nullable().optional(),
+  height_in: z.number().int().min(0).max(11).nullable().optional(),
+  weight_lbs: z.number().int().nullable().optional(),
+  tobacco_use: z.boolean().nullable().optional(),
+  primary_physician: z.string().max(200).nullable().optional(),
+  primary_physician_phone: z.string().max(30).nullable().optional(),
+  conditions: z.string().max(2000).nullable().optional(),
+  medications: z.string().max(2000).nullable().optional(),
+  medical_notes: z.string().max(5000).nullable().optional(),
+});
+
+export const upsertClientHealth = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => healthSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { error } = await supabase.from("client_health").upsert(
+      { ...data, updated_at: new Date().toISOString() },
+      { onConflict: "client_id" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Banking ----------
+const bankingSchema = z.object({
+  client_id: z.string().uuid(),
+  bank_name: z.string().max(200).nullable().optional(),
+  routing_number: z.string().max(9).nullable().optional(),
+  account_number_masked: z.string().max(50).nullable().optional(),
+  account_type: z.string().max(20).nullable().optional(),
+  draft_date: z.number().int().min(1).max(28).nullable().optional(),
+  payment_method: z.string().max(50).nullable().optional(),
+});
+
+export const upsertClientBanking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => bankingSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { error } = await supabase.from("client_banking").upsert(
+      { ...data, updated_at: new Date().toISOString() },
+      { onConflict: "client_id" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Carriers ----------
+export const listCarriers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as Ctx;
+    const { data, error } = await supabase.from("carriers").select("id, name").order("name");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+// ---------- Add policy ----------
+const addPolicySchema = z.object({
+  client_id: z.string().uuid(),
+  carrier_id: z.string().uuid().nullable().optional(),
+  policy_number: z.string().max(100).optional().or(z.literal("")),
+  product: z.string().max(200).optional().or(z.literal("")),
+  status: z.string().max(50).default("active"),
+  annual_premium: z.number().nullable().optional(),
+  monthly_premium: z.number().nullable().optional(),
+  face_amount: z.number().nullable().optional(),
+  effective_date: z.string().nullable().optional().or(z.literal("")),
+});
+
+export const addPolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => addPolicySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const payload: any = { ...data, agent_id: userId, posted_at: new Date().toISOString() };
+    for (const k of ["policy_number", "product", "effective_date"]) {
+      if (payload[k] === "") payload[k] = null;
+    }
+    const { data: row, error } = await supabase.from("policies").insert(payload).select("id").single();
+    if (error) throw new Error(error.message);
+    return row;
   });
 
 // ---------- Calendar events ----------

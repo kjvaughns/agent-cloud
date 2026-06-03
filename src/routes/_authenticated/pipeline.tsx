@@ -24,10 +24,10 @@ import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-di
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
 
-const STAGE_COLS: { key: Stage; label: string; tint: string; header: string }[] = [
-  { key: "new", label: "New / Cold", tint: "bg-slate-50 dark:bg-slate-900/30", header: "text-slate-700 dark:text-slate-300" },
-  { key: "callback", label: "Callback", tint: "bg-amber-50 dark:bg-amber-900/20", header: "text-amber-700 dark:text-amber-300" },
-  { key: "almost_there", label: "Almost There", tint: "bg-emerald-50 dark:bg-emerald-900/20", header: "text-emerald-700 dark:text-emerald-300" },
+const STAGE_COLS: { key: Stage; label: string; tint: string; header: string; badgeCls: string }[] = [
+  { key: "new", label: "New / Cold", tint: "bg-slate-50 dark:bg-slate-900/30", header: "text-slate-600 dark:text-slate-300", badgeCls: "bg-slate-100 text-slate-700 border-slate-200" },
+  { key: "callback", label: "Callback", tint: "bg-amber-50 dark:bg-amber-900/20", header: "text-amber-700 dark:text-amber-300", badgeCls: "bg-amber-100 text-amber-700 border-amber-200" },
+  { key: "almost_there", label: "Almost There", tint: "bg-emerald-50 dark:bg-emerald-900/20", header: "text-emerald-700 dark:text-emerald-300", badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
 ];
 
 const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
@@ -140,31 +140,29 @@ function PipelinePage() {
 
   return (
     <div className="p-6 space-y-4 h-[calc(100vh-3.5rem)] flex flex-col">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Pipeline</h1>
-          <p className="text-sm text-muted-foreground">Track your sales leads</p>
+      {/* Header row: tabs | search | buttons */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+          <TabsList>
+            <TabsTrigger value="pipeline">Pipeline ({pipelineClients.length})</TabsTrigger>
+            <TabsTrigger value="sold">Sold ({soldClients.length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative flex-1 max-w-sm">
+          <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-8" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" onClick={() => setAgentLinkOpen(true)}><Download className="h-4 w-4 mr-1" /> Import from AgentLink</Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import Clients</Button>
           <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Client</Button>
         </div>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone number..." className="pl-8" />
-      </div>
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as any)} className="flex-1 min-h-0 flex flex-col">
-        <TabsList>
-          <TabsTrigger value="pipeline">Pipeline ({pipelineClients.length})</TabsTrigger>
-          <TabsTrigger value="sold">Sold ({soldClients.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="pipeline" className="flex-1 min-h-0">
-          {showSkeleton ? (
+      {/* Board content */}
+      <div className="flex-1 min-h-0">
+        {tab === "pipeline" ? (
+          showSkeleton ? (
             <PipelineSkeleton />
           ) : (
             <DndContext sensors={sensors} onDragEnd={onDragEnd}>
@@ -188,37 +186,37 @@ function PipelinePage() {
                 </div>
               </div>
             </DndContext>
-          )}
-        </TabsContent>
-
-        <TabsContent value="sold" className="flex-1 min-h-0 overflow-y-auto">
-          {soldClients.length === 0 ? (
-            <div className="text-center text-muted-foreground py-16">No sold clients yet.</div>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 pt-4">
-              {soldClients.map((c: any) => (
-                <button
-                  key={c.id}
-                  onClick={() => setOpenId(c.id)}
-                  className="text-left bg-card border rounded-lg p-4 hover:border-primary/50 hover:shadow-sm transition"
-                >
-                  <div className="font-medium">{c.first_name} {c.last_name}</div>
-                  {c.latest_policy ? (
-                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                      <div>{c.latest_policy.carriers?.name ?? "—"} · {c.latest_policy.product ?? "—"}</div>
-                      <div>Policy: {c.latest_policy.policy_number ?? "—"}</div>
-                      <div>Effective: {c.latest_policy.effective_date ?? "—"}</div>
-                      <div className="text-emerald-600 font-medium">{money(c.latest_policy.monthly_premium)}/mo</div>
-                    </div>
-                  ) : (
-                    <div className="text-xs text-muted-foreground mt-2">No policy on file</div>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          )
+        ) : (
+          <div className="h-full overflow-y-auto">
+            {soldClients.length === 0 ? (
+              <div className="text-center text-muted-foreground py-16">No sold clients yet.</div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 pt-4">
+                {soldClients.map((c: any) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setOpenId(c.id)}
+                    className="text-left bg-card border rounded-lg p-4 hover:border-primary/50 hover:shadow-sm transition"
+                  >
+                    <div className="font-medium">{c.first_name} {c.last_name}</div>
+                    {c.latest_policy ? (
+                      <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                        <div>{c.latest_policy.carriers?.name ?? "—"} · {c.latest_policy.product ?? "—"}</div>
+                        <div>Policy: {c.latest_policy.policy_number ?? "—"}</div>
+                        <div>Effective: {c.latest_policy.effective_date ?? "—"}</div>
+                        <div className="text-emerald-600 font-medium">{money(c.latest_policy.monthly_premium)}/mo</div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-muted-foreground mt-2">No policy on file</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <ClientDetailDrawer clientId={openId} onClose={() => setOpenId(null)} />
       <AddClientDialog open={addOpen} onOpenChange={setAddOpen} />
@@ -245,6 +243,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
   const t = tempPill[(client.temperature ?? "cold") as Temp];
   const score = client.score_pct ?? 0;
   const scoreCls = score > 70 ? "bg-emerald-100 text-emerald-700" : score >= 40 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
+  const col = STAGE_COLS.find((c) => c.key === client.stage);
   return (
     <div
       ref={setNodeRef}
@@ -264,6 +263,13 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
           )}
         </div>
       </div>
+      {col && (
+        <div className="mt-1.5">
+          <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", col.badgeCls)}>
+            {col.label}
+          </span>
+        </div>
+      )}
       <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
         <Phone className="h-3 w-3" /> {fmtPhone(client.phone) || "—"}
       </div>
