@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Flame, Thermometer, Snowflake, Heart, Phone } from "lucide-react";
+import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -19,6 +19,7 @@ import { phone as fmtPhone, money } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
 import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
+import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
@@ -85,6 +86,7 @@ function PipelinePage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [agentLinkOpen, setAgentLinkOpen] = useState(false);
 
   const updateFn = useServerFn(updateClient);
   const stageMutation = useMutation({
@@ -144,6 +146,7 @@ function PipelinePage() {
           <p className="text-sm text-muted-foreground">Track your sales leads</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setAgentLinkOpen(true)}><Download className="h-4 w-4 mr-1" /> Import from AgentLink</Button>
           <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import Clients</Button>
           <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Client</Button>
         </div>
@@ -220,6 +223,7 @@ function PipelinePage() {
       <ClientDetailDrawer clientId={openId} onClose={() => setOpenId(null)} />
       <AddClientDialog open={addOpen} onOpenChange={setAddOpen} />
       <ImportClientsDialog open={importOpen} onOpenChange={setImportOpen} />
+      <AgentLinkImportDialog open={agentLinkOpen} onOpenChange={setAgentLinkOpen} />
     </div>
   );
 }
