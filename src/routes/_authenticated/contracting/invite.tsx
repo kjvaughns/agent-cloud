@@ -7,7 +7,6 @@ import {
   createOnboardingInvite,
   getMyContractedCarriers,
   resendInvite,
-  searchDownlineAgents,
   getMyInviteSignature,
   saveInviteSignature,
   addCarriersToInvite,
@@ -53,11 +52,9 @@ function InvitePage() {
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [existingAgent, setExistingAgent] = useState<{ id: string; name: string } | null>(null);
-  const [agentMode, setAgentMode] = useState<"new" | "existing">("new");
+  const [personalMessage, setPersonalMessage] = useState("");
   const [useSignature, setUseSignature] = useState(false);
   const [signature, setSignature] = useState("");
-  const [agentSearch, setAgentSearch] = useState("");
 
   // Step 2 state
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -75,21 +72,16 @@ function InvitePage() {
     queryKey: ["onb","sig"],
     queryFn: () => getMyInviteSignature(),
   });
-  const { data: agentSearchResults } = useQuery({
-    queryKey: ["onb","search", agentSearch],
-    queryFn: () => searchDownlineAgents({ data: { query: agentSearch } }),
-    enabled: agentMode === "existing",
-  });
 
   const createFn = useServerFn(createOnboardingInvite);
   const saveSigFn = useServerFn(saveInviteSignature);
   const create = useMutation({
     mutationFn: () => createFn({
       data: {
-        new_agent_first_name: agentMode === "new" ? firstName : null,
-        new_agent_last_name: agentMode === "new" ? lastName : null,
+        new_agent_first_name: firstName,
+        new_agent_last_name: lastName,
         new_agent_email: email,
-        existing_agent_id: agentMode === "existing" ? existingAgent?.id ?? null : null,
+        existing_agent_id: null,
         invite_signature_html: useSignature && signature ? signature : null,
         assignments,
       },
@@ -101,12 +93,12 @@ function InvitePage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to send invite"),
   });
 
-  const canStep1 = email.includes("@") && (agentMode === "existing" ? !!existingAgent : (firstName.trim() && lastName.trim()));
+  const canStep1 = email.includes("@") && firstName.trim().length > 0 && lastName.trim().length > 0;
   const canSend = assignments.length > 0;
 
   function resetForm() {
     setStep(1); setSuccess(null); setEmail(""); setFirstName(""); setLastName("");
-    setAssignments([]); setExistingAgent(null); setUseSignature(false);
+    setPersonalMessage(""); setAssignments([]); setUseSignature(false);
   }
 
   if (success) {
@@ -138,7 +130,7 @@ function InvitePage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Contract Agent</h1>
-        <p className="text-sm text-muted-foreground">Invite a new or existing agent to start contracting</p>
+        <p className="text-sm text-muted-foreground">Invite a new agent to join your downline and start contracting</p>
       </div>
 
       {/* Progress */}
@@ -162,53 +154,32 @@ function InvitePage() {
             <p className="text-xs text-muted-foreground mt-1">You're sending this invite. The new agent will be in your downline.</p>
           </div>
 
-          <div>
-            <Label className="mb-2 block">Is this agent already on Agent Cloud?</Label>
-            <div className="flex gap-2">
-              <Button type="button" variant={agentMode === "new" ? "default" : "outline"} size="sm" onClick={() => setAgentMode("new")}>New Agent</Button>
-              <Button type="button" variant={agentMode === "existing" ? "default" : "outline"} size="sm" onClick={() => setAgentMode("existing")}>Existing Agent</Button>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>First Name *</Label>
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Last Name *</Label>
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1" />
             </div>
           </div>
-
-          {agentMode === "existing" ? (
-            <div>
-              <Label>Search agent</Label>
-              <Input value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} placeholder="Search by name..." className="mt-1" />
-              {agentSearchResults && agentSearch && !existingAgent && (
-                <div className="mt-2 border rounded-md max-h-48 overflow-auto">
-                  {(agentSearchResults.agents ?? []).length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground">No matches</div>
-                  ) : agentSearchResults.agents.map((a: any) => (
-                    <button key={a.id} type="button" onClick={() => { setExistingAgent({ id: a.id, name: `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() }); setAgentSearch(""); }}
-                      className="w-full text-left p-2 hover:bg-muted text-sm border-b last:border-0">
-                      {a.first_name} {a.last_name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {existingAgent && (
-                <div className="mt-2 flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-                  <span className="flex-1 text-sm">{existingAgent.name}</span>
-                  <Button size="sm" variant="ghost" onClick={() => setExistingAgent(null)}>Clear</Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>First Name *</Label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label>Last Name *</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="mt-1" />
-              </div>
-            </div>
-          )}
 
           <div>
             <Label>Email Address *</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" placeholder="agent@example.com" />
+          </div>
+
+          <div>
+            <Label>Personal message (optional)</Label>
+            <Textarea
+              value={personalMessage}
+              onChange={(e) => setPersonalMessage(e.target.value.slice(0, 300))}
+              className="mt-1"
+              rows={3}
+              placeholder="Add a personal note to your invite..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">{personalMessage.length}/300</p>
           </div>
 
           <div className="space-y-2">

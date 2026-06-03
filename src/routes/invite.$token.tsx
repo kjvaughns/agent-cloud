@@ -9,7 +9,6 @@ import {
   saveOnboardingPersonal,
   saveOnboardingCarriers,
   signOnboardingAgreement,
-  startSurelcSso,
 } from "@/lib/onboarding.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Cloud, CheckCircle2, Eye, EyeOff, ExternalLink, Lock } from "lucide-react";
+import { Cloud, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
@@ -87,7 +86,7 @@ function PublicInvitePage() {
         {step === 1 && <Step1Personal token={token} invite={invite} onDone={() => setStep(2)} />}
         {step === 2 && <Step2Carriers token={token} carriers={carriers} onDone={() => setStep(3)} />}
         {step === 3 && <Step3Agreement token={token} onDone={() => setStep(4)} />}
-        {step === 4 && <Step4Surelc token={token} />}
+        {step === 4 && <Step4Confirmation invite={invite} />}
       </main>
     </div>
   );
@@ -278,7 +277,7 @@ function Step3Agreement({ token, onDone }: { token: string; onDone: () => void }
       <h2 className="text-lg font-semibold">Producer Agreement</h2>
       <div className="border rounded-md p-4 max-h-64 overflow-auto text-sm text-muted-foreground bg-muted/30">
         <p className="font-medium mb-2">Agent Cloud Producer Agreement</p>
-        <p>By signing this agreement, you authorize Agent Cloud and your upline to submit your contracting applications to the carriers you have selected via SuranceBay / SureLC. You confirm that all information you provide is accurate, and you agree to comply with all applicable carrier and regulatory requirements.</p>
+        <p>By signing this agreement, you authorize Agent Cloud and your upline to submit your contracting applications to the carriers you have selected. You confirm that all information you provide is accurate, and you agree to comply with all applicable carrier and regulatory requirements.</p>
         <p className="mt-2">You acknowledge that commission levels are assigned by your upline and may be subject to change upon written agreement, and that all commissions are paid by the carrier in accordance with the carrier's commission schedule.</p>
       </div>
       <div>
@@ -287,7 +286,7 @@ function Step3Agreement({ token, onDone }: { token: string; onDone: () => void }
       </div>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
-        <span>I have read and agree to the Producer Agreement and authorize submission of my applications via SuranceBay / SureLC.</span>
+        <span>I have read and agree to the Producer Agreement and authorize submission of my contracting applications.</span>
       </label>
       <Button disabled={!agreed || name.trim().length < 2 || sign.isPending} onClick={() => sign.mutate()} className="w-full">
         {sign.isPending ? "Submitting..." : "Submit & Continue →"}
@@ -296,44 +295,32 @@ function Step3Agreement({ token, onDone }: { token: string; onDone: () => void }
   );
 }
 
-function Step4Surelc({ token }: { token: string }) {
-  const startFn = useServerFn(startSurelcSso);
-  const [opened, setOpened] = useState(false);
-  const start = useMutation({
-    mutationFn: () => startFn({ data: { token } }),
-    onSuccess: (res: any) => {
-      window.open(res.sso_url, "_blank");
-      setOpened(true);
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-
+function Step4Confirmation({ invite }: { invite: any }) {
   return (
-    <Card className="p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Last Step — Complete Your Profile in SuranceBay</h2>
-      <div className="rounded-md bg-blue-500/10 border border-blue-500/30 p-4 text-sm space-y-2">
-        <p><strong>SuranceBay (SureLC)</strong> uses your Last Name + SSN + DOB to:</p>
-        <ul className="list-disc ml-5">
-          <li>Create your SureLC profile</li>
-          <li>Auto-import your state licenses from NIPR</li>
-          <li>Pre-fill carrier contracting forms</li>
-        </ul>
+    <Card className="p-8 text-center space-y-4">
+      <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 grid place-items-center">
+        <CheckCircle2 className="h-8 w-8 text-emerald-600" />
       </div>
-      <div className="space-y-2 text-sm">
-        <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Personal information complete</div>
-        <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Carriers selected</div>
-        <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Producer agreement signed</div>
-        <div className="flex items-center gap-2 text-muted-foreground">⏳ SuranceBay profile — complete this now</div>
+      <h2 className="text-2xl font-bold">You're in!</h2>
+      <p className="text-muted-foreground">
+        You've been added to <strong>{invite.upline_name?.trim() || "your upline"}'s</strong> team.
+        Your contracting applications are being processed.
+      </p>
+      <div className="text-sm space-y-2 text-left max-w-xs mx-auto">
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> Account created
+        </div>
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> Personal info saved
+        </div>
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> Carriers selected
+        </div>
+        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> Agreement signed
+        </div>
       </div>
-      <Button className="w-full" size="lg" onClick={() => start.mutate()} disabled={start.isPending}>
-        <ExternalLink className="h-4 w-4 mr-2" />
-        {start.isPending ? "Preparing..." : opened ? "Re-open SuranceBay" : "Open SuranceBay / SureLC →"}
-      </Button>
-      {opened && (
-        <p className="text-xs text-muted-foreground text-center">
-          Your status will sync within 30 minutes. You can safely close this tab.
-        </p>
-      )}
+      <Button asChild className="mt-2"><a href="/">Go to Dashboard →</a></Button>
     </Card>
   );
 }

@@ -22,13 +22,63 @@ async function getMyLevelPct(supabase: any, userId: string, carrierId: string): 
 export const listCarriers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context as Ctx;
+    const { supabase, userId } = context as Ctx;
     const { data, error } = await supabase
       .from("carriers")
       .select("id,name,phone,hours,website,contracting_speed_days,pay_frequency,advance_cap,advance_cap_amount,advance_cap_months,ideal_client,agent_portal_url,training_url,about_text,is_annuity_carrier,active")
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
-    return { carriers: data ?? [] };
+
+    const { data: active } = await supabase
+      .from("contract_requests")
+      .select("carrier_id")
+      .eq("agent_id", userId)
+      .eq("status", "active");
+    const activeSet = new Set((active ?? []).map((r: any) => r.carrier_id));
+
+    return { carriers: (data ?? []).map((c: any) => ({ ...c, my_active: activeSet.has(c.id) })) };
+  });
+
+// ---------- add carrier (self-reported) ----------
+export const addAgentCarrier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    carrier_id: z.string().uuid(),
+    writing_number: z.string().max(64).optional(),
+    loa: z.enum(["life","health_accident","annuity","life_health"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { error } = await supabase.from("contract_requests").upsert({
+      agent_id: userId,
+      carrier_id: data.carrier_id,
+      writing_number: data.writing_number ?? null,
+      loa: data.loa,
+      status: "active",
+      source: "self_reported",
+      activated_at: new Date().toISOString(),
+    }, { onConflict: "agent_id,carrier_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- request commission level ----------
+export const requestCommissionLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    carrier_id: z.string().uuid(),
+    message: z.string().max(500).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { error } = await supabase.from("commission_level_requests").insert({
+      agent_id: userId,
+      carrier_id: data.carrier_id,
+      message: data.message ?? null,
+      status: "pending",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ---------- my contracts ----------
@@ -226,6 +276,21 @@ export const listWorkInbox = createServerFn({ method: "GET" })
       priority: "high",
       kind: "transfer",
     }));
+
+    if (downlineIds.length) {
+      const { data: commReqs } = await supabase
+        .from("commission_level_requests")
+        .select("id,agent_id,message,carriers(name)")
+        .in("agent_id", downlineIds)
+        .eq("status", "pending");
+      (commReqs ?? []).forEach((r: any) => items.push({
+        id: r.id,
+        agent: nameOf(r.agent_id),
+        description: `Commission level request — ${r.carriers?.name ?? "carrier"}${r.message ? `: ${r.message}` : ""}`,
+        priority: "normal",
+        kind: "commission_request",
+      }));
+    }
 
     return { items };
   });

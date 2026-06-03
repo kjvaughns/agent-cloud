@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  listMyContracts, createContractRequest, listCarriers,
+  listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
   listWorkInbox,
 } from "@/lib/contracting.functions";
@@ -65,6 +65,7 @@ function MyContractsTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery(myContractsQuery);
   const [filter, setFilter] = useState<ContractStatus | "all">("all");
+  const [requestLevelFor, setRequestLevelFor] = useState<any | null>(null);
 
   const rows = data?.rows ?? [];
   const counts = useMemo(() => {
@@ -89,7 +90,7 @@ function MyContractsTab() {
             >{s}: {counts[s] ?? 0}</button>
           ))}
         </div>
-        <CreateRequestDialog onCreated={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
+        <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
       </div>
       <p className="text-xs text-muted-foreground">Showing {filtered.length} of {rows.length} contracts</p>
 
@@ -97,7 +98,7 @@ function MyContractsTab() {
         <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
         <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">
-          No contracts yet. Click "+ Create Request" to get contracted with your first carrier.
+          No contracts yet. Click "+ Add Carrier" to add your first active carrier contract.
         </CardContent></Card>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
@@ -141,75 +142,143 @@ function MyContractsTab() {
                     </div>
                   )}
                   {c.notes && <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes:</span> {c.notes}</div>}
+                  <div className="pt-1">
+                    <Button variant="outline" size="sm" onClick={() => setRequestLevelFor(c)}>
+                      Request Commission Level
+                    </Button>
+                  </div>
                 </div>
               </AccordionContent>
             </AccordionItem></Card>
           ))}
         </Accordion>
       )}
+      {requestLevelFor && (
+        <RequestLevelDialog
+          contract={requestLevelFor}
+          onClose={() => setRequestLevelFor(null)}
+        />
+      )}
     </div>
   );
 }
 
-function CreateRequestDialog({ onCreated }: { onCreated: () => void }) {
+const LOA_OPTIONS = [
+  { value: "life", label: "Life" },
+  { value: "health_accident", label: "Health & Accident" },
+  { value: "annuity", label: "Annuity" },
+  { value: "life_health", label: "Life & Health" },
+] as const;
+
+function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
-  const [carrierId, setCarrierId] = useState<string>("");
-  const [notes, setNotes] = useState("");
+  const [carrierId, setCarrierId] = useState("");
+  const [writingNumber, setWritingNumber] = useState("");
+  const [loa, setLoa] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { data } = useQuery({ ...carriersQuery, enabled: open });
-  const createFn = useServerFn(createContractRequest);
+  const addFn = useServerFn(addAgentCarrier);
   const submit = useMutation({
-    mutationFn: () => createFn({ data: { carrier_id: carrierId, notes: notes || undefined } }),
-    onSuccess: () => { toast.success("Contract request created"); setOpen(false); setCarrierId(""); setNotes(""); setError(null); onCreated(); },
+    mutationFn: () => addFn({ data: { carrier_id: carrierId, writing_number: writingNumber || undefined, loa: loa as any } }),
+    onSuccess: () => {
+      toast.success("Carrier added");
+      setOpen(false); setCarrierId(""); setWritingNumber(""); setLoa(""); setError(null);
+      onAdded();
+    },
     onError: (e: any) => setError(e?.message ?? "Failed"),
   });
 
-  const selectedCarrier = data?.carriers.find((c: any) => c.id === carrierId);
-  const annuityBlocked = selectedCarrier?.is_annuity_carrier && /annuity training certificate/i.test(error ?? "");
+  function handleOpenChange(v: boolean) {
+    setOpen(v);
+    if (!v) { setCarrierId(""); setWritingNumber(""); setLoa(""); setError(null); }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4" /> Create Request</Button>
+        <Button><Plus className="h-4 w-4 mr-1" /> Add Carrier</Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>New Contract Request</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Add Active Carrier</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div>
             <Label>Carrier</Label>
             <Select value={carrierId} onValueChange={(v) => { setCarrierId(v); setError(null); }}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Select carrier..." /></SelectTrigger>
               <SelectContent>
-                {(data?.carriers ?? []).map((c: any) => (
+                {(data?.carriers ?? []).filter((c: any) => !c.my_active).map((c: any) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name}{c.is_annuity_carrier && " (Annuity)"}
+                    {c.name}{c.is_annuity_carrier ? " (Annuity)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Notes (optional)</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 1000))} className="mt-1" rows={3} />
+            <Label>Writing / Agent Number (optional)</Label>
+            <Input value={writingNumber} onChange={(e) => setWritingNumber(e.target.value.slice(0, 64))} className="mt-1" placeholder="e.g. AG-12345" />
+          </div>
+          <div>
+            <Label>Line of Authority</Label>
+            <Select value={loa} onValueChange={setLoa}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Select LOA..." /></SelectTrigger>
+              <SelectContent>
+                {LOA_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
           {error && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                {error}
-                {annuityBlocked && (
-                  <div className="mt-2">
-                    <Link to="/contracting/annuity-training" className="text-sm underline">Go to Annuity Training →</Link>
-                  </div>
-                )}
-              </AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button disabled={!carrierId || submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? "Submitting..." : "Submit"}
+          <Button disabled={!carrierId || !loa || submit.isPending} onClick={() => submit.mutate()}>
+            {submit.isPending ? "Saving..." : "Add Carrier"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RequestLevelDialog({ contract, onClose }: { contract: any; onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  const reqFn = useServerFn(requestCommissionLevel);
+  const submit = useMutation({
+    mutationFn: () => reqFn({ data: { carrier_id: contract.carrier_id, message: message || undefined } }),
+    onSuccess: () => { toast.success("Request sent to your upline"); onClose(); },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Request Commission Level</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-lg border p-3 bg-muted/30">
+            <div className="text-xs text-muted-foreground">Carrier</div>
+            <div className="font-semibold">{contract.carriers?.name ?? "Carrier"}</div>
+          </div>
+          <div>
+            <Label>Message to upline (optional)</Label>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, 500))}
+              className="mt-1"
+              rows={3}
+              placeholder="e.g. I've been writing for 2 years and would like to discuss my commission level..."
+            />
+            <p className="text-xs text-muted-foreground mt-1">{message.length}/500</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={submit.isPending} onClick={() => submit.mutate()}>
+            {submit.isPending ? "Sending..." : "Send Request"}
           </Button>
         </DialogFooter>
       </DialogContent>
