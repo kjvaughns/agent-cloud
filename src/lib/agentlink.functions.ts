@@ -3,8 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const ImportSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  api_key: z.string().min(10),
+  base_url: z.string().url().optional().default("https://agentlink.insuracloud.ai"),
 });
 
 export const importAgentLinkBook = createServerFn({ method: "POST" })
@@ -13,29 +13,29 @@ export const importAgentLinkBook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    // Authenticate with AgentLink
-    const authRes = await fetch("https://api.agentlink.io/v1/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: data.username,
-        password: data.password,
-        grant_type: "password",
-      }),
-    });
-    if (!authRes.ok) throw new Error("AgentLink authentication failed. Check your credentials.");
-    const { access_token } = await authRes.json();
-
     const al = (path: string) =>
-      fetch(`https://api.agentlink.io/v1${path}`, {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }).then((r) => r.json());
+      fetch(`${data.base_url}${path}`, {
+        headers: { "x-api-key": data.api_key },
+      }).then((r) => {
+        if (!r.ok) throw new Error(`AgentLink request failed: ${r.status} ${r.statusText}`);
+        return r.json();
+      });
 
-    const contacts = await al("/contacts");
+    const raw = await al("/api/v1/book-of-business");
+
+    // Handle array or wrapper object response shapes
+    const contacts: any[] = Array.isArray(raw)
+      ? raw
+      : raw?.contacts ?? raw?.clients ?? raw?.records ?? raw?.data ?? [];
+
+    if (!Array.isArray(contacts)) {
+      throw new Error("Could not parse AgentLink response — unexpected format from book-of-business endpoint.");
+    }
+
     let imported = 0;
     let errors = 0;
 
-    for (const contact of contacts?.data ?? []) {
+    for (const contact of contacts) {
       try {
         const { data: client, error: clientErr } = await supabase
           .from("clients")
@@ -63,8 +63,8 @@ export const importAgentLinkBook = createServerFn({ method: "POST" })
         const clientId = client.id;
 
         // Policies
-        const policiesRes = await al(`/contacts/${contact.id}/policies`);
-        for (const pol of policiesRes?.data ?? []) {
+        const policies: any[] = contact.policies ?? [];
+        for (const pol of policies) {
           await supabase.from("policies").upsert(
             {
               client_id: clientId,
@@ -82,9 +82,9 @@ export const importAgentLinkBook = createServerFn({ method: "POST" })
           );
         }
 
-        // Notes — insert into contact_history using real column names
-        const notesRes = await al(`/contacts/${contact.id}/notes`);
-        for (const note of notesRes?.data ?? []) {
+        // Notes
+        const notes: any[] = contact.notes ?? [];
+        for (const note of notes) {
           await supabase.from("contact_history").insert({
             client_id: clientId,
             agent_id: userId,
@@ -96,15 +96,15 @@ export const importAgentLinkBook = createServerFn({ method: "POST" })
         }
 
         // Banking
-        const bankingRes = await al(`/contacts/${contact.id}/banking`);
-        if (bankingRes?.data?.bank_name) {
+        const banking = contact.banking ?? contact.bank;
+        if (banking?.bank_name) {
           await supabase.from("client_banking").upsert(
             {
               client_id: clientId,
-              bank_name: bankingRes.data.bank_name,
-              routing_number: bankingRes.data.routing_number ?? "",
-              account_number_masked: bankingRes.data.account_number_masked ?? "",
-              account_type: bankingRes.data.account_type ?? "checking",
+              bank_name: banking.bank_name,
+              routing_number: banking.routing_number ?? "",
+              account_number_masked: banking.account_number_masked ?? "",
+              account_type: banking.account_type ?? "checking",
             },
             { onConflict: "client_id" },
           );
@@ -116,5 +116,5 @@ export const importAgentLinkBook = createServerFn({ method: "POST" })
       }
     }
 
-    return { imported, errors, total: contacts?.data?.length ?? 0 };
+    return { imported, errors, total: contacts.length };
   });

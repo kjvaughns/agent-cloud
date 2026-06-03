@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,7 +69,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-[50vw] p-0 overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:max-w-[72vw] p-0 overflow-y-auto">
         <SheetTitle className="sr-only">Client Detail</SheetTitle>
         {clientId && <DrawerBody clientId={clientId} />}
       </SheetContent>
@@ -90,12 +89,16 @@ function DrawerBody({ clientId }: { clientId: string }) {
   const t = tempPill[(c.temperature ?? "cold") as Temp];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full">
       <Header client={c} initials={initials} t={t} />
       <StageBar client={c} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-        <ContactInfo client={c} />
-        <RightTabs detail={data} />
+      <div className="flex flex-1 min-h-0">
+        <div className="shrink-0 w-72 border-r p-6 overflow-y-auto">
+          <ContactInfo client={c} />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <RightTabs detail={data} />
+        </div>
       </div>
     </div>
   );
@@ -251,8 +254,24 @@ function EditableField({ label, client, field, type, select }: { label: string; 
   );
 }
 
+const NAV_ITEMS = [
+  { value: "needs", label: "Needs Analysis" },
+  { value: "notes", label: "Notes" },
+  { value: "contact", label: "Contact" },
+  { value: "schedule", label: "Schedule" },
+  { value: "beneficiaries", label: "Beneficiaries" },
+  { value: "referrals", label: "Referrals" },
+  { value: "financials", label: "Financials" },
+  { value: "care", label: "Care" },
+  { value: "health", label: "Health" },
+  { value: "banking", label: "Banking" },
+  { value: "policies", label: "Policies" },
+  { value: "email", label: "Email" },
+];
+
 // ============ Right column tabs ============
 function RightTabs({ detail }: { detail: any }) {
+  const [activeTab, setActiveTab] = useState("needs");
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
   const updateMut = useMutation({
@@ -333,245 +352,249 @@ function RightTabs({ detail }: { detail: any }) {
   const saveBanking = (key: string, value: any) => bankingMut.mutate({ [key]: value });
 
   return (
-    <Tabs defaultValue="needs">
-      <TabsList className="flex flex-wrap h-auto justify-start">
-        <TabsTrigger value="contact">Contact</TabsTrigger>
-        <TabsTrigger value="needs">Needs Analysis</TabsTrigger>
-        <TabsTrigger value="notes">Notes</TabsTrigger>
-        <TabsTrigger value="schedule">Schedule</TabsTrigger>
-        <TabsTrigger value="beneficiaries">Beneficiaries</TabsTrigger>
-        <TabsTrigger value="referrals">Referrals</TabsTrigger>
-        <TabsTrigger value="financials">Financials</TabsTrigger>
-        <TabsTrigger value="care">Client Care</TabsTrigger>
-        <TabsTrigger value="health">Health</TabsTrigger>
-        <TabsTrigger value="banking">Banking</TabsTrigger>
-        <TabsTrigger value="policies">Policies</TabsTrigger>
-        <TabsTrigger value="email">Email</TabsTrigger>
-      </TabsList>
+    <div className="flex h-full">
+      <nav className="w-36 shrink-0 border-r p-2 space-y-0.5">
+        {NAV_ITEMS.map(item => (
+          <button
+            key={item.value}
+            onClick={() => setActiveTab(item.value)}
+            className={cn(
+              "w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors",
+              activeTab === item.value
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
 
-      <TabsContent value="contact" className="mt-4">
-        <div className="space-y-4 p-1">
-          <div className="grid grid-cols-2 gap-3">
+      <div className="flex-1 p-4 overflow-y-auto">
+        {activeTab === "contact" && (
+          <div className="space-y-4 p-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>First Name</Label>
+                <Input value={contactForm.first_name ?? ""} onChange={e => setContactForm(f => ({...f, first_name: e.target.value}))} onBlur={e => saveField("first_name", e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Last Name</Label>
+                <Input value={contactForm.last_name ?? ""} onChange={e => setContactForm(f => ({...f, last_name: e.target.value}))} onBlur={e => saveField("last_name", e.target.value)} />
+              </div>
+            </div>
+
             <div className="space-y-1">
-              <Label>First Name</Label>
-              <Input value={contactForm.first_name ?? ""} onChange={e => setContactForm(f => ({...f, first_name: e.target.value}))} onBlur={e => saveField("first_name", e.target.value)} />
+              <Label>Phone</Label>
+              <div className="flex gap-2">
+                <Input className="flex-1" value={contactForm.phone ?? ""}
+                  onChange={e => setContactForm(f => ({...f, phone: formatPhone(e.target.value)}))}
+                  onBlur={e => saveField("phone", e.target.value)}
+                  placeholder="(555) 555-5555" />
+                <Select value={contactForm.phone_type ?? "mobile"} onValueChange={v => { setContactForm(f => ({...f, phone_type: v})); saveField("phone_type", v); }}>
+                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mobile">Mobile</SelectItem>
+                    <SelectItem value="home">Home</SelectItem>
+                    <SelectItem value="work">Work</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
             <div className="space-y-1">
-              <Label>Last Name</Label>
-              <Input value={contactForm.last_name ?? ""} onChange={e => setContactForm(f => ({...f, last_name: e.target.value}))} onBlur={e => saveField("last_name", e.target.value)} />
+              <Label>Email</Label>
+              <Input type="email" value={contactForm.email ?? ""} onChange={e => setContactForm(f => ({...f, email: e.target.value}))} onBlur={e => saveField("email", e.target.value)} />
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label>Phone</Label>
-            <div className="flex gap-2">
-              <Input className="flex-1" value={contactForm.phone ?? ""}
-                onChange={e => setContactForm(f => ({...f, phone: formatPhone(e.target.value)}))}
-                onBlur={e => saveField("phone", e.target.value)}
-                placeholder="(555) 555-5555" />
-              <Select value={contactForm.phone_type ?? "mobile"} onValueChange={v => { setContactForm(f => ({...f, phone_type: v})); saveField("phone_type", v); }}>
-                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mobile">Mobile</SelectItem>
-                  <SelectItem value="home">Home</SelectItem>
-                  <SelectItem value="work">Work</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-1">
+              <Label>Date of Birth</Label>
+              <Input value={contactForm.date_of_birth ?? ""} placeholder="MM/DD/YYYY"
+                onChange={e => setContactForm(f => ({...f, date_of_birth: formatDob(e.target.value)}))}
+                onBlur={e => saveField("date_of_birth", e.target.value)} />
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label>Email</Label>
-            <Input type="email" value={contactForm.email ?? ""} onChange={e => setContactForm(f => ({...f, email: e.target.value}))} onBlur={e => saveField("email", e.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Date of Birth</Label>
-            <Input value={contactForm.date_of_birth ?? ""} placeholder="MM/DD/YYYY"
-              onChange={e => setContactForm(f => ({...f, date_of_birth: formatDob(e.target.value)}))}
-              onBlur={e => saveField("date_of_birth", e.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Street Address</Label>
-            <Input ref={streetRef} value={contactForm.street_address ?? ""}
-              onChange={e => setContactForm(f => ({...f, street_address: e.target.value}))}
-              onBlur={e => saveField("street_address", e.target.value)}
-              placeholder="123 Main St" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1 space-y-1">
-              <Label>City</Label>
-              <Input value={contactForm.city ?? ""} onChange={e => setContactForm(f => ({...f, city: e.target.value}))} onBlur={e => saveField("city", e.target.value)} />
+            <div className="space-y-1">
+              <Label>Street Address</Label>
+              <Input ref={streetRef} value={contactForm.street_address ?? ""}
+                onChange={e => setContactForm(f => ({...f, street_address: e.target.value}))}
+                onBlur={e => saveField("street_address", e.target.value)}
+                placeholder="123 Main St" />
             </div>
-            <div className="col-span-1 space-y-1">
-              <Label>State</Label>
-              <Select value={contactForm.state ?? ""} onValueChange={v => { setContactForm(f => ({...f, state: v})); saveField("state", v); }}>
-                <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
-                <SelectContent>
-                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-1 space-y-1">
-              <Label>ZIP</Label>
-              <Input value={contactForm.zip_code ?? ""} onChange={e => setContactForm(f => ({...f, zip_code: e.target.value.replace(/\D/g, "").slice(0, 5)}))} onBlur={e => saveField("zip_code", e.target.value)} />
-            </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label>Temperature</Label>
-            <div className="flex gap-2">
-              {(["hot","warm","cold"] as const).map(t => (
-                <Button key={t} size="sm" variant={detail.client.temperature === t ? "default" : "outline"}
-                  className={detail.client.temperature === t ? (t === "hot" ? "bg-red-600 hover:bg-red-700 border-red-600" : t === "warm" ? "bg-orange-500 hover:bg-orange-600 border-orange-500" : "") : ""}
-                  onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { temperature: t } }); }}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </Button>
-              ))}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1 space-y-1">
+                <Label>City</Label>
+                <Input value={contactForm.city ?? ""} onChange={e => setContactForm(f => ({...f, city: e.target.value}))} onBlur={e => saveField("city", e.target.value)} />
+              </div>
+              <div className="col-span-1 space-y-1">
+                <Label>State</Label>
+                <Select value={contactForm.state ?? ""} onValueChange={v => { setContactForm(f => ({...f, state: v})); saveField("state", v); }}>
+                  <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
+                  <SelectContent>
+                    {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-1 space-y-1">
+                <Label>ZIP</Label>
+                <Input value={contactForm.zip_code ?? ""} onChange={e => setContactForm(f => ({...f, zip_code: e.target.value.replace(/\D/g, "").slice(0, 5)}))} onBlur={e => saveField("zip_code", e.target.value)} />
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-1">
-            <Label>Stage</Label>
-            <div className="flex gap-2 flex-wrap">
-              {(["new","callback","almost_there","sold"] as const).map(s => {
-                const STAGE_LABELS: Record<string, string> = { new: "New", callback: "Callback", almost_there: "Almost There", sold: "Sold" };
-                return (
-                  <Button key={s} size="sm" variant={detail.client.stage === s ? "default" : "outline"}
-                    onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { stage: s } }); }}>
-                    {STAGE_LABELS[s]}
+            <div className="space-y-1">
+              <Label>Temperature</Label>
+              <div className="flex gap-2">
+                {(["hot","warm","cold"] as const).map(t => (
+                  <Button key={t} size="sm" variant={detail.client.temperature === t ? "default" : "outline"}
+                    className={detail.client.temperature === t ? (t === "hot" ? "bg-red-600 hover:bg-red-700 border-red-600" : t === "warm" ? "bg-orange-500 hover:bg-orange-600 border-orange-500" : "") : ""}
+                    onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { temperature: t } }); }}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
                   </Button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="needs" className="mt-4"><NeedsAnalysisTab detail={detail} /></TabsContent>
-      <TabsContent value="notes" className="mt-4"><NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} /></TabsContent>
-      <TabsContent value="schedule" className="mt-4"><ScheduleTab detail={detail} /></TabsContent>
-      <TabsContent value="beneficiaries" className="mt-4"><BeneficiariesTab detail={detail} /></TabsContent>
-      <TabsContent value="referrals" className="mt-4"><ReferralsTab detail={detail} /></TabsContent>
-      <TabsContent value="financials" className="mt-4"><FinancialsTab detail={detail} /></TabsContent>
-      <TabsContent value="care" className="mt-4"><ClientCareTab detail={detail} /></TabsContent>
-
-      <TabsContent value="health" className="mt-4">
-        <div className="space-y-4 p-1">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label>Height (ft)</Label>
-              <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Height (in)</Label>
-              <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
-            </div>
-            <div className="space-y-1">
-              <Label>Weight (lbs)</Label>
-              <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Tobacco Use</Label>
-            <div className="flex gap-2">
-              <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
-              <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Primary Physician</Label>
-            <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Physician Phone</Label>
-            <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Medical Conditions</Label>
-            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Current Medications</Label>
-            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Medical Notes</Label>
-            <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="banking" className="mt-4">
-        <div className="space-y-4 p-1">
-          <div className="space-y-1">
-            <Label>Bank Name</Label>
-            <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Account Type</Label>
-            <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="checking">Checking</SelectItem>
-                <SelectItem value="savings">Savings</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Routing Number</Label>
-            <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
-          </div>
-
-          <div className="space-y-1">
-            <Label>Account Number</Label>
-            <div className="relative">
-              <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
-              <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Draft Date</Label>
-            <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
-              <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-              <SelectContent>
-                {Array.from({length: 28}, (_, i) => i + 1).map(d => (
-                  <SelectItem key={d} value={String(d)}>{d}</SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </div>
+            </div>
 
-          <div className="space-y-1">
-            <Label>Payment Method</Label>
-            <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bank_draft">Bank Draft</SelectItem>
-                <SelectItem value="credit_card">Credit Card</SelectItem>
-                <SelectItem value="money_order">Money Order</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <Label>Stage</Label>
+              <div className="flex gap-2 flex-wrap">
+                {(["new","callback","almost_there","sold"] as const).map(s => {
+                  const STAGE_LABELS: Record<string, string> = { new: "New", callback: "Callback", almost_there: "Almost There", sold: "Sold" };
+                  return (
+                    <Button key={s} size="sm" variant={detail.client.stage === s ? "default" : "outline"}
+                      onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { stage: s } }); }}>
+                      {STAGE_LABELS[s]}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </div>
-      </TabsContent>
+        )}
 
-      <TabsContent value="policies" className="mt-4"><PoliciesTab detail={detail} /></TabsContent>
-      <TabsContent value="email" className="mt-4"><EmailTab detail={detail} /></TabsContent>
-    </Tabs>
+        {activeTab === "needs" && <NeedsAnalysisTab detail={detail} />}
+        {activeTab === "notes" && <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} />}
+        {activeTab === "schedule" && <ScheduleTab detail={detail} />}
+        {activeTab === "beneficiaries" && <BeneficiariesTab detail={detail} />}
+        {activeTab === "referrals" && <ReferralsTab detail={detail} />}
+        {activeTab === "financials" && <FinancialsTab detail={detail} />}
+        {activeTab === "care" && <ClientCareTab detail={detail} />}
+
+        {activeTab === "health" && (
+          <div className="space-y-4 p-1">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>Height (ft)</Label>
+                <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Height (in)</Label>
+                <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Weight (lbs)</Label>
+                <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Tobacco Use</Label>
+              <div className="flex gap-2">
+                <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
+                <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Primary Physician</Label>
+              <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Physician Phone</Label>
+              <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Medical Conditions</Label>
+              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Current Medications</Label>
+              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Medical Notes</Label>
+              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
+            </div>
+          </div>
+        )}
+
+        {activeTab === "banking" && (
+          <div className="space-y-4 p-1">
+            <div className="space-y-1">
+              <Label>Bank Name</Label>
+              <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Account Type</Label>
+              <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="checking">Checking</SelectItem>
+                  <SelectItem value="savings">Savings</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Routing Number</Label>
+              <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Account Number</Label>
+              <div className="relative">
+                <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
+                <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Draft Date</Label>
+              <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
+                <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({length: 28}, (_, i) => i + 1).map(d => (
+                    <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Payment Method</Label>
+              <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="bank_draft">Bank Draft</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="money_order">Money Order</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "policies" && <PoliciesTab detail={detail} />}
+        {activeTab === "email" && <EmailTab detail={detail} />}
+      </div>
+    </div>
   );
 }
 

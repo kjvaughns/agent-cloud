@@ -28,9 +28,9 @@ export function AgentLinkImportDialog({
 }) {
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>("credentials");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
+  const [baseUrl, setBaseUrl] = useState("https://agentlink.insuracloud.ai");
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [authError, setAuthError] = useState("");
   const [loadingText, setLoadingText] = useState(LOADING_TEXTS[0]);
   const [result, setResult] = useState<{ imported: number; errors: number; total: number } | null>(null);
@@ -40,8 +40,7 @@ export function AgentLinkImportDialog({
     if (!open) {
       setTimeout(() => {
         setStep("credentials");
-        setUsername("");
-        setPassword("");
+        setApiKey("");
         setAuthError("");
         setResult(null);
       }, 200);
@@ -61,7 +60,7 @@ export function AgentLinkImportDialog({
 
   const importFn = useServerFn(importAgentLinkBook);
   const mut = useMutation({
-    mutationFn: () => importFn({ data: { username, password } }),
+    mutationFn: () => importFn({ data: { api_key: apiKey, base_url: baseUrl } }),
     onMutate: () => {
       setAuthError("");
       setStep("loading");
@@ -72,7 +71,7 @@ export function AgentLinkImportDialog({
     },
     onError: (err: Error) => {
       setStep("credentials");
-      setAuthError(err.message ?? "Could not connect to AgentLink. Double-check your username and password.");
+      setAuthError(err.message ?? "Could not connect to AgentLink. Double-check your API key.");
     },
   });
 
@@ -102,43 +101,41 @@ export function AgentLinkImportDialog({
               )}
 
               <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                Your credentials are used only to fetch your data and are never stored.
+                Generate your API key in AgentLink → Profile → Integrations → API Access
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="al-username">Username (email)</Label>
+                <Label htmlFor="al-url">AgentLink URL</Label>
                 <Input
-                  id="al-username"
-                  type="email"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="username"
+                  id="al-url"
+                  type="url"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  placeholder="https://your-agentlink-instance.com"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="al-password">Password</Label>
+                <Label htmlFor="al-apikey">API Key</Label>
                 <div className="relative">
                   <Input
-                    id="al-password"
-                    type={showPw ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
+                    id="al-apikey"
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Paste your x-api-key here"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && username && password) mut.mutate();
+                      if (e.key === "Enter" && apiKey.length >= 10) mut.mutate();
                     }}
                     className="pr-10"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPw((v) => !v)}
+                    onClick={() => setShowKey((v) => !v)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     tabIndex={-1}
                   >
-                    {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -148,7 +145,7 @@ export function AgentLinkImportDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button
                 onClick={() => mut.mutate()}
-                disabled={!username.trim() || !password.trim()}
+                disabled={!baseUrl.trim() || apiKey.length < 10}
               >
                 Connect &amp; Import
               </Button>

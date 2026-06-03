@@ -66,7 +66,7 @@ function LoginPage() {
     </div>
     <Button variant="outline" className="w-full" onClick={onGoogle}>Continue with Google</Button>
     <p className="mt-6 text-center text-sm text-muted-foreground">
-      New here? <Link to="/signup" className="text-primary font-medium hover:underline">Create account</Link>
+      Need an account? Ask your upline for an invite link.
     </p>
   </AuthShell>;
 }
