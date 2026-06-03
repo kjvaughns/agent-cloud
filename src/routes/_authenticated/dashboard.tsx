@@ -118,9 +118,9 @@ function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile icon={DollarSign} color="text-blue-500" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+        <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
         <KpiTile icon={Users} color="text-emerald-500" label="Total Production (Team)" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-        <KpiTile icon={FileText} color="text-blue-500" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+        <KpiTile icon={FileText} color="text-[#C9A227]" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
         <KpiTile icon={FolderOpen} color="text-emerald-500" label="Team Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
       </div>
 
@@ -131,7 +131,7 @@ function Dashboard() {
             <CardTitle>Production Trend</CardTitle>
             <div className="flex items-center gap-4">
               <div className="text-xs text-right space-y-0.5">
-                <div><span className="inline-block h-2 w-2 rounded-full bg-blue-500 mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
+                <div><span className="inline-block h-2 w-2 rounded-full bg-[#C9A227] mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
                 <div><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1" />Team: {metric === "prod" ? money(sumRange(recent, "team_prod")) : number(recent.reduce((a, t) => a + Number(t.team_policies), 0))} <span className={teamDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{teamDelta >= 0 ? "↑" : "↓"} {Math.abs(teamDelta).toFixed(0)}%</span></div>
               </div>
               <div className="flex">
@@ -146,7 +146,7 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData}>
                 <defs>
-                  <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.4} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C9A227" stopOpacity={0.4} /><stop offset="100%" stopColor="#C9A227" stopOpacity={0} /></linearGradient>
                   <linearGradient id="teamGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -157,7 +157,7 @@ function Dashboard() {
                   contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
                   formatter={(v: number) => metric === "prod" ? money(v) : number(v)} />
                 <Area type="monotone" dataKey="team" stroke="#10b981" strokeWidth={2} fill="url(#teamGrad)" />
-                <Area type="monotone" dataKey="individual" stroke="#3b82f6" strokeWidth={2} fill="url(#indGrad)" />
+                <Area type="monotone" dataKey="individual" stroke="#C9A227" strokeWidth={2} fill="url(#indGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

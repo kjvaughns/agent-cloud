@@ -150,7 +150,7 @@ function KpiRow() {
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       <KpiCard value={kpis.total} label="Total Agents" sub={`${kpis.direct} direct reports`} />
       <KpiCard value={kpis.active} label="Active" sub="Ready to sell" tone="text-green-600" />
-      <KpiCard value={kpis.active_writers} label="Active Writers" sub="Sold in last 30 days" tone="text-blue-600" />
+      <KpiCard value={kpis.active_writers} label="Active Writers" sub="Sold in last 30 days" tone="text-[#C9A227]" />
       <KpiCard value={kpis.pending} label="Pending" sub="Awaiting review" tone="text-amber-600" />
       <KpiCard value={kpis.contracts_total} label="Contracts" sub={`${kpis.contracts_active_pct}% active rate`} />
     </div>

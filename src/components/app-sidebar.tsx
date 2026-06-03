@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen, Briefcase,
@@ -103,7 +104,18 @@ export function AppSidebar() {
     const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
     return (
       <SidebarMenuItem key={it.url}>
-        <SidebarMenuButton asChild isActive={active} tooltip={it.title}>
+        <SidebarMenuButton
+          asChild
+          isActive={active}
+          tooltip={it.title}
+          className={cn(
+            "data-[active=true]:bg-primary/12 data-[active=true]:text-foreground data-[active=true]:font-semibold",
+            "data-[active=true]:relative data-[active=true]:before:absolute data-[active=true]:before:left-0",
+            "data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px]",
+            "data-[active=true]:before:rounded-r data-[active=true]:before:bg-primary",
+            "[&[data-active=true]_svg]:text-primary transition-colors",
+          )}
+        >
           <Link to={it.url}>
             <it.icon className="h-4 w-4" />
             <span>{it.title}</span>

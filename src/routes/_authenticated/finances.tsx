@@ -219,10 +219,10 @@ function FinancesPage() {
 
       {/* Direct vs Override */}
       <div className="grid md:grid-cols-2 gap-3">
-        <Card className="border-l-4 border-l-blue-500">
+        <Card className="border-l-4 border-l-[#C9A227]">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-blue-500" /> Direct Commissions
+              <DollarSign className="h-4 w-4 text-[#C9A227]" /> Direct Commissions
             </div>
             <div className="text-2xl font-bold mt-1">{fmtCurrency(stats.direct)}</div>
             <p className="text-xs text-muted-foreground">Your personal production</p>
@@ -253,7 +253,7 @@ function FinancesPage() {
                 formatter={(v: number) => fmtCurrency(v)}
               />
               <Legend />
-              <Line type="monotone" dataKey="direct" stroke="#3b82f6" strokeWidth={2} name="Direct" dot={false} />
+              <Line type="monotone" dataKey="direct" stroke="#C9A227" strokeWidth={2} name="Direct" dot={false} />
               <Line type="monotone" dataKey="override" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -408,7 +408,7 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                       <XAxis type="number" tickFormatter={(v) => `$${Math.round(v / 1000)}k`} stroke="var(--color-muted-foreground)" fontSize={12} />
                       <YAxis type="category" dataKey="name" width={120} stroke="var(--color-muted-foreground)" fontSize={12} />
                       <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
-                      <Bar dataKey="total" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="total" fill="#C9A227" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                   <Table>
@@ -441,7 +441,7 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                   <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
                   <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
-                  <Area type="monotone" dataKey="direct" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} name="Direct" />
+                  <Area type="monotone" dataKey="direct" stackId="1" stroke="#C9A227" fill="#C9A227" fillOpacity={0.3} name="Direct" />
                   <Area type="monotone" dataKey="override" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Override" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -486,7 +486,7 @@ function KpiTile({
 
 function TypeBadge({ type }: { type: Row["payment_type"] }) {
   const cls = {
-    advance: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+    advance: "bg-[#C9A227]/15 text-[#AD8819] border-[#C9A227]/30",
     deferred: "bg-purple-500/15 text-purple-600 border-purple-500/30",
     override: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
     renewal: "bg-gray-500/15 text-gray-600 border-gray-500/30",

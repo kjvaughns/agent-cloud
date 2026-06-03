@@ -228,7 +228,7 @@ function InsightCard({ card }: { card: AIInsight }) {
     needs_attention: { bg: "bg-amber-500/10 border-amber-500/40", icon: AlertTriangle, color: "text-amber-600", label: "Needs Attention" },
     learn_from: { bg: "bg-green-500/10 border-green-500/40", icon: Star, color: "text-green-600", label: "Learn From" },
     risk_alert: { bg: "bg-red-500/10 border-red-500/40", icon: AlertCircle, color: "text-red-600", label: "Risk Alert" },
-    coaching: { bg: "bg-blue-500/10 border-blue-500/40", icon: Lightbulb, color: "text-blue-600", label: "Coaching" },
+    coaching: { bg: "bg-[#C9A227]/10 border-[#C9A227]/40", icon: Lightbulb, color: "text-[#AD8819]", label: "Coaching" },
   } as const;
   const v = variants[card.type];
   const Icon = v.icon;
