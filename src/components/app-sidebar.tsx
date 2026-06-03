@@ -1,12 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
-  BookOpen, BarChart3, Wallet, FileSignature, FolderOpen, Briefcase,
+  BookOpen, BarChart3, Wallet, FileSignature, FolderOpen,
   Megaphone, Newspaper, Bell, FilePlus, Cloud, UserPlus, ArrowLeftRight,
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
-  Shield, Activity, Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
+  Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
+  ChevronDown, Briefcase,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -32,8 +34,6 @@ const groups = [
       { title: "Calendar", url: "/calendar", icon: Calendar },
       { title: "My Phone", url: "/phone", icon: Phone },
       { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-      { title: "Sophai Settings", url: "/sophai/settings", icon: Shield },
-      { title: "Sophai Activity", url: "/sophai/activity", icon: Activity },
     ],
   },
   {
@@ -97,8 +97,24 @@ const accountItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const collapsed = state === "collapsed";
+  const sidebarCollapsed = state === "collapsed";
   const path = useRouterState({ select: (r) => r.location.pathname });
+
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("nav-groups") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [label]: !prev[label] };
+      localStorage.setItem("nav-groups", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const renderItem = (it: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }) => {
     const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
@@ -126,29 +142,44 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="h-screen">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-2">
           <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground">
             <Cloud className="h-4 w-4" />
           </div>
-          {!collapsed && <span className="font-bold tracking-tight">Agent Cloud</span>}
+          {!sidebarCollapsed && <span className="font-bold tracking-tight">Agent Cloud</span>}
         </div>
       </SidebarHeader>
       <SidebarContent>
         {groups.map((g) => (
           <SidebarGroup key={g.label}>
-            {!collapsed && <SidebarGroupLabel>{g.label}</SidebarGroupLabel>}
-            <SidebarGroupContent>
-              <SidebarMenu>{g.items.map(renderItem)}</SidebarMenu>
-            </SidebarGroupContent>
+            {!sidebarCollapsed && (
+              <SidebarGroupLabel
+                className="flex items-center justify-between cursor-pointer select-none hover:text-foreground transition-colors"
+                onClick={() => toggleGroup(g.label)}
+              >
+                {g.label}
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 transition-transform duration-200",
+                    collapsedGroups[g.label] && "-rotate-90",
+                  )}
+                />
+              </SidebarGroupLabel>
+            )}
+            {(!collapsedGroups[g.label] || sidebarCollapsed) && (
+              <SidebarGroupContent>
+                <SidebarMenu>{g.items.map(renderItem)}</SidebarMenu>
+              </SidebarGroupContent>
+            )}
           </SidebarGroup>
         ))}
 
         <SidebarSeparator />
 
         <SidebarGroup>
-          {!collapsed && <SidebarGroupLabel>Account</SidebarGroupLabel>}
+          {!sidebarCollapsed && <SidebarGroupLabel>Account</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>{accountItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>

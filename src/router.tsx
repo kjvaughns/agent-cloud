@@ -1,6 +1,15 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter, useRouter } from "@tanstack/react-router";
+import { Skeleton } from "@/components/ui/skeleton";
 import { routeTree } from "./routeTree.gen";
+
+function PendingComponent() {
+  return (
+    <div className="h-screen grid place-items-center">
+      <Skeleton className="h-8 w-48" />
+    </div>
+  );
+}
 
 function DefaultErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
@@ -56,6 +65,8 @@ export const getRouter = () => {
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     defaultErrorComponent: DefaultErrorComponent,
+    defaultPendingComponent: PendingComponent,
+    defaultPendingMs: 200,
   });
 
   return router;

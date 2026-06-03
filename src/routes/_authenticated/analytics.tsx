@@ -284,10 +284,16 @@ function OverviewPanel({ range }: { range: RangeKey }) {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Total Deals" value={String(d?.kpis.deals ?? 0)} delta={d?.kpis.deals_delta} />
-        <KpiCard label="Total Premium" value={fmtCurrency(d?.kpis.premium ?? 0)} delta={d?.kpis.premium_delta} />
-        <KpiCard label="Active Producers" value={String(d?.kpis.producers ?? 0)} delta={d?.kpis.producers_delta} />
-        <KpiCard label="Avg Deal Size" value={fmtCurrency(d?.kpis.avg_deal ?? 0)} />
+        {q.isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)
+        ) : (
+          <>
+            <KpiCard label="Total Deals" value={String(d?.kpis.deals ?? 0)} delta={d?.kpis.deals_delta} />
+            <KpiCard label="Total Premium" value={fmtCurrency(d?.kpis.premium ?? 0)} delta={d?.kpis.premium_delta} />
+            <KpiCard label="Active Producers" value={String(d?.kpis.producers ?? 0)} delta={d?.kpis.producers_delta} />
+            <KpiCard label="Avg Deal Size" value={fmtCurrency(d?.kpis.avg_deal ?? 0)} />
+          </>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">

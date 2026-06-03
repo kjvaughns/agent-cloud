@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -282,63 +281,73 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
 function AddClientDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const qc = useQueryClient();
   const createFn = useServerFn(createClient);
-  const [form, setForm] = useState<any>({
-    first_name: "", last_name: "", phone: "", phone_type: "Mobile",
-    email: "", date_of_birth: "", street_address: "", city: "", state: "", zip_code: "",
-    temperature: "cold", stage: "new",
-  });
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
   const mut = useMutation({
-    mutationFn: () => createFn({ data: form }),
+    mutationFn: () => createFn({
+      data: {
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        phone: phone.trim(),
+        phone_type: "Mobile",
+        email: "", date_of_birth: "", street_address: "",
+        city: "", state: "", zip_code: "",
+        temperature: "cold", stage: "new",
+      },
+    }),
     onSuccess: () => {
       toast.success("Client added");
       qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
       onOpenChange(false);
-      setForm({ ...form, first_name: "", last_name: "", phone: "", email: "", date_of_birth: "", street_address: "", city: "", state: "", zip_code: "" });
+      setFirstName(""); setLastName(""); setPhone("");
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
-  const set = (k: string) => (v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const valid = firstName.trim() && lastName.trim() && phone.trim();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>Add Client</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="First Name *"><Input value={form.first_name} onChange={(e) => set("first_name")(e.target.value)} /></Field>
-          <Field label="Last Name *"><Input value={form.last_name} onChange={(e) => set("last_name")(e.target.value)} /></Field>
-          <Field label="Phone Number *"><Input value={form.phone} onChange={(e) => set("phone")(e.target.value)} /></Field>
-          <Field label="Phone Type *">
-            <Select value={form.phone_type} onValueChange={set("phone_type")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="Mobile">Mobile</SelectItem><SelectItem value="Home">Home</SelectItem><SelectItem value="Work">Work</SelectItem></SelectContent>
-            </Select>
-          </Field>
-          <Field label="Email"><Input type="email" value={form.email} onChange={(e) => set("email")(e.target.value)} /></Field>
-          <Field label="Date of Birth"><Input type="date" value={form.date_of_birth} onChange={(e) => set("date_of_birth")(e.target.value)} /></Field>
-          <Field label="Street Address"><Input value={form.street_address} onChange={(e) => set("street_address")(e.target.value)} /></Field>
-          <Field label="City"><Input value={form.city} onChange={(e) => set("city")(e.target.value)} /></Field>
-          <Field label="State"><Input value={form.state} onChange={(e) => set("state")(e.target.value)} /></Field>
-          <Field label="ZIP Code"><Input value={form.zip_code} onChange={(e) => set("zip_code")(e.target.value)} /></Field>
-          <Field label="Temperature">
-            <Select value={form.temperature} onValueChange={set("temperature")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="hot">Hot</SelectItem><SelectItem value="warm">Warm</SelectItem><SelectItem value="cold">Cold</SelectItem></SelectContent>
-            </Select>
-          </Field>
-          <Field label="Stage">
-            <Select value={form.stage} onValueChange={set("stage")}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="callback">Callback</SelectItem>
-                <SelectItem value="almost_there">Almost There</SelectItem>
-              </SelectContent>
-            </Select>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>New Client</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground -mt-2">
+          Add a name and phone to create the card. Fill in details from the client drawer.
+        </p>
+        <div className="space-y-3 pt-1">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First Name *">
+              <Input
+                autoFocus
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && valid && mut.mutate()}
+                placeholder="Jane"
+              />
+            </Field>
+            <Field label="Last Name *">
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && valid && mut.mutate()}
+                placeholder="Smith"
+              />
+            </Field>
+          </div>
+          <Field label="Phone Number *">
+            <Input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && valid && mut.mutate()}
+              placeholder="(555) 000-0000"
+            />
           </Field>
         </div>
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !form.first_name || !form.last_name || !form.phone}>Save Client</Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !valid}>
+            {mut.isPending ? "Adding…" : "Add Client"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
