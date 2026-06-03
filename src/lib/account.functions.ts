@@ -6,12 +6,13 @@ export const getProducerProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [profileRes, docsRes, bgRes, agreementRes, completionRes] = await Promise.all([
-      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,ssn_last4,street_address,city,state,zip_code,agent_slug,google_oauth_connected,avatar_url").eq("id", userId).maybeSingle(),
-      supabase.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,created_at").eq("agent_id", userId),
+    const [profileRes, docsRes, bgRes, agreementRes, completionRes, bankingRes] = await Promise.all([
+      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,ssn_last4,street_address,city,state,zip_code,agent_slug,google_oauth_connected,avatar_url,marital_status,drivers_license_number,drivers_license_state,drivers_license_expiry").eq("id", userId).maybeSingle(),
+      supabase.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,created_at,carrier_name,policy_number,coverage_amount,provider_name,certificate_number").eq("agent_id", userId),
       supabase.from("background_questions").select("question_number,answer,explanation").eq("agent_id", userId),
       supabase.from("producer_agreements").select("signature_name,signed_date,agreement_version").eq("agent_id", userId).maybeSingle(),
       supabase.rpc("agent_completion", { _agent: userId }),
+      (supabase as any).from("producer_banking").select("*").eq("agent_id", userId).maybeSingle(),
     ]);
     if (profileRes.error) throw new Error(profileRes.error.message);
     return {
@@ -20,6 +21,7 @@ export const getProducerProfile = createServerFn({ method: "GET" })
       background: bgRes.data ?? [],
       agreement: agreementRes.data,
       completion: (completionRes.data as { pct: number; missing: string[] } | null) ?? { pct: 0, missing: [] },
+      banking: bankingRes.data ?? null,
     };
   });
 
@@ -31,10 +33,14 @@ const ProfilePatch = z.object({
   npn_number: z.string().trim().max(40).optional().or(z.literal("")),
   date_of_birth: z.string().optional().nullable(),
   gender: z.string().trim().max(40).optional().or(z.literal("")),
+  marital_status: z.string().trim().max(40).optional().or(z.literal("")),
   street_address: z.string().trim().max(160).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
   state: z.string().trim().max(2).optional().or(z.literal("")),
   zip_code: z.string().trim().max(10).optional().or(z.literal("")),
+  drivers_license_number: z.string().trim().max(40).optional().or(z.literal("")),
+  drivers_license_state: z.string().trim().max(2).optional().or(z.literal("")),
+  drivers_license_expiry: z.string().optional().nullable(),
 });
 
 export const updateProducerProfile = createServerFn({ method: "POST" })
@@ -73,11 +79,16 @@ export const revealSsn = createServerFn({ method: "POST" })
   });
 
 const DocInput = z.object({
-  doc_type: z.enum(["eo_certificate", "banking", "drivers_license", "aml_certificate"]),
-  file_path: z.string().trim().min(1).max(500),
-  file_name: z.string().trim().min(1).max(200),
+  doc_type: z.enum(["eo_certificate", "banking", "drivers_license", "aml_certificate", "government_id", "voided_check", "background_check", "w9", "other"]),
+  file_path: z.string().trim().min(1).max(500).optional().nullable(),
+  file_name: z.string().trim().min(1).max(200).optional().nullable(),
   start_date: z.string().optional().nullable(),
   expiration_date: z.string().optional().nullable(),
+  carrier_name: z.string().trim().max(120).optional().nullable(),
+  policy_number: z.string().trim().max(80).optional().nullable(),
+  coverage_amount: z.string().trim().max(40).optional().nullable(),
+  provider_name: z.string().trim().max(120).optional().nullable(),
+  certificate_number: z.string().trim().max(80).optional().nullable(),
 });
 
 export const upsertProducerDocument = createServerFn({ method: "POST" })
@@ -85,17 +96,27 @@ export const upsertProducerDocument = createServerFn({ method: "POST" })
   .inputValidator((input) => DocInput.parse(input))
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
-    // Delete any existing of the same type, then insert
-    await supabase.from("producer_documents").delete().eq("agent_id", userId).eq("doc_type", data.doc_type);
-    const { error } = await supabase.from("producer_documents").insert({
+    const { data: existing } = await supabase.from("producer_documents").select("id,file_url,file_name").eq("agent_id", userId).eq("doc_type", data.doc_type).maybeSingle();
+    const row: Record<string, unknown> = {
       agent_id: userId,
       doc_type: data.doc_type,
-      file_url: data.file_path,
-      file_name: data.file_name,
-      start_date: data.start_date || null,
-      expiration_date: data.expiration_date || null,
-    });
-    if (error) throw new Error(error.message);
+      file_url: data.file_path ?? existing?.file_url ?? null,
+      file_name: data.file_name ?? existing?.file_name ?? null,
+      start_date: data.start_date ?? null,
+      expiration_date: data.expiration_date ?? null,
+      carrier_name: data.carrier_name ?? null,
+      policy_number: data.policy_number ?? null,
+      coverage_amount: data.coverage_amount ?? null,
+      provider_name: data.provider_name ?? null,
+      certificate_number: data.certificate_number ?? null,
+    };
+    if (existing) {
+      const { error } = await supabase.from("producer_documents").update(row as never).eq("id", existing.id);
+      if (error) throw new Error(error.message);
+    } else {
+      const { error } = await supabase.from("producer_documents").insert(row as never);
+      if (error) throw new Error(error.message);
+    }
     return { ok: true };
   });
 
@@ -150,6 +171,81 @@ export const signProducerAgreement = createServerFn({ method: "POST" })
     }, { onConflict: "agent_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ---------- banking ----------
+export const upsertProducerBanking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    bank_name: z.string().trim().max(120).optional().or(z.literal("")),
+    account_type: z.enum(["checking", "savings"]).optional(),
+    routing_number: z.string().trim().max(9).optional().or(z.literal("")),
+    account_last4: z.string().trim().max(4).optional().or(z.literal("")),
+    account_number_encrypted: z.string().trim().max(500).optional().or(z.literal("")),
+  }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const patch: Record<string, unknown> = { agent_id: userId, updated_at: new Date().toISOString() };
+    if (data.bank_name !== undefined) patch.bank_name = data.bank_name || null;
+    if (data.account_type !== undefined) patch.account_type = data.account_type;
+    if (data.routing_number !== undefined) patch.routing_number = data.routing_number || null;
+    if (data.account_last4 !== undefined) patch.account_last4 = data.account_last4 || null;
+    if (data.account_number_encrypted !== undefined) patch.account_number_encrypted = data.account_number_encrypted || null;
+    const { error } = await (supabase as any).from("producer_banking").upsert(patch, { onConflict: "agent_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const revealBankingAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data } = await (supabase as any).from("producer_banking").select("account_number_encrypted").eq("agent_id", userId).maybeSingle();
+    return { account_number: (data as any)?.account_number_encrypted ?? null };
+  });
+
+// ---------- background disclosure ----------
+export const signBackgroundDisclosure = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    answers: z.array(z.object({
+      question_number: z.number().int().min(1).max(20),
+      answer: z.boolean(),
+      explanation: z.string().trim().max(2000).optional().nullable(),
+    })),
+    signature_name: z.string().trim().min(2).max(120),
+  }).parse(input))
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const rows = data.answers.map((a) => ({
+      agent_id: userId,
+      question_number: a.question_number,
+      answer: a.answer,
+      explanation: a.explanation || null,
+      updated_at: new Date().toISOString(),
+    }));
+    await supabase.from("background_questions").delete().eq("agent_id", userId);
+    if (rows.length) {
+      const { error } = await supabase.from("background_questions").insert(rows);
+      if (error) throw new Error(error.message);
+    }
+    const { error: sigErr } = await supabase.from("producer_agreements").upsert({
+      agent_id: userId,
+      signature_name: data.signature_name,
+      signed_date: new Date().toISOString(),
+      agreement_version: "background_v1",
+    }, { onConflict: "agent_id" });
+    if (sigErr) throw new Error(sigErr.message);
+    return { ok: true };
+  });
+
+// ---------- NPN lookup (stub — AgentSync integration in Prompt 8) ----------
+export const lookupNpnLicenses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ npn: z.string().trim().min(5).max(20) }).parse(input))
+  .handler(async ({ data }) => {
+    if (!/^\d{5,10}$/.test(data.npn)) throw new Error("NPN must be 5–10 digits");
+    return { ok: true, npn: data.npn, name: null, licenses: [] as any[], note: "Full license lookup via AgentSync coming in next update." };
   });
 
 export const getLandingPage = createServerFn({ method: "GET" })
