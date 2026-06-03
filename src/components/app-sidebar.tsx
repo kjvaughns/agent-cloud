@@ -8,7 +8,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase,
+  ChevronDown, Briefcase, Trophy,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -42,6 +42,7 @@ const groups = [
       { title: "Team", url: "/team", icon: Users },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
       { title: "Business Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Finances", url: "/finances", icon: Wallet },
       { title: "Challenges", url: "/challenges", icon: Target },
     ],

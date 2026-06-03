@@ -31,6 +31,7 @@ const RANGES: { value: string; label: string; days: number | null }[] = [
 function Dashboard() {
   const [range, setRange] = useState("30d");
   const [metric, setMetric] = useState<"prod" | "policies">("prod");
+  const [view, setView] = useState<"personal" | "agency">("personal");
 
   const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
     const end = new Date();
@@ -107,21 +108,38 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Time range filter */}
-      <div className="flex flex-wrap gap-2">
-        {RANGES.map((r) => (
-          <Button key={r.value} size="sm" variant={range === r.value ? "default" : "outline"} onClick={() => setRange(r.value)}>
-            {r.label}
-          </Button>
-        ))}
+      {/* Time range filter + view toggle */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {RANGES.map((r) => (
+            <Button key={r.value} size="sm" variant={range === r.value ? "default" : "outline"} onClick={() => setRange(r.value)}>
+              {r.label}
+            </Button>
+          ))}
+        </div>
+        <div className="flex gap-1 ml-auto">
+          <Button size="sm" variant={view === "personal" ? "default" : "outline"} onClick={() => setView("personal")}>My View</Button>
+          <Button size="sm" variant={view === "agency" ? "default" : "outline"} onClick={() => setView("agency")}>Agency View</Button>
+        </div>
       </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-        <KpiTile icon={Users} color="text-emerald-500" label="Total Production (Team)" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-        <KpiTile icon={FileText} color="text-[#C9A227]" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
-        <KpiTile icon={FolderOpen} color="text-emerald-500" label="Team Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+        {view === "personal" ? (
+          <>
+            <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={Users} color="text-emerald-500" label="Total Production (Team)" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={FileText} color="text-[#C9A227]" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={FolderOpen} color="text-emerald-500" label="Team Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+          </>
+        ) : (
+          <>
+            <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Total Agency Production" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={Users} color="text-emerald-500" label="Active Writers" value={number(data?.active_downline ?? 0)} sub="agents ready to sell" loading={isLoading} />
+            <KpiTile icon={FileText} color="text-[#C9A227]" label="Total Agency Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={FolderOpen} color="text-emerald-500" label="Active Contracts" value={number(data?.active_contracts ?? 0)} sub="across all carriers" loading={isLoading} />
+          </>
+        )}
       </div>
 
       {/* Production trend */}
@@ -131,7 +149,9 @@ function Dashboard() {
             <CardTitle>Production Trend</CardTitle>
             <div className="flex items-center gap-4">
               <div className="text-xs text-right space-y-0.5">
-                <div><span className="inline-block h-2 w-2 rounded-full bg-[#C9A227] mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
+                {view === "personal" && (
+                  <div><span className="inline-block h-2 w-2 rounded-full bg-[#C9A227] mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
+                )}
                 <div><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1" />Team: {metric === "prod" ? money(sumRange(recent, "team_prod")) : number(recent.reduce((a, t) => a + Number(t.team_policies), 0))} <span className={teamDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{teamDelta >= 0 ? "↑" : "↓"} {Math.abs(teamDelta).toFixed(0)}%</span></div>
               </div>
               <div className="flex">
@@ -157,7 +177,9 @@ function Dashboard() {
                   contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
                   formatter={(v: number) => metric === "prod" ? money(v) : number(v)} />
                 <Area type="monotone" dataKey="team" stroke="#10b981" strokeWidth={2} fill="url(#teamGrad)" />
-                <Area type="monotone" dataKey="individual" stroke="#C9A227" strokeWidth={2} fill="url(#indGrad)" />
+                {view === "personal" && (
+                  <Area type="monotone" dataKey="individual" stroke="#C9A227" strokeWidth={2} fill="url(#indGrad)" />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>

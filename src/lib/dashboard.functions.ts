@@ -36,3 +36,38 @@ export const getDashboardMetrics = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return row as unknown as DashboardMetrics;
   });
+
+export type LeaderboardAgent = {
+  id: string;
+  name: string;
+  premium: number;
+  policies: number;
+};
+
+export const getLeaderboardData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RangeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+    const { data: agents } = await supabase
+      .from("policies")
+      .select("agent_id, annual_premium, profiles!inner(first_name, last_name)")
+      .gte("posted_at", data.rangeStart)
+      .lte("posted_at", data.rangeEnd);
+    const agentMap = new Map<string, { name: string; premium: number; policies: number }>();
+    for (const row of agents ?? []) {
+      const id = row.agent_id;
+      if (!agentMap.has(id)) agentMap.set(id, {
+        name: `${row.profiles?.first_name ?? ""} ${row.profiles?.last_name ?? ""}`.trim(),
+        premium: 0,
+        policies: 0,
+      });
+      const entry = agentMap.get(id)!;
+      entry.premium += Number(row.annual_premium ?? 0);
+      entry.policies += 1;
+    }
+    const sorted = Array.from(agentMap.entries())
+      .map(([id, v]) => ({ id, ...v }))
+      .sort((a, b) => b.premium - a.premium);
+    return { agents: sorted as LeaderboardAgent[], selfId: userId as string };
+  });
