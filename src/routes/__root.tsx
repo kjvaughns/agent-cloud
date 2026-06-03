@@ -93,6 +93,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@AgentCloud" },
+      { name: "twitter:title", content: "Agent Cloud" },
+      { name: "twitter:description", content: "Life insurance agency management platform — pipeline, contracting, calls, SMS, analytics, and a downline command center." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/14ba9b18-bf89-4e1c-95a3-7c7fbdce2f62/id-preview-50e42318--72338457-b712-4dd1-9869-c5b1476a0a2b.lovable.app-1780508672670.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/14ba9b18-bf89-4e1c-95a3-7c7fbdce2f62/id-preview-50e42318--72338457-b712-4dd1-9869-c5b1476a0a2b.lovable.app-1780508672670.png" },
     ],
     links: [
       {
