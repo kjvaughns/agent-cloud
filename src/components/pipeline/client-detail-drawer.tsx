@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
-  ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar,
+  ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -246,27 +246,47 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
 }
 
 // ============ Contact Tab ============
+function SectionCard({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        </div>
+        <span className="text-sm font-semibold">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function ContactTab({ detail }: { detail: any }) {
   const client = detail.client;
   return (
     <div className="space-y-4">
-      <div className="text-sm font-semibold">Contact Information</div>
-      <div className="grid grid-cols-2 gap-3">
-        <EditableField label="First Name" client={client} field="first_name" />
-        <EditableField label="Last Name" client={client} field="last_name" />
-        <EditableField label="Phone" client={client} field="phone" />
-        <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
-        <EditableField label="Email" client={client} field="email" />
-        <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
-      </div>
-      <div className="text-sm font-semibold pt-2">Address</div>
-      <div className="grid grid-cols-2 gap-3">
-        <EditableField label="Street Address" client={client} field="street_address" />
-        <EditableField label="City" client={client} field="city" />
-        <EditableField label="State" client={client} field="state" />
-        <EditableField label="ZIP Code" client={client} field="zip_code" />
-        <EditableField label="Born" client={client} field="born_country_state" />
-      </div>
+      <SectionCard icon={User} title="Contact Information">
+        <div className="grid grid-cols-2 gap-3">
+          <EditableField label="First Name" client={client} field="first_name" />
+          <EditableField label="Last Name" client={client} field="last_name" />
+          <EditableField label="Phone" client={client} field="phone" />
+          <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
+          <EditableField label="Email" client={client} field="email" />
+          <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={MapPin} title="Address">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <EditableField label="Street Address" client={client} field="street_address" />
+          </div>
+          <EditableField label="City" client={client} field="city" />
+          <EditableField label="State" client={client} field="state" />
+          <EditableField label="ZIP Code" client={client} field="zip_code" />
+          <EditableField label="Born: (Country/State)" client={client} field="born_country_state" />
+        </div>
+      </SectionCard>
+
       <TemperatureSelector client={client} />
     </div>
   );
@@ -325,8 +345,8 @@ function EditableField({ label, client, field, type, select }: { label: string; 
   if (editing) {
     if (select) {
       return (
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">{label}</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
           <Select value={val} onValueChange={(v) => { setVal(v); setTimeout(save, 50); }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{select.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
@@ -335,19 +355,21 @@ function EditableField({ label, client, field, type, select }: { label: string; 
       );
     }
     return (
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
         <Input autoFocus type={type} value={val} onChange={(e) => setVal(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && save()} />
       </div>
     );
   }
 
   return (
-    <button type="button" onClick={() => setEditing(true)} className="text-left space-y-1 group">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <div className="text-sm border-b border-transparent group-hover:border-muted-foreground/30 py-1.5 min-h-[2rem] flex items-center justify-between">
-        <span className={cn(!client[field] && "text-muted-foreground italic")}>{client[field] || "—"}</span>
-        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 transition" />
+    <button type="button" onClick={() => setEditing(true)} className="text-left space-y-1.5 group w-full">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex items-center justify-between gap-2 min-h-[2.25rem] px-3 py-2 rounded-md bg-muted/40 border border-transparent group-hover:border-border group-hover:bg-muted/60 transition-colors">
+        <span className={cn("text-sm truncate", !client[field] && "text-muted-foreground/50 italic")}>
+          {client[field] || "—"}
+        </span>
+        <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
       </div>
     </button>
   );
