@@ -103,21 +103,10 @@ export const scanNiprPdf = createServerFn({ method: "POST" })
     media_type: z.string(),
   }).parse(input))
   .handler(async ({ data }) => {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured on server");
-    const isPdf = data.media_type === "application/pdf";
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        ...(isPdf ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        system: `You are a data extraction assistant. Extract all insurance license records from a NIPR Producer Database (PDB) report.
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("AI features unavailable — LOVABLE_API_KEY not configured.");
+
+    const systemPrompt = `You are a data extraction assistant. Extract all insurance license records from a NIPR Producer Database (PDB) report.
 Return ONLY a valid JSON object with this exact structure, no markdown fences, no explanation:
 {
   "npn": "<NPN number as string>",
@@ -134,25 +123,35 @@ Return ONLY a valid JSON object with this exact structure, no markdown fences, n
     }
   ]
 }
-If the document is not a NIPR PDB report or cannot be parsed, return: {"error": "Not a valid NIPR PDB report"}`,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: isPdf ? "document" : "image",
-              source: { type: "base64", media_type: data.media_type, data: data.file_base64 },
-            },
-            { type: "text", text: "Extract all license records from this NIPR PDB report." },
-          ],
-        }],
+If the document is not a NIPR PDB report or cannot be parsed, return: {"error": "Not a valid NIPR PDB report"}`;
+
+    const dataUrl = `data:${data.media_type};base64,${data.file_base64}`;
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        max_tokens: 4096,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: dataUrl } },
+              { type: "text", text: "Extract all license records from this NIPR PDB report." },
+            ],
+          },
+        ],
       }),
     });
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
-      throw new Error(`Anthropic API error ${res.status}: ${errBody}`);
+      if (res.status === 429) throw new Error("Rate limit reached — try again in a moment.");
+      if (res.status === 402) throw new Error("AI credits exhausted. Contact your admin.");
+      throw new Error(`AI gateway error ${res.status}: ${errBody}`);
     }
     const body = await res.json();
-    const raw = body.content?.[0]?.text ?? "";
+    const raw: string = body?.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
     if (parsed.error) throw new Error(parsed.error);
     return parsed as { npn: string; licenses: any[] };
