@@ -919,6 +919,48 @@ export type Database = {
           },
         ]
       }
+      commission_level_requests: {
+        Row: {
+          agent_id: string
+          carrier_id: string
+          created_at: string | null
+          id: string
+          message: string | null
+          status: string | null
+        }
+        Insert: {
+          agent_id: string
+          carrier_id: string
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          status?: string | null
+        }
+        Update: {
+          agent_id?: string
+          carrier_id?: string
+          created_at?: string | null
+          id?: string
+          message?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_level_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_level_requests_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_schedule: {
         Row: {
           agent_id: string
@@ -1027,8 +1069,10 @@ export type Database = {
           carrier_id: string
           id: string
           issue_description: string | null
+          loa: string | null
           notes: string | null
           requested_at: string
+          source: string | null
           status: Database["public"]["Enums"]["contract_status"]
           submitted_at: string | null
           writing_number: string | null
@@ -1039,8 +1083,10 @@ export type Database = {
           carrier_id: string
           id?: string
           issue_description?: string | null
+          loa?: string | null
           notes?: string | null
           requested_at?: string
+          source?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           submitted_at?: string | null
           writing_number?: string | null
@@ -1051,8 +1097,10 @@ export type Database = {
           carrier_id?: string
           id?: string
           issue_description?: string | null
+          loa?: string | null
           notes?: string | null
           requested_at?: string
+          source?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           submitted_at?: string | null
           writing_number?: string | null
@@ -1258,7 +1306,9 @@ export type Database = {
           expires_at: string
           id: string
           invite_signature_html: string | null
+          is_reusable: boolean
           last_resent_at: string | null
+          link_name: string | null
           linked_agent_id: string | null
           name: string
           new_agent_email: string | null
@@ -1280,7 +1330,9 @@ export type Database = {
           expires_at?: string
           id?: string
           invite_signature_html?: string | null
+          is_reusable?: boolean
           last_resent_at?: string | null
+          link_name?: string | null
           linked_agent_id?: string | null
           name: string
           new_agent_email?: string | null
@@ -1302,7 +1354,9 @@ export type Database = {
           expires_at?: string
           id?: string
           invite_signature_html?: string | null
+          is_reusable?: boolean
           last_resent_at?: string | null
+          link_name?: string | null
           linked_agent_id?: string | null
           name?: string
           new_agent_email?: string | null
@@ -1643,35 +1697,91 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_banking: {
+        Row: {
+          account_last4: string | null
+          account_number_encrypted: string | null
+          account_type: string | null
+          agent_id: string
+          bank_name: string | null
+          id: string
+          routing_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_last4?: string | null
+          account_number_encrypted?: string | null
+          account_type?: string | null
+          agent_id: string
+          bank_name?: string | null
+          id?: string
+          routing_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_last4?: string | null
+          account_number_encrypted?: string | null
+          account_type?: string | null
+          agent_id?: string
+          bank_name?: string | null
+          id?: string
+          routing_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_banking_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producer_documents: {
         Row: {
           agent_id: string
+          carrier_name: string | null
+          certificate_number: string | null
+          coverage_amount: string | null
           created_at: string
           doc_type: string
           expiration_date: string | null
           file_name: string | null
           file_url: string | null
           id: string
+          policy_number: string | null
+          provider_name: string | null
           start_date: string | null
         }
         Insert: {
           agent_id: string
+          carrier_name?: string | null
+          certificate_number?: string | null
+          coverage_amount?: string | null
           created_at?: string
           doc_type: string
           expiration_date?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
+          policy_number?: string | null
+          provider_name?: string | null
           start_date?: string | null
         }
         Update: {
           agent_id?: string
+          carrier_name?: string | null
+          certificate_number?: string | null
+          coverage_amount?: string | null
           created_at?: string
           doc_type?: string
           expiration_date?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
+          policy_number?: string | null
+          provider_name?: string | null
           start_date?: string | null
         }
         Relationships: []
@@ -1683,6 +1793,9 @@ export type Database = {
           city: string | null
           created_at: string
           date_of_birth: string | null
+          drivers_license_expiry: string | null
+          drivers_license_number: string | null
+          drivers_license_state: string | null
           email: string | null
           first_name: string | null
           gender: string | null
@@ -1691,6 +1804,7 @@ export type Database = {
           invite_signature_html: string | null
           last_active_at: string | null
           last_name: string | null
+          marital_status: string | null
           npn_number: string | null
           phone: string | null
           ssn_encrypted: string | null
@@ -1707,6 +1821,9 @@ export type Database = {
           city?: string | null
           created_at?: string
           date_of_birth?: string | null
+          drivers_license_expiry?: string | null
+          drivers_license_number?: string | null
+          drivers_license_state?: string | null
           email?: string | null
           first_name?: string | null
           gender?: string | null
@@ -1715,6 +1832,7 @@ export type Database = {
           invite_signature_html?: string | null
           last_active_at?: string | null
           last_name?: string | null
+          marital_status?: string | null
           npn_number?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
@@ -1731,6 +1849,9 @@ export type Database = {
           city?: string | null
           created_at?: string
           date_of_birth?: string | null
+          drivers_license_expiry?: string | null
+          drivers_license_number?: string | null
+          drivers_license_state?: string | null
           email?: string | null
           first_name?: string | null
           gender?: string | null
@@ -1739,6 +1860,7 @@ export type Database = {
           invite_signature_html?: string | null
           last_active_at?: string | null
           last_name?: string | null
+          marital_status?: string | null
           npn_number?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
