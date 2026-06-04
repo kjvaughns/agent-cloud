@@ -39,7 +39,7 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     const { data: invRaw } = await supabaseAdmin.rpc("get_invite_by_token", { _token: data.token });
     const inv = invRaw as any;
     if (!inv || inv.expired) throw new Error("Invite expired or not found");
-    if (inv.linked_agent_id) throw new Error("This invite has already been used");
+    if (inv.linked_agent_id && !inv.is_reusable) throw new Error("This invite has already been used");
 
     const { data: created, error: signErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -55,12 +55,14 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       phone: data.phone ?? null,
     }).eq("id", newUserId);
 
-    await supabaseAdmin.from("invitation_links").update({
-      linked_agent_id: newUserId,
-      status: "in_progress",
-      onboarding_step: 1,
-      agent_started_at: new Date().toISOString(),
-    }).eq("token", data.token);
+    if (!inv.is_reusable) {
+      await supabaseAdmin.from("invitation_links").update({
+        linked_agent_id: newUserId,
+        status: "in_progress",
+        onboarding_step: 1,
+        agent_started_at: new Date().toISOString(),
+      }).eq("token", data.token);
+    }
 
     return { ok: true, userId: newUserId };
   });
@@ -70,6 +72,7 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
 async function loadInviteForUser(supabase: any, token: string, userId: string) {
   const { data: inv } = await supabase.from("invitation_links").select("*").eq("token", token).maybeSingle();
   if (!inv) throw new Error("Invite not found");
+  if (inv.is_reusable) return inv; // reusable links are not locked to a specific user
   if (inv.linked_agent_id && inv.linked_agent_id !== userId) throw new Error("Invite belongs to another user");
   if (!inv.linked_agent_id) {
     await supabase.from("invitation_links").update({
@@ -111,7 +114,7 @@ export const saveOnboardingPersonal = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    await loadInviteForUser(supabase, data.token, userId);
+    const inv = await loadInviteForUser(supabase, data.token, userId);
 
     await supabase.from("profiles").update({
       first_name: data.first_name,
@@ -134,7 +137,9 @@ export const saveOnboardingPersonal = createServerFn({ method: "POST" })
       // some envs may not yet have ssn_set; non-fatal
     }
 
-    await supabase.from("invitation_links").update({ onboarding_step: 2 }).eq("token", data.token);
+    if (!inv.is_reusable) {
+      await supabase.from("invitation_links").update({ onboarding_step: 2 }).eq("token", data.token);
+    }
     return { ok: true };
   });
 
@@ -168,7 +173,10 @@ export const saveOnboardingCarriers = createServerFn({ method: "POST" })
       }
     }
 
-    await supabase.from("invitation_links").update({ onboarding_step: 3 }).eq("token", data.token);
+    const invForStep = await loadInviteForUser(supabase, data.token, userId);
+    if (!invForStep.is_reusable) {
+      await supabase.from("invitation_links").update({ onboarding_step: 3 }).eq("token", data.token);
+    }
     return { ok: true, count: included.length };
   });
 
@@ -188,15 +196,17 @@ export const signOnboardingAgreement = createServerFn({ method: "POST" })
       agreement_version: "1.0",
     });
 
-    await supabase.from("invitation_links").update({
-      onboarding_step: 4,
-      agent_completed_at: new Date().toISOString(),
-    }).eq("id", inv.id);
+    if (!inv.is_reusable) {
+      await supabase.from("invitation_links").update({
+        onboarding_step: 4,
+        agent_completed_at: new Date().toISOString(),
+      }).eq("id", inv.id);
+    }
 
     await supabase.from("notifications").insert({
       user_id: inv.created_by,
       title: "Agent accepted your invite",
-      description: "Contracting in progress — they're moving on to SuranceBay.",
+      description: "Contracting in progress — they're joining your downline.",
       type: "contracting",
     });
 
@@ -656,12 +666,7 @@ const FullAssignmentSchema = z.object({
 export const createOnboardingInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    new_agent_first_name: z.string().trim().max(60).optional().nullable(),
-    new_agent_last_name: z.string().trim().max(60).optional().nullable(),
-    new_agent_email: z.string().email().max(120),
-    existing_agent_id: z.string().uuid().optional().nullable(),
-    sent_on_behalf_of: z.string().uuid().optional().nullable(),
-    invite_signature_html: z.string().max(5000).optional().nullable(),
+    link_name: z.string().trim().min(1).max(80),
     assignments: z.array(FullAssignmentSchema).min(1).max(50),
   }).parse(d))
   .handler(async ({ data, context }) => {
@@ -678,36 +683,20 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     }
 
     const token = crypto.randomUUID();
-    const name = data.new_agent_first_name || data.new_agent_last_name
-      ? `${data.new_agent_first_name ?? ""} ${data.new_agent_last_name ?? ""}`.trim()
-      : data.new_agent_email;
 
     const { data: inserted, error } = await supabase.from("invitation_links").insert({
       created_by: userId,
-      sent_on_behalf_of: data.sent_on_behalf_of ?? null,
-      existing_agent_id: data.existing_agent_id ?? null,
-      new_agent_first_name: data.new_agent_first_name ?? null,
-      new_agent_last_name: data.new_agent_last_name ?? null,
-      new_agent_email: data.new_agent_email,
-      name,
+      name: data.link_name,
+      link_name: data.link_name,
+      is_reusable: true,
+      new_agent_email: null,
       token,
       carrier_assignments: data.assignments,
-      invite_signature_html: data.invite_signature_html ?? null,
       status: "pending",
       onboarding_step: 0,
     }).select("id,token").single();
 
     if (error) throw new Error(error.message);
-
-    // If existing agent, send in-app notification immediately
-    if (data.existing_agent_id) {
-      await supabase.from("notifications").insert({
-        user_id: data.existing_agent_id,
-        title: "You've been invited to contract with new carriers",
-        description: `${data.assignments.length} carrier(s) added — open your invite to continue.`,
-        type: "contracting",
-      });
-    }
 
     return { ok: true, id: inserted.id, token: inserted.token };
   });
