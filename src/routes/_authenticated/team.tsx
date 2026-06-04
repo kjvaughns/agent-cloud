@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Mail, Phone, Eye, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Trash2, Users } from "lucide-react";
+import { UserPlus, Mail, Phone, Eye, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Trash2, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import {
@@ -31,14 +31,27 @@ const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () =>
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
 const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => getTeamAlerts() });
 
+function TeamPending() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/team")({
   head: () => ({ meta: [{ title: "Team Command Center — Agent Cloud" }] }),
-  loader: ({ context }) => {
-    return Promise.all([
-      context.queryClient.ensureQueryData(downlineQO),
-      context.queryClient.ensureQueryData(kpisQO),
-      context.queryClient.ensureQueryData(alertsQO),
-    ]);
+  pendingComponent: TeamPending,
+  loader: async ({ context }) => {
+    try {
+      await Promise.all([
+        context.queryClient.ensureQueryData(downlineQO),
+        context.queryClient.ensureQueryData(kpisQO),
+        context.queryClient.ensureQueryData(alertsQO),
+      ]);
+    } catch {
+      // queries have built-in fallbacks; let the component handle empty state
+    }
   },
   component: TeamPage,
 });
@@ -160,14 +173,15 @@ function KpiRow() {
 // ============ Depth Chart ============
 function DepthChart() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
-  const max = Math.max(1, ...kpis.depth_distribution.map((d) => d.count));
+  const dist = kpis.depth_distribution ?? [];
+  const max = Math.max(1, ...dist.map((d) => d.count));
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Team Depth Distribution</CardTitle></CardHeader>
       <CardContent className="space-y-2">
-        {kpis.depth_distribution.length === 0 ? (
+        {dist.length === 0 ? (
           <p className="text-sm text-muted-foreground">No agents yet.</p>
-        ) : kpis.depth_distribution.map((d) => (
+        ) : dist.map((d) => (
           <div key={d.level} className="flex items-center gap-3">
             <div className="w-12 text-xs font-medium">L{d.level}{d.level === 1 ? " (Direct)" : ""}</div>
             <div className="flex-1 h-6 bg-muted rounded overflow-hidden">

@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/hooks/use-role";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen,
@@ -8,7 +9,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase, Trophy,
+  ChevronDown, Briefcase, Trophy, ShieldCheck,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -99,6 +100,7 @@ const accountItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const sidebarCollapsed = state === "collapsed";
+  const { isAdmin, isManager } = useRole();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
@@ -185,6 +187,26 @@ export function AppSidebar() {
             <SidebarMenu>{accountItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {(isAdmin || isManager) && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Admin Portal" className="text-[#C9A227] hover:text-[#C9A227] hover:bg-[#C9A227]/10">
+                      <Link to="/admin">
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Admin Portal</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
     </Sidebar>
   );
