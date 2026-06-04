@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,8 +36,8 @@ const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
 };
 
 const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
-  new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",   label: "New"          },
-  callback:     { active: "bg-amber-500 text-white border-amber-500",                    inactive: "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400",   label: "Callback"     },
+  new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",   label: "New / Initial" },
+  callback:     { active: "bg-amber-500 text-white border-amber-500",                    inactive: "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400",   label: "Callback"      },
   almost_there: { active: "bg-orange-500 text-white border-orange-500",                  inactive: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400", label: "Almost There" },
   sold:         { active: "bg-emerald-500 text-white border-emerald-500",                inactive: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400", label: "Sold"     },
 };
@@ -51,19 +50,17 @@ const detailQO = (id: string) => queryOptions({
   enabled: !!id,
 });
 
+// Notes tab visible on mobile only (right panel handles it on desktop)
 const DRAWER_TABS = [
-  { key: "contact",       label: "Contact",        icon: User },
-  { key: "needs",         label: "Needs Analysis", icon: ClipboardList },
-  { key: "notes",         label: "Notes",          icon: MessageSquare },
-  { key: "schedule",      label: "Schedule",       icon: Calendar },
-  { key: "beneficiaries", label: "Beneficiaries",  icon: Users },
-  { key: "referrals",     label: "Referrals",      icon: Share2 },
-  { key: "financials",    label: "Financials",     icon: DollarSign },
-  { key: "care",          label: "Client Care",    icon: Heart },
-  { key: "health",        label: "Health",         icon: Activity },
-  { key: "banking",       label: "Banking",        icon: Building },
-  { key: "policies",      label: "Policies",       icon: FileText },
-  { key: "email",         label: "Email",          icon: Mail },
+  { key: "contact",       label: "Contact",        icon: User,         desktopHide: false },
+  { key: "needs",         label: "Needs Analysis", icon: ClipboardList,desktopHide: false },
+  { key: "notes",         label: "Notes",          icon: MessageSquare,desktopHide: true  },
+  { key: "schedule",      label: "Schedule",       icon: Calendar,     desktopHide: false },
+  { key: "beneficiaries", label: "Beneficiaries",  icon: Users,        desktopHide: false },
+  { key: "referrals",     label: "Referrals",      icon: Share2,       desktopHide: false },
+  { key: "financials",    label: "Financials",     icon: DollarSign,   desktopHide: false },
+  { key: "care",          label: "Client Care",    icon: Heart,        desktopHide: false },
+  { key: "email",         label: "Email",          icon: Mail,         desktopHide: false },
 ];
 
 // ============ Main export ============
@@ -86,34 +83,63 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
   }, [clientId, qc, touchFn]);
 
   return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[480px] sm:max-w-[90vw] p-0 flex flex-col overflow-hidden">
-        <SheetTitle className="sr-only">Client Detail</SheetTitle>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[96vw] lg:max-w-5xl xl:max-w-6xl p-0 gap-0 flex flex-col max-h-[92vh] overflow-hidden [&>button:last-child]:z-50">
+        <DialogTitle className="sr-only">Client Detail</DialogTitle>
         {clientId && <DrawerBody clientId={clientId} />}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
+// ============ Body ============
 function DrawerBody({ clientId }: { clientId: string }) {
   const [activeTab, setActiveTab] = useState("contact");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
   if (isLoading || !data?.client) {
-    return <div className="p-6 space-y-3"><Skeleton className="h-20" /><Skeleton className="h-12" /><Skeleton className="h-60" /></div>;
+    return (
+      <div className="p-6 space-y-3">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-10" />
+        <Skeleton className="h-64" />
+      </div>
+    );
   }
 
   const c = data.client;
   const t = tempPill[(c.temperature ?? "cold") as Temp];
+  const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <DrawerHeader client={c} t={t} onMarkSold={() => setActiveTab("policies")} />
+      {/* Compact header */}
+      <DrawerHeader client={c} t={t} />
+
+      {/* Stage bar */}
       <StageBar client={c} />
-      <div className="flex-1 overflow-y-auto">
-        <DrawerTabBar activeTab={activeTab} onTabChange={setActiveTab} />
-        <div className="p-4">
-          <DrawerTabContent tab={activeTab} detail={data} />
+
+      {/* Two-column body */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Left: tabs + scrollable content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <DrawerTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-4">
+              <DrawerTabContent tab={activeTab} detail={data} />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: persistent notes — desktop only */}
+        <div className="hidden md:flex w-72 lg:w-80 shrink-0 border-l flex-col overflow-hidden bg-muted/5">
+          <div className="px-4 py-3 border-b shrink-0 flex items-center gap-2">
+            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-semibold">Notes</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            <NotesTab clientId={clientId} entries={notes} />
+          </div>
         </div>
       </div>
     </div>
@@ -121,7 +147,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 }
 
 // ============ Header ============
-function DrawerHeader({ client, t, onMarkSold }: { client: any; t: any; onMarkSold?: () => void }) {
+function DrawerHeader({ client, t }: { client: any; t: any }) {
   const qc = useQueryClient();
   const markSoldFn = useServerFn(markClientSold);
   const soldMut = useMutation({
@@ -129,45 +155,49 @@ function DrawerHeader({ client, t, onMarkSold }: { client: any; t: any; onMarkSo
     onSuccess: () => {
       toast.success("Marked as sold");
       qc.invalidateQueries({ queryKey: ["pipeline"] });
-      onMarkSold?.();
     },
   });
 
   return (
-    <div className="p-4 border-b space-y-3 shrink-0">
-      <div className="flex items-start gap-2">
+    <div className="px-5 py-3.5 border-b shrink-0">
+      <div className="flex items-center gap-4 pr-8">
+        {/* Name + meta */}
         <div className="flex-1 min-w-0">
-          <div className="font-bold text-lg leading-tight truncate">{client.first_name} {client.last_name}</div>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium", t.cls)}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-lg leading-tight">{client.first_name} {client.last_name}</span>
+            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shrink-0", t.cls)}>
               <t.Icon className="h-3 w-3" /> {t.label}
             </span>
-            {client.phone && (
-              <a href={`tel:${client.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1">
-                <Phone className="h-3 w-3" /> {fmtPhone(client.phone)}
-              </a>
-            )}
           </div>
+          {client.phone && (
+            <a href={`tel:${client.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 mt-0.5">
+              <Phone className="h-3 w-3" /> {fmtPhone(client.phone)}
+            </a>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <Button size="sm" variant="outline" asChild>
+            <a href={`tel:${client.phone}`}><Phone className="h-3.5 w-3.5 mr-1.5" /> Call</a>
+          </Button>
+          <Button size="sm" variant="outline">
+            <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> SMS
+          </Button>
+          <Button size="sm" variant="outline" className="hidden sm:inline-flex">
+            Submit Case for Design
+          </Button>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => soldMut.mutate()}
+            disabled={client.stage === "sold" || soldMut.isPending}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+            {client.stage === "sold" ? "✓ Sold" : "Mark Sold"}
+          </Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Button size="sm" variant="outline" className="w-full" asChild>
-          <a href={`tel:${client.phone}`}><Phone className="h-3.5 w-3.5 mr-1.5" /> Call</a>
-        </Button>
-        <Button size="sm" variant="outline" className="w-full">
-          <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> SMS
-        </Button>
-      </div>
-      <Button size="sm" variant="outline" className="w-full">Submit Case for Design</Button>
-      <Button
-        size="sm"
-        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-        onClick={() => soldMut.mutate()}
-        disabled={client.stage === "sold" || soldMut.isPending}
-      >
-        <CheckCircle2 className="h-4 w-4 mr-1.5" />
-        {client.stage === "sold" ? "✓ Sold" : "Mark Sold"}
-      </Button>
     </div>
   );
 }
@@ -182,14 +212,15 @@ function StageBar({ client }: { client: any }) {
   });
 
   return (
-    <div className="px-4 py-2.5 border-b bg-muted/20 shrink-0">
+    <div className="px-5 py-2 border-b bg-muted/20 shrink-0">
       <div className="flex items-center gap-1.5">
+        <span className="text-xs text-muted-foreground font-medium mr-1 shrink-0">Stage:</span>
         {(Object.entries(STAGE_PILLS) as [Stage, typeof STAGE_PILLS[Stage]][]).map(([stage, p]) => (
           <button
             key={stage}
             onClick={() => mut.mutate(stage)}
             className={cn(
-              "flex-1 px-2 py-1.5 text-xs font-medium rounded-full border transition",
+              "flex-1 px-2 py-1 text-xs font-medium rounded-full border transition",
               client.stage === stage ? p.active : cn(p.inactive, "hover:bg-muted"),
             )}
           >
@@ -204,14 +235,15 @@ function StageBar({ client }: { client: any }) {
 // ============ Tab bar ============
 function DrawerTabBar({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
   return (
-    <div className="overflow-x-auto border-b sticky top-0 z-10 bg-background">
+    <div className="overflow-x-auto border-b sticky top-0 z-10 bg-background shrink-0">
       <div className="flex min-w-max px-1">
-        {DRAWER_TABS.map(({ key, label, icon: Icon }) => (
+        {DRAWER_TABS.map(({ key, label, icon: Icon, desktopHide }) => (
           <button
             key={key}
             onClick={() => onTabChange(key)}
             className={cn(
               "flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
+              desktopHide && "md:hidden",
               activeTab === key
                 ? "border-b-2 border-primary text-primary"
                 : "text-muted-foreground hover:text-foreground",
@@ -237,93 +269,29 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
     case "referrals":     return <ReferralsTab detail={detail} />;
     case "financials":    return <FinancialsTab detail={detail} />;
     case "care":          return <ClientCareTab detail={detail} />;
-    case "health":        return <HealthTab detail={detail} />;
-    case "banking":       return <BankingTab detail={detail} />;
-    case "policies":      return <PoliciesTab detail={detail} />;
     case "email":         return <EmailTab detail={detail} />;
     default:              return <ContactTab detail={detail} />;
   }
 }
 
-// ============ Contact Tab ============
+// ============ Shared: SectionCard ============
 function SectionCard({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center shrink-0">
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/20">
+        <div className="h-6 w-6 rounded-full bg-background border flex items-center justify-center shrink-0">
+          <Icon className="h-3 w-3 text-muted-foreground" />
         </div>
         <span className="text-sm font-semibold">{title}</span>
       </div>
-      {children}
-    </div>
-  );
-}
-
-function ContactTab({ detail }: { detail: any }) {
-  const client = detail.client;
-  return (
-    <div className="space-y-4">
-      <SectionCard icon={User} title="Contact Information">
-        <div className="grid grid-cols-2 gap-3">
-          <EditableField label="First Name" client={client} field="first_name" />
-          <EditableField label="Last Name" client={client} field="last_name" />
-          <EditableField label="Phone" client={client} field="phone" />
-          <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
-          <EditableField label="Email" client={client} field="email" />
-          <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
-        </div>
-      </SectionCard>
-
-      <SectionCard icon={MapPin} title="Address">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <EditableField label="Street Address" client={client} field="street_address" />
-          </div>
-          <EditableField label="City" client={client} field="city" />
-          <EditableField label="State" client={client} field="state" />
-          <EditableField label="ZIP Code" client={client} field="zip_code" />
-          <EditableField label="Born: (Country/State)" client={client} field="born_country_state" />
-        </div>
-      </SectionCard>
-
-      <TemperatureSelector client={client} />
-    </div>
-  );
-}
-
-function TemperatureSelector({ client }: { client: any }) {
-  const qc = useQueryClient();
-  const updateFn = useServerFn(updateClient);
-  const mut = useMutation({
-    mutationFn: (temperature: Temp) => updateFn({ data: { id: client.id, patch: { temperature } } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
-  });
-
-  return (
-    <div className="space-y-2 pt-2">
-      <div className="text-sm font-semibold">Temperature</div>
-      <div className="flex gap-2">
-        {(["hot", "warm", "cold"] as const).map((temp) => {
-          const p = tempPill[temp];
-          return (
-            <button
-              key={temp}
-              onClick={() => mut.mutate(temp)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition",
-                client.temperature === temp ? p.cls : "border-border text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <p.Icon className="h-3 w-3" /> {p.label}
-            </button>
-          );
-        })}
+      <div className="p-4">
+        {children}
       </div>
     </div>
   );
 }
 
+// ============ Shared: EditableField ============
 function EditableField({ label, client, field, type, select }: { label: string; client: any; field: string; type?: string; select?: string[] }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
@@ -372,6 +340,343 @@ function EditableField({ label, client, field, type, select }: { label: string; 
         <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
       </div>
     </button>
+  );
+}
+
+// ============ Contact Tab (+ Banking, Health, Policy stacked) ============
+function ContactTab({ detail }: { detail: any }) {
+  const client = detail.client;
+  return (
+    <div className="space-y-4">
+      <SectionCard icon={User} title="Contact Information">
+        <div className="grid grid-cols-2 gap-3">
+          <EditableField label="First Name" client={client} field="first_name" />
+          <EditableField label="Last Name" client={client} field="last_name" />
+          <EditableField label="Phone" client={client} field="phone" />
+          <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
+          <EditableField label="Email" client={client} field="email" />
+          <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
+        </div>
+      </SectionCard>
+
+      <SectionCard icon={MapPin} title="Address">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <EditableField label="Street Address" client={client} field="street_address" />
+          </div>
+          <EditableField label="City" client={client} field="city" />
+          <EditableField label="State" client={client} field="state" />
+          <EditableField label="ZIP Code" client={client} field="zip_code" />
+          <EditableField label="Born: (Country/State)" client={client} field="born_country_state" />
+        </div>
+      </SectionCard>
+
+      <TemperatureSelector client={client} />
+
+      <SectionCard icon={Building} title="Banking Information">
+        <BankingFields detail={detail} />
+      </SectionCard>
+
+      <SectionCard icon={Activity} title="Health Information">
+        <HealthFields detail={detail} />
+      </SectionCard>
+
+      <SectionCard icon={FileText} title="Policy Information">
+        <PolicyFields detail={detail} />
+      </SectionCard>
+    </div>
+  );
+}
+
+// ============ Temperature ============
+function TemperatureSelector({ client }: { client: any }) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateClient);
+  const mut = useMutation({
+    mutationFn: (temperature: Temp) => updateFn({ data: { id: client.id, patch: { temperature } } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted-foreground">Temperature</div>
+      <div className="flex gap-2">
+        {(["hot", "warm", "cold"] as const).map((temp) => {
+          const p = tempPill[temp];
+          return (
+            <button
+              key={temp}
+              onClick={() => mut.mutate(temp)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition",
+                client.temperature === temp ? p.cls : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <p.Icon className="h-3 w-3" /> {p.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============ Banking Fields (used inline in ContactTab) ============
+function BankingFields({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const [bankingForm, setBankingForm] = useState<Record<string, any>>(detail?.banking ?? {});
+  const [showAcct, setShowAcct] = useState(false);
+  useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
+
+  const upsertBankingFn = useServerFn(upsertClientBanking);
+  const bankingMut = useMutation({
+    mutationFn: (patch: any) => upsertBankingFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const save = (key: string, value: any) => bankingMut.mutate({ [key]: value });
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label="Bank Name">
+        <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => save("bank_name", e.target.value || null)} placeholder="e.g. Bank of America" />
+      </Field>
+      <Field label="Account Type">
+        <Select value={bankingForm.account_type ?? ""} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); save("account_type", v); }}>
+          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="checking">Checking</SelectItem>
+            <SelectItem value="savings">Savings</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Routing Number">
+        <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => save("routing_number", e.target.value || null)} placeholder="9 digits" />
+      </Field>
+      <Field label="Account Number">
+        <div className="relative">
+          <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => save("account_number_masked", e.target.value || null)} className="pr-10" />
+          <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </Field>
+      <Field label="Draft Date">
+        <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); save("draft_date", Number(v)); }}>
+          <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+          <SelectContent>
+            {Array.from({length: 28}, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Payment Method">
+        <Select value={bankingForm.payment_method ?? ""} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); save("payment_method", v); }}>
+          <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bank_draft">Bank Draft</SelectItem>
+            <SelectItem value="credit_card">Credit Card</SelectItem>
+            <SelectItem value="money_order">Money Order</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+    </div>
+  );
+}
+
+// ============ Health Fields (used inline in ContactTab) ============
+function HealthFields({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState<Record<string, any>>(detail?.health ?? {});
+  useEffect(() => { if (detail?.health) setForm(detail.health); }, [detail?.health]);
+
+  const upsertHealthFn = useServerFn(upsertClientHealth);
+  const mut = useMutation({
+    mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const save = (key: string, value: any) => mut.mutate({ [key]: value });
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-3">
+        <Field label="Height (ft)">
+          <Input type="number" min={0} max={9} value={form.height_ft ?? ""} onChange={e => setForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => save("height_ft", e.target.value ? Number(e.target.value) : null)} />
+        </Field>
+        <Field label="Height (in)">
+          <Input type="number" min={0} max={11} value={form.height_in ?? ""} onChange={e => setForm(f => ({...f, height_in: e.target.value}))} onBlur={e => save("height_in", e.target.value ? Number(e.target.value) : null)} />
+        </Field>
+        <Field label="Weight (lbs)">
+          <Input type="number" min={0} value={form.weight_lbs ?? ""} onChange={e => setForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => save("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
+        </Field>
+      </div>
+      <Field label="Tobacco Use">
+        <div className="flex gap-2">
+          <Button size="sm" variant={form.tobacco_use ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: true})); save("tobacco_use", true); }}>Yes</Button>
+          <Button size="sm" variant={!form.tobacco_use ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: false})); save("tobacco_use", false); }}>No</Button>
+        </div>
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Primary Physician">
+          <Input value={form.primary_physician ?? ""} onChange={e => setForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => save("primary_physician", e.target.value || null)} />
+        </Field>
+        <Field label="Physician Phone">
+          <Input value={form.primary_physician_phone ?? ""} onChange={e => setForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => save("primary_physician_phone", e.target.value || null)} />
+        </Field>
+      </div>
+      <Field label="Medical Conditions">
+        <Textarea className="min-h-[72px] resize-none" value={form.conditions ?? ""} onChange={e => setForm(f => ({...f, conditions: e.target.value}))} onBlur={e => save("conditions", e.target.value || null)} placeholder="List conditions..." />
+      </Field>
+      <Field label="Current Medications">
+        <Textarea className="min-h-[72px] resize-none" value={form.medications ?? ""} onChange={e => setForm(f => ({...f, medications: e.target.value}))} onBlur={e => save("medications", e.target.value || null)} placeholder="List medications..." />
+      </Field>
+      <Field label="Medical Notes">
+        <Textarea className="min-h-[72px] resize-none" value={form.medical_notes ?? ""} onChange={e => setForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => save("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
+      </Field>
+    </div>
+  );
+}
+
+// ============ Policy Fields (used inline in ContactTab) ============
+const statusCls: Record<string, string> = {
+  active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
+  lapsed:    "bg-red-100 text-red-700 border-red-200",
+  in_review: "bg-amber-100 text-amber-700 border-amber-200",
+  pending:   "bg-slate-100 text-slate-600 border-slate-200",
+};
+
+function PolicyFields({ detail }: { detail: any }) {
+  const [showForm, setShowForm] = useState(false);
+  const client = detail.client;
+  const policies = detail.policies;
+
+  if (client.stage !== "sold") {
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+        Click "Mark Sold" above to unlock policy entry for this client.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {policies.length > 0 && !showForm && (
+        <Button size="sm" variant="outline" onClick={() => setShowForm(true)}><Plus className="h-4 w-4 mr-1" /> Add Policy</Button>
+      )}
+      {(policies.length === 0 || showForm) && (
+        <AddPolicyInlineForm clientId={client.id} onSaved={() => setShowForm(false)} onCancel={() => setShowForm(false)} showCancel={policies.length > 0} />
+      )}
+      {policies.length > 0 && (
+        <div className="space-y-2">
+          {policies.map((pol: any) => (
+            <details key={pol.id} className="rounded-lg border bg-background">
+              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
+                <div>
+                  <div className="font-medium text-sm">{pol.carriers?.name ?? "—"} — {pol.product ?? "—"}</div>
+                  <div className="text-xs text-muted-foreground">#{pol.policy_number ?? "—"}</div>
+                </div>
+                <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
+                  {pol.status ?? "—"}
+                </span>
+              </summary>
+              <div className="px-4 pb-4 pt-2 text-sm space-y-1 border-t">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><span className="text-muted-foreground">Face Amount:</span> {money(pol.face_amount)}</div>
+                  <div><span className="text-muted-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
+                  <div><span className="text-muted-foreground">Annual:</span> {money(pol.annual_premium)}</div>
+                  <div><span className="text-muted-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clientId: string; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
+
+  const listCarriersFn = useServerFn(listCarriers);
+  const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+
+  const addPolicyFn = useServerFn(addPolicy);
+  const mut = useMutation({
+    mutationFn: () => addPolicyFn({ data: {
+      client_id: clientId,
+      carrier_id: form.carrier_id || null,
+      policy_number: form.policy_number,
+      product: form.product,
+      status: form.status,
+      monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : null,
+      annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
+      face_amount: form.face_amount ? Number(form.face_amount) : null,
+      effective_date: form.effective_date || null,
+    }}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
+      toast.success("Policy saved");
+      onSaved();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save policy"),
+  });
+
+  const monthly = Number(form.monthly_premium || 0);
+
+  return (
+    <div className="rounded-lg border bg-background p-4 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Carrier">
+          <Select value={form.carrier_id} onValueChange={v => setForm(f => ({...f, carrier_id: v}))}>
+            <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
+            <SelectContent>{(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="Product Sold">
+          <Select value={form.product} onValueChange={v => setForm(f => ({...f, product: v}))}>
+            <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
+            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="Policy Number">
+          <Input value={form.policy_number} onChange={e => setForm(f => ({...f, policy_number: e.target.value}))} placeholder="POL-123456" />
+        </Field>
+        <Field label="Effective Date">
+          <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({...f, effective_date: e.target.value}))} />
+        </Field>
+        <Field label="Face Amount">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input type="number" value={form.face_amount} onChange={e => setForm(f => ({...f, face_amount: e.target.value}))} placeholder="50,000" className="pl-6" />
+          </div>
+        </Field>
+        <Field label="Monthly Premium">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+            <Input type="number" step="0.01" value={form.monthly_premium} onChange={e => setForm(f => ({...f, monthly_premium: e.target.value}))} placeholder="99.99" className="pl-6" />
+          </div>
+        </Field>
+      </div>
+      <div className="col-span-2">
+        <Field label="Annual Premium (Auto-calculated)">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/40 text-sm">
+            <span className="text-muted-foreground">$</span>
+            <span className="font-medium">{monthly > 0 ? (monthly * 12).toFixed(2) : "0.00"}</span>
+            <span className="text-xs text-muted-foreground ml-auto">Automatically calculated: Monthly × 12</span>
+          </div>
+        </Field>
+      </div>
+      <div className="flex gap-2 pt-1">
+        {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
+        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+          {mut.isPending ? "Saving..." : "Save Policy"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -840,282 +1145,6 @@ function ClientCareTab({ detail }: { detail: any }) {
   );
 }
 
-// ============ Health Tab ============
-function HealthTab({ detail }: { detail: any }) {
-  const qc = useQueryClient();
-  const [healthForm, setHealthForm] = useState<Record<string, any>>(detail?.health ?? {});
-  useEffect(() => { if (detail?.health) setHealthForm(detail.health); }, [detail?.health]);
-
-  const upsertHealthFn = useServerFn(upsertClientHealth);
-  const healthMut = useMutation({
-    mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
-  });
-  const saveHealth = (key: string, value: any) => healthMut.mutate({ [key]: value });
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <Label>Height (ft)</Label>
-          <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
-        </div>
-        <div className="space-y-1">
-          <Label>Height (in)</Label>
-          <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
-        </div>
-        <div className="space-y-1">
-          <Label>Weight (lbs)</Label>
-          <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label>Tobacco Use</Label>
-        <div className="flex gap-2">
-          <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
-          <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label>Primary Physician</Label>
-        <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
-      </div>
-      <div className="space-y-1">
-        <Label>Physician Phone</Label>
-        <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
-      </div>
-      <div className="space-y-1">
-        <Label>Medical Conditions</Label>
-        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
-      </div>
-      <div className="space-y-1">
-        <Label>Current Medications</Label>
-        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
-      </div>
-      <div className="space-y-1">
-        <Label>Medical Notes</Label>
-        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
-      </div>
-    </div>
-  );
-}
-
-// ============ Banking Tab ============
-function BankingTab({ detail }: { detail: any }) {
-  const qc = useQueryClient();
-  const [bankingForm, setBankingForm] = useState<Record<string, any>>(detail?.banking ?? {});
-  const [showAcct, setShowAcct] = useState(false);
-  useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
-
-  const upsertBankingFn = useServerFn(upsertClientBanking);
-  const bankingMut = useMutation({
-    mutationFn: (patch: any) => upsertBankingFn({ data: { client_id: detail.client.id, ...patch } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
-  });
-  const saveBanking = (key: string, value: any) => bankingMut.mutate({ [key]: value });
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <Label>Bank Name</Label>
-        <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
-      </div>
-      <div className="space-y-1">
-        <Label>Account Type</Label>
-        <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="checking">Checking</SelectItem>
-            <SelectItem value="savings">Savings</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label>Routing Number</Label>
-        <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
-      </div>
-      <div className="space-y-1">
-        <Label>Account Number</Label>
-        <div className="relative">
-          <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
-          <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-            {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label>Draft Date</Label>
-        <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
-          <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-          <SelectContent>
-            {Array.from({length: 28}, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
-        <Label>Payment Method</Label>
-        <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="bank_draft">Bank Draft</SelectItem>
-            <SelectItem value="credit_card">Credit Card</SelectItem>
-            <SelectItem value="money_order">Money Order</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-}
-
-// ============ Policies Tab ============
-const statusCls: Record<string, string> = {
-  active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
-  lapsed:    "bg-red-100 text-red-700 border-red-200",
-  in_review: "bg-amber-100 text-amber-700 border-amber-200",
-  pending:   "bg-slate-100 text-slate-600 border-slate-200",
-};
-
-function PoliciesTab({ detail }: { detail: any }) {
-  const [showForm, setShowForm] = useState(false);
-  const client = detail.client;
-  const policies = detail.policies;
-
-  if (client.stage !== "sold") {
-    return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-        Click "Mark Sold" to add policies for this client.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {policies.length > 0 && !showForm && (
-        <Button size="sm" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Policy</Button>
-      )}
-      {(policies.length === 0 || showForm) && (
-        <AddPolicyInlineForm
-          clientId={client.id}
-          onSaved={() => setShowForm(false)}
-          onCancel={() => setShowForm(false)}
-          showCancel={policies.length > 0}
-        />
-      )}
-      {policies.length > 0 && (
-        <div className="space-y-2">
-          {policies.map((pol: any) => (
-            <details key={pol.id} className="rounded-lg border bg-card">
-              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
-                <div>
-                  <div className="font-medium text-sm">{pol.carriers?.name ?? "—"} — {pol.product ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">#{pol.policy_number ?? "—"}</div>
-                </div>
-                <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
-                  {pol.status ?? "—"}
-                </span>
-              </summary>
-              <div className="px-4 pb-4 pt-2 text-sm space-y-1 border-t">
-                <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-muted-foreground">Face Amount:</span> {money(pol.face_amount)}</div>
-                  <div><span className="text-muted-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
-                  <div><span className="text-muted-foreground">Annual:</span> {money(pol.annual_premium)}</div>
-                  <div><span className="text-muted-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
-                </div>
-              </div>
-            </details>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clientId: string; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
-  const qc = useQueryClient();
-  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
-
-  const listCarriersFn = useServerFn(listCarriers);
-  const { data: carriers = [] } = useQuery({
-    queryKey: ["carriers"],
-    queryFn: () => listCarriersFn(),
-    staleTime: 5 * 60_000,
-  });
-
-  const addPolicyFn = useServerFn(addPolicy);
-  const mut = useMutation({
-    mutationFn: () => addPolicyFn({ data: {
-      client_id: clientId,
-      carrier_id: form.carrier_id || null,
-      policy_number: form.policy_number,
-      product: form.product,
-      status: form.status,
-      monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : null,
-      annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
-      face_amount: form.face_amount ? Number(form.face_amount) : null,
-      effective_date: form.effective_date || null,
-    }}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-      qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
-      toast.success("Policy saved");
-      onSaved();
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save policy"),
-  });
-
-  const monthly = Number(form.monthly_premium || 0);
-
-  return (
-    <div className="rounded-lg border bg-card p-4 space-y-3">
-      <div className="text-sm font-semibold">Add Policy</div>
-      <Field label="Carrier">
-        <Select value={form.carrier_id} onValueChange={v => setForm(f => ({...f, carrier_id: v}))}>
-          <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
-          <SelectContent>
-            {(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="Product">
-        <Select value={form.product} onValueChange={v => setForm(f => ({...f, product: v}))}>
-          <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
-          <SelectContent>
-            {PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
-      <Field label="Policy Number">
-        <Input value={form.policy_number} onChange={e => setForm(f => ({...f, policy_number: e.target.value}))} placeholder="e.g., POL-123456" />
-      </Field>
-      <Field label="Effective Date">
-        <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({...f, effective_date: e.target.value}))} />
-      </Field>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Face Amount">
-          <Input type="number" value={form.face_amount} onChange={e => setForm(f => ({...f, face_amount: e.target.value}))} placeholder="e.g., 50000" />
-        </Field>
-        <Field label="Monthly Premium">
-          <Input type="number" step="0.01" value={form.monthly_premium} onChange={e => setForm(f => ({...f, monthly_premium: e.target.value}))} placeholder="e.g., 99.99" />
-        </Field>
-      </div>
-      {monthly > 0 && (
-        <div className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
-          Annual Premium: {money(monthly * 12)}
-        </div>
-      )}
-      <div className="flex gap-2 pt-1">
-        {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
-        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
-          {mut.isPending ? "Saving..." : "Save Policy"}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 // ============ Email Tab ============
 const EMAIL_TEMPLATES = [
   { id: "spoke", emoji: "📧", title: "We Just Spoke", tag: "follow up", subject: "Great speaking with you", body: "Hi {{firstName}}, it was great talking with you today. As promised, here's a quick recap of what we discussed and the next steps." },
@@ -1165,5 +1194,5 @@ function EmailTab({ detail }: { detail: any }) {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1"><Label className="text-xs text-muted-foreground">{label}</Label>{children}</div>;
+  return <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">{label}</Label>{children}</div>;
 }
