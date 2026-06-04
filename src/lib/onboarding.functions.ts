@@ -253,7 +253,7 @@ export const startSurelcSso = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     const inv = await loadInviteForUser(supabase, data.token, userId);
 
-    const surelcId = inv.surelc_agent_id ?? `stub_${userId.slice(0, 8)}_${Date.now()}`;
+    const surelcId = inv.surelc_agent_id ?? `pending_${userId.slice(0, 8)}_${Date.now()}`;
 
     // Seed progress rows (all incomplete) - one row per section
     for (const section of SURELC_SECTIONS) {
@@ -271,9 +271,13 @@ export const startSurelcSso = createServerFn({ method: "POST" })
       surelc_agent_id: surelcId,
     }).eq("id", inv.id);
 
-    // Stub SSO URL
-    const ssoUrl = `https://example.com/surelc-stub/${surelcId}`;
-    return { ok: true, sso_url: ssoUrl, stub: true };
+    // SureLC integration not yet live — graceful pending state.
+    return {
+      ok: true,
+      sso_url: null,
+      pending: true,
+      message: "Contracting setup is handled by your admin. You'll receive an email when your SureLC account is ready.",
+    };
   });
 
 // ============ UPLINE / ADMIN DASHBOARD ============
