@@ -221,7 +221,7 @@ function AdminCommissions() {
                   <SelectContent>{carriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Product Name</label>
                   <Input value={editRow.product_name} onChange={(e) => setEditRow({ ...editRow, product_name: e.target.value })} />

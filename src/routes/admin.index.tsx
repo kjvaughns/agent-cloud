@@ -100,7 +100,7 @@ function AdminOverview() {
         <p className="text-sm text-muted-foreground mt-1">Platform-wide metrics and activity</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Agents" value={stats.agents} icon={Users} loading={loading} />
         <StatCard title="Pending Contracts" value={stats.contracts} icon={FileSignature} loading={loading} />
         <StatCard title="Open Tickets" value={stats.tickets} icon={LifeBuoy} loading={loading} />
@@ -122,7 +122,7 @@ function AdminOverview() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle className="text-base">Recent Contract Activity</CardTitle></CardHeader>
           <CardContent className="space-y-2">

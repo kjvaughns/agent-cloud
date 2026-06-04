@@ -82,8 +82,8 @@ function AdminCarriers() {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : (
-        <div className="border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="border border-border rounded-lg overflow-x-auto">
+          <table className="w-full text-sm min-w-[540px]">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
@@ -131,7 +131,7 @@ function AdminCarriers() {
                 <label className="text-xs text-muted-foreground mb-1 block">Name *</label>
                 <Input value={dialog.name} onChange={(e) => setDialog({ ...dialog, name: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground mb-1 block">Pay Frequency</label>
                   <Select value={dialog.pay_frequency ?? "monthly"} onValueChange={(v) => setDialog({ ...dialog, pay_frequency: v })}>

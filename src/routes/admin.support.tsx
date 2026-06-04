@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, Send, LifeBuoy } from "lucide-react";
+import { Loader2, Search, Send, LifeBuoy, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -95,9 +95,12 @@ function AdminSupport() {
   });
 
   return (
-    <div className="h-[calc(100vh-0px)] flex overflow-hidden">
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-3.5rem)] overflow-hidden">
       {/* Ticket list */}
-      <div className="w-1/3 border-r border-border flex flex-col overflow-hidden">
+      <div className={cn(
+        "border-b md:border-b-0 md:border-r border-border flex flex-col overflow-hidden",
+        selected ? "hidden md:flex md:w-1/3" : "flex w-full md:w-1/3"
+      )}>
         <div className="p-4 border-b border-border space-y-3">
           <h1 className="text-lg font-bold">Support Tickets</h1>
           <div className="relative">
@@ -156,7 +159,10 @@ function AdminSupport() {
       </div>
 
       {/* Thread panel */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn(
+        "flex-1 flex flex-col overflow-hidden",
+        !selected && "hidden md:flex"
+      )}>
         {!selected ? (
           <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-3">
             <LifeBuoy className="h-10 w-10 opacity-30" />
@@ -165,6 +171,12 @@ function AdminSupport() {
         ) : (
           <>
             <div className="p-4 border-b border-border">
+              <button
+                className="md:hidden flex items-center gap-1 text-sm text-muted-foreground mb-3 hover:text-foreground"
+                onClick={() => setSelected(null)}
+              >
+                <ArrowLeft className="h-4 w-4" /> Back to tickets
+              </button>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-base font-semibold">{selected.subject}</h2>

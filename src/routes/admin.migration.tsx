@@ -185,7 +185,7 @@ function AdminMigration() {
           <CardHeader><CardTitle className="text-base">Step 3 — Commission Tiers</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">Configure commission tier defaults. Agents will be assigned a tier when invited.</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label: "Tier A (%)", value: tierA, set: setTierA },
                 { label: "Tier B (%)", value: tierB, set: setTierB },
@@ -235,8 +235,8 @@ function AdminMigration() {
               <CardTitle className="text-base">Step 5 — Onboarding Tracker</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="border border-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border border-border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm min-w-[400px]">
                   <thead className="bg-muted/50 border-b border-border">
                     <tr>
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground">Agent</th>
