@@ -37,7 +37,7 @@ const ORDERS = [
 function LeadsPage() {
   const [tab, setTab] = useState("states");
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><Target className="h-7 w-7" /> Leads</h1>
         <p className="text-muted-foreground mt-1">Manage your lead sources and purchases.</p>

@@ -47,7 +47,7 @@ function AnnuityTrainingPage() {
   const cert = data?.cert;
 
   return (
-    <div className="p-6 max-w-3xl space-y-4">
+    <div className="p-4 md:p-6 max-w-3xl space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Annuity Training</h1>
         <p className="text-sm text-muted-foreground max-w-2xl">

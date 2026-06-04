@@ -17,7 +17,7 @@ const FEATURES = ["FEX Quoter", "Term Quoter", "IUL Quoter", "Funeral Quotes", "
 
 function QuoterPage() {
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-4 md:p-6 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2"><Quote className="h-7 w-7" /> Life Insurance Quoter</h1>
         <p className="text-muted-foreground mt-1">Quote 100+ carriers including Final Expense, Term Life, IUL, and more.</p>

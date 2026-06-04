@@ -139,23 +139,23 @@ function PipelinePage() {
   };
 
   return (
-    <div className="p-6 space-y-4 h-[calc(100vh-3.5rem)] flex flex-col">
+    <div className="p-4 md:p-6 space-y-4 h-[calc(100vh-3.5rem)] flex flex-col">
       {/* Header row: tabs | search | buttons */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList>
             <TabsTrigger value="pipeline">Pipeline ({pipelineClients.length})</TabsTrigger>
             <TabsTrigger value="sold">Sold ({soldClients.length})</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 sm:max-w-sm">
           <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-8" />
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" onClick={() => setAgentLinkOpen(true)}><Download className="h-4 w-4 mr-1" /> Import from AgentLink</Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" /> Import Clients</Button>
-          <Button onClick={() => setAddOpen(true)}><Plus className="h-4 w-4" /> Add Client</Button>
+        <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
+          <Button variant="outline" size="sm" onClick={() => setAgentLinkOpen(true)}><Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline"> Import from AgentLink</span></Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline"> Import Clients</span></Button>
+          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
         </div>
       </div>
 

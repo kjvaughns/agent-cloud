@@ -170,7 +170,7 @@ function FinancesPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-4 md:p-6 space-y-4">
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
@@ -183,7 +183,7 @@ function FinancesPage() {
   const hasData = rows.length > 0;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Finances</h1>
         <p className="text-sm text-muted-foreground">Financial analytics &amp; forecasting</p>
@@ -390,11 +390,11 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
       <Card>
         <CardContent className="p-4">
           <Tabs defaultValue="carrier">
-            <TabsList>
+            <TabsList className="overflow-x-auto flex-nowrap w-full justify-start">
               <TabsTrigger value="carrier">By Carrier</TabsTrigger>
               <TabsTrigger value="product">By Product</TabsTrigger>
               <TabsTrigger value="month">By Month</TabsTrigger>
-              <TabsTrigger value="overrides">By Agent (Overrides)</TabsTrigger>
+              <TabsTrigger value="overrides" className="whitespace-nowrap">By Agent (Overrides)</TabsTrigger>
             </TabsList>
 
             <TabsContent value="carrier" className="space-y-4 pt-4">

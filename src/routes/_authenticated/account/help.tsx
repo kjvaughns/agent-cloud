@@ -1,8 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LifeBuoy, Mail, MessageSquare, Phone, Search } from "lucide-react";
+import { toast } from "sonner";
+import { submitSupportTicket } from "@/lib/help.functions";
 
 export const Route = createFileRoute("/_authenticated/account/help")({
   head: () => ({
@@ -20,12 +28,74 @@ const TOPICS = [
   { title: "Posting Deals", desc: "Submit policies and track commissions", count: 6 },
   { title: "Contracting", desc: "Carrier requests, transfers, commission grids", count: 10 },
   { title: "Phone & SMS", desc: "Twilio setup, wallet, and dial lists", count: 7 },
-  { title: "Sophai AI", desc: "Policy recovery, follow-ups, and birthday outreach", count: 5 },
+  { title: "AI Assistant", desc: "Chat assistant, coaching, and script building", count: 5 },
 ];
+
+function ContactSupportDialog() {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
+  const submitFn = useServerFn(submitSupportTicket);
+
+  const mutation = useMutation({
+    mutationFn: () => submitFn({ data: { subject, category: "general", description } }),
+    onSuccess: () => {
+      toast.success("Support ticket submitted! We'll get back to you within 1 business day.");
+      setOpen(false);
+      setSubject("");
+      setDescription("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full">Contact Support</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Contact Support</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Subject *</Label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Brief description of the issue"
+              maxLength={200}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Message *</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your issue in detail — include any error messages or steps to reproduce."
+              rows={5}
+              maxLength={5000}
+            />
+            <div className="text-xs text-muted-foreground text-right">{description.length} / 5000</div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => mutation.mutate()}
+              disabled={!subject.trim() || !description.trim() || mutation.isPending}
+            >
+              {mutation.isPending ? "Submitting..." : "Submit Ticket"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function HelpPage() {
   return (
-    <div className="p-6 max-w-5xl space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><LifeBuoy className="h-7 w-7" /> Help Center</h1>
         <p className="text-muted-foreground mt-1">Search the knowledge base or get in touch with our team.</p>
@@ -49,20 +119,30 @@ function HelpPage() {
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
-        {[
-          { icon: MessageSquare, title: "Live Chat", desc: "Mon–Fri, 8a–6p CT", cta: "Start Chat" },
-          { icon: Mail, title: "Email", desc: "support@agentcloud.com", cta: "Email Us" },
-          { icon: Phone, title: "Phone", desc: "(800) 555-CLOUD", cta: "Call Support" },
-        ].map((c) => (
-          <Card key={c.title}>
-            <CardContent className="p-5 text-center space-y-2">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><c.icon className="h-5 w-5" /></div>
-              <div className="font-semibold">{c.title}</div>
-              <div className="text-sm text-muted-foreground">{c.desc}</div>
-              <Button variant="outline" size="sm" className="w-full">{c.cta}</Button>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardContent className="p-5 text-center space-y-2">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><MessageSquare className="h-5 w-5" /></div>
+            <div className="font-semibold">Live Chat</div>
+            <div className="text-sm text-muted-foreground">Mon–Fri, 8a–6p CT</div>
+            <Button variant="outline" size="sm" className="w-full">Start Chat</Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 text-center space-y-2">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><Mail className="h-5 w-5" /></div>
+            <div className="font-semibold">Email Support</div>
+            <div className="text-sm text-muted-foreground">support@agentcloud.com</div>
+            <ContactSupportDialog />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 text-center space-y-2">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><Phone className="h-5 w-5" /></div>
+            <div className="font-semibold">Phone</div>
+            <div className="text-sm text-muted-foreground">(800) 555-CLOUD</div>
+            <Button variant="outline" size="sm" className="w-full">Call Support</Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

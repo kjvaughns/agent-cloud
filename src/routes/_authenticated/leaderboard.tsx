@@ -139,7 +139,7 @@ function LeaderboardPage() {
   const selfId = lbData?.selfId ?? "";
 
   return (
-    <div className="p-6 space-y-6 max-w-[1200px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1200px] mx-auto">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Leaderboard</h1>
         <p className="text-muted-foreground mt-1">Agency production rankings for your team.</p>

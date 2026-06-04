@@ -30,7 +30,7 @@ function Field({ label, prefix }: { label: string; prefix?: string }) {
 
 function NeedsAnalysisPage() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><Calculator className="h-7 w-7" /> Life Insurance Needs Analysis</h1>
         <p className="text-muted-foreground mt-1">Calculate appropriate life insurance coverage for your clients.</p>

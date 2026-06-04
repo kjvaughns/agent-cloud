@@ -71,7 +71,7 @@ function InvitePage() {
       ? `${window.location.origin}/invite/${success.token}`
       : `/invite/${success.token}`;
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 md:p-6 max-w-3xl mx-auto">
         <Card><CardContent className="p-8 text-center space-y-4">
           <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 grid place-items-center">
             <Check className="h-8 w-8 text-emerald-600" />
@@ -94,7 +94,7 @@ function InvitePage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Invite Links</h1>
         <p className="text-sm text-muted-foreground">Create a shareable link that places new agents directly in your downline with pre-assigned carriers and commission levels.</p>

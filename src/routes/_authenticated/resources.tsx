@@ -17,7 +17,7 @@ const TABS = [
 function ResourcesLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2"><FolderOpen className="h-7 w-7" /> Resources</h1>
         <p className="text-muted-foreground mt-1">Guides, scripts, licensing, and Agent Academy.</p>

@@ -38,7 +38,7 @@ function AnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("30d");
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <Header range={range} onRange={setRange} />
       <ChallengeCards />
       <TrophyCabinet />

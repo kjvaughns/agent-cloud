@@ -79,7 +79,7 @@ function ProducerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-4 md:p-6 space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-64" />
@@ -88,7 +88,7 @@ function ProducerProfilePage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <IdCard className="h-7 w-7" /> Producer Profile

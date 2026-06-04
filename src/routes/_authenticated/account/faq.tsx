@@ -25,7 +25,7 @@ const FAQS = [
 
 function FaqPage() {
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-4 md:p-6 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2"><HelpCircle className="h-7 w-7" /> Frequently Asked Questions</h1>
         <p className="text-muted-foreground mt-1">Quick answers to the questions agents ask most.</p>

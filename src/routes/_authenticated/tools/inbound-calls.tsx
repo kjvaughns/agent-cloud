@@ -23,7 +23,7 @@ const FEATURES = [
 
 function InboundCallsPage() {
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-4 md:p-6 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2"><PhoneIncoming className="h-7 w-7" /> Inbound Calls</h1>
         <p className="text-muted-foreground mt-1">Have qualified life insurance prospects call you.</p>
