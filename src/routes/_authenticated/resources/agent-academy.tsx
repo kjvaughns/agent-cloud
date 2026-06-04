@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Play, Clock, Layers } from "lucide-react";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/resources/agent-academy")({
   head: () => ({ meta: [{ title: "Agent Academy — Agent Cloud" }] }),
