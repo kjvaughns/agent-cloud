@@ -38,12 +38,15 @@ export type TeamAlerts = {
   stuck_contracts: { id: string; agent: string }[];
 };
 
+const EMPTY_KPIS: TeamKpis = { total: 0, direct: 0, active: 0, pending: 0, active_writers: 0, contracts_total: 0, contracts_active_pct: 0, max_depth: 0, depth_distribution: [] };
+const EMPTY_ALERTS: TeamAlerts = { stale: [], lapse: [], stuck_contracts: [] };
+
 export const getTeamDownline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase } = context;
     const { data, error } = await supabase.rpc("get_team_downline");
-    if (error) throw new Error(error.message);
+    if (error) console.error("[team] get_team_downline:", error.message);
     return (data ?? []) as TeamAgent[];
   });
 
@@ -51,16 +54,16 @@ export const getTeamKpis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase.rpc("get_team_kpis");
-    if (error) throw new Error(error.message);
-    return (data ?? {}) as TeamKpis;
+    if (error) console.error("[team] get_team_kpis:", error.message);
+    return (data ?? EMPTY_KPIS) as TeamKpis;
   });
 
 export const getTeamAlerts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase.rpc("get_team_alerts");
-    if (error) throw new Error(error.message);
-    return (data ?? { stale: [], lapse: [], stuck_contracts: [] }) as TeamAlerts;
+    if (error) console.error("[team] get_team_alerts:", error.message);
+    return (data ?? EMPTY_ALERTS) as TeamAlerts;
   });
 
 export const sendAgentReminder = createServerFn({ method: "POST" })
