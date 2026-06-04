@@ -41,8 +41,8 @@ function Page() {
             <div className="text-xs uppercase opacity-80">Featured Course</div>
             <div className="text-2xl font-bold mt-1">{featured.title}</div>
             <div className="opacity-90 mt-1">{featured.description} · {featured.module_count} modules · {fmtDuration(featured.duration_minutes ?? 0)}</div>
-            {(featured.url || featured.video_url) ? (
-              <Button variant="secondary" className="mt-4" onClick={() => window.open(featured.url || featured.video_url, "_blank", "noopener,noreferrer")}>
+            {((featured as any).url || (featured as any).video_url) ? (
+              <Button variant="secondary" className="mt-4" onClick={() => window.open((featured as any).url || (featured as any).video_url, "_blank", "noopener,noreferrer")}>
                 <Play className="h-4 w-4 mr-1" /> Start Course
               </Button>
             ) : (
