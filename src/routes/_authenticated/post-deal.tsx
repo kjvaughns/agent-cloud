@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
@@ -18,6 +18,9 @@ import {
 } from "@/lib/post-deal.functions";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    client_id: typeof s.client_id === "string" ? s.client_id : undefined,
+  }),
   head: () => ({ meta: [{ title: "Post a Deal — Agent Cloud" }] }),
   component: PostDealPage,
 });
@@ -44,6 +47,8 @@ type FormData = {
 
 function PostDealPage() {
   const nav = useNavigate();
+  const qc = useQueryClient();
+  const { client_id } = Route.useSearch();
   const listCarriers = useServerFn(listCarriersForDeal);
   const myCarriers = useServerFn(getMyActiveCarrierIds);
   const submit = useServerFn(postDeal);
@@ -65,6 +70,13 @@ function PostDealPage() {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = form;
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "beneficiaries" });
+
+  useEffect(() => {
+    if (client_id) {
+      setValue("client_type", "existing");
+      setValue("existing_id", client_id);
+    }
+  }, [client_id, setValue]);
 
   const clientType = watch("client_type");
   const monthly = Number(watch("monthly_premium") || 0);
@@ -109,8 +121,11 @@ function PostDealPage() {
         },
       }),
     onSuccess: () => {
-      toast.success("✓ Deal posted successfully! Your commission schedule has been calculated.");
-      nav({ to: "/book-of-business" });
+      toast.success("Deal posted! Client moved to Sold tab.");
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      nav({ to: "/pipeline", search: { tab: "sold" } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -124,7 +139,7 @@ function PostDealPage() {
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Post a Deal</h1>
         <p className="text-sm text-muted-foreground mt-1">Record a new policy for yourself or a downline agent</p>
