@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,9 +13,11 @@ import { toast } from "sonner";
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
   const qc = useQueryClient();
   const fn = useServerFn(logContact);
+  const [hasContent, setHasContent] = useState(false);
   const editor = useEditor({
     extensions: [StarterKit],
     content: "",
+    onUpdate: ({ editor: e }) => setHasContent(!e.isEmpty),
     editorProps: { attributes: { class: "prose prose-sm dark:prose-invert max-w-none min-h-32 p-3 focus:outline-none" } },
   });
 
@@ -24,6 +27,7 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       editor?.commands.clearContent();
+      setHasContent(false);
       toast.success("Note added");
     },
   });
@@ -44,8 +48,8 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
         <EditorContent editor={editor} />
       </div>
       <div className="flex gap-2">
-        <Button onClick={() => saveMut.mutate(false)} disabled={editor.isEmpty}><Plus className="h-4 w-4" /> Add Note</Button>
-        <Button variant="outline" onClick={() => saveMut.mutate(true)} disabled={editor.isEmpty}><Heart className="h-4 w-4 text-blue-500" /> Medical Note</Button>
+        <Button onClick={() => saveMut.mutate(false)} disabled={!hasContent || saveMut.isPending}><Plus className="h-4 w-4" /> Add Note</Button>
+        <Button variant="outline" onClick={() => saveMut.mutate(true)} disabled={!hasContent || saveMut.isPending}><Heart className="h-4 w-4 text-blue-500" /> Medical Note</Button>
       </div>
 
       <div className="space-y-2 pt-2">
