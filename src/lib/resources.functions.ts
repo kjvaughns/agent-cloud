@@ -91,7 +91,114 @@ export const upsertLicense = createServerFn({ method: "POST" })
       license_number: data.license_number,
       issued_date: data.issued_date,
       expires_date: data.expires_date,
-    }, { onConflict: "agent_id,state_code" });
+    }, { onConflict: "agent_id,state_code,loa" });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const scanNiprPdf = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    file_base64: z.string().min(100),
+    media_type: z.string(),
+  }).parse(input))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured on server");
+    const isPdf = data.media_type === "application/pdf";
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        ...(isPdf ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: `You are a data extraction assistant. Extract all insurance license records from a NIPR Producer Database (PDB) report.
+Return ONLY a valid JSON object with this exact structure, no markdown fences, no explanation:
+{
+  "npn": "<NPN number as string>",
+  "licenses": [
+    {
+      "state_code": "<2-letter state code>",
+      "license_number": "<license number>",
+      "license_type": "<license type e.g. Resident, Non-Resident>",
+      "loa": "<line of authority e.g. Life, Accident & Health, Property, Casualty>",
+      "loa_status": "<Active or Inactive>",
+      "issued_date": "<YYYY-MM-DD or empty string>",
+      "expires_date": "<YYYY-MM-DD or empty string>",
+      "is_resident": <true or false>
+    }
+  ]
+}
+If the document is not a NIPR PDB report or cannot be parsed, return: {"error": "Not a valid NIPR PDB report"}`,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: isPdf ? "document" : "image",
+              source: { type: "base64", media_type: data.media_type, data: data.file_base64 },
+            },
+            { type: "text", text: "Extract all license records from this NIPR PDB report." },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(`Anthropic API error ${res.status}: ${errBody}`);
+    }
+    const body = await res.json();
+    const raw = body.content?.[0]?.text ?? "";
+    const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    if (parsed.error) throw new Error(parsed.error);
+    return parsed as { npn: string; licenses: any[] };
+  });
+
+export const bulkUpsertLicenses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({
+    npn: z.string().optional(),
+    licenses: z.array(z.object({
+      state_code: z.string().length(2),
+      license_number: z.string().optional(),
+      license_type: z.string().optional(),
+      loa: z.string().optional(),
+      loa_status: z.string().optional(),
+      issued_date: z.string().optional(),
+      expires_date: z.string().optional(),
+      is_resident: z.boolean().optional(),
+    })),
+  }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const errors: string[] = [];
+    let inserted = 0;
+    for (const lic of data.licenses) {
+      const row = {
+        agent_id: userId,
+        state_code: lic.state_code,
+        license_number: lic.license_number ?? null,
+        license_type: lic.license_type ?? null,
+        loa: lic.loa ?? null,
+        loa_status: lic.loa_status ?? "Active",
+        issued_date: lic.issued_date || null,
+        expires_date: lic.expires_date || null,
+        is_resident: lic.is_resident ?? false,
+        npn_number: data.npn ?? null,
+        updated_at: new Date().toISOString(),
+      } as any;
+      const { error } = await supabase.from("state_licenses").upsert(row, {
+        onConflict: "agent_id,state_code,loa",
+      });
+      if (error) errors.push(`${lic.state_code} (${lic.loa ?? "no LOA"}): ${error.message}`);
+      else inserted++;
+    }
+    if (data.npn) {
+      await supabase.from("profiles").update({ npn_number: data.npn }).eq("id", userId);
+    }
+    return { inserted, errors, total: data.licenses.length };
   });
