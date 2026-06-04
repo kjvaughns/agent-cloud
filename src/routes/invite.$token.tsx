@@ -36,6 +36,7 @@ function PublicInvitePage() {
   const [authedUser, setAuthedUser] = useState<any>(null);
   const [step, setStep] = useState(0);
   const invite = (initial as any)?.invite as any;
+  const migrationMatch = (initial as any)?.migration_match;
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setAuthedUser(data.user));
@@ -74,6 +75,16 @@ function PublicInvitePage() {
           </div>
         </div>
 
+        {migrationMatch && step <= 1 && (
+          <div className="flex items-center gap-3 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-4 py-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <div className="text-sm">
+              <span className="font-semibold text-emerald-800 dark:text-emerald-300">Welcome back! </span>
+              <span className="text-emerald-700 dark:text-emerald-400">We found your Apex record and pre-filled your name below.</span>
+            </div>
+          </div>
+        )}
+
         {step > 0 && (
           <div className="space-y-1">
             <Progress value={progress} />
@@ -81,9 +92,9 @@ function PublicInvitePage() {
           </div>
         )}
 
-        {step === 0 && !authedUser && <Step0NewAccount token={token} invite={invite} onDone={() => setStep(1)} />}
+        {step === 0 && !authedUser && <Step0NewAccount token={token} invite={invite} migrationMatch={migrationMatch} onDone={() => setStep(1)} />}
         {step === 0 && authedUser && <Step0LinkExisting token={token} onDone={() => setStep(1)} />}
-        {step === 1 && <Step1Personal token={token} invite={invite} onDone={() => setStep(2)} />}
+        {step === 1 && <Step1Personal token={token} invite={invite} migrationMatch={migrationMatch} onDone={() => setStep(2)} />}
         {step === 2 && <Step2Carriers token={token} carriers={carriers} onDone={() => setStep(3)} />}
         {step === 3 && <Step3Agreement token={token} onDone={() => setStep(4)} />}
         {step === 4 && <Step4Confirmation invite={invite} />}
@@ -96,12 +107,12 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen grid place-items-center p-6"><Card className="p-8 max-w-md text-center">{children}</Card></div>;
 }
 
-function Step0NewAccount({ token, invite, onDone }: { token: string; invite: any; onDone: () => void }) {
+function Step0NewAccount({ token, invite, migrationMatch, onDone }: { token: string; invite: any; migrationMatch?: any; onDone: () => void }) {
   const [mode, setMode] = useState<"login" | "create">("create");
   const [email, setEmail] = useState(invite.new_agent_email ?? "");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState(invite.new_agent_first_name ?? "");
-  const [lastName, setLastName] = useState(invite.new_agent_last_name ?? "");
+  const [firstName, setFirstName] = useState(invite.new_agent_first_name ?? migrationMatch?.first_name ?? "");
+  const [lastName, setLastName] = useState(invite.new_agent_last_name ?? migrationMatch?.last_name ?? "");
   const [phone, setPhone] = useState("");
 
   const createFn = useServerFn(acceptInviteCreateAccount);
@@ -167,10 +178,10 @@ function Step0LinkExisting({ token, onDone }: { token: string; onDone: () => voi
   return <Card className="p-6 text-center text-muted-foreground">Linking invite to your account...</Card>;
 }
 
-function Step1Personal({ token, invite, onDone }: { token: string; invite: any; onDone: () => void }) {
+function Step1Personal({ token, invite, migrationMatch, onDone }: { token: string; invite: any; migrationMatch?: any; onDone: () => void }) {
   const [form, setForm] = useState({
-    first_name: invite.new_agent_first_name ?? "",
-    last_name: invite.new_agent_last_name ?? "",
+    first_name: invite.new_agent_first_name ?? migrationMatch?.first_name ?? "",
+    last_name: invite.new_agent_last_name ?? migrationMatch?.last_name ?? "",
     date_of_birth: "",
     ssn: "",
     npn_number: "",

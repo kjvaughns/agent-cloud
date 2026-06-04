@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { detectDuplicate } from "@/lib/import-helpers";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -372,6 +373,302 @@ export const adminDeleteAnnouncement = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await requireManagerOrAdmin(supabase, userId);
     const { error } = await supabase.from("announcements").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ─── AgentLink XLS Import ─────────────────────────────────────────────────────
+export const adminImportAgentLinkXLS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      target_agent_id: z.string().uuid(),
+      parsed: z.object({
+        teamRoster: z.array(z.any()),
+        bookOfBusiness: z.array(z.any()),
+        allClients: z.array(z.any()),
+        clientNotes: z.array(z.any()),
+      }),
+      duplicate_mode: z.enum(["review", "merge", "skip"]).default("merge"),
+      import_roster: z.boolean().default(true),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+
+    const { data: job, error: jobErr } = await supabase
+      .from("import_jobs")
+      .insert({
+        agent_id: data.target_agent_id,
+        source: "agentlink_xls",
+        status: "running",
+        total_found: data.parsed.allClients.length + data.parsed.bookOfBusiness.length,
+      })
+      .select("id")
+      .single();
+    if (jobErr) throw new Error(`Failed to create import job: ${jobErr.message}`);
+    const jobId = job.id;
+
+    let clientsImported = 0, policiesImported = 0, notesImported = 0,
+      duplicatesFound = 0, skipped = 0, rosterStored = 0;
+
+    // Build agent name → id lookup map
+    const { data: profiles } = await supabase.from("profiles").select("id, first_name, last_name");
+    const agentNameMap = new Map<string, string>();
+    for (const p of profiles ?? []) {
+      agentNameMap.set(`${p.first_name ?? ""} ${p.last_name ?? ""}`.trim().toLowerCase(), p.id);
+    }
+    const findAgent = (name: string) => agentNameMap.get(name.trim().toLowerCase()) ?? null;
+
+    // ── STEP 1: Store Team Roster ──
+    if (data.import_roster) {
+      for (const agent of data.parsed.teamRoster) {
+        if (!agent.email) continue;
+        const nameParts = (agent.name ?? "").trim().split(" ");
+        const { error } = await supabase.from("migration_roster").upsert(
+          {
+            email: agent.email.toLowerCase().trim(),
+            full_name: agent.name,
+            first_name: nameParts.slice(0, -1).join(" ") || agent.name,
+            last_name: nameParts.slice(-1)[0] || "",
+            status: agent.status,
+            location: agent.location,
+            depth: agent.depth,
+            contracts_ratio: agent.contractsRatio,
+            upline_name: agent.upline,
+            date_joined: agent.dateJoined,
+            last_active: agent.lastActive,
+            source: "agentlink_xls",
+            import_job_id: jobId,
+            raw: agent,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "email" }
+        );
+        if (!error) rosterStored++;
+      }
+    }
+
+    // clientName → client_id for policy/note linking
+    const clientNameToId = new Map<string, string>();
+
+    // ── STEP 2: Import All Clients ──
+    for (const client of data.parsed.allClients) {
+      if (!client.firstName && !client.lastName) { skipped++; continue; }
+
+      const dup = await detectDuplicate(supabase, data.target_agent_id, {
+        phone: client.phone,
+        first_name: client.firstName,
+        last_name: client.lastName,
+        dob: client.dateOfBirth || null,
+      });
+
+      if (dup) {
+        duplicatesFound++;
+        await supabase.from("import_duplicates").insert({
+          import_job_id: jobId,
+          agent_id: data.target_agent_id,
+          match_type: dup.type,
+          confidence: dup.confidence,
+          incoming_data: client,
+          existing_client_id: dup.existing_client_id,
+          resolution: data.duplicate_mode === "merge" ? "merge"
+            : data.duplicate_mode === "skip" ? "skip" : "pending",
+        });
+
+        if (data.duplicate_mode === "merge") {
+          const patch: any = {};
+          if (client.email) patch.email = client.email;
+          if (client.streetAddress) patch.street_address = client.streetAddress;
+          if (client.city) patch.city = client.city;
+          if (client.state) patch.state = client.state;
+          if (client.zip) patch.zip_code = client.zip;
+          if (client.dateOfBirth) patch.date_of_birth = client.dateOfBirth;
+          if (client.medicalNotes) patch.medical_conditions = client.medicalNotes;
+          if (client.smoker !== undefined) patch.tobacco_use = client.smoker;
+          if (Object.keys(patch).length > 0) {
+            await supabase.from("clients").update(patch).eq("id", dup.existing_client_id);
+          }
+          clientNameToId.set(`${client.firstName} ${client.lastName}`.toLowerCase(), dup.existing_client_id);
+          clientsImported++;
+        } else {
+          skipped++;
+        }
+        continue;
+      }
+
+      const { data: newClient, error: clientErr } = await supabase
+        .from("clients")
+        .insert({
+          agent_id: data.target_agent_id,
+          first_name: client.firstName,
+          last_name: client.lastName,
+          phone: client.phone || null,
+          email: client.email || null,
+          date_of_birth: client.dateOfBirth || null,
+          street_address: client.streetAddress || null,
+          city: client.city || null,
+          state: client.state || null,
+          zip_code: client.zip || null,
+          stage: client.stage,
+          temperature: "cold",
+          tobacco_use: client.smoker,
+          medical_conditions: client.medicalNotes || null,
+        })
+        .select("id")
+        .single();
+
+      if (clientErr) {
+        if (clientErr.code === "23505") duplicatesFound++;
+        skipped++;
+        continue;
+      }
+
+      clientsImported++;
+      clientNameToId.set(`${client.firstName} ${client.lastName}`.toLowerCase(), newClient.id);
+
+      if (client.reminderNotes?.trim()) {
+        await supabase.from("contact_history").insert({
+          client_id: newClient.id,
+          agent_id: data.target_agent_id,
+          contact_type: "note",
+          note: `[Reminder] ${client.reminderNotes}`,
+          is_auto: false,
+        });
+      }
+    }
+
+    // ── STEP 3: Import Book of Business ──
+    const parseDate = (d: string) => {
+      if (!d?.includes("/")) return null;
+      const p = d.split("/");
+      return p.length === 3 ? `${p[2]}-${p[0].padStart(2, "0")}-${p[1].padStart(2, "0")}` : null;
+    };
+
+    for (const policy of data.parsed.bookOfBusiness) {
+      let clientId = clientNameToId.get(policy.clientName.toLowerCase());
+      if (!clientId) {
+        const { data: found } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("agent_id", data.target_agent_id)
+          .ilike("first_name", policy.clientFirstName)
+          .ilike("last_name", policy.clientLastName)
+          .maybeSingle();
+        if (!found) { skipped++; continue; }
+        clientId = found.id;
+        clientNameToId.set(policy.clientName.toLowerCase(), found.id);
+      }
+
+      const writingAgentId = findAgent(policy.agentName) ?? data.target_agent_id;
+
+      if (policy.policyNumber && policy.policyNumber !== "0000") {
+        const { data: existingPol } = await supabase
+          .from("policies")
+          .select("id")
+          .eq("agent_id", data.target_agent_id)
+          .eq("policy_number", policy.policyNumber)
+          .maybeSingle();
+        if (existingPol) { skipped++; continue; }
+      }
+
+      const { data: carrier } = await supabase
+        .from("carriers")
+        .select("id")
+        .ilike("name", `%${policy.carrier}%`)
+        .maybeSingle();
+
+      const effectiveDate = parseDate(policy.effectiveDate);
+      const postedDateStr = parseDate(policy.postedDate);
+
+      const { error: polErr } = await supabase.from("policies").insert({
+        client_id: clientId,
+        agent_id: writingAgentId,
+        carrier_id: carrier?.id ?? null,
+        product: policy.product,
+        policy_number: policy.policyNumber || null,
+        monthly_premium: policy.monthlyPremium,
+        annual_premium: policy.annualPremium,
+        effective_date: effectiveDate,
+        status: "active",
+        posted_at: postedDateStr ? new Date(postedDateStr).toISOString() : new Date().toISOString(),
+      });
+
+      if (!polErr) {
+        policiesImported++;
+        await supabase.from("clients").update({ stage: "sold" }).eq("id", clientId).eq("stage", "new");
+      } else {
+        skipped++;
+      }
+    }
+
+    // ── STEP 4: Import Client Notes ──
+    for (const note of data.parsed.clientNotes) {
+      const clientId = clientNameToId.get(note.clientName.toLowerCase());
+      if (!clientId) { skipped++; continue; }
+      await supabase.from("contact_history").insert({
+        client_id: clientId,
+        agent_id: data.target_agent_id,
+        contact_type: note.noteType === "medical" ? "medical_note" : "note",
+        note: `[AgentLink Import — ${note.date}] ${note.content}`,
+        is_auto: false,
+        created_at: note.date ? new Date(note.date).toISOString() : new Date().toISOString(),
+      });
+      notesImported++;
+    }
+
+    await supabase.from("import_jobs").update({
+      status: "done",
+      imported: clientsImported,
+      duplicates_found: duplicatesFound,
+      skipped,
+      completed_at: new Date().toISOString(),
+    }).eq("id", jobId);
+
+    return {
+      job_id: jobId,
+      clients_imported: clientsImported,
+      policies_imported: policiesImported,
+      notes_imported: notesImported,
+      roster_stored: rosterStored,
+      duplicates_found: duplicatesFound,
+      skipped,
+    };
+  });
+
+// ─── List Scrape Requests (admin) ─────────────────────────────────────────────
+export const adminListScrapeRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const { data } = await supabase
+      .from("scrape_requests")
+      .select("id, agentlink_username, status, admin_notes, submitted_at, completed_at, requesting_agent_id, profiles!requesting_agent_id(first_name, last_name, email, phone)")
+      .order("submitted_at", { ascending: false });
+    return { requests: data ?? [] };
+  });
+
+// ─── Update Scrape Request (admin) ────────────────────────────────────────────
+export const adminUpdateScrapeRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      status: z.enum(["pending", "in_progress", "completed", "failed"]),
+      admin_notes: z.string().optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const patch: any = { status: data.status };
+    if (data.admin_notes !== undefined) patch.admin_notes = data.admin_notes;
+    if (data.status === "completed" || data.status === "failed") {
+      patch.completed_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("scrape_requests").update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
