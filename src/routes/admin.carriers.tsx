@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/carriers")({
+export const Route = createFileRoute("/admin/carriers")({
   component: AdminCarriers,
   head: () => ({ meta: [{ title: "Carriers — Agent Cloud Admin" }] }),
 });

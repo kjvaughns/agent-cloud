@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/agents")({
+export const Route = createFileRoute("/admin/agents")({
   component: AdminAgents,
   head: () => ({ meta: [{ title: "Agents — Agent Cloud Admin" }] }),
 });

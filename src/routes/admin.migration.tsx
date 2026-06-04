@@ -10,7 +10,7 @@ import { Loader2, CheckCircle, Circle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/migration")({
+export const Route = createFileRoute("/admin/migration")({
   component: AdminMigration,
   head: () => ({ meta: [{ title: "Team Migration — Agent Cloud Admin" }] }),
 });

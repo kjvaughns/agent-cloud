@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BarChart3 } from "lucide-react";
 
-export const Route = createFileRoute("/_admin/analytics")({
+export const Route = createFileRoute("/admin/analytics")({
   component: AdminAnalytics,
   head: () => ({ meta: [{ title: "Analytics — Agent Cloud Admin" }] }),
 });
