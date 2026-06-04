@@ -701,7 +701,7 @@ function MessageThread({
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>MMS coming soon</TooltipContent>
+          <TooltipContent>Attach photo</TooltipContent>
         </Tooltip>
         <Textarea
           value={text}
