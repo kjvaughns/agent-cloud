@@ -72,12 +72,25 @@ function Page() {
                 <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDuration(c.duration_minutes)}</span>
                 <span className="flex items-center gap-1"><Layers className="h-3 w-3" /> {c.module_count} modules</span>
               </div>
-              <Button className="mt-4 self-start" size="sm" onClick={() => toast.info("Course viewer coming soon")}>
-                <Play className="h-4 w-4 mr-1" /> Start Course
-              </Button>
+              {(c.url || c.video_url) ? (
+                <Button className="mt-4 self-start" size="sm" onClick={() => window.open(c.url || c.video_url, "_blank", "noopener,noreferrer")}>
+                  <Play className="h-4 w-4 mr-1" /> Start Course
+                </Button>
+              ) : (
+                <Badge variant="secondary" className="mt-4 self-start">Coming Soon</Badge>
+              )}
             </CardContent>
           </Card>
         ))}
+        {!list.length && (
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="pt-10 pb-10 text-center">
+              <GraduationCap className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <div className="font-semibold">No courses yet</div>
+              <p className="text-sm text-muted-foreground mt-1">Your admin will add training courses here. Check back soon.</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
