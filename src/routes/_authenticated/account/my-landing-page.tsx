@@ -56,9 +56,9 @@ function MyLandingPage() {
       setContactEmail(p?.contact_email ?? prof?.email ?? "");
       setContactPhone(p?.contact_phone ?? prof?.phone ?? "");
       setBio(p?.custom_message ?? "");
-      setSpecialties(p?.specialties ?? []);
-      setCarriers(p?.carriers ?? []);
-      setStates(p?.licensed_states ?? []);
+      setSpecialties((p?.specialties as string[] | null) ?? []);
+      setCarriers((p?.carriers as string[] | null) ?? []);
+      setStates((p?.licensed_states as string[] | null) ?? []);
       setPublished(p?.published ?? false);
     }
   }, [data]);
