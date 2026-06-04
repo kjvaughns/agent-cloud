@@ -210,7 +210,7 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
           phone,
           first_name: firstName,
           last_name: lastName,
-          dob: typeof dob === "string" ? dob : null,
+          dob: typeof dob === "string" ? dob : undefined,
         });
 
         if (dupMatch) {
