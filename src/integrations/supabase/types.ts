@@ -103,6 +103,36 @@ export type Database = {
           },
         ]
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string | null
+          created_at: string | null
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          action: string
+          admin_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
@@ -2466,6 +2496,80 @@ export type Database = {
           state_code?: string
           state_name?: string
           timezone?: string | null
+        }
+        Relationships: []
+      }
+      support_ticket_messages: {
+        Row: {
+          body: string
+          created_at: string | null
+          id: string
+          sender_id: string | null
+          sender_role: string | null
+          ticket_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string | null
+          id?: string
+          sender_id?: string | null
+          sender_role?: string | null
+          ticket_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string | null
+          id?: string
+          sender_id?: string | null
+          sender_role?: string | null
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          agent_id: string
+          category: string
+          created_at: string | null
+          description: string
+          id: string
+          priority: string
+          status: string
+          subject: string
+          ticket_number: number
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          category: string
+          created_at?: string | null
+          description: string
+          id?: string
+          priority?: string
+          status?: string
+          subject: string
+          ticket_number?: number
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          category?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          priority?: string
+          status?: string
+          subject?: string
+          ticket_number?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
