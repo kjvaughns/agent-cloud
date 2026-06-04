@@ -37,11 +37,10 @@ function LoginPage() {
   }
 
   async function onGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}${redirect}` },
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: `${window.location.origin}${redirect}`,
     });
-    if (error) toast.error(error.message);
+    if (result.error) toast.error(result.error.message);
   }
 
   return <AuthShell title="Welcome back" subtitle="Sign in to your Agent Cloud workspace">
