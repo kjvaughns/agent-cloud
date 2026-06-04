@@ -8,7 +8,7 @@ import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loade
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
-export const Route = createFileRoute("/_admin/")({
+export const Route = createFileRoute("/admin/")({
   component: AdminOverview,
   head: () => ({ meta: [{ title: "Admin Overview — Agent Cloud" }] }),
 });

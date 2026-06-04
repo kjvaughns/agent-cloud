@@ -15,7 +15,7 @@ import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/announcements")({
+export const Route = createFileRoute("/admin/announcements")({
   component: AdminAnnouncements,
   head: () => ({ meta: [{ title: "Announcements — Agent Cloud Admin" }] }),
 });

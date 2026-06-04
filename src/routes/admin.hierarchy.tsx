@@ -8,7 +8,7 @@ import { Loader2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/hierarchy")({
+export const Route = createFileRoute("/admin/hierarchy")({
   component: AdminHierarchy,
   head: () => ({ meta: [{ title: "Hierarchy — Agent Cloud Admin" }] }),
 });

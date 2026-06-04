@@ -10,7 +10,7 @@ import { Loader2, Search, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_admin/roles")({
+export const Route = createFileRoute("/admin/roles")({
   component: AdminRoles,
   head: () => ({ meta: [{ title: "Roles — Agent Cloud Admin" }] }),
 });

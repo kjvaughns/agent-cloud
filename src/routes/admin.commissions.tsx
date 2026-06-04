@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-export const Route = createFileRoute("/_admin/commissions")({
+export const Route = createFileRoute("/admin/commissions")({
   component: AdminCommissions,
   head: () => ({ meta: [{ title: "Commission Grids — Agent Cloud Admin" }] }),
 });
