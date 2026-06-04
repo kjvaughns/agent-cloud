@@ -36,7 +36,7 @@ const TABS = [
 export function ClientDetailDrawer({ client, open, onOpenChange }: Props) {
   if (!client) return null;
   const initials = `${client.first_name[0]}${client.last_name[0]}`;
-  const policies = MOCK_POLICIES.filter((p) => p.client_id === client.id);
+  const policies: any[] = [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
