@@ -24,7 +24,9 @@ import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminMigrationRouteImport } from './routes/admin.migration'
+import { Route as AdminImportRequestsRouteImport } from './routes/admin.import-requests'
 import { Route as AdminHierarchyRouteImport } from './routes/admin.hierarchy'
+import { Route as AdminCsvImportRouteImport } from './routes/admin.csv-import'
 import { Route as AdminContractsRouteImport } from './routes/admin.contracts'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
 import { Route as AdminCarriersRouteImport } from './routes/admin.carriers'
@@ -158,9 +160,19 @@ const AdminMigrationRoute = AdminMigrationRouteImport.update({
   path: '/migration',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminImportRequestsRoute = AdminImportRequestsRouteImport.update({
+  id: '/import-requests',
+  path: '/import-requests',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminHierarchyRoute = AdminHierarchyRouteImport.update({
   id: '/hierarchy',
   path: '/hierarchy',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminCsvImportRoute = AdminCsvImportRouteImport.update({
+  id: '/csv-import',
+  path: '/csv-import',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminContractsRoute = AdminContractsRouteImport.update({
@@ -518,7 +530,9 @@ export interface FileRoutesByFullPath {
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
+  '/admin/csv-import': typeof AdminCsvImportRoute
   '/admin/hierarchy': typeof AdminHierarchyRoute
+  '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -591,7 +605,9 @@ export interface FileRoutesByTo {
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
+  '/admin/csv-import': typeof AdminCsvImportRoute
   '/admin/hierarchy': typeof AdminHierarchyRoute
+  '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -668,7 +684,9 @@ export interface FileRoutesById {
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
+  '/admin/csv-import': typeof AdminCsvImportRoute
   '/admin/hierarchy': typeof AdminHierarchyRoute
+  '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -745,7 +763,9 @@ export interface FileRouteTypes {
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
+    | '/admin/csv-import'
     | '/admin/hierarchy'
+    | '/admin/import-requests'
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
@@ -818,7 +838,9 @@ export interface FileRouteTypes {
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
+    | '/admin/csv-import'
     | '/admin/hierarchy'
+    | '/admin/import-requests'
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
@@ -894,7 +916,9 @@ export interface FileRouteTypes {
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
+    | '/admin/csv-import'
     | '/admin/hierarchy'
+    | '/admin/import-requests'
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
@@ -1064,11 +1088,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMigrationRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/import-requests': {
+      id: '/admin/import-requests'
+      path: '/import-requests'
+      fullPath: '/admin/import-requests'
+      preLoaderRoute: typeof AdminImportRequestsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/hierarchy': {
       id: '/admin/hierarchy'
       path: '/hierarchy'
       fullPath: '/admin/hierarchy'
       preLoaderRoute: typeof AdminHierarchyRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/csv-import': {
+      id: '/admin/csv-import'
+      path: '/csv-import'
+      fullPath: '/admin/csv-import'
+      preLoaderRoute: typeof AdminCsvImportRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/contracts': {
@@ -1662,7 +1700,9 @@ interface AdminRouteChildren {
   AdminCarriersRoute: typeof AdminCarriersRoute
   AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminContractsRoute: typeof AdminContractsRoute
+  AdminCsvImportRoute: typeof AdminCsvImportRoute
   AdminHierarchyRoute: typeof AdminHierarchyRoute
+  AdminImportRequestsRoute: typeof AdminImportRequestsRoute
   AdminMigrationRoute: typeof AdminMigrationRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -1677,7 +1717,9 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCarriersRoute: AdminCarriersRoute,
   AdminCommissionsRoute: AdminCommissionsRoute,
   AdminContractsRoute: AdminContractsRoute,
+  AdminCsvImportRoute: AdminCsvImportRoute,
   AdminHierarchyRoute: AdminHierarchyRoute,
+  AdminImportRequestsRoute: AdminImportRequestsRoute,
   AdminMigrationRoute: AdminMigrationRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
@@ -1708,3 +1750,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
