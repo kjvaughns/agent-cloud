@@ -170,7 +170,7 @@ function BookPage() {
         </div>
       </div>
 
-      {true ? (
+      <>
         <>
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
