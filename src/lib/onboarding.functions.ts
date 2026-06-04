@@ -249,12 +249,32 @@ export const getMyContractedCarriers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
-    const { data, error } = await supabase
+
+    // Commission levels assigned by upline
+    const { data: commLevels } = await supabase
       .from("agent_commission_levels")
       .select("carrier_id,assigned_pct,commission_level,carriers(id,name,is_annuity_carrier)")
       .eq("agent_id", userId);
-    if (error) throw new Error(error.message);
-    return { rows: data ?? [] };
+
+    // Self-reported active contracts (Add Active Carrier flow)
+    const { data: activeContracts } = await supabase
+      .from("contract_requests")
+      .select("carrier_id,carriers(id,name,is_annuity_carrier)")
+      .eq("agent_id", userId)
+      .eq("status", "active");
+
+    // Commission levels take precedence; add self-reported carriers not already covered
+    const commCarrierIds = new Set((commLevels ?? []).map((r: any) => r.carrier_id));
+    const selfReported = (activeContracts ?? [])
+      .filter((r: any) => !commCarrierIds.has(r.carrier_id))
+      .map((r: any) => ({
+        carrier_id: r.carrier_id,
+        assigned_pct: 100,
+        commission_level: null,
+        carriers: r.carriers,
+      }));
+
+    return { rows: [...(commLevels ?? []), ...selfReported] };
   });
 
 export const listOnboardingInvites = createServerFn({ method: "POST" })
