@@ -375,7 +375,7 @@ function BookPage() {
             )}
           </div>
         </>
-      )}
+      </>
 
       <PolicyDetailSheet row={openRow} open={!!openRowId} onOpenChange={(v) => !v && setOpenRowId(null)} />
     </div>
