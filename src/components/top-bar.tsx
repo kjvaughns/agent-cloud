@@ -1,4 +1,4 @@
-import { Bell, Moon, Phone, Sun, MessageSquare, LogOut, User, Globe } from "lucide-react";
+import { Bell, Moon, Phone, Sun, MessageSquare, LogOut, User, Globe, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
+import { useRole } from "@/hooks/use-role";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 const NOTIFICATIONS = [
@@ -20,6 +21,7 @@ const NOTIFICATIONS = [
 export function TopBar() {
   const { theme, toggle } = useTheme();
   const { user, signOut } = useAuth();
+  const { isAdmin, isManager } = useRole();
   const navigate = useNavigate();
 
   const initials = (user?.user_metadata?.full_name || user?.email || "AC")
@@ -30,6 +32,14 @@ export function TopBar() {
       <SidebarTrigger />
       <div className="flex-1" />
 
+      {(isAdmin || isManager) && (
+        <Button asChild variant="outline" size="sm" className="border-[#C9A227]/40 text-[#C9A227] hover:bg-[#C9A227]/10 gap-1.5">
+          <Link to="/admin">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Admin
+          </Link>
+        </Button>
+      )}
       <Button variant="ghost" size="icon" aria-label="Phone" asChild><Link to="/phone" search={{ tab: "phone" }}><Phone className="h-4 w-4" /></Link></Button>
       <Button variant="ghost" size="icon" aria-label="SMS" asChild><Link to="/phone" search={{ tab: "sms" }}><MessageSquare className="h-4 w-4" /></Link></Button>
 
