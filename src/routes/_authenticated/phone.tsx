@@ -701,7 +701,7 @@ function MessageThread({
               </Button>
             </span>
           </TooltipTrigger>
-          <TooltipContent>MMS coming soon</TooltipContent>
+          <TooltipContent>Attach photo</TooltipContent>
         </Tooltip>
         <Textarea
           value={text}
@@ -1251,7 +1251,7 @@ function PhoneSettingsSheet({
             <div className="font-medium text-sm">Your business number</div>
             <div className="text-lg">{settings?.phone_number ? fmtPhone(settings.phone_number) : <span className="text-muted-foreground">Not provisioned</span>}</div>
             <Button variant="outline" size="sm" disabled>Change number</Button>
-            <p className="text-xs text-muted-foreground">Number provisioning is coming soon.</p>
+            <p className="text-xs text-muted-foreground">Contact your admin to set up a dedicated phone number for your account.</p>
           </section>
 
           <section className="space-y-2 border-t pt-4">

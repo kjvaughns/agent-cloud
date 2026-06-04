@@ -1,3 +1,4 @@
+// DEPRECATED — use src/components/pipeline/client-detail-drawer.tsx
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { TemperatureBadge } from "@/components/temperature-badge";
 import { StatusBadge } from "@/components/status-badge";
-import { MOCK_POLICIES, type MockClient } from "@/lib/mock-data";
+import { type MockClient } from "@/lib/mock-data";
 import { fmtCurrency, fmtPhone } from "@/lib/format";
 import {
   Phone, Mail, MapPin, Calendar, Plus, FileText, Users, DollarSign,
@@ -35,7 +36,7 @@ const TABS = [
 export function ClientDetailDrawer({ client, open, onOpenChange }: Props) {
   if (!client) return null;
   const initials = `${client.first_name[0]}${client.last_name[0]}`;
-  const policies = MOCK_POLICIES.filter((p) => p.client_id === client.id);
+  const policies: any[] = [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

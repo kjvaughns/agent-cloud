@@ -164,31 +164,13 @@ function BookPage() {
           <p className="text-sm text-muted-foreground">View all your deals and track your team's production.</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-md border bg-card p-0.5">
-            <button
-              onClick={() => setSource("agent")}
-              className={cn("px-3 py-1.5 text-sm rounded", source === "agent" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-            >Agents</button>
-            <button
-              onClick={() => setSource("carrier")}
-              className={cn("px-3 py-1.5 text-sm rounded", source === "carrier" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
-            >Carrier</button>
-          </div>
           <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
             <Download className="h-4 w-4 mr-1.5" /> Export CSV
           </Button>
         </div>
       </div>
 
-      {source === "carrier" ? (
-        <div className="rounded-lg border bg-card p-10 text-center">
-          <h3 className="font-semibold mb-1">Carrier integration pending</h3>
-          <p className="text-sm text-muted-foreground">
-            Direct carrier data feeds are not yet connected for your account. Switch back to
-            <button className="underline ml-1" onClick={() => setSource("agent")}>Agents</button> to see policies you and your team have entered.
-          </p>
-        </div>
-      ) : (
+      <>
         <>
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
@@ -393,7 +375,7 @@ function BookPage() {
             )}
           </div>
         </>
-      )}
+      </>
 
       <PolicyDetailSheet row={openRow} open={!!openRowId} onOpenChange={(v) => !v && setOpenRowId(null)} />
     </div>

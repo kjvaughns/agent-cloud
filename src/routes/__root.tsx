@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Outlet,
   Link,
@@ -136,6 +138,21 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event !== "SIGNED_IN" || !session?.user) return;
+      const provider = (session.user.app_metadata as any)?.provider;
+      if (provider === "google") {
+        try {
+          await supabase.from("profiles").update({ google_oauth_connected: true }).eq("id", session.user.id);
+        } catch (e) {
+          console.error("Failed to mark google_oauth_connected", e);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
