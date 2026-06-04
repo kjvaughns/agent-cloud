@@ -23,13 +23,13 @@ export const getInviteByToken = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { data: result, error } = await supabaseAdmin.rpc("get_invite_by_token", { _token: data.token });
     if (error) throw new Error(error.message);
-    const invite = result ?? null;
+    const invite = (result ?? null) as any;
     let migration_match: any = null;
     if (invite?.new_agent_email) {
-      const { data: roster } = await supabaseAdmin
+      const { data: roster } = await (supabaseAdmin as any)
         .from("migration_roster")
         .select("first_name, last_name, location, depth, upline_name, status")
-        .eq("email", invite.new_agent_email.toLowerCase())
+        .eq("email", String(invite.new_agent_email).toLowerCase())
         .maybeSingle();
       migration_match = roster ?? null;
     }
