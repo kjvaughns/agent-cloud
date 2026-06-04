@@ -446,3 +446,27 @@ export const recordAnnuityCert = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const activateContract = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    contract_id: z.string().uuid(),
+    writing_number: z.string().min(1).max(100),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: contract } = await supabase
+      .from("contract_requests")
+      .select("id, status")
+      .eq("id", data.contract_id)
+      .eq("agent_id", userId)
+      .single();
+    if (!contract) throw new Error("Contract not found");
+    if (contract.status !== "assigned") throw new Error("Only assigned contracts can be activated this way");
+    const { error } = await supabase
+      .from("contract_requests")
+      .update({ writing_number: data.writing_number, status: "active", activated_at: new Date().toISOString() })
+      .eq("id", data.contract_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

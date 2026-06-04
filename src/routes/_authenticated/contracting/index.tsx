@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
-  listWorkInbox,
+  listWorkInbox, activateContract,
 } from "@/lib/contracting.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContractStatusBadge, CONTRACT_STATUSES, statusDot, type ContractStatus } from "@/components/contracting/contract-status-badge";
-import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox } from "lucide-react";
+import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,42 @@ function ContractingHome() {
         <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>
         <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ---------------- Inline Writing Number Activation ----------------
+function AddWritingNumberInline({ contractId, onActivated }: { contractId: string; onActivated: () => void }) {
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const activateFn = useServerFn(activateContract);
+
+  const save = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    try {
+      await activateFn({ data: { contract_id: contractId, writing_number: value.trim() } });
+      toast.success("Contract activated!");
+      onActivated();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to activate");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Agent #"
+        className="h-7 text-xs w-28"
+        onKeyDown={(e) => e.key === "Enter" && save()}
+      />
+      <Button size="sm" className="h-7 text-xs px-2" onClick={save} disabled={!value.trim() || saving}>
+        {saving ? "…" : "Activate"}
+      </Button>
     </div>
   );
 }
@@ -139,6 +175,17 @@ function MyContractsTab() {
                   {c.status === "active" && c.activated_at && (
                     <div className="text-sm inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                       <CheckCircle2 className="h-4 w-4" /> Active: {fmtDate(c.activated_at)}
+                    </div>
+                  )}
+                  {c.status === "assigned" && (
+                    <div className="flex items-center gap-2 flex-wrap rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                      <span className="text-xs text-primary font-medium flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Add your agent # to activate
+                      </span>
+                      <AddWritingNumberInline
+                        contractId={c.id}
+                        onActivated={() => qc.invalidateQueries({ queryKey: ["contracting"] })}
+                      />
                     </div>
                   )}
                   {c.notes && <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes:</span> {c.notes}</div>}

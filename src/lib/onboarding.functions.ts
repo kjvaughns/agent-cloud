@@ -74,6 +74,29 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }).eq("token", data.token);
     }
 
+    // Create assigned contracts for each carrier in the invite's carrier_assignments
+    const assignments: any[] = (inv.carrier_assignments as any[]) ?? [];
+    for (const a of assignments) {
+      if (!a.carrier_id) continue;
+      await supabaseAdmin.from("contract_requests").upsert({
+        agent_id: newUserId,
+        carrier_id: a.carrier_id,
+        status: "assigned" as any,
+        requested_at: new Date().toISOString(),
+        notes: `Assigned via invite link`,
+      }, { onConflict: "agent_id,carrier_id" });
+      if (a.level_pct != null) {
+        await supabaseAdmin.from("agent_commission_levels").upsert({
+          agent_id: newUserId,
+          carrier_id: a.carrier_id,
+          assigned_pct: a.level_pct,
+          commission_level: a.level_name ?? `${a.level_pct}%`,
+          assigned_by: inv.created_by,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: "agent_id,carrier_id" });
+      }
+    }
+
     return { ok: true, userId: newUserId };
   });
 

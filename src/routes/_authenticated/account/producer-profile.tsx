@@ -16,6 +16,7 @@ import {
 } from "@/lib/account.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useRole } from "@/hooks/use-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw } from "lucide-react";
+import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -155,6 +157,7 @@ function ProducerProfilePage() {
 // ─────────────────────────────────────────────
 function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: any; documents: any[]; agreement: any; onSaved: () => void }) {
   const profileFn = useServerFn(updateProducerProfile);
+  const { isAdmin, isManager } = useRole();
   const save = (patch: Record<string, unknown>) => {
     profileFn({ data: patch as any }).then(onSaved).catch((e: any) => toast.error(e?.message ?? "Save failed"));
   };
@@ -172,6 +175,13 @@ function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: a
       <AmlCard doc={amlDoc} onSaved={onSaved} />
       <UserAccountCard profile={profile} />
       <AgreementCard agreement={agreement} />
+      {(isAdmin || isManager) && profile?.id && (
+        <Card>
+          <CardContent className="pt-5">
+            <CompLevelEditor agentId={profile.id} agentName="My Commission Levels" />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

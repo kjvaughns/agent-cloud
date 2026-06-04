@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { adminListAllAgents, adminSetAgentRole } from "@/lib/admin.functions";
+import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,6 +214,13 @@ function AdminAgents() {
                       {savingRole ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                     </Button>
                   </div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <CompLevelEditor
+                    agentId={selected.id}
+                    agentName={`${selected.first_name} ${selected.last_name}`}
+                  />
                 </div>
               </div>
             </>

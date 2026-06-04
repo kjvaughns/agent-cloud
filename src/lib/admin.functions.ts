@@ -672,3 +672,62 @@ export const adminUpdateScrapeRequest = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------- Comp Level Editor ----------
+
+export const adminListAgentCompLevels = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const { data: levels, error } = await supabase
+      .from("agent_commission_levels")
+      .select("*, carriers(name)")
+      .eq("agent_id", data.agent_id)
+      .order("assigned_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return levels ?? [];
+  });
+
+export const adminSetCompLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    agent_id: z.string().uuid(),
+    carrier_id: z.string().uuid(),
+    assigned_pct: z.number().min(0).max(999),
+    commission_level: z.string().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const { error } = await supabase.from("agent_commission_levels").upsert({
+      agent_id: data.agent_id,
+      carrier_id: data.carrier_id,
+      assigned_pct: data.assigned_pct,
+      commission_level: data.commission_level ?? `${data.assigned_pct}%`,
+      assigned_by: userId,
+      assigned_at: new Date().toISOString(),
+    }, { onConflict: "agent_id,carrier_id" });
+    if (error) throw new Error(error.message);
+    await supabase.from("admin_audit_log").insert({
+      admin_id: userId,
+      action: "comp_level_change",
+      target_type: "agent",
+      target_id: data.agent_id,
+      details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level },
+    }).catch(() => {});
+    return { ok: true };
+  });
+
+export const listAllCarriers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as Ctx;
+    const { data } = await supabase
+      .from("carriers")
+      .select("id, name, active")
+      .eq("active", true)
+      .order("name");
+    return (data ?? []) as { id: string; name: string; active: boolean }[];
+  });
