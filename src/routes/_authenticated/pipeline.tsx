@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone } from "lucide-react";
+import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, Mail, MapPin, Calendar } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -246,45 +246,72 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id });
   const t = tempPill[(client.temperature ?? "cold") as Temp];
   const score = client.score_pct ?? 0;
-  const scoreCls = score > 70 ? "bg-emerald-100 text-emerald-700" : score >= 40 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700";
-  const col = STAGE_COLS.find((c) => c.key === client.stage);
+  const scoreCls = score > 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : score >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+  const location = [client.city, client.state].filter(Boolean).join(", ");
+  const age = client.date_of_birth
+    ? Math.floor((Date.now() - new Date(client.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={cn("bg-card border rounded-lg p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition", isDragging && "opacity-50")}
+      className={cn("bg-card border rounded-lg p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition select-none", isDragging && "opacity-50 shadow-lg")}
     >
+      {/* Name + badges */}
       <div className="flex items-start justify-between gap-2">
-        <div className="font-medium text-sm">{client.first_name} {client.last_name}</div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium", t.cls)}>
-            <t.Icon className="h-3 w-3" /> {t.label}
-          </span>
+        <div className="font-semibold text-sm leading-tight">{client.first_name} {client.last_name}</div>
+        <div className="flex items-center gap-1 shrink-0">
           {client.score_pct != null && (
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", scoreCls)}>{score}%</span>
+            <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", scoreCls)}>{score}%</span>
           )}
-        </div>
-      </div>
-      {col && (
-        <div className="mt-1.5">
-          <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", col.badgeCls)}>
-            {col.label}
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium", t.cls)}>
+            <t.Icon className="h-2.5 w-2.5" /> {t.label}
           </span>
         </div>
-      )}
-      <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-        <Phone className="h-3 w-3" /> {fmtPhone(client.phone) || "—"}
       </div>
-      {client.last_opened_at && (
-        <div className="mt-1 text-[11px] text-muted-foreground">
-          Last opened: {new Date(client.last_opened_at).toLocaleDateString()}
+
+      {/* Contact info rows */}
+      <div className="mt-2 space-y-1">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Phone className="h-3 w-3 shrink-0 opacity-60" />
+          <span className="truncate">{fmtPhone(client.phone) || <span className="italic opacity-50">No phone</span>}</span>
         </div>
-      )}
-      {client.beneficiary_of && (
-        <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400">
-          <Heart className="h-3 w-3" /> Beneficiary of {client.beneficiary_of}
+        {client.email && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Mail className="h-3 w-3 shrink-0 opacity-60" />
+            <span className="truncate">{client.email}</span>
+          </div>
+        )}
+        {location && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <MapPin className="h-3 w-3 shrink-0 opacity-60" />
+            <span className="truncate">{location}{age != null ? ` · Age ${age}` : ""}</span>
+          </div>
+        )}
+        {!location && age != null && (
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Calendar className="h-3 w-3 shrink-0 opacity-60" />
+            <span>Age {age}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {(client.last_opened_at || client.beneficiary_of) && (
+        <div className="mt-2 pt-2 border-t border-dashed flex items-center gap-2 flex-wrap">
+          {client.beneficiary_of && (
+            <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+              <Heart className="h-2.5 w-2.5" /> Beneficiary of {client.beneficiary_of}
+            </span>
+          )}
+          {client.last_opened_at && (
+            <span className="text-[10px] text-muted-foreground ml-auto">
+              {new Date(client.last_opened_at).toLocaleDateString()}
+            </span>
+          )}
         </div>
       )}
     </div>
