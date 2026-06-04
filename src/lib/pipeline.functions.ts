@@ -415,7 +415,7 @@ const addPolicySchema = z.object({
   carrier_id: z.string().uuid().nullable().optional(),
   policy_number: z.string().max(100).optional().or(z.literal("")),
   product: z.string().max(200).optional().or(z.literal("")),
-  status: z.string().max(50).default("active"),
+  status: z.string().max(50).default("issued_not_paid"),
   annual_premium: z.number().nullable().optional(),
   monthly_premium: z.number().nullable().optional(),
   face_amount: z.number().nullable().optional(),

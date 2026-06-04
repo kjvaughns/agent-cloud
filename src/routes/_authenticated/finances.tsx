@@ -49,6 +49,10 @@ import {
   DollarSign,
   Users,
   Info,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Download,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
@@ -78,9 +82,16 @@ function FinancesPage() {
 
   const rows: Row[] = data?.rows ?? [];
 
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [carrierFilter, setCarrierFilter] = useState<string>("all");
+  const [viewMonth, setViewMonth] = useState<Date>(() => new Date());
+
+  function shiftMonth(dir: -1 | 1) {
+    setViewMonth((prev) => {
+      const d = new Date(prev);
+      d.setMonth(d.getMonth() + dir);
+      return d;
+    });
+  }
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -125,19 +136,26 @@ function FinancesPage() {
     return months;
   }, [rows]);
 
-  const carriers = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.carrier).filter(Boolean))) as string[],
-    [rows],
-  );
-
-  const filtered = useMemo(() => {
+  const monthRows = useMemo(() => {
+    const ym = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, "0")}`;
     return rows.filter((r) => {
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (!r.payment_date.startsWith(ym)) return false;
       if (typeFilter !== "all" && r.payment_type !== typeFilter) return false;
-      if (carrierFilter !== "all" && r.carrier !== carrierFilter) return false;
       return true;
     });
-  }, [rows, statusFilter, typeFilter, carrierFilter]);
+  }, [rows, viewMonth, typeFilter]);
+
+  const monthTotal = useMemo(() => monthRows.reduce((s, r) => s + r.amount, 0), [monthRows]);
+
+  const groupedByDay = useMemo(() => {
+    const m = new Map<string, Row[]>();
+    for (const r of monthRows) {
+      const day = r.payment_date.slice(0, 10);
+      if (!m.has(day)) m.set(day, []);
+      m.get(day)!.push(r);
+    }
+    return new Map([...m.entries()].sort(([a], [b]) => a.localeCompare(b)));
+  }, [monthRows]);
 
   const byCarrier = useMemo(() => {
     const m = new Map<string, { name: string; policies: Set<string>; direct: number; override: number }>();
@@ -311,19 +329,45 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
       <Card>
         <CardContent className="p-0">
           <div className="p-4 border-b flex flex-col gap-3">
-            <div>
-              <h3 className="font-semibold">Scheduled Payouts</h3>
-              <p className="text-xs text-muted-foreground">Your upcoming and past commission payments</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold">Scheduled Payouts</h3>
+                <p className="text-xs text-muted-foreground">Your upcoming and past commission payments</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const cols = ["date", "client", "carrier", "product", "policy_number", "type", "amount", "status"];
+                  const lines = [cols.join(","), ...monthRows.map((r) =>
+                    [r.payment_date, `"${r.client_name}"`, r.carrier ?? "", r.product ?? "", r.policy_number ?? "", r.payment_type, r.amount, r.status].join(",")
+                  )];
+                  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `payouts-${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, "0")}.csv`;
+                  a.click();
+                }}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+              </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Month navigator */}
+            <div className="flex items-center gap-2">
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => shiftMonth(-1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-28 text-center">
+                {viewMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              </span>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => shiftMonth(1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 ml-2">{fmtCurrency(monthTotal)}</span>
+            </div>
+
+            <div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
@@ -332,13 +376,6 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                   <SelectItem value="deferred">Deferred</SelectItem>
                   <SelectItem value="override">Override</SelectItem>
                   <SelectItem value="renewal">Renewal</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={carrierFilter} onValueChange={setCarrierFilter}>
-                <SelectTrigger className="w-44"><SelectValue placeholder="Carrier" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All carriers</SelectItem>
-                  {carriers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -350,38 +387,38 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
               body="Post your first deal to see your payout schedule here."
               cta={<Button asChild><Link to="/post-deal">Post a Deal</Link></Button>}
             />
+          ) : groupedByDay.size === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">No payments for this month.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Payment Date</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Carrier</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Policy #</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{new Date(r.payment_date).toLocaleDateString()}</TableCell>
-                    <TableCell className="font-medium">{r.client_name}</TableCell>
-                    <TableCell>{r.carrier ?? "—"}</TableCell>
-                    <TableCell>{r.product ?? "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.policy_number ?? "—"}</TableCell>
-                    <TableCell><TypeBadge type={r.payment_type} /></TableCell>
-                    <TableCell className="text-right font-mono">{fmtCurrency(r.amount)}</TableCell>
-                    <TableCell><StatusBadge status={r.status} /></TableCell>
-                  </TableRow>
-                ))}
-                {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No payments match the current filters.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <Accordion type="multiple" className="divide-y">
+              {Array.from(groupedByDay.entries()).map(([day, dayRows]) => {
+                const dayTotal = dayRows.reduce((s, r) => s + r.amount, 0);
+                const d = new Date(day + "T00:00:00");
+                const monthAbbr = d.toLocaleDateString("en-US", { month: "short" });
+                const dayNum = d.getDate();
+                const fullDate = d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric" });
+                return (
+                  <AccordionItem key={day} value={day} className="border-0">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/30">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary shrink-0 flex-col leading-tight">
+                          <span className="text-[10px] font-semibold uppercase">{monthAbbr}</span>
+                          <span className="text-lg font-bold leading-none">{dayNum}</span>
+                        </div>
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="font-medium text-sm">{fullDate}</div>
+                          <div className="text-xs text-muted-foreground">{dayRows.length} payment{dayRows.length !== 1 ? "s" : ""}</div>
+                        </div>
+                        <div className="text-sm font-semibold text-right mr-2">{fmtCurrency(dayTotal)}</div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-3 pt-0 space-y-2">
+                      {dayRows.map((r) => <PayoutRow key={r.id} row={r} />)}
+                    </AccordionContent>
+                  </AccordionItem>
+                );
+              })}
+            </Accordion>
           )}
         </CardContent>
       </Card>
@@ -492,6 +529,30 @@ function TypeBadge({ type }: { type: Row["payment_type"] }) {
     renewal: "bg-gray-500/15 text-gray-600 border-gray-500/30",
   }[type];
   return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{type}</span>;
+}
+
+function PayoutRow({ row }: { row: Row }) {
+  const isOverride = row.payment_type === "override";
+  return (
+    <div className={`rounded-lg border p-3 space-y-1 text-sm ${isOverride ? "bg-primary/5" : ""}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          {isOverride ? <Users className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
+          <span className="font-medium text-foreground">{row.client_name}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <TypeBadge type={row.payment_type} />
+          <StatusBadge status={row.status} />
+          <span className="font-mono font-semibold">{fmtCurrency(row.amount)}</span>
+        </div>
+      </div>
+      <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
+        {row.carrier && <span>{row.carrier}</span>}
+        {row.product && <span>{row.product}</span>}
+        {row.policy_number && <span className="font-mono">{row.policy_number}</span>}
+      </div>
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: Row["status"] }) {

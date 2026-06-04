@@ -41,6 +41,7 @@ type FormData = {
   effective_date: string;
   face_amount: string;
   monthly_premium: string;
+  status: "issued_not_paid" | "in_review";
   beneficiaries: { first_name: string; last_name: string; relationship: string; dob: string; percentage: string }[];
   notes: string;
 };
@@ -62,7 +63,7 @@ function PostDealPage() {
       client_type: "new",
       first_name: "", last_name: "", phone: "", date_of_birth: "",
       carrier_id: "", product: "", policy_number: "", effective_date: "",
-      face_amount: "", monthly_premium: "",
+      face_amount: "", monthly_premium: "", status: "issued_not_paid",
       beneficiaries: [],
       notes: "",
     },
@@ -111,6 +112,7 @@ function PostDealPage() {
             effective_date: d.effective_date,
             face_amount: Number(d.face_amount || 0),
             monthly_premium: Number(d.monthly_premium || 0),
+            status: d.status,
           },
           beneficiaries: d.beneficiaries.map((b) => ({
             first_name: b.first_name, last_name: b.last_name,
@@ -229,6 +231,16 @@ function PostDealPage() {
             <div><Label>Effective Date *</Label><Input type="date" {...register("effective_date", { required: true })} /></div>
             <div><Label>Face Amount *</Label><Input type="number" {...register("face_amount", { required: true })} placeholder="e.g., 50000" /></div>
             <div><Label>Monthly Premium *</Label><Input type="number" step="0.01" {...register("monthly_premium", { required: true })} placeholder="e.g., 99.99" /></div>
+            <div className="col-span-2">
+              <Label>Policy Status *</Label>
+              <Select value={watch("status")} onValueChange={(v) => setValue("status", v as any)}>
+                <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="issued_not_paid">Issued, Not Paid</SelectItem>
+                  <SelectItem value="in_review">In Review</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="col-span-2">
               <Label>Annual Premium</Label>
               <div className="px-3 py-2 bg-muted rounded-md text-emerald-700 dark:text-emerald-400 font-semibold">

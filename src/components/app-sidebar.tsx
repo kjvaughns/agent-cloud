@@ -8,7 +8,7 @@ import {
   Megaphone, Newspaper, Bell, FilePlus, Cloud, UserPlus, ArrowLeftRight,
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
-  Target, Calculator, Quote, PhoneIncoming, LifeBuoy, HelpCircle,
+  Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
   ChevronDown, Briefcase, Trophy, ShieldCheck,
 } from "lucide-react";
 import {
@@ -83,7 +83,7 @@ const groups = [
     label: "Tools",
     items: [
       { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
-      { title: "Quoter", url: "/tools/quoter", icon: Quote },
+      { title: "Toolkits", url: "/tools/quoter", icon: Wrench },
       { title: "Leads", url: "/tools/leads", icon: Target },
       { title: "Inbound Calls", url: "/tools/inbound-calls", icon: PhoneIncoming },
     ],
