@@ -42,6 +42,9 @@ const pipelineQO = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tab: s.tab === "sold" ? "sold" as const : "pipeline" as const,
+  }),
   head: () => ({ meta: [
     { title: "Pipeline — Agent Cloud" },
     { name: "description", content: "Kanban CRM for tracking your insurance leads through every stage." },
@@ -82,7 +85,8 @@ function PipelinePage() {
   const hydrated = useHydrated();
   const { data: clients = [], isLoading } = useQuery({ ...pipelineQO, enabled: hydrated });
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"pipeline" | "sold">("pipeline");
+  const { tab: initialTab } = Route.useSearch();
+  const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);

@@ -1,21 +1,23 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil, AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
+  AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
+  ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar,
+} from "lucide-react";
 import { toast } from "sonner";
-import DOMPurify from "isomorphic-dompurify";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { phone as fmtPhone, money, formatPhone, formatDob, formatRouting } from "@/lib/format";
+import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getClientDetail, touchLastOpened, updateClient, markClientSold, upsertFinancials,
@@ -29,19 +31,19 @@ type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
 
 const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot: { cls: "bg-red-100 text-red-700 border-red-200", Icon: Flame, label: "Hot" },
+  hot:  { cls: "bg-red-100 text-red-700 border-red-200",    Icon: Flame,       label: "Hot"  },
   warm: { cls: "bg-orange-100 text-orange-700 border-orange-200", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-blue-100 text-blue-700 border-blue-200", Icon: Snowflake, label: "Cold" },
+  cold: { cls: "bg-blue-100 text-blue-700 border-blue-200", Icon: Snowflake,   label: "Cold" },
 };
 
-const STAGES: { key: Stage; label: string }[] = [
-  { key: "new", label: "New / Initial" },
-  { key: "callback", label: "Callback" },
-  { key: "almost_there", label: "Almost There" },
-  { key: "sold", label: "Sold" },
-];
+const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
+  new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",   label: "New"          },
+  callback:     { active: "bg-amber-500 text-white border-amber-500",                    inactive: "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400",   label: "Callback"     },
+  almost_there: { active: "bg-orange-500 text-white border-orange-500",                  inactive: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400", label: "Almost There" },
+  sold:         { active: "bg-emerald-500 text-white border-emerald-500",                inactive: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400", label: "Sold"     },
+};
 
-const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+const PRODUCTS = ["Final Expense", "Mortgage Protection", "Term Life", "Whole Life", "IUL", "GTL", "Annuity"];
 
 const detailQO = (id: string) => queryOptions({
   queryKey: ["pipeline", "detail", id],
@@ -49,6 +51,22 @@ const detailQO = (id: string) => queryOptions({
   enabled: !!id,
 });
 
+const DRAWER_TABS = [
+  { key: "contact",       label: "Contact",        icon: User },
+  { key: "needs",         label: "Needs Analysis", icon: ClipboardList },
+  { key: "notes",         label: "Notes",          icon: MessageSquare },
+  { key: "schedule",      label: "Schedule",       icon: Calendar },
+  { key: "beneficiaries", label: "Beneficiaries",  icon: Users },
+  { key: "referrals",     label: "Referrals",      icon: Share2 },
+  { key: "financials",    label: "Financials",     icon: DollarSign },
+  { key: "care",          label: "Client Care",    icon: Heart },
+  { key: "health",        label: "Health",         icon: Activity },
+  { key: "banking",       label: "Banking",        icon: Building },
+  { key: "policies",      label: "Policies",       icon: FileText },
+  { key: "email",         label: "Email",          icon: Mail },
+];
+
+// ============ Main export ============
 export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | null; onClose: () => void }) {
   const open = !!clientId;
   const qc = useQueryClient();
@@ -69,7 +87,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-[72vw] p-0 overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:w-[480px] sm:max-w-[90vw] p-0 flex flex-col overflow-hidden">
         <SheetTitle className="sr-only">Client Detail</SheetTitle>
         {clientId && <DrawerBody clientId={clientId} />}
       </SheetContent>
@@ -78,6 +96,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 }
 
 function DrawerBody({ clientId }: { clientId: string }) {
+  const [activeTab, setActiveTab] = useState("contact");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
   if (isLoading || !data?.client) {
@@ -85,26 +104,24 @@ function DrawerBody({ clientId }: { clientId: string }) {
   }
 
   const c = data.client;
-  const initials = `${c.first_name?.[0] ?? ""}${c.last_name?.[0] ?? ""}`.toUpperCase();
   const t = tempPill[(c.temperature ?? "cold") as Temp];
 
   return (
-    <div className="flex flex-col h-full">
-      <Header client={c} initials={initials} t={t} />
+    <div className="flex flex-col h-full overflow-hidden">
+      <DrawerHeader client={c} t={t} onMarkSold={() => setActiveTab("policies")} />
       <StageBar client={c} />
-      <div className="flex flex-1 min-h-0">
-        <div className="shrink-0 w-72 border-r p-6 overflow-y-auto">
-          <ContactInfo client={c} />
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <RightTabs detail={data} />
+      <div className="flex-1 overflow-y-auto">
+        <DrawerTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        <div className="p-4">
+          <DrawerTabContent tab={activeTab} detail={data} />
         </div>
       </div>
     </div>
   );
 }
 
-function Header({ client, initials, t }: { client: any; initials: string; t: any }) {
+// ============ Header ============
+function DrawerHeader({ client, t, onMarkSold }: { client: any; t: any; onMarkSold?: () => void }) {
   const qc = useQueryClient();
   const markSoldFn = useServerFn(markClientSold);
   const soldMut = useMutation({
@@ -112,43 +129,50 @@ function Header({ client, initials, t }: { client: any; initials: string; t: any
     onSuccess: () => {
       toast.success("Marked as sold");
       qc.invalidateQueries({ queryKey: ["pipeline"] });
+      onMarkSold?.();
     },
   });
 
   return (
-    <div className="p-6 border-b">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <Avatar className="h-14 w-14">
-            <AvatarFallback className="bg-primary text-primary-foreground text-lg font-semibold">{initials}</AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="text-xl font-bold">{client.first_name} {client.last_name}</div>
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium mt-1", t.cls)}>
+    <div className="p-4 border-b space-y-3 shrink-0">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-lg leading-tight truncate">{client.first_name} {client.last_name}</div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium", t.cls)}>
               <t.Icon className="h-3 w-3" /> {t.label}
             </span>
-            <div className="text-sm text-muted-foreground mt-1 inline-flex items-center gap-1">
-              <Phone className="h-3.5 w-3.5" /> {fmtPhone(client.phone) || "—"}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 items-end">
-          <div className="flex gap-2">
-            {client.phone && <Button size="sm" variant="outline" asChild><a href={`tel:${client.phone}`}><Phone className="h-4 w-4" /> Call</a></Button>}
-            <Button size="sm" variant="outline"><MessageSquare className="h-4 w-4" /> SMS</Button>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline">Submit Case for Design</Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => soldMut.mutate()} disabled={client.stage === "sold"}>
-              <CheckCircle2 className="h-4 w-4" /> Mark Sold
-            </Button>
+            {client.phone && (
+              <a href={`tel:${client.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1">
+                <Phone className="h-3 w-3" /> {fmtPhone(client.phone)}
+              </a>
+            )}
           </div>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="sm" variant="outline" className="w-full" asChild>
+          <a href={`tel:${client.phone}`}><Phone className="h-3.5 w-3.5 mr-1.5" /> Call</a>
+        </Button>
+        <Button size="sm" variant="outline" className="w-full">
+          <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> SMS
+        </Button>
+      </div>
+      <Button size="sm" variant="outline" className="w-full">Submit Case for Design</Button>
+      <Button
+        size="sm"
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+        onClick={() => soldMut.mutate()}
+        disabled={client.stage === "sold" || soldMut.isPending}
+      >
+        <CheckCircle2 className="h-4 w-4 mr-1.5" />
+        {client.stage === "sold" ? "✓ Sold" : "Mark Sold"}
+      </Button>
     </div>
   );
 }
 
+// ============ Stage bar ============
 function StageBar({ client }: { client: any }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
@@ -156,21 +180,20 @@ function StageBar({ client }: { client: any }) {
     mutationFn: (stage: Stage) => updateFn({ data: { id: client.id, patch: { stage } } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
   });
-  const currentIdx = STAGES.findIndex((s) => s.key === client.stage);
+
   return (
-    <div className="px-6 py-4 border-b bg-muted/30">
-      <div className="flex items-center gap-1">
-        {STAGES.map((s, i) => (
+    <div className="px-4 py-2.5 border-b bg-muted/20 shrink-0">
+      <div className="flex items-center gap-1.5">
+        {(Object.entries(STAGE_PILLS) as [Stage, typeof STAGE_PILLS[Stage]][]).map(([stage, p]) => (
           <button
-            key={s.key}
-            onClick={() => mut.mutate(s.key)}
+            key={stage}
+            onClick={() => mut.mutate(stage)}
             className={cn(
-              "flex-1 px-3 py-2 text-xs font-medium rounded-md transition",
-              i <= currentIdx ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted",
-              i === currentIdx && "ring-2 ring-primary/40 animate-pulse",
+              "flex-1 px-2 py-1.5 text-xs font-medium rounded-full border transition",
+              client.stage === stage ? p.active : cn(p.inactive, "hover:bg-muted"),
             )}
           >
-            {s.label}
+            {p.label}
           </button>
         ))}
       </div>
@@ -178,8 +201,53 @@ function StageBar({ client }: { client: any }) {
   );
 }
 
-// ============ Contact info (inline edit) ============
-function ContactInfo({ client }: { client: any }) {
+// ============ Tab bar ============
+function DrawerTabBar({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+  return (
+    <div className="overflow-x-auto border-b sticky top-0 z-10 bg-background">
+      <div className="flex min-w-max px-1">
+        {DRAWER_TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => onTabChange(key)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors",
+              activeTab === key
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============ Tab content router ============
+function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
+  switch (tab) {
+    case "contact":       return <ContactTab detail={detail} />;
+    case "needs":         return <NeedsAnalysisTab detail={detail} />;
+    case "notes":         return <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} />;
+    case "schedule":      return <ScheduleTab detail={detail} />;
+    case "beneficiaries": return <BeneficiariesTab detail={detail} />;
+    case "referrals":     return <ReferralsTab detail={detail} />;
+    case "financials":    return <FinancialsTab detail={detail} />;
+    case "care":          return <ClientCareTab detail={detail} />;
+    case "health":        return <HealthTab detail={detail} />;
+    case "banking":       return <BankingTab detail={detail} />;
+    case "policies":      return <PoliciesTab detail={detail} />;
+    case "email":         return <EmailTab detail={detail} />;
+    default:              return <ContactTab detail={detail} />;
+  }
+}
+
+// ============ Contact Tab ============
+function ContactTab({ detail }: { detail: any }) {
+  const client = detail.client;
   return (
     <div className="space-y-4">
       <div className="text-sm font-semibold">Contact Information</div>
@@ -199,6 +267,39 @@ function ContactInfo({ client }: { client: any }) {
         <EditableField label="ZIP Code" client={client} field="zip_code" />
         <EditableField label="Born" client={client} field="born_country_state" />
       </div>
+      <TemperatureSelector client={client} />
+    </div>
+  );
+}
+
+function TemperatureSelector({ client }: { client: any }) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateClient);
+  const mut = useMutation({
+    mutationFn: (temperature: Temp) => updateFn({ data: { id: client.id, patch: { temperature } } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
+  });
+
+  return (
+    <div className="space-y-2 pt-2">
+      <div className="text-sm font-semibold">Temperature</div>
+      <div className="flex gap-2">
+        {(["hot", "warm", "cold"] as const).map((temp) => {
+          const p = tempPill[temp];
+          return (
+            <button
+              key={temp}
+              onClick={() => mut.mutate(temp)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition",
+                client.temperature === temp ? p.cls : "border-border text-muted-foreground hover:bg-muted",
+              )}
+            >
+              <p.Icon className="h-3 w-3" /> {p.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -212,9 +313,7 @@ function EditableField({ label, client, field, type, select }: { label: string; 
 
   const mut = useMutation({
     mutationFn: (v: string) => updateFn({ data: { id: client.id, patch: { [field]: v } } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
     onError: (e: any) => toast.error(e?.message ?? "Update failed"),
   });
 
@@ -254,351 +353,7 @@ function EditableField({ label, client, field, type, select }: { label: string; 
   );
 }
 
-const NAV_ITEMS = [
-  { value: "needs", label: "Needs Analysis" },
-  { value: "notes", label: "Notes" },
-  { value: "contact", label: "Contact" },
-  { value: "schedule", label: "Schedule" },
-  { value: "beneficiaries", label: "Beneficiaries" },
-  { value: "referrals", label: "Referrals" },
-  { value: "financials", label: "Financials" },
-  { value: "care", label: "Care" },
-  { value: "health", label: "Health" },
-  { value: "banking", label: "Banking" },
-  { value: "policies", label: "Policies" },
-  { value: "email", label: "Email" },
-];
-
-// ============ Right column tabs ============
-function RightTabs({ detail }: { detail: any }) {
-  const [activeTab, setActiveTab] = useState("needs");
-  const qc = useQueryClient();
-  const updateFn = useServerFn(updateClient);
-  const updateMut = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: any }) => updateFn({ data: { id, patch } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
-    onError: (e: any) => toast.error(e?.message ?? "Update failed"),
-  });
-
-  // Contact form state
-  const [contactForm, setContactForm] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (detail?.client) {
-      setContactForm({
-        first_name: detail.client.first_name ?? "",
-        last_name: detail.client.last_name ?? "",
-        phone: detail.client.phone ?? "",
-        phone_type: detail.client.phone_type ?? "mobile",
-        email: detail.client.email ?? "",
-        date_of_birth: detail.client.date_of_birth ?? "",
-        street_address: detail.client.street_address ?? "",
-        city: detail.client.city ?? "",
-        state: detail.client.state ?? "",
-        zip_code: detail.client.zip_code ?? "",
-      });
-    }
-  }, [detail?.client?.id]);
-
-  const streetRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!streetRef.current || !(window as any).google?.maps?.places) return;
-    const ac = new (window as any).google.maps.places.Autocomplete(streetRef.current, {
-      types: ["address"],
-      componentRestrictions: { country: "us" },
-    });
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      const comps = place.address_components ?? [];
-      const get = (type: string, short = false) => comps.find((c: any) => c.types.includes(type))?.[short ? "short_name" : "long_name"] ?? "";
-      const street = `${get("street_number")} ${get("route")}`.trim();
-      const city = get("locality") || get("sublocality");
-      const state = get("administrative_area_level_1", true);
-      const zip = get("postal_code");
-      setContactForm(f => ({ ...f, street_address: street, city, state, zip_code: zip }));
-      updateMut.mutate({ id: detail.client.id, patch: { street_address: street, city, state, zip_code: zip } });
-    });
-  }, [detail?.client?.id]);
-
-  const saveField = (key: string, value: string) => {
-    updateMut.mutate({ id: detail.client.id, patch: { [key]: value } });
-  };
-
-  // Health form state
-  const [healthForm, setHealthForm] = useState<Record<string, any>>({});
-  useEffect(() => {
-    if (detail?.health) setHealthForm(detail.health);
-  }, [detail?.health]);
-
-  const upsertHealthFn = useServerFn(upsertClientHealth);
-  const healthMut = useMutation({
-    mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
-  });
-  const saveHealth = (key: string, value: any) => healthMut.mutate({ [key]: value });
-
-  // Banking form state
-  const [bankingForm, setBankingForm] = useState<Record<string, any>>({});
-  const [showAcct, setShowAcct] = useState(false);
-  useEffect(() => {
-    if (detail?.banking) setBankingForm(detail.banking);
-  }, [detail?.banking]);
-
-  const upsertBankingFn = useServerFn(upsertClientBanking);
-  const bankingMut = useMutation({
-    mutationFn: (patch: any) => upsertBankingFn({ data: { client_id: detail.client.id, ...patch } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
-  });
-  const saveBanking = (key: string, value: any) => bankingMut.mutate({ [key]: value });
-
-  return (
-    <div className="flex h-full">
-      <nav className="w-36 shrink-0 border-r p-2 space-y-0.5">
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.value}
-            onClick={() => setActiveTab(item.value)}
-            className={cn(
-              "w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors",
-              activeTab === item.value
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="flex-1 p-4 overflow-y-auto">
-        {activeTab === "contact" && (
-          <div className="space-y-4 p-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>First Name</Label>
-                <Input value={contactForm.first_name ?? ""} onChange={e => setContactForm(f => ({...f, first_name: e.target.value}))} onBlur={e => saveField("first_name", e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Last Name</Label>
-                <Input value={contactForm.last_name ?? ""} onChange={e => setContactForm(f => ({...f, last_name: e.target.value}))} onBlur={e => saveField("last_name", e.target.value)} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Phone</Label>
-              <div className="flex gap-2">
-                <Input className="flex-1" value={contactForm.phone ?? ""}
-                  onChange={e => setContactForm(f => ({...f, phone: formatPhone(e.target.value)}))}
-                  onBlur={e => saveField("phone", e.target.value)}
-                  placeholder="(555) 555-5555" />
-                <Select value={contactForm.phone_type ?? "mobile"} onValueChange={v => { setContactForm(f => ({...f, phone_type: v})); saveField("phone_type", v); }}>
-                  <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mobile">Mobile</SelectItem>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="work">Work</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Email</Label>
-              <Input type="email" value={contactForm.email ?? ""} onChange={e => setContactForm(f => ({...f, email: e.target.value}))} onBlur={e => saveField("email", e.target.value)} />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Date of Birth</Label>
-              <Input value={contactForm.date_of_birth ?? ""} placeholder="MM/DD/YYYY"
-                onChange={e => setContactForm(f => ({...f, date_of_birth: formatDob(e.target.value)}))}
-                onBlur={e => saveField("date_of_birth", e.target.value)} />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Street Address</Label>
-              <Input ref={streetRef} value={contactForm.street_address ?? ""}
-                onChange={e => setContactForm(f => ({...f, street_address: e.target.value}))}
-                onBlur={e => saveField("street_address", e.target.value)}
-                placeholder="123 Main St" />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1 space-y-1">
-                <Label>City</Label>
-                <Input value={contactForm.city ?? ""} onChange={e => setContactForm(f => ({...f, city: e.target.value}))} onBlur={e => saveField("city", e.target.value)} />
-              </div>
-              <div className="col-span-1 space-y-1">
-                <Label>State</Label>
-                <Select value={contactForm.state ?? ""} onValueChange={v => { setContactForm(f => ({...f, state: v})); saveField("state", v); }}>
-                  <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
-                  <SelectContent>
-                    {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-1 space-y-1">
-                <Label>ZIP</Label>
-                <Input value={contactForm.zip_code ?? ""} onChange={e => setContactForm(f => ({...f, zip_code: e.target.value.replace(/\D/g, "").slice(0, 5)}))} onBlur={e => saveField("zip_code", e.target.value)} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Temperature</Label>
-              <div className="flex gap-2">
-                {(["hot","warm","cold"] as const).map(t => (
-                  <Button key={t} size="sm" variant={detail.client.temperature === t ? "default" : "outline"}
-                    className={detail.client.temperature === t ? (t === "hot" ? "bg-red-600 hover:bg-red-700 border-red-600" : t === "warm" ? "bg-orange-500 hover:bg-orange-600 border-orange-500" : "") : ""}
-                    onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { temperature: t } }); }}>
-                    {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Stage</Label>
-              <div className="flex gap-2 flex-wrap">
-                {(["new","callback","almost_there","sold"] as const).map(s => {
-                  const STAGE_LABELS: Record<string, string> = { new: "New", callback: "Callback", almost_there: "Almost There", sold: "Sold" };
-                  return (
-                    <Button key={s} size="sm" variant={detail.client.stage === s ? "default" : "outline"}
-                      onClick={() => { updateMut.mutate({ id: detail.client.id, patch: { stage: s } }); }}>
-                      {STAGE_LABELS[s]}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "needs" && <NeedsAnalysisTab detail={detail} />}
-        {activeTab === "notes" && <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} />}
-        {activeTab === "schedule" && <ScheduleTab detail={detail} />}
-        {activeTab === "beneficiaries" && <BeneficiariesTab detail={detail} />}
-        {activeTab === "referrals" && <ReferralsTab detail={detail} />}
-        {activeTab === "financials" && <FinancialsTab detail={detail} />}
-        {activeTab === "care" && <ClientCareTab detail={detail} />}
-
-        {activeTab === "health" && (
-          <div className="space-y-4 p-1">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label>Height (ft)</Label>
-                <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Height (in)</Label>
-                <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
-              </div>
-              <div className="space-y-1">
-                <Label>Weight (lbs)</Label>
-                <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Tobacco Use</Label>
-              <div className="flex gap-2">
-                <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
-                <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Primary Physician</Label>
-              <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Physician Phone</Label>
-              <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Medical Conditions</Label>
-              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Current Medications</Label>
-              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Medical Notes</Label>
-              <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
-            </div>
-          </div>
-        )}
-
-        {activeTab === "banking" && (
-          <div className="space-y-4 p-1">
-            <div className="space-y-1">
-              <Label>Bank Name</Label>
-              <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Account Type</Label>
-              <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="checking">Checking</SelectItem>
-                  <SelectItem value="savings">Savings</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Routing Number</Label>
-              <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
-            </div>
-
-            <div className="space-y-1">
-              <Label>Account Number</Label>
-              <div className="relative">
-                <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
-                <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Draft Date</Label>
-              <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
-                <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({length: 28}, (_, i) => i + 1).map(d => (
-                    <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label>Payment Method</Label>
-              <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bank_draft">Bank Draft</SelectItem>
-                  <SelectItem value="credit_card">Credit Card</SelectItem>
-                  <SelectItem value="money_order">Money Order</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "policies" && <PoliciesTab detail={detail} />}
-        {activeTab === "email" && <EmailTab detail={detail} />}
-      </div>
-    </div>
-  );
-}
-
-// ----- Needs Analysis -----
+// ============ Needs Analysis ============
 const NEEDS_QUESTIONS = [
   { key: "children", q: "Do you have any children?", type: "yesno", tip: "If yes, ask about ages. Young children = higher coverage need for income replacement and education funding." },
   { key: "health", q: "Do you have any health conditions I should know about?", type: "yesno", tip: "If yes, follow up to understand the condition. This impacts product eligibility." },
@@ -629,8 +384,9 @@ function NeedsAnalysisTab({ detail }: { detail: any }) {
         <span>Step {step + 1} of {NEEDS_QUESTIONS.length}</span>
         <span>{Math.round(((step + 1) / NEEDS_QUESTIONS.length) * 100)}%</span>
       </div>
-      <div className="h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${((step + 1) / NEEDS_QUESTIONS.length) * 100}%` }} /></div>
-
+      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+        <div className="h-full bg-primary transition-all" style={{ width: `${((step + 1) / NEEDS_QUESTIONS.length) * 100}%` }} />
+      </div>
       <div className="rounded-lg border bg-card p-5">
         <div className="text-base font-medium mb-4">💬 "{q.q}"</div>
         {q.type === "yesno" && (
@@ -649,12 +405,10 @@ function NeedsAnalysisTab({ detail }: { detail: any }) {
           </Select>
         )}
       </div>
-
       <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-xs">
         <div className="font-semibold text-primary mb-1">Sophai's Tip:</div>
         <div className="text-muted-foreground">{q.tip}</div>
       </div>
-
       <div className="flex justify-between">
         <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Previous</Button>
         <Button disabled={step === NEEDS_QUESTIONS.length - 1} onClick={() => setStep((s) => s + 1)}>Next</Button>
@@ -663,7 +417,7 @@ function NeedsAnalysisTab({ detail }: { detail: any }) {
   );
 }
 
-// ----- Schedule -----
+// ============ Schedule ============
 function ScheduleTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const fn = useServerFn(scheduleEvent);
@@ -696,7 +450,6 @@ function ScheduleTab({ detail }: { detail: any }) {
           ))}
         </div>
       )}
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Schedule Event</DialogTitle></DialogHeader>
@@ -726,7 +479,7 @@ function ScheduleTab({ detail }: { detail: any }) {
   );
 }
 
-// ----- Beneficiaries -----
+// ============ Beneficiaries ============
 function BeneficiariesTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const saveFn = useServerFn(saveBeneficiary);
@@ -734,7 +487,6 @@ function BeneficiariesTab({ detail }: { detail: any }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const total = detail.beneficiaries.reduce((sum: number, b: any) => sum + Number(b.percentage ?? 0), 0);
-
   const blank = { first_name: "", last_name: "", relationship: "", phone: "", dob: "", percentage: 0 };
   const [form, setForm] = useState<any>(blank);
 
@@ -743,14 +495,13 @@ function BeneficiariesTab({ detail }: { detail: any }) {
 
   const saveMut = useMutation({
     mutationFn: () => saveFn({ data: { ...(editing ? { id: editing.id } : {}), client_id: detail.client.id, ...form, percentage: Number(form.percentage) } }),
-    onSuccess: () => {
-      toast.success("Saved");
-      qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] });
-      setOpen(false);
-    },
+    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }); setOpen(false); },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
-  const delMut = useMutation({ mutationFn: (id: string) => delFn({ data: { id } }), onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }) });
+  const delMut = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
 
   return (
     <div className="space-y-3">
@@ -786,7 +537,6 @@ function BeneficiariesTab({ detail }: { detail: any }) {
           </table>
         </div>
       )}
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Edit" : "Add"} Beneficiary</DialogTitle></DialogHeader>
@@ -796,9 +546,7 @@ function BeneficiariesTab({ detail }: { detail: any }) {
             <Field label="Relationship">
               <Select value={form.relationship} onValueChange={(v) => setForm({ ...form, relationship: v })}>
                 <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                <SelectContent>
-                  {["Spouse","Child","Parent","Sibling","Other"].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{["Spouse","Child","Parent","Sibling","Other"].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
             <Field label="Phone"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Field>
@@ -815,7 +563,7 @@ function BeneficiariesTab({ detail }: { detail: any }) {
   );
 }
 
-// ----- Referrals (stored in contact_history with type='referral') -----
+// ============ Referrals ============
 function ReferralsTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const fn = useServerFn(logContact);
@@ -852,7 +600,6 @@ function ReferralsTab({ detail }: { detail: any }) {
           })}
         </div>
       )}
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Referral</DialogTitle></DialogHeader>
@@ -868,7 +615,7 @@ function ReferralsTab({ detail }: { detail: any }) {
   );
 }
 
-// ----- Financials -----
+// ============ Financials ============
 function FinancialsTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const fn = useServerFn(upsertFinancials);
@@ -888,7 +635,6 @@ function FinancialsTab({ detail }: { detail: any }) {
   }), [detail.financials?.id]);
 
   const total = Number(form.earned_income || 0) + Number(form.social_security || 0) + Number(form.pension || 0) + Number(form.other_income || 0);
-
   const mut = useMutation({
     mutationFn: () => fn({ data: {
       client_id: detail.client.id,
@@ -915,7 +661,6 @@ function FinancialsTab({ detail }: { detail: any }) {
       <div className="rounded-md border bg-emerald-50 dark:bg-emerald-950/30 p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
         Total Monthly Income: {money(total)}
       </div>
-
       <div className="text-sm font-semibold pt-2">Work & Retirement</div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Employment Status">
@@ -928,13 +673,12 @@ function FinancialsTab({ detail }: { detail: any }) {
         </Field>
         <Field label="Retirement Age"><Input type="number" value={form.retirement_age} onChange={(e) => setForm({ ...form, retirement_age: e.target.value as any })} onBlur={save} /></Field>
       </div>
-
       <div className="text-xs text-muted-foreground">ℹ️ This information will auto-fill when submitting a case for review.</div>
     </div>
   );
 }
 
-// ----- Client Care -----
+// ============ Client Care ============
 function ClientCareTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
@@ -955,21 +699,16 @@ function ClientCareTab({ detail }: { detail: any }) {
   });
   const logMut = useMutation({
     mutationFn: () => logFn({ data: { client_id: c.id, ...logForm } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] });
-      setLogOpen(false); setLogForm({ contact_type: "call", note: "" });
-      toast.success("Logged");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] }); setLogOpen(false); setLogForm({ contact_type: "call", note: "" }); toast.success("Logged"); },
   });
   const lifeMut = useMutation({
     mutationFn: () => addLifeFn({ data: { client_id: c.id, ...lifeForm } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] });
-      setLifeOpen(false);
-      toast.success("Event added");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] }); setLifeOpen(false); toast.success("Event added"); },
   });
-  const delLifeMut = useMutation({ mutationFn: (id: string) => delLifeFn({ data: { id } }), onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] }) });
+  const delLifeMut = useMutation({
+    mutationFn: (id: string) => delLifeFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] }),
+  });
 
   const filtered = (detail.contact_history ?? []).filter((h: any) => {
     if (filter === "all") return true;
@@ -999,7 +738,6 @@ function ClientCareTab({ detail }: { detail: any }) {
           <Field label="Communication Notes"><Textarea defaultValue={c.communication_notes ?? ""} onBlur={(e) => updMut.mutate({ communication_notes: e.target.value })} /></Field>
         </div>
       </div>
-
       <div>
         <div className="flex justify-between items-center mb-2">
           <div className="text-sm font-semibold">Contact History</div>
@@ -1023,7 +761,6 @@ function ClientCareTab({ detail }: { detail: any }) {
           </div>
         )}
       </div>
-
       <div>
         <div className="flex justify-between items-center mb-2">
           <div className="text-sm font-semibold">Life Events</div>
@@ -1046,7 +783,6 @@ function ClientCareTab({ detail }: { detail: any }) {
           </div>
         )}
       </div>
-
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Log Contact</DialogTitle></DialogHeader>
@@ -1062,7 +798,6 @@ function ClientCareTab({ detail }: { detail: any }) {
           <DialogFooter><Button onClick={() => logMut.mutate()}>Save</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-
       <Dialog open={lifeOpen} onOpenChange={setLifeOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Life Event</DialogTitle></DialogHeader>
@@ -1083,54 +818,171 @@ function ClientCareTab({ detail }: { detail: any }) {
   );
 }
 
-// ----- Policies -----
+// ============ Health Tab ============
+function HealthTab({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const [healthForm, setHealthForm] = useState<Record<string, any>>(detail?.health ?? {});
+  useEffect(() => { if (detail?.health) setHealthForm(detail.health); }, [detail?.health]);
+
+  const upsertHealthFn = useServerFn(upsertClientHealth);
+  const healthMut = useMutation({
+    mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const saveHealth = (key: string, value: any) => healthMut.mutate({ [key]: value });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label>Height (ft)</Label>
+          <Input type="number" min={0} max={9} value={healthForm.height_ft ?? ""} onChange={e => setHealthForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => saveHealth("height_ft", e.target.value ? Number(e.target.value) : null)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Height (in)</Label>
+          <Input type="number" min={0} max={11} value={healthForm.height_in ?? ""} onChange={e => setHealthForm(f => ({...f, height_in: e.target.value}))} onBlur={e => saveHealth("height_in", e.target.value ? Number(e.target.value) : null)} />
+        </div>
+        <div className="space-y-1">
+          <Label>Weight (lbs)</Label>
+          <Input type="number" min={0} value={healthForm.weight_lbs ?? ""} onChange={e => setHealthForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => saveHealth("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label>Tobacco Use</Label>
+        <div className="flex gap-2">
+          <Button size="sm" variant={healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: true})); saveHealth("tobacco_use", true); }}>Yes</Button>
+          <Button size="sm" variant={!healthForm.tobacco_use ? "default" : "outline"} onClick={() => { setHealthForm(f => ({...f, tobacco_use: false})); saveHealth("tobacco_use", false); }}>No</Button>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label>Primary Physician</Label>
+        <Input value={healthForm.primary_physician ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => saveHealth("primary_physician", e.target.value || null)} />
+      </div>
+      <div className="space-y-1">
+        <Label>Physician Phone</Label>
+        <Input value={healthForm.primary_physician_phone ?? ""} onChange={e => setHealthForm(f => ({...f, primary_physician_phone: formatPhone(e.target.value)}))} onBlur={e => saveHealth("primary_physician_phone", e.target.value || null)} />
+      </div>
+      <div className="space-y-1">
+        <Label>Medical Conditions</Label>
+        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.conditions ?? ""} onChange={e => setHealthForm(f => ({...f, conditions: e.target.value}))} onBlur={e => saveHealth("conditions", e.target.value || null)} placeholder="List conditions..." />
+      </div>
+      <div className="space-y-1">
+        <Label>Current Medications</Label>
+        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medications ?? ""} onChange={e => setHealthForm(f => ({...f, medications: e.target.value}))} onBlur={e => saveHealth("medications", e.target.value || null)} placeholder="List medications..." />
+      </div>
+      <div className="space-y-1">
+        <Label>Medical Notes</Label>
+        <textarea className="w-full min-h-[80px] rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring" value={healthForm.medical_notes ?? ""} onChange={e => setHealthForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => saveHealth("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
+      </div>
+    </div>
+  );
+}
+
+// ============ Banking Tab ============
+function BankingTab({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const [bankingForm, setBankingForm] = useState<Record<string, any>>(detail?.banking ?? {});
+  const [showAcct, setShowAcct] = useState(false);
+  useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
+
+  const upsertBankingFn = useServerFn(upsertClientBanking);
+  const bankingMut = useMutation({
+    mutationFn: (patch: any) => upsertBankingFn({ data: { client_id: detail.client.id, ...patch } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+  });
+  const saveBanking = (key: string, value: any) => bankingMut.mutate({ [key]: value });
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <Label>Bank Name</Label>
+        <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => saveBanking("bank_name", e.target.value || null)} />
+      </div>
+      <div className="space-y-1">
+        <Label>Account Type</Label>
+        <Select value={bankingForm.account_type ?? "checking"} onValueChange={v => { setBankingForm(f => ({...f, account_type: v})); saveBanking("account_type", v); }}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="checking">Checking</SelectItem>
+            <SelectItem value="savings">Savings</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label>Routing Number</Label>
+        <Input value={bankingForm.routing_number ?? ""} onChange={e => setBankingForm(f => ({...f, routing_number: formatRouting(e.target.value)}))} onBlur={e => saveBanking("routing_number", e.target.value || null)} placeholder="9 digits" />
+      </div>
+      <div className="space-y-1">
+        <Label>Account Number</Label>
+        <div className="relative">
+          <Input type={showAcct ? "text" : "password"} value={bankingForm.account_number_masked ?? ""} onChange={e => setBankingForm(f => ({...f, account_number_masked: e.target.value}))} onBlur={e => saveBanking("account_number_masked", e.target.value || null)} className="pr-10" />
+          <button type="button" onClick={() => setShowAcct(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <Label>Draft Date</Label>
+        <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); saveBanking("draft_date", Number(v)); }}>
+          <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+          <SelectContent>
+            {Array.from({length: 28}, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label>Payment Method</Label>
+        <Select value={bankingForm.payment_method ?? "bank_draft"} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); saveBanking("payment_method", v); }}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="bank_draft">Bank Draft</SelectItem>
+            <SelectItem value="credit_card">Credit Card</SelectItem>
+            <SelectItem value="money_order">Money Order</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ============ Policies Tab ============
 const statusCls: Record<string, string> = {
-  active: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  lapsed: "bg-red-100 text-red-700 border-red-200",
+  active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
+  lapsed:    "bg-red-100 text-red-700 border-red-200",
   in_review: "bg-amber-100 text-amber-700 border-amber-200",
-  pending: "bg-slate-100 text-slate-600 border-slate-200",
+  pending:   "bg-slate-100 text-slate-600 border-slate-200",
 };
 
 function PoliciesTab({ detail }: { detail: any }) {
-  const qc = useQueryClient();
-  const [addPolOpen, setAddPolOpen] = useState(false);
-  const [polForm, setPolForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", annual_premium: "", monthly_premium: "", face_amount: "", effective_date: "" });
+  const [showForm, setShowForm] = useState(false);
+  const client = detail.client;
+  const policies = detail.policies;
 
-  const listCarriersFn = useServerFn(listCarriers);
-  const { data: carriers = [] } = useQuery({
-    queryKey: ["carriers"],
-    queryFn: () => listCarriersFn(),
-    staleTime: 5 * 60_000,
-  });
-
-  const addPolicyFn = useServerFn(addPolicy);
-  const addPolMut = useMutation({
-    mutationFn: () => addPolicyFn({ data: {
-      client_id: detail.client.id,
-      carrier_id: polForm.carrier_id || null,
-      policy_number: polForm.policy_number,
-      product: polForm.product,
-      status: polForm.status,
-      annual_premium: polForm.annual_premium ? Number(polForm.annual_premium) : null,
-      monthly_premium: polForm.monthly_premium ? Number(polForm.monthly_premium) : null,
-      face_amount: polForm.face_amount ? Number(polForm.face_amount) : null,
-      effective_date: polForm.effective_date || null,
-    }}),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] });
-      setAddPolOpen(false);
-      setPolForm({ carrier_id: "", policy_number: "", product: "", status: "active", annual_premium: "", monthly_premium: "", face_amount: "", effective_date: "" });
-    },
-  });
+  if (client.stage !== "sold") {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
+        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+        Click "Mark Sold" to add policies for this client.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <Button onClick={() => setAddPolOpen(true)}><Plus className="h-4 w-4" /> Add Policy</Button>
-      {detail.policies.length === 0 ? (
-        <div className="text-sm text-muted-foreground">No policies yet for this client.</div>
-      ) : (
+      {policies.length > 0 && !showForm && (
+        <Button size="sm" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Policy</Button>
+      )}
+      {(policies.length === 0 || showForm) && (
+        <AddPolicyInlineForm
+          clientId={client.id}
+          onSaved={() => setShowForm(false)}
+          onCancel={() => setShowForm(false)}
+          showCancel={policies.length > 0}
+        />
+      )}
+      {policies.length > 0 && (
         <div className="space-y-2">
-          {detail.policies.map((pol: any) => (
+          {policies.map((pol: any) => (
             <details key={pol.id} className="rounded-lg border bg-card">
               <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
                 <div>
@@ -1153,50 +1005,96 @@ function PoliciesTab({ detail }: { detail: any }) {
           ))}
         </div>
       )}
-
-      <Dialog open={addPolOpen} onOpenChange={setAddPolOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Policy</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <Field label="Carrier">
-              <Select value={polForm.carrier_id} onValueChange={v => setPolForm(f => ({...f, carrier_id: v}))}>
-                <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
-                <SelectContent>
-                  {(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field label="Policy Number"><Input value={polForm.policy_number} onChange={e => setPolForm(f => ({...f, policy_number: e.target.value}))} /></Field>
-            <Field label="Product"><Input value={polForm.product} onChange={e => setPolForm(f => ({...f, product: e.target.value}))} /></Field>
-            <Field label="Status">
-              <Select value={polForm.status} onValueChange={v => setPolForm(f => ({...f, status: v}))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_review">In Review</SelectItem>
-                  <SelectItem value="lapsed">Lapsed</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Face Amount"><Input type="number" value={polForm.face_amount} onChange={e => setPolForm(f => ({...f, face_amount: e.target.value}))} /></Field>
-              <Field label="Monthly Premium"><Input type="number" value={polForm.monthly_premium} onChange={e => setPolForm(f => ({...f, monthly_premium: e.target.value}))} /></Field>
-              <Field label="Annual Premium"><Input type="number" value={polForm.annual_premium} onChange={e => setPolForm(f => ({...f, annual_premium: e.target.value}))} /></Field>
-              <Field label="Effective Date"><Input type="date" value={polForm.effective_date} onChange={e => setPolForm(f => ({...f, effective_date: e.target.value}))} /></Field>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddPolOpen(false)}>Cancel</Button>
-            <Button onClick={() => addPolMut.mutate()} disabled={addPolMut.isPending}>Save Policy</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
 
-// ----- Email -----
+function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clientId: string; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
+
+  const listCarriersFn = useServerFn(listCarriers);
+  const { data: carriers = [] } = useQuery({
+    queryKey: ["carriers"],
+    queryFn: () => listCarriersFn(),
+    staleTime: 5 * 60_000,
+  });
+
+  const addPolicyFn = useServerFn(addPolicy);
+  const mut = useMutation({
+    mutationFn: () => addPolicyFn({ data: {
+      client_id: clientId,
+      carrier_id: form.carrier_id || null,
+      policy_number: form.policy_number,
+      product: form.product,
+      status: form.status,
+      monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : null,
+      annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
+      face_amount: form.face_amount ? Number(form.face_amount) : null,
+      effective_date: form.effective_date || null,
+    }}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
+      toast.success("Policy saved");
+      onSaved();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to save policy"),
+  });
+
+  const monthly = Number(form.monthly_premium || 0);
+
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-3">
+      <div className="text-sm font-semibold">Add Policy</div>
+      <Field label="Carrier">
+        <Select value={form.carrier_id} onValueChange={v => setForm(f => ({...f, carrier_id: v}))}>
+          <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
+          <SelectContent>
+            {(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Product">
+        <Select value={form.product} onValueChange={v => setForm(f => ({...f, product: v}))}>
+          <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
+          <SelectContent>
+            {PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Policy Number">
+        <Input value={form.policy_number} onChange={e => setForm(f => ({...f, policy_number: e.target.value}))} placeholder="e.g., POL-123456" />
+      </Field>
+      <Field label="Effective Date">
+        <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({...f, effective_date: e.target.value}))} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Face Amount">
+          <Input type="number" value={form.face_amount} onChange={e => setForm(f => ({...f, face_amount: e.target.value}))} placeholder="e.g., 50000" />
+        </Field>
+        <Field label="Monthly Premium">
+          <Input type="number" step="0.01" value={form.monthly_premium} onChange={e => setForm(f => ({...f, monthly_premium: e.target.value}))} placeholder="e.g., 99.99" />
+        </Field>
+      </div>
+      {monthly > 0 && (
+        <div className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+          Annual Premium: {money(monthly * 12)}
+        </div>
+      )}
+      <div className="flex gap-2 pt-1">
+        {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
+        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+          {mut.isPending ? "Saving..." : "Save Policy"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============ Email Tab ============
 const EMAIL_TEMPLATES = [
   { id: "spoke", emoji: "📧", title: "We Just Spoke", tag: "follow up", subject: "Great speaking with you", body: "Hi {{firstName}}, it was great talking with you today. As promised, here's a quick recap of what we discussed and the next steps." },
   { id: "quote", emoji: "📊", title: "Quote", tag: "proposal", subject: "Your coverage options", body: "Hi {{firstName}}, here are the coverage options we discussed. Let me know which one looks best and we can move forward." },
@@ -1210,7 +1108,7 @@ function EmailTab({ detail }: { detail: any }) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-700 dark:text-amber-300 inline-flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-        No email address on file. Add an email in the Contact Information section to use email templates.
+        No email address on file. Add an email in the Contact tab to use email templates.
       </div>
     );
   }
@@ -1230,7 +1128,7 @@ function EmailTab({ detail }: { detail: any }) {
   return (
     <div className="space-y-3">
       <div className="text-sm text-muted-foreground">Select a pre-made template to send to {c.first_name}:</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {EMAIL_TEMPLATES.map((t) => (
           <div key={t.id} className="border rounded-lg p-4 space-y-2">
             <div className="text-base font-medium">{t.emoji} {t.title}</div>

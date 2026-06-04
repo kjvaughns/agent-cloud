@@ -63,6 +63,7 @@ const PostDealSchema = z.object({
     effective_date: z.string().min(8),
     face_amount: z.number().min(0),
     monthly_premium: z.number().min(0),
+    status: z.enum(["issued_not_paid", "in_review"]).default("issued_not_paid"),
   }),
   beneficiaries: z.array(BeneficiarySchema).max(10),
   notes: z.string().max(2000).optional().or(z.literal("")),
@@ -115,7 +116,7 @@ export const postDeal = createServerFn({ method: "POST" })
         face_amount: data.policy.face_amount,
         monthly_premium: data.policy.monthly_premium,
         annual_premium: annual,
-        status: "in_review",
+        status: data.policy.status ?? "issued_not_paid",
       })
       .select("id")
       .single();

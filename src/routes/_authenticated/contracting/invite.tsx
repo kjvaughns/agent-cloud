@@ -17,6 +17,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, Check, Trash2, Lock, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -122,35 +124,69 @@ function InvitePage() {
               <p className="text-sm text-muted-foreground">You don't have any active carrier contracts to assign yet.</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <Accordion type="multiple" className="border rounded-lg overflow-hidden divide-y">
               {(myCarriers?.rows ?? []).map((row: any) => {
                 const carrier = row.carriers;
                 if (!carrier) return null;
                 const assignment = assignments.find((a) => a.carrier_id === carrier.id);
                 const myPct = Number(row.assigned_pct);
+                const isAssigned = !!assignment;
                 return (
-                  <CarrierAssignmentCard
-                    key={carrier.id}
-                    carrierId={carrier.id}
-                    carrierName={carrier.name}
-                    myMaxPct={myPct}
-                    assignment={assignment}
-                    onToggle={(checked) => {
-                      if (checked) {
-                        setAssignments((a) => [...a, { carrier_id: carrier.id, carrier_name: carrier.name, level_pct: myPct, release_needed: false }]);
-                      } else {
-                        setAssignments((a) => a.filter((x) => x.carrier_id !== carrier.id));
-                      }
-                    }}
-                    onUpdate={(patch) => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, ...patch } : x))}
-                  />
+                  <AccordionItem key={carrier.id} value={carrier.id} className="border-0">
+                    <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-muted/30 [&>svg]:shrink-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                        <Checkbox
+                          checked={isAssigned}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setAssignments((a) => [...a, { carrier_id: carrier.id, carrier_name: carrier.name, level_pct: myPct, release_needed: false }]);
+                            } else {
+                              setAssignments((a) => a.filter((x) => x.carrier_id !== carrier.id));
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <span className="font-medium text-sm truncate">{carrier.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto mr-2 shrink-0">
+                          {isAssigned ? `${assignment!.level_pct}%` : "Not assigned"}
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    {isAssigned && assignment && (
+                      <AccordionContent className="px-3 pb-3 pt-0 border-t bg-muted/10">
+                        <div className="space-y-3 pt-3">
+                          <div>
+                            <Label className="text-xs">Commission Level</Label>
+                            <Select value={String(assignment.level_pct)} onValueChange={(v) => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, level_pct: Number(v) } : x))}>
+                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {Array.from({ length: Math.ceil((myPct - 50) / 5) + 1 }, (_, i) => myPct - i * 5).map((p) => (
+                                  <SelectItem key={p} value={String(p)}>{p}%{p === myPct ? " (your level)" : ""}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Lock className="h-3 w-3" /> Applies to all product groups for this carrier.
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Release Needed from previous upline?</Label>
+                            <div className="flex gap-2 mt-1">
+                              <Button size="sm" type="button" variant={assignment.release_needed ? "default" : "outline"} onClick={() => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, release_needed: true } : x))}>Yes</Button>
+                              <Button size="sm" type="button" variant={!assignment.release_needed ? "default" : "outline"} onClick={() => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, release_needed: false } : x))}>No</Button>
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    )}
+                  </AccordionItem>
                 );
               })}
-            </div>
+            </Accordion>
           )}
 
           {assignments.length > 0 && (
-            <p className="text-sm text-muted-foreground pt-2">{assignments.length} carrier{assignments.length === 1 ? "" : "s"} selected</p>
+            <p className="text-sm text-muted-foreground pt-2">{assignments.length} carrier{assignments.length === 1 ? "" : "s"} assigned</p>
           )}
         </div>
 
@@ -176,61 +212,6 @@ function InvitePage() {
   );
 }
 
-function CarrierAssignmentCard({
-  carrierId, carrierName, myMaxPct, assignment, onToggle, onUpdate,
-}: {
-  carrierId: string;
-  carrierName: string;
-  myMaxPct: number;
-  assignment: Assignment | undefined;
-  onToggle: (v: boolean) => void;
-  onUpdate: (patch: Partial<Assignment>) => void;
-}) {
-  const checked = !!assignment;
-  const levelOptions: number[] = [];
-  for (let p = myMaxPct; p >= 50; p -= 5) levelOptions.push(p);
-
-  return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="flex items-center justify-between p-3 bg-muted/30">
-        <label className="flex items-center gap-3 cursor-pointer flex-1">
-          <input type="checkbox" checked={checked} onChange={(e) => onToggle(e.target.checked)} className="h-4 w-4" />
-          <div>
-            <div className="font-medium">{carrierName}</div>
-            <div className="text-xs text-muted-foreground">Your max: {myMaxPct}%</div>
-          </div>
-        </label>
-        {checked && <Badge variant="secondary">Included</Badge>}
-      </div>
-
-      {checked && assignment && (
-        <div className="p-3 space-y-3 border-t">
-          <div>
-            <Label className="text-xs">Commission Level</Label>
-            <Select value={String(assignment.level_pct)} onValueChange={(v) => onUpdate({ level_pct: Number(v) })}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {levelOptions.map((p) => (
-                  <SelectItem key={p} value={String(p)}>{p}%{p === myMaxPct ? " (your level)" : ""}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Lock className="h-3 w-3" /> Applies to all product groups for this carrier.
-            </p>
-          </div>
-          <div>
-            <Label className="text-xs">Release Needed from previous upline?</Label>
-            <div className="flex gap-2 mt-1">
-              <Button size="sm" type="button" variant={assignment.release_needed ? "default" : "outline"} onClick={() => onUpdate({ release_needed: true })}>Yes</Button>
-              <Button size="sm" type="button" variant={!assignment.release_needed ? "default" : "outline"} onClick={() => onUpdate({ release_needed: false })}>No</Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function LinksTable({ rows }: { rows: any[] }) {
   const qc = useQueryClient();

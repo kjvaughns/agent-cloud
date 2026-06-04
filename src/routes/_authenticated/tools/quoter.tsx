@@ -1,40 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Quote } from "lucide-react";
+import { Wrench } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tools/quoter")({
   head: () => ({
     meta: [
-      { title: "Life Insurance Quoter — Agent Cloud" },
-      { name: "description", content: "Quote 100+ carriers including Final Expense, Term Life, IUL, and more." },
+      { title: "Toolkits — Agent Cloud" },
+      { name: "description", content: "Agent tools for quoting, verification, and more." },
     ],
   }),
-  component: QuoterPage,
+  component: ToolkitsPage,
 });
 
-const FEATURES = ["FEX Quoter", "Term Quoter", "IUL Quoter", "Funeral Quotes", "Bank Validator"];
+const TOOLS = [
+  { name: "FEX Quoter", desc: "Quote Final Expense products across 50+ carriers instantly.", url: "https://quotify.life", icon: "📋" },
+  { name: "Term Quoter", desc: "Compare term life rates for clients of any age and health class.", url: "https://quotify.life", icon: "📊" },
+  { name: "IUL Quoter", desc: "Illustrate indexed universal life scenarios and premium options.", url: "https://quotify.life", icon: "📈" },
+  { name: "Funeral Home Quotes", desc: "Obtain pre-need funeral expense estimates for client planning.", url: "https://quotify.life", icon: "🏛️" },
+  { name: "Bank Validator", desc: "Verify client banking details before submitting an application.", url: "https://quotify.life", icon: "🏦" },
+];
 
-function QuoterPage() {
+function ToolkitsPage() {
   return (
     <div className="p-4 md:p-6 max-w-3xl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Quote className="h-7 w-7" /> Life Insurance Quoter</h1>
-        <p className="text-muted-foreground mt-1">Quote 100+ carriers including Final Expense, Term Life, IUL, and more.</p>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Wrench className="h-6 w-6" /> Toolkits
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">Agent tools for quoting, verification, and client planning.</p>
       </div>
-      <Card>
-        <CardContent className="p-8 space-y-6">
-          <div className="grid sm:grid-cols-3 gap-3">
-            {FEATURES.map((f) => (
-              <div key={f} className="rounded-lg border p-3 text-center text-sm font-medium bg-muted/30">{f}</div>
-            ))}
-          </div>
-          <Button size="lg" className="w-full" asChild>
-            <a href="https://quotify.life" target="_blank" rel="noreferrer">Open Quoter <ExternalLink className="h-4 w-4 ml-2" /></a>
-          </Button>
-          <p className="text-xs text-muted-foreground text-center">Powered by Quotify.life</p>
-        </CardContent>
-      </Card>
+      <div className="grid sm:grid-cols-2 gap-4">
+        {TOOLS.map((t) => (
+          <Card key={t.name}>
+            <CardContent className="p-5 flex flex-col gap-3">
+              <div className="text-3xl">{t.icon}</div>
+              <div>
+                <div className="font-semibold">{t.name}</div>
+                <p className="text-sm text-muted-foreground mt-0.5">{t.desc}</p>
+              </div>
+              <Button asChild size="sm" className="mt-auto w-fit">
+                <a href={t.url} target="_blank" rel="noreferrer">Open</a>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

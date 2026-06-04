@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -18,6 +18,9 @@ import {
 } from "@/lib/post-deal.functions";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    client_id: typeof s.client_id === "string" ? s.client_id : undefined,
+  }),
   head: () => ({ meta: [{ title: "Post a Deal — Agent Cloud" }] }),
   component: PostDealPage,
 });
@@ -38,6 +41,7 @@ type FormData = {
   effective_date: string;
   face_amount: string;
   monthly_premium: string;
+  status: "issued_not_paid" | "in_review";
   beneficiaries: { first_name: string; last_name: string; relationship: string; dob: string; percentage: string }[];
   notes: string;
 };
@@ -45,6 +49,7 @@ type FormData = {
 function PostDealPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { client_id } = Route.useSearch();
   const listCarriers = useServerFn(listCarriersForDeal);
   const myCarriers = useServerFn(getMyActiveCarrierIds);
   const submit = useServerFn(postDeal);
@@ -58,7 +63,7 @@ function PostDealPage() {
       client_type: "new",
       first_name: "", last_name: "", phone: "", date_of_birth: "",
       carrier_id: "", product: "", policy_number: "", effective_date: "",
-      face_amount: "", monthly_premium: "",
+      face_amount: "", monthly_premium: "", status: "issued_not_paid",
       beneficiaries: [],
       notes: "",
     },
@@ -66,6 +71,13 @@ function PostDealPage() {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = form;
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "beneficiaries" });
+
+  useEffect(() => {
+    if (client_id) {
+      setValue("client_type", "existing");
+      setValue("existing_id", client_id);
+    }
+  }, [client_id, setValue]);
 
   const clientType = watch("client_type");
   const monthly = Number(watch("monthly_premium") || 0);
@@ -100,6 +112,7 @@ function PostDealPage() {
             effective_date: d.effective_date,
             face_amount: Number(d.face_amount || 0),
             monthly_premium: Number(d.monthly_premium || 0),
+            status: d.status,
           },
           beneficiaries: d.beneficiaries.map((b) => ({
             first_name: b.first_name, last_name: b.last_name,
@@ -110,9 +123,11 @@ function PostDealPage() {
         },
       }),
     onSuccess: () => {
-      toast.success("✓ Deal posted successfully! Your commission schedule has been calculated.");
+      toast.success("Deal posted! Client moved to Sold tab.");
       qc.invalidateQueries({ queryKey: ["pipeline"] });
-      nav({ to: "/book-of-business" });
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      nav({ to: "/pipeline", search: { tab: "sold" } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -216,6 +231,16 @@ function PostDealPage() {
             <div><Label>Effective Date *</Label><Input type="date" {...register("effective_date", { required: true })} /></div>
             <div><Label>Face Amount *</Label><Input type="number" {...register("face_amount", { required: true })} placeholder="e.g., 50000" /></div>
             <div><Label>Monthly Premium *</Label><Input type="number" step="0.01" {...register("monthly_premium", { required: true })} placeholder="e.g., 99.99" /></div>
+            <div className="col-span-2">
+              <Label>Policy Status *</Label>
+              <Select value={watch("status")} onValueChange={(v) => setValue("status", v as any)}>
+                <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="issued_not_paid">Issued, Not Paid</SelectItem>
+                  <SelectItem value="in_review">In Review</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="col-span-2">
               <Label>Annual Premium</Label>
               <div className="px-3 py-2 bg-muted rounded-md text-emerald-700 dark:text-emerald-400 font-semibold">

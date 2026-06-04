@@ -43,11 +43,16 @@ export const Route = createFileRoute("/_authenticated/account/producer-profile")
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 const BACKGROUND_QUESTIONS = [
-  "Have you ever been convicted of any crime other than a minor traffic violation?",
-  "Have you ever had an insurance license suspended, revoked, or refused?",
-  "Have you ever filed for bankruptcy in the last 10 years?",
-  "Are you currently the subject of any pending investigation by an insurance department?",
-  "Have you ever been terminated for cause by any insurance company or broker-dealer?",
+  { id: "felony", text: "Have you ever been convicted of a felony?" },
+  { id: "misdemeanor", text: "Have you ever been convicted of any crime other than a minor traffic violation?" },
+  { id: "license_action", text: "Have you ever had an insurance license suspended, revoked, or refused in any state?" },
+  { id: "regulatory", text: "Have you ever been subject to a regulatory action, fine, or sanction by any state insurance department?" },
+  { id: "bankruptcy", text: "Have you filed for bankruptcy within the last 10 years?" },
+  { id: "civil_judgment", text: "Do you have any unsatisfied judgments or liens against you?" },
+  { id: "terminated", text: "Have you ever been terminated for cause by any insurance company, broker-dealer, or financial institution?" },
+  { id: "investigation_pending", text: "Are you currently the subject of any pending investigation by an insurance department, FINRA, or law enforcement?" },
+  { id: "restraining_order", text: "Have you ever had a restraining order or injunction entered against you in connection with a financial services business?" },
+  { id: "military_discharge", text: "Have you ever been discharged from the military under other than honorable conditions?" },
 ];
 
 const DOC_CATEGORIES = [
@@ -111,13 +116,15 @@ function ProducerProfilePage() {
       </Card>
 
       <Tabs defaultValue="profile">
-        <TabsList>
-          <TabsTrigger value="profile">Profile Information</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="banking">Banking</TabsTrigger>
-          <TabsTrigger value="background">Background Questions</TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="flex w-max">
+            <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
+            <TabsTrigger value="documents" className="whitespace-nowrap">Documents</TabsTrigger>
+            <TabsTrigger value="banking" className="whitespace-nowrap">Banking</TabsTrigger>
+            <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
+            <TabsTrigger value="integrations" className="whitespace-nowrap">Integrations</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
           <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} onSaved={invalidate} />
@@ -784,10 +791,10 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
             const qNum = i + 1;
             const ans = answers[qNum];
             return (
-              <div key={qNum} className="border rounded-lg p-4 space-y-3">
+              <div key={q.id} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-start gap-3">
                   <span className="text-xs font-medium text-muted-foreground mt-0.5 shrink-0">{qNum}.</span>
-                  <span className="text-sm flex-1">{q}</span>
+                  <span className="text-sm flex-1">{q.text}</span>
                 </div>
                 <div className="flex gap-2 ml-5">
                   <Button
@@ -824,8 +831,22 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
             </div>
           )}
 
-          <div className="flex justify-end">
-            <Button onClick={() => setReviewOpen(true)} disabled={Object.values(answers).some(a => a.answer === null)}>
+          <div className="border-t pt-4 space-y-3">
+            <p className="text-xs text-muted-foreground">By signing below, I certify that the answers above are true and complete to the best of my knowledge. I understand that any misrepresentation may result in termination of my contract.</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Full Legal Name *</Label>
+                <Input value={sigName} onChange={(e) => setSigName(e.target.value)} placeholder="Your full legal name" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Date</Label>
+                <Input readOnly value={new Date().toLocaleDateString()} />
+              </div>
+            </div>
+            <Button
+              onClick={() => setReviewOpen(true)}
+              disabled={Object.values(answers).some(a => a.answer === null) || sigName.trim().length < 2}
+            >
               Review & Sign
             </Button>
           </div>
@@ -840,8 +861,8 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
               const qNum = i + 1;
               const ans = answers[qNum];
               return (
-                <div key={qNum} className="space-y-1">
-                  <p className="text-sm font-medium">{qNum}. {q}</p>
+                <div key={q.id} className="space-y-1">
+                  <p className="text-sm font-medium">{qNum}. {q.text}</p>
                   <p className={cn("text-sm font-semibold", ans.answer ? "text-red-600" : "text-emerald-600")}>
                     {ans.answer ? "Yes" : "No"}
                   </p>
@@ -851,10 +872,6 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
             })}
           </div>
           <div className="border-t pt-4 space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Type your full legal name to sign</Label>
-              <Input value={sigName} onChange={(e) => setSigName(e.target.value)} placeholder="Full Name" />
-            </div>
             <label className="flex items-start gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
               <span>I confirm these answers are accurate and complete to the best of my knowledge.</span>
@@ -862,7 +879,7 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
-            <Button disabled={!agreed || sigName.trim().length < 2 || signMut.isPending} onClick={() => signMut.mutate()}>
+            <Button disabled={!agreed || signMut.isPending} onClick={() => signMut.mutate()}>
               {signMut.isPending ? "Signing..." : "Submit & Sign"}
             </Button>
           </DialogFooter>
