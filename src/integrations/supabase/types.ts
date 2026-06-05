@@ -2440,27 +2440,45 @@ export type Database = {
           created_at: string
           expires_date: string | null
           id: string
+          is_resident: boolean | null
           issued_date: string | null
           license_number: string | null
+          license_type: string | null
+          loa: string | null
+          loa_status: string | null
+          npn_number: string | null
           state_code: string
+          updated_at: string | null
         }
         Insert: {
           agent_id: string
           created_at?: string
           expires_date?: string | null
           id?: string
+          is_resident?: boolean | null
           issued_date?: string | null
           license_number?: string | null
+          license_type?: string | null
+          loa?: string | null
+          loa_status?: string | null
+          npn_number?: string | null
           state_code: string
+          updated_at?: string | null
         }
         Update: {
           agent_id?: string
           created_at?: string
           expires_date?: string | null
           id?: string
+          is_resident?: boolean | null
           issued_date?: string | null
           license_number?: string | null
+          license_type?: string | null
+          loa?: string | null
+          loa_status?: string | null
+          npn_number?: string | null
           state_code?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
