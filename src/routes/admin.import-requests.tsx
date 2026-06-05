@@ -102,6 +102,7 @@ function ImportRequestsPage() {
                 <TableHead>AL Username</TableHead>
                 <TableHead>Password</TableHead>
                 <TableHead className="min-w-[200px]">Admin Notes</TableHead>
+                <TableHead>AI Import</TableHead>
                 <TableHead className="text-right">Update Status</TableHead>
               </TableRow>
             </TableHeader>
