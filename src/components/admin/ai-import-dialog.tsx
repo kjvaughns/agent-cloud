@@ -130,25 +130,8 @@ export function AIImportDialog({
               Upload any file exported from AgentLink (XLS, CSV, PDF, or screenshot). AI will extract clients,
               policies, and notes and let you preview before saving to <b>{targetAgent.name}</b>'s account.
             </p>
-            <label className="block rounded-lg border-2 border-dashed border-muted-foreground/30 p-8 text-center cursor-pointer hover:border-primary/60 transition-colors">
-              <input
-                type="file"
-                accept=".xls,.xlsx,.csv,.pdf,.png,.jpg,.jpeg,.webp"
-                className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              {file ? (
-                <div className="flex items-center justify-center gap-2 text-sm">
-                  <FileText className="h-4 w-4" />
-                  <span className="font-medium">{file.name}</span>
-                  <span className="text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Click to choose a file (max 20MB)
-                </div>
-              )}
-            </label>
+            <DropZone file={file} onFile={setFile} />
+
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button onClick={() => createMut.mutate()} disabled={!file}>
