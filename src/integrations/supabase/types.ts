@@ -133,6 +133,85 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_import_jobs: {
+        Row: {
+          admin_id: string
+          ai_error: string | null
+          clients_imported: number
+          completed_at: string | null
+          created_at: string
+          duplicates_skipped: number
+          extracted_json: Json | null
+          file_name: string
+          file_path: string | null
+          file_type: string
+          id: string
+          notes_imported: number
+          policies_imported: number
+          scrape_request_id: string | null
+          status: string
+          target_agent_id: string
+        }
+        Insert: {
+          admin_id: string
+          ai_error?: string | null
+          clients_imported?: number
+          completed_at?: string | null
+          created_at?: string
+          duplicates_skipped?: number
+          extracted_json?: Json | null
+          file_name: string
+          file_path?: string | null
+          file_type: string
+          id?: string
+          notes_imported?: number
+          policies_imported?: number
+          scrape_request_id?: string | null
+          status?: string
+          target_agent_id: string
+        }
+        Update: {
+          admin_id?: string
+          ai_error?: string | null
+          clients_imported?: number
+          completed_at?: string | null
+          created_at?: string
+          duplicates_skipped?: number
+          extracted_json?: Json | null
+          file_name?: string
+          file_path?: string | null
+          file_type?: string
+          id?: string
+          notes_imported?: number
+          policies_imported?: number
+          scrape_request_id?: string | null
+          status?: string
+          target_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_import_jobs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_import_jobs_scrape_request_id_fkey"
+            columns: ["scrape_request_id"]
+            isOneToOne: false
+            referencedRelation: "scrape_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_import_jobs_target_agent_id_fkey"
+            columns: ["target_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
@@ -2243,6 +2322,47 @@ export type Database = {
           withdrawal_rate_pct?: number | null
         }
         Relationships: []
+      }
+      scrape_requests: {
+        Row: {
+          admin_notes: string | null
+          agentlink_password_encrypted: string | null
+          agentlink_username: string
+          completed_at: string | null
+          id: string
+          requesting_agent_id: string
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          agentlink_password_encrypted?: string | null
+          agentlink_username: string
+          completed_at?: string | null
+          id?: string
+          requesting_agent_id: string
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          admin_notes?: string | null
+          agentlink_password_encrypted?: string | null
+          agentlink_username?: string
+          completed_at?: string | null
+          id?: string
+          requesting_agent_id?: string
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrape_requests_requesting_agent_id_fkey"
+            columns: ["requesting_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scripts: {
         Row: {
