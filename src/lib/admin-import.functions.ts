@@ -805,16 +805,45 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
     }
 
     let inserted = 0;
-    let skippedNoClient = 0;
+    let clientsCreated = 0;
     let errors = 0;
     const errorSamples: string[] = [];
 
     for (const p of policiesRaw) {
-      const key = normName(p.client_label);
-      const c = clientByName.get(key);
-      if (!c) { skippedNoClient++; continue; }
+      const label = (p.client_label ?? "").trim();
+      if (!label) continue;
+      const key = normName(label);
+      let c = clientByName.get(key);
 
-      // Skip if a policy with the same policy_number already exists for this client
+      const ownerEmail = p.agent_label
+        ? nameToEmail.get(normName(p.agent_label)) ?? c?.ownerEmail ?? null
+        : c?.ownerEmail ?? null;
+
+      // Auto-create a "sold" client stub if this downline policy has no client yet
+      if (!c) {
+        const [firstName, ...rest] = label.split(/\s+/);
+        const lastName = rest.join(" ");
+        const { data: newClient, error: cErr } = await supabase
+          .from("clients")
+          .insert({
+            agent_id: targetAgent,
+            first_name: firstName,
+            last_name: lastName,
+            stage: "sold",
+            assigned_to_email: ownerEmail,
+          })
+          .select("id")
+          .single();
+        if (cErr || !newClient) {
+          errors++;
+          if (errorSamples.length < 3) errorSamples.push(cErr?.message ?? "client create failed");
+          continue;
+        }
+        c = { id: newClient.id, ownerEmail };
+        clientByName.set(key, c);
+        clientsCreated++;
+      }
+
       if (p.policy_number) {
         const { data: dup } = await supabase
           .from("policies")
@@ -825,10 +854,6 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
         if (dup) continue;
       }
 
-      const ownerEmail = p.agent_label
-        ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail
-        : c.ownerEmail;
-
       const { error } = await supabase.from("policies").insert({
         client_id: c.id,
         agent_id: targetAgent,
@@ -836,7 +861,7 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
         product: p.product ?? p.carrier ?? "Unknown",
         policy_number: p.policy_number,
         monthly_premium: p.monthly_premium,
-        annual_premium: p.annual_premium || p.monthly_premium * 12,
+        annual_premium: p.annual_premium || (p.monthly_premium ?? 0) * 12,
         effective_date: p.effective_date,
         status: mapPolicyStatus(p.status ?? undefined),
         posted_at: new Date().toISOString(),
@@ -857,7 +882,7 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
     return {
       ok: true,
       policies_inserted: inserted,
-      skipped_no_client_match: skippedNoClient,
+      clients_created: clientsCreated,
       errors,
       error_samples: errorSamples,
     };
