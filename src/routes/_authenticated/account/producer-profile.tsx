@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw } from "lucide-react";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -322,32 +323,10 @@ function DriversLicenseCard({ profile, onSave }: { profile: any; onSave: (p: Rec
 }
 
 function AddressCard({ profile, onSave }: { profile: any; onSave: (p: Record<string, unknown>) => void }) {
-  const streetRef = useRef<HTMLInputElement>(null);
   const [street, setStreet] = useState(profile?.street_address ?? "");
   const [city, setCity] = useState(profile?.city ?? "");
   const [state, setState] = useState(profile?.state ?? "");
   const [zip, setZip] = useState(profile?.zip_code ?? "");
-
-  useEffect(() => {
-    if (!streetRef.current || typeof window === "undefined" || !(window as any).google?.maps?.places) return;
-    const ac = new (window as any).google.maps.places.Autocomplete(streetRef.current, { types: ["address"] });
-    ac.addListener("place_changed", () => {
-      const place = ac.getPlace();
-      if (!place.address_components) return;
-      let streetNum = "", route = "", cityVal = "", stateVal = "", zipVal = "";
-      for (const comp of place.address_components) {
-        const t = comp.types[0];
-        if (t === "street_number") streetNum = comp.long_name;
-        if (t === "route") route = comp.long_name;
-        if (t === "locality") cityVal = comp.long_name;
-        if (t === "administrative_area_level_1") stateVal = comp.short_name;
-        if (t === "postal_code") zipVal = comp.long_name;
-      }
-      const fullStreet = `${streetNum} ${route}`.trim();
-      setStreet(fullStreet); setCity(cityVal); setState(stateVal); setZip(zipVal);
-      onSave({ street_address: fullStreet, city: cityVal, state: stateVal, zip_code: zipVal });
-    });
-  }, []);
 
   return (
     <Card>
@@ -355,8 +334,18 @@ function AddressCard({ profile, onSave }: { profile: any; onSave: (p: Record<str
       <CardContent className="grid sm:grid-cols-2 gap-4">
         <div className="space-y-1.5 sm:col-span-2">
           <Label className="text-xs">Street Address</Label>
-          <Input ref={streetRef} value={street} onChange={(e) => setStreet(e.target.value)}
-            onBlur={() => { if (street !== (profile?.street_address ?? "")) onSave({ street_address: street }); }} />
+          <AddressAutocomplete
+            value={street}
+            onChange={setStreet}
+            onSelect={(p) => {
+              setStreet(p.street);
+              setCity(p.city);
+              setState(p.state);
+              setZip(p.zip);
+              onSave({ street_address: p.street, city: p.city, state: p.state, zip_code: p.zip });
+            }}
+            onBlur={() => { if (street !== (profile?.street_address ?? "")) onSave({ street_address: street }); }}
+          />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">City</Label>

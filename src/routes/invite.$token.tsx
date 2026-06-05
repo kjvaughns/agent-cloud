@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Cloud, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 export const Route = createFileRoute("/invite/$token")({
   component: PublicInvitePage,
@@ -227,7 +228,18 @@ function Step1Personal({ token, invite, migrationMatch, onDone }: { token: strin
             </Button>
           </div>
         </div>
-        <div className="col-span-2"><Label>Street address *</Label><Input value={form.street_address} onChange={(e) => set("street_address", e.target.value)} /></div>
+        <div className="col-span-2"><Label>Street address *</Label>
+          <AddressAutocomplete
+            value={form.street_address}
+            onChange={(v) => set("street_address", v)}
+            onSelect={(p) => {
+              set("street_address", p.street);
+              set("city", p.city);
+              set("state", p.state);
+              set("zip_code", p.zip);
+            }}
+          />
+        </div>
         <div><Label>City *</Label><Input value={form.city} onChange={(e) => set("city", e.target.value)} /></div>
         <div><Label>State *</Label><Input value={form.state} onChange={(e) => set("state", e.target.value)} maxLength={2} placeholder="TX" /></div>
         <div><Label>ZIP *</Label><Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} /></div>
