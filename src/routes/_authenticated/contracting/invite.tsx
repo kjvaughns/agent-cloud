@@ -8,6 +8,7 @@ import {
   getMyContractedCarriers,
 } from "@/lib/onboarding.functions";
 import { deleteInvitationLink } from "@/lib/contracting.functions";
+import { listCarrierGridLevels } from "@/lib/admin.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,7 +140,7 @@ function InvitePage() {
                           checked={isAssigned}
                           onCheckedChange={(checked) => {
                             if (checked) {
-                              setAssignments((a) => [...a, { carrier_id: carrier.id, carrier_name: carrier.name, level_pct: myPct, release_needed: false }]);
+                              setAssignments((a) => [...a, { carrier_id: carrier.id, carrier_name: carrier.name, level_pct: myPct, level_name: null, release_needed: false }]);
                             } else {
                               setAssignments((a) => a.filter((x) => x.carrier_id !== carrier.id));
                             }
@@ -148,7 +149,9 @@ function InvitePage() {
                         />
                         <span className="font-medium text-sm truncate">{carrier.name}</span>
                         <span className="text-xs text-muted-foreground ml-auto mr-2 shrink-0">
-                          {isAssigned ? `${assignment!.level_pct}%` : "Not assigned"}
+                          {isAssigned
+                            ? (assignment!.level_name || `${assignment!.level_pct}%`)
+                            : "Not assigned"}
                         </span>
                       </div>
                     </AccordionTrigger>
@@ -157,14 +160,20 @@ function InvitePage() {
                         <div className="space-y-3 pt-3">
                           <div>
                             <Label className="text-xs">Commission Level</Label>
-                            <Select value={String(assignment.level_pct)} onValueChange={(v) => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, level_pct: Number(v) } : x))}>
-                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {Array.from({ length: Math.ceil((myPct - 50) / 5) + 1 }, (_, i) => myPct - i * 5).map((p) => (
-                                  <SelectItem key={p} value={String(p)}>{p}%{p === myPct ? " (your level)" : ""}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <CarrierLevelSelector
+                              carrierId={carrier.id}
+                              myPct={myPct}
+                              value={assignment.level_name ?? ""}
+                              onValueChange={(levelName, levelPct) =>
+                                setAssignments((a) =>
+                                  a.map((x) =>
+                                    x.carrier_id === carrier.id
+                                      ? { ...x, level_name: levelName, level_pct: levelPct }
+                                      : x
+                                  )
+                                )
+                              }
+                            />
                             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                               <Lock className="h-3 w-3" /> Applies to all product groups for this carrier.
                             </p>
@@ -212,6 +221,50 @@ function InvitePage() {
   );
 }
 
+
+function CarrierLevelSelector({
+  carrierId,
+  myPct,
+  value,
+  onValueChange,
+}: {
+  carrierId: string;
+  myPct: number;
+  value: string;
+  onValueChange: (levelName: string, levelPct: number) => void;
+}) {
+  const gridLevelsFn = useServerFn(listCarrierGridLevels);
+  const { data: carrierLevels = [] } = useQuery({
+    queryKey: ["carrier-grid-levels", carrierId],
+    queryFn: () => gridLevelsFn({ data: { carrier_id: carrierId } }),
+  });
+  const allowedLevels = (carrierLevels as any[]).filter((l: any) => l.max_pct <= myPct);
+
+  if (allowedLevels.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground mt-1">No commission levels configured for this carrier.</p>
+    );
+  }
+
+  return (
+    <Select
+      value={value}
+      onValueChange={(v) => {
+        const found = allowedLevels.find((l: any) => l.level_name === v);
+        onValueChange(v, found?.max_pct ?? myPct);
+      }}
+    >
+      <SelectTrigger className="mt-1"><SelectValue placeholder="Select level..." /></SelectTrigger>
+      <SelectContent>
+        {allowedLevels.map((l: any) => (
+          <SelectItem key={l.level_name} value={l.level_name}>
+            {l.level_name} ({l.max_pct}%)
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 function LinksTable({ rows }: { rows: any[] }) {
   const qc = useQueryClient();

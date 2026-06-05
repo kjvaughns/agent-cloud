@@ -393,18 +393,26 @@ export const listMyCarrierLevels = createServerFn({ method: "GET" })
 
 export const getCommissionGrid = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ carrier_id: z.string().uuid() }).parse(d))
+  .inputValidator((d) => z.object({
+    carrier_id: z.string().uuid(),
+    level_name: z.string().optional(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const myPct = await getMyLevelPct(supabase, userId, data.carrier_id);
     if (myPct === null) return { myPct: null, rows: [] as any[] };
-    const { data: rows, error } = await supabase
+    let query = supabase
       .from("commission_grids")
       .select("id,product_name,age_group_min,age_group_max,level_name,year_1_pct,years_2_5_pct,years_6_plus_pct")
       .eq("carrier_id", data.carrier_id)
-      .lte("year_1_pct", myPct)
-      .order("age_group_min", { ascending: true })
-      .order("year_1_pct", { ascending: false });
+      .order("age_group_min", { ascending: true, nullsFirst: true })
+      .order("product_name", { ascending: true });
+    if (data.level_name) {
+      query = (query as any).eq("level_name", data.level_name);
+    } else {
+      query = (query as any).eq("year_1_pct", myPct);
+    }
+    const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
     return { myPct, rows: rows ?? [] };
   });

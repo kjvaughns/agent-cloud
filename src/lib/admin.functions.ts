@@ -731,3 +731,22 @@ export const listAllCarriers = createServerFn({ method: "GET" })
       .order("name");
     return (data ?? []) as { id: string; name: string; active: boolean }[];
   });
+
+export const listCarrierGridLevels = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ carrier_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { data: rows } = await supabase
+      .from("commission_grids")
+      .select("level_name, year_1_pct")
+      .eq("carrier_id", data.carrier_id)
+      .not("level_name", "is", null)
+      .order("year_1_pct", { ascending: false });
+    // Deduplicate: keep highest year_1_pct per level_name
+    const seen = new Map<string, number>();
+    for (const r of rows ?? []) {
+      if (r.level_name && !seen.has(r.level_name)) seen.set(r.level_name, Number(r.year_1_pct));
+    }
+    return Array.from(seen.entries()).map(([level_name, max_pct]) => ({ level_name, max_pct }));
+  });

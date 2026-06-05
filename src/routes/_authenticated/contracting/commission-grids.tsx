@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/contracting/commission-grids")({
   component: GridsPage,
@@ -21,8 +20,7 @@ function GridsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Commission Grids</h1>
         <p className="text-sm text-muted-foreground max-w-3xl">
-          View commission rates for your contracted carriers. Click on a carrier to expand and view the full commission grid.
-          Your assigned level is highlighted in gold. You can only view commission levels at or below your assigned level.
+          View commission rates for your contracted carriers. Click on a carrier to expand and view your commission grid.
         </p>
       </div>
 
@@ -48,7 +46,11 @@ function GridsPage() {
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
-                <GridDetail carrierId={r.carrier_id} myPct={Number(r.assigned_pct)} />
+                <GridDetail
+                  carrierId={r.carrier_id}
+                  myPct={Number(r.assigned_pct)}
+                  myLevelName={r.commission_level ?? undefined}
+                />
               </AccordionContent>
             </AccordionItem></Card>
           ))}
@@ -58,19 +60,21 @@ function GridsPage() {
   );
 }
 
-function GridDetail({ carrierId, myPct }: { carrierId: string; myPct: number }) {
+function GridDetail({ carrierId, myLevelName }: { carrierId: string; myPct: number; myLevelName?: string }) {
   const fn = useServerFn(getCommissionGrid);
   const { data, isLoading } = useQuery({
-    queryKey: ["contracting","grid",carrierId],
-    queryFn: () => fn({ data: { carrier_id: carrierId } }),
+    queryKey: ["contracting", "grid", carrierId, myLevelName],
+    queryFn: () => fn({ data: { carrier_id: carrierId, level_name: myLevelName } }),
   });
   if (isLoading) return <Skeleton className="h-32" />;
   const rows: any[] = data?.rows ?? [];
   if (rows.length === 0) return <div className="text-sm text-muted-foreground py-4">No grid rows available for your level.</div>;
 
+  const hasAgeBands = rows.some((r) => r.age_group_min != null);
+
   const byAge = new Map<string, any[]>();
-  rows.forEach(r => {
-    const key = `${r.age_group_min ?? "—"}-${r.age_group_max ?? "—"}`;
+  rows.forEach((r) => {
+    const key = hasAgeBands ? `${r.age_group_min ?? "—"}–${r.age_group_max ?? "—"}` : "all";
     if (!byAge.has(key)) byAge.set(key, []);
     byAge.get(key)!.push(r);
   });
@@ -79,27 +83,28 @@ function GridDetail({ carrierId, myPct }: { carrierId: string; myPct: number }) 
     <div className="space-y-4">
       {Array.from(byAge.entries()).map(([range, list]) => (
         <div key={range}>
-          <div className="text-xs font-semibold text-muted-foreground mb-1">Ages {range}</div>
+          {hasAgeBands && range !== "all" && (
+            <div className="text-xs font-semibold text-muted-foreground mb-1">Ages {range}</div>
+          )}
           <div className="rounded-lg border overflow-hidden">
-            <div className="grid grid-cols-6 bg-muted/40 text-xs font-semibold py-2 px-3 text-muted-foreground">
+            <div className="grid grid-cols-5 bg-muted/40 text-xs font-semibold py-2 px-3 text-muted-foreground">
               <div className="col-span-2">Product</div>
-              <div>Level</div>
               <div className="text-right">Year 1</div>
               <div className="text-right">Years 2–5</div>
               <div className="text-right">Years 6+</div>
             </div>
-            {list.map((l) => {
-              const isMine = Number(l.year_1_pct) === myPct;
-              return (
-                <div key={l.id} className={cn("grid grid-cols-6 py-2 px-3 text-sm border-t", isMine && "bg-amber-400/20 font-semibold")}>
-                  <div className="col-span-2">{l.product_name}</div>
-                  <div className="font-mono text-xs">{l.level_name ?? "—"}</div>
-                  <div className="text-right font-mono">{Number(l.year_1_pct ?? 0)}%</div>
-                  <div className="text-right font-mono">{Number(l.years_2_5_pct ?? 0)}%</div>
-                  <div className="text-right font-mono">{Number(l.years_6_plus_pct ?? 0)}%</div>
+            {list.map((l) => (
+              <div key={l.id} className="grid grid-cols-5 py-2 px-3 text-sm border-t">
+                <div className="col-span-2">{l.product_name}</div>
+                <div className="text-right font-mono">{Number(l.year_1_pct ?? 0)}%</div>
+                <div className="text-right font-mono">
+                  {Number(l.years_2_5_pct ?? 0) ? `${Number(l.years_2_5_pct)}%` : "—"}
                 </div>
-              );
-            })}
+                <div className="text-right font-mono">
+                  {Number(l.years_6_plus_pct ?? 0) ? `${Number(l.years_6_plus_pct)}%` : "—"}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ))}
