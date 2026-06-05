@@ -36,16 +36,16 @@ export const getDailyBriefing = createServerFn({ method: "POST" })
         .limit(25),
       supabase
         .from("clients")
-        .select("first_name,last_name,dob")
+        .select("first_name,last_name,date_of_birth")
         .eq("agent_id", userId)
-        .not("dob", "is", null)
-        .limit(50),
+        .not("date_of_birth", "is", null)
+        .limit(200),
       supabase
         .from("calendar_events")
-        .select("title,starts_at")
-        .eq("user_id", userId)
-        .gte("starts_at", now.toISOString())
-        .lte("starts_at", new Date(Date.now() + 7 * 86400000).toISOString())
+        .select("title,start_at")
+        .eq("agent_id", userId)
+        .gte("start_at", now.toISOString())
+        .lte("start_at", new Date(Date.now() + 7 * 86400000).toISOString())
         .limit(20),
     ]);
 
@@ -54,8 +54,8 @@ export const getDailyBriefing = createServerFn({ method: "POST" })
     const lapseAlp =
       lapsePolicies.reduce((a: number, p: any) => a + Number(p.monthly_premium ?? 0) * 12, 0);
     const upcomingBdays = (birthdaysRes.data ?? []).filter((c: any) => {
-      if (!c.dob) return false;
-      const d = new Date(c.dob);
+      if (!c.date_of_birth) return false;
+      const d = new Date(c.date_of_birth);
       const next = new Date(now.getFullYear(), d.getMonth(), d.getDate());
       const diff = (next.getTime() - now.getTime()) / 86400000;
       return diff >= 0 && diff <= 7;
@@ -106,7 +106,7 @@ export const getClientAiSuggestions = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: client, error: cerr } = await supabase
       .from("clients")
-      .select("id, first_name, last_name, stage, temperature, dob, state, notes, updated_at, created_at")
+      .select("id, first_name, last_name, stage, temperature, date_of_birth, state, notes, last_opened_at, created_at")
       .eq("id", data.clientId)
       .eq("agent_id", userId)
       .maybeSingle();
@@ -126,10 +126,10 @@ export const getClientAiSuggestions = createServerFn({ method: "POST" })
         stage: client.stage,
         temperature: client.temperature,
         state: client.state,
-        dob: client.dob,
+        date_of_birth: client.date_of_birth,
         notes: client.notes,
         days_in_stage: Math.round(
-          (Date.now() - new Date(client.updated_at ?? client.created_at).getTime()) / 86400000,
+          (Date.now() - new Date(client.last_opened_at ?? client.created_at).getTime()) / 86400000,
         ),
       },
       recent_contacts: history ?? [],
