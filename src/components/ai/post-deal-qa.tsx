@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { reviewPostDeal, type PostDealQa } from "@/lib/ai-features.functions";
 import { toast } from "sonner";
 
-export function PostDealQaButton({ buildPayload }: { buildPayload: () => Parameters<typeof reviewPostDeal>[0]["data"] | null }) {
+type QaPayload = {
+  client: { first_name: string; last_name: string; phone?: string; date_of_birth?: string };
+  policy: { carrier_name?: string; product?: string; policy_number?: string; effective_date?: string; face_amount: number; monthly_premium: number };
+  beneficiaries: { first_name: string; last_name: string; relationship: string; percentage: number }[];
+  notes?: string;
+};
+
+export function PostDealQaButton({ buildPayload }: { buildPayload: () => QaPayload | null }) {
   const fn = useServerFn(reviewPostDeal);
   const [result, setResult] = useState<PostDealQa | null>(null);
   const mut = useMutation({
