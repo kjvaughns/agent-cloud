@@ -11,8 +11,8 @@ UPDATE public.profiles
 SET upline_id = NULL
 WHERE id = (SELECT id FROM auth.users WHERE email = 'info@kingofsales.net');
 
--- Give both admin role (idempotent)
+-- Give both admin role (uses single-column UNIQUE(user_id) constraint from admin_additions migration)
 INSERT INTO public.user_roles (user_id, role)
 SELECT id, 'admin' FROM auth.users
 WHERE email IN ('info@kingofsales.net', 'kjvaughns13@gmail.com')
-ON CONFLICT (user_id, role) DO NOTHING;
+ON CONFLICT (user_id) DO UPDATE SET role = 'admin';
