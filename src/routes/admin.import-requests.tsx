@@ -2,10 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Play, CheckCircle2, XCircle } from "lucide-react";
+import { Download, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -23,6 +26,8 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
   failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
+
+const AL_URL = "https://agentlink.insuracloud.ai";
 
 function ImportRequestsPage() {
   const listFn = useServerFn(adminListScrapeRequests);
@@ -45,17 +50,37 @@ function ImportRequestsPage() {
   });
 
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const requests = data?.requests ?? [];
+
+  const toggleReveal = (id: string) =>
+    setRevealed((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const decodePassword = (encoded: string | null | undefined): string => {
+    if (!encoded) return "—";
+    try { return atob(encoded); } catch { return encoded; }
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Download className="h-6 w-6" /> Import Requests
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Agents who requested a full AgentLink credential import. Review and complete each request manually.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Download className="h-6 w-6" /> Import Requests
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Agents who requested a full AgentLink credential import. Review and complete each request manually.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm">
+          <a href={AL_URL} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open AgentLink
+          </a>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -73,8 +98,9 @@ function ImportRequestsPage() {
                 <TableHead>Submitted</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>AL Username</TableHead>
+                <TableHead>Password</TableHead>
                 <TableHead className="min-w-[200px]">Admin Notes</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Update Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -98,6 +124,25 @@ function ImportRequestsPage() {
                     {req.agentlink_username}
                   </TableCell>
                   <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {revealed.has(req.id)
+                          ? decodePassword(req.agentlink_password_encrypted)
+                          : "••••••••"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleReveal(req.id)}
+                        className="text-muted-foreground hover:text-foreground"
+                        title={revealed.has(req.id) ? "Hide password" : "Reveal password"}
+                      >
+                        {revealed.has(req.id)
+                          ? <EyeOff className="h-3.5 w-3.5" />
+                          : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Textarea
                       value={notes[req.id] ?? req.admin_notes ?? ""}
                       onChange={(e) => setNotes((n) => ({ ...n, [req.id]: e.target.value }))}
@@ -107,59 +152,27 @@ function ImportRequestsPage() {
                     />
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex flex-col gap-1 items-end">
-                      {req.status === "pending" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7"
-                          disabled={updateMut.isPending}
-                          onClick={() =>
-                            updateMut.mutate({
-                              id: req.id,
-                              status: "in_progress",
-                              admin_notes: notes[req.id] ?? req.admin_notes,
-                            })
-                          }
-                        >
-                          <Play className="h-3 w-3 mr-1" /> In Progress
-                        </Button>
-                      )}
-                      {req.status !== "completed" && req.status !== "failed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7 text-emerald-700 hover:text-emerald-700"
-                          disabled={updateMut.isPending}
-                          onClick={() =>
-                            updateMut.mutate({
-                              id: req.id,
-                              status: "completed",
-                              admin_notes: notes[req.id] ?? req.admin_notes,
-                            })
-                          }
-                        >
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Complete
-                        </Button>
-                      )}
-                      {req.status !== "failed" && req.status !== "completed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7 text-destructive hover:text-destructive"
-                          disabled={updateMut.isPending}
-                          onClick={() =>
-                            updateMut.mutate({
-                              id: req.id,
-                              status: "failed",
-                              admin_notes: notes[req.id] ?? req.admin_notes,
-                            })
-                          }
-                        >
-                          <XCircle className="h-3 w-3 mr-1" /> Failed
-                        </Button>
-                      )}
-                    </div>
+                    <Select
+                      value={req.status}
+                      onValueChange={(val) =>
+                        updateMut.mutate({
+                          id: req.id,
+                          status: val,
+                          admin_notes: notes[req.id] ?? req.admin_notes,
+                        })
+                      }
+                      disabled={updateMut.isPending}
+                    >
+                      <SelectTrigger className="h-8 text-xs w-[130px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                 </TableRow>
               ))}

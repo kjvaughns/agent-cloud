@@ -460,6 +460,143 @@ export const getPendingDuplicates = createServerFn({ method: "POST" })
     return { duplicates: dups ?? [] };
   });
 
+// ─── Test Connection (new name) ───────────────────────────────────────────────
+export const testAgentLinkConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    try {
+      const data = await alCall(supabase, userId, "/api/v1/book-of-business");
+      const clients = Array.isArray(data)
+        ? data
+        : (data?.clients ?? data?.contacts ?? data?.data ?? []);
+      return { ok: true, count: clients.length };
+    } catch (e: any) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+// ─── Basic Import ─────────────────────────────────────────────────────────────
+export const basicImportFromAgentLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({}).parse(d))
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+
+    const bobData = await alCall(supabase, userId, "/api/v1/book-of-business");
+    const rawClients: any[] = Array.isArray(bobData)
+      ? bobData
+      : (bobData?.clients ?? bobData?.contacts ?? bobData?.data ?? bobData?.records ?? []);
+
+    let imported = 0, duplicates = 0, skipped = 0;
+    const total = rawClients.length;
+
+    for (const contact of rawClients) {
+      const firstName = (contact.first_name ?? contact.firstName ?? "").trim();
+      const lastName = (contact.last_name ?? contact.lastName ?? "").trim();
+      const phone = normalizePhone(
+        (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim()
+      );
+
+      if (!firstName && !lastName) { skipped++; continue; }
+
+      if (phone) {
+        const { data: existing } = await supabase
+          .from("clients")
+          .select("id")
+          .eq("agent_id", userId)
+          .eq("phone", phone)
+          .maybeSingle();
+        if (existing) { duplicates++; continue; }
+      }
+
+      const email = (contact.email ?? "").trim();
+      const dob = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
+      const street = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
+      const city = contact.address?.city ?? contact.city ?? "";
+      const state = contact.address?.state ?? contact.state ?? "";
+      const zip = contact.address?.zip ?? contact.zip ?? contact.zip_code ?? contact.postal_code ?? "";
+
+      const { error: clientErr } = await supabase.from("clients").insert({
+        agent_id: userId,
+        first_name: firstName,
+        last_name: lastName,
+        phone: phone || null,
+        email: email || null,
+        date_of_birth: dob || null,
+        street_address: street || null,
+        city: city || null,
+        state: state || null,
+        zip_code: zip || null,
+        stage: mapStage(contact.status ?? contact.stage),
+        temperature: mapTemperature(contact.temperature ?? contact.lead_score),
+      });
+
+      if (clientErr) {
+        if (clientErr.code === "23505") { duplicates++; } else { skipped++; }
+        continue;
+      }
+      imported++;
+    }
+
+    await supabase
+      .from("agent_integrations")
+      .update({ last_synced_at: new Date().toISOString(), sync_status: "idle", last_error: null })
+      .eq("agent_id", userId)
+      .eq("platform", "agentlink");
+
+    return { imported, skipped, duplicates, total };
+  });
+
+// ─── Submit Full Import Request (alias for submitScrapeRequest) ───────────────
+export const submitFullImportRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        agentlink_username: z.string().email("Must be a valid email"),
+        agentlink_password: z.string().min(1),
+        notes: z.string().optional(),
+      })
+      .parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+
+    const obfuscated = Buffer.from(data.agentlink_password).toString("base64");
+
+    const { data: req, error } = await supabase
+      .from("scrape_requests")
+      .insert({
+        requesting_agent_id: userId,
+        agentlink_username: data.agentlink_username,
+        agentlink_password_encrypted: obfuscated,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const { data: admins } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .in("role", ["admin", "manager"]);
+
+    for (const admin of admins ?? []) {
+      await supabase.from("notifications").insert({
+        user_id: admin.user_id,
+        type: "scrape_request",
+        title: "New Full Import Request",
+        body: "An agent has submitted a full AgentLink import request. Review in Admin → Import Requests.",
+        link: "/admin/import-requests",
+        read: false,
+      });
+    }
+
+    return { request_id: req.id, ok: true };
+  });
+
 // ─── Submit Scrape Request ────────────────────────────────────────────────────
 export const submitScrapeRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
