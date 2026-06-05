@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { adminListScrapeRequests, adminUpdateScrapeRequest } from "@/lib/admin.functions";
+import { replayAdminImportPolicies } from "@/lib/admin-import.functions";
 import { AIImportDialog } from "@/components/admin/ai-import-dialog";
 
 export const Route = createFileRoute("/admin/import-requests")({
