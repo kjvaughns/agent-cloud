@@ -576,24 +576,58 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       }
 
       // 3. Policies — match by client name from Book of Business
+      // Build a carrier name → id map once for fast resolution
+      const { data: carrierRows } = await supabase.from("carriers").select("id, name");
+      const carrierByName = new Map<string, string>(
+        (carrierRows ?? []).map((c: any) => [String(c.name).toLowerCase().trim(), c.id as string]),
+      );
+      const resolveCarrierId = (raw?: string | null): string | null => {
+        if (!raw) return null;
+        const k = raw.toLowerCase().trim();
+        if (carrierByName.has(k)) return carrierByName.get(k)!;
+        for (const [name, id] of carrierByName) {
+          if (name.includes(k) || k.includes(name)) return id;
+        }
+        return null;
+      };
+
       for (const p of policiesRaw) {
         const key = normName(p.client_label);
         const c = clientIdByLabel.get(key);
         if (!c) continue;
 
         const ownerEmail = p.agent_label ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail : c.ownerEmail;
+        // Use effective date as the business "posted" date so historical
+        // production lands in the correct month; fall back to now() only
+        // when the source row has no effective date.
+        const postedAt = p.effective_date
+          ? new Date(`${p.effective_date}T12:00:00Z`).toISOString()
+          : new Date().toISOString();
+
+        // Team-wide policy dedupe by (policy_number) — skip if any team
+        // member already has this policy number to prevent double imports
+        if (p.policy_number) {
+          const { data: existing } = await supabase
+            .from("policies")
+            .select("id")
+            .eq("policy_number", p.policy_number)
+            .limit(1)
+            .maybeSingle();
+          if (existing) { duplicatesSkipped++; continue; }
+        }
 
         const { error } = await supabase.from("policies").insert({
           client_id: c.id,
           agent_id: targetAgent,
           assigned_to_email: ownerEmail,
+          carrier_id: resolveCarrierId(p.carrier),
           product: p.product ?? p.carrier ?? "Unknown",
           policy_number: p.policy_number,
           monthly_premium: p.monthly_premium,
           annual_premium: p.annual_premium || p.monthly_premium * 12,
           effective_date: p.effective_date,
           status: mapPolicyStatus(p.status ?? undefined),
-          posted_at: new Date().toISOString(),
+          posted_at: postedAt,
         });
         if (!error) policiesImported++;
       }
