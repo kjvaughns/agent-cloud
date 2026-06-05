@@ -145,3 +145,34 @@ export const deactivateAgent = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const checkIsAdmin = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const { data } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .in("role", ["admin", "manager"])
+      .maybeSingle();
+    return { isAdmin: !!data };
+  });
+
+export const getAllAgentsForHierarchy = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .in("role", ["admin", "manager"])
+      .maybeSingle();
+    if (!roleRow) throw new Error("Forbidden");
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, upline_id")
+      .order("first_name");
+    return (data ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string | null; upline_id: string | null }[];
+  });

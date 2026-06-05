@@ -1,15 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import {
   adminListCommissionGrid,
   adminUpsertCommissionRow,
-  adminAssignAgentLevel,
+  adminListAllAgents,
 } from "@/lib/admin.functions";
+import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,21 +26,29 @@ export const Route = createFileRoute("/admin/commissions")({
 function AdminCommissions() {
   const [tab, setTab] = useState<"grids" | "assignments">("grids");
   const [grids, setGrids] = useState<any[]>([]);
-  const [assignments, setAssignments] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCarrier, setSelectedCarrier] = useState<string>("all");
   const [editRow, setEditRow] = useState<any | null>(null);
-  const [assignDialog, setAssignDialog] = useState<{ agent: any; carrier: any } | null>(null);
-  const [assignPct, setAssignPct] = useState("");
-  const [assignName, setAssignName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [openAgentId, setOpenAgentId] = useState<string | null>(null);
+
+  const listAgentsFn = useServerFn(adminListAllAgents);
+  const { data: agentsData } = useQuery({
+    queryKey: ["admin", "allAgents"],
+    queryFn: () => listAgentsFn(),
+    enabled: tab === "assignments",
+  });
+  const allAgents = agentsData?.agents ?? [];
+  const filteredAgents = allAgents.filter((a: any) =>
+    `${a.first_name ?? ""} ${a.last_name ?? ""} ${a.email ?? ""}`.toLowerCase().includes(agentSearch.toLowerCase())
+  );
 
   async function load() {
     setLoading(true);
     const res = await adminListCommissionGrid();
     setGrids(res.grids);
-    setAssignments(res.assignments);
     const { data } = await supabase.from("carriers").select("id, name").eq("active", true).order("name");
     setCarriers(data ?? []);
     setLoading(false);
@@ -59,33 +71,6 @@ function AdminCommissions() {
     }
     setSaving(false);
   }
-
-  async function saveAssignment() {
-    if (!assignDialog) return;
-    const pct = parseFloat(assignPct);
-    if (isNaN(pct)) { toast.error("Invalid percentage"); return; }
-    setSaving(true);
-    try {
-      await adminAssignAgentLevel({
-        data: {
-          agent_id: assignDialog.agent.agent_id ?? assignDialog.agent.id,
-          carrier_id: assignDialog.carrier.id,
-          level_pct: pct,
-          level_name: assignName || undefined,
-        },
-      });
-      toast.success("Level assigned");
-      setAssignDialog(null);
-      load();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-    setSaving(false);
-  }
-
-  const uniqueAgents = Array.from(
-    new Map(assignments.map((a) => [a.agent_id, a])).values()
-  );
 
   return (
     <div className="p-6 space-y-4">
@@ -165,47 +150,43 @@ function AdminCommissions() {
         </div>
       ) : (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Agent × Carrier commission level assignments</p>
-          <div className="border border-border rounded-lg overflow-auto">
-            <table className="text-sm w-max min-w-full">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground sticky left-0 bg-muted/50">Agent</th>
-                  {carriers.map((c) => (
-                    <th key={c.id} className="text-center px-4 py-3 font-medium text-muted-foreground whitespace-nowrap">{c.name}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {uniqueAgents.length === 0 ? (
-                  <tr><td colSpan={carriers.length + 1} className="text-center py-12 text-muted-foreground">No assignments yet</td></tr>
-                ) : uniqueAgents.map((a) => (
-                  <tr key={a.agent_id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3 font-medium sticky left-0 bg-background whitespace-nowrap">
-                      {a.profiles?.first_name} {a.profiles?.last_name}
-                    </td>
-                    {carriers.map((c) => {
-                      const asgn = assignments.find((x) => x.agent_id === a.agent_id && x.carrier_id === c.id);
-                      return (
-                        <td key={c.id} className="px-4 py-3 text-center">
-                          <button
-                            className="hover:bg-muted rounded px-2 py-1 text-xs"
-                            onClick={() => {
-                              setAssignDialog({ agent: a, carrier: c });
-                              setAssignPct(asgn?.assigned_pct?.toString() ?? "");
-                              setAssignName(asgn?.commission_level ?? "");
-                            }}
-                          >
-                            {asgn ? `${asgn.assigned_pct}%` : <span className="text-muted-foreground">—</span>}
-                          </button>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Input
+            placeholder="Search agents by name or email..."
+            value={agentSearch}
+            onChange={(e) => { setAgentSearch(e.target.value); setOpenAgentId(null); }}
+            className="max-w-sm"
+          />
+          {filteredAgents.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              {allAgents.length === 0 ? "Loading agents..." : "No agents match."}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {filteredAgents.map((agent: any) => {
+                const isOpen = openAgentId === agent.id;
+                const name = `${agent.first_name ?? ""} ${agent.last_name ?? ""}`.trim() || agent.email;
+                return (
+                  <Card key={agent.id} className="overflow-hidden">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => setOpenAgentId(isOpen ? null : agent.id)}
+                    >
+                      <div>
+                        <div className="font-medium text-sm">{name}</div>
+                        <div className="text-xs text-muted-foreground">{agent.email}</div>
+                      </div>
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isOpen && "rotate-180")} />
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-2 border-t">
+                        <CompLevelEditor agentId={agent.id} agentName={name} />
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -254,36 +235,6 @@ function AdminCommissions() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!assignDialog} onOpenChange={(o) => !o && setAssignDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Commission Level</DialogTitle>
-          </DialogHeader>
-          {assignDialog && (
-            <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">
-                {assignDialog.agent.profiles?.first_name} {assignDialog.agent.profiles?.last_name} — {assignDialog.carrier.name}
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Level %</label>
-                  <Input type="number" value={assignPct} onChange={(e) => setAssignPct(e.target.value)} placeholder="e.g. 115" />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Level Name</label>
-                  <Input value={assignName} onChange={(e) => setAssignName(e.target.value)} placeholder="e.g. Level A" />
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignDialog(null)}>Cancel</Button>
-            <Button onClick={saveAssignment} disabled={saving}>
-              {saving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

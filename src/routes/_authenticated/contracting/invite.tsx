@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Copy, Check, Trash2, Lock, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -157,34 +158,25 @@ function InvitePage() {
                     </AccordionTrigger>
                     {isAssigned && assignment && (
                       <AccordionContent className="px-3 pb-3 pt-0 border-t bg-muted/10">
-                        <div className="space-y-3 pt-3">
-                          <div>
-                            <Label className="text-xs">Commission Level</Label>
-                            <CarrierLevelSelector
-                              carrierId={carrier.id}
-                              myPct={myPct}
-                              value={assignment.level_name ?? ""}
-                              onValueChange={(levelName, levelPct) =>
-                                setAssignments((a) =>
-                                  a.map((x) =>
-                                    x.carrier_id === carrier.id
-                                      ? { ...x, level_name: levelName, level_pct: levelPct }
-                                      : x
-                                  )
+                        <div className="pt-3">
+                          <Label className="text-xs">Commission Level</Label>
+                          <CarrierLevelSelector
+                            carrierId={carrier.id}
+                            myPct={myPct}
+                            value={assignment.level_name ?? ""}
+                            onValueChange={(levelName, levelPct) =>
+                              setAssignments((a) =>
+                                a.map((x) =>
+                                  x.carrier_id === carrier.id
+                                    ? { ...x, level_name: levelName, level_pct: levelPct }
+                                    : x
                                 )
-                              }
-                            />
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                              <Lock className="h-3 w-3" /> Applies to all product groups for this carrier.
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-xs">Release Needed from previous upline?</Label>
-                            <div className="flex gap-2 mt-1">
-                              <Button size="sm" type="button" variant={assignment.release_needed ? "default" : "outline"} onClick={() => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, release_needed: true } : x))}>Yes</Button>
-                              <Button size="sm" type="button" variant={!assignment.release_needed ? "default" : "outline"} onClick={() => setAssignments((a) => a.map((x) => x.carrier_id === carrier.id ? { ...x, release_needed: false } : x))}>No</Button>
-                            </div>
-                          </div>
+                              )
+                            }
+                          />
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> Applies to all product groups for this carrier.
+                          </p>
                         </div>
                       </AccordionContent>
                     )}
@@ -292,12 +284,31 @@ function LinksTable({ rows }: { rows: any[] }) {
             <TableRow key={r.id}>
               <TableCell className="font-medium">{name}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {carriers.slice(0, 3).map((c: any) => (
-                    <Badge key={c.carrier_id} variant="outline" className="text-xs">{c.carrier_name}</Badge>
-                  ))}
-                  {carriers.length > 3 && <Badge variant="outline" className="text-xs">+{carriers.length - 3} more</Badge>}
-                </div>
+                {carriers.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">None</span>
+                ) : (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-left">
+                        <Badge variant="outline" className="text-xs cursor-pointer">
+                          {carriers.length} carrier{carriers.length === 1 ? "" : "s"} ▾
+                        </Badge>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3" align="start">
+                      <ul className="space-y-2">
+                        {carriers.map((c: any) => (
+                          <li key={c.carrier_id} className="flex items-center justify-between text-xs gap-2">
+                            <span className="font-medium truncate">{c.carrier_name}</span>
+                            <span className="text-muted-foreground shrink-0">
+                              {c.level_name ? `${c.level_name} (${c.level_pct}%)` : c.level_pct ? `${c.level_pct}%` : "—"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">{new Date(r.created_at).toLocaleDateString()}</TableCell>
               <TableCell className="text-right">

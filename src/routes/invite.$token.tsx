@@ -265,8 +265,6 @@ function Step2Carriers({ token, carriers, onDone }: { token: string; carriers: a
     onSuccess: () => { toast.success("Saved"); onDone(); },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
-  const anyIncluded = choices.some((c) => c.include);
-
   return (
     <Card className="p-6 space-y-4">
       <h2 className="text-lg font-semibold">Choose Your Carriers</h2>
@@ -290,7 +288,7 @@ function Step2Carriers({ token, carriers, onDone }: { token: string; carriers: a
         ))}
       </div>
       <div className="flex justify-end">
-        <Button onClick={() => save.mutate()} disabled={!anyIncluded || save.isPending}>{save.isPending ? "Saving..." : "Next →"}</Button>
+        <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving..." : "Next →"}</Button>
       </div>
     </Card>
   );

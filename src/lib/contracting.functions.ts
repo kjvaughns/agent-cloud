@@ -26,6 +26,7 @@ export const listCarriers = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("carriers")
       .select("id,name,phone,hours,website,contracting_speed_days,pay_frequency,advance_cap,advance_cap_amount,advance_cap_months,ideal_client,agent_portal_url,training_url,about_text,is_annuity_carrier,active")
+      .eq("active", true)
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
 
@@ -395,26 +396,28 @@ export const getCommissionGrid = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
     carrier_id: z.string().uuid(),
-    level_name: z.string().optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const myPct = await getMyLevelPct(supabase, userId, data.carrier_id);
-    if (myPct === null) return { myPct: null, rows: [] as any[] };
-    let query = supabase
+    const { data: levelRow } = await supabase
+      .from("agent_commission_levels")
+      .select("assigned_pct, commission_level")
+      .eq("agent_id", userId)
+      .eq("carrier_id", data.carrier_id)
+      .maybeSingle();
+    const { data: rows, error } = await supabase
       .from("commission_grids")
       .select("id,product_name,age_group_min,age_group_max,level_name,year_1_pct,years_2_5_pct,years_6_plus_pct")
       .eq("carrier_id", data.carrier_id)
+      .order("year_1_pct", { ascending: false })
       .order("age_group_min", { ascending: true, nullsFirst: true })
       .order("product_name", { ascending: true });
-    if (data.level_name) {
-      query = (query as any).eq("level_name", data.level_name);
-    } else {
-      query = (query as any).eq("year_1_pct", myPct);
-    }
-    const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
-    return { myPct, rows: rows ?? [] };
+    return {
+      myLevelName: levelRow?.commission_level ?? null,
+      myPct: levelRow ? Number(levelRow.assigned_pct) : null,
+      rows: rows ?? [],
+    };
   });
 
 // ---------- annuity training ----------

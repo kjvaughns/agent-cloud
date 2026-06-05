@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
-  listWorkInbox, activateContract,
+  listWorkInbox, activateContract, createContractRequest,
 } from "@/lib/contracting.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -219,17 +219,28 @@ const LOA_OPTIONS = [
 
 function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"active" | "request">("active");
   const [carrierId, setCarrierId] = useState("");
   const [writingNumber, setWritingNumber] = useState("");
   const [loa, setLoa] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { data } = useQuery({ ...carriersQuery, enabled: open });
   const addFn = useServerFn(addAgentCarrier);
+  const requestFn = useServerFn(createContractRequest);
+
   const submit = useMutation({
-    mutationFn: () => addFn({ data: { carrier_id: carrierId, writing_number: writingNumber || undefined, loa: loa as any } }),
+    mutationFn: () => {
+      if (mode === "active") {
+        return addFn({ data: { carrier_id: carrierId, writing_number: writingNumber || undefined, loa: loa as any } });
+      } else {
+        return requestFn({ data: { carrier_id: carrierId, notes: notes || undefined } });
+      }
+    },
     onSuccess: () => {
-      toast.success("Carrier added");
-      setOpen(false); setCarrierId(""); setWritingNumber(""); setLoa(""); setError(null);
+      toast.success(mode === "active" ? "Carrier added" : "Contracting request sent");
+      setOpen(false);
+      setCarrierId(""); setWritingNumber(""); setLoa(""); setNotes(""); setError(null);
       onAdded();
     },
     onError: (e: any) => setError(e?.message ?? "Failed"),
@@ -237,8 +248,12 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
 
   function handleOpenChange(v: boolean) {
     setOpen(v);
-    if (!v) { setCarrierId(""); setWritingNumber(""); setLoa(""); setError(null); }
+    if (!v) { setCarrierId(""); setWritingNumber(""); setLoa(""); setNotes(""); setError(null); setMode("active"); }
   }
+
+  const canSubmit = mode === "active"
+    ? (!!carrierId && !!writingNumber.trim() && !!loa)
+    : !!carrierId;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -246,8 +261,27 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
         <Button><Plus className="h-4 w-4 mr-1" /> Add Carrier</Button>
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader><DialogTitle>Add Active Carrier</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{mode === "active" ? "Add Active Carrier" : "Request Contracting"}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-4">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={mode === "active" ? "default" : "outline"}
+              onClick={() => { setMode("active"); setError(null); }}
+            >
+              I have a writing number
+            </Button>
+            <Button
+              size="sm"
+              variant={mode === "request" ? "default" : "outline"}
+              onClick={() => { setMode("request"); setError(null); }}
+            >
+              Request contracting
+            </Button>
+          </div>
+
           <div>
             <Label>Carrier</Label>
             <Select value={carrierId} onValueChange={(v) => { setCarrierId(v); setError(null); }}>
@@ -261,19 +295,30 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Writing / Agent Number (optional)</Label>
-            <Input value={writingNumber} onChange={(e) => setWritingNumber(e.target.value.slice(0, 64))} className="mt-1" placeholder="e.g. AG-12345" />
-          </div>
-          <div>
-            <Label>Line of Authority</Label>
-            <Select value={loa} onValueChange={setLoa}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Select LOA..." /></SelectTrigger>
-              <SelectContent>
-                {LOA_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+
+          {mode === "active" ? (
+            <>
+              <div>
+                <Label>Writing / Agent Number *</Label>
+                <Input value={writingNumber} onChange={(e) => setWritingNumber(e.target.value.slice(0, 64))} className="mt-1" placeholder="e.g. AG-12345" />
+              </div>
+              <div>
+                <Label>Line of Authority *</Label>
+                <Select value={loa} onValueChange={setLoa}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select LOA..." /></SelectTrigger>
+                  <SelectContent>
+                    {LOA_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <div>
+              <Label>Message to admin (optional)</Label>
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 500))} className="mt-1" rows={3} placeholder="Any notes about this contracting request..." />
+            </div>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
@@ -283,8 +328,8 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button disabled={!carrierId || !loa || submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? "Saving..." : "Add Carrier"}
+          <Button disabled={!canSubmit || submit.isPending} onClick={() => submit.mutate()}>
+            {submit.isPending ? "Saving..." : mode === "active" ? "Add Carrier" : "Send Request"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -25,8 +25,11 @@ import {
   sendAgentReminder,
   getAgentDetail,
   deactivateAgent,
+  checkIsAdmin,
+  getAllAgentsForHierarchy,
   type TeamAgent,
 } from "@/lib/team.functions";
+import { adminMoveAgent } from "@/lib/admin.functions";
 
 const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
@@ -83,9 +86,13 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
 
+const isAdminQO = queryOptions({ queryKey: ["me", "isAdmin"], queryFn: () => checkIsAdmin() });
+
 function TeamPage() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
   const { data: downline } = useSuspenseQuery(downlineQO);
+  const { data: adminCheck } = useQuery(isAdminQO);
+  const isAdmin = adminCheck?.isAdmin ?? false;
   const [openAgent, setOpenAgent] = useState<string | null>(null);
 
   return (
@@ -141,7 +148,7 @@ function TeamPage() {
         </Tabs>
       )}
 
-      <AgentDetailDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} />
+      <AgentDetailDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
     </div>
   );
 }
@@ -342,6 +349,8 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
   const [page, setPage] = useState(0);
   const perPage = 25;
 
+  const agentById = useMemo(() => new Map(downline.map((a) => [a.id, a])), [downline]);
+
   const filtered = useMemo(() => downline.filter((a) => {
     const q = search.toLowerCase();
     if (q && !`${a.first_name} ${a.last_name} ${a.email}`.toLowerCase().includes(q)) return false;
@@ -383,6 +392,7 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
               <TableRow>
                 <TableHead>Agent</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Upline</TableHead>
                 <TableHead>Depth</TableHead>
                 <TableHead>Carriers</TableHead>
                 <TableHead>Policies</TableHead>
@@ -393,8 +403,10 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
             </TableHeader>
             <TableBody>
               {pageRows.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
-              ) : pageRows.map((a) => (
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
+              ) : pageRows.map((a) => {
+                const upline = a.upline_id ? agentById.get(a.upline_id) : null;
+                return (
                 <TableRow key={a.id}>
                   <TableCell>
                     <button onClick={() => onOpen(a.id)} className="flex items-center gap-2 text-left hover:underline">
@@ -406,6 +418,12 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
                     </button>
                   </TableCell>
                   <TableCell><StatusBadge status={a.status} /></TableCell>
+                  <TableCell className="text-sm">
+                    {upline
+                      ? <span>{upline.first_name} {upline.last_name}</span>
+                      : <span className="text-muted-foreground text-xs">{a.upline_id ? "—" : "Root"}</span>
+                    }
+                  </TableCell>
                   <TableCell>L{a.depth_level}</TableCell>
                   <TableCell>{a.contracts_count} active</TableCell>
                   <TableCell>{a.policies_count}</TableCell>
@@ -421,7 +439,7 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+              );})}
             </TableBody>
           </Table>
         </div>
@@ -565,8 +583,62 @@ function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapse
   );
 }
 
+// ============ Move Agent Section ============
+function MoveAgentSection({ agentId, currentUplineId }: { agentId: string; currentUplineId: string | null }) {
+  const qc = useQueryClient();
+  const allAgentsFn = useServerFn(getAllAgentsForHierarchy);
+  const moveFn = useServerFn(adminMoveAgent);
+  const [newUplineId, setNewUplineId] = useState("");
+
+  const { data: allAgents = [] } = useQuery({
+    queryKey: ["team", "allAgentsForHierarchy"],
+    queryFn: () => allAgentsFn(),
+  });
+
+  const candidates = (allAgents as any[]).filter((a: any) => a.id !== agentId);
+  const current = (allAgents as any[]).find((a: any) => a.id === currentUplineId);
+
+  const move = useMutation({
+    mutationFn: () => moveFn({ data: { agent_id: agentId, new_upline_id: newUplineId === "__none__" ? null : newUplineId } }),
+    onSuccess: () => {
+      toast.success("Upline updated");
+      qc.invalidateQueries({ queryKey: ["team"] });
+      setNewUplineId("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs text-muted-foreground">
+        Current upline: {current ? `${current.first_name} ${current.last_name}` : "None (root)"}
+      </div>
+      <Select value={newUplineId} onValueChange={setNewUplineId}>
+        <SelectTrigger className="h-8 text-sm">
+          <SelectValue placeholder="Select new upline..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__">No upline (make root)</SelectItem>
+          {candidates.map((a: any) => (
+            <SelectItem key={a.id} value={a.id}>
+              {a.first_name} {a.last_name} {a.email ? `(${a.email})` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        disabled={!newUplineId || move.isPending}
+        onClick={() => move.mutate()}
+      >
+        {move.isPending ? "Moving..." : "Move Agent"}
+      </Button>
+    </div>
+  );
+}
+
 // ============ Agent Detail Drawer ============
-function AgentDetailDrawer({ agentId, onClose }: { agentId: string | null; onClose: () => void }) {
+function AgentDetailDrawer({ agentId, onClose, isAdmin }: { agentId: string | null; onClose: () => void; isAdmin: boolean }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const detailFn = useServerFn(getAgentDetail);
@@ -670,32 +742,41 @@ function AgentDetailDrawer({ agentId, onClose }: { agentId: string | null; onClo
                 )}
               </div>
 
+              {isAdmin && (
+                <div>
+                  <div className="font-medium mb-2">Move Agent</div>
+                  <MoveAgentSection agentId={agentId!} currentUplineId={data.profile?.upline_id ?? null} />
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2 border-t">
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate({ to: "/account/producer-profile" })}>View Full Profile</Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="destructive" disabled={deactivate.isPending}>
-                      <Trash2 className="h-4 w-4 mr-1" /> Deactivate
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Deactivate agent?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will mark the agent as inactive. They will lose access to Agent Cloud. This action can be reversed by an admin.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={() => deactivate.mutate()}
-                      >
-                        Deactivate
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {isAdmin && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="destructive" disabled={deactivate.isPending}>
+                        <Trash2 className="h-4 w-4 mr-1" /> Deactivate
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Deactivate agent?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will mark the agent as inactive. They will lose access to Agent Cloud. This action can be reversed by an admin.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => deactivate.mutate()}
+                        >
+                          Deactivate
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </div>
           </>
