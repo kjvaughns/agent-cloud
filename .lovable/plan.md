@@ -1,54 +1,63 @@
-# Agent Cloud — Full Wiring Audit Plan
+# Address Autocomplete Across the App
 
-Working through 12 audit sections in order. Each is scoped and independent enough to verify as I go.
+## Goal
+When a user types into any street-address field, suggest real addresses from Google Places and, on selection, auto-fill street / city / state / ZIP.
 
-## 1. AI Gateway consolidation
-- Create `src/lib/ai-assistant.functions.ts` with `askAiAssistant` server fn (auth-protected, Zod-validated, Lovable gateway, `google/gemini-3-flash-preview`, handles 429/402).
-- Rewire `src/routes/_authenticated/ai-assistant.tsx` `send()` to call it via `useServerFn`; keep conversation history in state, render typing dots, surface errors inline as an assistant bubble.
-- Grep for `anthropic` / `api.anthropic.com` / `ANTHROPIC_API_KEY` and migrate any hits to the Lovable gateway pattern.
-- Audit `src/routes/_authenticated/resources/state-licenses.tsx` — if it calls Anthropic for PDF scan, move to a server fn with base64 body.
+## Where it applies
+Every place a street address is entered today:
+1. **Producer Profile → Home Address card** (`src/routes/_authenticated/account/producer-profile.tsx`) — currently uses an old, partial autocomplete bound to a hard-coded `VITE_GOOGLE_MAPS_API_KEY` that is empty in this project, so it doesn't work. Will be replaced.
+2. **Pipeline → Add Client dialog** (`src/routes/_authenticated/pipeline.tsx`, "Street address" input around line 335).
+3. **Client Detail Drawer → Address section** (`src/components/pipeline/client-detail-drawer.tsx`, the `EditableField` for `street_address`) — when the field is opened for editing, it will use autocomplete and also auto-fill the sibling city / state / ZIP fields.
+4. **Agent Invite onboarding form** (`src/routes/invite.$token.tsx`, "Street address" input).
 
-## 2. Google sign-in wiring
-- `login.tsx` + `signup.tsx`: swap raw `supabase.auth.signInWithOAuth({provider:"google"})` for `lovable.auth.signInWithOAuth("google", { redirect_uri })` from `@/integrations/lovable`. Run `supabase--configure_social_auth` for `google` to make sure provider is enabled.
-- In `src/routes/__root.tsx` `onAuthStateChange`: on `SIGNED_IN` with provider=google, upsert `profiles.google_oauth_connected = true`. Keep filter to identity events only (no thrash on token refresh).
-- Producer Profile → Integrations: read `google_oauth_connected` and render Connected ✓ vs Connect.
+No other address inputs exist in the codebase (verified with a project-wide search for `street_address` and address-labeled inputs).
 
-## 3. SureLC stub
-- `src/lib/onboarding.functions.ts` (~L213): replace `example.com` stub with `{ ok: true, sso_url: null, pending: true, message: "..." }`.
-- `src/routes/invite.$token.tsx`: branch on `pending` and render a friendly success card with Dashboard CTA instead of opening the URL.
+## How it will work (for a non-technical reader)
+- We'll connect Lovable's built-in Google Maps integration so the app gets a working maps key automatically — no manual key management.
+- We'll build one shared "Address" input component and drop it into the four places above. Behavior:
+  - User types → live suggestions appear underneath.
+  - User picks one → the street field fills with the street line, and the related city / state / ZIP fields fill in automatically.
+  - If Maps isn't available for any reason, the field still works as a plain text input (graceful fallback).
+- Restricted to US addresses by default (matches the rest of the app: state dropdowns, ZIP, NPN).
 
-## 4. Agent Academy
-- `src/routes/_authenticated/resources/agent-academy.tsx`: remove both `toast.info("Course viewer coming soon")`. Open `course.url || course.video_url` in new tab when present; otherwise render a "Coming Soon" badge. Add empty state when no courses.
+## Technical details
 
-## 5. Book of Business banner
-- `src/routes/_authenticated/book-of-business.tsx`: remove the carrier-feed banner entirely.
+### 1. Connector
+- Use the **Lovable Google Maps Platform connector** (managed key, no user setup). Linking it provisions `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` and `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID`.
+- Remove the dead `VITE_GOOGLE_MAPS_API_KEY` reference from `.env` / `.env.example` and from `__root.tsx`.
 
-## 6. Phone page copy
-- `src/routes/_authenticated/phone.tsx`: MMS tooltip → "Attach photo"; provisioning paragraph → "Contact your admin to set up a dedicated phone number for your account." Remove "coming soon" strings.
+### 2. Maps JS loader
+- Replace the current `<script>` tag in `src/routes/__root.tsx` with an async loader that uses the connector's browser key and `loading=async&callback=...&channel=...` per the Lovable Google Maps guidance.
+- Expose a tiny `ensureMaps()` helper in `src/lib/google-maps.ts` that returns a promise resolving once `google.maps` + the `places` library are ready (uses `importLibrary('places')`). This avoids each component racing the script.
 
-## 7. Realtime cleanup audit
-- Verify cleanup in: `calendar.tsx`, `phone.tsx`, `pipeline.tsx`, `notifications.tsx`. Add `supabase.removeChannel(channel)` in `useEffect` return where missing.
+### 3. Shared component: `AddressAutocomplete`
+New file: `src/components/address-autocomplete.tsx`.
 
-## 8. .env.example
-- Create `.env.example` at project root listing SUPABASE_*, VITE_SUPABASE_*, LOVABLE_API_KEY, VITE_GOOGLE_MAPS_API_KEY, AGENTSYNC_API_KEY.
-- Confirm `LOVABLE_API_KEY` exists via `fetch_secrets`; if missing, run `ai_gateway--create`. Make AI server fns degrade to a clear "AI features unavailable" error instead of crashing.
+- Props:
+  - `value: string`
+  - `onChange(value: string)` — fires on every keystroke (so form state stays in sync).
+  - `onSelect(parts: { street, city, state, zip, country })` — fires when a suggestion is chosen.
+  - passthrough `placeholder`, `id`, `className`, `disabled`, `ref`.
+- Implementation:
+  - Uses **Places API (New)** via `google.maps.importLibrary('places')` → `AutocompleteSuggestion.fetchAutocompleteSuggestions` with a session token, debounced ~200ms, `includedRegionCodes: ['us']`, `includedPrimaryTypes: ['street_address','premise','subpremise','route']`.
+  - Renders a simple shadcn-styled popover list under the existing `<Input>` (matches current design system; no new colors).
+  - On select, resolves the place's `addressComponents` and maps them to `{ street: "<number> <route>", city: locality, state: administrative_area_level_1 (short), zip: postal_code, country }`.
+  - If `ensureMaps()` rejects (no key, blocked, offline), the component silently behaves as a normal input.
+- **Does NOT** use the legacy `google.maps.places.Autocomplete` class (per Lovable guidance to use Places API New).
 
-## 9. Deprecate legacy drawer
-- `src/components/client-detail-drawer.tsx`: add `// DEPRECATED` header comment, drop `MOCK_POLICIES` import, set `policies: any[] = []`. Grep for active imports and redirect them to `src/components/pipeline/client-detail-drawer.tsx`.
+### 4. Wiring into the four call sites
+- **Producer Profile AddressCard**: replace the `streetRef` + legacy Autocomplete `useEffect` with `<AddressAutocomplete>` for street; `onSelect` updates `street`, `city`, `state`, `zip` local state and calls `onSave({ street_address, city, state, zip_code })`.
+- **Pipeline Add Client**: replace the street `<Input>`; `onSelect` updates the `form` state for street/city/state/zip in one go.
+- **Client Detail Drawer EditableField**: when the field name is `street_address`, render `AddressAutocomplete` in the edit popover. `onSelect` triggers an `updateClient` mutation patching all four address fields together (rather than only `street_address`).
+- **Invite token form**: same swap as Pipeline, updates the `form` setter for the four fields.
 
-## 10. Auth callback route
-- Verify `src/routes/auth.callback.tsx`. If missing, create it with the spec'd component (redirect to `/dashboard` on signed-in session, `/login` otherwise). Do NOT hand-edit `routeTree.gen.ts` — Vite plugin regenerates it.
+### 5. Cleanup
+- Delete the unused `VITE_GOOGLE_MAPS_API_KEY` entries (`.env`, `.env.example`).
+- Update the audit checklist note in `.lovable/plan.md` if it references the old key.
 
-## 11. Global error boundary
-- In `src/routes/__root.tsx`, set `defaultErrorComponent` / wrap `<Outlet/>` with the spec'd `GlobalErrorFallback` (icon, message, Back to Dashboard button) so unhandled errors don't white-screen.
+## Out of scope
+- No new map widgets, no geocoding on the server side, no changes to data schemas or RLS — `street_address`, `city`, `state`, `zip_code` columns already exist on `profiles` and `clients`.
+- No address validation API; we only fill what the user picks.
 
-## 12. Global Suspense
-- In `src/router.tsx`, wrap `<RouterProvider/>` in `<Suspense fallback={<Skeleton/>}>` so route transitions don't flash blank.
-
-## Verification
-After each section, spot-check the file. At the end: run a grep sweep for `anthropic`, `coming soon`, `example.com/surelc`, `MOCK_POLICIES`, and confirm the final checklist in the brief.
-
-## Notes / assumptions
-- I'll keep all existing business logic intact and only touch the files named above (plus any transitively required by import).
-- If a referenced file/line doesn't match (e.g., a "coming soon" string was already removed), I'll skip silently rather than invent work.
-- I will NOT run builds manually — the harness handles that.
+## Approval / setup needed
+Before building, I'll need you to approve linking the **Google Maps Platform** connector (one click — managed key, no billing setup on your end). After that I'll implement everything above in one pass.
