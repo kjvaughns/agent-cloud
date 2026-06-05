@@ -318,17 +318,19 @@ export const askKnowledgeBase = createServerFn({ method: "POST" })
     const ilike = `%${q.split(/\s+/).slice(0, 4).join("%")}%`;
 
     const [hb, faq, scr, am] = await Promise.all([
-      supabase.from("handbook_sections").select("id,title,content").or(`title.ilike.${ilike},content.ilike.${ilike}`).limit(8),
+      supabase.from("handbook_sections").select("id,title,content_html").or(`title.ilike.${ilike},content_html.ilike.${ilike}`).limit(8),
       supabase.from("faq_items").select("id,question,answer").or(`question.ilike.${ilike},answer.ilike.${ilike}`).limit(8),
-      supabase.from("scripts").select("id,title,body").or(`title.ilike.${ilike},body.ilike.${ilike}`).limit(6),
-      supabase.from("academy_modules").select("id,title,description").or(`title.ilike.${ilike},description.ilike.${ilike}`).limit(6),
+      supabase.from("scripts").select("id,title,content_markdown,short_description").or(`title.ilike.${ilike},content_markdown.ilike.${ilike},short_description.ilike.${ilike}`).limit(6),
+      supabase.from("academy_modules").select("id,title,content_html").or(`title.ilike.${ilike},content_html.ilike.${ilike}`).limit(6),
     ]);
 
+    const stripHtml = (s: string | null | undefined) => (s ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000);
+
     const corpus = [
-      ...(hb.data ?? []).map((r: any) => ({ source: "handbook" as const, id: r.id, title: r.title, body: r.content })),
+      ...(hb.data ?? []).map((r: any) => ({ source: "handbook" as const, id: r.id, title: r.title, body: stripHtml(r.content_html) })),
       ...(faq.data ?? []).map((r: any) => ({ source: "faq" as const, id: r.id, title: r.question, body: r.answer })),
-      ...(scr.data ?? []).map((r: any) => ({ source: "script" as const, id: r.id, title: r.title, body: r.body })),
-      ...(am.data ?? []).map((r: any) => ({ source: "academy" as const, id: r.id, title: r.title, body: r.description })),
+      ...(scr.data ?? []).map((r: any) => ({ source: "script" as const, id: r.id, title: r.title, body: r.content_markdown ?? r.short_description ?? "" })),
+      ...(am.data ?? []).map((r: any) => ({ source: "academy" as const, id: r.id, title: r.title, body: stripHtml(r.content_html) })),
     ];
 
     if (!corpus.length) {
