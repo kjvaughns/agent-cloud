@@ -33,8 +33,12 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
       headers: { "x-api-key": keyRow.api_key, Accept: "application/json" },
     });
   } catch (e: any) {
+    console.error(`[alCall] Network error for ${path}:`, e?.message ?? e);
     throw new Error(`NETWORK: Could not reach AgentLink — ${e.message}`);
   }
+
+  const ct = res.headers.get("content-type") ?? "";
+  console.log(`[alCall] ${path} → status=${res.status} content-type=${ct}`);
 
   if (res.status === 401)
     throw new Error(
@@ -49,7 +53,6 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
     throw new Error(`API_ERROR ${res.status}: ${body.slice(0, 300)}`);
   }
 
-  const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
     const body = await res.text();
     throw new Error(`UNEXPECTED_RESPONSE: Expected JSON but got ${ct}. Body: ${body.slice(0, 200)}`);
