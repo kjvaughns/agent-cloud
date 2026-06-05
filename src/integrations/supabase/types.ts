@@ -178,6 +178,42 @@ export type Database = {
           },
         ]
       }
+      agent_integrations: {
+        Row: {
+          agent_id: string
+          api_key: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          platform: string
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          platform: string
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          api_key?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          platform?: string
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_landing_pages: {
         Row: {
           agent_id: string
