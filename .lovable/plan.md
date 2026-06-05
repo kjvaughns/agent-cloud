@@ -1,47 +1,62 @@
-## Problem
+## What I found
 
-Dashboard shows ~$434k team/personal production. Your actual numbers should be ~$116k personal and ~$219k team. Two bugs caused this:
+- The dashboard and production trend calculate by `posted_at`, but the import wrote every policy with `posted_at = import time`, so the app thinks all imported production happened today.
+- Your imported policy `effective_date` values are spread across Jan–Jul 2026, so the source data does have usable dates.
+- The downline/pending agents with imported production were created without `upline_id`, so Team Command Center does not include them in your hierarchy.
+- Imported policies currently have `carrier_id = null`, so Book of Business can’t show/filter carrier names and carrier/profile matching cannot work.
+- Duplicate protection exists mostly for clients, but policy-level duplicate protection is weak and not team-wide enough for future agent uploads.
 
-### Bug 1 — "TOTALS" row imported as a policy
-The Book of Business sheet's footer row (`client_label = "TOTALS"`, `annual_premium = 219,238.92`, no agent, no policy number, no effective date) was imported as a real policy. That single phantom row exactly doubles your total ($434,498 = $215,259 real + $219,238 totals row).
+## Plan
 
-### Bug 2 — All 164 policies and 254 clients assigned to you
-At replay time `pending_agents` was empty, so the `agent_label` → downline email mapping found nothing and every row fell back to `agent_id = Kaeden`. The breakdown that *should* exist (already present in the source JSON):
+1. **One-time data repair**
+   - Link the imported pending downline agents back under your profile so Team Command Center and dashboard hierarchy rollups include their inactive/pending production.
+   - Update imported policies so `posted_at` reflects the policy’s effective date for historical production reporting, instead of the import date.
+   - Backfill `carrier_id` on imported policies by matching imported carrier/product text to active carrier records.
+   - Re-check totals after repair so personal production, team production, policy counts, and date distribution line up with the imported book.
 
-| Agent | Policies | ALP |
-|---|---|---|
-| Kaeden Vaughns (you) | 82 | $116,962 |
-| Xaviar Watts | 50 | $61,575 |
-| Charles Reese | 26 | $32,483 |
-| Landon Boyd | 3 | $3,204 |
-| Daniel Gonzalez | 2 | $3,360 |
-| Loren Lail | 2 | $1,652 |
+2. **Fix dashboard metrics long term**
+   - Update `get_dashboard_metrics` so production KPIs and production trend use `effective_date` as the business date for policies, falling back to `posted_at` only when no effective date exists.
+   - Keep “posted/imported date” available where it matters, but stop using it as the primary production date.
+   - Make policy count logic consistent so “My Policies” and “Team Policies” use the same date basis and hierarchy scope.
 
-Clients sheet had no agent column, so clients need to be re-owned by joining to their policy's agent.
+3. **Fix Book of Business display and carrier matching**
+   - Update policy list sorting/filtering to prioritize effective date for production views.
+   - Ensure policy rows include carrier name by storing and returning `carrier_id`/`carrier_name` correctly.
+   - Add robust carrier matching during import using normalized names, common aliases, and active carrier records.
 
-## Fix
+4. **Fix Team Command Center**
+   - Ensure pending/inactive imported agents are included in hierarchy RPCs, roster tables, org chart, and production totals.
+   - Show inactive/pending agents with their policy counts and production, not just active agents.
+   - Make agent detail production use the same effective-date/carrier-aware policy data.
 
-### 1. Data cleanup (one-time, via insert tool)
-- Delete the phantom TOTALS policy (`agent_label IS NULL`, `policy_number IS NULL`, `annual_premium = 219238.92`).
-- Re-seed `pending_agents` from the import job's `roster` array (25 rows) with `upline_id = Kaeden`. Cross-reference roster names with `agent_label` values from `policies_raw` to confirm email matches (Xaviar Watts → xaviarwatts123@gmail.com, etc.).
-- For each policy whose `agent_label` matches a downline roster name: set `agent_id = <pending stub UUID we create>` OR keep `agent_id = Kaeden` and set `assigned_to_email = <downline email>`. **Recommendation: create real `profiles` rows (status='pending') for the downline so dashboards/leaderboards/team rollups work today; when the downline signs up, `handle_new_user` already merges via email.** This matches the "inactive downline agents" pattern you asked for previously.
-- Re-own clients: for any client whose only policy belongs to a downline agent, move `clients.agent_id` to that downline (or set `assigned_to_email`).
-- Recompute commission schedule rows (delete + let the `generate_commission_schedule` trigger re-run on re-insert, or regenerate manually).
+5. **Strengthen import duplicate protection**
+   - Add database-level safeguards for policy duplicates where possible.
+   - Make import matching team-aware: match duplicate clients/policies across the upline hierarchy, pending-assigned emails, and agents’ own books.
+   - Use stronger policy duplicate keys: policy number + carrier when present; otherwise client + effective date + premium + carrier/product.
+   - Make future agent uploads avoid duplicating policies already imported under the team/upline.
 
-### 2. Importer code fixes (so this doesn't recur)
-- `src/lib/agentlink-xls-parser.ts` (or wherever Book of Business is parsed): skip rows where `client_label` matches `/^totals?$/i`, or where `agent_label`, `policy_number`, and `effective_date` are all null.
-- `src/lib/admin-import.functions.ts` (`replayAdminImportPolicies` + initial import handler):
-  - Before the policies loop, ensure `pending_agents` (or pending `profiles`) exist for every roster entry — seed them if missing.
-  - Build an `agent_label → owner` map keyed by normalized full name from roster, then resolve each policy to the right `agent_id`/`assigned_to_email` (fall back to importer only when nothing matches and log a warning).
-  - When inserting a stub client for a downline policy, set the stub's owner to the downline too (not the importer).
+6. **Import code hardening**
+   - Stop writing imported policy `posted_at` as “now” when an effective date is provided.
+   - Parse spreadsheet dates deterministically instead of relying on JavaScript’s loose date parsing.
+   - Create/link pending agents with the correct upline during import.
+   - Store carrier information separately from product information.
 
-### 3. Verify
-After cleanup, dashboard "All time" should show:
-- My Production ≈ $116,962
-- Team Production ≈ $219,238
-- My Policies = 82, Team Policies = 165 (164 real - 1 totals row + downline stubs already counted)
-- Effective dates populated on all 163 real policies (the only no-eff row was the TOTALS row)
+7. **Validation**
+   - Run read-only checks for:
+     - personal production by effective-date period
+     - team production by effective-date period
+     - policy counts by agent
+     - policy counts by month
+     - carrier match coverage
+     - duplicate-risk rows
+   - Confirm dashboard, production trend, Team Command Center, and Book of Business are all using the corrected data path.
 
 ## Technical notes
-- The `profiles` route is preferred over `pending_agents` for the downline stubs because `get_dashboard_metrics` and most analytics RPCs walk `profiles.upline_id` recursively; `assigned_to_email`-only rows don't get counted in those rollups. The `handle_new_user` trigger already handles the case where a real signup happens and merges by lowercase email.
-- Commission schedule rows generated from the bad policies need to be wiped alongside the policy deletions, otherwise the Finances page will keep showing inflated numbers.
+
+- Main code areas:
+  - `src/lib/dashboard.functions.ts`
+  - database functions: `get_dashboard_metrics`, `get_team_downline`, `get_book_of_business`
+  - `src/lib/admin-import.functions.ts`
+  - `src/lib/import-helpers.ts`
+  - Team and Book of Business route components if display behavior needs small adjustments
+- Data changes will use Lovable Cloud data update tools, not schema migrations unless a unique index/function change is required.

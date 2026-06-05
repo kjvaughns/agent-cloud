@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS policies_agent_policy_number_uniq ON public.policies (agent_id, policy_number) WHERE policy_number IS NOT NULL AND policy_number <> '';
