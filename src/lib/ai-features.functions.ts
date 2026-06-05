@@ -238,7 +238,8 @@ export const generateSophaiDrafts = createServerFn({ method: "POST" })
       const now = new Date();
       targets = (clients ?? [])
         .filter((c: any) => {
-          const d = new Date(c.dob);
+          if (!c.date_of_birth) return false;
+          const d = new Date(c.date_of_birth);
           const next = new Date(now.getFullYear(), d.getMonth(), d.getDate());
           const diff = (next.getTime() - now.getTime()) / 86400000;
           return diff >= 0 && diff <= 7;
@@ -269,11 +270,11 @@ export const generateSophaiDrafts = createServerFn({ method: "POST" })
       // sms — recent appointments / calls without follow-up
       const { data: events } = await supabase
         .from("calendar_events")
-        .select("title, starts_at, client:clients(id,first_name,last_name)")
-        .eq("user_id", userId)
-        .lte("starts_at", new Date().toISOString())
-        .gte("starts_at", new Date(Date.now() - 3 * 86400000).toISOString())
-        .order("starts_at", { ascending: false })
+        .select("title, start_at, client:clients(id,first_name,last_name)")
+        .eq("agent_id", userId)
+        .lte("start_at", new Date().toISOString())
+        .gte("start_at", new Date(Date.now() - 3 * 86400000).toISOString())
+        .order("start_at", { ascending: false })
         .limit(limit);
       targets = (events ?? [])
         .filter((e: any) => e.client)
