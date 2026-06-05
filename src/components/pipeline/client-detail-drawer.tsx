@@ -25,6 +25,7 @@ import {
   listCarriers, addPolicy,
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
