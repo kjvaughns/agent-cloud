@@ -357,3 +357,280 @@ export const askKnowledgeBase = createServerFn({ method: "POST" })
     });
     return json;
   });
+
+// ============================================================
+// PHASE 2 — Workflow accelerators
+// ============================================================
+
+// ------------------------------------------------------------------
+// 6) Calendar — pre-meeting brief for an appointment
+// ------------------------------------------------------------------
+const MeetingBriefSchema = z.object({
+  client_id: z.string().uuid(),
+  event_title: z.string().max(200).optional(),
+  event_at: z.string().optional(),
+});
+
+export type MeetingBrief = {
+  snapshot: string;
+  key_facts: string[];
+  suggested_agenda: string[];
+  questions_to_ask: string[];
+  watch_outs: string[];
+};
+
+export const getMeetingBrief = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => MeetingBriefSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const [clientRes, polRes, histRes] = await Promise.all([
+      supabase.from("clients")
+        .select("first_name,last_name,stage,temperature,date_of_birth,state,notes")
+        .eq("id", data.client_id).eq("agent_id", userId).maybeSingle(),
+      supabase.from("policies")
+        .select("product,status,monthly_premium,annual_premium,effective_date,carrier:carriers(name)")
+        .eq("client_id", data.client_id).limit(10),
+      supabase.from("contact_history")
+        .select("channel,outcome,notes,created_at")
+        .eq("client_id", data.client_id).order("created_at", { ascending: false }).limit(8),
+    ]);
+    if (!clientRes.data) throw new Error("Client not found");
+
+    return callAiJson<MeetingBrief>({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You prepare a life-insurance agent for an upcoming client meeting. Return JSON: {snapshot: string (2 sentence summary), key_facts: string[] (4-6 bullets — age, state, family, current policies, stage), suggested_agenda: string[] (3-5 items), questions_to_ask: string[] (3-5 open-ended), watch_outs: string[] (1-3 risks or sensitive topics)}. Use only the provided data — do not invent.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            event: { title: data.event_title, at: data.event_at },
+            client: clientRes.data,
+            policies: polRes.data ?? [],
+            recent_contacts: histRes.data ?? [],
+          }),
+        },
+      ],
+      maxTokens: 900,
+    });
+  });
+
+// ------------------------------------------------------------------
+// 7) Quoter — carrier/product recommender
+// ------------------------------------------------------------------
+const QuoteRecSchema = z.object({
+  age: z.number().int().min(0).max(110),
+  state: z.string().min(2).max(2),
+  health: z.enum(["preferred", "standard", "table", "tobacco", "uninsurable"]),
+  budget_monthly: z.number().min(0).max(10000),
+  goal: z.string().max(300),
+  product_pref: z.string().max(60).optional(),
+});
+
+export type QuoteRecommendation = {
+  recommendations: {
+    carrier: string;
+    product: string;
+    why: string;
+    est_face_amount?: string;
+    est_premium?: string;
+    confidence: "high" | "medium" | "low";
+  }[];
+  objections: { objection: string; response: string }[];
+  notes: string;
+};
+
+export const getQuoteRecommendation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => QuoteRecSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: carriers } = await supabase
+      .from("agent_commission_levels")
+      .select("carrier:carriers(name,products)")
+      .eq("agent_id", userId).limit(40);
+    const activeCarriers = (carriers ?? []).map((r: any) => r.carrier).filter(Boolean);
+
+    return callAiJson<QuoteRecommendation>({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a life-insurance product recommender. Return JSON: {recommendations: [{carrier, product, why, est_face_amount?, est_premium?, confidence}] (3-4 picks ranked best-fit first), objections: [{objection, response}] (2-3 likely client objections + responses), notes: string (any caveats)}. Prefer carriers the agent is contracted with. Premium and face are rough estimates only.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            client: data,
+            agent_contracted_carriers: activeCarriers,
+          }),
+        },
+      ],
+      maxTokens: 1100,
+    });
+  });
+
+// ------------------------------------------------------------------
+// 8) Needs Analysis — AI coverage recommendation
+// ------------------------------------------------------------------
+const NeedsAnalysisSchema = z.object({
+  age: z.number().int().min(0).max(110),
+  annual_income: z.number().min(0).max(10_000_000),
+  married: z.boolean(),
+  dependents: z.number().int().min(0).max(15),
+  monthly_expenses: z.number().min(0).max(1_000_000),
+  mortgage_balance: z.number().min(0).max(10_000_000),
+  savings: z.number().min(0).max(10_000_000),
+  existing_coverage: z.number().min(0).max(50_000_000),
+});
+
+export type NeedsAnalysisResult = {
+  income_replacement: number;
+  debt_coverage: number;
+  final_expense: number;
+  education_fund: number;
+  total_recommended: number;
+  range_low: number;
+  range_high: number;
+  rationale: string;
+  client_summary: string;
+};
+
+export const getNeedsAnalysis = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => NeedsAnalysisSchema.parse(d))
+  .handler(async ({ data }) => {
+    return callAiJson<NeedsAnalysisResult>({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You calculate life-insurance coverage need (DIME method, adjusted for assets and existing coverage). Return JSON: {income_replacement: number (10x income, or to retirement), debt_coverage: number (mortgage + other debts), final_expense: number (15000), education_fund: number (60000 * dependents under 18), total_recommended: number (sum minus savings and existing_coverage, floor 0), range_low: number (-20% of total), range_high: number (+25% of total), rationale: string (2-3 sentences, agent-facing), client_summary: string (1 short paragraph, client-facing, plain English)}. All numbers in USD, no formatting.",
+        },
+        { role: "user", content: JSON.stringify(data) },
+      ],
+      maxTokens: 700,
+    });
+  });
+
+// ------------------------------------------------------------------
+// 9) Post-Deal QA — review a deal before submit
+// ------------------------------------------------------------------
+const PostDealQaSchema = z.object({
+  client: z.object({
+    first_name: z.string(), last_name: z.string(),
+    phone: z.string().optional(), date_of_birth: z.string().optional(),
+  }),
+  policy: z.object({
+    carrier_name: z.string().optional(),
+    product: z.string().optional(),
+    policy_number: z.string().optional(),
+    effective_date: z.string().optional(),
+    face_amount: z.number(),
+    monthly_premium: z.number(),
+  }),
+  beneficiaries: z.array(z.object({
+    first_name: z.string(), last_name: z.string(),
+    relationship: z.string(), percentage: z.number(),
+  })).max(20),
+  notes: z.string().max(2000).optional(),
+});
+
+export type PostDealQa = {
+  ready_to_submit: boolean;
+  issues: { severity: "high" | "medium" | "low"; field: string; problem: string; fix: string }[];
+  suggestions: string[];
+};
+
+export const reviewPostDeal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PostDealQaSchema.parse(d))
+  .handler(async ({ data }) => {
+    return callAiJson<PostDealQa>({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You QA a life-insurance application before submission. Check: required fields, phone format, DOB realism, premium-to-face ratio sanity, beneficiary percentages sum to 100 (or empty), beneficiary name/relationship completeness, policy number format. Return JSON: {ready_to_submit: boolean, issues: [{severity, field, problem, fix}], suggestions: string[]}. Be specific. Don't invent missing fields — only flag what's actually wrong with what was provided.",
+        },
+        { role: "user", content: JSON.stringify(data) },
+      ],
+      maxTokens: 800,
+    });
+  });
+
+// ------------------------------------------------------------------
+// 10) Underwriting Q&A — draft response to a carrier UW email
+// ------------------------------------------------------------------
+const UwSchema = z.object({
+  client_id: z.string().uuid().optional(),
+  carrier_email: z.string().min(20).max(8000),
+});
+
+export const draftUwResponse = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UwSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let client: any = null;
+    if (data.client_id) {
+      const { data: c } = await supabase.from("clients")
+        .select("first_name,last_name,date_of_birth,state,notes")
+        .eq("id", data.client_id).eq("agent_id", userId).maybeSingle();
+      client = c;
+    }
+    const text = await callAi({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You draft a professional response to a carrier underwriter on behalf of a life-insurance agent. Address every question the underwriter asked. Use client context when relevant. Keep it concise, polite, and well-formatted. Output the email body only — no subject line, no signature placeholder.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({ carrier_email: data.carrier_email, client }),
+        },
+      ],
+      maxTokens: 900,
+    });
+    return { draft: text };
+  });
+
+// ------------------------------------------------------------------
+// 11) Recruiting — nurture sequence for a prospect
+// ------------------------------------------------------------------
+const NurtureSchema = z.object({ prospect_id: z.string().uuid() });
+
+export type NurtureSequence = {
+  summary: string;
+  messages: { day: number; channel: "sms" | "email"; subject?: string; body: string; goal: string }[];
+};
+
+export const getProspectNurture = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => NurtureSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: prospect } = await supabase.from("recruiting_prospects")
+      .select("first_name,last_name,stage,source,notes,created_at")
+      .eq("id", data.prospect_id).eq("recruiter_id", userId).maybeSingle();
+    if (!prospect) throw new Error("Prospect not found");
+    const { data: notes } = await supabase.from("recruiting_prospect_notes")
+      .select("note,created_at").eq("prospect_id", data.prospect_id)
+      .order("created_at", { ascending: false }).limit(5);
+
+    return callAiJson<NurtureSequence>({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You design a 5-touch recruiting nurture sequence for a life-insurance agency. Return JSON: {summary: string (1 sentence on the angle), messages: [{day: 0|2|5|9|14, channel: 'sms'|'email', subject?, body, goal}]}. Tailor to the prospect's stage and source. Mix SMS (short, under 320 chars) and email (under 180 words). Goal: move them to the next stage.",
+        },
+        { role: "user", content: JSON.stringify({ prospect, recent_notes: notes ?? [] }) },
+      ],
+      maxTokens: 1400,
+    });
+  });
