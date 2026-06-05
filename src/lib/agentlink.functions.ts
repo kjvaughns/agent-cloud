@@ -85,24 +85,32 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
 export const getAgentLinkKeyStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context as any;
-    const { data, error } = await supabase
-      .from("agent_integrations")
-      .select("api_key, last_synced_at, sync_status, last_error")
-      .eq("agent_id", userId)
-      .eq("platform", "agentlink")
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!data) return { connected: false };
-    return {
-      connected: true,
-      masked_suffix: data.api_key?.slice(-6) ?? "??????",
-      last_synced: data.last_synced_at
-        ? new Date(data.last_synced_at).toLocaleDateString()
-        : null,
-      sync_status: data.sync_status,
-      last_error: data.last_error,
-    };
+    try {
+      const { supabase, userId } = context as any;
+      const { data, error } = await supabase
+        .from("agent_integrations")
+        .select("api_key, last_synced_at, sync_status, last_error")
+        .eq("agent_id", userId)
+        .eq("platform", "agentlink")
+        .maybeSingle();
+      if (error) {
+        console.error("[getAgentLinkKeyStatus] DB error:", error);
+        return { connected: false };
+      }
+      if (!data) return { connected: false };
+      return {
+        connected: true,
+        masked_suffix: data.api_key?.slice(-6) ?? "??????",
+        last_synced: data.last_synced_at
+          ? new Date(data.last_synced_at).toLocaleDateString()
+          : null,
+        sync_status: data.sync_status,
+        last_error: data.last_error,
+      };
+    } catch (e: any) {
+      console.error("[getAgentLinkKeyStatus] Unhandled error:", e?.message ?? e);
+      return { connected: false };
+    }
   });
 
 // ─── Remove Key ───────────────────────────────────────────────────────────────
