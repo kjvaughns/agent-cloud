@@ -180,6 +180,22 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
 
       await updateJob({ total_found: rawClients.length });
 
+      // Build team context (upline + sibling emails) for team-wide duplicate protection
+      const { data: meRow } = await supabase
+        .from("profiles")
+        .select("upline_id")
+        .eq("id", userId)
+        .maybeSingle();
+      const uplineId: string | null = meRow?.upline_id ?? null;
+      let teamEmails: string[] = [];
+      if (uplineId) {
+        const { data: siblings } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("upline_id", uplineId);
+        teamEmails = (siblings ?? []).map((s: any) => s.email).filter(Boolean);
+      }
+
       let imported = 0,
         duplicates_found = 0,
         skipped = 0,
