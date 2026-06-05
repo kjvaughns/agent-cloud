@@ -57,18 +57,21 @@ export function AgentLinkImportDialog({
   const {
     data: status,
     isLoading: statusLoading,
+    isError: statusError,
     refetch: refetchStatus,
   } = useQuery({
     queryKey: ["agentlink-status"],
     queryFn: () => statusFn(),
     enabled: open,
     staleTime: 0,
+    retry: false,
   });
 
   useEffect(() => {
-    if (phase !== "loading" || statusLoading || !status) return;
+    if (phase !== "loading" || statusLoading) return;
+    if (statusError || !status) { setPhase("no_key"); return; }
     setPhase((status as any).connected ? "has_key" : "no_key");
-  }, [phase, statusLoading, status]);
+  }, [phase, statusLoading, statusError, status]);
 
   useEffect(() => {
     if (open) {
