@@ -181,8 +181,9 @@ export function AIImportDialog({
 
         {phase === "review" && extracted && (
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${isMulti ? "grid-cols-4" : "grid-cols-3"}`}>
               {[
+                ...(isMulti ? [{ label: "Pending Agents", value: rosterCount, color: "text-purple-600" }] : []),
                 { label: "Clients", value: clients.length, color: "text-emerald-600" },
                 { label: "Policies", value: policyCount, color: "text-blue-600" },
                 { label: "Notes", value: noteCount, color: "text-amber-600" },
@@ -196,9 +197,34 @@ export function AIImportDialog({
 
             {extracted.source_description && (
               <div className="text-xs text-muted-foreground italic">
-                AI detected: {extracted.source_description}
+                Detected: {extracted.source_description}
               </div>
             )}
+
+            {isMulti && ownerGroups.length > 0 && (
+              <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  Distribution
+                </div>
+                {ownerGroups.slice(0, 12).map((g, i) => (
+                  <div key={i} className="text-xs flex items-center justify-between">
+                    <span>
+                      <span className="font-medium">{g.label}</span>
+                      {g.email ? (
+                        <span className="text-muted-foreground"> · pending signup ({g.email})</span>
+                      ) : (
+                        <span className="text-muted-foreground"> · stays with {targetAgent.name}</span>
+                      )}
+                    </span>
+                    <span className="font-mono text-muted-foreground">{g.count}</span>
+                  </div>
+                ))}
+                {ownerGroups.length > 12 && (
+                  <div className="text-xs text-muted-foreground">+ {ownerGroups.length - 12} more groups</div>
+                )}
+              </div>
+            )}
+
 
             <div className="border rounded-lg max-h-[40vh] overflow-y-auto divide-y">
               {clients.length === 0 ? (
