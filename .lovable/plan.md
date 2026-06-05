@@ -1,63 +1,24 @@
-# Address Autocomplete Across the App
+# Fix: Address autocomplete not auto-filling city/state/ZIP on pick
 
-## Goal
-When a user types into any street-address field, suggest real addresses from Google Places and, on selection, auto-fill street / city / state / ZIP.
+## Root cause
+In `src/components/pipeline/client-detail-drawer.tsx`, the address `EditableField` runs `onBlur={save}` on the `<Input>`. When the user clicks a suggestion in the dropdown, the input loses focus first — `save()` fires, calls `setEditing(false)`, and unmounts `AddressAutocomplete` before the suggestion's `onClick` runs. Result: only the typed street text gets saved; `onSelect` (which patches `street_address` + `city` + `state` + `zip_code` together) never executes.
 
-## Where it applies
-Every place a street address is entered today:
-1. **Producer Profile → Home Address card** (`src/routes/_authenticated/account/producer-profile.tsx`) — currently uses an old, partial autocomplete bound to a hard-coded `VITE_GOOGLE_MAPS_API_KEY` that is empty in this project, so it doesn't work. Will be replaced.
-2. **Pipeline → Add Client dialog** (`src/routes/_authenticated/pipeline.tsx`, "Street address" input around line 335).
-3. **Client Detail Drawer → Address section** (`src/components/pipeline/client-detail-drawer.tsx`, the `EditableField` for `street_address`) — when the field is opened for editing, it will use autocomplete and also auto-fill the sibling city / state / ZIP fields.
-4. **Agent Invite onboarding form** (`src/routes/invite.$token.tsx`, "Street address" input).
+The same race affects any other call site that combines a blur-to-save pattern with the autocomplete dropdown (producer profile / invite form are less affected because they don't unmount on blur, but the underlying component should still be robust).
 
-No other address inputs exist in the codebase (verified with a project-wide search for `street_address` and address-labeled inputs).
+## Changes
 
-## How it will work (for a non-technical reader)
-- We'll connect Lovable's built-in Google Maps integration so the app gets a working maps key automatically — no manual key management.
-- We'll build one shared "Address" input component and drop it into the four places above. Behavior:
-  - User types → live suggestions appear underneath.
-  - User picks one → the street field fills with the street line, and the related city / state / ZIP fields fill in automatically.
-  - If Maps isn't available for any reason, the field still works as a plain text input (graceful fallback).
-- Restricted to US addresses by default (matches the rest of the app: state dropdowns, ZIP, NPN).
+### 1. `src/components/address-autocomplete.tsx`
+- On each suggestion `<button>`, add `onMouseDown={(e) => e.preventDefault()}` so the host input never loses focus when the user clicks a suggestion. This guarantees the parent's `onBlur` (if any) doesn't fire before `handlePick` → `onSelect`.
 
-## Technical details
+### 2. `src/components/pipeline/client-detail-drawer.tsx` (address branch of `EditableField`)
+- Remove `onBlur={save}` from the address-mode `AddressAutocomplete` (commit happens via `onSelect` or Enter). Keep an outside-click close path that does NOT save partial input — prevents the partial-save race entirely.
+- Keep `onKeyDown` Enter → `save()` for users who type a freeform address and press Enter.
+- After `onSelect`, also update local `val` so the displayed value reflects the picked street.
 
-### 1. Connector
-- Use the **Lovable Google Maps Platform connector** (managed key, no user setup). Linking it provisions `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` and `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID`.
-- Remove the dead `VITE_GOOGLE_MAPS_API_KEY` reference from `.env` / `.env.example` and from `__root.tsx`.
-
-### 2. Maps JS loader
-- Replace the current `<script>` tag in `src/routes/__root.tsx` with an async loader that uses the connector's browser key and `loading=async&callback=...&channel=...` per the Lovable Google Maps guidance.
-- Expose a tiny `ensureMaps()` helper in `src/lib/google-maps.ts` that returns a promise resolving once `google.maps` + the `places` library are ready (uses `importLibrary('places')`). This avoids each component racing the script.
-
-### 3. Shared component: `AddressAutocomplete`
-New file: `src/components/address-autocomplete.tsx`.
-
-- Props:
-  - `value: string`
-  - `onChange(value: string)` — fires on every keystroke (so form state stays in sync).
-  - `onSelect(parts: { street, city, state, zip, country })` — fires when a suggestion is chosen.
-  - passthrough `placeholder`, `id`, `className`, `disabled`, `ref`.
-- Implementation:
-  - Uses **Places API (New)** via `google.maps.importLibrary('places')` → `AutocompleteSuggestion.fetchAutocompleteSuggestions` with a session token, debounced ~200ms, `includedRegionCodes: ['us']`, `includedPrimaryTypes: ['street_address','premise','subpremise','route']`.
-  - Renders a simple shadcn-styled popover list under the existing `<Input>` (matches current design system; no new colors).
-  - On select, resolves the place's `addressComponents` and maps them to `{ street: "<number> <route>", city: locality, state: administrative_area_level_1 (short), zip: postal_code, country }`.
-  - If `ensureMaps()` rejects (no key, blocked, offline), the component silently behaves as a normal input.
-- **Does NOT** use the legacy `google.maps.places.Autocomplete` class (per Lovable guidance to use Places API New).
-
-### 4. Wiring into the four call sites
-- **Producer Profile AddressCard**: replace the `streetRef` + legacy Autocomplete `useEffect` with `<AddressAutocomplete>` for street; `onSelect` updates `street`, `city`, `state`, `zip` local state and calls `onSave({ street_address, city, state, zip_code })`.
-- **Pipeline Add Client**: replace the street `<Input>`; `onSelect` updates the `form` state for street/city/state/zip in one go.
-- **Client Detail Drawer EditableField**: when the field name is `street_address`, render `AddressAutocomplete` in the edit popover. `onSelect` triggers an `updateClient` mutation patching all four address fields together (rather than only `street_address`).
-- **Invite token form**: same swap as Pipeline, updates the `form` setter for the four fields.
-
-### 5. Cleanup
-- Delete the unused `VITE_GOOGLE_MAPS_API_KEY` entries (`.env`, `.env.example`).
-- Update the audit checklist note in `.lovable/plan.md` if it references the old key.
+## Verification
+- Open a client → edit Street Address → type "123 ", pick a suggestion → confirm street, city, state, and ZIP all update without manual entry.
+- Producer Profile and Invite onboarding: pick a suggestion → confirm all four fields populate.
+- Typing freeform text + Enter still saves just the street.
 
 ## Out of scope
-- No new map widgets, no geocoding on the server side, no changes to data schemas or RLS — `street_address`, `city`, `state`, `zip_code` columns already exist on `profiles` and `clients`.
-- No address validation API; we only fill what the user picks.
-
-## Approval / setup needed
-Before building, I'll need you to approve linking the **Google Maps Platform** connector (one click — managed key, no billing setup on your end). After that I'll implement everything above in one pass.
+- No schema, routing, or styling changes. No new fields added to the pipeline Add Client dialog (it intentionally only collects name + phone).
