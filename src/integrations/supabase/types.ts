@@ -940,6 +940,7 @@ export type Database = {
       clients: {
         Row: {
           agent_id: string
+          assigned_to_email: string | null
           best_time_to_call: string | null
           born_country_state: string | null
           city: string | null
@@ -964,6 +965,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          assigned_to_email?: string | null
           best_time_to_call?: string | null
           born_country_state?: string | null
           city?: string | null
@@ -988,6 +990,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          assigned_to_email?: string | null
           best_time_to_call?: string | null
           born_country_state?: string | null
           city?: string | null
@@ -1165,6 +1168,7 @@ export type Database = {
       contact_history: {
         Row: {
           agent_id: string
+          assigned_to_email: string | null
           client_id: string
           contact_type: string | null
           created_at: string
@@ -1174,6 +1178,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          assigned_to_email?: string | null
           client_id: string
           contact_type?: string | null
           created_at?: string
@@ -1183,6 +1188,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          assigned_to_email?: string | null
           client_id?: string
           contact_type?: string | null
           created_at?: string
@@ -1745,10 +1751,77 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_agents: {
+        Row: {
+          contracts_label: string | null
+          created_at: string
+          created_by: string | null
+          depth: string | null
+          email: string
+          first_name: string | null
+          id: string
+          joined_date: string | null
+          last_active_label: string | null
+          last_name: string | null
+          location: string | null
+          source: string | null
+          status_label: string | null
+          upline_id: string | null
+        }
+        Insert: {
+          contracts_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          depth?: string | null
+          email: string
+          first_name?: string | null
+          id?: string
+          joined_date?: string | null
+          last_active_label?: string | null
+          last_name?: string | null
+          location?: string | null
+          source?: string | null
+          status_label?: string | null
+          upline_id?: string | null
+        }
+        Update: {
+          contracts_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          depth?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          joined_date?: string | null
+          last_active_label?: string | null
+          last_name?: string | null
+          location?: string | null
+          source?: string | null
+          status_label?: string | null
+          upline_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_agents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_agents_upline_id_fkey"
+            columns: ["upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       policies: {
         Row: {
           agent_id: string
           annual_premium: number | null
+          assigned_to_email: string | null
           carrier_id: string | null
           carrier_integration: string | null
           client_id: string
@@ -1765,6 +1838,7 @@ export type Database = {
         Insert: {
           agent_id: string
           annual_premium?: number | null
+          assigned_to_email?: string | null
           carrier_id?: string | null
           carrier_integration?: string | null
           client_id: string
@@ -1781,6 +1855,7 @@ export type Database = {
         Update: {
           agent_id?: string
           annual_premium?: number | null
+          assigned_to_email?: string | null
           carrier_id?: string | null
           carrier_integration?: string | null
           client_id?: string
