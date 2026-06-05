@@ -251,6 +251,16 @@ function AdminSupport() {
                 {newStatus !== selected.status && (
                   <span className="text-xs text-amber-600">Status will change on send</span>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-8 text-xs"
+                  onClick={draftAiReply}
+                  disabled={drafting || messages.length === 0}
+                >
+                  {drafting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  Draft with AI
+                </Button>
               </div>
               <div className="flex gap-2">
                 <Textarea
