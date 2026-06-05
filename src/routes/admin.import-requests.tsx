@@ -154,6 +154,22 @@ function ImportRequestsPage() {
                       className="text-xs min-h-0"
                     />
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs"
+                      onClick={() =>
+                        setUploadTarget({
+                          id: req.agent_id,
+                          name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
+                          requestId: req.id,
+                        })
+                      }
+                    >
+                      <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload File
+                    </Button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <Select
                       value={req.status}
