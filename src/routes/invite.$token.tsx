@@ -69,10 +69,18 @@ function PublicInvitePage() {
       <main className="max-w-3xl mx-auto px-6 pb-16 space-y-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">You've been invited by {invite.upline_name?.trim() || "your upline"}</h1>
-          <p className="text-muted-foreground mt-1">Join their team and get contracted with the following carriers:</p>
-          <div className="flex flex-wrap gap-1.5 mt-3">
-            {carriers.map((c: any) => <Badge key={c.carrier_id} variant="secondary">{c.carrier_name}</Badge>)}
-          </div>
+          {carriers.length > 0 ? (
+            <>
+              <p className="text-muted-foreground mt-1">Join their team and get contracted with the following carriers:</p>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {carriers.map((c: any) => <Badge key={c.carrier_id} variant="secondary">{c.carrier_name}</Badge>)}
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground mt-1">
+              Create your account to join their team. Your upline will assign your carrier commission levels after you're onboarded.
+            </p>
+          )}
         </div>
 
         {migrationMatch && step <= 1 && (
@@ -237,6 +245,21 @@ function Step1Personal({ token, invite, migrationMatch, onDone }: { token: strin
 function Step2Carriers({ token, carriers, onDone }: { token: string; carriers: any[]; onDone: () => void }) {
   const [choices, setChoices] = useState(() => carriers.map((c) => ({ carrier_id: c.carrier_id, carrier_name: c.carrier_name, include: true, release_needed: !!c.release_needed })));
   const saveFn = useServerFn(saveOnboardingCarriers);
+
+  if (carriers.length === 0) {
+    return (
+      <Card className="p-6 space-y-4">
+        <h2 className="text-lg font-semibold">Carrier Selection</h2>
+        <p className="text-sm text-muted-foreground">
+          No carriers were pre-assigned to this invite. Your upline will assign your carrier
+          commission levels after you've joined the team.
+        </p>
+        <div className="flex justify-end">
+          <Button onClick={onDone}>Continue →</Button>
+        </div>
+      </Card>
+    );
+  }
   const save = useMutation({
     mutationFn: () => saveFn({ data: { token, choices: choices.map(({ carrier_id, include, release_needed }) => ({ carrier_id, include, release_needed })) } }),
     onSuccess: () => { toast.success("Saved"); onDone(); },

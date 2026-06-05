@@ -124,8 +124,30 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const inv = await loadInviteForUser(supabase, data.token, userId);
-    // also set upline if not set
+    // Set upline if not already set
     await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
+    // Wire pre-assigned carriers → contract_requests + commission levels
+    const assignments: any[] = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments : [];
+    for (const a of assignments) {
+      if (!a.carrier_id) continue;
+      await supabase.from("contract_requests").upsert({
+        agent_id: userId,
+        carrier_id: a.carrier_id,
+        status: "assigned" as any,
+        notes: a.release_needed ? "Release needed from previous upline" : null,
+        requested_at: new Date().toISOString(),
+      }, { onConflict: "agent_id,carrier_id" });
+      if (a.level_pct != null) {
+        await supabase.from("agent_commission_levels").upsert({
+          agent_id: userId,
+          carrier_id: a.carrier_id,
+          assigned_pct: a.level_pct,
+          commission_level: a.level_name ?? `${a.level_pct}%`,
+          assigned_by: inv.created_by,
+          assigned_at: new Date().toISOString(),
+        }, { onConflict: "agent_id,carrier_id" });
+      }
+    }
     return { ok: true, invite: inv };
   });
 
@@ -724,7 +746,7 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
     link_name: z.string().trim().min(1).max(80),
-    assignments: z.array(FullAssignmentSchema).min(1).max(50),
+    assignments: z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;

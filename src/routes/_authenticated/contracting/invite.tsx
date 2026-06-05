@@ -60,7 +60,7 @@ function InvitePage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to create link"),
   });
 
-  const canCreate = linkName.trim().length > 0 && assignments.length > 0;
+  const canCreate = linkName.trim().length > 0;
 
   function resetForm() {
     setSuccess(null);
@@ -117,7 +117,7 @@ function InvitePage() {
 
         <div>
           <div className="text-sm font-medium mb-2">Carriers &amp; Commission Levels</div>
-          <p className="text-xs text-muted-foreground mb-3">Select carriers to include and assign a commission level for each. You can only assign levels at or below your own.</p>
+          <p className="text-xs text-muted-foreground mb-3">Optionally pre-assign carriers and commission levels. You can skip this and assign carriers later from the Downline Contracts tab.</p>
 
           {(myCarriers?.rows ?? []).length === 0 ? (
             <div className="p-6 text-center border rounded-md bg-muted/30">
