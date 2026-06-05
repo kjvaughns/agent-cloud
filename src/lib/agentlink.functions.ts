@@ -74,7 +74,6 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
         agent_id: userId,
         platform: "agentlink",
         api_key: data.api_key.trim(),
-        connected_at: new Date().toISOString(),
         sync_status: "idle",
         last_error: null,
       },
