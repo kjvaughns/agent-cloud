@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LifeBuoy, Mail, MessageSquare, Phone, Search, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
+import { AiHelpSearch } from "@/components/ai/ai-help-search";
 
 export const Route = createFileRoute("/_authenticated/account/help")({
   head: () => ({
@@ -63,6 +64,7 @@ function HelpPage() {
         </TabsList>
 
         <TabsContent value="kb" className="mt-4 space-y-4">
+          <AiHelpSearch />
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input className="pl-9 h-11" placeholder="Search articles…" />

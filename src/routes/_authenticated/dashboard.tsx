@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
 import { getDashboardMetrics } from "@/lib/dashboard.functions";
+import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
@@ -107,6 +108,8 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <AiDailyBriefing />
 
       {/* Time range filter + view toggle */}
       <div className="flex flex-wrap items-center gap-3">

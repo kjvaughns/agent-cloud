@@ -1,65 +1,99 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PhoneCall, MessageSquare, Cake, Users } from "lucide-react";
+import { PhoneCall, MessageSquare, Cake, Users, Sparkles, Copy, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { generateSophaiDrafts, type SophaiDraft } from "@/lib/ai-features.functions";
 
 export const Route = createFileRoute("/_authenticated/sophai/activity")({
   head: () => ({
     meta: [
       { title: "Sophai Activity — Agent Cloud" },
-      { name: "description", content: "Live feed of every action Sophai takes on your behalf." },
+      { name: "description", content: "AI-drafted outreach to your clients — review and send." },
     ],
   }),
   component: SophaiActivityPage,
 });
 
 type T = "recovery" | "sms" | "birthday" | "beneficiary";
-const ITEMS: { id: number; type: T; client: string; outcome: string; outcomeKind: "ok" | "neutral" | "bad"; time: string }[] = [
-  { id: 1, type: "recovery", client: "Aisha Patel", outcome: "Reinstated · $124/mo", outcomeKind: "ok", time: "12 min ago" },
-  { id: 2, type: "sms", client: "James O'Connor", outcome: "Replied, scheduled callback", outcomeKind: "ok", time: "32 min ago" },
-  { id: 3, type: "birthday", client: "Maria Gonzalez", outcome: "Sent", outcomeKind: "neutral", time: "1h ago" },
-  { id: 4, type: "recovery", client: "Lee Chen", outcome: "No answer", outcomeKind: "bad", time: "2h ago" },
-  { id: 5, type: "beneficiary", client: "Theresa Williams (bene)", outcome: "Confirmed contact info", outcomeKind: "ok", time: "4h ago" },
-  { id: 6, type: "sms", client: "Daniel Kim", outcome: "Opted out", outcomeKind: "bad", time: "Yesterday" },
-];
-
 const ICONS: Record<T, React.ComponentType<{ className?: string }>> = { recovery: PhoneCall, sms: MessageSquare, birthday: Cake, beneficiary: Users };
 const LABEL: Record<T, string> = { recovery: "Policy Recovery", sms: "SMS Follow-up", birthday: "Birthday", beneficiary: "Beneficiary" };
 
 function SophaiActivityPage() {
-  const [filter, setFilter] = useState<T | "all">("all");
-  const filtered = filter === "all" ? ITEMS : ITEMS.filter((i) => i.type === filter);
+  const [kind, setKind] = useState<T>("sms");
+  const [drafts, setDrafts] = useState<SophaiDraft[]>([]);
+  const gen = useServerFn(generateSophaiDrafts);
+  const mut = useMutation({
+    mutationFn: (k: T) => gen({ data: { kind: k, limit: 8 } }),
+    onSuccess: (d) => {
+      setDrafts(d.drafts);
+      if (!d.drafts.length) toast.info("No matching clients right now.");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "AI failed"),
+  });
+
+  const copy = (t: string) => {
+    navigator.clipboard.writeText(t);
+    toast.success("Copied");
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex gap-2 flex-wrap">
-        <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>All</Button>
         {(Object.keys(LABEL) as T[]).map((k) => (
-          <Button key={k} size="sm" variant={filter === k ? "default" : "outline"} onClick={() => setFilter(k)}>{LABEL[k]}</Button>
+          <Button
+            key={k}
+            size="sm"
+            variant={kind === k ? "default" : "outline"}
+            onClick={() => {
+              setKind(k);
+              mut.mutate(k);
+            }}
+          >
+            {LABEL[k]}
+          </Button>
         ))}
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Recent activity</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4 text-primary" />
+            AI-drafted outreach
+          </CardTitle>
+          <Button size="sm" onClick={() => mut.mutate(kind)} disabled={mut.isPending}>
+            {mut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+            Generate {LABEL[kind]}
+          </Button>
+        </CardHeader>
         <CardContent className="divide-y p-0">
-          {filtered.map((i) => {
-            const Icon = ICONS[i.type];
-            const tone = i.outcomeKind === "ok" ? "bg-success/15 text-success" : i.outcomeKind === "bad" ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground";
+          {drafts.length === 0 && !mut.isPending && (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              Pick an automation above and click Generate to draft personalized messages for your matching clients.
+            </div>
+          )}
+          {drafts.map((d, i) => {
+            const Icon = ICONS[d.kind];
             return (
-              <div key={i.id} className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 grid place-items-center text-primary"><Icon className="h-4 w-4" /></div>
-                  <div>
-                    <div className="font-medium">{i.client}</div>
-                    <div className="text-xs text-muted-foreground">{LABEL[i.type]}</div>
+              <div key={i} className="p-4 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-full bg-primary/10 grid place-items-center text-primary shrink-0">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium">{d.client_name}</div>
+                    <Badge variant="outline" className="text-[10px] uppercase">{d.channel}</Badge>
                   </div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{d.body}</div>
+                  <div className="text-xs text-muted-foreground mt-1.5 italic">{d.rationale}</div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary" className={tone}>{i.outcome}</Badge>
-                  <span className="text-xs text-muted-foreground w-20 text-right">{i.time}</span>
-                </div>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(d.body)}>
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
               </div>
             );
           })}

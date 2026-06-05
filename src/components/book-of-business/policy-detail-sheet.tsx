@@ -13,6 +13,7 @@ import { money, phone as fmtPhone } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import { updatePolicyStatus, getPolicyCommissionTotal } from "@/lib/book-of-business.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { PolicyAiPanel } from "@/components/ai/policy-ai-panel";
 
 export type BookRow = any;
 
@@ -155,6 +156,8 @@ export function PolicyDetailSheet({
                   <p className="text-sm text-muted-foreground">No commission data.</p>
                 )}
               </div>
+
+              {row?.id && <PolicyAiPanel policyId={row.id} />}
 
               <div className="flex justify-end">
                 <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>

@@ -25,6 +25,7 @@ import {
   listCarriers, addPolicy,
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
+import { ClientAiPanel } from "@/components/ai/client-ai-panel";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
@@ -138,7 +139,8 @@ function DrawerBody({ clientId }: { clientId: string }) {
             <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-semibold">Notes</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-3">
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <ClientAiPanel clientId={clientId} />
             <NotesTab clientId={clientId} entries={notes} />
           </div>
         </div>
