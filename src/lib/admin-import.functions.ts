@@ -1,7 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { detectDuplicate, mapStage, mapTemperature, mapPolicyStatus } from "@/lib/import-helpers";
+import {
+  detectDuplicate,
+  detectTeamDuplicate,
+  mapStage,
+  mapTemperature,
+  mapPolicyStatus,
+  normalizePhone,
+} from "@/lib/import-helpers";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -15,8 +22,237 @@ async function requireAdminOrManager(supabase: any, userId: string) {
   if (!data) throw new Error("Forbidden: admin or manager role required");
 }
 
+// ─── AgentLink multi-sheet detection & parser ────────────────────────────────
+
+const AL_SHEET_NAMES = ["Team Roster", "Book of Business", "All Clients", "Client Notes"];
+
+type ParsedRoster = {
+  email: string;
+  first_name: string;
+  last_name: string;
+  location: string | null;
+  status_label: string | null;
+  depth: string | null;
+  contracts_label: string | null;
+  joined_date: string | null;
+  last_active_label: string | null;
+};
+
+type ParsedClient = {
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  email: string | null;
+  date_of_birth: string | null;
+  street_address: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  born_country_state: string | null;
+  stage: string;
+  smoker: string | null;
+  monthly_income: string | null;
+  employment: string | null;
+  pitch_carrier: string | null;
+  face_amount: string | null;
+  policy_number: string | null;
+  medical_notes: string | null;
+  reminder_notes: string | null;
+  callback_date: string | null;
+  agent_label: string | null; // raw "Agent" column value
+};
+
+type ParsedPolicy = {
+  client_label: string;
+  carrier: string | null;
+  product: string | null;
+  policy_number: string | null;
+  status: string | null;
+  monthly_premium: number;
+  annual_premium: number;
+  effective_date: string | null;
+  agent_label: string | null;
+};
+
+type ParsedNote = {
+  client_label: string;
+  date: string | null;
+  author: string | null;
+  note_type: string | null;
+  content: string;
+};
+
+type AgentLinkExport = {
+  roster: ParsedRoster[];
+  clients: ParsedClient[];
+  policies: ParsedPolicy[];
+  notes: ParsedNote[];
+};
+
+function cleanStr(v: any): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  if (!s || s === "—" || s === "-" || s.toLowerCase() === "nan") return null;
+  return s;
+}
+
+function parseMoney(v: any): number {
+  if (v === null || v === undefined) return 0;
+  const s = String(v).replace(/[$,\s]/g, "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseDateMaybe(v: any): string | null {
+  const s = cleanStr(v);
+  if (!s) return null;
+  // YYYY-MM-DD already
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  // MM/DD/YYYY
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) {
+    const [, mm, dd, yyyy] = m;
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
+function rowsToObjects(rows: any[][], headerRowIdx: number): Record<string, any>[] {
+  const headers = (rows[headerRowIdx] ?? []).map((h) => cleanStr(h) ?? "");
+  const out: Record<string, any>[] = [];
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
+    const r = rows[i] ?? [];
+    const obj: Record<string, any> = {};
+    let any = false;
+    headers.forEach((h, idx) => {
+      if (!h) return;
+      const val = r[idx];
+      obj[h] = val;
+      if (val !== null && val !== undefined && String(val).trim() !== "") any = true;
+    });
+    if (any) out.push(obj);
+  }
+  return out;
+}
+
+function findHeaderRow(rows: any[][], required: string[]): number {
+  for (let i = 0; i < Math.min(rows.length, 8); i++) {
+    const r = (rows[i] ?? []).map((c) => String(c ?? "").toLowerCase().trim());
+    const hits = required.filter((req) => r.some((c) => c === req.toLowerCase())).length;
+    if (hits >= Math.min(required.length, 2)) return i;
+  }
+  return 0;
+}
+
+async function parseAgentLinkExport(file_base64: string): Promise<AgentLinkExport | null> {
+  const XLSX = await import("xlsx");
+  const buf = Buffer.from(file_base64, "base64");
+  let wb;
+  try {
+    wb = XLSX.read(buf, { type: "buffer" });
+  } catch {
+    return null;
+  }
+
+  const hasAll = AL_SHEET_NAMES.every((n) =>
+    wb.SheetNames.some((s) => s.toLowerCase() === n.toLowerCase()),
+  );
+  if (!hasAll) return null;
+
+  const sheet = (name: string) =>
+    wb.Sheets[wb.SheetNames.find((s) => s.toLowerCase() === name.toLowerCase())!];
+
+  const toRows = (name: string): any[][] =>
+    XLSX.utils.sheet_to_json(sheet(name), { header: 1, raw: false, defval: null }) as any[][];
+
+  // Roster
+  const rRows = toRows("Team Roster");
+  const rHdr = findHeaderRow(rRows, ["Agent Name", "Email"]);
+  const roster: ParsedRoster[] = rowsToObjects(rRows, rHdr)
+    .filter((r) => cleanStr(r["Agent Name"]) && cleanStr(r["Email"]))
+    .map((r) => {
+      const full = (cleanStr(r["Agent Name"]) ?? "").split(/\s+/);
+      return {
+        email: (cleanStr(r["Email"]) ?? "").toLowerCase(),
+        first_name: full[0] ?? "",
+        last_name: full.slice(1).join(" "),
+        location: cleanStr(r["Location"]),
+        status_label: cleanStr(r["Status"]),
+        depth: cleanStr(r["Depth"]),
+        contracts_label: cleanStr(r["Contracts"]),
+        joined_date: cleanStr(r["Date Joined"]),
+        last_active_label: cleanStr(r["Last Active"]),
+      };
+    });
+
+  // Clients
+  const cRows = toRows("All Clients");
+  const cHdr = findHeaderRow(cRows, ["First Name", "Last Name"]);
+  const clients: ParsedClient[] = rowsToObjects(cRows, cHdr)
+    .filter((r) => cleanStr(r["First Name"]) || cleanStr(r["Last Name"]))
+    .map((r) => ({
+      first_name: cleanStr(r["First Name"]) ?? "",
+      last_name: cleanStr(r["Last Name"]) ?? "",
+      phone: cleanStr(r["Phone"]),
+      email: cleanStr(r["Email"]),
+      date_of_birth: parseDateMaybe(r["Date of Birth"]),
+      street_address: cleanStr(r["Street Address"]),
+      city: cleanStr(r["City"]),
+      state: cleanStr(r["State"]),
+      zip_code: cleanStr(r["ZIP"] ?? r["Zip"] ?? r["Zip Code"]),
+      born_country_state: cleanStr(r["Born In"]),
+      stage: mapStage(cleanStr(r["Stage"]) ?? undefined),
+      smoker: cleanStr(r["Smoker"]),
+      monthly_income: cleanStr(r["Monthly Income"]),
+      employment: cleanStr(r["Employment"]),
+      pitch_carrier: cleanStr(r["Pitch Carrier"]),
+      face_amount: cleanStr(r["Face Amount"]),
+      policy_number: cleanStr(r["Policy #"]),
+      medical_notes: cleanStr(r["Medical Notes"]),
+      reminder_notes: cleanStr(r["Reminder Notes"]),
+      callback_date: parseDateMaybe(r["Callback Date"]),
+      agent_label: cleanStr(r["Agent"]),
+    }));
+
+  // Policies (Book of Business)
+  const pRows = toRows("Book of Business");
+  const pHdr = findHeaderRow(pRows, ["Client Name", "Carrier"]);
+  const policies: ParsedPolicy[] = rowsToObjects(pRows, pHdr)
+    .filter((r) => cleanStr(r["Client Name"]))
+    .map((r) => ({
+      client_label: cleanStr(r["Client Name"]) ?? "",
+      carrier: cleanStr(r["Carrier"]),
+      product: cleanStr(r["Product"]),
+      policy_number: cleanStr(r["Policy #"]),
+      status: cleanStr(r["Status"]),
+      monthly_premium: parseMoney(r["Monthly Premium"]),
+      annual_premium: parseMoney(r["Annual Premium"]),
+      effective_date: parseDateMaybe(r["Effective Date"]),
+      agent_label: cleanStr(r["Agent"]),
+    }));
+
+  // Notes
+  const nRows = toRows("Client Notes");
+  const nHdr = findHeaderRow(nRows, ["Client Name", "Note Content"]);
+  const notes: ParsedNote[] = rowsToObjects(nRows, nHdr)
+    .filter((r) => cleanStr(r["Client Name"]) && cleanStr(r["Note Content"]))
+    .map((r) => ({
+      client_label: cleanStr(r["Client Name"]) ?? "",
+      date: parseDateMaybe(r["Date"]),
+      author: cleanStr(r["Author"]),
+      note_type: cleanStr(r["Note Type"]),
+      content: cleanStr(r["Note Content"]) ?? "",
+    }));
+
+  return { roster, clients, policies, notes };
+}
+
+// ─── AI fallback (single-sheet / unknown formats) ────────────────────────────
+
 const EXTRACTION_SYSTEM_PROMPT = `You are a data extraction assistant for a life-insurance CRM migration tool.
-You will be given an export from AgentLink (agentlink.insuracloud.ai) — could be a spreadsheet text dump, CSV, PDF, or screenshot of an agent's book of business.
+You will be given an export from AgentLink (agentlink.insuracloud.ai) — could be a spreadsheet text dump, CSV, PDF, or screenshot.
 
 Extract every client/contact you can find and return STRICT JSON only — no prose, no markdown fences.
 
@@ -25,47 +261,19 @@ Output schema:
   "source_description": "what the file appears to be",
   "clients": [
     {
-      "first_name": "string",
-      "last_name": "string",
-      "phone": "digits only, 10 digits if possible, else null",
-      "email": "string or null",
-      "date_of_birth": "YYYY-MM-DD or null",
-      "street_address": "string or null",
-      "city": "string or null",
-      "state": "2-letter US state code or null",
-      "zip_code": "string or null",
-      "stage": "new | callback | almost_there | sold",
-      "temperature": "hot | warm | cold",
-      "ssn_last4": "4 digits or null",
-      "tobacco_use": true/false/null,
-      "bank_name": "string or null",
-      "routing_number": "string or null",
-      "account_number": "string or null",
-      "primary_physician": "string or null",
-      "medical_notes": "string or null",
-      "policies": [
-        {
-          "carrier": "string or null",
-          "product": "string or null",
-          "policy_number": "string or null",
-          "monthly_premium": number,
-          "annual_premium": number,
-          "face_amount": number,
-          "effective_date": "YYYY-MM-DD or null",
-          "status": "active|in_review|lapse_pending|lapsed|cancelled|withdrawn"
-        }
-      ],
+      "first_name": "string", "last_name": "string",
+      "phone": "digits only", "email": "string|null",
+      "date_of_birth": "YYYY-MM-DD|null",
+      "street_address": "string|null", "city": "string|null", "state": "2-letter|null", "zip_code": "string|null",
+      "stage": "new|callback|almost_there|sold",
+      "temperature": "hot|warm|cold",
+      "ssn_last4": "string|null", "tobacco_use": true/false/null,
+      "policies": [{"carrier":"","product":"","policy_number":"","monthly_premium":0,"annual_premium":0,"face_amount":0,"effective_date":null,"status":"active"}],
       "notes": ["string"]
     }
   ]
 }
-
-Rules:
-- Always return a top-level "clients" array, even if empty.
-- Skip rows that have no name at all.
-- If a value is unclear, use null (not empty string).
-- Default stage to "new" and temperature to "cold" if not indicated.
-- Return JSON only.`;
+Rules: always return a top-level "clients" array; nulls (not empty strings) for missing; default stage=new, temperature=cold; JSON only.`;
 
 async function extractWithAI(userContent: any[]): Promise<any> {
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -95,7 +303,6 @@ async function extractWithAI(userContent: any[]): Promise<any> {
   try {
     return JSON.parse(text);
   } catch {
-    // try to pull JSON block out of text
     const m = text.match(/\{[\s\S]*\}/);
     if (m) return JSON.parse(m[0]);
     throw new Error("AI returned unparseable response");
@@ -116,12 +323,10 @@ async function fileToUserContent(file_base64: string, file_type: string, file_na
       { type: "image_url", image_url: { url: `data:${mime};base64,${file_base64}` } },
     ];
   }
-
   if (isCsv) {
     const csvText = Buffer.from(file_base64, "base64").toString("utf-8").slice(0, 200_000);
     return [{ type: "text", text: `File: ${file_name}\n\nCSV contents:\n\n${csvText}` }];
   }
-
   if (isXls) {
     const XLSX = await import("xlsx");
     const buf = Buffer.from(file_base64, "base64");
@@ -134,13 +339,27 @@ async function fileToUserContent(file_base64: string, file_type: string, file_na
     const combined = parts.join("\n\n").slice(0, 200_000);
     return [{ type: "text", text: `File: ${file_name}\n\nSpreadsheet contents:\n\n${combined}` }];
   }
-
-  // fallback: treat as text
   const txt = Buffer.from(file_base64, "base64").toString("utf-8").slice(0, 200_000);
   return [{ type: "text", text: `File: ${file_name}\n\nContents:\n\n${txt}` }];
 }
 
-// ─── Create import job + run extraction ───────────────────────────────────────
+// ─── Owner resolution helpers ────────────────────────────────────────────────
+
+function normName(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function buildAgentEmailMap(roster: ParsedRoster[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const r of roster) {
+    const full = `${r.first_name} ${r.last_name}`.trim();
+    if (full && r.email) m.set(normName(full), r.email.toLowerCase());
+  }
+  return m;
+}
+
+// ─── Create import job + run extraction ──────────────────────────────────────
+
 export const createAdminImportJob = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -150,9 +369,9 @@ export const createAdminImportJob = createServerFn({ method: "POST" })
         scrape_request_id: z.string().uuid().optional().nullable(),
         file_name: z.string().min(1).max(255),
         file_type: z.string().max(120),
-        file_base64: z.string().min(10).max(35_000_000), // ~25MB
+        file_base64: z.string().min(10).max(35_000_000),
       })
-      .parse(d)
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
@@ -173,8 +392,29 @@ export const createAdminImportJob = createServerFn({ method: "POST" })
     if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`);
 
     try {
-      const userContent = await fileToUserContent(data.file_base64, data.file_type, data.file_name);
-      const extracted = await extractWithAI(userContent);
+      // Try deterministic AgentLink multi-sheet parser first
+      let extracted: any;
+      const al = await parseAgentLinkExport(data.file_base64).catch(() => null);
+      if (al) {
+        extracted = {
+          format: "agentlink_multisheet",
+          source_description: "AgentLink multi-sheet export (Summary, Team Roster, Book of Business, All Clients, Client Notes)",
+          counts: {
+            roster: al.roster.length,
+            clients: al.clients.length,
+            policies: al.policies.length,
+            notes: al.notes.length,
+          },
+          roster: al.roster,
+          clients_raw: al.clients,
+          policies_raw: al.policies,
+          notes_raw: al.notes,
+        };
+      } else {
+        const userContent = await fileToUserContent(data.file_base64, data.file_type, data.file_name);
+        const aiResult = await extractWithAI(userContent);
+        extracted = { format: "ai", ...aiResult };
+      }
 
       await supabase
         .from("admin_import_jobs")
@@ -191,7 +431,8 @@ export const createAdminImportJob = createServerFn({ method: "POST" })
     }
   });
 
-// ─── Confirm import → write into target agent's records ───────────────────────
+// ─── Confirm import ──────────────────────────────────────────────────────────
+
 export const confirmAdminImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ job_id: z.string().uuid() }).parse(d))
@@ -212,101 +453,235 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
     await supabase.from("admin_import_jobs").update({ status: "importing" }).eq("id", job.id);
 
     const targetAgent = job.target_agent_id as string;
-    const clients: any[] = job.extracted_json?.clients ?? [];
+    const ex = job.extracted_json ?? {};
 
     let clientsImported = 0;
     let policiesImported = 0;
     let notesImported = 0;
     let duplicatesSkipped = 0;
+    let pendingAgentsImported = 0;
 
-    for (const c of clients) {
-      const firstName = (c.first_name ?? "").trim();
-      const lastName = (c.last_name ?? "").trim();
-      if (!firstName && !lastName) continue;
+    if (ex.format === "agentlink_multisheet") {
+      const roster: ParsedRoster[] = ex.roster ?? [];
+      const clientsRaw: ParsedClient[] = ex.clients_raw ?? [];
+      const policiesRaw: ParsedPolicy[] = ex.policies_raw ?? [];
+      const notesRaw: ParsedNote[] = ex.notes_raw ?? [];
 
-      const dup = await detectDuplicate(supabase, targetAgent, {
-        phone: c.phone ?? undefined,
-        first_name: firstName,
-        last_name: lastName,
-        dob: c.date_of_birth ?? undefined,
-      });
-      if (dup) {
-        duplicatesSkipped++;
-        continue;
+      const nameToEmail = buildAgentEmailMap(roster);
+      const allTeamEmails = Array.from(new Set(roster.map((r) => r.email).filter(Boolean)));
+
+      // 1. Upsert pending_agents
+      for (const r of roster) {
+        if (!r.email) continue;
+        // Skip if a real profile already exists with this email
+        const { data: existing } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("email", r.email)
+          .maybeSingle();
+        if (existing) continue;
+
+        const { error: upErr } = await supabase
+          .from("pending_agents")
+          .upsert(
+            {
+              email: r.email,
+              first_name: r.first_name,
+              last_name: r.last_name,
+              location: r.location,
+              status_label: r.status_label,
+              depth: r.depth,
+              contracts_label: r.contracts_label,
+              upline_id: targetAgent,
+              joined_date: r.joined_date,
+              last_active_label: r.last_active_label,
+              source: "agentlink_import",
+              created_by: userId,
+            },
+            { onConflict: "email" },
+          );
+        if (!upErr) pendingAgentsImported++;
       }
 
-      const { data: newClient, error: clientErr } = await supabase
-        .from("clients")
-        .insert({
-          agent_id: targetAgent,
-          first_name: firstName || "Unknown",
-          last_name: lastName || "Unknown",
-          phone: c.phone || null,
-          email: c.email || null,
-          date_of_birth: c.date_of_birth || null,
-          street_address: c.street_address || null,
-          city: c.city || null,
-          state: c.state || null,
-          zip_code: c.zip_code || null,
-          stage: mapStage(c.stage),
-          temperature: mapTemperature(c.temperature),
-        })
-        .select("id")
-        .single();
+      // 2. Clients — track id by label for note attachment
+      const clientIdByLabel = new Map<string, { id: string; ownerEmail: string | null }>();
 
-      if (clientErr || !newClient) {
-        duplicatesSkipped++;
-        continue;
+      for (const c of clientsRaw) {
+        const firstName = c.first_name.trim();
+        const lastName = c.last_name.trim();
+        if (!firstName && !lastName) continue;
+
+        const ownerEmail = c.agent_label ? nameToEmail.get(normName(c.agent_label)) ?? null : null;
+
+        const dup = await detectTeamDuplicate(supabase, targetAgent, allTeamEmails, {
+          phone: c.phone ?? undefined,
+          first_name: firstName,
+          last_name: lastName,
+          dob: c.date_of_birth ?? undefined,
+        });
+        if (dup) {
+          duplicatesSkipped++;
+          clientIdByLabel.set(normName(`${firstName} ${lastName}`), {
+            id: dup.existing_client_id,
+            ownerEmail,
+          });
+          continue;
+        }
+
+        const noteBits: string[] = [];
+        if (c.medical_notes) noteBits.push(`Medical: ${c.medical_notes}`);
+        if (c.reminder_notes) noteBits.push(`Reminder: ${c.reminder_notes}`);
+        if (c.smoker) noteBits.push(`Smoker: ${c.smoker}`);
+        if (c.monthly_income) noteBits.push(`Monthly income: ${c.monthly_income}`);
+        if (c.employment) noteBits.push(`Employment: ${c.employment}`);
+        if (c.pitch_carrier) noteBits.push(`Pitch carrier: ${c.pitch_carrier}`);
+        if (c.face_amount) noteBits.push(`Face amount: ${c.face_amount}`);
+        if (c.policy_number) noteBits.push(`Policy #: ${c.policy_number}`);
+        if (c.callback_date) noteBits.push(`Callback: ${c.callback_date}`);
+
+        const { data: newClient, error: clientErr } = await supabase
+          .from("clients")
+          .insert({
+            agent_id: targetAgent,
+            assigned_to_email: ownerEmail,
+            first_name: firstName || "Unknown",
+            last_name: lastName || "Unknown",
+            phone: c.phone,
+            email: c.email,
+            date_of_birth: c.date_of_birth,
+            street_address: c.street_address,
+            city: c.city,
+            state: c.state,
+            zip_code: c.zip_code,
+            born_country_state: c.born_country_state,
+            stage: c.stage,
+            temperature: mapTemperature(undefined),
+            notes: noteBits.length ? noteBits.join("\n") : null,
+          })
+          .select("id")
+          .single();
+
+        if (clientErr || !newClient) continue;
+        clientsImported++;
+        clientIdByLabel.set(normName(`${firstName} ${lastName}`), {
+          id: newClient.id,
+          ownerEmail,
+        });
       }
-      clientsImported++;
-      const clientId = newClient.id;
 
-      for (const p of c.policies ?? []) {
-        const annual = Number(p.annual_premium ?? 0) || 0;
-        const monthly = Number(p.monthly_premium ?? (annual ? annual / 12 : 0)) || 0;
-        await supabase.from("policies").insert({
-          client_id: clientId,
+      // 3. Policies — match by client name from Book of Business
+      for (const p of policiesRaw) {
+        const key = normName(p.client_label);
+        const c = clientIdByLabel.get(key);
+        if (!c) continue;
+
+        const ownerEmail = p.agent_label ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail : c.ownerEmail;
+
+        const { error } = await supabase.from("policies").insert({
+          client_id: c.id,
           agent_id: targetAgent,
+          assigned_to_email: ownerEmail,
           product: p.product ?? p.carrier ?? "Unknown",
-          policy_number: p.policy_number ?? null,
-          annual_premium: annual,
-          monthly_premium: monthly,
-          face_amount: Number(p.face_amount ?? 0) || 0,
-          effective_date: p.effective_date ?? null,
-          status: mapPolicyStatus(p.status),
+          policy_number: p.policy_number,
+          monthly_premium: p.monthly_premium,
+          annual_premium: p.annual_premium || p.monthly_premium * 12,
+          effective_date: p.effective_date,
+          status: mapPolicyStatus(p.status ?? undefined),
           posted_at: new Date().toISOString(),
         });
-        policiesImported++;
+        if (!error) policiesImported++;
       }
 
-      const noteParts: string[] = [];
-      if (c.ssn_last4) noteParts.push(`SSN last 4: ${c.ssn_last4}`);
-      if (c.tobacco_use !== null && c.tobacco_use !== undefined)
-        noteParts.push(`Tobacco use: ${c.tobacco_use ? "yes" : "no"}`);
-      if (c.bank_name) noteParts.push(`Bank: ${c.bank_name}`);
-      if (c.routing_number) noteParts.push(`Routing: ${c.routing_number}`);
-      if (c.account_number) noteParts.push(`Account: ${c.account_number}`);
-      if (c.primary_physician) noteParts.push(`Primary physician: ${c.primary_physician}`);
-      if (c.medical_notes) noteParts.push(`Medical: ${c.medical_notes}`);
-      if (noteParts.length > 0) {
-        await supabase.from("contact_history").insert({
-          client_id: clientId,
+      // 4. Notes
+      for (const n of notesRaw) {
+        const c = clientIdByLabel.get(normName(n.client_label));
+        if (!c) continue;
+        const body = [
+          n.date ? `[${n.date}]` : null,
+          n.author ? `(${n.author})` : null,
+          n.note_type ? `${n.note_type}:` : null,
+          n.content,
+        ]
+          .filter(Boolean)
+          .join(" ");
+        const { error } = await supabase.from("contact_history").insert({
+          client_id: c.id,
           agent_id: targetAgent,
-          contact_type: "note",
-          note: `[Imported from AgentLink]\n${noteParts.join("\n")}`,
+          assigned_to_email: c.ownerEmail,
+          contact_type: "imported_note",
+          note: body,
         });
-        notesImported++;
+        if (!error) notesImported++;
       }
-      for (const n of c.notes ?? []) {
-        const body = typeof n === "string" ? n : (n?.content ?? n?.body ?? n?.text ?? "");
-        if (!body.trim()) continue;
-        await supabase.from("contact_history").insert({
-          client_id: clientId,
-          agent_id: targetAgent,
-          contact_type: "note",
-          note: `[Imported from AgentLink] ${body}`,
+    } else {
+      // ─── Legacy AI-extracted path ─────────────────────────────────────────
+      const clients: any[] = ex?.clients ?? [];
+      for (const c of clients) {
+        const firstName = (c.first_name ?? "").trim();
+        const lastName = (c.last_name ?? "").trim();
+        if (!firstName && !lastName) continue;
+
+        const dup = await detectDuplicate(supabase, targetAgent, {
+          phone: c.phone ?? undefined,
+          first_name: firstName,
+          last_name: lastName,
+          dob: c.date_of_birth ?? undefined,
         });
-        notesImported++;
+        if (dup) {
+          duplicatesSkipped++;
+          continue;
+        }
+
+        const { data: newClient } = await supabase
+          .from("clients")
+          .insert({
+            agent_id: targetAgent,
+            first_name: firstName || "Unknown",
+            last_name: lastName || "Unknown",
+            phone: c.phone || null,
+            email: c.email || null,
+            date_of_birth: c.date_of_birth || null,
+            street_address: c.street_address || null,
+            city: c.city || null,
+            state: c.state || null,
+            zip_code: c.zip_code || null,
+            stage: mapStage(c.stage),
+            temperature: mapTemperature(c.temperature),
+          })
+          .select("id")
+          .single();
+        if (!newClient) continue;
+        clientsImported++;
+
+        for (const p of c.policies ?? []) {
+          const annual = Number(p.annual_premium ?? 0) || 0;
+          const monthly = Number(p.monthly_premium ?? (annual ? annual / 12 : 0)) || 0;
+          await supabase.from("policies").insert({
+            client_id: newClient.id,
+            agent_id: targetAgent,
+            product: p.product ?? p.carrier ?? "Unknown",
+            policy_number: p.policy_number ?? null,
+            annual_premium: annual,
+            monthly_premium: monthly,
+            face_amount: Number(p.face_amount ?? 0) || 0,
+            effective_date: p.effective_date ?? null,
+            status: mapPolicyStatus(p.status),
+            posted_at: new Date().toISOString(),
+          });
+          policiesImported++;
+        }
+
+        for (const n of c.notes ?? []) {
+          const body = typeof n === "string" ? n : n?.content ?? n?.body ?? n?.text ?? "";
+          if (!String(body).trim()) continue;
+          await supabase.from("contact_history").insert({
+            client_id: newClient.id,
+            agent_id: targetAgent,
+            contact_type: "imported_note",
+            note: `[Imported from AgentLink] ${body}`,
+          });
+          notesImported++;
+        }
       }
     }
 
@@ -333,7 +708,9 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       user_id: targetAgent,
       type: "import_complete",
       title: "Your AgentLink book has been imported",
-      description: `${clientsImported} clients, ${policiesImported} policies, ${notesImported} notes added to your account. Check your Pipeline.`,
+      description: `${clientsImported} clients, ${policiesImported} policies, ${notesImported} notes added to your account.${
+        pendingAgentsImported ? ` ${pendingAgentsImported} downline agents pre-seeded.` : ""
+      }`,
       read: false,
     });
 
@@ -343,10 +720,12 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       policies_imported: policiesImported,
       notes_imported: notesImported,
       duplicates_skipped: duplicatesSkipped,
+      pending_agents_imported: pendingAgentsImported,
     };
   });
 
-// ─── Discard job ──────────────────────────────────────────────────────────────
+// ─── Discard job ─────────────────────────────────────────────────────────────
+
 export const discardAdminImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ job_id: z.string().uuid() }).parse(d))
@@ -359,3 +738,6 @@ export const discardAdminImport = createServerFn({ method: "POST" })
       .eq("id", data.job_id);
     return { ok: true };
   });
+
+// Silence unused-import warning when the helper isn't called in some branches
+void normalizePhone;
