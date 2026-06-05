@@ -199,6 +199,19 @@ function ImportRequestsPage() {
           </Table>
         </div>
       )}
+
+      {uploadTarget && (
+        <AIImportDialog
+          open={!!uploadTarget}
+          onOpenChange={(v) => { if (!v) setUploadTarget(null); }}
+          targetAgent={{ id: uploadTarget.id, name: uploadTarget.name }}
+          scrapeRequestId={uploadTarget.requestId}
+          onDone={() => {
+            qc.invalidateQueries({ queryKey: ["admin-scrape-requests"] });
+            setUploadTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }
