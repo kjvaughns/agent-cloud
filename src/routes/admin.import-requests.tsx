@@ -168,20 +168,34 @@ function ImportRequestsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={() =>
-                        setUploadTarget({
-                          id: req.requesting_agent_id,
-                          name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
-                          requestId: req.id,
-                        })
-                      }
-                    >
-                      <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload File
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={() =>
+                          setUploadTarget({
+                            id: req.requesting_agent_id,
+                            name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
+                            requestId: req.id,
+                          })
+                        }
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload File
+                      </Button>
+                      {req.status === "completed" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => replayMut.mutate(req.id)}
+                          disabled={replayMut.isPending}
+                          title="Re-run policy inserts from the saved extraction"
+                        >
+                          Replay policies
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Select
