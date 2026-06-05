@@ -220,7 +220,13 @@ async function parseAgentLinkExport(file_base64: string): Promise<AgentLinkExpor
   const pRows = toRows("Book of Business");
   const pHdr = findHeaderRow(pRows, ["Client Name", "Carrier"]);
   const policies: ParsedPolicy[] = rowsToObjects(pRows, pHdr)
-    .filter((r) => cleanStr(r["Client Name"]))
+    .filter((r) => {
+      const cn = cleanStr(r["Client Name"]);
+      if (!cn) return false;
+      // Skip footer/summary rows like "TOTALS", "TOTAL", "Grand Total"
+      if (/^\s*(grand\s*)?totals?\s*$/i.test(cn)) return false;
+      return true;
+    })
     .map((r) => ({
       client_label: cleanStr(r["Client Name"]) ?? "",
       carrier: cleanStr(r["Carrier"]),
