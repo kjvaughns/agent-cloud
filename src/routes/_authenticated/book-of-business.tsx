@@ -170,8 +170,6 @@ function BookPage() {
         </div>
       </div>
 
-      <>
-        <>
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
             <Select value={carrierFilter} onValueChange={(v) => { setCarrierFilter(v); setPage(0); }}>
@@ -374,8 +372,6 @@ function BookPage() {
               </div>
             )}
           </div>
-        </>
-      </>
 
       <PolicyDetailSheet row={openRow} open={!!openRowId} onOpenChange={(v) => !v && setOpenRowId(null)} />
     </div>
