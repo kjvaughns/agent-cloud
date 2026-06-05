@@ -293,7 +293,7 @@ function SectionCard({ icon: Icon, title, children }: { icon: any; title: string
 }
 
 // ============ Shared: EditableField ============
-function EditableField({ label, client, field, type, select }: { label: string; client: any; field: string; type?: string; select?: string[] }) {
+function EditableField({ label, client, field, type, select, address }: { label: string; client: any; field: string; type?: string; select?: string[]; address?: boolean }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
   const [editing, setEditing] = useState(false);
@@ -301,14 +301,14 @@ function EditableField({ label, client, field, type, select }: { label: string; 
   useEffect(() => setVal(client[field] ?? ""), [client, field]);
 
   const mut = useMutation({
-    mutationFn: (v: string) => updateFn({ data: { id: client.id, patch: { [field]: v } } }),
+    mutationFn: (patch: Record<string, string>) => updateFn({ data: { id: client.id, patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
     onError: (e: any) => toast.error(e?.message ?? "Update failed"),
   });
 
   const save = () => {
     setEditing(false);
-    if (val !== (client[field] ?? "")) mut.mutate(val);
+    if (val !== (client[field] ?? "")) mut.mutate({ [field]: val });
   };
 
   if (editing) {
@@ -316,10 +316,34 @@ function EditableField({ label, client, field, type, select }: { label: string; 
       return (
         <div className="space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
-          <Select value={val} onValueChange={(v) => { setVal(v); setTimeout(save, 50); }}>
+          <Select value={val} onValueChange={(v) => { setVal(v); setTimeout(() => { setEditing(false); if (v !== (client[field] ?? "")) mut.mutate({ [field]: v }); }, 50); }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{select.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
           </Select>
+        </div>
+      );
+    }
+    if (address) {
+      return (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+          <AddressAutocomplete
+            autoFocus
+            value={val}
+            onChange={setVal}
+            onSelect={(p) => {
+              setEditing(false);
+              setVal(p.street);
+              mut.mutate({
+                street_address: p.street,
+                city: p.city,
+                state: p.state,
+                zip_code: p.zip,
+              });
+            }}
+            onBlur={save}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+          />
         </div>
       );
     }
