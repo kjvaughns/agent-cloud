@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { adminListAllAgents, adminSetAgentRole } from "@/lib/admin.functions";
+import { useServerFn } from "@tanstack/react-start";
+import { adminListAllAgents, adminSetAgentRole, adminMoveAgent } from "@/lib/admin.functions";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,9 @@ function AdminAgents() {
   const [selected, setSelected] = useState<any | null>(null);
   const [savingRole, setSavingRole] = useState(false);
   const [pendingRole, setPendingRole] = useState<string>("");
+  const [pendingUpline, setPendingUpline] = useState<string>("none");
+  const [savingUpline, setSavingUpline] = useState(false);
+  const moveAgentFn = useServerFn(adminMoveAgent);
 
   async function load() {
     setLoading(true);
@@ -69,6 +73,24 @@ function AdminAgents() {
     const matchRole = roleFilter === "all" || getRole(a.id) === roleFilter;
     return matchSearch && matchStatus && matchRole;
   });
+
+  async function saveUpline() {
+    if (!selected) return;
+    setSavingUpline(true);
+    try {
+      await moveAgentFn({ data: {
+        agent_id: selected.id,
+        new_upline_id: pendingUpline === "none" ? null : pendingUpline,
+      }});
+      toast.success("Upline updated");
+      const newUplineId = pendingUpline === "none" ? null : pendingUpline;
+      setAgents((prev) => prev.map((a) => a.id === selected.id ? { ...a, upline_id: newUplineId } : a));
+      setSelected((prev: any) => prev ? { ...prev, upline_id: newUplineId } : null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setSavingUpline(false);
+  }
 
   async function saveRole() {
     if (!selected || !pendingRole) return;
@@ -161,6 +183,7 @@ function AdminAgents() {
                       onClick={() => {
                         setSelected(a);
                         setPendingRole(getRole(a.id));
+                        setPendingUpline(a.upline_id ?? "none");
                       }}
                     >
                       View
@@ -212,6 +235,34 @@ function AdminAgents() {
                     </Select>
                     <Button onClick={saveRole} disabled={savingRole || pendingRole === getRole(selected.id)} size="sm">
                       {savingRole ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t border-border pt-4">
+                  <p className="text-sm font-medium mb-2">Upline (Hierarchy)</p>
+                  <div className="flex gap-2">
+                    <Select value={pendingUpline} onValueChange={setPendingUpline}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">— No upline (root) —</SelectItem>
+                        {agents
+                          .filter((a) => a.id !== selected.id)
+                          .map((a) => (
+                            <SelectItem key={a.id} value={a.id}>
+                              {a.first_name} {a.last_name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={saveUpline}
+                      disabled={savingUpline || pendingUpline === (selected.upline_id ?? "none")}
+                      size="sm"
+                    >
+                      {savingUpline ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                     </Button>
                   </div>
                 </div>
