@@ -62,6 +62,72 @@ export async function detectDuplicate(
   return null;
 }
 
+/**
+ * Team-scoped duplicate detection: matches against rows owned by the upline
+ * OR pre-assigned (via assigned_to_email) to ANY known team email.
+ */
+export async function detectTeamDuplicate(
+  supabase: any,
+  uplineId: string,
+  teamEmails: string[],
+  incoming: { phone?: string; first_name?: string; last_name?: string; dob?: string }
+): Promise<{ type: string; confidence: number; existing_client_id: string } | null> {
+  const emails = (teamEmails ?? []).filter(Boolean).map((e) => e.toLowerCase());
+  const ownerFilter = emails.length
+    ? `agent_id.eq.${uplineId},assigned_to_email.in.(${emails.map((e) => `"${e}"`).join(",")})`
+    : `agent_id.eq.${uplineId}`;
+
+  // Phone (last-7 digits)
+  if (incoming.phone) {
+    const norm = normalizePhone(incoming.phone);
+    if (norm.length >= 7) {
+      const last7 = norm.slice(-7);
+      const { data } = await supabase
+        .from("clients")
+        .select("id, phone")
+        .or(ownerFilter)
+        .ilike("phone", `%${last7}%`)
+        .limit(20);
+      for (const m of data ?? []) {
+        if (normalizePhone(m.phone ?? "").slice(-7) === last7) {
+          return { type: "phone", confidence: 95, existing_client_id: m.id };
+        }
+      }
+    }
+  }
+
+  // Name + DOB
+  if (incoming.first_name && incoming.last_name && incoming.dob) {
+    const { data } = await supabase
+      .from("clients")
+      .select("id")
+      .or(ownerFilter)
+      .ilike("first_name", incoming.first_name.trim())
+      .ilike("last_name", incoming.last_name.trim())
+      .eq("date_of_birth", incoming.dob)
+      .limit(2);
+    if ((data ?? []).length > 0) {
+      return { type: "name_dob", confidence: 85, existing_client_id: data![0].id };
+    }
+  }
+
+  // Name only
+  if (incoming.first_name && incoming.last_name) {
+    const { data } = await supabase
+      .from("clients")
+      .select("id")
+      .or(ownerFilter)
+      .ilike("first_name", incoming.first_name.trim())
+      .ilike("last_name", incoming.last_name.trim())
+      .limit(2);
+    if ((data ?? []).length > 0) {
+      return { type: "name_only", confidence: 50, existing_client_id: data![0].id };
+    }
+  }
+
+  return null;
+}
+
 /** Returns existing policy id if policy number already exists for this agent */
 export async function detectDuplicatePolicy(
   supabase: any,
