@@ -387,7 +387,7 @@ function ContactTab({ detail }: { detail: any }) {
       <SectionCard icon={MapPin} title="Address">
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <EditableField label="Street Address" client={client} field="street_address" />
+            <EditableField label="Street Address" client={client} field="street_address" address />
           </div>
           <EditableField label="City" client={client} field="city" />
           <EditableField label="State" client={client} field="state" />
