@@ -52,6 +52,7 @@ function ImportRequestsPage() {
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [uploadTarget, setUploadTarget] = useState<{ id: string; name: string; requestId: string } | null>(null);
   const requests = data?.requests ?? [];
 
   const toggleReveal = (id: string) =>
