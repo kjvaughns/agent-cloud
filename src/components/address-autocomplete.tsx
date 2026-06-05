@@ -121,6 +121,7 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
               <button
                 key={s.placeId}
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handlePick(s)}
                 className="block w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
               >

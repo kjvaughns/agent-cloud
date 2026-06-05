@@ -332,8 +332,8 @@ function EditableField({ label, client, field, type, select, address }: { label:
             value={val}
             onChange={setVal}
             onSelect={(p) => {
-              setEditing(false);
               setVal(p.street);
+              setEditing(false);
               mut.mutate({
                 street_address: p.street,
                 city: p.city,
@@ -341,7 +341,6 @@ function EditableField({ label, client, field, type, select, address }: { label:
                 zip_code: p.zip,
               });
             }}
-            onBlur={save}
             onKeyDown={(e) => e.key === "Enter" && save()}
           />
         </div>
