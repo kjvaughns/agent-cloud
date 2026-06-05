@@ -161,7 +161,7 @@ function ImportRequestsPage() {
                       className="h-8 text-xs"
                       onClick={() =>
                         setUploadTarget({
-                          id: req.agent_id,
+                          id: req.requesting_agent_id,
                           name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
                           requestId: req.id,
                         })
