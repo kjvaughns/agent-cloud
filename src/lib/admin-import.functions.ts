@@ -749,15 +749,36 @@ void normalizePhone;
 
 export const replayAdminImportPolicies = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ job_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        job_id: z.string().uuid().optional(),
+        scrape_request_id: z.string().uuid().optional(),
+      })
+      .refine((v) => v.job_id || v.scrape_request_id, "job_id or scrape_request_id required")
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireAdminOrManager(supabase, userId);
 
+    let jobId = data.job_id;
+    if (!jobId && data.scrape_request_id) {
+      const { data: j } = await supabase
+        .from("admin_import_jobs")
+        .select("id")
+        .eq("scrape_request_id", data.scrape_request_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!j) throw new Error("No import job found for that request");
+      jobId = j.id;
+    }
+
     const { data: job, error: jobErr } = await supabase
       .from("admin_import_jobs")
       .select("*")
-      .eq("id", data.job_id)
+      .eq("id", jobId!)
       .single();
     if (jobErr || !job) throw new Error("Job not found");
 
