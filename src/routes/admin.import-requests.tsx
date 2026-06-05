@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Eye, EyeOff, ExternalLink } from "lucide-react";
+import { Download, Eye, EyeOff, ExternalLink, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { adminListScrapeRequests, adminUpdateScrapeRequest } from "@/lib/admin.functions";
+import { AIImportDialog } from "@/components/admin/ai-import-dialog";
 
 export const Route = createFileRoute("/admin/import-requests")({
   head: () => ({ meta: [{ title: "Import Requests — Admin" }] }),
@@ -51,6 +52,7 @@ function ImportRequestsPage() {
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [uploadTarget, setUploadTarget] = useState<{ id: string; name: string; requestId: string } | null>(null);
   const requests = data?.requests ?? [];
 
   const toggleReveal = (id: string) =>
