@@ -43,6 +43,25 @@ function AdminSupport() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [newStatus, setNewStatus] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const draftFn = useServerFn(draftUwResponse);
+
+  async function draftAiReply() {
+    if (!selected) return;
+    const lastUser = [...messages].reverse().find((m) => m.sender_role !== "support");
+    const seed = lastUser?.body ?? selected.subject;
+    if (!seed) { toast.error("No message to draft from"); return; }
+    setDrafting(true);
+    try {
+      const res = await draftFn({ data: { carrier_email: `Subject: ${selected.subject}\n\n${seed}` } });
+      setReply((prev) => (prev ? prev + "\n\n" : "") + res.draft);
+      toast.success("AI draft added");
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to draft reply");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   async function loadTickets() {
     setLoading(true);
