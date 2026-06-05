@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -11,9 +11,9 @@ import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Plus, Pencil, ChevronDown } from "lucide-react";
+import { Loader2, Plus, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,45 +108,26 @@ function AdminCommissions() {
                 {carriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button size="sm" onClick={() => setEditRow({ carrier_id: selectedCarrier !== "all" ? selectedCarrier : "", product_name: "", year_1_pct: 0, years_2_5_pct: 0, years_6_plus_pct: 0 })}>
+            <Button size="sm" onClick={() => setEditRow({ carrier_id: selectedCarrier !== "all" ? selectedCarrier : "", product_name: "", level_name: "", year_1_pct: 0, years_2_5_pct: 0, years_6_plus_pct: 0 })}>
               <Plus className="h-4 w-4 mr-1.5" />Add Row
             </Button>
           </div>
 
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Carrier</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Product</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Level</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Yr 1 %</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Yr 2-5 %</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Yr 6+ %</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredGrids.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">No grid rows found</td></tr>
-                ) : filteredGrids.map((g) => (
-                  <tr key={g.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3">{g.carriers?.name}</td>
-                    <td className="px-4 py-3">{g.product_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{g.level_name || "—"}</td>
-                    <td className="px-4 py-3 text-right">{g.year_1_pct}%</td>
-                    <td className="px-4 py-3 text-right">{g.years_2_5_pct}%</td>
-                    <td className="px-4 py-3 text-right">{g.years_6_plus_pct}%</td>
-                    <td className="px-4 py-3">
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditRow(g)}>
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {selectedCarrier === "all" ? (
+            <Card>
+              <CardContent className="p-10 text-center text-sm text-muted-foreground">
+                Select a carrier above to view its commission grid.
+              </CardContent>
+            </Card>
+          ) : filteredGrids.length === 0 ? (
+            <Card>
+              <CardContent className="p-10 text-center text-sm text-muted-foreground">
+                No grid rows found for this carrier.
+              </CardContent>
+            </Card>
+          ) : (
+            <AdminGridView rows={filteredGrids} onEdit={setEditRow} />
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -235,6 +216,144 @@ function AdminCommissions() {
         </DialogContent>
       </Dialog>
 
+    </div>
+  );
+}
+
+function AdminGridView({ rows, onEdit }: { rows: any[]; onEdit: (row: any) => void }) {
+  const levelMap = new Map<string, number>();
+  rows.forEach((r) => {
+    if (r.level_name) {
+      const pct = Number(r.year_1_pct);
+      if (!levelMap.has(r.level_name) || pct > levelMap.get(r.level_name)!) {
+        levelMap.set(r.level_name, pct);
+      }
+    }
+  });
+  const levels = Array.from(levelMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, pct]) => ({ name, pct }));
+
+  if (levels.length === 0) {
+    return <div className="text-sm text-muted-foreground py-4">No named levels configured for this carrier.</div>;
+  }
+
+  const hasAgeBands = rows.some((r) => r.age_group_min != null);
+
+  if (!hasAgeBands) {
+    return <AdminGridTable rows={rows} levels={levels} onEdit={onEdit} />;
+  }
+
+  const bands = new Map<string, any[]>();
+  rows.forEach((r) => {
+    const key = `${r.age_group_min ?? ""}–${r.age_group_max ?? ""}`;
+    if (!bands.has(key)) bands.set(key, []);
+    bands.get(key)!.push(r);
+  });
+
+  return (
+    <div className="space-y-6">
+      {Array.from(bands.entries()).map(([range, bandRows]) => (
+        <div key={range}>
+          <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Ages {range}</div>
+          <AdminGridTable rows={bandRows} levels={levels} onEdit={onEdit} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminGridTable({
+  rows,
+  levels,
+  onEdit,
+}: {
+  rows: any[];
+  levels: { name: string; pct: number }[];
+  onEdit: (row: any) => void;
+}) {
+  const products = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.product_name as string))).sort(),
+    [rows]
+  );
+  const lookup = useMemo(() => {
+    const m = new Map<string, any>();
+    rows.forEach((r) => m.set(`${r.product_name}::${r.level_name}`, r));
+    return m;
+  }, [rows]);
+
+  return (
+    <div className="overflow-x-auto rounded-lg border">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr>
+            <th className="text-left px-3 py-2 font-medium text-muted-foreground border-b border-r bg-muted/40 sticky left-0 min-w-[160px] z-10">
+              Product
+            </th>
+            {levels.map((l) => (
+              <th
+                key={l.name}
+                colSpan={3}
+                className="text-center px-3 py-2 font-medium border-b border-r bg-muted/40 text-muted-foreground whitespace-nowrap min-w-[200px]"
+              >
+                <div className="flex flex-col items-center gap-0.5">
+                  <span>{l.name}</span>
+                  <span className="text-xs font-normal opacity-75">{l.pct}%</span>
+                </div>
+              </th>
+            ))}
+          </tr>
+          <tr>
+            <th className="sticky left-0 bg-muted/20 border-b border-r px-3 py-1.5 z-10" />
+            {levels.map((l) => (
+              <>
+                <th key={`${l.name}-yr1`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 1</th>
+                <th key={`${l.name}-yr25`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 2–5</th>
+                <th key={`${l.name}-yr6`} className="bg-muted/20 border-b border-r px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 6+</th>
+              </>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {products.map((product) => (
+            <tr key={product} className="hover:bg-muted/20">
+              <td className="px-3 py-2 font-medium sticky left-0 bg-background border-r z-10 whitespace-nowrap">
+                {product}
+              </td>
+              {levels.map((l) => {
+                const cell = lookup.get(`${product}::${l.name}`);
+                if (!cell) {
+                  return (
+                    <>
+                      <td key={`${l.name}-yr1`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs">—</td>
+                      <td key={`${l.name}-yr25`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs">—</td>
+                      <td key={`${l.name}-yr6`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs border-r">—</td>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    <td
+                      key={`${l.name}-yr1`}
+                      className="px-2 py-2 text-center font-mono text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                      onClick={() => onEdit(cell)}
+                      title="Click to edit"
+                    >
+                      {Number(cell.year_1_pct)}%
+                    </td>
+                    <td key={`${l.name}-yr25`} className="px-2 py-2 text-center font-mono text-xs">
+                      {Number(cell.years_2_5_pct) ? `${Number(cell.years_2_5_pct)}%` : "—"}
+                    </td>
+                    <td key={`${l.name}-yr6`} className="px-2 py-2 text-center font-mono text-xs border-r">
+                      {Number(cell.years_6_plus_pct) ? `${Number(cell.years_6_plus_pct)}%` : "—"}
+                    </td>
+                  </>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export const listBookOfBusiness = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => ScopeSchema.parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    await (supabase as any).rpc("promote_policy_status").catch(() => {});
+    try { await (supabase as any).rpc("promote_policy_status"); } catch {}
     const { data: rows, error } = await supabase.rpc("get_book_of_business", {
       _scope: data.scope,
       _agent_id: data.agentId ?? undefined,

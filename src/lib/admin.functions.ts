@@ -710,13 +710,15 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       assigned_at: new Date().toISOString(),
     }, { onConflict: "agent_id,carrier_id" });
     if (error) throw new Error(error.message);
-    await supabase.from("admin_audit_log").insert({
-      admin_id: userId,
-      action: "comp_level_change",
-      target_type: "agent",
-      target_id: data.agent_id,
-      details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level },
-    }).catch(() => {});
+    try {
+      await supabase.from("admin_audit_log").insert({
+        admin_id: userId,
+        action: "comp_level_change",
+        target_type: "agent",
+        target_id: data.agent_id,
+        details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level },
+      });
+    } catch {}
     return { ok: true };
   });
 
