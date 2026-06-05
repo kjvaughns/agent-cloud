@@ -58,6 +58,7 @@ export function AgentLinkImportDialog({
     data: status,
     isLoading: statusLoading,
     isError: statusError,
+    error: statusErrorObj,
     refetch: refetchStatus,
   } = useQuery({
     queryKey: ["agentlink-status"],
@@ -65,6 +66,7 @@ export function AgentLinkImportDialog({
     enabled: open,
     staleTime: 0,
     retry: false,
+    retryOnMount: false,
   });
 
   useEffect(() => {
@@ -72,6 +74,16 @@ export function AgentLinkImportDialog({
     if (statusError || !status) { setPhase("no_key"); return; }
     setPhase((status as any).connected ? "has_key" : "no_key");
   }, [phase, statusLoading, statusError, status]);
+
+  // Safety timeout — if still loading after 5s, force out of loading state
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const timer = setTimeout(() => {
+      console.error("[AgentLinkImportDialog] status check timed out after 5s");
+      setPhase("no_key");
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [phase]);
 
   useEffect(() => {
     if (open) {
