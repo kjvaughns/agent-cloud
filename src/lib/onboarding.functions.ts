@@ -103,12 +103,12 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
 // ============ AUTHENTICATED onboarding-step writers ============
 
 async function loadInviteForUser(supabase: any, token: string, userId: string) {
-  const { data: inv } = await supabase.from("invitation_links").select("*").eq("token", token).maybeSingle();
+  const { data: inv } = await supabaseAdmin.from("invitation_links").select("*").eq("token", token).maybeSingle();
   if (!inv) throw new Error("Invite not found");
   if (inv.is_reusable) return inv; // reusable links are not locked to a specific user
   if (inv.linked_agent_id && inv.linked_agent_id !== userId) throw new Error("Invite belongs to another user");
   if (!inv.linked_agent_id) {
-    await supabase.from("invitation_links").update({
+    await supabaseAdmin.from("invitation_links").update({
       linked_agent_id: userId,
       status: "in_progress",
       agent_started_at: new Date().toISOString(),
@@ -193,7 +193,7 @@ export const saveOnboardingPersonal = createServerFn({ method: "POST" })
     }
 
     if (!inv.is_reusable) {
-      await supabase.from("invitation_links").update({ onboarding_step: 2 }).eq("token", data.token);
+      await supabaseAdmin.from("invitation_links").update({ onboarding_step: 2 }).eq("token", data.token);
     }
     return { ok: true };
   });
@@ -230,7 +230,7 @@ export const saveOnboardingCarriers = createServerFn({ method: "POST" })
 
     const invForStep = await loadInviteForUser(supabase, data.token, userId);
     if (!invForStep.is_reusable) {
-      await supabase.from("invitation_links").update({ onboarding_step: 3 }).eq("token", data.token);
+      await supabaseAdmin.from("invitation_links").update({ onboarding_step: 3 }).eq("token", data.token);
     }
     return { ok: true, count: included.length };
   });
@@ -252,7 +252,7 @@ export const signOnboardingAgreement = createServerFn({ method: "POST" })
     });
 
     if (!inv.is_reusable) {
-      await supabase.from("invitation_links").update({
+      await supabaseAdmin.from("invitation_links").update({
         onboarding_step: 4,
         agent_completed_at: new Date().toISOString(),
       }).eq("id", inv.id);
@@ -288,7 +288,7 @@ export const startSurelcSso = createServerFn({ method: "POST" })
       }, { onConflict: "agent_id,section_name" });
     }
 
-    await supabase.from("invitation_links").update({
+    await supabaseAdmin.from("invitation_links").update({
       status: "in_surelc",
       surelc_agent_id: surelcId,
     }).eq("id", inv.id);
