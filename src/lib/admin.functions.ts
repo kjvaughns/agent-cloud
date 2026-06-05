@@ -645,7 +645,7 @@ export const adminListScrapeRequests = createServerFn({ method: "GET" })
     await requireManagerOrAdmin(supabase, userId);
     const { data } = await supabase
       .from("scrape_requests")
-      .select("id, agentlink_username, status, admin_notes, submitted_at, completed_at, requesting_agent_id, profiles!requesting_agent_id(first_name, last_name, email, phone)")
+      .select("id, agentlink_username, agentlink_password_encrypted, status, admin_notes, submitted_at, completed_at, requesting_agent_id, profiles!requesting_agent_id(first_name, last_name, email, phone)")
       .order("submitted_at", { ascending: false });
     return { requests: data ?? [] };
   });
