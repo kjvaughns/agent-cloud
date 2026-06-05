@@ -21,7 +21,7 @@ export function ensureMaps(): Promise<any> {
   const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
   if (!key) return Promise.reject(new Error("Google Maps key not configured"));
 
-  loadPromise = new Promise<typeof google>((resolve, reject) => {
+  loadPromise = new Promise<any>((resolve, reject) => {
     window.__lovableMapsInit = () => {
       if (window.google?.maps) resolve(window.google);
       else reject(new Error("Google Maps loaded but unavailable"));
