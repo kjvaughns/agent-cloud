@@ -11,9 +11,10 @@ import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Plus, ChevronDown } from "lucide-react";
+import { Loader2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,7 @@ function AdminCommissions() {
   const [grids, setGrids] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCarrier, setSelectedCarrier] = useState<string>("all");
+  const [openCarrierIds, setOpenCarrierIds] = useState<Set<string>>(new Set());
   const [editRow, setEditRow] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [agentSearch, setAgentSearch] = useState("");
@@ -45,6 +46,14 @@ function AdminCommissions() {
     `${a.first_name ?? ""} ${a.last_name ?? ""} ${a.email ?? ""}`.toLowerCase().includes(agentSearch.toLowerCase())
   );
 
+  function toggleCarrier(id: string) {
+    setOpenCarrierIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   async function load() {
     setLoading(true);
     const res = await adminListCommissionGrid();
@@ -55,8 +64,6 @@ function AdminCommissions() {
   }
 
   useEffect(() => { load(); }, []);
-
-  const filteredGrids = selectedCarrier === "all" ? grids : grids.filter((g) => g.carrier_id === selectedCarrier);
 
   async function saveRow() {
     if (!editRow) return;
@@ -99,34 +106,68 @@ function AdminCommissions() {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : tab === "grids" ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <Select value={selectedCarrier} onValueChange={setSelectedCarrier}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="All Carriers" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Carriers</SelectItem>
-                {carriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Button size="sm" onClick={() => setEditRow({ carrier_id: selectedCarrier !== "all" ? selectedCarrier : "", product_name: "", level_name: "", year_1_pct: 0, years_2_5_pct: 0, years_6_plus_pct: 0 })}>
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setEditRow({ carrier_id: "", product_name: "", level_name: "", year_1_pct: 0, years_2_5_pct: 0, years_6_plus_pct: 0 })}>
               <Plus className="h-4 w-4 mr-1.5" />Add Row
             </Button>
           </div>
 
-          {selectedCarrier === "all" ? (
-            <Card>
-              <CardContent className="p-10 text-center text-sm text-muted-foreground">
-                Select a carrier above to view its commission grid.
-              </CardContent>
-            </Card>
-          ) : filteredGrids.length === 0 ? (
-            <Card>
-              <CardContent className="p-10 text-center text-sm text-muted-foreground">
-                No grid rows found for this carrier.
-              </CardContent>
-            </Card>
+          {carriers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No carriers found.</p>
           ) : (
-            <AdminGridView rows={filteredGrids} onEdit={setEditRow} />
+            <div className="space-y-2">
+              {carriers.map((carrier) => {
+                const carrierRows = grids.filter((g) => g.carrier_id === carrier.id);
+                const isOpen = openCarrierIds.has(carrier.id);
+                const productCount = new Set(carrierRows.map((r) => r.product_name)).size;
+                const levelCount = new Set(carrierRows.map((r) => r.level_name).filter(Boolean)).size;
+
+                return (
+                  <Card key={carrier.id} className="overflow-hidden">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleCarrier(carrier.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isOpen ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-semibold text-sm">{carrier.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {carrierRows.length > 0 ? (
+                          <span className="text-xs text-muted-foreground">
+                            {productCount} {productCount === 1 ? "product" : "products"} · {levelCount} {levelCount === 1 ? "level" : "levels"}
+                          </span>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">No data</Badge>
+                        )}
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-1 border-t">
+                        {carrierRows.length === 0 ? (
+                          <p className="text-sm text-muted-foreground py-4 text-center">
+                            No grid rows for this carrier.{" "}
+                            <button
+                              className="underline hover:no-underline"
+                              onClick={() => setEditRow({ carrier_id: carrier.id, product_name: "", level_name: "", year_1_pct: 0, years_2_5_pct: 0, years_6_plus_pct: 0 })}
+                            >
+                              Add one
+                            </button>
+                          </p>
+                        ) : (
+                          <AdminGridView rows={carrierRows} onEdit={setEditRow} />
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
           )}
         </div>
       ) : (
@@ -283,7 +324,7 @@ function AdminGridTable({
   }, [rows]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border">
+    <div className="overflow-x-auto rounded-lg border mt-2">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr>
@@ -294,7 +335,7 @@ function AdminGridTable({
               <th
                 key={l.name}
                 colSpan={3}
-                className="text-center px-3 py-2 font-medium border-b border-r bg-muted/40 text-muted-foreground whitespace-nowrap min-w-[200px]"
+                className="text-center px-3 py-2 font-medium border-b border-r bg-muted/40 text-muted-foreground whitespace-nowrap min-w-[180px]"
               >
                 <div className="flex flex-col items-center gap-0.5">
                   <span>{l.name}</span>
@@ -307,9 +348,9 @@ function AdminGridTable({
             <th className="sticky left-0 bg-muted/20 border-b border-r px-3 py-1.5 z-10" />
             {levels.map((l) => (
               <>
-                <th key={`${l.name}-yr1`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 1</th>
-                <th key={`${l.name}-yr25`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 2–5</th>
-                <th key={`${l.name}-yr6`} className="bg-muted/20 border-b border-r px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[60px]">Yr 6+</th>
+                <th key={`${l.name}-yr1`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[55px]">Yr 1</th>
+                <th key={`${l.name}-yr25`} className="bg-muted/20 border-b px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[55px]">Yr 2–5</th>
+                <th key={`${l.name}-yr6`} className="bg-muted/20 border-b border-r px-2 py-1 text-[10px] text-center text-muted-foreground font-medium min-w-[55px]">Yr 6+</th>
               </>
             ))}
           </tr>
@@ -317,7 +358,7 @@ function AdminGridTable({
         <tbody className="divide-y divide-border">
           {products.map((product) => (
             <tr key={product} className="hover:bg-muted/20">
-              <td className="px-3 py-2 font-medium sticky left-0 bg-background border-r z-10 whitespace-nowrap">
+              <td className="px-3 py-2 font-medium sticky left-0 bg-background border-r z-10 whitespace-nowrap text-sm">
                 {product}
               </td>
               {levels.map((l) => {
@@ -325,9 +366,9 @@ function AdminGridTable({
                 if (!cell) {
                   return (
                     <>
-                      <td key={`${l.name}-yr1`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs">—</td>
-                      <td key={`${l.name}-yr25`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs">—</td>
-                      <td key={`${l.name}-yr6`} className="px-2 py-2 text-center text-muted-foreground font-mono text-xs border-r">—</td>
+                      <td key={`${l.name}-yr1`} className="px-2 py-2 text-center text-muted-foreground/50 font-mono text-xs">—</td>
+                      <td key={`${l.name}-yr25`} className="px-2 py-2 text-center text-muted-foreground/50 font-mono text-xs">—</td>
+                      <td key={`${l.name}-yr6`} className="px-2 py-2 text-center text-muted-foreground/50 font-mono text-xs border-r">—</td>
                     </>
                   );
                 }
@@ -335,16 +376,16 @@ function AdminGridTable({
                   <>
                     <td
                       key={`${l.name}-yr1`}
-                      className="px-2 py-2 text-center font-mono text-xs cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                      className="px-2 py-2 text-center font-mono text-xs cursor-pointer hover:bg-primary/10 transition-colors group"
                       onClick={() => onEdit(cell)}
                       title="Click to edit"
                     >
-                      {Number(cell.year_1_pct)}%
+                      <span className="group-hover:underline">{Number(cell.year_1_pct)}%</span>
                     </td>
-                    <td key={`${l.name}-yr25`} className="px-2 py-2 text-center font-mono text-xs">
+                    <td key={`${l.name}-yr25`} className="px-2 py-2 text-center font-mono text-xs text-muted-foreground">
                       {Number(cell.years_2_5_pct) ? `${Number(cell.years_2_5_pct)}%` : "—"}
                     </td>
-                    <td key={`${l.name}-yr6`} className="px-2 py-2 text-center font-mono text-xs border-r">
+                    <td key={`${l.name}-yr6`} className="px-2 py-2 text-center font-mono text-xs text-muted-foreground border-r">
                       {Number(cell.years_6_plus_pct) ? `${Number(cell.years_6_plus_pct)}%` : "—"}
                     </td>
                   </>
