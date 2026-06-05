@@ -96,7 +96,9 @@ export function AIImportDialog({
   });
 
   const discardMut = useMutation({
-    mutationFn: () => (jobId ? discardFn({ data: { job_id: jobId } }) : Promise.resolve()),
+    mutationFn: async () => {
+      if (jobId) await discardFn({ data: { job_id: jobId } });
+    },
     onSuccess: () => { reset(); onOpenChange(false); },
   });
 
