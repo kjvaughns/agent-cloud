@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, Mail, MapPin, Calendar } from "lucide-react";
+import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2 } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -145,21 +145,37 @@ function PipelinePage() {
   return (
     <div className="p-4 md:p-6 space-y-4 h-[calc(100vh-3.5rem)] flex flex-col">
       {/* Header row: tabs | search | buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-          <TabsList>
-            <TabsTrigger value="pipeline">Pipeline ({pipelineClients.length})</TabsTrigger>
-            <TabsTrigger value="sold">Sold ({soldClients.length})</TabsTrigger>
+          <TabsList className="h-9">
+            <TabsTrigger value="pipeline" className="gap-1.5">
+              Pipeline
+              <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-background text-[10px] font-bold text-foreground border">
+                {pipelineClients.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="sold" className="gap-1.5">
+              Sold
+              <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-background text-[10px] font-bold text-foreground border">
+                {soldClients.length}
+              </span>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative flex-1 sm:max-w-sm">
-          <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-8" />
+        <div className="relative flex-1 min-w-[180px] max-w-sm">
+          <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-9 h-9" />
         </div>
-        <div className="flex items-center gap-2 sm:ml-auto flex-wrap">
-          <Button variant="outline" size="sm" onClick={() => setAgentLinkOpen(true)}><Download className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline"> Import from AgentLink</span></Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline"> Import Clients</span></Button>
-          <Button size="sm" onClick={() => setAddOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Client</Button>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setAgentLinkOpen(true)}>
+            <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">AgentLink</span>
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+            <Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import</span>
+          </Button>
+          <Button size="sm" className="h-9 gap-1.5" onClick={() => setAddOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />Add Client
+          </Button>
         </div>
       </div>
 
@@ -176,11 +192,6 @@ function PipelinePage() {
                     const cards = pipelineClients.filter((c: any) => c.stage === col.key);
                     return (
                       <KanbanColumn key={col.key} stage={col.key} label={col.label} tint={col.tint} header={col.header} count={cards.length}>
-                        {cards.length === 0 && (
-                          <div className="text-xs text-muted-foreground text-center py-8 px-2">
-                            No clients here yet. Drag a card or add a new client.
-                          </div>
-                        )}
                         {cards.map((c: any) => (
                           <LeadCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
                         ))}
@@ -194,29 +205,41 @@ function PipelinePage() {
         ) : (
           <div className="h-full overflow-y-auto">
             {soldClients.length === 0 ? (
-              <div className="text-center text-muted-foreground py-16">No sold clients yet.</div>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 pt-4">
-                {soldClients.map((c: any) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setOpenId(c.id)}
-                    className="text-left bg-card border rounded-lg p-4 hover:border-primary/50 hover:shadow-sm transition"
-                  >
-                    <div className="font-medium">{c.first_name} {c.last_name}</div>
-                    {c.latest_policy ? (
-                      <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                        <div>{c.latest_policy.carriers?.name ?? "—"} · {c.latest_policy.product ?? "—"}</div>
-                        <div>Policy: {c.latest_policy.policy_number ?? "—"}</div>
-                        <div>Effective: {c.latest_policy.effective_date ?? "—"}</div>
-                        <div className="text-emerald-600 font-medium">{money(c.latest_policy.monthly_premium)}/mo</div>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground mt-2">No policy on file</div>
-                    )}
-                  </button>
-                ))}
+              <div className="text-center text-muted-foreground py-16">
+                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No sold clients yet</p>
+                <p className="text-sm mt-1">Mark clients as sold from the pipeline or add a policy from the client drawer.</p>
               </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="border rounded-lg p-3 bg-card">
+                    <div className="text-xs text-muted-foreground">Total Clients</div>
+                    <div className="text-2xl font-bold text-primary">{soldClients.length}</div>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-card">
+                    <div className="text-xs text-muted-foreground">Total Monthly</div>
+                    <div className="text-2xl font-bold text-emerald-600">
+                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.monthly_premium ?? 0), 0).toFixed(0)}
+                    </div>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-card">
+                    <div className="text-xs text-muted-foreground">Total Annual</div>
+                    <div className="text-2xl font-bold">
+                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.annual_premium ?? (c.latest_policy?.monthly_premium ?? 0) * 12), 0).toFixed(0)}
+                    </div>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-card">
+                    <div className="text-xs text-muted-foreground">With Policy</div>
+                    <div className="text-2xl font-bold">{soldClients.filter((c: any) => c.latest_policy).length}</div>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {soldClients.map((c: any) => (
+                    <SoldCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -233,11 +256,23 @@ function PipelinePage() {
 function KanbanColumn({ stage, label, tint, header, count, children }: { stage: Stage; label: string; tint: string; header: string; count: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
-    <div ref={setNodeRef} className={cn("w-80 shrink-0 flex flex-col rounded-xl border", tint, isOver && "ring-2 ring-primary")}>
+    <div ref={setNodeRef} className={cn("w-72 sm:w-80 shrink-0 flex flex-col rounded-xl border transition-all", tint, isOver && "ring-2 ring-primary ring-offset-1")}>
       <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className={cn("font-semibold text-sm", header)}>{label} <span className="text-muted-foreground font-normal">({count})</span></div>
+        <div>
+          <span className={cn("font-bold text-sm", header)}>{label}</span>
+          <span className="ml-2 text-muted-foreground text-sm font-normal">({count})</span>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">{children}</div>
+      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+        {children}
+        {count === 0 && (
+          <div className="text-xs text-muted-foreground text-center py-10 px-4 space-y-2">
+            <div className="opacity-40 text-2xl">∅</div>
+            <div>No clients here yet</div>
+            <div className="opacity-70">Drag a card in or add a new client</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -245,11 +280,15 @@ function KanbanColumn({ stage, label, tint, header, count, children }: { stage: 
 function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id });
   const t = tempPill[(client.temperature ?? "cold") as Temp];
-  const score = client.score_pct ?? 0;
-  const scoreCls = score > 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : score >= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+  const pol = client.latest_policy;
   const location = [client.city, client.state].filter(Boolean).join(", ");
   const age = client.date_of_birth
     ? Math.floor((Date.now() - new Date(client.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
+  const locationLine = [location, age != null ? `Age ${age}` : null].filter(Boolean).join(" · ");
+  const initials = `${client.first_name?.[0] ?? ""}${client.last_name?.[0] ?? ""}`.toUpperCase();
+  const effectiveDisplay = pol?.effective_date
+    ? new Date(pol.effective_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : null;
 
   return (
@@ -258,63 +297,187 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={cn("bg-card border rounded-lg p-3 cursor-pointer hover:border-primary/50 hover:shadow-sm transition select-none", isDragging && "opacity-50 shadow-lg")}
+      className={cn(
+        "bg-card border rounded-xl p-3.5 cursor-pointer select-none transition-all",
+        "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
+        isDragging && "opacity-50 shadow-xl rotate-1",
+      )}
     >
-      {/* Name + badges */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="font-semibold text-sm leading-tight">{client.first_name} {client.last_name}</div>
-        <div className="flex items-center gap-1 shrink-0">
-          {client.score_pct != null && (
-            <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", scoreCls)}>{score}%</span>
-          )}
-          <span className={cn("inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium", t.cls)}>
-            <t.Icon className="h-2.5 w-2.5" /> {t.label}
-          </span>
+      {/* Row 1: Avatar + Name + Temp badge */}
+      <div className="flex items-start gap-2.5">
+        <div className="h-9 w-9 rounded-full bg-primary/10 grid place-items-center shrink-0 text-xs font-bold text-primary">
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm leading-tight truncate">
+            {client.first_name} {client.last_name}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={cn("inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", t.cls)}>
+              <t.Icon className="h-2.5 w-2.5" /> {t.label}
+            </span>
+            {(client.score_pct != null && client.score_pct > 0) && (
+              <span className="text-[10px] text-muted-foreground">{client.score_pct}%</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Contact info rows */}
-      <div className="mt-2 space-y-1">
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <Phone className="h-3 w-3 shrink-0 opacity-60" />
-          <span className="truncate">{fmtPhone(client.phone) || <span className="italic opacity-50">No phone</span>}</span>
-        </div>
-        {client.email && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Mail className="h-3 w-3 shrink-0 opacity-60" />
-            <span className="truncate">{client.email}</span>
-          </div>
-        )}
-        {location && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <MapPin className="h-3 w-3 shrink-0 opacity-60" />
-            <span className="truncate">{location}{age != null ? ` · Age ${age}` : ""}</span>
-          </div>
-        )}
-        {!location && age != null && (
-          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Calendar className="h-3 w-3 shrink-0 opacity-60" />
-            <span>Age {age}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      {(client.last_opened_at || client.beneficiary_of) && (
-        <div className="mt-2 pt-2 border-t border-dashed flex items-center gap-2 flex-wrap">
-          {client.beneficiary_of && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-              <Heart className="h-2.5 w-2.5" /> Beneficiary of {client.beneficiary_of}
-            </span>
-          )}
-          {client.last_opened_at && (
-            <span className="text-[10px] text-muted-foreground ml-auto">
-              {new Date(client.last_opened_at).toLocaleDateString()}
-            </span>
-          )}
+      {/* Row 2: Phone */}
+      {client.phone && (
+        <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Phone className="h-3 w-3 shrink-0" />
+          <span className="font-medium text-foreground">{fmtPhone(client.phone)}</span>
         </div>
       )}
+
+      {/* Row 3: Location + Age */}
+      {locationLine && (
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-1">
+          <MapPin className="h-3 w-3 shrink-0" />
+          <span className="truncate">{locationLine}</span>
+        </div>
+      )}
+
+      {/* Row 4: Policy info */}
+      {pol ? (
+        <div className="mt-2.5 pt-2.5 border-t border-dashed space-y-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-foreground truncate">{pol.carriers?.name ?? "—"}</div>
+              <div className="text-[11px] text-muted-foreground truncate">
+                {pol.product ?? "—"}{pol.policy_number ? ` · #${pol.policy_number}` : ""}
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-sm font-bold text-emerald-600">
+                ${Number(pol.monthly_premium ?? 0).toFixed(2)}<span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+              </div>
+            </div>
+          </div>
+          {effectiveDisplay && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Calendar className="h-2.5 w-2.5" />
+              <span>Effective: {effectiveDisplay}</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          {client.beneficiary_of && (
+            <div className="mt-2 pt-2 border-t border-dashed">
+              <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                <Heart className="h-2.5 w-2.5" /> Beneficiary of {client.beneficiary_of}
+              </span>
+            </div>
+          )}
+          {client.last_opened_at && (
+            <div className="mt-1.5 text-[10px] text-muted-foreground text-right">
+              {new Date(client.last_opened_at).toLocaleDateString()}
+            </div>
+          )}
+        </>
+      )}
     </div>
+  );
+}
+
+function SoldCard({ client, onClick }: { client: any; onClick: () => void }) {
+  const pol = client.latest_policy;
+  const initials = `${client.first_name?.[0] ?? ""}${client.last_name?.[0] ?? ""}`.toUpperCase();
+  const age = client.date_of_birth
+    ? Math.floor((Date.now() - new Date(client.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
+  const location = [client.city, client.state].filter(Boolean).join(", ");
+  const effectiveDisplay = pol?.effective_date
+    ? new Date(pol.effective_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
+  const annual = pol ? Number(pol.annual_premium ?? (pol.monthly_premium ?? 0) * 12) : 0;
+
+  return (
+    <button
+      onClick={onClick}
+      className="text-left bg-card border rounded-xl p-4 hover:border-primary/40 hover:shadow-md transition-all w-full group"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-full bg-emerald-500/15 grid place-items-center shrink-0 text-sm font-bold text-emerald-700 dark:text-emerald-400">
+          {initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-sm leading-tight truncate group-hover:text-primary transition-colors">
+            {client.first_name} {client.last_name}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold">
+              <CheckCircle2 className="h-2.5 w-2.5" /> Sold
+            </span>
+            {client.phone && (
+              <span className="text-[11px] text-muted-foreground">{fmtPhone(client.phone)}</span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {(location || age) && (
+        <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
+          <MapPin className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {[location, age != null ? `Age ${age}` : null].filter(Boolean).join(" · ")}
+          </span>
+        </div>
+      )}
+
+      {pol ? (
+        <div className="mt-3 pt-3 border-t space-y-1.5">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-semibold text-sm truncate">{pol.carriers?.name ?? "Unknown Carrier"}</div>
+              <div className="text-xs text-muted-foreground truncate">{pol.product ?? "—"}</div>
+            </div>
+            <div className="text-right shrink-0 space-y-0.5">
+              <div className="text-base font-bold text-emerald-600">
+                ${Number(pol.monthly_premium ?? 0).toFixed(2)}<span className="text-[10px] font-normal text-muted-foreground">/mo</span>
+              </div>
+              {annual > 0 && (
+                <div className="text-[10px] text-muted-foreground">${annual.toFixed(2)}/yr</div>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-x-2 text-[10px] text-muted-foreground">
+            {pol.policy_number && (
+              <div><span className="text-muted-foreground/70">Policy # </span><span className="font-mono">{pol.policy_number}</span></div>
+            )}
+            {effectiveDisplay && (
+              <div><span className="text-muted-foreground/70">Effective </span><span>{effectiveDisplay}</span></div>
+            )}
+            {Number(pol.face_amount ?? 0) > 0 && (
+              <div><span className="text-muted-foreground/70">Face </span><span>${Number(pol.face_amount).toLocaleString()}</span></div>
+            )}
+            {pol.status && <PolicyStatusDot status={pol.status} />}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground italic">
+          No policy on file — click to add
+        </div>
+      )}
+    </button>
+  );
+}
+
+function PolicyStatusDot({ status }: { status: string }) {
+  const map: Record<string, { cls: string; label: string }> = {
+    active:          { cls: "bg-emerald-500", label: "Active" },
+    issued_not_paid: { cls: "bg-amber-500",   label: "Issued" },
+    in_review:       { cls: "bg-blue-500",    label: "In Review" },
+    lapsed:          { cls: "bg-red-500",     label: "Lapsed" },
+  };
+  const s = map[status] ?? { cls: "bg-muted-foreground", label: status };
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} />
+      <span>{s.label}</span>
+    </span>
   );
 }
 

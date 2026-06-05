@@ -38,25 +38,34 @@ export const listPipelineClients = createServerFn({ method: "GET" })
       }
     }
 
-    // Latest policy per sold client
-    const soldIds = (clients ?? []).filter((c: any) => c.stage === "sold").map((c: any) => c.id);
+    // Latest policy for ALL clients (non-sold clients may have imported policies)
+    const allIds = (clients ?? []).map((c: any) => c.id);
     const policyMap = new Map<string, any>();
-    if (soldIds.length) {
+    if (allIds.length) {
       const { data: pols } = await supabase
         .from("policies")
-        .select("client_id,carrier_id,product,policy_number,effective_date,monthly_premium,status,carriers(name)")
-        .in("client_id", soldIds)
+        .select("client_id,carrier_id,product,policy_number,effective_date,monthly_premium,annual_premium,face_amount,status,carriers(name)")
+        .in("client_id", allIds)
         .order("posted_at", { ascending: false });
       for (const p of pols ?? []) {
         if (!policyMap.has(p.client_id)) policyMap.set(p.client_id, p);
       }
     }
 
-    return (clients ?? []).map((c: any) => ({
-      ...c,
-      beneficiary_of: benefMap.get(c.id) ?? null,
-      latest_policy: policyMap.get(c.id) ?? null,
-    }));
+    return (clients ?? []).map((c: any) => {
+      const latestPolicy = policyMap.get(c.id) ?? null;
+      // Auto-promote: imported clients with active/issued policies should appear in Sold
+      let effectiveStage = c.stage;
+      if (latestPolicy && c.stage !== "sold" && ["active", "issued_not_paid"].includes(latestPolicy.status ?? "")) {
+        effectiveStage = "sold";
+      }
+      return {
+        ...c,
+        stage: effectiveStage,
+        beneficiary_of: benefMap.get(c.id) ?? null,
+        latest_policy: latestPolicy,
+      };
+    });
   });
 
 // ---------- Create ----------
