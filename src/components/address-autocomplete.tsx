@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ensureMaps, parseAddressComponents, type AddressParts } from "@/lib/google-maps";
 
-type Props = Omit<React.ComponentProps<"input">, "onChange" | "value"> & {
+type Props = Omit<React.ComponentProps<"input">, "onChange" | "value" | "onSelect"> & {
   value: string;
   onChange: (value: string) => void;
   onSelect?: (parts: AddressParts) => void;
