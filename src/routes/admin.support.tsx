@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Loader2, Search, Send, LifeBuoy, ArrowLeft } from "lucide-react";
+import { Loader2, Search, Send, LifeBuoy, ArrowLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { draftUwResponse } from "@/lib/ai-features.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/admin/support")({
   component: AdminSupport,
@@ -41,6 +43,25 @@ function AdminSupport() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [newStatus, setNewStatus] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const draftFn = useServerFn(draftUwResponse);
+
+  async function draftAiReply() {
+    if (!selected) return;
+    const lastUser = [...messages].reverse().find((m) => m.sender_role !== "support");
+    const seed = lastUser?.body ?? selected.subject;
+    if (!seed) { toast.error("No message to draft from"); return; }
+    setDrafting(true);
+    try {
+      const res = await draftFn({ data: { carrier_email: `Subject: ${selected.subject}\n\n${seed}` } });
+      setReply((prev) => (prev ? prev + "\n\n" : "") + res.draft);
+      toast.success("AI draft added");
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to draft reply");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   async function loadTickets() {
     setLoading(true);
@@ -230,6 +251,16 @@ function AdminSupport() {
                 {newStatus !== selected.status && (
                   <span className="text-xs text-amber-600">Status will change on send</span>
                 )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-8 text-xs"
+                  onClick={draftAiReply}
+                  disabled={drafting || messages.length === 0}
+                >
+                  {drafting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  Draft with AI
+                </Button>
               </div>
               <div className="flex gap-2">
                 <Textarea
