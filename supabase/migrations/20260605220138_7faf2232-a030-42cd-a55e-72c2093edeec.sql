@@ -1,0 +1,1 @@
+ALTER TABLE public.challenges ALTER COLUMN type TYPE text USING type::text;

@@ -741,3 +741,124 @@ export const discardAdminImport = createServerFn({ method: "POST" })
 
 // Silence unused-import warning when the helper isn't called in some branches
 void normalizePhone;
+
+// ─── Replay policies for an already-completed multi-sheet job ────────────────
+// Use this when a prior import landed clients/notes but policies failed
+// silently (e.g. a downstream trigger rejected the insert). Re-runs only
+// the policies loop against clients that already exist in the DB.
+
+export const replayAdminImportPolicies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        job_id: z.string().uuid().optional(),
+        scrape_request_id: z.string().uuid().optional(),
+      })
+      .refine((v) => v.job_id || v.scrape_request_id, "job_id or scrape_request_id required")
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdminOrManager(supabase, userId);
+
+    let jobId = data.job_id;
+    if (!jobId && data.scrape_request_id) {
+      const { data: j } = await supabase
+        .from("admin_import_jobs")
+        .select("id")
+        .eq("scrape_request_id", data.scrape_request_id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!j) throw new Error("No import job found for that request");
+      jobId = j.id;
+    }
+
+    const { data: job, error: jobErr } = await supabase
+      .from("admin_import_jobs")
+      .select("*")
+      .eq("id", jobId!)
+      .single();
+    if (jobErr || !job) throw new Error("Job not found");
+
+    const ex = job.extracted_json ?? {};
+    if (ex.format !== "agentlink_multisheet") {
+      throw new Error("Replay only supports AgentLink multi-sheet jobs");
+    }
+
+    const targetAgent = job.target_agent_id as string;
+    const roster: ParsedRoster[] = ex.roster ?? [];
+    const policiesRaw: ParsedPolicy[] = ex.policies_raw ?? [];
+    const nameToEmail = buildAgentEmailMap(roster);
+
+    // Load existing clients for this target agent, key by normalized name
+    const { data: existingClients } = await supabase
+      .from("clients")
+      .select("id, first_name, last_name, assigned_to_email")
+      .eq("agent_id", targetAgent);
+
+    const clientByName = new Map<string, { id: string; ownerEmail: string | null }>();
+    for (const c of existingClients ?? []) {
+      const key = normName(`${c.first_name ?? ""} ${c.last_name ?? ""}`);
+      if (key) clientByName.set(key, { id: c.id, ownerEmail: c.assigned_to_email ?? null });
+    }
+
+    let inserted = 0;
+    let skippedNoClient = 0;
+    let errors = 0;
+    const errorSamples: string[] = [];
+
+    for (const p of policiesRaw) {
+      const key = normName(p.client_label);
+      const c = clientByName.get(key);
+      if (!c) { skippedNoClient++; continue; }
+
+      // Skip if a policy with the same policy_number already exists for this client
+      if (p.policy_number) {
+        const { data: dup } = await supabase
+          .from("policies")
+          .select("id")
+          .eq("client_id", c.id)
+          .eq("policy_number", p.policy_number)
+          .maybeSingle();
+        if (dup) continue;
+      }
+
+      const ownerEmail = p.agent_label
+        ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail
+        : c.ownerEmail;
+
+      const { error } = await supabase.from("policies").insert({
+        client_id: c.id,
+        agent_id: targetAgent,
+        assigned_to_email: ownerEmail,
+        product: p.product ?? p.carrier ?? "Unknown",
+        policy_number: p.policy_number,
+        monthly_premium: p.monthly_premium,
+        annual_premium: p.annual_premium || p.monthly_premium * 12,
+        effective_date: p.effective_date,
+        status: mapPolicyStatus(p.status ?? undefined),
+        posted_at: new Date().toISOString(),
+      });
+      if (error) {
+        errors++;
+        if (errorSamples.length < 3) errorSamples.push(error.message);
+      } else {
+        inserted++;
+      }
+    }
+
+    await supabase
+      .from("admin_import_jobs")
+      .update({ policies_imported: (job.policies_imported ?? 0) + inserted })
+      .eq("id", job.id);
+
+    return {
+      ok: true,
+      policies_inserted: inserted,
+      skipped_no_client_match: skippedNoClient,
+      errors,
+      error_samples: errorSamples,
+    };
+  });

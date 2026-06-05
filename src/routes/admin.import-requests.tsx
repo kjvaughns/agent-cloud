@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { adminListScrapeRequests, adminUpdateScrapeRequest } from "@/lib/admin.functions";
+import { replayAdminImportPolicies } from "@/lib/admin-import.functions";
 import { AIImportDialog } from "@/components/admin/ai-import-dialog";
 
 export const Route = createFileRoute("/admin/import-requests")({
@@ -33,6 +34,7 @@ const AL_URL = "https://agentlink.insuracloud.ai";
 function ImportRequestsPage() {
   const listFn = useServerFn(adminListScrapeRequests);
   const updateFn = useServerFn(adminUpdateScrapeRequest);
+  const replayFn = useServerFn(replayAdminImportPolicies);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -48,6 +50,17 @@ function ImportRequestsPage() {
       toast.success("Request updated");
     },
     onError: (e: any) => toast.error(e?.message),
+  });
+
+  const replayMut = useMutation({
+    mutationFn: (scrape_request_id: string) => replayFn({ data: { scrape_request_id } }),
+    onSuccess: (r: any) =>
+      toast.success(
+        `Replayed: ${r.policies_inserted} policies inserted` +
+          (r.skipped_no_client_match ? `, ${r.skipped_no_client_match} skipped (no client match)` : "") +
+          (r.errors ? `, ${r.errors} errored` : ""),
+      ),
+    onError: (e: any) => toast.error(e?.message ?? "Replay failed"),
   });
 
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -155,20 +168,34 @@ function ImportRequestsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs"
-                      onClick={() =>
-                        setUploadTarget({
-                          id: req.requesting_agent_id,
-                          name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
-                          requestId: req.id,
-                        })
-                      }
-                    >
-                      <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload File
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={() =>
+                          setUploadTarget({
+                            id: req.requesting_agent_id,
+                            name: `${req.profiles?.first_name ?? ""} ${req.profiles?.last_name ?? ""}`.trim() || req.profiles?.email || "Agent",
+                            requestId: req.id,
+                          })
+                        }
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload File
+                      </Button>
+                      {req.status === "completed" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => replayMut.mutate(req.id)}
+                          disabled={replayMut.isPending}
+                          title="Re-run policy inserts from the saved extraction"
+                        >
+                          Replay policies
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Select

@@ -807,7 +807,7 @@ export type Database = {
           period: string | null
           start_date: string | null
           target_value: number | null
-          type: Database["public"]["Enums"]["challenge_type"]
+          type: string
         }
         Insert: {
           agent_id: string
@@ -820,7 +820,7 @@ export type Database = {
           period?: string | null
           start_date?: string | null
           target_value?: number | null
-          type: Database["public"]["Enums"]["challenge_type"]
+          type: string
         }
         Update: {
           agent_id?: string
@@ -833,7 +833,7 @@ export type Database = {
           period?: string | null
           start_date?: string | null
           target_value?: number | null
-          type?: Database["public"]["Enums"]["challenge_type"]
+          type?: string
         }
         Relationships: [
           {

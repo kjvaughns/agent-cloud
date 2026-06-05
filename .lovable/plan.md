@@ -1,91 +1,60 @@
-## Goal
+## Root cause
 
-Upload one multi-sheet AgentLink export (Summary, Team Roster, Book of Business, All Clients, Client Notes) and route every row to the right downline agent — even when that downline hasn't created an Agent Cloud account yet. When they later sign up with the matching email, their pre-imported pipeline activates automatically.
+I traced the import job (`3f2432d3-…3cc0`): 254 clients imported, **0 policies**, 144 notes, completed without raising an error. The extracted JSON has 165 policies with valid client matches (e.g. Barbara Daniel → 2 policies). The code calls `if (!error) policiesImported++;` so every policy insert is silently being rejected.
 
-## Data flow
+I reproduced an insert directly against the DB and got:
 
-```text
-XLS upload (admin picks target agent = upline)
-       │
-       ▼
- AI extraction (one job per sheet, structured JSON)
-       │
-       ▼
- ┌─────────────────────────────────────────────────┐
- │ Team Roster  → pending_agents (status=inactive) │
- │ All Clients  → clients  (assigned_to_email = X) │
- │ Book of Biz  → policies (assigned_to_email = X) │
- │ Client Notes → contact_history                  │
- └─────────────────────────────────────────────────┘
-       │
-       ▼
- Owner today = upline (target agent) — visible in their book
-       │
-       ▼ (later)  Downline signs up with matching email
-       │
-       ▼
- handle_new_user trigger →
-   merge pending_agents row into new profile
-   reassign clients/policies where assigned_to_email = signup email
+```
+ERROR: invalid input value for enum challenge_type: "deals"
+QUERY:  SELECT * FROM public.challenges WHERE … AND type = 'deals' …
+CONTEXT: PL/pgSQL function bump_challenge_progress()
 ```
 
-## Schema changes
+The `public.challenges.type` column is typed as the `challenge_type` enum, but that enum only contains `daily | weekly | monthly | quarterly` (those are *period* values). The trigger `bump_challenge_progress` — which fires on every `policies` insert — filters `type = 'deals'`, which is not a valid enum member, so **every policy insert throws**. `seed_agent_challenges` is also writing `'calls' | 'deals' | 'premium' | 'recruiting'` into that column.
 
-1. **New table `pending_agents`** (one row per Team Roster entry):
-   - `email` (unique key), `first_name`, `last_name`, `location`, `status_label`, `depth`, `contracts_label`, `upline_id` (→ profiles), `joined_date`, `last_active_label`, `source` ('agentlink_import'), `created_by`, `created_at`.
-   - RLS: upline + admins can read/manage; service_role full.
+Clients and `contact_history` rows don't fire this trigger, which is why those imported fine.
 
-2. **Add `assigned_to_email text` to `clients`, `policies`, `contact_history`** (nullable). Indexed. Filled when the import knows which downline a row belongs to but that downline has no profile yet.
+The "policy details / monthly premium / ALP / carrier / effective date missing" and "notes section empty per client" symptoms are the same bug: policies never inserted, and the per-client notes block expected to follow the policies didn't run either (well, the standalone Client Notes did — 144 — but anything the UI shows under policies is empty).
 
-3. **`handle_new_user` trigger** (run on `auth.users` insert): if a `pending_agents` row exists with `lower(email) = lower(new.email)`, copy first/last/upline_id/location into the new profile, set `status = 'active'`, then `UPDATE clients/policies/contact_history SET agent_id = new.id, assigned_to_email = NULL WHERE lower(assigned_to_email) = lower(new.email)`. Delete the pending row.
+## Fix
 
-4. **Duplicate-detection helper** updated: dedupe key is `last-7-digits-of-phone + lower(first+last)` scoped across the entire upline's team (target agent's clients **plus** all clients with `assigned_to_email` belonging to one of their pending_agents/downlines). So re-importing or a downline importing later won't create dupes.
+### 1. Migration — convert `challenges.type` to plain `text`
 
-## Import logic
+The trigger and seeder already use string values, so the cleanest fix is to drop the enum constraint on this column. No data loss — the enum has 4 values, but the column is used for `calls/deals/premium/recruiting`, meaning existing rows are either valid text or already broken.
 
-In `src/lib/admin-import.functions.ts`, rewrite `createAdminImportJob` / `confirmAdminImport`:
+```sql
+ALTER TABLE public.challenges
+  ALTER COLUMN type TYPE text USING type::text;
+```
 
-1. **Detect file shape**: if the upload is the multi-sheet XLS, parse all 5 sheets server-side with `xlsx` (the lib is already installed). Otherwise fall back to the existing single-sheet AI flow.
-2. **Resolve owner per row**:
-   - Build a name→email map from the Team Roster sheet.
-   - For each client/policy row, take its "Agent" column → look up email via the roster → store `assigned_to_email`.
-   - `agent_id` is set to the **target agent** (the upline) so the row is queryable today via RLS.
-   - Rows with no Agent column fall through to target agent only.
-3. **Team Roster** rows are upserted into `pending_agents` by lowercased email, `upline_id = target agent`.
-4. **Client Notes**: matched to clients by `Client Name` (case-insensitive last+first); each note becomes a single `contact_history` row with `contact_type = 'imported_note'` and the raw `Note Content` in `note`.
-5. **Stage mapping**: `New / Cold → new`, `Callback → callback`, `Almost There → almost_there`, `Sold → sold`.
-6. **Carrier mapping**: best-effort match of carrier name against `carriers.name`; unmatched → null `carrier_id` with carrier name preserved in `product`.
-7. **Duplicate skip counter** returned to the UI alongside the existing `clients_imported/policies_imported/notes_imported`.
+No app code changes needed — `mock-data.ts`, `challenges.tsx`, etc. already treat it as a string.
 
-## UI changes
+### 2. Replay the stuck job's policies (and any missed per-client notes)
 
-`src/components/admin/ai-import-dialog.tsx` review screen gets:
+After the migration succeeds I'll add a one-shot server function `replayAdminImportPolicies(job_id)` that:
+- Reads the saved `extracted_json` for the completed job
+- Re-runs the policies loop only (skips clients, skips Client Notes — those already landed)
+- Matches policies to clients by `agent_id = target_agent_id` + normalized first+last name
+- Inserts policies with `assigned_to_email` set to the downline owner from the Team Roster, exactly like the original code
+- Updates `admin_import_jobs.policies_imported` with the new count
 
-- Four stat tiles instead of three: **Pending Agents**, **Clients**, **Policies**, **Notes**.
-- A small grouped preview: "X clients will go to *Daniel Gonzalez* (pending signup)", "Y to *Xaviar Watts* (pending signup)", "Z stay with you" — derived from the per-row `assigned_to_email`.
-- Confirm button text unchanged.
+Then I'll call it once for `3f2432d3-741c-499b-a95c-ba6c0c0c3cc0` (your existing job) to backfill the 165 policies. The button to trigger this lives in `admin.import-requests.tsx` next to completed jobs as "Replay policies" so you can re-use it if anything similar happens later.
 
-`src/routes/admin.import-requests.tsx` adds a small "Pending Agents" link/badge so the upline can see who's been pre-seeded.
+### 3. No changes to the parser or the multi-sheet flow
+
+The extraction is correct — the data was there all along. Once the trigger no longer rejects inserts, future imports will land policies and notes correctly on the first pass.
 
 ## Files touched
 
 | File | Change |
 |---|---|
-| `supabase/migrations/<new>.sql` | `pending_agents` table + RLS + grants, `assigned_to_email` columns + indexes, updated `handle_new_user` trigger |
-| `src/lib/admin-import.functions.ts` | Multi-sheet branch, owner resolution, pending_agents upsert, scoped dedupe |
-| `src/components/admin/ai-import-dialog.tsx` | 4-tile stats, per-agent grouped preview |
-| `src/routes/admin.import-requests.tsx` | Optional "Pending Agents" link |
-| `package.json` | `xlsx` (only if not already installed) |
-
-## Out of scope
-
-- Sending invitations to pending agents (Team Roster answer was "show as inactive only").
-- Splitting SSN/medical out of notes (you chose single contact_history row).
-- Editing the Path A AgentLink API flow.
+| `supabase/migrations/<new>.sql` | `ALTER TABLE challenges ALTER COLUMN type TYPE text` |
+| `src/lib/admin-import.functions.ts` | Add `replayAdminImportPolicies` server fn |
+| `src/routes/admin.import-requests.tsx` | "Replay policies" action on completed jobs |
 
 ## Verification
 
-1. Upload `AGENTC~1.XLS` → confirm review shows 24 pending agents, 258 clients, 165 policies, 144 notes; per-agent grouped preview lists Daniel Gonzalez, Xaviar Watts, etc.
-2. Confirm import → query `pending_agents` (24 rows), `clients` (258 with `assigned_to_email` filled where applicable, `agent_id` = upline).
-3. Re-upload same file → duplicates_skipped ≈ 258.
-4. Manually create an auth.users row matching one pending email → that profile activates with name/upline/location filled, and their previously-imported clients/policies move to `agent_id = new user`, `assigned_to_email = NULL`.
+1. After migration: re-run the test insert against `policies` — succeeds.
+2. Call replay on job `3f2432d3-…3cc0` → expect ~165 policies inserted, `policies_imported` updated.
+3. Open one of the 63 sold clients (e.g. Barbara Daniel) → policy tab now shows carrier, monthly premium, ALP, effective date.
+4. Upload a fresh AgentLink XLS → policies populate on the first pass with no replay needed.
