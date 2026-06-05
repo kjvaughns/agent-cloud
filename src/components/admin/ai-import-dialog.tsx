@@ -102,9 +102,37 @@ export function AIImportDialog({
     onSuccess: () => { reset(); onOpenChange(false); },
   });
 
-  const clients: any[] = extracted?.clients ?? [];
-  const policyCount = clients.reduce((acc, c) => acc + (c.policies?.length ?? 0), 0);
-  const noteCount = clients.reduce((acc, c) => acc + (c.notes?.length ?? 0), 0);
+  const isMulti = extracted?.format === "agentlink_multisheet";
+  const clients: any[] = isMulti ? (extracted?.clients_raw ?? []) : (extracted?.clients ?? []);
+  const policyCount = isMulti
+    ? (extracted?.policies_raw?.length ?? 0)
+    : clients.reduce((acc, c) => acc + (c.policies?.length ?? 0), 0);
+  const noteCount = isMulti
+    ? (extracted?.notes_raw?.length ?? 0)
+    : clients.reduce((acc, c) => acc + (c.notes?.length ?? 0), 0);
+  const rosterCount = isMulti ? (extracted?.roster?.length ?? 0) : 0;
+
+  // Per-agent grouped preview (multi-sheet only)
+  const ownerGroups = (() => {
+    if (!isMulti) return [] as { label: string; email: string | null; count: number }[];
+    const roster: any[] = extracted?.roster ?? [];
+    const nameToEmail = new Map<string, string>();
+    for (const r of roster) {
+      const full = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim().toLowerCase();
+      if (full && r.email) nameToEmail.set(full, r.email);
+    }
+    const counts = new Map<string, { label: string; email: string | null; count: number }>();
+    for (const c of clients) {
+      const label = c.agent_label ?? "Unassigned";
+      const email = c.agent_label ? nameToEmail.get(c.agent_label.toLowerCase()) ?? null : null;
+      const key = `${label}::${email ?? ""}`;
+      const prev = counts.get(key);
+      if (prev) prev.count++;
+      else counts.set(key, { label, email, count: 1 });
+    }
+    return Array.from(counts.values()).sort((a, b) => b.count - a.count);
+  })();
+
 
   const closeable = phase !== "extracting" && phase !== "importing";
 
