@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Cloud, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 export const Route = createFileRoute("/invite/$token")({
   component: PublicInvitePage,
