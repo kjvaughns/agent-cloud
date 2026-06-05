@@ -34,6 +34,7 @@ const AL_URL = "https://agentlink.insuracloud.ai";
 function ImportRequestsPage() {
   const listFn = useServerFn(adminListScrapeRequests);
   const updateFn = useServerFn(adminUpdateScrapeRequest);
+  const replayFn = useServerFn(replayAdminImportPolicies);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -49,6 +50,17 @@ function ImportRequestsPage() {
       toast.success("Request updated");
     },
     onError: (e: any) => toast.error(e?.message),
+  });
+
+  const replayMut = useMutation({
+    mutationFn: (scrape_request_id: string) => replayFn({ data: { scrape_request_id } }),
+    onSuccess: (r: any) =>
+      toast.success(
+        `Replayed: ${r.policies_inserted} policies inserted` +
+          (r.skipped_no_client_match ? `, ${r.skipped_no_client_match} skipped (no client match)` : "") +
+          (r.errors ? `, ${r.errors} errored` : ""),
+      ),
+    onError: (e: any) => toast.error(e?.message ?? "Replay failed"),
   });
 
   const [notes, setNotes] = useState<Record<string, string>>({});
