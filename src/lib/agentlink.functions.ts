@@ -233,6 +233,38 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
           continue;
         }
 
+        // Team-wide duplicate check first (catches overlaps with upline/siblings)
+        if (uplineId) {
+          const teamDup = await detectTeamDuplicate(supabase, uplineId, teamEmails, {
+            phone,
+            first_name: firstName,
+            last_name: lastName,
+            dob: typeof dob === "string" ? dob : undefined,
+          });
+          if (teamDup && teamDup.existing_client_id) {
+            // Verify owner isn't current user — if it is, fall through to self-dup logic
+            const { data: ownerRow } = await supabase
+              .from("clients")
+              .select("agent_id")
+              .eq("id", teamDup.existing_client_id)
+              .maybeSingle();
+            if (ownerRow && ownerRow.agent_id && ownerRow.agent_id !== userId) {
+              duplicates_found++;
+              await supabase.from("import_duplicates").insert({
+                import_job_id: jobId,
+                agent_id: userId,
+                match_type: `team_${teamDup.type}`,
+                confidence: teamDup.confidence,
+                incoming_data: contact,
+                existing_client_id: teamDup.existing_client_id,
+                resolution: "skip",
+              });
+              skipped++;
+              continue;
+            }
+          }
+        }
+
         const dupMatch = await detectDuplicate(supabase, userId, {
           phone,
           first_name: firstName,
