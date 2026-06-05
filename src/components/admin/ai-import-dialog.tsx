@@ -267,3 +267,46 @@ export function AIImportDialog({
     </Dialog>
   );
 }
+
+function DropZone({ file, onFile }: { file: File | null; onFile: (f: File | null) => void }) {
+  const [dragOver, setDragOver] = useState(false);
+  return (
+    <label
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f) onFile(f);
+      }}
+      className={`block rounded-lg border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
+        dragOver ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/60"
+      }`}
+    >
+      <input
+        type="file"
+        accept=".xls,.xlsx,.csv,.pdf,.png,.jpg,.jpeg,.webp"
+        className="hidden"
+        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+      />
+      {file ? (
+        <div className="flex items-center justify-center gap-2 text-sm">
+          <FileText className="h-4 w-4" />
+          <span className="font-medium">{file.name}</span>
+          <span className="text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <Upload className="h-8 w-8 mx-auto text-muted-foreground/60" />
+          <div className="text-sm font-medium">
+            {dragOver ? "Drop file to upload" : "Drag & drop a file here"}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            or click to browse · XLS, CSV, PDF, images · max 20MB
+          </div>
+        </div>
+      )}
+    </label>
+  );
+}
