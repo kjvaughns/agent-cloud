@@ -184,6 +184,15 @@ export function AgentLinkImportDialog({
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
+              {statusError && (
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-start gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="font-medium">Couldn't load saved key</div>
+                    <div className="opacity-80 mt-0.5">{(statusErrorObj as any)?.message ?? "Unknown error"}</div>
+                  </div>
+                </div>
+              )}
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="text-sm font-medium">Option A — Connect with API Key</div>
                 <p className="text-xs text-muted-foreground">
