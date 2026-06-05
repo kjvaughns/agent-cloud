@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw } from "lucide-react";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
