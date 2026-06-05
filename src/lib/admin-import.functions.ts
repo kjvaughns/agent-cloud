@@ -173,7 +173,7 @@ async function parseAgentLinkExport(file_base64: string): Promise<AgentLinkExpor
   const buf = Buffer.from(file_base64, "base64");
   let wb;
   try {
-    wb = XLSX.read(buf, { type: "buffer" });
+    wb = XLSX.read(buf, { type: "buffer", cellDates: true });
   } catch {
     return null;
   }
@@ -358,7 +358,7 @@ async function fileToUserContent(file_base64: string, file_type: string, file_na
   if (isXls) {
     const XLSX = await import("xlsx");
     const buf = Buffer.from(file_base64, "base64");
-    const wb = XLSX.read(buf, { type: "buffer" });
+    const wb = XLSX.read(buf, { type: "buffer", cellDates: true });
     const parts: string[] = [];
     for (const name of wb.SheetNames) {
       const csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
