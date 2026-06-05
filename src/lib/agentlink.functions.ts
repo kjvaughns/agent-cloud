@@ -5,6 +5,7 @@ import {
   normalizePhone,
   detectDuplicate,
   detectDuplicatePolicy,
+  detectTeamDuplicate,
   mapStage,
   mapTemperature,
 } from "@/lib/import-helpers";
@@ -179,6 +180,22 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
 
       await updateJob({ total_found: rawClients.length });
 
+      // Build team context (upline + sibling emails) for team-wide duplicate protection
+      const { data: meRow } = await supabase
+        .from("profiles")
+        .select("upline_id")
+        .eq("id", userId)
+        .maybeSingle();
+      const uplineId: string | null = meRow?.upline_id ?? null;
+      let teamEmails: string[] = [];
+      if (uplineId) {
+        const { data: siblings } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("upline_id", uplineId);
+        teamEmails = (siblings ?? []).map((s: any) => s.email).filter(Boolean);
+      }
+
       let imported = 0,
         duplicates_found = 0,
         skipped = 0,
@@ -214,6 +231,38 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
         if (!firstName && !lastName) {
           skipped++;
           continue;
+        }
+
+        // Team-wide duplicate check first (catches overlaps with upline/siblings)
+        if (uplineId) {
+          const teamDup = await detectTeamDuplicate(supabase, uplineId, teamEmails, {
+            phone,
+            first_name: firstName,
+            last_name: lastName,
+            dob: typeof dob === "string" ? dob : undefined,
+          });
+          if (teamDup && teamDup.existing_client_id) {
+            // Verify owner isn't current user — if it is, fall through to self-dup logic
+            const { data: ownerRow } = await supabase
+              .from("clients")
+              .select("agent_id")
+              .eq("id", teamDup.existing_client_id)
+              .maybeSingle();
+            if (ownerRow && ownerRow.agent_id && ownerRow.agent_id !== userId) {
+              duplicates_found++;
+              await supabase.from("import_duplicates").insert({
+                import_job_id: jobId,
+                agent_id: userId,
+                match_type: `team_${teamDup.type}`,
+                confidence: teamDup.confidence,
+                incoming_data: contact,
+                existing_client_id: teamDup.existing_client_id,
+                resolution: "skip",
+              });
+              skipped++;
+              continue;
+            }
+          }
         }
 
         const dupMatch = await detectDuplicate(supabase, userId, {

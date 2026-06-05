@@ -99,7 +99,7 @@ function mapStage(raw: string): string {
 
 export async function parseAgentLinkXLS(file: File): Promise<ParsedExport> {
   const buffer = await file.arrayBuffer();
-  const wb = XLSX.read(buffer, { type: "array" });
+  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
   const errors: string[] = [];
 
   const result: ParsedExport = {
