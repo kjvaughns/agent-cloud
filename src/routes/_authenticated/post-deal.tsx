@@ -16,6 +16,7 @@ import { money, phone as fmtPhone } from "@/lib/format";
 import {
   searchClients, listCarriersForDeal, getMyActiveCarrierIds, postDeal,
 } from "@/lib/post-deal.functions";
+import { PostDealQaButton } from "@/components/ai/post-deal-qa";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -298,6 +299,29 @@ function PostDealPage() {
             <div className="text-xs text-muted-foreground text-right mt-1">{notes.length} / 2000</div>
           </CardContent>
         </Card>
+
+        <PostDealQaButton
+          buildPayload={() => {
+            const v = form.getValues();
+            if (!v.carrier_id || !v.product || !v.monthly_premium) return null;
+            return {
+              client: { first_name: v.first_name, last_name: v.last_name, phone: v.phone, date_of_birth: v.date_of_birth },
+              policy: {
+                carrier_name: selectedCarrierName,
+                product: v.product,
+                policy_number: v.policy_number,
+                effective_date: v.effective_date,
+                face_amount: Number(v.face_amount || 0),
+                monthly_premium: Number(v.monthly_premium || 0),
+              },
+              beneficiaries: v.beneficiaries.map((b) => ({
+                first_name: b.first_name, last_name: b.last_name,
+                relationship: b.relationship, percentage: Number(b.percentage || 0),
+              })),
+              notes: v.notes,
+            };
+          }}
+        />
 
         <div className="flex justify-end">
           <Button type="submit" size="lg" disabled={mutation.isPending}>

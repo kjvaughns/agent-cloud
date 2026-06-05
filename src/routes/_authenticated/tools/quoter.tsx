@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Wrench } from "lucide-react";
+import { QuoteRecommender } from "@/components/ai/quote-recommender";
 
 export const Route = createFileRoute("/_authenticated/tools/quoter")({
   head: () => ({
@@ -30,7 +31,10 @@ function ToolkitsPage() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">Agent tools for quoting, verification, and client planning.</p>
       </div>
-      <div className="grid sm:grid-cols-2 gap-4">
+
+      <QuoteRecommender />
+
+      <div className="grid sm:grid-cols-2 gap-4 mt-6">
         {TOOLS.map((t) => (
           <Card key={t.name}>
             <CardContent className="p-5 flex flex-col gap-3">
