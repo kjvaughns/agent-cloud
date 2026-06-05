@@ -1,16 +1,16 @@
 // Lazy loader for the Google Maps JS API (Places library).
 // Uses the Lovable-managed Google Maps connector browser key.
 
-let loadPromise: Promise<typeof google> | null = null;
+let loadPromise: Promise<any> | null = null;
 
 declare global {
   interface Window {
-    google?: typeof google;
+    google?: any;
     __lovableMapsInit?: () => void;
   }
 }
 
-export function ensureMaps(): Promise<typeof google> {
+export function ensureMaps(): Promise<any> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Maps unavailable on server"));
   }
