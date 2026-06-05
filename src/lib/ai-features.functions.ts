@@ -168,7 +168,7 @@ export const getPolicyAiInsight = createServerFn({ method: "POST" })
     const { data: policy, error } = await supabase
       .from("policies")
       .select(
-        "id, policy_number, status, monthly_premium, annual_premium, effective_date, product, carrier:carriers(name), client:clients(first_name,last_name,dob,state,notes)",
+        "id, policy_number, status, monthly_premium, annual_premium, effective_date, product, client_id, carrier:carriers(name), client:clients(first_name,last_name,date_of_birth,state,notes)",
       )
       .eq("id", data.policyId)
       .maybeSingle();
@@ -176,7 +176,7 @@ export const getPolicyAiInsight = createServerFn({ method: "POST" })
     if (!policy) throw new Error("Policy not found");
 
     // Pull other policies for cross-sell context
-    const clientId = (policy as any).client?.id ?? null;
+    const clientId = (policy as any).client_id ?? null;
     let otherPolicies: any[] = [];
     if (clientId) {
       const { data: op } = await supabase
