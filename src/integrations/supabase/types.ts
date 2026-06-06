@@ -257,6 +257,60 @@ export type Database = {
           },
         ]
       }
+      agent_current_contracts: {
+        Row: {
+          agent_id: string
+          agent_number: string | null
+          carrier_id: string | null
+          carrier_name: string | null
+          created_at: string
+          current_level: string | null
+          effective_date: string | null
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_number?: string | null
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          current_level?: string | null
+          effective_date?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_number?: string | null
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          current_level?: string | null
+          effective_date?: string | null
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_current_contracts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_current_contracts_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_integrations: {
         Row: {
           agent_id: string
@@ -1754,6 +1808,41 @@ export type Database = {
         }
         Relationships: []
       }
+      pdb_uploads: {
+        Row: {
+          agent_id: string
+          filename: string | null
+          id: string
+          parsed_states: string[] | null
+          storage_path: string
+          uploaded_at: string
+        }
+        Insert: {
+          agent_id: string
+          filename?: string | null
+          id?: string
+          parsed_states?: string[] | null
+          storage_path: string
+          uploaded_at?: string
+        }
+        Update: {
+          agent_id?: string
+          filename?: string | null
+          id?: string
+          parsed_states?: string[] | null
+          storage_path?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdb_uploads_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_agents: {
         Row: {
           contracts_label: string | null
@@ -2012,6 +2101,9 @@ export type Database = {
       profiles: {
         Row: {
           agent_slug: string | null
+          agreement_agency_name: string | null
+          agreement_signature_html: string | null
+          agreement_signed_at: string | null
           avatar_url: string | null
           city: string | null
           created_at: string
@@ -2025,21 +2117,27 @@ export type Database = {
           google_oauth_connected: boolean
           id: string
           invite_signature_html: string | null
+          is_hidden: boolean
           last_active_at: string | null
           last_name: string | null
           marital_status: string | null
           npn_number: string | null
+          onboarding_completed_at: string | null
           phone: string | null
           ssn_encrypted: string | null
           ssn_last4: string | null
           state: string | null
           status: string
           street_address: string | null
+          terminated_at: string | null
           upline_id: string | null
           zip_code: string | null
         }
         Insert: {
           agent_slug?: string | null
+          agreement_agency_name?: string | null
+          agreement_signature_html?: string | null
+          agreement_signed_at?: string | null
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -2053,21 +2151,27 @@ export type Database = {
           google_oauth_connected?: boolean
           id: string
           invite_signature_html?: string | null
+          is_hidden?: boolean
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
           npn_number?: string | null
+          onboarding_completed_at?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
           ssn_last4?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
+          terminated_at?: string | null
           upline_id?: string | null
           zip_code?: string | null
         }
         Update: {
           agent_slug?: string | null
+          agreement_agency_name?: string | null
+          agreement_signature_html?: string | null
+          agreement_signed_at?: string | null
           avatar_url?: string | null
           city?: string | null
           created_at?: string
@@ -2081,16 +2185,19 @@ export type Database = {
           google_oauth_connected?: boolean
           id?: string
           invite_signature_html?: string | null
+          is_hidden?: boolean
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
           npn_number?: string | null
+          onboarding_completed_at?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
           ssn_last4?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
+          terminated_at?: string | null
           upline_id?: string | null
           zip_code?: string | null
         }
@@ -3115,6 +3222,7 @@ export type Database = {
           upline_id: string
         }[]
       }
+      get_team_downline_for: { Args: { p_root_id: string }; Returns: Json[] }
       get_team_kpis: { Args: never; Returns: Json }
       get_team_leaderboard: {
         Args: { _end: string; _start: string }
