@@ -6,6 +6,7 @@ import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -62,6 +63,7 @@ const DRAWER_TABS = [
   { key: "beneficiaries", label: "Beneficiaries",  icon: Users,        desktopHide: false },
   { key: "referrals",     label: "Referrals",      icon: Share2,       desktopHide: false },
   { key: "financials",    label: "Financials",     icon: DollarSign,   desktopHide: false },
+  { key: "policies",      label: "Policies",       icon: Shield,       desktopHide: false },
   { key: "care",          label: "Client Care",    icon: Heart,        desktopHide: false },
   { key: "email",         label: "Email",          icon: Mail,         desktopHide: false },
 ];
@@ -262,6 +264,7 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
     case "beneficiaries": return <BeneficiariesTab detail={detail} />;
     case "referrals":     return <ReferralsTab detail={detail} />;
     case "financials":    return <FinancialsTab detail={detail} />;
+    case "policies":      return <PoliciesTab detail={detail} />;
     case "care":          return <ClientCareTab detail={detail} />;
     case "email":         return <EmailTab detail={detail} />;
     default:              return <ContactTab detail={detail} />;
@@ -549,6 +552,14 @@ function HealthFields({ detail }: { detail: any }) {
         <Textarea className="min-h-[72px] resize-none" value={form.medical_notes ?? ""} onChange={e => setForm(f => ({...f, medical_notes: e.target.value}))} onBlur={e => save("medical_notes", e.target.value || null)} placeholder="Clinical notes..." />
       </Field>
     </div>
+  );
+}
+
+function PoliciesTab({ detail }: { detail: any }) {
+  return (
+    <SectionCard icon={Shield} title="Policy Information">
+      <PolicyFields detail={detail} />
+    </SectionCard>
   );
 }
 
