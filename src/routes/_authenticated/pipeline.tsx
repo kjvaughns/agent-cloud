@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
 import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
+import { SoldTab } from "@/components/pipeline/sold-tab";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
@@ -203,7 +204,7 @@ function PipelinePage() {
             </DndContext>
           )
         ) : (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto pb-4">
             {soldClients.length === 0 ? (
               <div className="text-center text-muted-foreground py-16">
                 <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -211,35 +212,7 @@ function PipelinePage() {
                 <p className="text-sm mt-1">Mark clients as sold from the pipeline or add a policy from the client drawer.</p>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Clients</div>
-                    <div className="text-2xl font-bold text-primary">{soldClients.length}</div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Monthly</div>
-                    <div className="text-2xl font-bold text-emerald-600">
-                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.monthly_premium ?? 0), 0).toFixed(0)}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Annual</div>
-                    <div className="text-2xl font-bold">
-                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.annual_premium ?? (c.latest_policy?.monthly_premium ?? 0) * 12), 0).toFixed(0)}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">With Policy</div>
-                    <div className="text-2xl font-bold">{soldClients.filter((c: any) => c.latest_policy).length}</div>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {soldClients.map((c: any) => (
-                    <SoldCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
-                  ))}
-                </div>
-              </>
+              <SoldTab clients={soldClients} onOpen={(id) => setOpenId(id)} />
             )}
           </div>
         )}
@@ -391,89 +364,6 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
         </button>
       </div>
     </div>
-  );
-}
-
-function SoldCard({ client, onClick }: { client: any; onClick: () => void }) {
-  const pol = client.latest_policy;
-  const initials = `${client.first_name?.[0] ?? ""}${client.last_name?.[0] ?? ""}`.toUpperCase();
-  const age = client.date_of_birth
-    ? Math.floor((Date.now() - new Date(client.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : null;
-  const location = [client.city, client.state].filter(Boolean).join(", ");
-  const effectiveDisplay = pol?.effective_date
-    ? new Date(pol.effective_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : null;
-  const annual = pol ? Number(pol.annual_premium ?? (pol.monthly_premium ?? 0) * 12) : 0;
-
-  return (
-    <button
-      onClick={onClick}
-      className="text-left bg-card border rounded-xl p-4 hover:border-primary/40 hover:shadow-md transition-all w-full group"
-    >
-      <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-full bg-emerald-500/15 grid place-items-center shrink-0 text-sm font-bold text-emerald-700 dark:text-emerald-400">
-          {initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-bold text-sm leading-tight truncate group-hover:text-primary transition-colors">
-            {client.first_name} {client.last_name}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold">
-              <CheckCircle2 className="h-2.5 w-2.5" /> Sold
-            </span>
-            {client.phone && (
-              <span className="text-[11px] text-muted-foreground">{fmtPhone(client.phone)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {(location || age) && (
-        <div className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" />
-          <span className="truncate">
-            {[location, age != null ? `Age ${age}` : null].filter(Boolean).join(" · ")}
-          </span>
-        </div>
-      )}
-
-      {pol ? (
-        <div className="mt-3 pt-3 border-t space-y-1.5">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="font-semibold text-sm truncate">{pol.carriers?.name ?? "Unknown Carrier"}</div>
-              <div className="text-xs text-muted-foreground truncate">{pol.product ?? "—"}</div>
-            </div>
-            <div className="text-right shrink-0 space-y-0.5">
-              <div className="text-base font-bold text-emerald-600">
-                ${Number(pol.monthly_premium ?? 0).toFixed(2)}<span className="text-[10px] font-normal text-muted-foreground">/mo</span>
-              </div>
-              {annual > 0 && (
-                <div className="text-[10px] text-muted-foreground">${annual.toFixed(2)}/yr</div>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-x-2 text-[10px] text-muted-foreground">
-            {pol.policy_number && (
-              <div><span className="text-muted-foreground/70">Policy # </span><span className="font-mono">{pol.policy_number}</span></div>
-            )}
-            {effectiveDisplay && (
-              <div><span className="text-muted-foreground/70">Effective </span><span>{effectiveDisplay}</span></div>
-            )}
-            {Number(pol.face_amount ?? 0) > 0 && (
-              <div><span className="text-muted-foreground/70">Face </span><span>${Number(pol.face_amount).toLocaleString()}</span></div>
-            )}
-            {pol.status && <PolicyStatusDot status={pol.status} />}
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground italic">
-          No policy on file — click to add
-        </div>
-      )}
-    </button>
   );
 }
 

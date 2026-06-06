@@ -1,0 +1,1 @@
+ALTER TABLE public.commission_grids ADD COLUMN IF NOT EXISTS is_estimated boolean NOT NULL DEFAULT false;

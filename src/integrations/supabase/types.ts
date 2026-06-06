@@ -1029,6 +1029,7 @@ export type Database = {
           age_group_min: number | null
           carrier_id: string
           id: string
+          is_estimated: boolean
           level_name: string | null
           product_name: string
           year_1_pct: number | null
@@ -1040,6 +1041,7 @@ export type Database = {
           age_group_min?: number | null
           carrier_id: string
           id?: string
+          is_estimated?: boolean
           level_name?: string | null
           product_name: string
           year_1_pct?: number | null
@@ -1051,6 +1053,7 @@ export type Database = {
           age_group_min?: number | null
           carrier_id?: string
           id?: string
+          is_estimated?: boolean
           level_name?: string | null
           product_name?: string
           year_1_pct?: number | null

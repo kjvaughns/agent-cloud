@@ -205,7 +205,9 @@ function AgeBandTable({
                 }
                 return (
                   <>
-                    <td key={`${l.name}-yr1`} className={`${bg} px-2 py-2 text-center font-mono text-xs`}>{Number(cell.year_1_pct)}%</td>
+                    <td key={`${l.name}-yr1`} className={`${bg} px-2 py-2 text-center font-mono text-xs`} title={cell.is_estimated ? "Estimated from carrier's known levels" : undefined}>
+                      {Number(cell.year_1_pct)}%{cell.is_estimated && <span className="ml-1 text-[9px] text-muted-foreground italic">est</span>}
+                    </td>
                     <td key={`${l.name}-yr25`} className={`${bg} px-2 py-2 text-center font-mono text-xs`}>{Number(cell.years_2_5_pct) ? `${Number(cell.years_2_5_pct)}%` : "—"}</td>
                     <td key={`${l.name}-yr6`} className={`${bg} px-2 py-2 text-center font-mono text-xs border-r`}>{Number(cell.years_6_plus_pct) ? `${Number(cell.years_6_plus_pct)}%` : "—"}</td>
                   </>
