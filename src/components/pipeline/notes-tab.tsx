@@ -231,6 +231,11 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
     )}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="text-xs font-semibold flex flex-wrap items-center gap-1">
+          {isImported(entry) && (
+            <span className="px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900">
+              Imported
+            </span>
+          )}
           {Array.from(cats).map((c) => (
             <span key={c} className={cn(
               "px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide",
