@@ -91,7 +91,11 @@ const isAdminQO = queryOptions({ queryKey: ["me", "isAdmin"], queryFn: () => che
 
 function TeamPage() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
-  const { data: downline } = useSuspenseQuery(downlineQO);
+  const { data: downlineAll } = useSuspenseQuery(downlineQO);
+  const downline = useMemo(
+    () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated"),
+    [downlineAll],
+  );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
   const [openAgent, setOpenAgent] = useState<string | null>(null);
