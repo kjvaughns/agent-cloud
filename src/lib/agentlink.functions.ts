@@ -5,7 +5,6 @@ import {
   normalizePhone,
   detectDuplicate,
   detectDuplicatePolicy,
-  detectTeamDuplicate,
   mapStage,
   mapTemperature,
 } from "@/lib/import-helpers";
@@ -34,12 +33,8 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
       headers: { "x-api-key": keyRow.api_key, Accept: "application/json" },
     });
   } catch (e: any) {
-    console.error(`[alCall] Network error for ${path}:`, e?.message ?? e);
     throw new Error(`NETWORK: Could not reach AgentLink — ${e.message}`);
   }
-
-  const ct = res.headers.get("content-type") ?? "";
-  console.log(`[alCall] ${path} → status=${res.status} content-type=${ct}`);
 
   if (res.status === 401)
     throw new Error(
@@ -54,6 +49,7 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
     throw new Error(`API_ERROR ${res.status}: ${body.slice(0, 300)}`);
   }
 
+  const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {
     const body = await res.text();
     throw new Error(`UNEXPECTED_RESPONSE: Expected JSON but got ${ct}. Body: ${body.slice(0, 200)}`);
@@ -75,6 +71,7 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
         agent_id: userId,
         platform: "agentlink",
         api_key: data.api_key.trim(),
+        connected_at: new Date().toISOString(),
         sync_status: "idle",
         last_error: null,
       },
@@ -88,32 +85,24 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
 export const getAgentLinkKeyStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    try {
-      const { supabase, userId } = context as any;
-      const { data, error } = await supabase
-        .from("agent_integrations")
-        .select("api_key, last_synced_at, sync_status, last_error")
-        .eq("agent_id", userId)
-        .eq("platform", "agentlink")
-        .maybeSingle();
-      if (error) {
-        console.error("[getAgentLinkKeyStatus] DB error:", error);
-        return { connected: false };
-      }
-      if (!data) return { connected: false };
-      return {
-        connected: true,
-        masked_suffix: data.api_key?.slice(-6) ?? "??????",
-        last_synced: data.last_synced_at
-          ? new Date(data.last_synced_at).toLocaleDateString()
-          : null,
-        sync_status: data.sync_status,
-        last_error: data.last_error,
-      };
-    } catch (e: any) {
-      console.error("[getAgentLinkKeyStatus] Unhandled error:", e?.message ?? e);
-      return { connected: false };
-    }
+    const { supabase, userId } = context as any;
+    const { data, error } = await supabase
+      .from("agent_integrations")
+      .select("api_key, last_synced_at, sync_status, last_error")
+      .eq("agent_id", userId)
+      .eq("platform", "agentlink")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return { connected: false };
+    return {
+      connected: true,
+      masked_suffix: data.api_key?.slice(-6) ?? "??????",
+      last_synced: data.last_synced_at
+        ? new Date(data.last_synced_at).toLocaleDateString()
+        : null,
+      sync_status: data.sync_status,
+      last_error: data.last_error,
+    };
   });
 
 // ─── Remove Key ───────────────────────────────────────────────────────────────
@@ -180,22 +169,6 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
 
       await updateJob({ total_found: rawClients.length });
 
-      // Build team context (upline + sibling emails) for team-wide duplicate protection
-      const { data: meRow } = await supabase
-        .from("profiles")
-        .select("upline_id")
-        .eq("id", userId)
-        .maybeSingle();
-      const uplineId: string | null = meRow?.upline_id ?? null;
-      let teamEmails: string[] = [];
-      if (uplineId) {
-        const { data: siblings } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("upline_id", uplineId);
-        teamEmails = (siblings ?? []).map((s: any) => s.email).filter(Boolean);
-      }
-
       let imported = 0,
         duplicates_found = 0,
         skipped = 0,
@@ -231,38 +204,6 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
         if (!firstName && !lastName) {
           skipped++;
           continue;
-        }
-
-        // Team-wide duplicate check first (catches overlaps with upline/siblings)
-        if (uplineId) {
-          const teamDup = await detectTeamDuplicate(supabase, uplineId, teamEmails, {
-            phone,
-            first_name: firstName,
-            last_name: lastName,
-            dob: typeof dob === "string" ? dob : undefined,
-          });
-          if (teamDup && teamDup.existing_client_id) {
-            // Verify owner isn't current user — if it is, fall through to self-dup logic
-            const { data: ownerRow } = await supabase
-              .from("clients")
-              .select("agent_id")
-              .eq("id", teamDup.existing_client_id)
-              .maybeSingle();
-            if (ownerRow && ownerRow.agent_id && ownerRow.agent_id !== userId) {
-              duplicates_found++;
-              await supabase.from("import_duplicates").insert({
-                import_job_id: jobId,
-                agent_id: userId,
-                match_type: `team_${teamDup.type}`,
-                confidence: teamDup.confidence,
-                incoming_data: contact,
-                existing_client_id: teamDup.existing_client_id,
-                resolution: "skip",
-              });
-              skipped++;
-              continue;
-            }
-          }
         }
 
         const dupMatch = await detectDuplicate(supabase, userId, {
@@ -536,7 +477,7 @@ export const testAgentLinkConnection = createServerFn({ method: "POST" })
     }
   });
 
-// ─── Basic Import ─────────────────────────────────────────────────────────────
+// ─── Basic Import (phone-only dup check, policies + carrier auto-detection) ───
 export const basicImportFromAgentLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
@@ -548,15 +489,19 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
       ? bobData
       : (bobData?.clients ?? bobData?.contacts ?? bobData?.data ?? bobData?.records ?? []);
 
-    let imported = 0, duplicates = 0, skipped = 0;
-    const total = rawClients.length;
+    let imported = 0, skipped = 0, duplicates = 0;
 
     for (const contact of rawClients) {
       const firstName = (contact.first_name ?? contact.firstName ?? "").trim();
-      const lastName = (contact.last_name ?? contact.lastName ?? "").trim();
-      const phone = normalizePhone(
-        (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim()
-      );
+      const lastName  = (contact.last_name  ?? contact.lastName  ?? "").trim();
+      const rawPhone  = (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim();
+      const phone     = rawPhone ? normalizePhone(rawPhone) : null;
+      const email     = (contact.email ?? "").trim();
+      const dob       = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
+      const street    = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
+      const city      = contact.address?.city  ?? contact.city  ?? "";
+      const state     = contact.address?.state ?? contact.state ?? "";
+      const zip       = contact.address?.zip ?? contact.zip ?? contact.zip_code ?? contact.postal_code ?? "";
 
       if (!firstName && !lastName) { skipped++; continue; }
 
@@ -570,14 +515,7 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
         if (existing) { duplicates++; continue; }
       }
 
-      const email = (contact.email ?? "").trim();
-      const dob = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
-      const street = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
-      const city = contact.address?.city ?? contact.city ?? "";
-      const state = contact.address?.state ?? contact.state ?? "";
-      const zip = contact.address?.zip ?? contact.zip ?? contact.zip_code ?? contact.postal_code ?? "";
-
-      const { error: clientErr } = await supabase.from("clients").insert({
+      const { data: newClient, error: clientErr } = await supabase.from("clients").insert({
         agent_id: userId,
         first_name: firstName,
         last_name: lastName,
@@ -590,13 +528,22 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
         zip_code: zip || null,
         stage: mapStage(contact.status ?? contact.stage),
         temperature: mapTemperature(contact.temperature ?? contact.lead_score),
-      });
+      }).select("id").single();
 
       if (clientErr) {
         if (clientErr.code === "23505") { duplicates++; } else { skipped++; }
         continue;
       }
+
       imported++;
+      const clientId = newClient.id;
+
+      const policies: any[] = contact.policies ?? contact.policy_records ?? [];
+      for (const pol of policies) {
+        const pn = pol.policy_number ?? pol.policyNumber ?? null;
+        if (pn && (await detectDuplicatePolicy(supabase, userId, pn))) continue;
+        await supabase.from("policies").insert(buildPolicy(clientId, userId, pol));
+      }
     }
 
     await supabase
@@ -605,7 +552,37 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
       .eq("agent_id", userId)
       .eq("platform", "agentlink");
 
-    return { imported, skipped, duplicates, total };
+    // Auto-detect carriers from all agent policies
+    const { data: agentPolicies } = await supabase
+      .from("policies")
+      .select("carrier_id")
+      .eq("agent_id", userId)
+      .not("carrier_id", "is", null);
+
+    const uniqueCarrierIds = [...new Set((agentPolicies ?? []).map((p: any) => p.carrier_id).filter(Boolean))];
+    let carriersDetected = 0;
+
+    for (const carrierId of uniqueCarrierIds) {
+      const { data: existing } = await supabase
+        .from("contract_requests")
+        .select("id")
+        .eq("agent_id", userId)
+        .eq("carrier_id", carrierId)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from("contract_requests").insert({
+          agent_id: userId,
+          carrier_id: carrierId,
+          status: "assigned",
+          source: "auto_detected_import",
+          notes: "Auto-detected from AgentLink import. Add your writing number to activate.",
+          requested_at: new Date().toISOString(),
+        });
+        carriersDetected++;
+      }
+    }
+
+    return { imported, skipped, duplicates, total: rawClients.length, carriers_detected: carriersDetected };
   });
 
 // ─── Submit Full Import Request (alias for submitScrapeRequest) ───────────────
@@ -703,3 +680,4 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
 
     return { request_id: req.id, ok: true };
   });
+

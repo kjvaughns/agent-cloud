@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { calculateAndInsertCommission } from "@/lib/commission-calculator";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -121,6 +122,12 @@ export const postDeal = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (polErr) throw new Error(polErr.message);
+
+    await calculateAndInsertCommission(
+      supabase, policy.id, userId,
+      data.policy.carrier_id, data.policy.product,
+      data.policy.monthly_premium, data.policy.effective_date,
+    );
 
     // Beneficiaries
     if (data.beneficiaries.length > 0) {

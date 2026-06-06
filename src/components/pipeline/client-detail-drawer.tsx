@@ -2,11 +2,13 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
   Shield,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,7 +26,7 @@ import {
   getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
-  listCarriers, addPolicy,
+  listCarriers, addPolicy, updatePolicy,
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
@@ -154,7 +156,17 @@ function DrawerBody({ clientId }: { clientId: string }) {
 
 // ============ Header ============
 function DrawerHeader({ client, t }: { client: any; t: any }) {
+  const qc = useQueryClient();
   const nav = useNavigate();
+  const markSoldFn = useServerFn(markClientSold);
+  const soldMut = useMutation({
+    mutationFn: () => markSoldFn({ data: { id: client.id } }),
+    onSuccess: () => {
+      toast.success("Marked as sold");
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+    },
+  });
+
   return (
     <div className="px-5 py-3.5 border-b shrink-0">
       <div className="flex items-center gap-4 pr-8">
@@ -184,14 +196,27 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
           <Button size="sm" variant="outline" className="hidden sm:inline-flex">
             Submit Case for Design
           </Button>
-          <Button
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => nav({ to: "/post-deal", search: { client_id: client.id } })}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            {client.stage === "sold" ? "Post Another Deal" : "Mark Sold"}
-          </Button>
+          {client.stage !== "sold" ? (
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              onClick={() => soldMut.mutate()}
+              disabled={soldMut.isPending}
+            >
+              {soldMut.isPending
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <CheckCircle2 className="h-3.5 w-3.5" />}
+              Mark Sold
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => nav({ to: "/post-deal", search: { client_id: client.id } })}
+            >
+              <Send className="h-3.5 w-3.5" /> Post Deal
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -576,15 +601,6 @@ function PolicyFields({ detail }: { detail: any }) {
   const client = detail.client;
   const policies = detail.policies;
 
-  if (client.stage !== "sold") {
-    return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-700 dark:text-amber-300 flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-        Click "Mark Sold" above to unlock policy entry for this client.
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
       {policies.length > 0 && !showForm && (
@@ -596,25 +612,7 @@ function PolicyFields({ detail }: { detail: any }) {
       {policies.length > 0 && (
         <div className="space-y-2">
           {policies.map((pol: any) => (
-            <details key={pol.id} className="rounded-lg border bg-background">
-              <summary className="flex items-center justify-between px-4 py-3 cursor-pointer list-none">
-                <div>
-                  <div className="font-medium text-sm">{pol.carriers?.name ?? "—"} — {pol.product ?? "—"}</div>
-                  <div className="text-xs text-muted-foreground">#{pol.policy_number ?? "—"}</div>
-                </div>
-                <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
-                  {pol.status ?? "—"}
-                </span>
-              </summary>
-              <div className="px-4 pb-4 pt-2 text-sm space-y-1 border-t">
-                <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-muted-foreground">Face Amount:</span> {money(pol.face_amount)}</div>
-                  <div><span className="text-muted-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
-                  <div><span className="text-muted-foreground">Annual:</span> {money(pol.annual_premium)}</div>
-                  <div><span className="text-muted-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
-                </div>
-              </div>
-            </details>
+            <PolicyRow key={pol.id} pol={pol} clientId={client.id} />
           ))}
         </div>
       )}
@@ -702,6 +700,136 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
         {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
         <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
           {mut.isPending ? "Saving..." : "Save Policy"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============ PolicyRow (display + inline edit) ============
+function PolicyRow({ pol, clientId }: { pol: any; clientId: string }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    carrier_id: pol.carrier_id ?? "",
+    policy_number: pol.policy_number ?? "",
+    product: pol.product ?? "",
+    status: pol.status ?? "active",
+    monthly_premium: pol.monthly_premium != null ? String(pol.monthly_premium) : "",
+    face_amount: pol.face_amount != null ? String(pol.face_amount) : "",
+    effective_date: pol.effective_date ?? "",
+  });
+
+  const listCarriersFn = useServerFn(listCarriers);
+  const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+
+  const updateFn = useServerFn(updatePolicy);
+  const mut = useMutation({
+    mutationFn: () => updateFn({ data: {
+      id: pol.id,
+      carrier_id: form.carrier_id || null,
+      policy_number: form.policy_number || null,
+      product: form.product || undefined,
+      status: form.status,
+      monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : null,
+      annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
+      face_amount: form.face_amount ? Number(form.face_amount) : null,
+      effective_date: form.effective_date || null,
+    }}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
+      qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      toast.success("Policy updated");
+      setEditing(false);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to update policy"),
+  });
+
+  if (!editing) {
+    return (
+      <div className="rounded-lg border bg-background">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div>
+            <div className="font-medium text-sm">{pol.carriers?.name ?? "—"} — {pol.product ?? "—"}</div>
+            <div className="text-xs text-muted-foreground">#{pol.policy_number ?? "—"}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
+              {pol.status ?? "—"}
+            </span>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditing(true)}>
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <div className="px-4 pb-3 pt-0 text-xs grid grid-cols-2 gap-1 text-muted-foreground border-t">
+          <div><span className="font-medium text-foreground">Face:</span> {money(pol.face_amount)}</div>
+          <div><span className="font-medium text-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
+          <div><span className="font-medium text-foreground">Annual:</span> {money(pol.annual_premium)}</div>
+          <div><span className="font-medium text-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const monthly = Number(form.monthly_premium || 0);
+  return (
+    <div className="rounded-lg border bg-background p-4 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Label className="text-xs mb-1 block">Carrier</Label>
+          <Select value={form.carrier_id} onValueChange={(v) => setForm(f => ({ ...f, carrier_id: v }))}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select carrier" /></SelectTrigger>
+            <SelectContent>{(carriers as any[]).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Product</Label>
+          <Select value={form.product} onValueChange={(v) => setForm(f => ({ ...f, product: v }))}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Product" /></SelectTrigger>
+            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Status</Label>
+          <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {["active","issued_not_paid","in_review","lapsed","pending"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Policy Number</Label>
+          <Input className="h-8 text-xs" value={form.policy_number} onChange={e => setForm(f => ({ ...f, policy_number: e.target.value }))} placeholder="POL-123456" />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Effective Date</Label>
+          <Input type="date" className="h-8 text-xs" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Monthly Premium</Label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+            <Input type="number" step="0.01" className="h-8 text-xs pl-5" value={form.monthly_premium} onChange={e => setForm(f => ({ ...f, monthly_premium: e.target.value }))} placeholder="99.99" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Face Amount</Label>
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
+            <Input type="number" className="h-8 text-xs pl-5" value={form.face_amount} onChange={e => setForm(f => ({ ...f, face_amount: e.target.value }))} placeholder="50,000" />
+          </div>
+        </div>
+        {monthly > 0 && (
+          <div className="col-span-2 text-xs text-muted-foreground">Annual: <span className="font-medium text-foreground">${(monthly * 12).toFixed(2)}</span></div>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="flex-1">Cancel</Button>
+        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+          {mut.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>

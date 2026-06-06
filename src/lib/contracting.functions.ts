@@ -481,3 +481,17 @@ export const activateContract = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const deleteContractRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: row } = await supabase.from("contract_requests")
+      .select("agent_id, status").eq("id", data.id).single();
+    if (!row || row.agent_id !== userId) throw new Error("Not found");
+    if (row.status === "active") throw new Error("Cannot delete an active contract. Contact your admin.");
+    const { error } = await supabase.from("contract_requests").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

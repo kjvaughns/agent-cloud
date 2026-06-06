@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
-  listWorkInbox, activateContract, createContractRequest,
+  listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
 } from "@/lib/contracting.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContractStatusBadge, CONTRACT_STATUSES, statusDot, type ContractStatus } from "@/components/contracting/contract-status-badge";
-import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle } from "lucide-react";
+import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -100,6 +100,7 @@ function AddWritingNumberInline({ contractId, onActivated }: { contractId: strin
 function MyContractsTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery(myContractsQuery);
+  const deleteFn = useServerFn(deleteContractRequest);
   const [filter, setFilter] = useState<ContractStatus | "all">("all");
   const [requestLevelFor, setRequestLevelFor] = useState<any | null>(null);
 
@@ -147,6 +148,26 @@ function MyContractsTab() {
                     <div className="text-xs text-muted-foreground">Requested: {fmtDate(c.requested_at)}</div>
                   </div>
                   <ContractStatusBadge status={c.status} />
+                  {c.status !== "active" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Remove ${c.carriers?.name ?? "this carrier"} from your contracts?`)) return;
+                        try {
+                          await deleteFn({ data: { id: c.id } });
+                          qc.invalidateQueries({ queryKey: ["contracting", "myContracts"] });
+                          toast.success("Contract request removed");
+                        } catch (err: any) {
+                          toast.error(err.message ?? "Failed");
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
