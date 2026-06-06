@@ -555,6 +555,14 @@ function HealthFields({ detail }: { detail: any }) {
   );
 }
 
+function PoliciesTab({ detail }: { detail: any }) {
+  return (
+    <SectionCard icon={Shield} title="Policy Information">
+      <PolicyFields detail={detail} />
+    </SectionCard>
+  );
+}
+
 // ============ Policy Fields (used inline in ContactTab) ============
 const statusCls: Record<string, string> = {
   active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
