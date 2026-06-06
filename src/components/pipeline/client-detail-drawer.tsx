@@ -151,16 +151,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 
 // ============ Header ============
 function DrawerHeader({ client, t }: { client: any; t: any }) {
-  const qc = useQueryClient();
-  const markSoldFn = useServerFn(markClientSold);
-  const soldMut = useMutation({
-    mutationFn: () => markSoldFn({ data: { id: client.id } }),
-    onSuccess: () => {
-      toast.success("Marked as sold");
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-    },
-  });
-
+  const nav = useNavigate();
   return (
     <div className="px-5 py-3.5 border-b shrink-0">
       <div className="flex items-center gap-4 pr-8">
@@ -193,11 +184,10 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
           <Button
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => soldMut.mutate()}
-            disabled={client.stage === "sold" || soldMut.isPending}
+            onClick={() => nav({ to: "/post-deal", search: { client_id: client.id } })}
           >
             <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            {client.stage === "sold" ? "✓ Sold" : "Mark Sold"}
+            {client.stage === "sold" ? "Post Another Deal" : "Mark Sold"}
           </Button>
         </div>
       </div>
