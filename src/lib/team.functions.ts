@@ -43,47 +43,49 @@ const EMPTY_ALERTS: TeamAlerts = { stale: [], lapse: [], stuck_contracts: [] };
 
 export const getTeamDownline = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: { fullCompany?: boolean } | undefined) =>
+    z.object({ fullCompany: z.boolean().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    // Admins see the full tree from the root of the hierarchy
-    const { data: roleRow } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .in("role", ["admin", "manager"])
-      .maybeSingle();
-
-    if (roleRow) {
-      const { data: root } = await supabase
-        .from("profiles")
-        .select("id")
-        .is("upline_id", null)
+    // Default scope: caller's own downline (everyone, including admins).
+    // Admins can opt into full-company view via { fullCompany: true }.
+    if (data.fullCompany) {
+      const { data: roleRow } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .in("role", ["admin", "manager"])
         .maybeSingle();
-      if (root?.id && root.id !== userId) {
-        const { data: allData, error: allErr } = await supabase.rpc("get_team_downline_for", { p_root_id: root.id });
-        if (!allErr && allData) return (allData ?? []) as TeamAgent[];
-        // Fallback: return all profiles if RPC not available
-        const { data: allProfiles } = await supabase
+      if (roleRow) {
+        const { data: root } = await supabase
           .from("profiles")
-          .select("id, first_name, last_name, email, phone, upline_id, status, last_active_at, created_at")
-          .order("created_at");
-        return ((allProfiles ?? []).map((p: any) => ({
-          ...p,
-          depth_level: 0,
-          contracts_count: 0,
-          policies_count: 0,
-          premium_total: 0,
-          completion_pct: 0,
-          missing: [],
-        }))) as TeamAgent[];
+          .select("id")
+          .is("upline_id", null)
+          .maybeSingle();
+        if (root?.id) {
+          const { data: allData } = await supabase.rpc("get_team_downline_for", { p_root_id: root.id });
+          // RPC returns jsonb rows; map into TeamAgent shape with safe defaults
+          const rows = (allData ?? []) as any[];
+          return rows.map((r: any) => ({
+            ...r,
+            depth_level: r.depth_level ?? 0,
+            contracts_count: r.contracts_count ?? 0,
+            policies_count: r.policies_count ?? 0,
+            premium_total: r.premium_total ?? 0,
+            completion_pct: r.completion_pct ?? 0,
+            missing: r.missing ?? [],
+          })) as TeamAgent[];
+        }
       }
     }
 
-    const { data, error } = await supabase.rpc("get_team_downline");
+    const { data: rpcData, error } = await supabase.rpc("get_team_downline");
     if (error) console.error("[team] get_team_downline:", error.message);
-    return (data ?? []) as TeamAgent[];
+    return (rpcData ?? []) as TeamAgent[];
   });
+
 
 export const getTeamKpis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -175,4 +177,32 @@ export const getAllAgentsForHierarchy = createServerFn({ method: "GET" })
       .select("id, first_name, last_name, email, upline_id")
       .order("first_name");
     return (data ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string | null; upline_id: string | null }[];
+  });
+
+export const setAgentHidden = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { agentId: string; hidden: boolean }) =>
+    z.object({ agentId: z.string().uuid(), hidden: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("profiles")
+      .update({ is_hidden: data.hidden })
+      .eq("id", data.agentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setAgentTerminated = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { agentId: string; terminated: boolean }) =>
+    z.object({ agentId: z.string().uuid(), terminated: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const update = data.terminated
+      ? { status: "terminated", terminated_at: new Date().toISOString() }
+      : { status: "active", terminated_at: null };
+    const { error } = await context.supabase.from("profiles").update(update).eq("id", data.agentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });

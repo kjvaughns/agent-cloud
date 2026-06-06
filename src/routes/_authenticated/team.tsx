@@ -30,6 +30,7 @@ import {
   type TeamAgent,
 } from "@/lib/team.functions";
 import { adminMoveAgent } from "@/lib/admin.functions";
+import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 
 const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
@@ -90,7 +91,11 @@ const isAdminQO = queryOptions({ queryKey: ["me", "isAdmin"], queryFn: () => che
 
 function TeamPage() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
-  const { data: downline } = useSuspenseQuery(downlineQO);
+  const { data: downlineAll } = useSuspenseQuery(downlineQO);
+  const downline = useMemo(
+    () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated"),
+    [downlineAll],
+  );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
   const [openAgent, setOpenAgent] = useState<string | null>(null);
@@ -148,7 +153,7 @@ function TeamPage() {
         </Tabs>
       )}
 
-      <AgentDetailDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
+      <AgentProfileDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
     </div>
   );
 }
