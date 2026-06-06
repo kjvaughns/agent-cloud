@@ -264,6 +264,7 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
     case "beneficiaries": return <BeneficiariesTab detail={detail} />;
     case "referrals":     return <ReferralsTab detail={detail} />;
     case "financials":    return <FinancialsTab detail={detail} />;
+    case "policies":      return <PoliciesTab detail={detail} />;
     case "care":          return <ClientCareTab detail={detail} />;
     case "email":         return <EmailTab detail={detail} />;
     default:              return <ContactTab detail={detail} />;
