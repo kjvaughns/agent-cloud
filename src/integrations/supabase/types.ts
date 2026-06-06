@@ -3204,6 +3204,7 @@ export type Database = {
         }[]
       }
       get_invite_by_token: { Args: { _token: string }; Returns: Json }
+      get_my_upline: { Args: never; Returns: string }
       get_policy_analytics: { Args: never; Returns: Json }
       get_quality_metrics: { Args: never; Returns: Json }
       get_recruiting_funnel: { Args: never; Returns: Json }
