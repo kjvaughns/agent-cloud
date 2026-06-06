@@ -278,6 +278,7 @@ function KanbanColumn({ stage, label, tint, header, count, children }: { stage: 
 }
 
 function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
+  const nav = useNavigate();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id });
   const t = tempPill[(client.temperature ?? "cold") as Temp];
   const pol = client.latest_policy;
