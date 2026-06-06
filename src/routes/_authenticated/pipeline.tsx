@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
 import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
+import { SoldTab } from "@/components/pipeline/sold-tab";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
@@ -203,7 +204,7 @@ function PipelinePage() {
             </DndContext>
           )
         ) : (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-y-auto pb-4">
             {soldClients.length === 0 ? (
               <div className="text-center text-muted-foreground py-16">
                 <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
@@ -211,35 +212,7 @@ function PipelinePage() {
                 <p className="text-sm mt-1">Mark clients as sold from the pipeline or add a policy from the client drawer.</p>
               </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Clients</div>
-                    <div className="text-2xl font-bold text-primary">{soldClients.length}</div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Monthly</div>
-                    <div className="text-2xl font-bold text-emerald-600">
-                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.monthly_premium ?? 0), 0).toFixed(0)}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">Total Annual</div>
-                    <div className="text-2xl font-bold">
-                      ${soldClients.reduce((s: number, c: any) => s + Number(c.latest_policy?.annual_premium ?? (c.latest_policy?.monthly_premium ?? 0) * 12), 0).toFixed(0)}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3 bg-card">
-                    <div className="text-xs text-muted-foreground">With Policy</div>
-                    <div className="text-2xl font-bold">{soldClients.filter((c: any) => c.latest_policy).length}</div>
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {soldClients.map((c: any) => (
-                    <SoldCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
-                  ))}
-                </div>
-              </>
+              <SoldTab clients={soldClients} onOpen={(id) => setOpenId(id)} />
             )}
           </div>
         )}
