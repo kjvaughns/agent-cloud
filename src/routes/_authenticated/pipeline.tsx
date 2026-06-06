@@ -1,9 +1,9 @@
-import { createFileRoute, useHydrated } from "@tanstack/react-router";
+import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2, DollarSign } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
