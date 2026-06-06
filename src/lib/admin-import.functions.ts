@@ -556,16 +556,20 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           continue;
         }
 
-        const noteBits: string[] = [];
-        if (c.medical_notes) noteBits.push(`Medical: ${c.medical_notes}`);
-        if (c.reminder_notes) noteBits.push(`Reminder: ${c.reminder_notes}`);
-        if (c.smoker) noteBits.push(`Smoker: ${c.smoker}`);
-        if (c.monthly_income) noteBits.push(`Monthly income: ${c.monthly_income}`);
-        if (c.employment) noteBits.push(`Employment: ${c.employment}`);
-        if (c.pitch_carrier) noteBits.push(`Pitch carrier: ${c.pitch_carrier}`);
-        if (c.face_amount) noteBits.push(`Face amount: ${c.face_amount}`);
-        if (c.policy_number) noteBits.push(`Policy #: ${c.policy_number}`);
-        if (c.callback_date) noteBits.push(`Callback: ${c.callback_date}`);
+        // Split structured fields into individual Notes-tab entries (contact_history rows)
+        // instead of stuffing them into the client's free-form notes blob.
+        const importedNotes: string[] = [];
+        if (c.medical_notes) importedNotes.push(`Medical: ${c.medical_notes}`);
+        if (c.reminder_notes) importedNotes.push(`Reminder: ${c.reminder_notes}`);
+        const detailBits: string[] = [];
+        if (c.smoker) detailBits.push(`Smoker: ${c.smoker}`);
+        if (c.monthly_income) detailBits.push(`Monthly income: ${c.monthly_income}`);
+        if (c.employment) detailBits.push(`Employment: ${c.employment}`);
+        if (c.pitch_carrier) detailBits.push(`Pitch carrier: ${c.pitch_carrier}`);
+        if (c.face_amount) detailBits.push(`Face amount: ${c.face_amount}`);
+        if (c.policy_number) detailBits.push(`Policy #: ${c.policy_number}`);
+        if (c.callback_date) detailBits.push(`Callback: ${c.callback_date}`);
+        if (detailBits.length) importedNotes.push(`Imported details:\n${detailBits.join("\n")}`);
 
         const { data: newClient, error: clientErr } = await supabase
           .from("clients")
@@ -584,7 +588,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             born_country_state: c.born_country_state,
             stage: c.stage,
             temperature: mapTemperature(undefined),
-            notes: noteBits.length ? noteBits.join("\n") : null,
+            notes: null,
           })
           .select("id")
           .single();
@@ -595,6 +599,18 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           id: newClient.id,
           ownerEmail,
         });
+
+        // Persist each structured bit as its own Notes-tab entry
+        for (const body of importedNotes) {
+          const { error: nErr } = await supabase.from("contact_history").insert({
+            client_id: newClient.id,
+            agent_id: targetAgent,
+            assigned_to_email: ownerEmail,
+            contact_type: "imported_note",
+            note: body,
+          });
+          if (!nErr) notesImported++;
+        }
       }
 
       // 3. Policies — match by client name from Book of Business
