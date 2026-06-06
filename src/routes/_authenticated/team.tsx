@@ -149,7 +149,7 @@ function TeamPage() {
         </Tabs>
       )}
 
-      <AgentDetailDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
+      <AgentProfileDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
     </div>
   );
 }
