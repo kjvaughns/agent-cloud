@@ -65,11 +65,17 @@ function categoriesOf(entry: any): Set<Category> {
   const raw = entry?.contact_type ?? "";
   const out = new Set<Category>();
   if (raw === "medical_note") out.add("medical");
+  // Imported notes that came from the Medical Notes column get medical styling.
+  if (raw === "imported_note" && /^\s*Medical\s*:/i.test(String(entry?.note ?? ""))) out.add("medical");
   for (const part of String(raw).split(/[,|]/)) {
     const k = part.trim().replace(/^cat:/, "");
     if (["medical", "height", "weight", "physician", "tobacco"].includes(k)) out.add(k as Category);
   }
   return out;
+}
+
+function isImported(entry: any): boolean {
+  return entry?.contact_type === "imported_note";
 }
 
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
