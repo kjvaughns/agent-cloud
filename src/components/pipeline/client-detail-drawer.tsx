@@ -63,6 +63,7 @@ const DRAWER_TABS = [
   { key: "beneficiaries", label: "Beneficiaries",  icon: Users,        desktopHide: false },
   { key: "referrals",     label: "Referrals",      icon: Share2,       desktopHide: false },
   { key: "financials",    label: "Financials",     icon: DollarSign,   desktopHide: false },
+  { key: "policies",      label: "Policies",       icon: Shield,       desktopHide: false },
   { key: "care",          label: "Client Care",    icon: Heart,        desktopHide: false },
   { key: "email",         label: "Email",          icon: Mail,         desktopHide: false },
 ];
