@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { calculateAndInsertCommission } from "@/lib/commission-calculator";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -122,6 +123,12 @@ export const postDeal = createServerFn({ method: "POST" })
       .single();
     if (polErr) throw new Error(polErr.message);
 
+    await calculateAndInsertCommission(
+      supabase, policy.id, userId,
+      data.policy.carrier_id, data.policy.product,
+      data.policy.monthly_premium, data.policy.effective_date,
+    );
+
     // Beneficiaries
     if (data.beneficiaries.length > 0) {
       const benRows = data.beneficiaries.map((b) => ({
@@ -142,6 +149,41 @@ export const postDeal = createServerFn({ method: "POST" })
         .from("clients")
         .update({ notes: data.notes })
         .eq("id", clientId);
+    }
+
+    // Discord webhook — fire-and-forget
+    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    if (webhookUrl) {
+      const { data: agentProfile } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", userId)
+        .maybeSingle();
+      const agentName = agentProfile
+        ? `${agentProfile.first_name ?? ""} ${agentProfile.last_name ?? ""}`.trim()
+        : "Agent";
+      const monthly = Number(data.policy.monthly_premium).toFixed(2);
+      const ann = (data.policy.monthly_premium * 12).toFixed(2);
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{
+            title: "🎉 New Deal Posted!",
+            color: 0xC9A227,
+            fields: [
+              { name: "Agent",    value: agentName,                             inline: true },
+              { name: "Product",  value: data.policy.product,                   inline: true },
+              { name: "Monthly",  value: `$${monthly}`,                         inline: true },
+              { name: "Annual",   value: `$${ann}`,                             inline: true },
+              { name: "Face",     value: data.policy.face_amount ? `$${Number(data.policy.face_amount).toLocaleString()}` : "—", inline: true },
+              { name: "Policy #", value: data.policy.policy_number || "Pending", inline: true },
+              { name: "Effective",value: data.policy.effective_date || "TBD",   inline: true },
+            ],
+            timestamp: new Date().toISOString(),
+          }],
+        }),
+      }).catch(() => {});
     }
 
     return { policyId: policy.id, clientId };

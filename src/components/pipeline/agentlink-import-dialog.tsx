@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Link2, Download, CheckCircle2, Eye, EyeOff,
-  Loader2, Unlink, Zap, AlertCircle, Send,
+  Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, Unlink, Zap, Send, Users2,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -22,15 +21,7 @@ import {
   submitFullImportRequest,
 } from "@/lib/agentlink.functions";
 
-type Phase =
-  | "loading"
-  | "no_key"
-  | "has_key"
-  | "basic_running"
-  | "basic_done"
-  | "full_form"
-  | "full_sent"
-  | "error";
+type Phase = "loading" | "no_key" | "has_key" | "basic_running" | "basic_done" | "full_form" | "full_sent" | "error";
 
 export function AgentLinkImportDialog({
   open,
@@ -47,29 +38,34 @@ export function AgentLinkImportDialog({
   const [importResult, setImportResult] = useState<any>(null);
   const [importError, setImportError] = useState("");
 
+  // Full import form fields
   const [fullUser, setFullUser] = useState("");
   const [fullPass, setFullPass] = useState("");
   const [fullNotes, setFullNotes] = useState("");
   const [showFullPass, setShowFullPass] = useState(false);
-  const [fullFormBack, setFullFormBack] = useState<Phase>("no_key");
 
+  // Status query — fires when dialog opens
   const statusFn = useServerFn(getAgentLinkKeyStatus);
   const {
     data: status,
     isLoading: statusLoading,
+    isError: statusError,
     refetch: refetchStatus,
   } = useQuery({
     queryKey: ["agentlink-status"],
     queryFn: () => statusFn(),
     enabled: open,
     staleTime: 0,
+    retry: false,
   });
 
   useEffect(() => {
-    if (phase !== "loading" || statusLoading || !status) return;
+    if (phase !== "loading" || statusLoading) return;
+    if (statusError || !status) { setPhase("no_key"); return; }
     setPhase((status as any).connected ? "has_key" : "no_key");
-  }, [phase, statusLoading, status]);
+  }, [phase, statusLoading, statusError, status]);
 
+  // Reset when dialog opens/closes
   useEffect(() => {
     if (open) {
       setPhase("loading");
@@ -91,7 +87,7 @@ export function AgentLinkImportDialog({
   const removeFn = useServerFn(removeAgentLinkKey);
   const testFn = useServerFn(testAgentLinkConnection);
   const importFn = useServerFn(basicImportFromAgentLink);
-  const fullFn = useServerFn(submitFullImportRequest);
+  const fullImportFn = useServerFn(submitFullImportRequest);
 
   const saveMut = useMutation({
     mutationFn: () => saveFn({ data: { api_key: apiKeyInput.trim() } }),
@@ -123,6 +119,7 @@ export function AgentLinkImportDialog({
       qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
       qc.invalidateQueries({ queryKey: ["bob", "list"] });
       qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      qc.invalidateQueries({ queryKey: ["contracting", "myContracts"] });
     },
     onError: (e: any) => {
       setImportError(e?.message ?? "Import failed");
@@ -130,15 +127,12 @@ export function AgentLinkImportDialog({
     },
   });
 
-  const fullMut = useMutation({
-    mutationFn: () =>
-      fullFn({
-        data: {
-          agentlink_username: fullUser.trim(),
-          agentlink_password: fullPass,
-          notes: fullNotes.trim() || undefined,
-        },
-      }),
+  const fullImportMut = useMutation({
+    mutationFn: () => fullImportFn({ data: {
+      agentlink_username: fullUser.trim(),
+      agentlink_password: fullPass,
+      notes: fullNotes.trim() || undefined,
+    }}),
     onSuccess: () => setPhase("full_sent"),
     onError: (e: any) => toast.error(e?.message ?? "Failed to submit request"),
   });
@@ -149,7 +143,7 @@ export function AgentLinkImportDialog({
     <Dialog open={open} onOpenChange={closeable ? onOpenChange : () => {}}>
       <DialogContent className="max-w-lg">
 
-        {/* ── LOADING ───────────────────────────────────────────── */}
+        {/* ── LOADING ──────────────────────────────────────────────── */}
         {phase === "loading" && (
           <div className="py-12 flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -157,222 +151,183 @@ export function AgentLinkImportDialog({
           </div>
         )}
 
-        {/* ── NO KEY ────────────────────────────────────────────── */}
+        {/* ── NO KEY ───────────────────────────────────────────────── */}
         {phase === "no_key" && (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Link2 className="h-5 w-5" /> Connect AgentLink
-              </DialogTitle>
+              <DialogTitle>Connect AgentLink</DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Import your full book of business from AgentLink.
+                Paste your AgentLink API key to import your book of business.
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="text-sm font-medium">Option A — Connect with API Key</div>
-                <p className="text-xs text-muted-foreground">
-                  Generate your key in AgentLink → Profile → Integrations → API Access
-                </p>
-                <div className="space-y-1">
-                  <Label>API Key</Label>
-                  <div className="relative">
-                    <Input
-                      type={showKey ? "text" : "password"}
-                      value={apiKeyInput}
-                      onChange={(e) => setApiKeyInput(e.target.value)}
-                      placeholder="Paste your x-api-key here"
-                      className="pr-10"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && apiKeyInput.trim().length >= 10) saveMut.mutate();
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowKey((v) => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      tabIndex={-1}
-                    >
-                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                Generate your key in AgentLink → Profile → Integrations → API Access
+              </div>
+              <div className="space-y-1">
+                <Label>API Key</Label>
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="Paste your x-api-key here"
+                    className="pr-10"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && apiKeyInput.trim().length >= 10) saveMut.mutate();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
-                <Button
-                  className="w-full"
-                  onClick={() => saveMut.mutate()}
-                  disabled={apiKeyInput.trim().length < 10 || saveMut.isPending}
-                >
-                  {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  Connect
-                </Button>
               </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 border-t" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <div className="flex-1 border-t" />
-              </div>
-
               <button
                 type="button"
-                className="w-full text-left rounded-lg border p-4 hover:border-muted-foreground/40 transition-colors"
-                onClick={() => { setFullFormBack("no_key"); setPhase("full_form"); }}
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+                onClick={() => setPhase("full_form")}
               >
-                <div className="text-sm font-medium">Option B — Request Full Import →</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Don't have an API key? Submit your credentials and our team will run the import for you.
-                </div>
+                Don't have an API key? Request a full import instead →
               </button>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button
+                onClick={() => saveMut.mutate()}
+                disabled={apiKeyInput.trim().length < 10 || saveMut.isPending}
+              >
+                {saveMut.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Connect
+              </Button>
             </DialogFooter>
           </>
         )}
 
-        {/* ── HAS KEY ───────────────────────────────────────────── */}
+        {/* ── HAS KEY ──────────────────────────────────────────────── */}
         {phase === "has_key" && (
           <>
             <DialogHeader>
-              <DialogTitle>AgentLink Import</DialogTitle>
+              <DialogTitle>AgentLink Connected</DialogTitle>
             </DialogHeader>
             <div className="py-2 space-y-4">
               <div className="flex items-center gap-3 p-3 rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0">
                   <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Connected</div>
                   <div className="text-xs text-emerald-700 dark:text-emerald-400">
                     Key: ••••••{(status as any)?.masked_suffix}
                     {(status as any)?.last_synced && ` · Last synced: ${(status as any).last_synced}`}
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-7"
-                    onClick={() => testMut.mutate()}
-                    disabled={testMut.isPending}
-                  >
-                    {testMut.isPending
-                      ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      : <Zap className="h-3 w-3 mr-1" />}
-                    Test
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-7 text-destructive hover:text-destructive"
-                    onClick={() => removeMut.mutate()}
-                    disabled={removeMut.isPending}
-                  >
-                    {removeMut.isPending
-                      ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      : <Unlink className="h-3 w-3 mr-1" />}
-                    Remove
-                  </Button>
-                </div>
               </div>
-
-              <button
-                type="button"
-                className="w-full text-left rounded-lg border p-4 hover:border-primary/60 transition-colors"
-                onClick={() => importMut.mutate()}
-                disabled={importMut.isPending}
-              >
-                <div className="flex items-start gap-3">
-                  <Download className="h-5 w-5 mt-0.5 text-primary shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium">Run Basic Import</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      Fetch all contacts from AgentLink API and add new ones to your pipeline.
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="w-full text-left rounded-lg border p-4 hover:border-muted-foreground/40 transition-colors"
-                onClick={() => { setFullFormBack("has_key"); setPhase("full_form"); }}
-              >
-                <div className="flex items-start gap-3">
-                  <Send className="h-5 w-5 mt-0.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <div className="text-sm font-medium">Request Full Import</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      Our team logs in on your behalf for a more complete data import.
-                    </div>
-                  </div>
-                </div>
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => testMut.mutate()}
+                  disabled={testMut.isPending}
+                >
+                  {testMut.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    : <Zap className="h-3.5 w-3.5 mr-1" />}
+                  Test Connection
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => removeMut.mutate()}
+                  disabled={removeMut.isPending}
+                >
+                  {removeMut.isPending
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    : <Unlink className="h-3.5 w-3.5 mr-1" />}
+                  Disconnect
+                </Button>
+              </div>
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                <div className="font-medium text-foreground text-sm">Quick Import</div>
+                <p>Imports new contacts by phone number. Existing contacts are skipped automatically. Carriers are auto-detected from policies.</p>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button variant="outline" className="text-xs" onClick={() => setPhase("full_form")}>
+                Request Full Import
+              </Button>
+              <Button onClick={() => importMut.mutate()} disabled={importMut.isPending}>
+                <Users2 className="h-4 w-4 mr-2" />
+                Quick Import
+              </Button>
             </DialogFooter>
           </>
         )}
 
-        {/* ── BASIC RUNNING ─────────────────────────────────────── */}
+        {/* ── BASIC RUNNING ────────────────────────────────────────── */}
         {phase === "basic_running" && (
           <div className="py-12 flex flex-col items-center gap-5 text-center">
-            <Download className="h-10 w-10 text-primary animate-bounce" />
-            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-              <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: "70%" }} />
-            </div>
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <div>
               <p className="font-semibold">Importing your book…</p>
-              <p className="text-sm text-muted-foreground mt-1 animate-pulse">
-                Fetching contacts from AgentLink…
+              <p className="text-sm text-muted-foreground mt-1">
+                This may take a minute. Please don't close this window.
               </p>
             </div>
           </div>
         )}
 
-        {/* ── BASIC DONE ────────────────────────────────────────── */}
+        {/* ── BASIC DONE ───────────────────────────────────────────── */}
         {phase === "basic_done" && importResult && (
           <>
-            <div className="py-4 text-center">
-              <CheckCircle2 className="h-11 w-11 text-emerald-500 mx-auto mb-3" />
-              <h3 className="text-lg font-bold">Import Complete</h3>
-            </div>
-            <div className="grid grid-cols-3 gap-3 pb-2">
-              {[
-                { label: "Imported", value: importResult.imported ?? 0, color: "text-emerald-600" },
-                { label: "Duplicates", value: importResult.duplicates ?? 0, color: "text-amber-600" },
-                { label: "Skipped", value: importResult.skipped ?? 0, color: "text-muted-foreground" },
-              ].map(({ label, value, color }) => (
-                <div key={label} className="rounded-xl border bg-muted/30 p-3 text-center">
-                  <div className={`text-2xl font-bold ${color}`}>{value}</div>
-                  <div className="text-xs text-muted-foreground">{label}</div>
+            <DialogHeader>
+              <DialogTitle>Import Complete</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Imported", value: importResult.imported, cls: "text-emerald-700 dark:text-emerald-400" },
+                  { label: "Skipped", value: importResult.skipped, cls: "text-muted-foreground" },
+                  { label: "Duplicates", value: importResult.duplicates, cls: "text-amber-700 dark:text-amber-400" },
+                ].map(({ label, value, cls }) => (
+                  <div key={label} className="rounded-lg border bg-muted/30 p-3 text-center">
+                    <div className={`text-2xl font-bold ${cls}`}>{value}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+              {(importResult.carriers_detected ?? 0) > 0 && (
+                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm text-left space-y-1">
+                  <div className="font-semibold">
+                    ✓ {importResult.carriers_detected} carrier{importResult.carriers_detected !== 1 ? "s" : ""} detected
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Go to <strong>My Contracts</strong> to add your writing numbers for each detected carrier.
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { setImportResult(null); setPhase("has_key"); }}
-              >
-                Import Again
-              </Button>
-              <Button onClick={() => onOpenChange(false)}>View Pipeline</Button>
+            <DialogFooter>
+              <Button onClick={() => onOpenChange(false)}>Done</Button>
             </DialogFooter>
           </>
         )}
 
-        {/* ── FULL FORM ─────────────────────────────────────────── */}
+        {/* ── FULL FORM ────────────────────────────────────────────── */}
         {phase === "full_form" && (
           <>
             <DialogHeader>
               <DialogTitle>Request Full Import</DialogTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Our team will securely log into AgentLink and import your full book of business, including complete policy history.
+              </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                Your credentials are encrypted in transit and stored only until your import is complete.
-                Our team will never use them for any other purpose.
-              </div>
               <div className="space-y-1">
-                <Label>AgentLink Username (email)</Label>
+                <Label>AgentLink Email</Label>
                 <Input
                   type="email"
                   value={fullUser}
@@ -401,26 +356,31 @@ export function AgentLinkImportDialog({
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>
-                  Notes{" "}
-                  <span className="text-muted-foreground font-normal text-xs">(optional)</span>
-                </Label>
+                <Label>Notes (optional)</Label>
                 <Textarea
                   value={fullNotes}
                   onChange={(e) => setFullNotes(e.target.value)}
-                  placeholder="Any special instructions for the import team…"
-                  rows={3}
-                  maxLength={500}
+                  placeholder="Any special instructions for the import…"
+                  rows={2}
+                  className="text-sm"
                 />
+              </div>
+              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                Your credentials are stored encrypted and used only for this one-time import. They are deleted after completion.
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setPhase(fullFormBack)}>Back</Button>
               <Button
-                onClick={() => fullMut.mutate()}
-                disabled={!fullUser.trim() || !fullPass || fullMut.isPending}
+                variant="outline"
+                onClick={() => setPhase(status && (status as any).connected ? "has_key" : "no_key")}
               >
-                {fullMut.isPending
+                Back
+              </Button>
+              <Button
+                onClick={() => fullImportMut.mutate()}
+                disabled={!fullUser.trim() || !fullPass || fullImportMut.isPending}
+              >
+                {fullImportMut.isPending
                   ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   : <Send className="h-4 w-4 mr-2" />}
                 Submit Request
@@ -429,44 +389,42 @@ export function AgentLinkImportDialog({
           </>
         )}
 
-        {/* ── FULL SENT ─────────────────────────────────────────── */}
+        {/* ── FULL SENT ────────────────────────────────────────────── */}
         {phase === "full_sent" && (
           <>
-            <div className="py-6 text-center space-y-3">
-              <CheckCircle2 className="h-11 w-11 text-emerald-500 mx-auto" />
+            <DialogHeader>
+              <DialogTitle>Request Submitted</DialogTitle>
+            </DialogHeader>
+            <div className="py-6 flex flex-col items-center gap-4 text-center">
+              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
               <div>
-                <h3 className="text-lg font-bold">Request Submitted!</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                  Your admin has been notified. We'll complete your full AgentLink import within 1–2 business days.
+                <p className="font-semibold text-lg">We're on it!</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Your full import request has been submitted. Our team will complete the import and notify you when it's done, usually within 24 hours.
                 </p>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
             </DialogFooter>
           </>
         )}
 
-        {/* ── ERROR ─────────────────────────────────────────────── */}
+        {/* ── ERROR ────────────────────────────────────────────────── */}
         {phase === "error" && (
           <>
             <DialogHeader>
               <DialogTitle>Import Failed</DialogTitle>
             </DialogHeader>
-            <div className="py-2">
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                <p className="break-words">{importError}</p>
+            <div className="py-4 space-y-3">
+              <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                <div className="text-sm text-destructive break-words min-w-0">{importError}</div>
               </div>
             </div>
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button
-                variant="outline"
-                onClick={() => { setFullFormBack("error"); setPhase("full_form"); }}
-              >
-                Request Full Import
-              </Button>
-              <Button onClick={() => { setPhase("has_key"); setImportError(""); }}>Try Again</Button>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+              <Button onClick={() => setPhase("has_key")}>Try Again</Button>
             </DialogFooter>
           </>
         )}

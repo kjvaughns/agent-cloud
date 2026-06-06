@@ -477,7 +477,7 @@ export const testAgentLinkConnection = createServerFn({ method: "POST" })
     }
   });
 
-// ─── Basic Import ─────────────────────────────────────────────────────────────
+// ─── Basic Import (phone-only dup check, policies + carrier auto-detection) ───
 export const basicImportFromAgentLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
@@ -489,15 +489,19 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
       ? bobData
       : (bobData?.clients ?? bobData?.contacts ?? bobData?.data ?? bobData?.records ?? []);
 
-    let imported = 0, duplicates = 0, skipped = 0;
-    const total = rawClients.length;
+    let imported = 0, skipped = 0, duplicates = 0;
 
     for (const contact of rawClients) {
       const firstName = (contact.first_name ?? contact.firstName ?? "").trim();
-      const lastName = (contact.last_name ?? contact.lastName ?? "").trim();
-      const phone = normalizePhone(
-        (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim()
-      );
+      const lastName  = (contact.last_name  ?? contact.lastName  ?? "").trim();
+      const rawPhone  = (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim();
+      const phone     = rawPhone ? normalizePhone(rawPhone) : null;
+      const email     = (contact.email ?? "").trim();
+      const dob       = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
+      const street    = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
+      const city      = contact.address?.city  ?? contact.city  ?? "";
+      const state     = contact.address?.state ?? contact.state ?? "";
+      const zip       = contact.address?.zip ?? contact.zip ?? contact.zip_code ?? contact.postal_code ?? "";
 
       if (!firstName && !lastName) { skipped++; continue; }
 
@@ -511,14 +515,7 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
         if (existing) { duplicates++; continue; }
       }
 
-      const email = (contact.email ?? "").trim();
-      const dob = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
-      const street = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
-      const city = contact.address?.city ?? contact.city ?? "";
-      const state = contact.address?.state ?? contact.state ?? "";
-      const zip = contact.address?.zip ?? contact.zip ?? contact.zip_code ?? contact.postal_code ?? "";
-
-      const { error: clientErr } = await supabase.from("clients").insert({
+      const { data: newClient, error: clientErr } = await supabase.from("clients").insert({
         agent_id: userId,
         first_name: firstName,
         last_name: lastName,
@@ -531,13 +528,22 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
         zip_code: zip || null,
         stage: mapStage(contact.status ?? contact.stage),
         temperature: mapTemperature(contact.temperature ?? contact.lead_score),
-      });
+      }).select("id").single();
 
       if (clientErr) {
         if (clientErr.code === "23505") { duplicates++; } else { skipped++; }
         continue;
       }
+
       imported++;
+      const clientId = newClient.id;
+
+      const policies: any[] = contact.policies ?? contact.policy_records ?? [];
+      for (const pol of policies) {
+        const pn = pol.policy_number ?? pol.policyNumber ?? null;
+        if (pn && (await detectDuplicatePolicy(supabase, userId, pn))) continue;
+        await supabase.from("policies").insert(buildPolicy(clientId, userId, pol));
+      }
     }
 
     await supabase
@@ -546,7 +552,37 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
       .eq("agent_id", userId)
       .eq("platform", "agentlink");
 
-    return { imported, skipped, duplicates, total };
+    // Auto-detect carriers from all agent policies
+    const { data: agentPolicies } = await supabase
+      .from("policies")
+      .select("carrier_id")
+      .eq("agent_id", userId)
+      .not("carrier_id", "is", null);
+
+    const uniqueCarrierIds = [...new Set((agentPolicies ?? []).map((p: any) => p.carrier_id).filter(Boolean))];
+    let carriersDetected = 0;
+
+    for (const carrierId of uniqueCarrierIds) {
+      const { data: existing } = await supabase
+        .from("contract_requests")
+        .select("id")
+        .eq("agent_id", userId)
+        .eq("carrier_id", carrierId)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from("contract_requests").insert({
+          agent_id: userId,
+          carrier_id: carrierId,
+          status: "assigned",
+          source: "auto_detected_import",
+          notes: "Auto-detected from AgentLink import. Add your writing number to activate.",
+          requested_at: new Date().toISOString(),
+        });
+        carriersDetected++;
+      }
+    }
+
+    return { imported, skipped, duplicates, total: rawClients.length, carriers_detected: carriersDetected };
   });
 
 // ─── Submit Full Import Request (alias for submitScrapeRequest) ───────────────
@@ -644,3 +680,4 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
 
     return { request_id: req.id, ok: true };
   });
+
