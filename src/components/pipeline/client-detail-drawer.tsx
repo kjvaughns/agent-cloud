@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  getClientDetail, touchLastOpened, updateClient, markClientSold, upsertFinancials,
+  getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
   listCarriers, addPolicy,
