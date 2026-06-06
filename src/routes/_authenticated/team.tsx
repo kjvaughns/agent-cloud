@@ -30,6 +30,7 @@ import {
   type TeamAgent,
 } from "@/lib/team.functions";
 import { adminMoveAgent } from "@/lib/admin.functions";
+import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 
 const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
