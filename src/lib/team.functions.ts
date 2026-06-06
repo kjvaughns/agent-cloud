@@ -178,3 +178,31 @@ export const getAllAgentsForHierarchy = createServerFn({ method: "GET" })
       .order("first_name");
     return (data ?? []) as { id: string; first_name: string | null; last_name: string | null; email: string | null; upline_id: string | null }[];
   });
+
+export const setAgentHidden = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { agentId: string; hidden: boolean }) =>
+    z.object({ agentId: z.string().uuid(), hidden: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("profiles")
+      .update({ is_hidden: data.hidden })
+      .eq("id", data.agentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const setAgentTerminated = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { agentId: string; terminated: boolean }) =>
+    z.object({ agentId: z.string().uuid(), terminated: z.boolean() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const update = data.terminated
+      ? { status: "terminated", terminated_at: new Date().toISOString() }
+      : { status: "active", terminated_at: null };
+    const { error } = await context.supabase.from("profiles").update(update).eq("id", data.agentId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
