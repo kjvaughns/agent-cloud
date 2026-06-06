@@ -6,6 +6,7 @@ import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 
