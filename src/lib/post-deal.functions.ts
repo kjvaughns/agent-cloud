@@ -144,5 +144,33 @@ export const postDeal = createServerFn({ method: "POST" })
         .eq("id", clientId);
     }
 
+    // Discord notification — fire and forget; never block the deal
+    try {
+      const { postSaleToDiscord } = await import("./discord-notify.server");
+      const [{ data: carrier }, { data: profile }, { count }] = await Promise.all([
+        supabase.from("carriers").select("name").eq("id", data.policy.carrier_id).maybeSingle(),
+        supabase.from("profiles").select("first_name,last_name").eq("id", userId).maybeSingle(),
+        supabase
+          .from("policies")
+          .select("id", { count: "exact", head: true })
+          .eq("agent_id", userId)
+          .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      ]);
+      const first = (profile?.first_name ?? "").trim();
+      const lastInitial = (profile?.last_name ?? "").trim().slice(0, 1);
+      const agentName = [first, lastInitial ? `${lastInitial}.` : ""].filter(Boolean).join(" ") || "Agent";
+      await postSaleToDiscord({
+        agentName,
+        carrier: carrier?.name ?? "Unknown Carrier",
+        product: data.policy.product,
+        face: data.policy.face_amount,
+        annual,
+        effective: data.policy.effective_date,
+        dealNumberToday: count ?? 1,
+      });
+    } catch (e) {
+      console.warn("[postDeal] discord notify failed:", (e as Error).message);
+    }
+
     return { policyId: policy.id, clientId };
   });

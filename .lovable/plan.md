@@ -1,233 +1,98 @@
-## AI Improvement Map for Agent Cloud
 
-A page-by-page proposal for where Lovable AI (Gemini + GPT-5 via the AI Gateway) can be woven into the platform. Grouped by role, then by surface. No code changes yet — this is the menu to choose from.
+## 1. Discord webhook on "Post a Deal"
 
-### Existing AI footprint (baseline)
-- `ai-assistant` — generic chat assistant
-- `analytics` — AI-written insight cache
-- `admin-import` — AI normalization of CSV/XLS rows
-- `account` — narrative generator for producer profile
-- `resources` — script suggestions
-- `sophai` — UI shell only; automations are stubs (recovery, SMS, birthday, beneficiary)
+- Add secret `DISCORD_SALES_WEBHOOK` via secrets tool.
+- In `postDeal` server fn (`src/lib/post-deal.functions.ts`), after the policy insert succeeds, fire-and-forget a POST to the webhook. Look up carrier name + agent display name from the DB so the message reads like the example.
+- Message format (matches your example):
+  `On The Books: {Agent First L.} — {Carrier} — {Product} — ${face} for ${annual} — Effective {Month D, YYYY} — Deal #{N} today`
+  where `{N}` = count of policies this agent has created today (cheap `count` query with `created_at >= today`).
+- Failure to post to Discord must NOT fail the deal — wrap in try/catch and log.
+- Also fire the same message when an existing pipeline client is moved to "Sold" via the "Mark Sold" button (see §2) — same helper.
 
-Everything below builds on this same Gateway pattern (server function → `ai.gateway.lovable.dev`), keyed on `LOVABLE_API_KEY`.
+## 2. Pipeline "Post a Deal" + "Mark Sold" wiring
 
----
+- Each pipeline card / client drawer already has actions. Wire:
+  - **"Post a Deal"** → `nav({ to: "/post-deal", search: { client_id } })` (route already supports prefill).
+  - **"Mark Sold"** → opens the same `/post-deal` screen prefilled with that client, with stage forced to Sold on submit. (Reuses the post-deal form; no separate modal.)
+- Confirm both buttons appear consistently on: kanban card menu, client detail drawer header, and Sold tab "needs review" rows.
 
-## 1. Agent role — daily workflow
+## 3. Editable, category-tagged notes
 
-### Dashboard (`/dashboard`)
-- **Daily AI briefing** at top: "You have 4 lapse-pending policies worth $1,840 ALP, 3 birthdays this week, and Charles is 28% below pace." Generated from `get_dashboard_metrics` + `get_team_alerts`.
-- **Smart next actions** card: ranks the 5 highest-value actions for today (call X, send Y a quote, follow up on Z's app).
-- **Anomaly callouts**: AI flags drops in production, unusual lapse spikes, or carrier mix shifts vs prior period.
+Current behavior: clicking "Medical Note" / Height / Weight / Physician / Tobacco buttons immediately commits a note. New behavior:
 
-### Pipeline (`/pipeline`)
-- **AI lead scoring/temperature**: rescore `clients.temperature` weekly using contact history, stage age, and notes.
-- **Stage stall detector**: flag prospects sitting in a stage too long with suggested unsticking move.
-- **Auto note summarization**: collapse long `contact_history` into a one-line "where we left off" per client.
-- **Next-best-message generator** per prospect (text, voicemail, email variants).
+- Single composer textarea + a row of toggle chips: **Medical**, **Height**, **Weight**, **Physician**, **Tobacco**.
+- Toggling a chip:
+  - Adds a category tag to the in-progress draft.
+  - If "Medical" is on, the textarea border + saved note card render red.
+  - For Height / Weight / Physician / Tobacco, on save the parsed value is also written to the structured profile field (`clients.height`, `weight`, `physician_*`, `tobacco_status`).
+- Only the **Add Note** button persists. Saved notes remain **editable** (pencil icon already present) and editing updates the row in place.
+- DB: add `category text[]` and `is_medical boolean` columns to the notes table (whichever currently stores client notes — confirm during impl) via migration.
 
-### Book of Business (`/book-of-business`)
-- **Lapse risk score** per policy from premium/age/carrier/payment history; surfaces a "Save list" daily.
-- **Cross-sell suggestions** per active client (e.g. add child rider, GTL upgrade, IUL) with talk-track.
-- **Anniversary/birthday outreach drafts** generated for each upcoming event (ties into existing calendar triggers).
-- **Carrier mix coaching**: "You write 70% A but B pays 12% more on this product band."
+## 4. Pipeline + Sold redesign to match AgentLink
 
-### Calendar (`/calendar`)
-- **Smart scheduling assistant**: parse free-text ("call Mike Tuesday morning") into an event.
-- **Pre-meeting prep brief** for each appointment: client snapshot, policies, last notes, suggested agenda.
-- **Post-meeting recap** drafted from a typed/dictated summary into structured notes + follow-up tasks.
+Rebuild both tabs to mirror the screenshots.
 
-### Phone & SMS (`/phone`)
-- **AI dialer coaching** (real-time or post-call): outcome tagging, objection summary, recommended next step.
-- **Inbound call triage**: transcribe + classify (sales, service, lapse, recruiting) and route in `inbound-calls`.
-- **SMS draft + tone match**: per-conversation reply suggestions in the agent's voice; auto-follow-up cadences.
-- **Voicemail drop generator** per prospect using their context.
+**Pipeline tab (kanban)**
+- 3 columns: **New / Cold**, **Callback**, **Almost There** with count subheaders.
+- Card shows: name, phone (icon prefix), last opened date, temperature pill (Warm/Cold + %) top-right.
+- Light card surface, subtle shadow, generous padding; column header is bold w/ count.
+- Top bar: Pipeline / Sold pill tabs, search by name/phone, **Import Clients**, **Add Client** buttons.
 
-### Leads & Inbound Calls (`/tools/leads`, `/tools/inbound-calls`)
-- **Dedupe + enrichment** on import (already partial — extend to phone-format normalization, address validation).
-- **Lead quality score** + recommended dial order.
+**Sold tab**
+- KPI strip: Clients, Policies, Total Face, Annual Premium, Avg Policy, This Month (6 tiles, colored numbers per screenshot).
+- Search row + Carrier filter + sort dropdown.
+- Filter chips: All Clients, Needs Review, Needs Contact (count), Upcoming Birthdays (count), Anniversaries.
+- Client Alerts banner (amber) summarizing counts.
+- Sold client card: green check + name + policy count badge; Call/Text/Email action chips; **POLICIES (n)** list with carrier, product (sub-line), $X/mo, #policy#, face, start date; per-policy status pill (Not Taken / In Review); footer Total Coverage + Monthly, and a green Last Contact strip.
 
-### Needs Analysis (`/tools/needs-analysis`)
-- **Conversational intake**: AI asks the questions, fills the form, and produces the recommendation summary.
-- **Coverage gap explanation** in plain English for the client (PDF-ready handout).
+All colors via semantic tokens in `src/styles.css` (add tokens for `--temp-warm`, `--temp-cold`, `--status-not-taken`, `--status-in-review`, `--sold-strip-bg`).
 
-### Quoter (`/tools/quoter`)
-- **Carrier/product recommender** from age/health/budget/state + your active commission levels.
-- **Side-by-side narrative** explaining why option A vs B for this specific client.
-- **Objection bank** auto-loaded for the chosen product.
+## 5. AgentLink import field mapping
 
-### Post-Deal (`/post-deal`)
-- **App QA assistant**: scan submitted app for missing fields, signature issues, beneficiary problems before submit.
-- **Underwriting Q&A**: agent pastes the carrier email, AI drafts the response using stored client medical notes.
-- **Status nudges** drafted to client during underwriting.
+- The current importer dumps imported context into a separate "Additional Notes" section. Change parser/mapper (`src/lib/agentlink-xls-parser.ts` + `src/lib/agentlink.functions.ts`) so each field lands in its proper structured column:
+  - Contact: first/last, phone, phone type, email, DOB
+  - Address: street, city, state, ZIP, born country/state
+  - Health: height, weight, smoker, SSN last 4, physician name/address/phone, medical notes
+  - Banking: bank, account type, routing, account
+  - Policies: carrier, product, policy#, effective date, face, monthly premium, status
+  - Beneficiaries: each into beneficiaries table
+- Anything that doesn't map to a structured field becomes a single saved note on the client profile (not a separate UI section).
+- Re-running an import for an existing client updates fields in place; do not create duplicate "Additional Notes" sections.
 
-### Account → Producer Profile / Landing Page / Help / FAQ
-- **Bio/landing copy writer** (already partial) extended to landing-page sections, testimonials prompts, CTA copy.
-- **AI Help search** across handbook + FAQ + scripts (RAG over `handbook_sections`, `faq_items`, `academy_*`) — replaces keyword search.
+## 6. Commission grids — AI parse + extrapolate
 
-### Resources (Academy, Handbook, Scripts, State Licenses, New Agent Guide)
-- **Ask-the-Handbook chat** scoped to that section.
-- **Personalized script generator**: pick carrier + product + objection → custom script.
-- **Course recap & quiz generator** per academy module; auto-mark progress when the agent passes a generated quiz.
-- **State license reminder summarizer**: "Your TX license renews in 41 days; here's the CE you still need."
+- Use `document--parse_document` on `commission_grids.pdf` to extract carrier/product/level/percent rows.
+- Use Lovable AI Gateway (script via skill/ai-gateway) to:
+  1. Normalize into `{carrier, product, level, percentage}` JSON.
+  2. For each (carrier, product), detect the step delta between adjacent levels and **project** the missing higher and lower levels using the same step (or geometric ratio when steps are non-linear). Cap at sensible bounds (e.g., 0%–140%).
+- Generate a SQL seed and apply via migration / insert tool into `commission_grids` (and `commission_schedule` if it stores per-level rows — verify schema during impl).
+- Mark projected rows with `is_estimated boolean default false → true` so the UI can show a small "est." badge. Migration adds that column if absent.
 
-### Sophai (move from stub to real)
-- **Policy Recovery**: AI outbound calls / SMS sequences for `lapse_pending` policies with personalized scripts.
-- **SMS Follow-ups**: AI-generated post-call / post-appointment texts tied to `call_logs`/`calendar_events`.
-- **Birthday & Beneficiary** outreach generators using the existing calendar auto-events.
-- **Activity feed**: every Sophai action logged with the AI rationale for trust + auditability.
+## Technical notes
 
-### Finances (`/finances`)
-- **Pay-period explainer**: AI summarizes the wallet & commission_schedule into "you'll receive $X on these dates, advance vs deferred breakdown."
-- **Chargeback/lapse impact forecasting** based on book persistency.
-- **Goal coaching**: "To hit your $10k/mo goal, you need 4 more avg deals — top carrier suggestions attached."
+- New secret: `DISCORD_SALES_WEBHOOK`.
+- New server fn: `notifyDiscordSale(policyId)` in `src/lib/post-deal.functions.ts`.
+- Migrations:
+  - `client_notes` (or current notes table): add `category text[]`, `is_medical boolean default false`.
+  - `commission_grids` / level rows: add `is_estimated boolean default false`.
+- New components:
+  - `src/components/pipeline/pipeline-card.tsx`, `pipeline-column.tsx` (redesigned).
+  - `src/components/book-of-business/sold-client-card.tsx`, `sold-kpi-strip.tsx`, `sold-filter-chips.tsx`.
+  - `src/components/pipeline/notes-composer.tsx` (chip toggles + draft + save).
+- Files edited:
+  - `src/lib/post-deal.functions.ts` (Discord + sold-stage trigger).
+  - `src/lib/agentlink-xls-parser.ts`, `src/lib/agentlink.functions.ts` (structured mapping).
+  - `src/routes/_authenticated/pipeline.tsx` (both tabs).
+  - `src/components/pipeline/client-detail-drawer.tsx`, `src/components/pipeline/notes-tab.tsx`.
+  - `src/styles.css` (new tokens).
+- Tokens only — no raw hex in components.
 
-### Challenges & Leaderboard
-- **Personalized challenge generator** vs static seeds (based on historical pace).
-- **Trash-talk-free pep messaging** when an agent falls behind or surges.
+## Order of work
 
-### Notifications & News Feed
-- **AI digest mode**: collapse 20 notifications into 3 prioritized bullets.
-- **News feed summarizer** + relevance ranker (industry news → only what affects this agent's carriers/states).
-
----
-
-## 2. Recruiter / Upline role
-
-### Team (`/team`) and Team Command Center
-- **Roster insights**: AI weekly read on each downline agent — risk of going inactive, training gaps, growth signals.
-- **Reminder drafter** (already have `send_team_reminder`) — fill in personalized message bodies.
-- **Org-chart coaching**: identifies bottleneck managers and recommends structural moves.
-
-### Recruiting Funnels (`/back-office/recruiting-funnels`)
-- **Landing page copywriter** per funnel slug.
-- **Email/SMS nurture sequences** auto-generated for prospects sitting in each stage.
-- **A/B copy variants** with conversion prediction.
-
-### Recruiting Tracker (`/back-office/recruiting-tracker`)
-- **Prospect summarizer** from notes + stage history.
-- **Next-step recommender** per prospect; auto-draft outreach.
-- **Stuck-prospect alerts** (mirrors stage-stall detector for clients).
-
-### Invite (`/contracting/invite`)
-- **Personalized invite messages** based on the prospect's background.
-- **Onboarding step coach** during the invitation flow.
-
-### Marketing / Client Marketing (`/back-office/client-marketing`)
-- **Campaign generator**: pick audience + carrier → produces email, SMS, social post variants.
-- **Image generation** for social/marketing using `/v1/images/generations` (`openai/gpt-image-2` low quality default).
-- **Performance critique** of past campaigns.
-
-### Case Design (`/back-office/case-design`)
-- **AI case strategist**: given client financials + goals, drafts the recommended structure (UL/IUL/annuity ladder) with rationale and carrier picks.
-- **Case design request triage** on the admin side: AI pre-fills a draft response for the case design team to edit.
-
----
-
-## 3. Admin role
-
-### Admin Index / Analytics
-- **Org-wide AI brief**: weekly/daily summary of growth, churn, lapse, recruiting, and contracting velocity.
-- **Anomaly detection** across agents, carriers, states (already partial in `analytics`).
-- **Natural-language query** on the data: "Show me agents who wrote A but no B last quarter."
-
-### Agents (`/admin/agents`)
-- **Agent risk score** (active/inactive prediction, contracting completion, productivity trend).
-- **Bulk-message composer** with AI personalization tokens.
-
-### Carriers (`/admin/carriers`)
-- **Carrier description + product catalog generator** when adding new carriers (saves manual data entry).
-- **Carrier alias matcher** for import normalization (already partial in import flow — promote to admin-managed).
-
-### Commissions (`/admin/commissions`)
-- **Grid intake AI**: paste a carrier commission PDF/CSV → AI parses into `commission_grids` rows for review.
-- **Commission anomaly detection** vs schedule.
-
-### Contracts (`/admin/contracts`) & Contracting hub
-- **Contract status summarizer** from carrier emails / `contract_requests` notes.
-- **Stuck contract escalation drafts** to carriers.
-
-### CSV/XLS Import & Import Requests (`/admin/csv-import`, `/admin/import-requests`)
-- **AI column mapper** (likely already partial in admin-import) with confidence indicators.
-- **Pre-import duplicate report** with merge recommendations across the team (extends the team-wide dedupe just added).
-
-### Hierarchy / Roles / Migration
-- **Reorg simulator**: "If I move Charles under Xaviar, projected override impact = $X."
-- **Migration plain-English explainer** for each pending migration job.
-
-### Announcements (`/admin/announcements`)
-- **Drafter + tone tuner** + audience targeter.
-
-### Support (`/admin/support`)
-- **Auto-classify + suggested response** on every new `support_ticket`.
-- **Sentiment + churn-risk flag** on conversations.
-- **Knowledge-base retrieval** so suggested replies cite handbook/FAQ.
-
-### Settings
-- **Sophai global controls** (rate limits, allowed actions, audit log access).
-- **AI model + budget controls**: pick reasoning vs flash, set per-feature monthly spend ceiling.
-
----
-
-## 4. Cross-cutting capabilities
-
-### a. RAG knowledge base
-Build embeddings (via `google/gemini-embedding-001`) over `handbook_sections`, `faq_items`, `academy_modules/courses`, `scripts`, `news_articles`, and active carrier product catalogs. Power: AI Help, Sophai scripts, agent chat, support ticket replies.
-
-### b. Universal "Ask Agent Cloud" command bar (⌘K)
-Cross-page chat that can read the agent's own data (with RLS) and take safe write actions (create event, draft SMS, open quoter) via tool calling.
-
-### c. Voice layer
-Twilio + AI: live call transcripts, post-call summaries, real-time objection prompts in the dialer. Logs to `call_logs` automatically.
-
-### d. Document intelligence
-Drop a carrier PDF (commission grid, illustration, contract) → AI extracts structured data into the right table.
-
-### e. Audit + trust
-Every AI-authored action (message, call, change) is logged in `sophai_activity` or a new `ai_actions` table with the prompt, model, and editable draft state. Default = draft-for-approval; admins toggle full autonomy per automation.
-
-### f. Cost guardrails
-- Default chat model: `google/gemini-3-flash-preview`.
-- Reasoning (`gpt-5.4` medium) only for case design, quoter recommendation, anomaly explanations.
-- Image gen: `openai/gpt-image-2` low quality unless user upgrades.
-- Per-feature monthly spend caps in admin settings.
-
----
-
-## 5. Recommended phasing
-
-```text
-Phase 1 (high ROI, low complexity)
-  • Dashboard AI briefing + next actions
-  • Pipeline lead score & next-best-message
-  • Book of Business lapse-risk + cross-sell
-  • Sophai SMS follow-ups + birthday/beneficiary (replace stubs)
-  • AI Help search (RAG over handbook/FAQ/scripts)
-
-Phase 2 (workflow accelerators)
-  • Calendar pre-meeting briefs + post-meeting recaps
-  • Quoter recommender + Needs Analysis conversational intake
-  • Post-deal QA + UW Q&A drafter
-  • Recruiting nurture sequences + funnel copy
-
-Phase 3 (admin & ops scale)
-  • Support ticket auto-classify + reply suggestions
-  • Commission PDF intake + carrier catalog generator
-  • Org-wide weekly brief + NL data Q&A
-  • Reorg simulator
-
-Phase 4 (voice + autonomous)
-  • Sophai policy-recovery calling
-  • Real-time dialer coaching
-  • Universal ⌘K agent with tool-calling write actions
-```
-
----
-
-## 6. Questions before we start building
-
-1. Which **phase or specific features** do you want to start with? (I recommend Phase 1.)
-2. Should Sophai automations send messages **autonomously**, or **draft for approval** as the default?
-3. Any **areas to exclude** (e.g. you don't want AI touching client outbound until later)?
-4. Confirm the **cost model**: default to Flash (cheap) for everything, upgrade to GPT-5/Gemini Pro only for the high-value surfaces listed in §4f?
+1. Secret + Discord helper + wire into postDeal.
+2. Mark Sold / Post a Deal nav wiring.
+3. Notes composer + migration.
+4. Pipeline tab redesign.
+5. Sold tab redesign.
+6. AgentLink import field remap.
+7. Commission grid parse + extrapolation + seed.

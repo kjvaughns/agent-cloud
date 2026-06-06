@@ -1,9 +1,9 @@
-import { createFileRoute, useHydrated } from "@tanstack/react-router";
+import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2 } from "lucide-react";
+import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2, DollarSign } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -278,6 +278,7 @@ function KanbanColumn({ stage, label, tint, header, count, children }: { stage: 
 }
 
 function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
+  const nav = useNavigate();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id });
   const t = tempPill[(client.temperature ?? "cold") as Temp];
   const pol = client.latest_policy;
@@ -378,6 +379,17 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
           )}
         </>
       )}
+
+      {/* Quick Mark Sold action */}
+      <div className="mt-2 pt-2 border-t flex justify-end" onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); nav({ to: "/post-deal", search: { client_id: client.id } }); }}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+        >
+          <DollarSign className="h-3 w-3" /> Mark Sold
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
@@ -19,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  getClientDetail, touchLastOpened, updateClient, markClientSold, upsertFinancials,
+  getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
   listCarriers, addPolicy,
@@ -151,16 +152,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 
 // ============ Header ============
 function DrawerHeader({ client, t }: { client: any; t: any }) {
-  const qc = useQueryClient();
-  const markSoldFn = useServerFn(markClientSold);
-  const soldMut = useMutation({
-    mutationFn: () => markSoldFn({ data: { id: client.id } }),
-    onSuccess: () => {
-      toast.success("Marked as sold");
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-    },
-  });
-
+  const nav = useNavigate();
   return (
     <div className="px-5 py-3.5 border-b shrink-0">
       <div className="flex items-center gap-4 pr-8">
@@ -193,11 +185,10 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
           <Button
             size="sm"
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => soldMut.mutate()}
-            disabled={client.stage === "sold" || soldMut.isPending}
+            onClick={() => nav({ to: "/post-deal", search: { client_id: client.id } })}
           >
             <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-            {client.stage === "sold" ? "✓ Sold" : "Mark Sold"}
+            {client.stage === "sold" ? "Post Another Deal" : "Mark Sold"}
           </Button>
         </div>
       </div>
