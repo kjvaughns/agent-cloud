@@ -379,6 +379,17 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
           )}
         </>
       )}
+
+      {/* Quick Mark Sold action */}
+      <div className="mt-2 pt-2 border-t flex justify-end" onPointerDown={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); nav({ to: "/post-deal", search: { client_id: client.id } }); }}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+        >
+          <DollarSign className="h-3 w-3" /> Mark Sold
+        </button>
+      </div>
     </div>
   );
 }
