@@ -2,7 +2,6 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
@@ -26,7 +25,7 @@ import {
   getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
-  listCarriers, addPolicy, updatePolicy,
+  listCarriers, addPolicy, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
