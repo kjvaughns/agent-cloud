@@ -1168,9 +1168,11 @@ export type Database = {
       }
       commission_schedule: {
         Row: {
+          advance_pct: number | null
           agent_id: string
           amount: number
           carrier: string | null
+          commission_pct: number | null
           created_at: string
           id: string
           is_gtl: boolean
@@ -1183,9 +1185,11 @@ export type Database = {
           status: string
         }
         Insert: {
+          advance_pct?: number | null
           agent_id: string
           amount?: number
           carrier?: string | null
+          commission_pct?: number | null
           created_at?: string
           id?: string
           is_gtl?: boolean
@@ -1198,9 +1202,11 @@ export type Database = {
           status?: string
         }
         Update: {
+          advance_pct?: number | null
           agent_id?: string
           amount?: number
           carrier?: string | null
+          commission_pct?: number | null
           created_at?: string
           id?: string
           is_gtl?: boolean
