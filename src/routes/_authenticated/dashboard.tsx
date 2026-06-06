@@ -109,8 +109,6 @@ function Dashboard() {
         </Card>
       </div>
 
-      <AiDailyBriefing />
-
       {/* Time range filter + view toggle */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
