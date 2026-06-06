@@ -109,8 +109,6 @@ function Dashboard() {
         </Card>
       </div>
 
-      <AiDailyBriefing />
-
       {/* Time range filter + view toggle */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-2">
@@ -221,6 +219,8 @@ function Dashboard() {
         <Link to="/team" className="text-primary hover:underline flex items-center gap-1">View My Team <ArrowRight className="h-3 w-3" /></Link>
         <Link to="/book-of-business" className="text-primary hover:underline flex items-center gap-1">View Book of Business <ArrowRight className="h-3 w-3" /></Link>
       </div>
+
+      <AiDailyBriefing />
     </div>
   );
 }
