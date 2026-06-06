@@ -112,7 +112,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 
   const c = data.client;
   const t = tempPill[(c.temperature ?? "cold") as Temp];
-  const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note");
+  const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
