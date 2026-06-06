@@ -112,7 +112,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 
   const c = data.client;
   const t = tempPill[(c.temperature ?? "cold") as Temp];
-  const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note");
+  const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -257,7 +257,7 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
   switch (tab) {
     case "contact":       return <ContactTab detail={detail} />;
     case "needs":         return <NeedsAnalysisTab detail={detail} />;
-    case "notes":         return <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note")} />;
+    case "notes":         return <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note")} />;
     case "schedule":      return <ScheduleTab detail={detail} />;
     case "beneficiaries": return <BeneficiariesTab detail={detail} />;
     case "referrals":     return <ReferralsTab detail={detail} />;

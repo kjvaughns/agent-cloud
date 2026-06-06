@@ -65,11 +65,17 @@ function categoriesOf(entry: any): Set<Category> {
   const raw = entry?.contact_type ?? "";
   const out = new Set<Category>();
   if (raw === "medical_note") out.add("medical");
+  // Imported notes that came from the Medical Notes column get medical styling.
+  if (raw === "imported_note" && /^\s*Medical\s*:/i.test(String(entry?.note ?? ""))) out.add("medical");
   for (const part of String(raw).split(/[,|]/)) {
     const k = part.trim().replace(/^cat:/, "");
     if (["medical", "height", "weight", "physician", "tobacco"].includes(k)) out.add(k as Category);
   }
   return out;
+}
+
+function isImported(entry: any): boolean {
+  return entry?.contact_type === "imported_note";
 }
 
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
@@ -225,6 +231,11 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
     )}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="text-xs font-semibold flex flex-wrap items-center gap-1">
+          {isImported(entry) && (
+            <span className="px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900">
+              Imported
+            </span>
+          )}
           {Array.from(cats).map((c) => (
             <span key={c} className={cn(
               "px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide",
