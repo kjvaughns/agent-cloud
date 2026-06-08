@@ -752,3 +752,46 @@ export const listCarrierGridLevels = createServerFn({ method: "POST" })
     }
     return Array.from(seen.entries()).map(([level_name, max_pct]) => ({ level_name, max_pct }));
   });
+
+export const adminSyncAgentByNpn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      target_agent_id: z.string().uuid(),
+      npn: z.string().min(1).max(20),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+
+    const { syncProducerByNpn } = await import("@/lib/agentsync.service");
+    const result = await syncProducerByNpn(data.npn);
+    if (!result) throw new Error("AgentSync is not configured on this server.");
+
+    let licensesImported = 0;
+    for (const lic of result.licenses) {
+      const loas: any[] = Array.isArray(lic.loas) && lic.loas.length > 0 ? lic.loas : [null];
+      for (const loaEntry of loas) {
+        const loaName = typeof loaEntry === "string" ? loaEntry : (loaEntry?.name ?? loaEntry?.loa ?? null);
+        const row = {
+          agent_id: data.target_agent_id,
+          state_code: lic.state_code,
+          license_number: lic.license_number ?? null,
+          license_type: lic.license_type ?? null,
+          loa: loaName,
+          issued_date: lic.issued_date ?? null,
+          expires_date: lic.expires_date ?? null,
+          is_resident: lic.is_resident ?? false,
+        };
+        const { error } = await supabase
+          .from("state_licenses")
+          .upsert(row, { onConflict: "agent_id,state_code,loa" });
+        if (!error) licensesImported++;
+      }
+    }
+
+    await supabase.from("profiles").update({ npn_number: data.npn }).eq("id", data.target_agent_id);
+
+    return { licenses_imported: licensesImported };
+  });

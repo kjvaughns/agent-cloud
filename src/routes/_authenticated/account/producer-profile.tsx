@@ -14,6 +14,7 @@ import {
   revealBankingAccount,
   lookupNpnLicenses,
 } from "@/lib/account.functions";
+import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRole } from "@/hooks/use-role";
@@ -210,9 +211,19 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
   const [revealedSsn, setRevealedSsn] = useState<string | null>(null);
   const [showSsnModal, setShowSsnModal] = useState(false);
   const [newSsn, setNewSsn] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const revealFn = useServerFn(revealSsn);
   const setSsnFn = useServerFn(setSsn);
   const lookupFn = useServerFn(lookupNpnLicenses);
+  const checkFn = useServerFn(checkAgentSyncStatus);
+  const agentSyncFn = useServerFn(syncAgentByNpn);
+
+  const { data: asStatus } = useQuery({
+    queryKey: ["agentsync-status"],
+    queryFn: () => checkFn(),
+    staleTime: 60 * 60 * 1000,
+  });
+  const agentSyncAvailable = asStatus?.available ?? false;
 
   const revealMut = useMutation({
     mutationFn: () => revealFn(),
@@ -241,10 +252,38 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
           <Label className="text-xs">NPN Number</Label>
           <div className="flex gap-2">
             <Input value={npn} onChange={(e) => setNpn(e.target.value)} onBlur={() => { if (npn !== (profile?.npn_number ?? "")) onSave({ npn_number: npn }); }} />
-            <Button variant="outline" size="sm" onClick={() => lookupMut.mutate()} disabled={lookupMut.isPending || !npn}>
-              {lookupMut.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Verify"}
-            </Button>
+            {agentSyncAvailable ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={syncing || !npn}
+                onClick={async () => {
+                  setSyncing(true);
+                  try {
+                    const res = await agentSyncFn({ data: { npn } });
+                    if (res.has_regulatory_flag) {
+                      toast.warning(`Synced ${res.licenses_imported} licenses — regulatory actions on file.`);
+                    } else {
+                      toast.success(`Synced ${res.licenses_imported} licenses across ${res.states_covered.length} states`);
+                    }
+                  } catch (e: any) {
+                    toast.error(e.message ?? "Sync failed");
+                  } finally {
+                    setSyncing(false);
+                  }
+                }}
+              >
+                {syncing ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Sync"}
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => lookupMut.mutate()} disabled={lookupMut.isPending || !npn}>
+                {lookupMut.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Verify"}
+              </Button>
+            )}
           </div>
+          {!agentSyncAvailable && (
+            <p className="text-xs text-muted-foreground">Verify pulls basic NPN info from NIPR. For full license import, use State Licenses → Sync from NIPR.</p>
+          )}
         </div>
 
         <SaveInput label="Date of Birth" defaultValue={profile?.date_of_birth} field="date_of_birth" onSave={onSave} type="date" />

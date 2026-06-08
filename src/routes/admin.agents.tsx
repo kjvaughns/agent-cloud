@@ -1,14 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { adminListAllAgents, adminSetAgentRole, adminMoveAgent } from "@/lib/admin.functions";
+import { adminListAllAgents, adminSetAgentRole, adminMoveAgent, adminSyncAgentByNpn } from "@/lib/admin.functions";
+import { checkAgentSyncStatus } from "@/lib/agentsync.functions";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, Search, User } from "lucide-react";
+import { Loader2, RefreshCw, Search, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -45,6 +47,15 @@ function AdminAgents() {
   const [pendingUpline, setPendingUpline] = useState<string>("none");
   const [savingUpline, setSavingUpline] = useState(false);
   const moveAgentFn = useServerFn(adminMoveAgent);
+  const checkStatusFn = useServerFn(checkAgentSyncStatus);
+  const syncAgentFn = useServerFn(adminSyncAgentByNpn);
+
+  const { data: asStatus } = useQuery({
+    queryKey: ["agentsync-status"],
+    queryFn: () => checkStatusFn(),
+    staleTime: 60 * 60 * 1000,
+  });
+  const agentSyncAvailable = asStatus?.available ?? false;
 
   async function load() {
     setLoading(true);
@@ -219,6 +230,26 @@ function AdminAgents() {
                   <div><p className="text-muted-foreground text-xs">Active Contracts</p><p className="font-medium">{getContractCount(selected.id)}</p></div>
                   <div><p className="text-muted-foreground text-xs">Joined</p><p className="font-medium">{new Date(selected.created_at).toLocaleDateString()}</p></div>
                 </div>
+
+                {agentSyncAvailable && selected?.npn_number && (
+                  <div className="pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={async () => {
+                        try {
+                          const res = await syncAgentFn({ data: { target_agent_id: selected.id, npn: selected.npn_number } });
+                          toast.success(`Synced ${res.licenses_imported} licenses for ${selected.first_name}`);
+                        } catch (e: any) {
+                          toast.error(e.message ?? "Sync failed");
+                        }
+                      }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Sync via AgentSync
+                    </Button>
+                  </div>
+                )}
 
                 <div className="border-t border-border pt-4">
                   <p className="text-sm font-medium mb-2">Role Assignment</p>

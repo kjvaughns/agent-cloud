@@ -3,6 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo, useRef } from "react";
 import { getStatesReference, getMyLicenses, upsertLicense, scanNiprPdf, bulkUpsertLicenses } from "@/lib/resources.functions";
+import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -298,11 +300,82 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
   );
 }
 
+function AgentSyncNpnButton({ onSynced }: { onSynced: () => void }) {
+  const qc = useQueryClient();
+  const syncFn = useServerFn(syncAgentByNpn);
+  const [npnInput, setNpnInput] = useState("");
+  const [syncing, setSyncing] = useState(false);
+
+  const { data: profileData } = useQuery({
+    queryKey: ["my-profile-npn"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data } = await supabase.from("profiles").select("npn_number").eq("id", user.id).maybeSingle();
+      return data;
+    },
+  });
+
+  const savedNpn = profileData?.npn_number ?? "";
+
+  async function doSync(npn: string) {
+    setSyncing(true);
+    try {
+      const res = await syncFn({ data: { npn } });
+      onSynced();
+      qc.invalidateQueries({ queryKey: ["my-licenses"] });
+      qc.invalidateQueries({ queryKey: ["contracting", "myContracts"] });
+      if (res.has_regulatory_flag) {
+        toast.warning(`Synced ${res.licenses_imported} licenses — regulatory actions found. Please review your compliance status.`);
+      } else {
+        toast.success(`Synced ${res.licenses_imported} license${res.licenses_imported === 1 ? "" : "s"} across ${res.states_covered.length} state${res.states_covered.length === 1 ? "" : "s"}`);
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  if (savedNpn) {
+    return (
+      <Button className="flex-shrink-0" onClick={() => doSync(savedNpn)} disabled={syncing}>
+        {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+        Sync Licenses (NPN {savedNpn})
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <Input
+        placeholder="Your NPN..."
+        value={npnInput}
+        onChange={(e) => setNpnInput(e.target.value.replace(/\D/g, ""))}
+        className="w-36"
+        maxLength={10}
+      />
+      <Button onClick={() => doSync(npnInput)} disabled={syncing || !npnInput}>
+        {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+        Auto-Sync
+      </Button>
+    </div>
+  );
+}
+
 function Page() {
   const qc = useQueryClient();
   const statesFn = useServerFn(getStatesReference);
   const licensesFn = useServerFn(getMyLicenses);
   const upsertFn = useServerFn(upsertLicense);
+  const checkStatusFn = useServerFn(checkAgentSyncStatus);
+
+  const { data: agentSyncStatus } = useQuery({
+    queryKey: ["agentsync-status"],
+    queryFn: () => checkStatusFn(),
+    staleTime: 60 * 60 * 1000,
+  });
+  const agentSyncAvailable = agentSyncStatus?.available ?? false;
   const { data: states = [] } = useQuery({ queryKey: ["states-ref"], queryFn: () => statesFn() });
   const { data: licenses = [] } = useQuery({ queryKey: ["my-licenses"], queryFn: () => licensesFn() });
 
@@ -379,9 +452,18 @@ function Page() {
           <h1 className="text-3xl font-bold flex items-center gap-2"><MapPin className="h-7 w-7" /> State Licenses</h1>
           <p className="text-muted-foreground">Manage your licenses and explore new states</p>
         </div>
-        <Button variant="outline" className="flex-shrink-0" onClick={() => setNiprOpen(true)}>
-          <RefreshCw className="h-4 w-4 mr-2" /> Sync from NIPR
-        </Button>
+        {agentSyncAvailable ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <AgentSyncNpnButton onSynced={() => qc.invalidateQueries({ queryKey: ["my-licenses"] })} />
+            <Button variant="ghost" size="sm" onClick={() => setNiprOpen(true)} className="text-muted-foreground">
+              <Upload className="h-3.5 w-3.5 mr-1" /> Upload PDF instead
+            </Button>
+          </div>
+        ) : (
+          <Button variant="outline" className="flex-shrink-0" onClick={() => setNiprOpen(true)}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Sync from NIPR
+          </Button>
+        )}
       </div>
 
       {stats.expiring + stats.expired > 0 && (
