@@ -21,8 +21,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Copy, Check, Trash2, Lock, Link2 } from "lucide-react";
+import { Copy, Check, Trash2, Lock, Link2, User, Users, Building2, ClipboardList, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/contracting/invite")({
   component: InvitePage,
@@ -42,6 +43,8 @@ function InvitePage() {
   const [success, setSuccess] = useState<{ token: string; linkName: string } | null>(null);
   const [linkName, setLinkName] = useState("");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [invitedRole, setInvitedRole] = useState<"agent" | "manager" | "agency_owner" | "staff">("agent");
+  const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
     queryKey: ["onb", "myCarriers"],
@@ -54,7 +57,7 @@ function InvitePage() {
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, assignments } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, assignments } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -115,6 +118,69 @@ function InvitePage() {
             maxLength={80}
           />
           <p className="text-xs text-muted-foreground mt-1">This is just a label for you — it won't be shown to the person joining.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Invite As</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setInvitedRole("agent")}
+              className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${invitedRole === "agent" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+            >
+              <div className="font-medium text-sm flex items-center gap-1.5">
+                <User className="h-4 w-4" /> Agent
+                {invitedRole === "agent" && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Can work their own pipeline</div>
+            </button>
+
+            {canInviteManager && (
+              <button
+                type="button"
+                onClick={() => setInvitedRole("manager")}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${invitedRole === "manager" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <Users className="h-4 w-4" /> Manager
+                  {invitedRole === "manager" && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">Can manage a downline team</div>
+              </button>
+            )}
+
+            {canInviteAgencyOwner && (
+              <button
+                type="button"
+                onClick={() => setInvitedRole("agency_owner")}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 col-span-2 ${invitedRole === "agency_owner" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  <span>Agency Owner</span>
+                  <span className="inline-flex items-center rounded-full bg-primary/15 text-primary border border-primary/30 px-2 py-0.5 text-[10px] font-semibold ml-1">
+                    White Label
+                  </span>
+                  {invitedRole === "agency_owner" && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  Gets their own branded sub-agency on Agent Cloud. They manage their own team independently.
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setInvitedRole("staff")}
+              className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${invitedRole === "staff" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+            >
+              <div className="font-medium text-sm flex items-center gap-1.5">
+                <ClipboardList className="h-4 w-4" /> Staff
+                {invitedRole === "staff" && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+              </div>
+              <div className="text-[11px] text-muted-foreground">Assistant — acts on your behalf</div>
+            </button>
+          </div>
         </div>
 
         <div>

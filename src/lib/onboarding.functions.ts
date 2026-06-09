@@ -65,6 +65,42 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       phone: data.phone ?? null,
     }).eq("id", newUserId);
 
+    // Assign role from invite
+    const roleToAssign = (inv.invited_role as string) ?? "agent";
+    if (roleToAssign !== "agent") {
+      await (supabaseAdmin as any).from("user_roles").insert({ user_id: newUserId, role: roleToAssign });
+    }
+
+    // Assign to same organization as inviter
+    if (inv.organization_id) {
+      await (supabaseAdmin as any).from("profiles").update({ organization_id: inv.organization_id }).eq("id", newUserId);
+    }
+
+    // If invited as agency_owner, create their own sub-organization
+    if (roleToAssign === "agency_owner") {
+      const slug = `${data.first_name.toLowerCase()}-${data.last_name.toLowerCase()}`
+        .replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").slice(0, 40);
+      const { data: newOrg } = await (supabaseAdmin as any).from("organizations").insert({
+        name:          `${data.first_name} ${data.last_name}'s Agency`,
+        slug:          `${slug}-${Date.now()}`,
+        owner_id:      newUserId,
+        parent_org_id: inv.organization_id ?? null,
+        accent_color:  "#C9A227",
+        active:        true,
+      }).select("id").single();
+      if (newOrg) {
+        await (supabaseAdmin as any).from("profiles").update({ organization_id: newOrg.id }).eq("id", newUserId);
+      }
+    }
+
+    // If invited as staff, link to the inviter as their principal
+    if (roleToAssign === "staff") {
+      await (supabaseAdmin as any).from("profiles").update({
+        staff_for_user_id: inv.created_by,
+        organization_id:   inv.organization_id ?? null,
+      }).eq("id", newUserId);
+    }
+
     if (!inv.is_reusable) {
       await supabaseAdmin.from("invitation_links").update({
         linked_agent_id: newUserId,
@@ -745,8 +781,9 @@ const FullAssignmentSchema = z.object({
 export const createOnboardingInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
-    link_name: z.string().trim().min(1).max(80),
-    assignments: z.array(FullAssignmentSchema).max(50).optional().default([]),
+    link_name:    z.string().trim().min(1).max(80),
+    invited_role: z.enum(["agent", "manager", "agency_owner", "staff"]).default("agent"),
+    assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
@@ -761,18 +798,36 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       }
     }
 
+    // Validate inviter can assign the requested role
+    const { data: inviterRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const inviterRoleList = (inviterRoles ?? []).map((r: any) => r.role as string);
+    const canInviteAgencyOwner = inviterRoleList.includes("super_admin") || inviterRoleList.includes("agency_owner");
+    const canInviteManager     = canInviteAgencyOwner || inviterRoleList.includes("manager");
+    if (data.invited_role === "agency_owner" && !canInviteAgencyOwner) {
+      throw new Error("Only agency owners and above can invite agency owners.");
+    }
+    if (data.invited_role === "manager" && !canInviteManager) {
+      throw new Error("Only managers and above can invite managers.");
+    }
+
+    // Fetch inviter's organization
+    const { data: inviterProfile } = await (supabase as any)
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
     const token = crypto.randomUUID();
 
-    const { data: inserted, error } = await supabase.from("invitation_links").insert({
-      created_by: userId,
-      name: data.link_name,
-      link_name: data.link_name,
-      is_reusable: true,
+    const { data: inserted, error } = await (supabase as any).from("invitation_links").insert({
+      created_by:      userId,
+      name:            data.link_name,
+      link_name:       data.link_name,
+      is_reusable:     true,
       new_agent_email: null,
       token,
       carrier_assignments: data.assignments,
-      status: "pending",
+      status:          "pending",
       onboarding_step: 0,
+      invited_role:    data.invited_role,
+      organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 
     if (error) throw new Error(error.message);

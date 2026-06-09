@@ -1,7 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
+import { useOrganization } from "@/hooks/use-organization";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen,
@@ -97,11 +98,35 @@ const accountItems = [
   { title: "My Landing Page", url: "/account/my-landing-page", icon: Globe },
 ];
 
+function hexToHsl(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const sidebarCollapsed = state === "collapsed";
-  const { isAdmin, isManager } = useRole();
+  const { isAdmin, isManager, isAgencyOwner } = useRole();
+  const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
+
+  useEffect(() => {
+    if (org?.accent_color) {
+      document.documentElement.style.setProperty("--primary", hexToHsl(org.accent_color));
+    }
+  }, [org?.accent_color]);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     try {
@@ -148,10 +173,25 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="h-screen">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground">
-            <Cloud className="h-4 w-4" />
-          </div>
-          {!sidebarCollapsed && <span className="font-bold tracking-tight">Agent Cloud</span>}
+          {org?.logo_url ? (
+            <img
+              src={org.logo_url}
+              alt={org.name}
+              className="h-8 w-8 shrink-0 rounded-lg object-contain border border-border"
+            />
+          ) : (
+            <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground">
+              <Cloud className="h-4 w-4" />
+            </div>
+          )}
+          {!sidebarCollapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="font-bold tracking-tight truncate">{org?.name ?? "Agent Cloud"}</div>
+              {org?.tagline && (
+                <div className="text-[10px] text-muted-foreground truncate leading-tight">{org.tagline}</div>
+              )}
+            </div>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -202,6 +242,16 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  {isAgencyOwner && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild tooltip="Agency Settings">
+                        <Link to={"/back-office/organization" as any}>
+                          <Building2 className="h-4 w-4" />
+                          <span>Agency Settings</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

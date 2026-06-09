@@ -10,7 +10,7 @@ async function requireAdmin(supabase: any, userId: string) {
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .eq("role", "admin")
+    .in("role", ["super_admin", "agency_owner"])
     .maybeSingle();
   if (!data) throw new Error("Forbidden: admin role required");
 }
@@ -20,7 +20,7 @@ async function requireManagerOrAdmin(supabase: any, userId: string) {
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .in("role", ["admin", "manager"])
+    .in("role", ["super_admin", "agency_owner", "manager"])
     .maybeSingle();
   if (!data) throw new Error("Forbidden: manager or admin role required");
 }

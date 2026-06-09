@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "agent" | "manager" | "admin";
+export type AppRole = "super_admin" | "agency_owner" | "manager" | "agent" | "staff";
+
+const ROLE_PRIORITY: AppRole[] = ["super_admin", "agency_owner", "manager", "agent", "staff"];
 
 let _cachedRole: AppRole | null = null;
 let _cachedUserId: string | null = null;
@@ -23,11 +25,12 @@ export function useRole() {
         .select("role")
         .eq("user_id", data.user.id);
       const roles = (rows ?? []).map((r: any) => r.role as AppRole);
-      const resolved: AppRole = roles.includes("admin")
-        ? "admin"
-        : roles.includes("manager")
-        ? "manager"
-        : "agent";
+
+      let resolved: AppRole = "agent";
+      for (const r of ROLE_PRIORITY) {
+        if (roles.includes(r)) { resolved = r; break; }
+      }
+
       _cachedRole = resolved;
       _cachedUserId = data.user.id;
       setRole(resolved);
@@ -35,25 +38,56 @@ export function useRole() {
     });
   }, []);
 
-  return { role, isAdmin: role === "admin", isManager: role === "manager" || role === "admin", loading };
+  const isSuperAdmin  = role === "super_admin";
+  const isAgencyOwner = role === "agency_owner" || role === "super_admin";
+  const isManager     = role === "manager" || role === "agency_owner" || role === "super_admin";
+  const isStaff       = role === "staff";
+  // backward compat — existing code that checks isAdmin still works
+  const isAdmin       = role === "super_admin" || role === "agency_owner";
+
+  return {
+    role,
+    isSuperAdmin,
+    isAgencyOwner,
+    isManager,
+    isAdmin,
+    isStaff,
+    loading,
+    canInviteAgencyOwner: isSuperAdmin || isAgencyOwner,
+    canInviteManager:     isManager,
+    canInviteAgent:       true,
+    canInviteStaff:       true,
+  };
 }
 
-export async function requireAdmin(supabase: any, userId: string) {
+export async function requireSuperAdmin(supabase: any, userId: string) {
   const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden: admin role required");
+    .from("user_roles").select("role").eq("user_id", userId).eq("role", "super_admin").maybeSingle();
+  if (!data) throw new Error("Forbidden: super admin required");
+}
+
+export async function requireAgencyOwnerOrAbove(supabase: any, userId: string) {
+  const { data } = await supabase
+    .from("user_roles").select("role").eq("user_id", userId)
+    .in("role", ["super_admin", "agency_owner"]).maybeSingle();
+  if (!data) throw new Error("Forbidden: agency owner or above required");
 }
 
 export async function requireManagerOrAdmin(supabase: any, userId: string) {
   const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", ["admin", "manager"])
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden: manager or admin role required");
+    .from("user_roles").select("role").eq("user_id", userId)
+    .in("role", ["super_admin", "agency_owner", "manager"]).maybeSingle();
+  if (!data) throw new Error("Forbidden: manager or above required");
 }
+
+// backward compat
+export async function requireAdmin(supabase: any, userId: string) {
+  return requireAgencyOwnerOrAbove(supabase, userId);
+}
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_OUT") {
+    _cachedRole = null;
+    _cachedUserId = null;
+  }
+});
