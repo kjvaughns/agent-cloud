@@ -1,70 +1,103 @@
+# Commission System Fix + Finances/Dashboard Overhaul
+
 ## Goal
+Commissions are currently broken: posting a deal writes 0 commission rows, the upline never gets overrides, no renewals are scheduled, and the Finances/Dashboard pages show wrong (often zero) numbers. This plan fixes calculation, backfills all existing policies, and rebuilds the displays that read this data.
 
-Two-part change to AgentLink + Client Drawer:
-1. **UI** — Redesign the Contact tab into 6 clearly labeled sections and clean up imported-note formatting.
-2. **Import plumbing** — Make every import path (basic API, full XLS, admin AI upload) write to the same set of tables via a shared helper, so health, banking, beneficiaries, policies (with resolved carrier) and notes all land in the right place.
+## Scope
 
----
+### 1. Database migration
+- Add missing columns to `commission_schedule`: `commission_pct`, `advance_pct`, `annual_premium`, `client_name`, `writing_agent_id`, `writing_agent_name`, `policy_year`, `month_number`.
+- Add indexes on `(agent_id, payment_date)` and `(policy_id)`.
+- Mark GTL carrier rows: `advance_cap='fixed'`, `advance_cap_amount=600`, `advance_cap_months=6` (match by name ILIKE GTL / Guarantee Trust Life).
+- Note: `commission-calculator.ts` already implements most of the spec. Keep it but extend renewal lookup fallback (current code only matches on `level_name`; add a `year_1_pct <= agentPct` fallback).
 
-## Part 1 — Client Drawer UI
+### 2. Commission calculator
+- Keep existing `src/lib/commission-calculator.ts` as the single source of truth.
+- Patch the renewal grid lookup to fall back to the best-matching `year_1_pct` row when no `level_name` match exists.
+- Confirm override walk works for N levels (current code already loops upline chain — verify behavior).
 
-**File:** `src/components/pipeline/client-detail-drawer.tsx`
+### 3. Wire calculator into every policy-create path
+Currently only `postDeal` is wired. Audit and add calls to:
+- `src/lib/pipeline.functions.ts` → `addPolicy` (and any other inserts into `policies`).
+- `src/lib/admin-import.functions.ts` → XLS import policy inserts.
+- `src/lib/import-helpers.ts` → basic AgentLink import.
+- Any other place that inserts into `policies` (will grep before editing).
 
-1. Rewrite `ContactTab` to render 6 `SectionCard`s in this order:
-   - Contact Information (names, phone, phone type, email, DOB, temperature selector inline at bottom)
-   - Address (street, city, state, ZIP, born country/state)
-   - Health Information → `HealthFields`
-   - Banking Information → `BankingFields`
-   - Policy Information → `PolicyFields`
-   - Beneficiaries → new `BeneficiariesInline`
-2. Add `Users` to the `lucide-react` import list.
-3. **HealthFields** — prepend an SSN Last-4 input (4-digit masked, saves via `updateClient` patch on blur) alongside the existing Tobacco toggle; keep the rest of the existing fields.
-4. **PolicyFields** — remove the `client.stage !== "sold"` lock so policy entry is always available; verify the auto-calculated annual premium display (monthly × 12) is present in `AddPolicyInlineForm`.
-5. **BeneficiariesInline** — new inline component (no drawer/route nav) showing existing beneficiaries (name, relationship, DOB, %, delete) plus an inline add form with First/Last/Relationship select/Phone/DOB/Percentage; show total % with green when 100, amber otherwise. Uses existing `saveBeneficiary` / `deleteBeneficiary` server fns.
+### 4. Backfill existing policies
+One-time script (server function callable from admin, OR a SQL migration block) that:
+- Deletes existing rows from `commission_schedule` where `commission_pct IS NULL` (legacy/incomplete rows).
+- Iterates every `policies` row with `annual_premium > 0` and calls the calculator logic.
+- Idempotent: skip policies that already have schedule rows with the new columns populated.
 
-**File:** `src/components/pipeline/notes-tab.tsx`
+### 5. Finances page rebuild
+File: `src/routes/_authenticated/finances.tsx` + `src/lib/finances.functions.ts`.
+- Update `getFinancesData` to return the new columns (mostly done — verify).
+- Rebuild stat tiles: Direct YTD (paid), Override Pending, Trail+Renewal Pending, 90-Day Forecast.
+- Type filter: Advance / Trail / Override / Renewal.
+- `PayoutRow` shows: type badge, advance%, commission%, client/agent name, carrier, product, policy#, annual premium, status, "Month X of policy" or "Policy Year X" labels, GTL cap note.
+- 12-month forecast chart with 4 series (direct/override/trail/renewal).
 
-6. Update note rendering so notes whose body starts with `[Imported from AgentLink]` show a small blue "AgentLink Import" badge and display the stripped body; `contact_type === "medical_note"` shows a red "Medical Note" badge; format `created_at` as `Mon D, YYYY, h:MM AM/PM`.
+### 6. Dashboard / Pipeline / everywhere ALP-or-sale-size is shown
+- Inspect `get_dashboard_metrics` RPC: confirm `my_prod` = policies where `agent_id = auth.uid()` and `team_prod` = strictly-downline (excludes self) to prevent double counting.
+- Audit other places that show ALP / sale size / commission:
+  - `src/routes/_authenticated/dashboard.tsx`
+  - `src/routes/_authenticated/pipeline.tsx` and sold tab
+  - `src/routes/_authenticated/leaderboard.tsx`
+  - `src/routes/_authenticated/analytics.tsx`
+  - `src/components/book-of-business/policy-detail-sheet.tsx`
+  - `src/components/pipeline/client-detail-drawer.tsx` (sold tab earnings)
+- Where they currently compute commission ad-hoc from `monthly_premium × 12 × someGuess`, switch to summing `commission_schedule` for the current user (or for the policy in detail views).
 
----
+## Technical details
 
-## Part 2 — Unified Import Pipeline
+### Migration shape
+```sql
+ALTER TABLE public.commission_schedule
+  ADD COLUMN IF NOT EXISTS commission_pct numeric,
+  ADD COLUMN IF NOT EXISTS advance_pct numeric,
+  ADD COLUMN IF NOT EXISTS annual_premium numeric,
+  ADD COLUMN IF NOT EXISTS client_name text,
+  ADD COLUMN IF NOT EXISTS writing_agent_id uuid,
+  ADD COLUMN IF NOT EXISTS writing_agent_name text,
+  ADD COLUMN IF NOT EXISTS policy_year int DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS month_number int;
 
-**File:** `src/lib/import-helpers.ts`
+CREATE INDEX IF NOT EXISTS commission_schedule_agent_date_idx
+  ON public.commission_schedule (agent_id, payment_date);
+CREATE INDEX IF NOT EXISTS commission_schedule_policy_idx
+  ON public.commission_schedule (policy_id);
 
-7. Add `saveClientFullRecord(supabase, agentId, c)` that:
-   - Runs `detectDuplicate`; on hit, merges only missing fields on the existing client. On miss, inserts new client (incl. `born_country_state`, `ssn_last4`).
-   - Upserts `client_health` (on `client_id`) when any health field is present.
-   - Upserts `client_banking` (on `client_id`) when any banking field is present; account number stored masked (`****` + last 4 only).
-   - For each policy: skip duplicates by `(agent_id, policy_number)`, resolve `carrier_id` by `ilike` match on first word of carrier name against active carriers, auto-fill `annual_premium = monthly × 12` when missing, insert into `policies`.
-   - Upsert beneficiaries on `(client_id, first_name)`.
-   - Insert each note into `contact_history` with `contact_type` of `medical_note` when `note_type` mentions medical/health, else `note`, preserving the `[Imported from AgentLink]` prefix (the NotesTab strips it for display).
-   - Returns `{ clientId, isNew }`.
+UPDATE public.carriers
+   SET advance_cap='fixed', advance_cap_amount=600, advance_cap_months=6
+ WHERE name ILIKE '%guarantee trust life%' OR name ILIKE '%GTL%';
+```
 
-**File:** `src/lib/agentlink.functions.ts`
+### Backfill approach
+Add admin server function `backfillCommissions` that:
+1. Deletes existing rows in `commission_schedule` (clean rebuild — safest because most current rows are missing new columns and amounts may be wrong).
+2. Selects all `policies` with `annual_premium > 0` and `agent_id IS NOT NULL`.
+3. Calls `calculateAndInsertAllCommissions` for each.
+4. Returns count of policies processed and rows inserted.
 
-8. Refactor `importFromAgentLink` per-record loop to assemble a full client object from `allClients` + matching rows from `bookOfBusiness` and `clientNotes`, parse height (`5'10"`), parse SSN-last-4 from medical/reminder notes, then call `saveClientFullRecord`.
-9. Refactor `basicImportFromAgentLink` insert loop to call `saveClientFullRecord` with all available API fields (health, banking, policies, notes) instead of writing only to `clients`.
-10. After client loop: for each `teamRoster` entry without a matching `profiles.email`, insert a `notifications` row for the importing user prompting them to invite the agent (best-effort, no account auto-creation).
+Expose as an "Admin → Recalculate commissions" button on `/admin` (or auto-trigger once via migration if you prefer). Recommend the button approach so it's repeatable.
 
-**File:** `src/lib/admin-import.functions.ts`
+### Files touched
+- `supabase/migrations/<new>.sql` — schema + GTL flag.
+- `src/lib/commission-calculator.ts` — renewal grid fallback fix.
+- `src/lib/pipeline.functions.ts` — wire calculator into `addPolicy`.
+- `src/lib/admin-import.functions.ts` — wire calculator into XLS import.
+- `src/lib/import-helpers.ts` — wire into basic AgentLink import.
+- `src/lib/admin.functions.ts` — add `backfillCommissions` server fn.
+- `src/routes/admin.index.tsx` (or `admin.commissions.tsx`) — add backfill button.
+- `src/lib/finances.functions.ts` — return new columns.
+- `src/routes/_authenticated/finances.tsx` — tiles, filter, row, chart rebuild.
+- `src/routes/_authenticated/dashboard.tsx` — verify production split.
+- Pipeline/leaderboard/analytics/book-of-business views — switch commission readouts to `commission_schedule` aggregates.
 
-11. Update the AI extraction system prompt in `extractDataFromFile` to request the full superset of fields (born_country_state, ssn_last4, tobacco/height/weight/physician/conditions/medications/medical_notes, banking fields, policies[], beneficiaries[], notes[] with date+note_type).
-12. Refactor `confirmAdminImport` client loop to delegate to `saveClientFullRecord(supabase, data.target_agent_id, …)`, normalizing string-vs-object notes.
+## Out of scope
+- Changing existing RLS policies on `commission_schedule` (already correct).
+- Editing the legacy `generate_commission_schedule` Postgres trigger — calculator runs in app code; trigger is a no-op since policies inserted via app go through TS path. (Will verify it doesn't fire and create dupes; if it does, drop it in the same migration.)
 
----
-
-## Notes / Risks
-
-- `saveClientFullRecord` is called from server-fn handlers that already have an RLS-scoped `supabase` client, so it stays plain TypeScript (no `createServerFn` wrapper).
-- `detectDuplicate` currently returns `{type,confidence,existing_client_id}` only — the merge step will re-`select` the existing row to know which fields are missing before patching (avoids overwriting populated data).
-- Carrier resolution is best-effort: unknown names leave `carrier_id = null` rather than skipping the policy.
-- Notes keep the `[Imported from AgentLink]` prefix in the DB so the NotesTab badge logic stays purely presentational and re-imports stay idempotent in spirit.
-- No DB migrations required — all target tables/columns already exist.
-- No changes to `src/integrations/supabase/*` autogen files.
-
-## QA after build
-
-- Open any client → Contact tab shows 6 sections in the specified order; policy section editable regardless of stage; beneficiaries inline with % total color.
-- Notes tab: imported notes render with blue badge and stripped body.
-- Run an AgentLink XLS import on a fixture with health + banking + policies + notes → verify rows appear in `client_health`, `client_banking`, `policies` (with non-null `carrier_id` for known carriers), `beneficiaries`, `contact_history`.
+## Confirmations needed
+1. Backfill: nuke all existing `commission_schedule` rows and rebuild from `policies`, or only fill in policies that have no rows? (Recommend nuke+rebuild since current rows are wrong.)
+2. The legacy `generate_commission_schedule` DB trigger — should I drop it in the migration to avoid double-writes? (Recommend yes.)
