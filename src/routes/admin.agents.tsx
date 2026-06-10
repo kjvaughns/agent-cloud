@@ -239,7 +239,7 @@ function AdminAgents() {
                       className="gap-1.5"
                       onClick={async () => {
                         try {
-                          const res = await syncAgentFn({ data: { target_agent_id: selected.id, npn: selected.npn_number } });
+                          const res: any = await syncAgentFn({ data: { target_agent_id: selected.id, npn: selected.npn_number } });
                           toast.success(`Synced ${res.licenses_imported} licenses for ${selected.first_name}`);
                         } catch (e: any) {
                           toast.error(e.message ?? "Sync failed");
