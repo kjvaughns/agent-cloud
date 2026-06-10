@@ -17,7 +17,7 @@ const CHIPS: { key: Category; label: string; activeCls: string }[] = [
   { key: "medical",   label: "Medical",   activeCls: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900" },
   { key: "height",    label: "Height",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
   { key: "weight",    label: "Weight",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
-  { key: "physician", label: "Physician", activeCls: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900" },
+  { key: "physician", label: "Physician", activeCls: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30" },
   { key: "tobacco",   label: "Tobacco",   activeCls: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900" },
 ];
 
