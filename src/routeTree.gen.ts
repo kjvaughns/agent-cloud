@@ -77,10 +77,10 @@ import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
 import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './routes/_authenticated/back-office/recruiting-funnels'
-import { Route as AuthenticatedBackOfficeOrganizationRouteImport } from './routes/_authenticated/back-office/organization'
 import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
 import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
+import { Route as AuthenticatedAgencySettingsRouteImport } from './routes/_authenticated/agency/settings'
 import { Route as AuthenticatedAccountProducerProfileRouteImport } from './routes/_authenticated/account/producer-profile'
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
@@ -452,12 +452,6 @@ const AuthenticatedBackOfficeRecruitingFunnelsRoute =
     path: '/recruiting-funnels',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
-const AuthenticatedBackOfficeOrganizationRoute =
-  AuthenticatedBackOfficeOrganizationRouteImport.update({
-    id: '/organization',
-    path: '/organization',
-    getParentRoute: () => AuthenticatedBackOfficeRoute,
-  } as any)
 const AuthenticatedBackOfficeClientMarketingRoute =
   AuthenticatedBackOfficeClientMarketingRouteImport.update({
     id: '/client-marketing',
@@ -475,6 +469,12 @@ const AuthenticatedBackOfficeAdvancedDeskRoute =
     id: '/advanced-desk',
     path: '/advanced-desk',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
+const AuthenticatedAgencySettingsRoute =
+  AuthenticatedAgencySettingsRouteImport.update({
+    id: '/agency/settings',
+    path: '/agency/settings',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedAccountProducerProfileRoute =
   AuthenticatedAccountProducerProfileRouteImport.update({
@@ -559,10 +559,10 @@ export interface FileRoutesByFullPath {
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
-  '/back-office/organization': typeof AuthenticatedBackOfficeOrganizationRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -636,10 +636,10 @@ export interface FileRoutesByTo {
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
-  '/back-office/organization': typeof AuthenticatedBackOfficeOrganizationRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -717,10 +717,10 @@ export interface FileRoutesById {
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/_authenticated/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
-  '/_authenticated/back-office/organization': typeof AuthenticatedBackOfficeOrganizationRoute
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -798,10 +798,10 @@ export interface FileRouteTypes {
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
+    | '/agency/settings'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
-    | '/back-office/organization'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
@@ -875,10 +875,10 @@ export interface FileRouteTypes {
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
+    | '/agency/settings'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
-    | '/back-office/organization'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
@@ -955,10 +955,10 @@ export interface FileRouteTypes {
     | '/_authenticated/account/help'
     | '/_authenticated/account/my-landing-page'
     | '/_authenticated/account/producer-profile'
+    | '/_authenticated/agency/settings'
     | '/_authenticated/back-office/advanced-desk'
     | '/_authenticated/back-office/case-design'
     | '/_authenticated/back-office/client-marketing'
-    | '/_authenticated/back-office/organization'
     | '/_authenticated/back-office/recruiting-funnels'
     | '/_authenticated/back-office/recruiting-tracker'
     | '/_authenticated/contracting/annuity-training'
@@ -1485,13 +1485,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
-    '/_authenticated/back-office/organization': {
-      id: '/_authenticated/back-office/organization'
-      path: '/organization'
-      fullPath: '/back-office/organization'
-      preLoaderRoute: typeof AuthenticatedBackOfficeOrganizationRouteImport
-      parentRoute: typeof AuthenticatedBackOfficeRoute
-    }
     '/_authenticated/back-office/client-marketing': {
       id: '/_authenticated/back-office/client-marketing'
       path: '/client-marketing'
@@ -1512,6 +1505,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/back-office/advanced-desk'
       preLoaderRoute: typeof AuthenticatedBackOfficeAdvancedDeskRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
+    '/_authenticated/agency/settings': {
+      id: '/_authenticated/agency/settings'
+      path: '/agency/settings'
+      fullPath: '/agency/settings'
+      preLoaderRoute: typeof AuthenticatedAgencySettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/account/producer-profile': {
       id: '/_authenticated/account/producer-profile'
@@ -1577,7 +1577,6 @@ interface AuthenticatedBackOfficeRouteChildren {
   AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
   AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   AuthenticatedBackOfficeClientMarketingRoute: typeof AuthenticatedBackOfficeClientMarketingRoute
-  AuthenticatedBackOfficeOrganizationRoute: typeof AuthenticatedBackOfficeOrganizationRoute
   AuthenticatedBackOfficeRecruitingFunnelsRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
 }
@@ -1590,8 +1589,6 @@ const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren
       AuthenticatedBackOfficeCaseDesignRouteWithChildren,
     AuthenticatedBackOfficeClientMarketingRoute:
       AuthenticatedBackOfficeClientMarketingRoute,
-    AuthenticatedBackOfficeOrganizationRoute:
-      AuthenticatedBackOfficeOrganizationRoute,
     AuthenticatedBackOfficeRecruitingFunnelsRoute:
       AuthenticatedBackOfficeRecruitingFunnelsRoute,
     AuthenticatedBackOfficeRecruitingTrackerRoute:
@@ -1694,6 +1691,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
+  AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
   AuthenticatedToolsInboundCallsRoute: typeof AuthenticatedToolsInboundCallsRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
   AuthenticatedToolsNeedsAnalysisRoute: typeof AuthenticatedToolsNeedsAnalysisRoute
@@ -1726,6 +1724,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountMyLandingPageRoute,
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
+  AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
   AuthenticatedToolsInboundCallsRoute: AuthenticatedToolsInboundCallsRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
   AuthenticatedToolsNeedsAnalysisRoute: AuthenticatedToolsNeedsAnalysisRoute,
