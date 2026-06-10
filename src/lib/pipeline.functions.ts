@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { calculateAndInsertCommission } from "@/lib/commission-calculator";
+import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -435,37 +435,27 @@ export const addPolicy = createServerFn({ method: "POST" })
     const { data: row, error } = await supabase.from("policies").insert(payload).select("id").single();
     if (error) throw new Error(error.message);
 
-    await calculateAndInsertCommission(
-      supabase, row.id, userId,
-      data.carrier_id ?? null, data.product ?? "",
-      data.monthly_premium ?? 0, data.effective_date ?? null,
-    );
+    // Look up client name for commission tracking
+    const { data: clientRow } = await supabase
+      .from("clients")
+      .select("first_name, last_name")
+      .eq("id", data.client_id)
+      .maybeSingle();
+    const clientName = clientRow
+      ? `${clientRow.first_name ?? ""} ${clientRow.last_name ?? ""}`.trim()
+      : "";
+
+    await calculateAndInsertAllCommissions(supabase, {
+      policyId: row.id,
+      agentId: userId,
+      carrierId: data.carrier_id ?? null,
+      product: data.product ?? "",
+      monthlyPremium: data.monthly_premium ?? 0,
+      effectiveDate: data.effective_date ?? null,
+      clientName,
+    });
 
     return row;
-  });
-
-// ---------- Update policy ----------
-export const updatePolicy = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    id:              z.string().uuid(),
-    carrier_id:      z.string().uuid().optional().nullable(),
-    product:         z.string().max(200).optional(),
-    policy_number:   z.string().max(100).optional().nullable(),
-    monthly_premium: z.number().optional().nullable(),
-    annual_premium:  z.number().optional().nullable(),
-    face_amount:     z.number().optional().nullable(),
-    effective_date:  z.string().optional().nullable(),
-    status:          z.string().optional(),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    const { id, ...patch } = data;
-    const { data: existing } = await supabase.from("policies").select("agent_id").eq("id", id).single();
-    if (!existing || existing.agent_id !== userId) throw new Error("Not authorized");
-    const { error } = await supabase.from("policies").update(patch).eq("id", id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
   });
 
 // ---------- Calendar events ----------
