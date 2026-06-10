@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { detectDuplicate } from "@/lib/import-helpers";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -309,6 +310,21 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
     );
     const results = [];
     for (const agent of data.agents) {
+      // Create placeholder auth user so the agent appears in the roster immediately
+      const { data: authData } = await (supabaseAdmin as any).auth.admin.createUser({
+        email: agent.email,
+        email_confirm: true,
+        user_metadata: { first_name: agent.first_name, last_name: agent.last_name },
+      });
+      if (authData?.user) {
+        await (supabaseAdmin as any).from("profiles").update({
+          first_name: agent.first_name,
+          last_name: agent.last_name,
+          status: "imported",
+          upline_id: userId,
+        }).eq("id", authData.user.id);
+      }
+
       const token = crypto.randomUUID();
       const { error } = await supabase.from("invitation_links").insert({
         created_by: userId,

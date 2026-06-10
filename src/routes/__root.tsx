@@ -138,6 +138,16 @@ function RootComponent() {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event !== "SIGNED_IN" || !session?.user) return;
+
+      // Auto-upgrade imported placeholder to active on first real sign-in
+      try {
+        const { data: profile } = await supabase
+          .from("profiles").select("status").eq("id", session.user.id).maybeSingle();
+        if ((profile as any)?.status === "imported") {
+          await supabase.from("profiles").update({ status: "active" }).eq("id", session.user.id);
+        }
+      } catch {}
+
       const provider = (session.user.app_metadata as any)?.provider;
       if (provider === "google") {
         try {

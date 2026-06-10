@@ -83,6 +83,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: "bg-amber-500/15 text-amber-600 border-amber-500/30",
     inactive: "bg-muted text-muted-foreground border-border",
     terminated: "bg-red-500/15 text-red-600 border-red-500/30",
+    imported: "bg-blue-500/15 text-blue-700 border-blue-500/30",
   };
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
@@ -93,7 +94,11 @@ function TeamPage() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
   const { data: downlineAll } = useSuspenseQuery(downlineQO);
   const downline = useMemo(
-    () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated"),
+    () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated" && a.status !== "imported"),
+    [downlineAll],
+  );
+  const downlineForRoster = useMemo(
+    () => downlineAll.filter((a) => !(a as any).is_hidden),
     [downlineAll],
   );
   const { data: adminCheck } = useQuery(isAdminQO);
@@ -144,7 +149,7 @@ function TeamPage() {
           <TabsContent value="roster" className="space-y-6 mt-4">
             <KpiRow />
             <DepthChart />
-            <RosterTable downline={downline} onOpen={setOpenAgent} />
+            <RosterTable downline={downlineForRoster} onOpen={setOpenAgent} />
           </TabsContent>
 
           <TabsContent value="org" className="mt-4">
@@ -349,7 +354,7 @@ function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (
 // ============ Roster Table ============
 function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState("all_except_imported");
   const [depth, setDepth] = useState("all");
   const [page, setPage] = useState(0);
   const perPage = 25;
@@ -359,7 +364,8 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
   const filtered = useMemo(() => downline.filter((a) => {
     const q = search.toLowerCase();
     if (q && !`${a.first_name} ${a.last_name} ${a.email}`.toLowerCase().includes(q)) return false;
-    if (status !== "all" && a.status !== status) return false;
+    if (status === "all_except_imported" && (a.status === "imported" || a.status === "terminated")) return false;
+    if (status !== "all" && status !== "all_except_imported" && a.status !== status) return false;
     if (depth !== "all" && a.depth_level !== Number(depth)) return false;
     return true;
   }), [downline, search, status, depth]);
@@ -374,13 +380,15 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
         <div className="flex gap-2 flex-wrap">
           <Input placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="max-w-xs" />
           <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="all_except_imported">Active / Pending / Inactive</SelectItem>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
               <SelectItem value="terminated">Terminated</SelectItem>
+              <SelectItem value="imported">Imported (Not Joined)</SelectItem>
             </SelectContent>
           </Select>
           <Select value={depth} onValueChange={(v) => { setDepth(v); setPage(0); }}>
@@ -544,8 +552,8 @@ function RootNode() {
 
 function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
   const isCollapsed = collapsed.has(node.id);
-  const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : "border-l-muted-foreground";
-  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : "bg-muted-foreground";
+  const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-blue-500" : "border-l-muted-foreground";
+  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-blue-500" : "bg-muted-foreground";
   return (
     <div className="flex flex-col items-center gap-4">
       <Tooltip>

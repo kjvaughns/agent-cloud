@@ -51,18 +51,39 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     if (!inv || inv.expired) throw new Error("Invite expired or not found");
     if (inv.linked_agent_id && !inv.is_reusable) throw new Error("This invite has already been used");
 
+    let newUserId: string;
+
     const { data: created, error: signErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
       email_confirm: true,
       user_metadata: { first_name: data.first_name, last_name: data.last_name },
     });
-    if (signErr || !created.user) throw new Error(signErr?.message ?? "Failed to create account");
 
-    const newUserId = created.user.id;
+    if (signErr) {
+      // Check if an imported placeholder already exists for this email
+      const { data: existingProfile } = await (supabaseAdmin as any)
+        .from("profiles").select("id, status").eq("email", data.email).maybeSingle();
+      if (!existingProfile || existingProfile.status !== "imported") {
+        throw new Error(signErr.message ?? "Failed to create account");
+      }
+      // Upgrade imported placeholder: set password so they can sign in
+      await (supabaseAdmin as any).auth.admin.updateUserById(existingProfile.id, {
+        password: data.password,
+        email_confirm: true,
+      });
+      newUserId = existingProfile.id;
+    } else {
+      if (!created.user) throw new Error("Failed to create account");
+      newUserId = created.user.id;
+    }
+
     await supabaseAdmin.from("profiles").update({
       upline_id: inv.created_by,
       phone: data.phone ?? null,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      status: "active",
     }).eq("id", newUserId);
 
     // Assign role from invite

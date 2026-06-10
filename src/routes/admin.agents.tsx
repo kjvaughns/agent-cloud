@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, RefreshCw, Search, User } from "lucide-react";
+import { Loader2, RefreshCw, Search, User, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -25,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: "bg-slate-500/15 text-slate-500",
   terminated: "bg-red-500/15 text-red-600",
   pending: "bg-yellow-500/15 text-yellow-600",
+  imported: "bg-blue-500/15 text-blue-700",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -133,13 +134,14 @@ function AdminAgents() {
           <Input placeholder="Search name or email..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="terminated">Terminated</SelectItem>
+            <SelectItem value="imported">Imported (Not Joined)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={roleFilter} onValueChange={setRoleFilter}>
@@ -152,6 +154,23 @@ function AdminAgents() {
           </SelectContent>
         </Select>
       </div>
+
+      {(() => {
+        const importedCount = agents.filter((a) => a.status === "imported").length;
+        if (importedCount === 0 || statusFilter === "imported") return null;
+        return (
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-sm">
+            <UserCheck className="h-4 w-4 text-blue-600 shrink-0" />
+            <span className="flex-1 text-blue-700">{importedCount} imported agent{importedCount !== 1 ? "s" : ""} haven't joined yet.</span>
+            <button
+              className="text-xs font-medium text-blue-700 underline hover:no-underline"
+              onClick={() => setStatusFilter("imported")}
+            >
+              View
+            </button>
+          </div>
+        );
+      })()}
 
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
