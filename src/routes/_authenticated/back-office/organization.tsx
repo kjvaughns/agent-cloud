@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/back-office/organization" as any)({
+export const Route = createFileRoute("/_authenticated/back-office/organization")({
   ssr: false,
   head: () => ({ meta: [{ title: "Agency Settings — Agent Cloud" }] }),
   beforeLoad: async () => {
