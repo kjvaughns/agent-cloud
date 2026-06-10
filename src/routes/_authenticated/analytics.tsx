@@ -454,7 +454,7 @@ function TeamPanel({ range }: { range: RangeKey }) {
         <Table>
           <TableHeader><TableRow><TableHead>Rank</TableHead><TableHead>Agent</TableHead><TableHead>Policies</TableHead><TableHead>Premium</TableHead><TableHead>Avg Deal</TableHead><TableHead>Trend</TableHead></TableRow></TableHeader>
           <TableBody>{(d?.rows ?? []).map((r, i) => (
-            <TableRow key={r.id} className={r.id === d?.self_id ? "bg-blue-500/10" : ""}>
+            <TableRow key={r.id} className={r.id === d?.self_id ? "bg-[#C9A227]/10" : ""}>
               <TableCell>{i + 1}</TableCell>
               <TableCell className="font-medium">{r.name}</TableCell>
               <TableCell>{r.policies}</TableCell>
