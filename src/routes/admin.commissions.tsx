@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   adminListCommissionGrid,
   adminUpsertCommissionRow,
   adminListAllAgents,
+  aiExtractCompGrid,
+  saveExtractedGrid,
 } from "@/lib/admin.functions";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { Button } from "@/components/ui/button";
@@ -14,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, Plus, ChevronDown, ChevronRight, Brain, Upload, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +27,7 @@ export const Route = createFileRoute("/admin/commissions")({
 });
 
 function AdminCommissions() {
-  const [tab, setTab] = useState<"grids" | "assignments">("grids");
+  const [tab, setTab] = useState<"grids" | "assignments" | "ai-upload">("grids");
   const [grids, setGrids] = useState<any[]>([]);
   const [carriers, setCarriers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,16 +91,17 @@ function AdminCommissions() {
       </div>
 
       <div className="flex gap-1 border-b border-border pb-0">
-        {(["grids", "assignments"] as const).map((t) => (
+        {(["grids", "assignments", "ai-upload"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={cn(
-              "px-4 py-2 text-sm capitalize transition-colors border-b-2 -mb-px",
+              "px-4 py-2 text-sm transition-colors border-b-2 -mb-px flex items-center gap-1.5",
               tab === t ? "border-primary text-foreground font-medium" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
-            {t === "grids" ? "Carrier Grids" : "Agent Assignments"}
+            {t === "ai-upload" && <Brain className="h-3.5 w-3.5" />}
+            {t === "grids" ? "Carrier Grids" : t === "assignments" ? "Agent Assignments" : "AI Upload"}
           </button>
         ))}
       </div>
@@ -170,6 +173,8 @@ function AdminCommissions() {
             </div>
           )}
         </div>
+      ) : tab === "ai-upload" ? (
+        <AdminCompGridsTab carriers={carriers} onSaved={load} />
       ) : (
         <div className="space-y-4">
           <Input
@@ -257,6 +262,250 @@ function AdminCommissions() {
         </DialogContent>
       </Dialog>
 
+    </div>
+  );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res((reader.result as string).split(",")[1]);
+    reader.onerror = rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+function AdminCompGridsTab({
+  carriers,
+  onSaved,
+}: {
+  carriers: { id: string; name: string }[];
+  onSaved: () => void;
+}) {
+  const [carrierId, setCarrierId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [phase, setPhase] = useState<"idle" | "extracting" | "review" | "saving" | "done">("idle");
+  const [extracted, setExtracted] = useState<{ rows: any[] } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const extractFn = useServerFn(aiExtractCompGrid);
+  const saveFn = useServerFn(saveExtractedGrid);
+
+  const carrierName = carriers.find((c) => c.id === carrierId)?.name ?? "";
+
+  const levels = extracted
+    ? Array.from(
+        new Map(extracted.rows.map((r: any) => [r.level_name, r.year_1_pct])).entries()
+      )
+        .sort((a: any, b: any) => b[1] - a[1])
+        .map(([name, pct]: any) => ({ name, pct }))
+    : [];
+  const products = extracted
+    ? (Array.from(new Set(extracted.rows.map((r: any) => r.product_name as string))) as string[]).sort()
+    : [];
+  const topPct = levels[0]?.pct ?? 0;
+
+  async function handleExtract() {
+    if (!carrierId || !file) return;
+    setPhase("extracting");
+    setErr(null);
+    try {
+      const base64 = await fileToBase64(file);
+      const result = await extractFn({
+        data: { carrier_id: carrierId, carrier_name: carrierName, file_base64: base64, file_mime: file.type || "application/octet-stream" },
+      });
+      setExtracted(result);
+      setPhase("review");
+    } catch (e: any) {
+      setErr(e.message);
+      setPhase("idle");
+    }
+  }
+
+  async function handleSave() {
+    if (!extracted) return;
+    setPhase("saving");
+    try {
+      await saveFn({ data: { carrier_id: carrierId, rows: extracted.rows } });
+      toast.success(`Saved ${extracted.rows.length} rows for ${carrierName}`);
+      setPhase("done");
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message);
+      setPhase("review");
+    }
+  }
+
+  function reset() {
+    setPhase("idle");
+    setExtracted(null);
+    setFile(null);
+    setErr(null);
+  }
+
+  return (
+    <div className="space-y-4">
+      {(phase === "idle" || phase === "extracting") && (
+        <Card className="p-5">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">AI Grid Extraction</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Upload a carrier comp grid (PDF, image, or CSV) and AI will extract all levels and rates automatically.
+              <span className="text-amber-600 font-medium"> This replaces all existing rows for the selected carrier.</span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Carrier</label>
+                <Select value={carrierId} onValueChange={setCarrierId} disabled={phase === "extracting"}>
+                  <SelectTrigger><SelectValue placeholder="Select carrier" /></SelectTrigger>
+                  <SelectContent>
+                    {carriers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Comp Grid File</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                />
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-muted-foreground font-normal truncate"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={phase === "extracting"}
+                >
+                  <Upload className="h-4 w-4 mr-2 shrink-0" />
+                  <span className="truncate">{file ? file.name : "Choose file..."}</span>
+                </Button>
+              </div>
+            </div>
+            {err && <p className="text-sm text-destructive">{err}</p>}
+            <Button
+              onClick={handleExtract}
+              disabled={!carrierId || !file || phase === "extracting"}
+              className="w-full sm:w-auto"
+            >
+              {phase === "extracting" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Extracting...</>
+              ) : (
+                <><Brain className="h-4 w-4 mr-2" />Extract with AI</>
+              )}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {phase === "review" && extracted && (
+        <div className="space-y-4">
+          <Card className="p-4">
+            <div className="flex flex-wrap items-start gap-3 justify-between">
+              <div>
+                <div className="font-semibold">{carrierName} — Extracted Grid</div>
+                <div className="text-sm text-muted-foreground mt-0.5">
+                  {levels.length} levels · {products.length} products · {extracted.rows.length} total rows
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {levels.map((l: any) => (
+                    <Badge
+                      key={l.name}
+                      className={cn(l.pct === topPct ? "bg-amber-500 text-white" : "bg-secondary text-secondary-foreground")}
+                    >
+                      {l.pct === topPct ? "★ " : ""}{l.name} ({l.pct}%)
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={reset}>Re-upload</Button>
+                <Button size="sm" onClick={handleSave}>Save to Database</Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground border-b border-r bg-muted/40 sticky left-0 min-w-[160px] z-10">
+                    Product
+                  </th>
+                  {levels.map((l: any) => (
+                    <th
+                      key={l.name}
+                      className={cn(
+                        "text-center px-3 py-2 font-medium border-b border-r whitespace-nowrap min-w-[80px]",
+                        l.pct === topPct ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted/40 text-muted-foreground"
+                      )}
+                    >
+                      {l.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {products.map((p: string, pi: number) => (
+                  <tr key={p} className={cn("hover:bg-muted/20", pi % 2 === 1 && "bg-muted/5")}>
+                    <td className="px-3 py-2 sticky left-0 bg-background border-r font-medium whitespace-nowrap">
+                      {p}
+                    </td>
+                    {levels.map((l: any) => {
+                      const cell = extracted.rows.find(
+                        (r: any) => r.product_name === p && r.level_name === l.name
+                      );
+                      return (
+                        <td
+                          key={l.name}
+                          className={cn(
+                            "px-3 py-2 text-center font-mono text-xs border-r",
+                            l.pct === topPct && "bg-amber-500/10"
+                          )}
+                        >
+                          {cell ? (
+                            <span className={cn(l.pct === topPct && "text-amber-700 dark:text-amber-400 font-semibold")}>
+                              {cell.year_1_pct}%
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/40">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {err && <p className="text-sm text-destructive mt-2">{err}</p>}
+        </div>
+      )}
+
+      {phase === "saving" && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-3" />
+          <span className="text-muted-foreground">Saving grid data...</span>
+        </div>
+      )}
+
+      {phase === "done" && (
+        <Card className="p-8 text-center space-y-3">
+          <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
+          <div className="font-semibold text-lg">Grid saved successfully</div>
+          <div className="text-sm text-muted-foreground">
+            {extracted?.rows.length} rows saved for {carrierName}
+          </div>
+          <Button variant="outline" onClick={reset}>Upload Another</Button>
+        </Card>
+      )}
     </div>
   );
 }

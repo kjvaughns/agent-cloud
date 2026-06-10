@@ -797,3 +797,141 @@ export const adminSyncAgentByNpn = createServerFn({ method: "POST" })
 
     return { licenses_imported: licensesImported };
   });
+
+export const aiExtractCompGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      carrier_id: z.string().uuid(),
+      carrier_name: z.string().optional(),
+      file_base64: z.string().min(1),
+      file_mime: z.string().min(1),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("AI gateway not configured (LOVABLE_API_KEY missing)");
+
+    const systemPrompt = `You are an insurance commission grid extractor. Extract ALL commission rates from this document for carrier: ${data.carrier_name ?? "the carrier"}.
+
+Return ONLY valid JSON in this exact format, with no markdown or code fences:
+{
+  "rows": [
+    {
+      "product_name": "string",
+      "level_name": "string",
+      "year_1_pct": number,
+      "years_2_5_pct": number,
+      "years_6_plus_pct": number
+    }
+  ]
+}
+
+Rules:
+- level_name must be the exact level name shown (e.g., "GA (10)", "100", "Street", "MGA")
+- All percentage values are numbers (e.g., 80 for 80%)
+- years_2_5_pct and years_6_plus_pct default to 0 if not shown
+- Include ALL products and ALL levels visible — do not omit any rows`;
+
+    const isText = data.file_mime.includes("csv") || data.file_mime.includes("text");
+
+    let messages: any[];
+    if (isText) {
+      const textContent = Buffer.from(data.file_base64, "base64").toString("utf-8");
+      messages = [{ role: "user", content: `${systemPrompt}\n\nDocument content:\n${textContent}` }];
+    } else {
+      messages = [
+        {
+          role: "user",
+          content: [
+            { type: "image_url", image_url: { url: `data:${data.file_mime};base64,${data.file_base64}` } },
+            { type: "text", text: systemPrompt },
+          ],
+        },
+      ];
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "google/gemini-2.0-flash", messages, temperature: 0 }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`AI gateway error ${response.status}: ${errText.slice(0, 300)}`);
+    }
+
+    const completion = await response.json();
+    const content: string = completion.choices?.[0]?.message?.content ?? "";
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      const match = content.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("AI returned unreadable output — try a clearer image or CSV format");
+      parsed = JSON.parse(match[0]);
+    }
+
+    const rows = (parsed.rows ?? [])
+      .map((r: any) => ({
+        product_name: String(r.product_name ?? "").trim(),
+        level_name: String(r.level_name ?? "").trim(),
+        year_1_pct: Number(r.year_1_pct ?? 0),
+        years_2_5_pct: Number(r.years_2_5_pct ?? 0),
+        years_6_plus_pct: Number(r.years_6_plus_pct ?? 0),
+      }))
+      .filter((r: any) => r.product_name && r.level_name);
+
+    if (rows.length === 0) throw new Error("AI found no commission rows — check that the file contains a rate table");
+
+    return { rows };
+  });
+
+export const saveExtractedGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      carrier_id: z.string().uuid(),
+      rows: z
+        .array(
+          z.object({
+            product_name: z.string().min(1).max(200),
+            level_name: z.string().min(1).max(100),
+            year_1_pct: z.number().min(0).max(999),
+            years_2_5_pct: z.number().min(0).max(999).default(0),
+            years_6_plus_pct: z.number().min(0).max(999).default(0),
+          })
+        )
+        .min(1)
+        .max(5000),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+
+    const { error: delErr } = await supabase
+      .from("commission_grids")
+      .delete()
+      .eq("carrier_id", data.carrier_id);
+    if (delErr) throw new Error(delErr.message);
+
+    const insertRows = data.rows.map((r) => ({
+      carrier_id: data.carrier_id,
+      product_name: r.product_name,
+      level_name: r.level_name,
+      year_1_pct: r.year_1_pct,
+      years_2_5_pct: r.years_2_5_pct,
+      years_6_plus_pct: r.years_6_plus_pct,
+    }));
+
+    const { error: insErr } = await supabase.from("commission_grids").insert(insertRows);
+    if (insErr) throw new Error(insErr.message);
+
+    return { inserted: insertRows.length };
+  });
