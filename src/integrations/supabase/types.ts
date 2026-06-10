@@ -221,6 +221,8 @@ export type Database = {
           carrier_id: string
           commission_level: string | null
           id: string
+          pending: boolean
+          writing_number: string | null
         }
         Insert: {
           agent_id: string
@@ -230,6 +232,8 @@ export type Database = {
           carrier_id: string
           commission_level?: string | null
           id?: string
+          pending?: boolean
+          writing_number?: string | null
         }
         Update: {
           agent_id?: string
@@ -239,6 +243,8 @@ export type Database = {
           carrier_id?: string
           commission_level?: string | null
           id?: string
+          pending?: boolean
+          writing_number?: string | null
         }
         Relationships: [
           {
