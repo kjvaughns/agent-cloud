@@ -1547,6 +1547,7 @@ export type Database = {
           expires_at: string
           id: string
           invite_signature_html: string | null
+          invited_role: string | null
           is_reusable: boolean
           last_resent_at: string | null
           link_name: string | null
@@ -1556,6 +1557,7 @@ export type Database = {
           new_agent_first_name: string | null
           new_agent_last_name: string | null
           onboarding_step: number
+          organization_id: string | null
           sent_on_behalf_of: string | null
           status: string
           surelc_agent_id: string | null
@@ -1571,6 +1573,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invite_signature_html?: string | null
+          invited_role?: string | null
           is_reusable?: boolean
           last_resent_at?: string | null
           link_name?: string | null
@@ -1580,6 +1583,7 @@ export type Database = {
           new_agent_first_name?: string | null
           new_agent_last_name?: string | null
           onboarding_step?: number
+          organization_id?: string | null
           sent_on_behalf_of?: string | null
           status?: string
           surelc_agent_id?: string | null
@@ -1595,6 +1599,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invite_signature_html?: string | null
+          invited_role?: string | null
           is_reusable?: boolean
           last_resent_at?: string | null
           link_name?: string | null
@@ -1604,6 +1609,7 @@ export type Database = {
           new_agent_first_name?: string | null
           new_agent_last_name?: string | null
           onboarding_step?: number
+          organization_id?: string | null
           sent_on_behalf_of?: string | null
           status?: string
           surelc_agent_id?: string | null
@@ -1615,6 +1621,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1840,6 +1853,59 @@ export type Database = {
           uploaded_by?: string
         }
         Relationships: []
+      }
+      organizations: {
+        Row: {
+          accent_color: string | null
+          active: boolean | null
+          created_at: string | null
+          custom_domain: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string | null
+          parent_org_id: string | null
+          slug: string
+          tagline: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          active?: boolean | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id?: string | null
+          parent_org_id?: string | null
+          slug: string
+          tagline?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          active?: boolean | null
+          created_at?: string | null
+          custom_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string | null
+          parent_org_id?: string | null
+          slug?: string
+          tagline?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pdb_uploads: {
         Row: {
@@ -2157,9 +2223,11 @@ export type Database = {
           needs_transfer_request: boolean | null
           npn_number: string | null
           onboarding_completed_at: string | null
+          organization_id: string | null
           phone: string | null
           ssn_encrypted: string | null
           ssn_last4: string | null
+          staff_for_user_id: string | null
           state: string | null
           status: string
           street_address: string | null
@@ -2194,9 +2262,11 @@ export type Database = {
           needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
+          organization_id?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
           ssn_last4?: string | null
+          staff_for_user_id?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
@@ -2231,9 +2301,11 @@ export type Database = {
           needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
+          organization_id?: string | null
           phone?: string | null
           ssn_encrypted?: string | null
           ssn_last4?: string | null
+          staff_for_user_id?: string | null
           state?: string | null
           status?: string
           street_address?: string | null
@@ -2244,6 +2316,13 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_upline_id_fkey"
             columns: ["upline_id"]
