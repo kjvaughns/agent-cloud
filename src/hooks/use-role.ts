@@ -39,11 +39,11 @@ export function useRole() {
   }, []);
 
   const isSuperAdmin  = role === "super_admin";
-  const isAgencyOwner = role === "agency_owner" || role === "super_admin";
-  const isManager     = role === "manager" || role === "agency_owner" || role === "super_admin";
+  const isAgencyOwner = role === "agency_owner" || role === "super_admin" || role === "admin";
+  const isManager     = role === "manager" || role === "agency_owner" || role === "super_admin" || role === "admin";
   const isStaff       = role === "staff";
-  // backward compat — existing code that checks isAdmin still works
-  const isAdmin       = role === "super_admin" || role === "agency_owner";
+  // backward compat — legacy 'admin' enum value is treated as agency-owner-level admin
+  const isAdmin       = role === "super_admin" || role === "agency_owner" || role === "admin";
 
   return {
     role,
