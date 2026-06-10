@@ -538,6 +538,7 @@ function HealthFields({ detail }: { detail: any }) {
   useEffect(() => { if (detail?.health) setForm(detail.health); }, [detail?.health]);
 
   const upsertHealthFn = useServerFn(upsertClientHealth);
+  const updateClientFn = useServerFn(updateClient);
   const mut = useMutation({
     mutationFn: (patch: any) => upsertHealthFn({ data: { client_id: detail.client.id, ...patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
