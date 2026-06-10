@@ -1,3 +1,7 @@
+export type CommissionCalcResult =
+  | { ok: true; rows_inserted: number }
+  | { ok: false; reason: "no_carrier" | "no_premium" | "no_writing_agent_level" };
+
 export async function calculateAndInsertAllCommissions(
   supabase: any,
   {
@@ -6,6 +10,7 @@ export async function calculateAndInsertAllCommissions(
     carrierId,
     product,
     monthlyPremium,
+    annualPremium,
     effectiveDate,
     clientName,
   }: {
@@ -14,11 +19,18 @@ export async function calculateAndInsertAllCommissions(
     carrierId: string | null;
     product: string;
     monthlyPremium: number;
+    annualPremium?: number | null;
     effectiveDate: string | null;
     clientName: string;
   },
-) {
-  if (!carrierId || !monthlyPremium) return;
+): Promise<CommissionCalcResult> {
+  if (!carrierId) return { ok: false, reason: "no_carrier" };
+  // Prefer Book of Business annual premium; fall back to monthly*12.
+  const annual = annualPremium && annualPremium > 0
+    ? +Number(annualPremium).toFixed(2)
+    : +(Number(monthlyPremium ?? 0) * 12).toFixed(2);
+  if (!annual) return { ok: false, reason: "no_premium" };
+
 
   function addMonths(d: Date, m: number): Date {
     const r = new Date(d);
@@ -48,10 +60,9 @@ export async function calculateAndInsertAllCommissions(
     .eq("carrier_id", carrierId)
     .maybeSingle();
 
-  if (!agentLevel?.assigned_pct) return;
+  if (!agentLevel?.assigned_pct) return { ok: false, reason: "no_writing_agent_level" };
 
   const agentPct = Number(agentLevel.assigned_pct);
-  const annual = +(monthlyPremium * 12).toFixed(2);
   const year1 = +(annual * agentPct / 100).toFixed(2);
   const baseDate = new Date((effectiveDate || new Date().toISOString().slice(0, 10)) + "T00:00:00");
 
@@ -272,6 +283,7 @@ export async function calculateAndInsertAllCommissions(
     const { error } = await supabase.from("commission_schedule").insert(rows);
     if (error) throw new Error(`Commission insert error: ${error.message}`);
   }
+  return { ok: true, rows_inserted: rows.length };
 }
 
 // Keep old name as alias for backward compatibility

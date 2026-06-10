@@ -209,7 +209,8 @@ function RecalcCommissionsButton() {
         setRunning(true);
         try {
           const res = await fn();
-          toast.success(`Recalculated: ${res.processed} policies, ${res.errors} errors, ${res.skipped_no_carrier_or_premium} skipped.`);
+          const s = res.skipped;
+          toast.success(`Recalculated: ${res.processed} policies, ${res.errors} errors. Skipped — no carrier: ${s.no_carrier}, no premium: ${s.no_premium}, no comp level: ${s.no_writing_agent_level}.`);
         } catch (e: any) {
           toast.error(`Failed: ${e.message}`);
         } finally {

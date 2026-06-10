@@ -1095,15 +1095,15 @@ export const backfillCommissions = createServerFn({ method: "POST" })
       .gte("created_at", "1900-01-01");
     if (delErr) throw new Error(`Delete failed: ${delErr.message}`);
 
-    // 2. Load all policies that have premium and an agent
+    // 2. Load all policies that have an agent
     const { data: policies, error: polErr } = await supabase
       .from("policies")
       .select("id, agent_id, carrier_id, product, monthly_premium, annual_premium, effective_date, client_id, clients(first_name, last_name)")
-      .gt("monthly_premium", 0)
       .not("agent_id", "is", null);
     if (polErr) throw new Error(`Load failed: ${polErr.message}`);
 
-    let processed = 0, skipped = 0, errors = 0;
+    let processed = 0, errors = 0;
+    const skipped = { no_carrier: 0, no_premium: 0, no_writing_agent_level: 0 };
     const errorSamples: string[] = [];
 
     for (const p of policies ?? []) {
@@ -1111,18 +1111,20 @@ export const backfillCommissions = createServerFn({ method: "POST" })
         ? `${(p.clients as any).first_name ?? ""} ${(p.clients as any).last_name ?? ""}`.trim()
         : "";
       const monthly = Number(p.monthly_premium ?? 0);
-      if (!monthly || !p.carrier_id) { skipped++; continue; }
+      const annual = Number(p.annual_premium ?? 0);
       try {
-        await calculateAndInsertAllCommissions(supabase, {
+        const res = await calculateAndInsertAllCommissions(supabase, {
           policyId: p.id,
           agentId: p.agent_id,
           carrierId: p.carrier_id,
           product: p.product ?? "",
           monthlyPremium: monthly,
+          annualPremium: annual,
           effectiveDate: p.effective_date ?? null,
           clientName,
         });
-        processed++;
+        if (res.ok) processed++;
+        else skipped[res.reason]++;
       } catch (e) {
         errors++;
         if (errorSamples.length < 5) errorSamples.push((e as Error).message);
@@ -1133,7 +1135,7 @@ export const backfillCommissions = createServerFn({ method: "POST" })
       ok: true,
       total_policies: policies?.length ?? 0,
       processed,
-      skipped_no_carrier_or_premium: skipped,
+      skipped,
       errors,
       error_samples: errorSamples,
     };
