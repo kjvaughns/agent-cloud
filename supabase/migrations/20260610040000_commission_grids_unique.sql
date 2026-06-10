@@ -4,7 +4,7 @@ WHERE id NOT IN (
   SELECT DISTINCT ON (carrier_id, product_name, level_name, COALESCE(age_group_min, -1))
     id
   FROM public.commission_grids
-  ORDER BY carrier_id, product_name, level_name, COALESCE(age_group_min, -1), created_at DESC NULLS LAST
+  ORDER BY carrier_id, product_name, level_name, COALESCE(age_group_min, -1), id DESC
 );
 
 -- Add unique constraint to prevent future duplicates
