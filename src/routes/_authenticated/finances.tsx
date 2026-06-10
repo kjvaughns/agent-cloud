@@ -107,14 +107,18 @@ function FinancesPage() {
       const d = new Date(r.payment_date + "T00:00:00");
       const isTrail = r.payment_type === "trail" || r.payment_type === "deferred";
       const isDirect = r.payment_type === "advance" || isTrail;
-      if (r.payment_date === todayStr && r.status === "paid") todayTotal += r.amount;
+      // Treat any scheduled commission whose payment_date is today or earlier as
+      // earned. status='paid' is reserved for a future settlement flow; without
+      // this, every imported policy would show $0 earned.
+      const isEarned = r.status === "paid" || d <= today;
+      if (r.payment_date === todayStr && isEarned) todayTotal += r.amount;
       if (d >= today && d <= in90) forecast90 += r.amount;
-      if (d >= startOfMonth && d <= today && r.status === "paid") mtd += r.amount;
-      if (d >= startOfYear && d <= today && r.status === "paid") ytd += r.amount;
-      if (isDirect && d >= startOfYear && r.status === "paid") directYtd += r.amount;
-      if (r.payment_type === "override" && r.status === "pending") overridePending += r.amount;
-      if (isTrail && r.status === "pending") trailPending += r.amount;
-      if (r.payment_type === "renewal" && r.status === "pending") renewalPending += r.amount;
+      if (d >= startOfMonth && d <= today && isEarned) mtd += r.amount;
+      if (d >= startOfYear && d <= today && isEarned) ytd += r.amount;
+      if (isDirect && d >= startOfYear && d <= today && isEarned) directYtd += r.amount;
+      if (r.payment_type === "override" && d > today) overridePending += r.amount;
+      if (isTrail && d > today) trailPending += r.amount;
+      if (r.payment_type === "renewal" && d > today) renewalPending += r.amount;
     }
     return { todayTotal, forecast90, mtd, ytd, directYtd, overridePending, trailPending, renewalPending };
   }, [rows]);
