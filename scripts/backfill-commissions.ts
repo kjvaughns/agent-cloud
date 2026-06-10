@@ -1,7 +1,7 @@
 // One-shot backfill: generate commission_schedule rows for orphan policies.
 // Run with:  bun /tmp/backfill-commissions.ts
 import { createClient } from "@supabase/supabase-js";
-import { calculateAndInsertAllCommissions } from "/dev-server/src/lib/commission-calculator.ts";
+import { calculateAndInsertAllCommissions } from "../src/lib/commission-calculator.ts";
 
 const url = process.env.SUPABASE_URL!;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
