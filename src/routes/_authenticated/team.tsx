@@ -553,7 +553,7 @@ function RootNode() {
 function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
   const isCollapsed = collapsed.has(node.id);
   const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-blue-500" : "border-l-muted-foreground";
-  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-blue-500" : "bg-muted-foreground";
+  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-[#C9A227]" : "bg-muted-foreground";
   return (
     <div className="flex flex-col items-center gap-4">
       <Tooltip>
