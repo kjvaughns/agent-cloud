@@ -17,7 +17,7 @@ export const Route = createFileRoute("/admin/roles")({
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-500/15 text-purple-600",
-  manager: "bg-blue-500/15 text-blue-600",
+  manager: "bg-[#C9A227]/15 text-[#C9A227]",
   agent: "bg-slate-500/15 text-slate-500",
 };
 
