@@ -20,7 +20,7 @@ export const Route = createFileRoute("/admin")({
       .from("user_roles")
       .select("role")
       .eq("user_id", data.session.user.id)
-      .in("role", ["admin", "manager"])
+      .in("role", ["super_admin", "agency_owner", "admin", "manager"])
       .maybeSingle();
     if (!roleRow) throw redirect({ to: "/dashboard" });
   },
