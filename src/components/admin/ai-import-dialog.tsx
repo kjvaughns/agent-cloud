@@ -185,7 +185,7 @@ export function AIImportDialog({
               {[
                 ...(isMulti ? [{ label: "Pending Agents", value: rosterCount, color: "text-purple-600" }] : []),
                 { label: "Clients", value: clients.length, color: "text-emerald-600" },
-                { label: "Policies", value: policyCount, color: "text-blue-600" },
+                { label: "Policies", value: policyCount, color: "text-[#C9A227]" },
                 { label: "Notes", value: noteCount, color: "text-amber-600" },
               ].map((s) => (
                 <div key={s.label} className="rounded-xl border bg-muted/30 p-3 text-center">
