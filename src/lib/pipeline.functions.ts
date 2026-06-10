@@ -467,6 +467,34 @@ export const addPolicy = createServerFn({ method: "POST" })
     return row;
   });
 
+// ---------- Update existing policy ----------
+const updatePolicySchema = z.object({
+  id: z.string().uuid(),
+  carrier_id: z.string().uuid().nullable().optional(),
+  policy_number: z.string().nullable().optional(),
+  product: z.string().optional(),
+  status: z.string().optional(),
+  monthly_premium: z.number().nullable().optional(),
+  annual_premium: z.number().nullable().optional(),
+  face_amount: z.number().nullable().optional(),
+  effective_date: z.string().nullable().optional(),
+});
+
+export const updatePolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => updatePolicySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { id, ...patch } = data;
+    const { error } = await supabase
+      .from("policies")
+      .update(patch)
+      .eq("id", id)
+      .eq("agent_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- Calendar events ----------
 const eventSchema = z.object({
   client_id: z.string().uuid(),
