@@ -3316,7 +3316,13 @@ export type Database = {
       ssn_set: { Args: { _ssn: string }; Returns: undefined }
     }
     Enums: {
-      app_role: "agent" | "manager" | "admin"
+      app_role:
+        | "agent"
+        | "staff"
+        | "agency_owner"
+        | "manager"
+        | "super_admin"
+        | "admin"
       challenge_type: "daily" | "weekly" | "monthly" | "quarterly"
       contract_status:
         | "requested"
@@ -3498,7 +3504,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["agent", "manager", "admin"],
+      app_role: [
+        "agent",
+        "staff",
+        "agency_owner",
+        "manager",
+        "super_admin",
+        "admin",
+      ],
       challenge_type: ["daily", "weekly", "monthly", "quarterly"],
       contract_status: [
         "requested",
