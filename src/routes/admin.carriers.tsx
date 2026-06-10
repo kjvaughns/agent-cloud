@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { adminCreateCarrier, adminUpdateCarrier } from "@/lib/admin.functions";
+import { adminCreateCarrier, adminUpdateCarrier, adminBackfillCommissionGrids } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -75,9 +75,24 @@ function AdminCarriers() {
           <h1 className="text-2xl font-bold">Carriers</h1>
           <p className="text-sm text-muted-foreground mt-1">{carriers.length} carriers</p>
         </div>
-        <Button onClick={() => setDialog({ ...emptyCarrier })}>
-          <Plus className="h-4 w-4 mr-1.5" />Add Carrier
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const res: any = await adminBackfillCommissionGrids();
+                toast.success(`Backfilled ${res.inserted} grid rows across ${res.carriers_checked} carriers`);
+              } catch (e: any) {
+                toast.error(e.message ?? "Failed");
+              }
+            }}
+          >
+            Backfill grids
+          </Button>
+          <Button onClick={() => setDialog({ ...emptyCarrier })}>
+            <Plus className="h-4 w-4 mr-1.5" />Add Carrier
+          </Button>
+        </div>
       </div>
 
       {loading ? (
