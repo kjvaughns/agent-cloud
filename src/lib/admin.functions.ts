@@ -698,6 +698,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
     carrier_id: z.string().uuid(),
     assigned_pct: z.number().min(0).max(999),
     commission_level: z.string().optional(),
+    writing_number: z.string().nullable().optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
@@ -707,6 +708,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       carrier_id: data.carrier_id,
       assigned_pct: data.assigned_pct,
       commission_level: data.commission_level ?? `${data.assigned_pct}%`,
+      writing_number: data.writing_number ?? null,
       assigned_by: userId,
       assigned_at: new Date().toISOString(),
     }, { onConflict: "agent_id,carrier_id" });
@@ -721,6 +723,39 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       });
     } catch {}
     return { ok: true };
+  });
+
+export const adminAssignAllCarriers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    agent_id: z.string().uuid(),
+    assigned_pct: z.number().min(0).max(999),
+    commission_level: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const { data: carriers, error: cErr } = await supabase
+      .from("carriers")
+      .select("id")
+      .eq("active", true);
+    if (cErr) throw new Error(cErr.message);
+    const now = new Date().toISOString();
+    const rows = (carriers ?? []).map((c: any) => ({
+      agent_id: data.agent_id,
+      carrier_id: c.id,
+      assigned_pct: data.assigned_pct,
+      commission_level: data.commission_level,
+      assigned_by: userId,
+      assigned_at: now,
+    }));
+    if (rows.length) {
+      const { error } = await supabase
+        .from("agent_commission_levels")
+        .upsert(rows, { onConflict: "agent_id,carrier_id" });
+      if (error) throw new Error(error.message);
+    }
+    return { carriers_assigned: rows.length, contracts_created: 0 };
   });
 
 export const listAllCarriers = createServerFn({ method: "GET" })
