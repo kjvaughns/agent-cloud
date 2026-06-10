@@ -164,7 +164,7 @@ export function AppSidebar() {
           {!sidebarCollapsed && (() => {
             const isAgency = !!org?.slug && org.slug !== "apex";
             const bigName = isAgency ? org!.name : "Agent Cloud";
-            const smallLine = isAgency ? (org?.tagline ?? "Agent Cloud") : "by APEX";
+            const smallLine = "by Agent Cloud";
             return (
               <div className="min-w-0 flex-1">
                 <div
