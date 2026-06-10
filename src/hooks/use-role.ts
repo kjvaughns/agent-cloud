@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "super_admin" | "agency_owner" | "manager" | "agent" | "staff";
+export type AppRole = "super_admin" | "agency_owner" | "admin" | "manager" | "agent" | "staff";
 
-const ROLE_PRIORITY: AppRole[] = ["super_admin", "agency_owner", "manager", "agent", "staff"];
+const ROLE_PRIORITY: AppRole[] = ["super_admin", "agency_owner", "admin", "manager", "agent", "staff"];
 
 let _cachedRole: AppRole | null = null;
 let _cachedUserId: string | null = null;
@@ -45,8 +45,8 @@ export function useRole() {
 
   const isSuperAdmin  = role === "super_admin";
   const isAgencyOwner = role === "agency_owner" || role === "super_admin";
-  const isManager     = role === "manager" || role === "agency_owner" || role === "super_admin";
-  const isAdmin       = role === "super_admin" || role === "agency_owner";
+  const isAdmin       = role === "super_admin" || role === "agency_owner" || role === "admin";
+  const isManager     = role === "manager" || isAdmin;
   const isStaff       = role === "staff";
   const hasNoRole     = role === null && !loading;
 
@@ -67,13 +67,13 @@ export async function requireSuperAdmin(supabase: any, userId: string) {
 
 export async function requireAgencyOwnerOrAbove(supabase: any, userId: string) {
   const { data } = await supabase.from("user_roles").select("role")
-    .eq("user_id", userId).in("role", ["super_admin", "agency_owner"]).maybeSingle();
+    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "admin"]).maybeSingle();
   if (!data) throw new Error("Forbidden: agency owner or above required");
 }
 
 export async function requireManagerOrAdmin(supabase: any, userId: string) {
   const { data } = await supabase.from("user_roles").select("role")
-    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "manager"]).maybeSingle();
+    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "admin", "manager"]).maybeSingle();
   if (!data) throw new Error("Forbidden: manager or above required");
 }
 
