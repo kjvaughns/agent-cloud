@@ -1,30 +1,29 @@
-# Fix: gold accents + logo tile vanish after hydration
+# Plan
 
-## Root cause
+## 1. Sidebar header typography
+File: `src/components/app-sidebar.tsx` (header block, ~lines 140-165)
 
-`src/components/app-sidebar.tsx` overrides the global `--primary` CSS variable on mount:
+Current behavior: the org name (or "Agent Cloud" fallback) is rendered large in Bebas Neue, and "by APEX" is the tiny tagline below.
 
-```ts
-document.documentElement.style.setProperty("--primary", hexToHsl(org.accent_color));
+New behavior:
+- **If the user has an organization (and it is not the apex/default Agent Cloud org):** render the **agency name** as the large display title (Bebas Neue, ~1.1rem, tracked), and render **"Agent Cloud"** as the small uppercase tagline underneath (replacing the current "by APEX" line). If `org.tagline` exists, prefer it over "Agent Cloud" for the small line.
+- **If there is no agency (apex/default org or no org):** keep today's look — "Agent Cloud" as the big title, "by APEX" as the small line.
+
+Detection: treat org as an "agency" when `org?.slug` exists and is not `"apex"` (apex is the default org per project memory).
+
+No other files touched for this change. Brand gold tokens and logo logic stay as-is.
+
+## 2. Promote info@kingofsales.com to agency_owner
+Use the database migration tool to insert an `agency_owner` row into `public.user_roles` for the user whose `auth.users.email = 'info@kingofsales.com'`. Idempotent via `ON CONFLICT (user_id, role) DO NOTHING`. No-op if the user has not signed up yet (we'll surface that in the migration description so you know to have them sign in first).
+
+```sql
+INSERT INTO public.user_roles (user_id, role)
+SELECT id, 'agency_owner'::app_role
+FROM auth.users
+WHERE lower(email) = 'info@kingofsales.com'
+ON CONFLICT (user_id, role) DO NOTHING;
 ```
 
-The project's `src/styles.css` defines `--primary` in **oklch** format (Tailwind v4 / shadcn). Writing an HSL triplet (`"45 71% 47%"`) into it produces an invalid color value, so every utility that consumes `--primary` — `bg-primary`, `text-primary`, `border-primary`, checkbox `data-[state=checked]:bg-primary`, the logo tile's `bg-primary`, the active-nav gold rail, KPI gold tints — falls back to transparent.
-
-This matches the user's report exactly: gold shows for a frame on first paint (CSS token is valid), then the effect runs once `useOrganization` resolves and the token becomes invalid. Refresh shows gold briefly, then it disappears.
-
-The logo "disappearing" is the same bug — `org.logo_url` is `null` in the DB, so the default `<Cloud />` mark on a `bg-primary` tile is what should render; the tile just goes invisible when `--primary` breaks.
-
-## Changes
-
-1. **`src/components/app-sidebar.tsx`** — Remove the `useEffect` that writes to `--primary` and remove the now-unused `hexToHsl` helper. The gold brand token (`#C9A227`) lives in `src/styles.css` and is the source of truth (per project memory).
-
-2. **Future-proofing for sub-agency white-label accent colors (no code change this turn):** if/when a sub-agency needs a custom accent, it should write to a *separate* token like `--brand-accent` (not `--primary`) and convert hex → `oklch(...)` properly. Out of scope for this fix; flagged as a follow-up.
-
-No DB changes. No changes to `styles.css`, the logo asset, or any other component.
-
-## Verification
-
-- Reload `/contracting/invite` → gold checkboxes (`data-[state=checked]:bg-primary`), gold "Invite As" selected card border (`border-primary bg-primary/5`), and gold "White Label" pill stay gold after hydration.
-- Sidebar logo tile is the gold square with the `Cloud` icon again.
-- Active sidebar item keeps its gold left rail and gold icon.
-- Dashboard KPIs, gold buttons, and gold status pills across the app render correctly and don't flicker.
+## Out of scope
+- No changes to logo, gold tokens, or `styles.css`.
+- No changes to role enum or role-gate helpers.

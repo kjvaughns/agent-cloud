@@ -161,21 +161,24 @@ export function AppSidebar() {
               <Cloud className="h-4 w-4" />
             </div>
           )}
-          {!sidebarCollapsed && (
-            <div className="min-w-0 flex-1">
-              <div
-                className="font-bold truncate text-sidebar-foreground leading-tight"
-                style={{ fontFamily: "var(--font-heading, 'Bebas Neue', sans-serif)", letterSpacing: "0.05em", fontSize: "1.1rem" }}
-              >
-                {org?.name ?? "Agent Cloud"}
+          {!sidebarCollapsed && (() => {
+            const isAgency = !!org?.slug && org.slug !== "apex";
+            const bigName = isAgency ? org!.name : "Agent Cloud";
+            const smallLine = isAgency ? (org?.tagline ?? "Agent Cloud") : "by APEX";
+            return (
+              <div className="min-w-0 flex-1">
+                <div
+                  className="font-bold truncate text-sidebar-foreground leading-tight"
+                  style={{ fontFamily: "var(--font-heading, 'Bebas Neue', sans-serif)", letterSpacing: "0.05em", fontSize: "1.1rem" }}
+                >
+                  {bigName}
+                </div>
+                <div className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5 tracking-wide uppercase truncate">
+                  {smallLine}
+                </div>
               </div>
-              {org?.tagline ? (
-                <div className="text-[10px] text-muted-foreground truncate leading-tight">{org.tagline}</div>
-              ) : (
-                <div className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5 tracking-wide uppercase">by APEX</div>
-              )}
-            </div>
-          )}
+            );
+          })()}
         </div>
       </SidebarHeader>
       <SidebarContent>
