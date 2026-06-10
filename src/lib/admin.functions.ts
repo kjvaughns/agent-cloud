@@ -842,7 +842,10 @@ export const runCommissionBackfill = createServerFn({ method: "POST" })
 
 export const adminSyncAgentByNpn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => z.object({
+    target_agent_id: z.string().uuid(),
+    npn: z.string().nullable().optional(),
+  }).parse(d))
   .handler(async () => {
     throw new Error("NPN sync is not yet implemented");
   });
