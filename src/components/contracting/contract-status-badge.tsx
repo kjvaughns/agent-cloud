@@ -27,7 +27,7 @@ export function statusDot(status: ContractStatus | null | undefined): string {
   if (!status) return "bg-muted";
   if (status === "active") return "bg-emerald-500";
   if (status === "assigned") return "bg-primary/60";
-  if (status === "submitted" || status === "processing") return "bg-blue-500";
+  if (status === "submitted" || status === "processing") return "bg-[#C9A227]";
   if (status === "issue" || status === "rejected") return "bg-rose-500";
   return "bg-slate-400";
 }
