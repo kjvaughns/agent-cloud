@@ -1171,52 +1171,70 @@ export type Database = {
           advance_pct: number | null
           agent_id: string
           amount: number
+          annual_premium: number | null
           carrier: string | null
+          client_name: string | null
           commission_pct: number | null
           created_at: string
           id: string
           is_gtl: boolean
+          month_number: number | null
           paid_at: string | null
           payment_date: string
           payment_type: string
           policy_id: string
+          policy_year: number | null
           product: string | null
           source_agent_id: string | null
           status: string
+          writing_agent_id: string | null
+          writing_agent_name: string | null
         }
         Insert: {
           advance_pct?: number | null
           agent_id: string
           amount?: number
+          annual_premium?: number | null
           carrier?: string | null
+          client_name?: string | null
           commission_pct?: number | null
           created_at?: string
           id?: string
           is_gtl?: boolean
+          month_number?: number | null
           paid_at?: string | null
           payment_date: string
           payment_type: string
           policy_id: string
+          policy_year?: number | null
           product?: string | null
           source_agent_id?: string | null
           status?: string
+          writing_agent_id?: string | null
+          writing_agent_name?: string | null
         }
         Update: {
           advance_pct?: number | null
           agent_id?: string
           amount?: number
+          annual_premium?: number | null
           carrier?: string | null
+          client_name?: string | null
           commission_pct?: number | null
           created_at?: string
           id?: string
           is_gtl?: boolean
+          month_number?: number | null
           paid_at?: string | null
           payment_date?: string
           payment_type?: string
           policy_id?: string
+          policy_year?: number | null
           product?: string | null
           source_agent_id?: string | null
           status?: string
+          writing_agent_id?: string | null
+          writing_agent_name?: string | null
         }
         Relationships: [
           {
@@ -1289,6 +1307,7 @@ export type Database = {
           source: string | null
           status: Database["public"]["Enums"]["contract_status"]
           submitted_at: string | null
+          surelc_request_id: string | null
           writing_number: string | null
         }
         Insert: {
@@ -1303,6 +1322,7 @@ export type Database = {
           source?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           submitted_at?: string | null
+          surelc_request_id?: string | null
           writing_number?: string | null
         }
         Update: {
@@ -1317,6 +1337,7 @@ export type Database = {
           source?: string | null
           status?: Database["public"]["Enums"]["contract_status"]
           submitted_at?: string | null
+          surelc_request_id?: string | null
           writing_number?: string | null
         }
         Relationships: [
@@ -2127,6 +2148,7 @@ export type Database = {
           last_active_at: string | null
           last_name: string | null
           marital_status: string | null
+          needs_transfer_request: boolean | null
           npn_number: string | null
           onboarding_completed_at: string | null
           phone: string | null
@@ -2135,7 +2157,9 @@ export type Database = {
           state: string | null
           status: string
           street_address: string | null
+          surelc_agent_id: string | null
           terminated_at: string | null
+          transfer_workflow_carriers: Json | null
           upline_id: string | null
           zip_code: string | null
         }
@@ -2161,6 +2185,7 @@ export type Database = {
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
+          needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
           phone?: string | null
@@ -2169,7 +2194,9 @@ export type Database = {
           state?: string | null
           status?: string
           street_address?: string | null
+          surelc_agent_id?: string | null
           terminated_at?: string | null
+          transfer_workflow_carriers?: Json | null
           upline_id?: string | null
           zip_code?: string | null
         }
@@ -2195,6 +2222,7 @@ export type Database = {
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
+          needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
           phone?: string | null
@@ -2203,7 +2231,9 @@ export type Database = {
           state?: string | null
           status?: string
           street_address?: string | null
+          surelc_agent_id?: string | null
           terminated_at?: string | null
+          transfer_workflow_carriers?: Json | null
           upline_id?: string | null
           zip_code?: string | null
         }
@@ -2969,29 +2999,50 @@ export type Database = {
         Row: {
           agent_id: string
           carrier_id: string
+          completed_at: string | null
           created_at: string
+          current_upline_email: string | null
+          current_upline_name: string | null
           from_upline_id: string | null
           id: string
+          notes: string | null
+          reason: string | null
+          requested_at: string | null
           status: string
           to_upline_id: string | null
+          writing_number: string | null
         }
         Insert: {
           agent_id: string
           carrier_id: string
+          completed_at?: string | null
           created_at?: string
+          current_upline_email?: string | null
+          current_upline_name?: string | null
           from_upline_id?: string | null
           id?: string
+          notes?: string | null
+          reason?: string | null
+          requested_at?: string | null
           status?: string
           to_upline_id?: string | null
+          writing_number?: string | null
         }
         Update: {
           agent_id?: string
           carrier_id?: string
+          completed_at?: string | null
           created_at?: string
+          current_upline_email?: string | null
+          current_upline_name?: string | null
           from_upline_id?: string | null
           id?: string
+          notes?: string | null
+          reason?: string | null
+          requested_at?: string | null
           status?: string
           to_upline_id?: string | null
+          writing_number?: string | null
         }
         Relationships: [
           {
