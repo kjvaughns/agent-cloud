@@ -546,6 +546,30 @@ function HealthFields({ detail }: { detail: any }) {
 
   return (
     <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="SSN (Last 4)">
+          <Input
+            type="text"
+            maxLength={4}
+            defaultValue={detail.client.ssn_last4 ?? ""}
+            placeholder="••••"
+            onBlur={(e) => {
+              const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+              if (val !== (detail.client.ssn_last4 ?? "")) {
+                updateClientFn({ data: { id: detail.client.id, patch: { ssn_last4: val || null } } })
+                  .then(() => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }));
+              }
+            }}
+            className="font-mono tracking-widest"
+          />
+        </Field>
+        <Field label="Tobacco Use">
+          <div className="flex gap-2">
+            <Button size="sm" variant={form.tobacco_use === true ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: true})); save("tobacco_use", true); }}>Yes</Button>
+            <Button size="sm" variant={form.tobacco_use === false ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: false})); save("tobacco_use", false); }}>No</Button>
+          </div>
+        </Field>
+      </div>
       <div className="grid grid-cols-3 gap-3">
         <Field label="Height (ft)">
           <Input type="number" min={0} max={9} value={form.height_ft ?? ""} onChange={e => setForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => save("height_ft", e.target.value ? Number(e.target.value) : null)} />
@@ -557,12 +581,6 @@ function HealthFields({ detail }: { detail: any }) {
           <Input type="number" min={0} value={form.weight_lbs ?? ""} onChange={e => setForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => save("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
         </Field>
       </div>
-      <Field label="Tobacco Use">
-        <div className="flex gap-2">
-          <Button size="sm" variant={form.tobacco_use ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: true})); save("tobacco_use", true); }}>Yes</Button>
-          <Button size="sm" variant={!form.tobacco_use ? "default" : "outline"} onClick={() => { setForm(f => ({...f, tobacco_use: false})); save("tobacco_use", false); }}>No</Button>
-        </div>
-      </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Primary Physician">
           <Input value={form.primary_physician ?? ""} onChange={e => setForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => save("primary_physician", e.target.value || null)} />
