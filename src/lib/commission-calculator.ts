@@ -60,10 +60,9 @@ export async function calculateAndInsertAllCommissions(
     .eq("carrier_id", carrierId)
     .maybeSingle();
 
-  if (!agentLevel?.assigned_pct) return;
+  if (!agentLevel?.assigned_pct) return { ok: false, reason: "no_writing_agent_level" };
 
   const agentPct = Number(agentLevel.assigned_pct);
-  const annual = +(monthlyPremium * 12).toFixed(2);
   const year1 = +(annual * agentPct / 100).toFixed(2);
   const baseDate = new Date((effectiveDate || new Date().toISOString().slice(0, 10)) + "T00:00:00");
 
