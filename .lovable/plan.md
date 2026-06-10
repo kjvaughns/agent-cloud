@@ -1,73 +1,62 @@
-## Agent Cloud Full Platform Audit — Execution Plan
+# Gold-Forward Sweep
 
-This is a large, multi-phase audit. I'll run it as a structured sweep across the codebase and database, then deliver one consolidated report in the exact format you specified. No code changes during the audit pass (other than 1-line obvious fixes called out inline) — anything bigger gets logged as a follow-up.
+The theme tokens (`--primary` = gold `#C9A227`) and the brand mark are intact — the login page renders gold. What's actually missing is **decorative blue/sky/indigo accents** that should have been swept to gold during the original Gold Reskin pass. This plan finishes that sweep without breaking semantic meaning.
 
-### Phase 1 — Codebase Inventory (read-only)
-Catalog and skim every file in:
-- `src/routes/**` (all page + admin + api routes)
-- `src/lib/**` (every `.functions.ts` and helper)
-- `src/components/**`
-- `src/hooks/**`
-- `supabase/migrations/**`
-- `src/integrations/supabase/types.ts`
+## Rules
 
-For each route/module record: purpose, tables touched, server fns called, role gating, obvious red flags. Output: an internal inventory table I use to drive Phase 2 (not shipped to you unless useful).
+**Keep unchanged (semantic):**
+- Red — destructive / errors / hot lead temperature
+- Green / Emerald — success, completed, active, "good delta"
+- Amber / Yellow — warnings, pending review
+- Sky / Blue — **cold lead temperature only** (`temperature-badge`, pipeline cold buckets)
+- Purple — trail commission type (finances chart + badges)
+- Finances charts — left alone per your answer
 
-### Phase 2 — Static Code Audit
-Grep-driven sweeps for known smells:
-- `example.com`, `api.anthropic.com`, `ANTHROPIC_API_KEY`, `(demo response)`, `coming soon`, `TODO`, `FIXME`
-- `console.log`, `as any`
-- `supabase.channel(` without matching cleanup
-- `useEffect` + `fetch` patterns (should be loader + query)
-- Server fns missing `requireSupabaseAuth`
-- Routes under `_authenticated/` that re-implement auth gates
-- Components > 500 lines
-- Duplicated logic across `.functions.ts` files
-- RLS on every public table + GRANTs present
+**Convert to gold (`#C9A227` / `bg-primary` / `text-primary`):**
+- Any decorative blue/sky/indigo used as a brand accent (not as cold-temp semantic)
+- "In progress" / "processing" badges currently blue → gold
+- Generic info/highlight blue chips → gold
+- KPI tiles tagged as "lead/primary" that are currently blue
+- Chart legend dots and gradient stops that represent the primary brand metric
 
-### Phase 3 — Database / Data Integrity Audit
-Run read-only SQL via `supabase--read_query`:
-- Enum values for `app_role` (confirm super_admin/agency_owner/staff status)
-- `commission_grids` duplicate check (the AHL query you specified)
-- `policies.carrier_id IS NULL` count by carrier name match
-- `commission_schedule` row counts per recent policy
-- Spot-check AHL ($42 @ 80%) and GTL ($47 @ 60%) math against actual rows
-- Override chain rows for a multi-level policy
-- Renewal rows at months 13/25/37/49 for carriers with non-zero `years_2_5_pct`
-- RLS policies present on every user-data table
-- Missing indexes on hot columns (`policies.agent_id`, `commission_schedule.agent_id`, `clients.agent_id`, `profiles.upline_id`)
+## Files I'll edit
 
-### Phase 4 — Role-by-Role Feature Trace
-For each of the 5 roles (agent, manager, agency_owner, staff, admin), walk your checklist. Since I can't click through the UI as different users, I trace each checklist item by:
-1. Reading the route component
-2. Reading the server fn(s) it calls
-3. Reading the RLS policy on the touched tables
-4. Confirming the role gate
-5. Marking ✅ / ⚠️ / ❌ / 🔒 with file + line citation
+| File | Change |
+|---|---|
+| `src/routes/_authenticated/contracting/invite.tsx` | `in_progress` badge: `bg-blue-500/15 text-blue-700` → gold |
+| `src/routes/_authenticated/contracting/index.tsx` | Status pill blue → gold (in-progress) |
+| `src/routes/_authenticated/contracting/annuity-training.tsx` (if blue) | Same pattern |
+| `src/routes/_authenticated/analytics.tsx` | 4 hardcoded blues → gold for primary metric, neutral for secondary |
+| `src/routes/_authenticated/team.tsx` | Blue accent tiles → gold |
+| `src/routes/_authenticated/pipeline.tsx` | Decorative blues (not cold-temp) → gold |
+| `src/routes/_authenticated/account/help.tsx` | Info blue chips → gold |
+| `src/routes/_authenticated/account/producer-profile.tsx` | Blue accent → gold |
+| `src/routes/admin.agents.tsx` | 6 blues → gold/neutral |
+| `src/routes/admin.index.tsx`, `admin.contracts.tsx`, `admin.roles.tsx`, `admin.import-requests.tsx` | Lone blue → gold |
+| `src/components/admin/ai-import-dialog.tsx` | Blue → gold |
+| `src/components/pipeline/sold-tab.tsx` | Decorative blue → gold (keep amber warnings, emerald success) |
+| `src/components/pipeline/notes-tab.tsx` | Blue chip → gold (keep amber for height/weight tags) |
+| `src/components/pipeline/client-detail-drawer.tsx` | Blue chip → gold (preserve `temperature-badge` cold) |
+| `src/components/contracting/contract-status-badge.tsx` | `processing` blue → gold; keep `approved` emerald, `pending` amber |
+| `src/components/ai/*.tsx` (insights panels) | "Lead insight" amber that's meant as brand accent → gold; keep amber for actual warnings |
 
-Where behavior depends on live data, I query the DB directly to confirm.
+## What I will NOT touch
 
-### Phase 5 — Known-Issue Regression Pass
-Verify each of the 8 known issues you listed is actually fixed in current code (file + line proof for each).
+- `src/styles.css` — tokens are correct
+- `src/components/temperature-badge.tsx` — cold = blue is semantic
+- `src/components/pipeline/client-detail-drawer.tsx` "callback = amber" — semantic warm state
+- Finances charts (`finances.tsx` lines 302–305, 518–521) — keep emerald/purple/sky per your answer
+- Dashboard team chart (emerald line for "Team" vs gold "Individual") — semantic comparison
+- Any green checkmarks, red errors, amber warnings
 
-### Phase 6 — Cross-Cutting
-- Security: RLS, admin route guards, staff scope, SureLC stub, Anthropic refs, hardcoded AI responses
-- Performance: N+1s in `getClientDetail`, dashboard cold-load path, realtime subscription cleanup
-- Mobile: scan responsive classes on pipeline, drawer, commission grids, admin tables
-- Empty states: grep for empty-array renders without fallback UI
+## Verification
 
-### Phase 7 — Improvement Proposals
-UX, performance, feature completeness, code quality, plus top-5 missing features ranked by impact for a life-insurance FMO.
+After the sweep I'll:
+1. `rg "text-blue-|bg-blue-|border-blue-"` and confirm only `temperature-badge` + intentional cold-lead spots remain
+2. Open `/login`, `/dashboard`, `/contracting`, `/contracting/invite`, `/finances`, `/admin/agents` in the preview at 1280px and screenshot each
+3. Spot-check dark mode on dashboard + finances
 
-### Phase 8 — Final Report
-Single message in the exact format you specified (AUDIT SUMMARY → CRITICAL → HIGH → MEDIUM → LOW → DATA INTEGRITY → SECURITY → IMPROVEMENT PROPOSALS → WHAT'S WORKING WELL), every issue with file + line + root cause + concrete fix.
+## Out of scope (call out for next prompt)
 
-### Ground rules I'll follow
-- Read code before claiming anything is broken.
-- Cite file + line for every finding.
-- Apply trivial 1-line fixes inline (only after you approve and switch to build mode); anything larger is documented for a follow-up prompt.
-- Never delete working features.
-- Verify commission math against real DB rows, not assumptions.
-
-### Scope confirmation
-This will take multiple long tool-call rounds (likely 60–120 reads + a dozen SQL queries). Approve this plan and I'll execute end-to-end and deliver the single consolidated report. If you'd rather I scope down to a subset first (e.g. just Phases 2+3+5 — the cheapest, highest-signal pass — then expand), say which phases.
+- Logo asset upload — your apex org has `logo_url = null`, so the sidebar shows the default Cloud-icon brand mark. If you want a custom uploaded gold logo there, upload it in **Admin → Settings** (or tell me to add a default gold SVG asset).
+- Chart recolor to mono-gold — you said keep current scheme.
