@@ -26,6 +26,7 @@ export async function calculateAndInsertAllCommissions(
   input: CommissionInput,
 ): Promise<void> {
   const { policyId, agentId, carrierId, product, monthlyPremium, effectiveDate, clientName } = input;
+  if (!carrierId || !effectiveDate) return;
 
   // Idempotency: skip if rows already exist
   const { data: existing } = await supabase
