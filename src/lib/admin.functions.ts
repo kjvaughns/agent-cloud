@@ -182,12 +182,13 @@ export const adminCreateCarrier = createServerFn({ method: "POST" })
       is_annuity_carrier: z.boolean().optional(),
       agent_portal_url: z.string().optional(),
       active: z.boolean().optional(),
+      surelc_carrier_code: z.string().optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireAdmin(supabase, userId);
-    const { error } = await supabase.from("carriers").insert(data);
+    const { error } = await (supabase as any).from("carriers").insert(data);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -203,13 +204,14 @@ export const adminUpdateCarrier = createServerFn({ method: "POST" })
       is_annuity_carrier: z.boolean().optional(),
       agent_portal_url: z.string().optional(),
       active: z.boolean().optional(),
+      surelc_carrier_code: z.string().optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireAdmin(supabase, userId);
     const { id, ...patch } = data;
-    const { error } = await supabase.from("carriers").update(patch).eq("id", id);
+    const { error } = await (supabase as any).from("carriers").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

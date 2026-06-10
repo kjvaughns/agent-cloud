@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -7,6 +7,7 @@ import {
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
   listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
 } from "@/lib/contracting.functions";
+import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses } from "@/lib/surelc.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContractStatusBadge, CONTRACT_STATUSES, statusDot, type ContractStatus } from "@/components/contracting/contract-status-badge";
-import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2 } from "lucide-react";
+import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2, RefreshCw, Send } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,61 @@ function MyContractsTab() {
   const deleteFn = useServerFn(deleteContractRequest);
   const [filter, setFilter] = useState<ContractStatus | "all">("all");
   const [requestLevelFor, setRequestLevelFor] = useState<any | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+
+  const checkSureLcFn = useServerFn(checkSureLcStatus);
+  const syncFn = useServerFn(syncSureLcStatuses);
+  const getSsoFn = useServerFn(getSureLcSsoUrl);
+  const submitToSureLcFn = useServerFn(submitToSureLc);
+
+  const { data: sureLcStatus } = useQuery({
+    queryKey: ["surelc", "status"],
+    queryFn: () => checkSureLcFn({}),
+    staleTime: 60 * 60 * 1000,
+  });
+  const sureLcAvailable = sureLcStatus?.available ?? false;
+
+  useEffect(() => {
+    if (!sureLcAvailable) return;
+    syncFn({ data: {} }).then((result) => {
+      if (result && result.activated > 0) {
+        toast.success(`${result.activated} contract${result.activated > 1 ? "s" : ""} activated via SureLC`);
+        qc.invalidateQueries({ queryKey: ["contracting"] });
+      }
+    }).catch(() => {});
+  }, [sureLcAvailable]);
+
+  const openInSureLc = async () => {
+    try {
+      const result = await getSsoFn({ data: {} });
+      if (result.sso_url) {
+        window.open(result.sso_url, "_blank", "noopener,noreferrer");
+      } else {
+        toast.info(result.message ?? "SureLC link unavailable");
+      }
+    } catch {
+      toast.error("Failed to generate SureLC link");
+    }
+  };
+
+  const submitContract = async (row: any) => {
+    setSubmittingId(row.id);
+    try {
+      const result = await submitToSureLcFn({
+        data: { contract_request_id: row.id, carrier_id: row.carrier_id },
+      });
+      if (result.submitted) {
+        toast.success(result.message ?? "Submitted to SureLC");
+        qc.invalidateQueries({ queryKey: ["contracting"] });
+      } else {
+        toast.info(result.message ?? "Queued for manual processing");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Submission failed");
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   const rows = data?.rows ?? [];
   const counts = useMemo(() => {
@@ -115,7 +171,7 @@ function MyContractsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setFilter("all")}
@@ -127,7 +183,14 @@ function MyContractsTab() {
             >{s}: {counts[s] ?? 0}</button>
           ))}
         </div>
-        <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
+        <div className="flex items-center gap-2">
+          {sureLcAvailable && (
+            <Button size="sm" variant="outline" onClick={openInSureLc}>
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open in SureLC
+            </Button>
+          )}
+          <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">Showing {filtered.length} of {rows.length} contracts</p>
 
@@ -210,10 +273,28 @@ function MyContractsTab() {
                     </div>
                   )}
                   {c.notes && <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes:</span> {c.notes}</div>}
-                  <div className="pt-1">
+                  {c.surelc_request_id && (
+                    <div className="inline-flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                      <RefreshCw className="h-3 w-3" /> Tracking in SureLC
+                    </div>
+                  )}
+                  <div className="pt-1 flex items-center gap-2 flex-wrap">
                     <Button variant="outline" size="sm" onClick={() => setRequestLevelFor(c)}>
                       Request Commission Level
                     </Button>
+                    {sureLcAvailable && c.status === "requested" && c.carriers?.surelc_carrier_code && !c.surelc_request_id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={submittingId === c.id}
+                        onClick={() => submitContract(c)}
+                      >
+                        {submittingId === c.id
+                          ? <><RefreshCw className="h-3 w-3 mr-1.5 animate-spin" /> Submitting…</>
+                          : <><Send className="h-3 w-3 mr-1.5" /> Submit to SureLC</>
+                        }
+                      </Button>
+                    )}
                   </div>
                 </div>
               </AccordionContent>

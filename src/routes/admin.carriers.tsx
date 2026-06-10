@@ -23,6 +23,7 @@ const emptyCarrier = {
   is_annuity_carrier: false,
   agent_portal_url: "",
   active: true,
+  surelc_carrier_code: "",
 };
 
 function AdminCarriers() {
@@ -154,6 +155,10 @@ function AdminCarriers() {
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Agent Portal URL</label>
                 <Input value={dialog.agent_portal_url ?? ""} onChange={(e) => setDialog({ ...dialog, agent_portal_url: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">SureLC Carrier Code</label>
+                <Input value={dialog.surelc_carrier_code ?? ""} onChange={(e) => setDialog({ ...dialog, surelc_carrier_code: e.target.value })} placeholder="e.g. AMICA" />
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-sm">Annuity Carrier</label>

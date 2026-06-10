@@ -329,9 +329,44 @@ export const startSurelcSso = createServerFn({ method: "POST" })
       surelc_agent_id: surelcId,
     }).eq("id", inv.id);
 
-    // SureLC integration not yet live — graceful pending state.
+    // SureLC integration — live when credentials configured, graceful pending otherwise
+    const { sureLcIsConfigured, generateSsoUrl } = await import("@/lib/surelc.service");
+
+    if (sureLcIsConfigured()) {
+      let surelcId = inv.surelc_agent_id && !inv.surelc_agent_id.startsWith("pending_")
+        ? inv.surelc_agent_id
+        : null;
+
+      if (!surelcId) {
+        const { findProducerByEmail, createProducer } = await import("@/lib/surelc.service");
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("email, first_name, last_name, npn_number")
+          .eq("id", userId)
+          .maybeSingle();
+
+        surelcId = await findProducerByEmail(profile?.email ?? "");
+        if (!surelcId && profile) {
+          surelcId = await createProducer({
+            firstName: profile.first_name ?? "",
+            lastName:  profile.last_name ?? "",
+            email:     profile.email ?? "",
+            npn:       profile.npn_number ?? undefined,
+          });
+        }
+        if (surelcId) {
+          await supabaseAdmin.from("invitation_links").update({ surelc_agent_id: surelcId }).eq("id", inv.id);
+          await (supabase as any).from("profiles").update({ surelc_agent_id: surelcId }).eq("id", userId);
+        }
+      }
+
+      const ssoUrl = surelcId ? await generateSsoUrl(surelcId) : null;
+      return { ok: true, sso_url: ssoUrl, pending: !ssoUrl };
+    }
+
+    // SureLC not configured yet — graceful pending state
     return {
-      ok: true,
+      ok:      true,
       sso_url: null,
       pending: true,
       message: "Contracting setup is handled by your admin. You'll receive an email when your SureLC account is ready.",
