@@ -699,29 +699,170 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
     carrier_id: z.string().uuid(),
     assigned_pct: z.number().min(0).max(999),
     commission_level: z.string().optional(),
+    writing_number: z.string().optional().nullable(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireManagerOrAdmin(supabase, userId);
-    const { error } = await supabase.from("agent_commission_levels").upsert({
+    const payload: any = {
       agent_id: data.agent_id,
       carrier_id: data.carrier_id,
       assigned_pct: data.assigned_pct,
       commission_level: data.commission_level ?? `${data.assigned_pct}%`,
       assigned_by: userId,
       assigned_at: new Date().toISOString(),
-    }, { onConflict: "agent_id,carrier_id" });
+      pending: false,
+    };
+    if (data.writing_number !== undefined) payload.writing_number = data.writing_number || null;
+    const { error } = await supabase
+      .from("agent_commission_levels")
+      .upsert(payload, { onConflict: "agent_id,carrier_id" });
     if (error) throw new Error(error.message);
+
+    // Mirror writing_number into contract_requests so admin Contracts view stays in sync
+    if (data.writing_number !== undefined) {
+      const { data: existingContract } = await supabase
+        .from("contract_requests")
+        .select("id")
+        .eq("agent_id", data.agent_id)
+        .eq("carrier_id", data.carrier_id)
+        .maybeSingle();
+      if (existingContract) {
+        await supabase
+          .from("contract_requests")
+          .update({ writing_number: data.writing_number || null })
+          .eq("id", existingContract.id);
+      } else if (data.writing_number) {
+        await supabase.from("contract_requests").insert({
+          agent_id: data.agent_id,
+          carrier_id: data.carrier_id,
+          writing_number: data.writing_number,
+          status: "active",
+          activated_at: new Date().toISOString(),
+        });
+      }
+    }
+
     try {
       await supabase.from("admin_audit_log").insert({
         admin_id: userId,
         action: "comp_level_change",
         target_type: "agent",
         target_id: data.agent_id,
-        details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level },
+        details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level, writing_number: data.writing_number },
       });
     } catch {}
     return { ok: true };
+  });
+
+// Assign a single agent a flat pct across every active carrier (creates
+// agent_commission_levels + active contract_requests rows for any missing).
+export const adminAssignAllCarriers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    agent_id: z.string().uuid(),
+    assigned_pct: z.number().min(0).max(999),
+    commission_level: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+    const { data: carriers, error: cErr } = await supabase
+      .from("carriers")
+      .select("id")
+      .eq("active", true);
+    if (cErr) throw new Error(cErr.message);
+
+    const now = new Date().toISOString();
+    const levelRows = (carriers ?? []).map((c: any) => ({
+      agent_id: data.agent_id,
+      carrier_id: c.id,
+      assigned_pct: data.assigned_pct,
+      commission_level: data.commission_level,
+      assigned_by: userId,
+      assigned_at: now,
+      pending: false,
+    }));
+    if (levelRows.length > 0) {
+      const { error: upErr } = await supabase
+        .from("agent_commission_levels")
+        .upsert(levelRows, { onConflict: "agent_id,carrier_id" });
+      if (upErr) throw new Error(upErr.message);
+    }
+
+    const { data: existing } = await supabase
+      .from("contract_requests")
+      .select("carrier_id")
+      .eq("agent_id", data.agent_id);
+    const existingSet = new Set((existing ?? []).map((r: any) => r.carrier_id));
+    const contractRows = (carriers ?? [])
+      .filter((c: any) => !existingSet.has(c.id))
+      .map((c: any) => ({
+        agent_id: data.agent_id,
+        carrier_id: c.id,
+        status: "active" as const,
+        activated_at: now,
+        source: "admin_assign_all",
+        notes: "Auto-created via Set across all carriers",
+      }));
+    if (contractRows.length > 0) {
+      await supabase.from("contract_requests").insert(contractRows);
+    }
+
+    return { ok: true, carriers_assigned: levelRows.length, contracts_created: contractRows.length };
+  });
+
+// Backfill default commission grid levels for any active carrier missing them.
+export const adminBackfillCommissionGrids = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+
+    const DEFAULT_LEVELS: { level_name: string; year_1_pct: number }[] = [
+      { level_name: "Street 50", year_1_pct: 50 },
+      { level_name: "70", year_1_pct: 70 },
+      { level_name: "90", year_1_pct: 90 },
+      { level_name: "110", year_1_pct: 110 },
+      { level_name: "130", year_1_pct: 130 },
+      { level_name: "Executive 150", year_1_pct: 150 },
+    ];
+
+    const { data: carriers, error: cErr } = await supabase
+      .from("carriers")
+      .select("id, name")
+      .eq("active", true);
+    if (cErr) throw new Error(cErr.message);
+
+    const { data: existing } = await supabase
+      .from("commission_grids")
+      .select("carrier_id, level_name");
+    const existingSet = new Set(
+      (existing ?? []).map((r: any) => `${r.carrier_id}::${(r.level_name ?? "").toLowerCase()}`)
+    );
+
+    const toInsert: any[] = [];
+    for (const c of carriers ?? []) {
+      for (const lvl of DEFAULT_LEVELS) {
+        const key = `${c.id}::${lvl.level_name.toLowerCase()}`;
+        if (existingSet.has(key)) continue;
+        toInsert.push({
+          carrier_id: c.id,
+          product_name: "Final Expense",
+          level_name: lvl.level_name,
+          year_1_pct: lvl.year_1_pct,
+          years_2_5_pct: 5,
+          years_6_plus_pct: 3,
+          is_estimated: true,
+        });
+      }
+    }
+
+    if (toInsert.length > 0) {
+      const { error: insErr } = await supabase.from("commission_grids").insert(toInsert);
+      if (insErr) throw new Error(insErr.message);
+    }
+    return { ok: true, inserted: toInsert.length, carriers_checked: carriers?.length ?? 0 };
   });
 
 export const listAllCarriers = createServerFn({ method: "GET" })
