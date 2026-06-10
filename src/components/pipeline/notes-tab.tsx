@@ -75,8 +75,14 @@ function categoriesOf(entry: any): Set<Category> {
 }
 
 function isImported(entry: any): boolean {
-  return entry?.contact_type === "imported_note";
+  return entry?.contact_type === "imported_note"
+    || (typeof entry?.note === "string" && entry.note.startsWith("[Imported from AgentLink]"));
 }
+
+function stripImportPrefix(note: string): string {
+  return (note ?? "").replace(/^\[Imported from AgentLink\]\s*/, "");
+}
+
 
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
   const qc = useQueryClient();
