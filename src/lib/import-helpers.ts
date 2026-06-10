@@ -172,3 +172,257 @@ export function mapPolicyStatus(raw?: string): string {
   if (r.includes("issued") || r.includes("not paid")) return "issued_not_paid";
   return "active";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unified record save: every import path funnels through this so health,
+// banking, beneficiaries, policies (with carrier resolved), and notes all
+// land in the right tables.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FullClientRecord {
+  first_name: string;
+  last_name: string;
+  phone?: string | null;
+  email?: string | null;
+  date_of_birth?: string | null;
+  street_address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip_code?: string | null;
+  born_country_state?: string | null;
+  stage?: string;
+  temperature?: string;
+  ssn_last4?: string | null;
+  tobacco_use?: boolean | null;
+  height_ft?: number | null;
+  height_in?: number | null;
+  weight_lbs?: number | null;
+  primary_physician?: string | null;
+  primary_physician_phone?: string | null;
+  conditions?: string | null;
+  medications?: string | null;
+  medical_notes?: string | null;
+  bank_name?: string | null;
+  routing_number?: string | null;
+  account_number?: string | null;
+  account_type?: string | null;
+  draft_date?: number | null;
+  payment_method?: string | null;
+  policies?: Array<{
+    carrier_name?: string | null;
+    product?: string | null;
+    policy_number?: string | null;
+    monthly_premium?: number | null;
+    annual_premium?: number | null;
+    face_amount?: number | null;
+    effective_date?: string | null;
+    status?: string | null;
+  }>;
+  beneficiaries?: Array<{
+    first_name: string;
+    last_name?: string | null;
+    relationship?: string | null;
+    dob?: string | null;
+    phone?: string | null;
+    percentage?: number | null;
+  }>;
+  notes?: Array<{
+    content: string;
+    created_at?: string | null;
+    note_type?: string | null;
+  }>;
+}
+
+export async function saveClientFullRecord(
+  supabase: any,
+  agentId: string,
+  c: FullClientRecord
+): Promise<{ clientId: string; isNew: boolean }> {
+  const phone = c.phone ? normalizePhone(c.phone) : null;
+
+  // ── Duplicate check ────────────────────────────────────────────────
+  const dupMatch = await detectDuplicate(supabase, agentId, {
+    phone: phone ?? undefined,
+    first_name: c.first_name,
+    last_name: c.last_name,
+    dob: c.date_of_birth ?? undefined,
+  });
+
+  let clientId: string;
+  let isNew = false;
+
+  if (dupMatch) {
+    clientId = dupMatch.existing_client_id;
+    // Merge only missing fields
+    const { data: existing } = await supabase
+      .from("clients")
+      .select("email,date_of_birth,street_address,city,state,zip_code,born_country_state,ssn_last4")
+      .eq("id", clientId)
+      .maybeSingle();
+    const patch: any = {};
+    if (existing) {
+      if (c.email && !existing.email) patch.email = c.email;
+      if (c.date_of_birth && !existing.date_of_birth) patch.date_of_birth = c.date_of_birth;
+      if (c.street_address && !existing.street_address) patch.street_address = c.street_address;
+      if (c.city && !existing.city) patch.city = c.city;
+      if (c.state && !existing.state) patch.state = c.state;
+      if (c.zip_code && !existing.zip_code) patch.zip_code = c.zip_code;
+      if (c.born_country_state && !existing.born_country_state) patch.born_country_state = c.born_country_state;
+      if (c.ssn_last4 && !existing.ssn_last4) patch.ssn_last4 = c.ssn_last4;
+    }
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("clients").update(patch).eq("id", clientId);
+    }
+  } else {
+    const insertRow: any = {
+      agent_id: agentId,
+      first_name: c.first_name || "Unknown",
+      last_name: c.last_name || "Unknown",
+      phone: phone || null,
+      email: c.email || null,
+      date_of_birth: c.date_of_birth || null,
+      street_address: c.street_address || null,
+      city: c.city || null,
+      state: c.state || null,
+      zip_code: c.zip_code || null,
+      born_country_state: c.born_country_state || null,
+      ssn_last4: c.ssn_last4 || null,
+      stage: c.stage ?? "new",
+      temperature: c.temperature ?? "cold",
+    };
+    const { data: newClient, error } = await supabase
+      .from("clients")
+      .insert(insertRow)
+      .select("id")
+      .single();
+    if (error) throw new Error(`Client insert failed: ${error.message}`);
+    clientId = newClient.id;
+    isNew = true;
+  }
+
+  // ── Health ─────────────────────────────────────────────────────────
+  const hasHealth =
+    c.height_ft != null || c.height_in != null || c.weight_lbs != null ||
+    c.tobacco_use != null || c.primary_physician || c.primary_physician_phone ||
+    c.conditions || c.medications || c.medical_notes;
+  if (hasHealth) {
+    await supabase.from("client_health").upsert({
+      client_id: clientId,
+      height_ft: c.height_ft ?? null,
+      height_in: c.height_in ?? null,
+      weight_lbs: c.weight_lbs ?? null,
+      tobacco_use: c.tobacco_use ?? null,
+      primary_physician: c.primary_physician ?? null,
+      primary_physician_phone: c.primary_physician_phone ?? null,
+      conditions: c.conditions ?? null,
+      medications: c.medications ?? null,
+      medical_notes: c.medical_notes ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "client_id" });
+  }
+
+  // ── Banking ────────────────────────────────────────────────────────
+  const hasBanking = c.bank_name || c.routing_number || c.account_number || c.account_type;
+  if (hasBanking) {
+    const maskedAccount = c.account_number
+      ? `****${c.account_number.slice(-4)}`
+      : null;
+    await supabase.from("client_banking").upsert({
+      client_id: clientId,
+      bank_name: c.bank_name ?? null,
+      routing_number: c.routing_number ?? null,
+      account_number_masked: maskedAccount,
+      account_type: c.account_type ?? null,
+      draft_date: c.draft_date ?? null,
+      payment_method: c.payment_method ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "client_id" });
+  }
+
+  // ── Policies ───────────────────────────────────────────────────────
+  for (const pol of c.policies ?? []) {
+    if (!pol.policy_number && !pol.carrier_name && !pol.monthly_premium) continue;
+
+    if (pol.policy_number) {
+      const { data: existingPol } = await supabase
+        .from("policies")
+        .select("id")
+        .eq("agent_id", agentId)
+        .eq("policy_number", pol.policy_number)
+        .maybeSingle();
+      if (existingPol) continue;
+    }
+
+    let carrierId: string | null = null;
+    if (pol.carrier_name) {
+      const firstWord = pol.carrier_name.trim().split(/\s+/)[0];
+      if (firstWord) {
+        const { data: carrier } = await supabase
+          .from("carriers")
+          .select("id")
+          .ilike("name", `%${firstWord}%`)
+          .maybeSingle();
+        carrierId = carrier?.id ?? null;
+      }
+    }
+
+    const monthly = Number(pol.monthly_premium ?? 0) || 0;
+    const annual =
+      Number(pol.annual_premium ?? 0) ||
+      (monthly > 0 ? monthly * 12 : 0);
+
+    await supabase.from("policies").insert({
+      client_id: clientId,
+      agent_id: agentId,
+      carrier_id: carrierId,
+      product: pol.product ?? "Final Expense",
+      policy_number: pol.policy_number ?? null,
+      monthly_premium: monthly || null,
+      annual_premium: annual || null,
+      face_amount: Number(pol.face_amount ?? 0) || null,
+      effective_date: pol.effective_date ?? null,
+      status: pol.status ?? "active",
+      posted_at: new Date().toISOString(),
+    });
+  }
+
+  // ── Beneficiaries (insert if not already present by name) ─────────
+  for (const b of c.beneficiaries ?? []) {
+    if (!b.first_name?.trim()) continue;
+    const { data: existing } = await supabase
+      .from("beneficiaries")
+      .select("id")
+      .eq("client_id", clientId)
+      .ilike("first_name", b.first_name.trim())
+      .ilike("last_name", b.last_name?.trim() ?? "")
+      .maybeSingle();
+    if (existing) continue;
+    await supabase.from("beneficiaries").insert({
+      client_id: clientId,
+      first_name: b.first_name.trim(),
+      last_name: b.last_name ?? null,
+      relationship: b.relationship ?? null,
+      dob: b.dob ?? null,
+      phone: b.phone ?? null,
+      percentage: b.percentage ?? 0,
+    });
+  }
+
+  // ── Notes ──────────────────────────────────────────────────────────
+  for (const note of c.notes ?? []) {
+    if (!note.content?.trim()) continue;
+    const isMedical =
+      (note.note_type ?? "").toLowerCase().includes("medical") ||
+      (note.note_type ?? "").toLowerCase().includes("health");
+    await supabase.from("contact_history").insert({
+      client_id: clientId,
+      agent_id: agentId,
+      contact_type: isMedical ? "medical_note" : "imported_note",
+      note: note.content.trim(),
+      created_at: note.created_at ?? new Date().toISOString(),
+    });
+  }
+
+  return { clientId, isNew };
+}
+
