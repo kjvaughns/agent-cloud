@@ -2,12 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import {
-  detectDuplicate,
   detectTeamDuplicate,
   mapStage,
   mapTemperature,
   mapPolicyStatus,
   normalizePhone,
+  saveClientFullRecord,
 } from "@/lib/import-helpers";
 
 type Ctx = { supabase: any; userId: string };
@@ -293,15 +293,23 @@ Output schema:
       "phone": "digits only", "email": "string|null",
       "date_of_birth": "YYYY-MM-DD|null",
       "street_address": "string|null", "city": "string|null", "state": "2-letter|null", "zip_code": "string|null",
+      "born_country_state": "string|null",
       "stage": "new|callback|almost_there|sold",
       "temperature": "hot|warm|cold",
-      "ssn_last4": "string|null", "tobacco_use": true/false/null,
-      "policies": [{"carrier":"","product":"","policy_number":"","monthly_premium":0,"annual_premium":0,"face_amount":0,"effective_date":null,"status":"active"}],
-      "notes": ["string"]
+      "ssn_last4": "string|null",
+      "tobacco_use": true/false/null,
+      "height_ft": 0, "height_in": 0, "weight_lbs": 0,
+      "primary_physician": "string|null", "primary_physician_phone": "string|null",
+      "conditions": "string|null", "medications": "string|null", "medical_notes": "string|null",
+      "bank_name": "string|null", "routing_number": "string|null", "account_number": "string|null",
+      "account_type": "checking|savings|null", "draft_date": 0, "payment_method": "string|null",
+      "policies": [{"carrier_name":"","product":"","policy_number":"","monthly_premium":0,"annual_premium":0,"face_amount":0,"effective_date":null,"status":"active"}],
+      "beneficiaries": [{"first_name":"","last_name":"","relationship":"","dob":null,"phone":null,"percentage":0}],
+      "notes": [{"content":"","created_at":null,"note_type":null}]
     }
   ]
 }
-Rules: always return a top-level "clients" array; nulls (not empty strings) for missing; default stage=new, temperature=cold; JSON only.`;
+Rules: always return a top-level "clients" array; nulls (not empty strings) for missing; numeric fields default to 0; default stage=new, temperature=cold; parse SSN last-4 from notes when visible; parse heights like 5'10" into ft/in; JSON only.`;
 
 async function extractWithAI(userContent: any[]): Promise<any> {
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -528,7 +536,17 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             },
             { onConflict: "email" },
           );
-        if (!upErr) pendingAgentsImported++;
+        if (!upErr) {
+          pendingAgentsImported++;
+          // Notify the importing admin that this roster member isn't on Agent Cloud yet
+          await supabase.from("notifications").insert({
+            user_id: userId,
+            type: "missing_team_member",
+            title: "Team member not on Agent Cloud",
+            description: `${r.first_name} ${r.last_name} (${r.email}) was in your AgentLink roster but has no account yet. Consider sending them an invite.`,
+            read: false,
+          });
+        }
       }
 
       // 2. Clients — track id by label for note attachment
@@ -692,73 +710,76 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
         if (!error) notesImported++;
       }
     } else {
-      // ─── Legacy AI-extracted path ─────────────────────────────────────────
+      // ─── Legacy AI-extracted path — funnel through saveClientFullRecord ──
       const clients: any[] = ex?.clients ?? [];
       for (const c of clients) {
         const firstName = (c.first_name ?? "").trim();
         const lastName = (c.last_name ?? "").trim();
         if (!firstName && !lastName) continue;
 
-        const dup = await detectDuplicate(supabase, targetAgent, {
-          phone: c.phone ?? undefined,
-          first_name: firstName,
-          last_name: lastName,
-          dob: c.date_of_birth ?? undefined,
-        });
-        if (dup) {
-          duplicatesSkipped++;
-          continue;
-        }
+        const normalizedNotes = (c.notes ?? [])
+          .map((n: any) => {
+            if (!n) return null;
+            if (typeof n === "string") return { content: n };
+            return {
+              content: n.content ?? n.body ?? n.text ?? "",
+              created_at: n.created_at ?? n.date ?? null,
+              note_type: n.note_type ?? null,
+            };
+          })
+          .filter((n: any) => n && String(n.content).trim());
 
-        const { data: newClient } = await supabase
-          .from("clients")
-          .insert({
-            agent_id: targetAgent,
+        const normalizedPolicies = (c.policies ?? []).map((p: any) => ({
+          carrier_name: p.carrier_name ?? p.carrier ?? null,
+          product: p.product ?? null,
+          policy_number: p.policy_number ?? null,
+          monthly_premium: Number(p.monthly_premium ?? 0) || null,
+          annual_premium: Number(p.annual_premium ?? 0) || null,
+          face_amount: Number(p.face_amount ?? 0) || null,
+          effective_date: p.effective_date ?? null,
+          status: mapPolicyStatus(p.status),
+        }));
+
+        try {
+          const { isNew } = await saveClientFullRecord(supabase, targetAgent, {
             first_name: firstName || "Unknown",
             last_name: lastName || "Unknown",
-            phone: c.phone || null,
-            email: c.email || null,
-            date_of_birth: c.date_of_birth || null,
-            street_address: c.street_address || null,
-            city: c.city || null,
-            state: c.state || null,
-            zip_code: c.zip_code || null,
+            phone: c.phone ?? null,
+            email: c.email ?? null,
+            date_of_birth: c.date_of_birth ?? null,
+            street_address: c.street_address ?? null,
+            city: c.city ?? null,
+            state: c.state ?? null,
+            zip_code: c.zip_code ?? null,
+            born_country_state: c.born_country_state ?? null,
             stage: mapStage(c.stage),
             temperature: mapTemperature(c.temperature),
-          })
-          .select("id")
-          .single();
-        if (!newClient) continue;
-        clientsImported++;
-
-        for (const p of c.policies ?? []) {
-          const annual = Number(p.annual_premium ?? 0) || 0;
-          const monthly = Number(p.monthly_premium ?? (annual ? annual / 12 : 0)) || 0;
-          await supabase.from("policies").insert({
-            client_id: newClient.id,
-            agent_id: targetAgent,
-            product: p.product ?? p.carrier ?? "Unknown",
-            policy_number: p.policy_number ?? null,
-            annual_premium: annual,
-            monthly_premium: monthly,
-            face_amount: Number(p.face_amount ?? 0) || 0,
-            effective_date: p.effective_date ?? null,
-            status: mapPolicyStatus(p.status),
-            posted_at: new Date().toISOString(),
+            ssn_last4: c.ssn_last4 ?? null,
+            tobacco_use: c.tobacco_use ?? null,
+            height_ft: c.height_ft ?? null,
+            height_in: c.height_in ?? null,
+            weight_lbs: c.weight_lbs ?? null,
+            primary_physician: c.primary_physician ?? null,
+            primary_physician_phone: c.primary_physician_phone ?? null,
+            conditions: c.conditions ?? null,
+            medications: c.medications ?? null,
+            medical_notes: c.medical_notes ?? null,
+            bank_name: c.bank_name ?? null,
+            routing_number: c.routing_number ?? null,
+            account_number: c.account_number ?? null,
+            account_type: c.account_type ?? null,
+            draft_date: c.draft_date ?? null,
+            payment_method: c.payment_method ?? null,
+            policies: normalizedPolicies,
+            beneficiaries: c.beneficiaries ?? [],
+            notes: normalizedNotes,
           });
-          policiesImported++;
-        }
-
-        for (const n of c.notes ?? []) {
-          const body = typeof n === "string" ? n : n?.content ?? n?.body ?? n?.text ?? "";
-          if (!String(body).trim()) continue;
-          await supabase.from("contact_history").insert({
-            client_id: newClient.id,
-            agent_id: targetAgent,
-            contact_type: "imported_note",
-            note: `[Imported from AgentLink] ${body}`,
-          });
-          notesImported++;
+          if (isNew) clientsImported++;
+          else duplicatesSkipped++;
+          policiesImported += normalizedPolicies.length;
+          notesImported += normalizedNotes.length;
+        } catch {
+          // skip on failure, keep going
         }
       }
     }
