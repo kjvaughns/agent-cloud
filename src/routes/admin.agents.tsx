@@ -25,7 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: "bg-slate-500/15 text-slate-500",
   terminated: "bg-red-500/15 text-red-600",
   pending: "bg-yellow-500/15 text-yellow-600",
-  imported: "bg-blue-500/15 text-blue-700",
+  imported: "bg-[#C9A227]/15 text-[#C9A227]",
 };
 
 const ROLE_COLORS: Record<string, string> = {
