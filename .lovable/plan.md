@@ -1,19 +1,22 @@
 ## Problem
 
-`src/hooks/use-role.ts` was refactored to a new role taxonomy (`super_admin`, `agency_owner`, `manager`, `agent`, `staff`), but the database `app_role` enum still only contains `agent | manager | admin`. Every existing admin row in `user_roles` has `role = 'admin'`, which the new hook doesn't map to anything — so `isAdmin` and `isAgencyOwner` both return `false`, and the Admin Portal button hides for you and the agency owners.
+After restoring the Admin Portal button, server functions still throw `Forbidden: admin role required`. Reason: `src/lib/admin.functions.ts` has its own local `requireAdmin` / `requireManagerOrAdmin` helpers that check for `super_admin` / `agency_owner` — roles that don't exist in the DB enum (`app_role = {agent, manager, admin}`). So every admin server fn rejects legitimate admins. The non-working admin pages are downstream of these RPC failures.
 
-Confirmed via DB: `info@kingofsales.net` and `kjvaughns13@gmail.com` both have `role = 'admin'`.
+`src/lib/admin-import.functions.ts` already uses the correct values (`admin`, `manager`) so its endpoints work.
 
-## Fix (frontend only, one file)
+## Fix (frontend / server-fn only, no DB changes)
 
-Update `src/hooks/use-role.ts`:
+1. `src/lib/admin.functions.ts` — change the two local helpers to match the real enum:
+   - `requireAdmin`: `.in("role", ["admin"])`
+   - `requireManagerOrAdmin`: `.in("role", ["admin", "manager"])`
 
-1. Add `"admin"` to the `AppRole` union and to `ROLE_PRIORITY` (treated as equivalent to `agency_owner` for gating).
-2. Make `isAdmin` / `isAgencyOwner` / `isManager` also return `true` when `role === "admin"`.
-3. Keep `canInviteAgencyOwner` etc. consistent so legacy admins keep their existing capabilities.
+2. `src/hooks/use-role.ts` — align the exported helpers (used elsewhere) with the real enum so future callers behave the same:
+   - `requireSuperAdmin` → check `["admin"]` (legacy admin is top-tier in current enum)
+   - `requireAgencyOwnerOrAbove` / `requireAdmin` → `["admin"]`
+   - `requireManagerOrAdmin` → `["admin", "manager"]`
 
-No DB migration, no other component changes — every existing call site (`top-bar.tsx`, `app-sidebar.tsx`, etc.) already reads `isAdmin` / `isManager` and will start showing the Admin Portal button again immediately.
+No migration, no RLS changes. Once these land and you hard-refresh, the admin pages that depend on these server fns (agents list, hierarchy, contracts, commissions, settings, backfill, etc.) will load again.
 
 ## Out of scope
 
-- Migrating the enum to the new taxonomy (`super_admin`, `agency_owner`, `staff`). That's a larger change touching the enum, RLS policies, and `has_role`; not needed to restore the button. Happy to do it as a follow-up if you want the new roles to actually exist in the DB.
+- Migrating the enum to the richer `super_admin / agency_owner / staff` taxonomy. Separate, larger change touching the enum, every RLS policy, and `has_role`. Can do as follow-up if you want those roles to actually exist.
