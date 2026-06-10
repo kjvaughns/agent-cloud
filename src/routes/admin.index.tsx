@@ -4,9 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2 } from "lucide-react";
+import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2, Calculator } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { useServerFn } from "@tanstack/react-start";
+import { backfillCommissions } from "@/lib/admin.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminOverview,
@@ -120,6 +123,7 @@ function AdminOverview() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/support"><LifeBuoy className="h-3.5 w-3.5 mr-1.5" />All Tickets</Link>
         </Button>
+        <RecalcCommissionsButton />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -189,5 +193,32 @@ function AdminOverview() {
         </div>
       </div>
     </div>
+  );
+}
+
+function RecalcCommissionsButton() {
+  const [running, setRunning] = useState(false);
+  const fn = useServerFn(backfillCommissions);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={running}
+      onClick={async () => {
+        if (!confirm("Recalculate all commission rows from scratch? This wipes and rebuilds commission_schedule for every policy.")) return;
+        setRunning(true);
+        try {
+          const res = await fn();
+          toast.success(`Recalculated: ${res.processed} policies, ${res.errors} errors, ${res.skipped_no_carrier_or_premium} skipped.`);
+        } catch (e: any) {
+          toast.error(`Failed: ${e.message}`);
+        } finally {
+          setRunning(false);
+        }
+      }}
+    >
+      {running ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
+      Recalculate Commissions
+    </Button>
   );
 }

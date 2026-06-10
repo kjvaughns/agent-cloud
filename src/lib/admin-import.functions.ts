@@ -672,7 +672,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           if (existing) { duplicatesSkipped++; continue; }
         }
 
-        const { error } = await supabase.from("policies").insert({
+        const { data: insertedPol, error } = await supabase.from("policies").insert({
           client_id: c.id,
           agent_id: targetAgent,
           assigned_to_email: ownerEmail,
@@ -684,8 +684,24 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           effective_date: p.effective_date,
           status: mapPolicyStatus(p.status ?? undefined),
           posted_at: postedAt,
-        });
-        if (!error) policiesImported++;
+        }).select("id").single();
+        if (!error && insertedPol) {
+          policiesImported++;
+          try {
+            const { calculateAndInsertAllCommissions } = await import("@/lib/commission-calculator");
+            await calculateAndInsertAllCommissions(supabase, {
+              policyId: insertedPol.id,
+              agentId: targetAgent,
+              carrierId: resolveCarrierId(p.carrier),
+              product: p.product ?? p.carrier ?? "Unknown",
+              monthlyPremium: Number(p.monthly_premium ?? 0),
+              effectiveDate: p.effective_date ?? null,
+              clientName: "",
+            });
+          } catch (commErr) {
+            console.warn("[import] commission calc failed:", (commErr as Error).message);
+          }
+        }
       }
 
       // 4. Notes
