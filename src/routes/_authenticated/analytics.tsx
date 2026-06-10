@@ -181,7 +181,7 @@ function TrophyCabinet() {
   const q = useQuery({ queryKey: ["trophies"], queryFn: () => fetchTrophies() });
   const trophies = q.data ?? [];
   const byType = (t: string) => trophies.filter((x) => x.type === t).length;
-  const dotColors: Record<string, string> = { daily: "bg-blue-500", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" };
+  const dotColors: Record<string, string> = { daily: "bg-[#C9A227]", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" };
 
   return (
     <Card>
