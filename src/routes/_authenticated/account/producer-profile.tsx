@@ -762,7 +762,7 @@ function BankingTab({ banking, documents, userId, onSaved }: { banking: any; doc
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 text-sm">
+      <div className="rounded-lg border border-[#C9A227]/20 bg-[#C9A227]/5 p-4 text-sm">
         Direct deposit info is used for commission payments. Keep this current.
       </div>
 

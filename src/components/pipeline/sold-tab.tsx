@@ -101,7 +101,7 @@ export function SoldTab({ clients, onOpen }: { clients: any[]; onOpen: (id: stri
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Kpi label="Clients" value={String(stats.clients)} tone="text-foreground" />
         <Kpi label="Policies" value={String(stats.policies)} tone="text-primary" />
-        <Kpi label="Total Face" value={fmtMoney(stats.face)} tone="text-blue-600" />
+        <Kpi label="Total Face" value={fmtMoney(stats.face)} tone="text-[#C9A227]" />
         <Kpi label="Annual Premium" value={fmtMoney(stats.annual)} tone="text-emerald-600" />
         <Kpi label="Avg Policy" value={fmtMoney(stats.avg)} tone="text-violet-600" />
         <Kpi label="This Month" value={String(stats.thisMonth)} tone="text-amber-600" />
@@ -274,7 +274,7 @@ function PolicyStatusPill({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     active:          { cls: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", label: "Active" },
     issued_not_paid: { cls: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900", label: "Not Taken" },
-    in_review:       { cls: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900", label: "In Review" },
+    in_review:       { cls: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30", label: "In Review" },
     lapsed:          { cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900", label: "Lapsed" },
   };
   const s = map[status] ?? { cls: "bg-muted text-muted-foreground border-border", label: status ?? "—" };

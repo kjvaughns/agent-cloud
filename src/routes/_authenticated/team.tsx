@@ -83,7 +83,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: "bg-amber-500/15 text-amber-600 border-amber-500/30",
     inactive: "bg-muted text-muted-foreground border-border",
     terminated: "bg-red-500/15 text-red-600 border-red-500/30",
-    imported: "bg-blue-500/15 text-blue-700 border-blue-500/30",
+    imported: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30",
   };
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
@@ -553,7 +553,7 @@ function RootNode() {
 function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
   const isCollapsed = collapsed.has(node.id);
   const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-blue-500" : "border-l-muted-foreground";
-  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-blue-500" : "bg-muted-foreground";
+  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-[#C9A227]" : "bg-muted-foreground";
   return (
     <div className="flex flex-col items-center gap-4">
       <Tooltip>

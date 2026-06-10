@@ -12,7 +12,7 @@ export type EventTypeMeta = {
 };
 
 export const EVENT_META: Record<string, EventTypeMeta> = {
-  appointment:          { label: "Appointment",          color: "#3b82f6", bg: "bg-blue-500",    border: "border-blue-500",    text: "text-blue-50",    icon: CalIcon,        emoji: "📅" },
+  appointment:          { label: "Appointment",          color: "#C9A227", bg: "bg-[#C9A227]",    border: "border-[#C9A227]",    text: "text-[#1a1a1a]",    icon: CalIcon,        emoji: "📅" },
   birthday:             { label: "Birthday",             color: "#ec4899", bg: "bg-pink-500",    border: "border-pink-500",    text: "text-pink-50",    icon: Cake,           emoji: "🎂" },
   policy_starting_soon: { label: "Policy Starting Soon", color: "#10b981", bg: "bg-emerald-500", border: "border-emerald-500", text: "text-emerald-50", icon: ClipboardList,  emoji: "📋" },
   beneficiary_checkin:  { label: "Beneficiary Check-In", color: "#f97316", bg: "bg-orange-500",  border: "border-orange-500",  text: "text-orange-50",  icon: Heart,          emoji: "💙" },

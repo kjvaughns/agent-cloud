@@ -6,7 +6,7 @@ export type ContractStatus = "assigned" | "requested" | "submitted" | "processin
 const MAP: Record<ContractStatus, { label: string; cls: string; Icon: typeof CheckCircle2 }> = {
   assigned:   { label: "Assigned",   cls: "bg-primary/15 text-primary border-primary/30",                             Icon: ClipboardList },
   requested:  { label: "Requested",  cls: "bg-slate-500/15 text-slate-600 border-slate-500/30 dark:text-slate-300",  Icon: Clock },
-  submitted:  { label: "Submitted",  cls: "bg-blue-500/15 text-blue-600 border-blue-500/30",                         Icon: Send },
+  submitted:  { label: "Submitted",  cls: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30",                         Icon: Send },
   processing: { label: "Processing", cls: "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300",  Icon: Loader2 },
   issue:      { label: "Issue",      cls: "bg-orange-500/15 text-orange-700 border-orange-500/30 dark:text-orange-300", Icon: AlertTriangle },
   active:     { label: "Active",     cls: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300", Icon: CheckCircle2 },
@@ -27,7 +27,7 @@ export function statusDot(status: ContractStatus | null | undefined): string {
   if (!status) return "bg-muted";
   if (status === "active") return "bg-emerald-500";
   if (status === "assigned") return "bg-primary/60";
-  if (status === "submitted" || status === "processing") return "bg-blue-500";
+  if (status === "submitted" || status === "processing") return "bg-[#C9A227]";
   if (status === "issue" || status === "rejected") return "bg-rose-500";
   return "bg-slate-400";
 }

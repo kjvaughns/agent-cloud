@@ -131,7 +131,7 @@ function ChallengeCards() {
     };
   }, [q.data]);
 
-  const colors = { daily: "bg-blue-500", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
+  const colors = { daily: "bg-[#C9A227]", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
   const order: Array<"daily"|"weekly"|"monthly"|"quarterly"> = ["daily", "weekly", "monthly", "quarterly"];
 
   return (
@@ -181,7 +181,7 @@ function TrophyCabinet() {
   const q = useQuery({ queryKey: ["trophies"], queryFn: () => fetchTrophies() });
   const trophies = q.data ?? [];
   const byType = (t: string) => trophies.filter((x) => x.type === t).length;
-  const dotColors: Record<string, string> = { daily: "bg-blue-500", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" };
+  const dotColors: Record<string, string> = { daily: "bg-[#C9A227]", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" };
 
   return (
     <Card>
@@ -367,7 +367,7 @@ function DailyReportPanel() {
             <ul className="space-y-0.5 text-xs">{d?.lapse_pending?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {p.carrier}</li>)}</ul>
           </div>
           <div>
-            <div className="font-medium text-blue-600 mb-1">Upcoming Effective (next 7d)</div>
+            <div className="font-medium text-[#C9A227] mb-1">Upcoming Effective (next 7d)</div>
             <ul className="space-y-0.5 text-xs">{d?.upcoming_effective?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {new Date(p.effective_date).toLocaleDateString()}</li>)}</ul>
           </div>
         </CardContent></Card>
@@ -454,7 +454,7 @@ function TeamPanel({ range }: { range: RangeKey }) {
         <Table>
           <TableHeader><TableRow><TableHead>Rank</TableHead><TableHead>Agent</TableHead><TableHead>Policies</TableHead><TableHead>Premium</TableHead><TableHead>Avg Deal</TableHead><TableHead>Trend</TableHead></TableRow></TableHeader>
           <TableBody>{(d?.rows ?? []).map((r, i) => (
-            <TableRow key={r.id} className={r.id === d?.self_id ? "bg-blue-500/10" : ""}>
+            <TableRow key={r.id} className={r.id === d?.self_id ? "bg-[#C9A227]/10" : ""}>
               <TableCell>{i + 1}</TableCell>
               <TableCell className="font-medium">{r.name}</TableCell>
               <TableCell>{r.policies}</TableCell>

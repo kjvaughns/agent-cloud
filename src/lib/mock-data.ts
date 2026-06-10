@@ -128,7 +128,7 @@ export const MOCK_POLICIES: MockPolicy[] = MOCK_CLIENTS
 
 export const STAGE_META: Record<PipelineStage, { label: string; color: string }> = {
   new_lead:        { label: "New Lead",         color: "bg-slate-500" },
-  contacted:       { label: "Contacted",        color: "bg-blue-500" },
+  contacted:       { label: "Contacted",        color: "bg-[#C9A227]" },
   appointment_set: { label: "Appointment Set",  color: "bg-indigo-500" },
   presentation:    { label: "Presentation",     color: "bg-purple-500" },
   application:     { label: "Application",      color: "bg-amber-500" },
