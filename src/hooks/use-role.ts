@@ -67,13 +67,13 @@ export async function requireSuperAdmin(supabase: any, userId: string) {
 
 export async function requireAgencyOwnerOrAbove(supabase: any, userId: string) {
   const { data } = await supabase.from("user_roles").select("role")
-    .eq("user_id", userId).in("role", ["super_admin", "agency_owner"]).maybeSingle();
+    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "admin"]).maybeSingle();
   if (!data) throw new Error("Forbidden: agency owner or above required");
 }
 
 export async function requireManagerOrAdmin(supabase: any, userId: string) {
   const { data } = await supabase.from("user_roles").select("role")
-    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "manager"]).maybeSingle();
+    .eq("user_id", userId).in("role", ["super_admin", "agency_owner", "admin", "manager"]).maybeSingle();
   if (!data) throw new Error("Forbidden: manager or above required");
 }
 
