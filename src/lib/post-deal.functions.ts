@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { calculateAndInsertCommission } from "@/lib/commission-calculator";
+import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -123,11 +123,15 @@ export const postDeal = createServerFn({ method: "POST" })
       .single();
     if (polErr) throw new Error(polErr.message);
 
-    await calculateAndInsertCommission(
-      supabase, policy.id, userId,
-      data.policy.carrier_id, data.policy.product,
-      data.policy.monthly_premium, data.policy.effective_date,
-    );
+    await calculateAndInsertAllCommissions(supabase, {
+      policyId: policy.id,
+      agentId: userId,
+      carrierId: data.policy.carrier_id,
+      product: data.policy.product,
+      monthlyPremium: data.policy.monthly_premium,
+      effectiveDate: data.policy.effective_date,
+      clientName: `${data.client.first_name} ${data.client.last_name}`.trim(),
+    });
 
     // Beneficiaries
     if (data.beneficiaries.length > 0) {
@@ -178,6 +182,7 @@ export const postDeal = createServerFn({ method: "POST" })
     } catch (e) {
       console.warn("[postDeal] discord notify failed:", (e as Error).message);
     }
+
 
     return { policyId: policy.id, clientId };
   });

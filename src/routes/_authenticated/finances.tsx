@@ -53,6 +53,7 @@ import {
   ChevronRight,
   User,
   Download,
+  Clock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
@@ -100,37 +101,39 @@ function FinancesPage() {
   const in90 = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
 
   const stats = useMemo(() => {
-    let todayTotal = 0, forecast90 = 0, mtd = 0, ytd = 0, direct = 0, override = 0;
+    let todayTotal = 0, forecast90 = 0, mtd = 0, ytd = 0;
+    let directYtd = 0, overridePending = 0, trailPending = 0, renewalPending = 0;
     for (const r of rows) {
-      const d = new Date(r.payment_date);
+      const d = new Date(r.payment_date + "T00:00:00");
+      const isTrail = r.payment_type === "trail" || r.payment_type === "deferred";
+      const isDirect = r.payment_type === "advance" || isTrail;
       if (r.payment_date === todayStr && r.status === "paid") todayTotal += r.amount;
       if (d >= today && d <= in90) forecast90 += r.amount;
       if (d >= startOfMonth && d <= today && r.status === "paid") mtd += r.amount;
       if (d >= startOfYear && d <= today && r.status === "paid") ytd += r.amount;
-      if (r.payment_type === "override") override += r.amount;
-      else direct += r.amount;
+      if (isDirect && d >= startOfYear && r.status === "paid") directYtd += r.amount;
+      if (r.payment_type === "override" && r.status === "pending") overridePending += r.amount;
+      if (isTrail && r.status === "pending") trailPending += r.amount;
+      if (r.payment_type === "renewal" && r.status === "pending") renewalPending += r.amount;
     }
-    return { todayTotal, forecast90, mtd, ytd, direct, override };
+    return { todayTotal, forecast90, mtd, ytd, directYtd, overridePending, trailPending, renewalPending };
   }, [rows]);
 
   const forecastData = useMemo(() => {
-    const months: { key: string; label: string; direct: number; override: number }[] = [];
+    const months: { key: string; label: string; direct: number; override: number; trail: number; renewal: number }[] = [];
     for (let i = 0; i < 12; i++) {
       const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
-      months.push({
-        key: monthKey(d),
-        label: `${MONTH_LABELS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`,
-        direct: 0,
-        override: 0,
-      });
+      months.push({ key: monthKey(d), label: `${MONTH_LABELS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`, direct: 0, override: 0, trail: 0, renewal: 0 });
     }
     const idx = new Map(months.map((m, i) => [m.key, i]));
     for (const r of rows) {
-      const d = new Date(r.payment_date);
+      const d = new Date(r.payment_date + "T00:00:00");
       const k = monthKey(d);
       const i = idx.get(k);
       if (i === undefined) continue;
       if (r.payment_type === "override") months[i].override += r.amount;
+      else if (r.payment_type === "renewal") months[i].renewal += r.amount;
+      else if (r.payment_type === "trail" || r.payment_type === "deferred") months[i].trail += r.amount;
       else months[i].direct += r.amount;
     }
     return months;
@@ -140,8 +143,9 @@ function FinancesPage() {
     const ym = `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, "0")}`;
     return rows.filter((r) => {
       if (!r.payment_date.startsWith(ym)) return false;
-      if (typeFilter !== "all" && r.payment_type !== typeFilter) return false;
-      return true;
+      if (typeFilter === "all") return true;
+      if (typeFilter === "trail") return r.payment_type === "trail" || r.payment_type === "deferred";
+      return r.payment_type === typeFilter;
     });
   }, [rows, viewMonth, typeFilter]);
 
@@ -158,17 +162,19 @@ function FinancesPage() {
   }, [monthRows]);
 
   const byCarrier = useMemo(() => {
-    const m = new Map<string, { name: string; policies: Set<string>; direct: number; override: number }>();
+    const m = new Map<string, { name: string; policies: Set<string>; direct: number; override: number; trail: number; renewal: number }>();
     for (const r of rows) {
       const k = r.carrier ?? "Unknown";
-      if (!m.has(k)) m.set(k, { name: k, policies: new Set(), direct: 0, override: 0 });
+      if (!m.has(k)) m.set(k, { name: k, policies: new Set(), direct: 0, override: 0, trail: 0, renewal: 0 });
       const e = m.get(k)!;
       e.policies.add(r.policy_id);
       if (r.payment_type === "override") e.override += r.amount;
+      else if (r.payment_type === "renewal") e.renewal += r.amount;
+      else if (r.payment_type === "trail" || r.payment_type === "deferred") e.trail += r.amount;
       else e.direct += r.amount;
     }
     return Array.from(m.values())
-      .map((e) => ({ name: e.name, count: e.policies.size, direct: e.direct, override: e.override, total: e.direct + e.override }))
+      .map((e) => ({ name: e.name, count: e.policies.size, direct: e.direct, override: e.override, trail: e.trail, renewal: e.renewal, total: e.direct + e.override + e.trail + e.renewal }))
       .sort((a, b) => b.total - a.total);
   }, [rows]);
 
@@ -235,24 +241,42 @@ function FinancesPage() {
         />
       </div>
 
-      {/* Direct vs Override */}
-      <div className="grid md:grid-cols-2 gap-3">
+      {/* Commission type breakdown */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-l-4 border-l-[#C9A227]">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <DollarSign className="h-4 w-4 text-[#C9A227]" /> Direct Commissions
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <DollarSign className="h-3.5 w-3.5 text-[#C9A227]" /> Direct YTD
             </div>
-            <div className="text-2xl font-bold mt-1">{fmtCurrency(stats.direct)}</div>
-            <p className="text-xs text-muted-foreground">Your personal production</p>
+            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.directYtd)}</div>
+            <p className="text-xs text-muted-foreground">Advance + trail paid</p>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-emerald-500">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-4 w-4 text-emerald-500" /> Override Commissions
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5 text-emerald-500" /> Override Pending
             </div>
-            <div className="text-2xl font-bold mt-1">{fmtCurrency(stats.override)}</div>
+            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.overridePending)}</div>
             <p className="text-xs text-muted-foreground">From downline production</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-purple-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Clock className="h-3.5 w-3.5 text-purple-500" /> Trail Pending
+            </div>
+            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.trailPending)}</div>
+            <p className="text-xs text-muted-foreground">Months 10–12 deferred</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-sky-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5 text-sky-500" /> Renewal Pending
+            </div>
+            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.renewalPending)}</div>
+            <p className="text-xs text-muted-foreground">Years 2+ renewals</p>
           </CardContent>
         </Card>
       </div>
@@ -273,6 +297,8 @@ function FinancesPage() {
               <Legend />
               <Line type="monotone" dataKey="direct" stroke="#C9A227" strokeWidth={2} name="Direct" dot={false} />
               <Line type="monotone" dataKey="override" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
+              <Line type="monotone" dataKey="trail" stroke="#a855f7" strokeWidth={2} strokeDasharray="3 3" name="Trail" dot={false} />
+              <Line type="monotone" dataKey="renewal" stroke="#0ea5e9" strokeWidth={1.5} strokeDasharray="4 4" name="Renewal" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </CardContent>
@@ -293,30 +319,37 @@ function FinancesPage() {
                   <h4 className="font-semibold mb-1">Standard Products (most carriers)</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
                     <li>75% of first-year commission is paid on the effective date (advance)</li>
-                    <li>Remaining 25% is split equally across months 10, 11, and 12</li>
+                    <li>Remaining 25% is split equally across months 10, 11, and 12 (trail)</li>
                   </ul>
                   <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Annual Premium: $1,200
 Agent Commission Level: 80%
 Total Year 1: $1,200 × 80% = $960
 Advance: $960 × 75% = $720
-Month 10/11/12: $960 × 25% / 3 = $80 each`}</pre>
+Month 10/11/12 (trail): $960 × 25% / 3 = $80 each`}</pre>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">GTL (Group Term Life) Exception</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
                     <li>Advance = 50% of first-year commission, capped at $600</li>
-                    <li>Balance split equally across months 7–12</li>
+                    <li>Balance split equally across months 7–12 (trail)</li>
                   </ul>
                   <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Total Year 1: $900
 Advance: MIN($900 × 50%, $600) = $450
 Balance: $900 - $450 = $450
-Months 7-12: $450 / 6 = $75/month`}</pre>
+Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">Override Commissions</h4>
                   <p className="text-muted-foreground">
                     Override = Downline annual premium × (Your level % − Direct downline's level %).
-                    You at 80%, downline at 70% → you earn 10% override. Each level earns only the spread, never the full amount.
+                    You at 80%, downline at 70% → you earn 10% override. Same 75/25 advance/trail split applies.
+                  </p>
+                </section>
+                <section>
+                  <h4 className="font-semibold mb-1">Renewals</h4>
+                  <p className="text-muted-foreground">
+                    Renewal commissions are paid at the start of policy years 2–5 and 6–10, at the rate
+                    specified in your commission grid for each carrier.
                   </p>
                 </section>
               </AccordionContent>
@@ -338,9 +371,9 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const cols = ["date", "client", "carrier", "product", "policy_number", "type", "amount", "status"];
+                  const cols = ["date", "client", "carrier", "product", "policy_number", "type", "commission_pct", "amount", "status"];
                   const lines = [cols.join(","), ...monthRows.map((r) =>
-                    [r.payment_date, `"${r.client_name}"`, r.carrier ?? "", r.product ?? "", r.policy_number ?? "", r.payment_type, r.amount, r.status].join(",")
+                    [r.payment_date, `"${r.client_name}"`, r.carrier ?? "", r.product ?? "", r.policy_number ?? "", r.payment_type, r.commission_pct ?? "", r.amount, r.status].join(",")
                   )];
                   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
                   const a = document.createElement("a");
@@ -369,11 +402,11 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
 
             <div>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectTrigger className="w-44"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
                   <SelectItem value="advance">Advance</SelectItem>
-                  <SelectItem value="deferred">Deferred</SelectItem>
+                  <SelectItem value="trail">Trail (deferred)</SelectItem>
                   <SelectItem value="override">Override</SelectItem>
                   <SelectItem value="renewal">Renewal</SelectItem>
                 </SelectContent>
@@ -449,9 +482,9 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                     </BarChart>
                   </ResponsiveContainer>
                   <Table>
-                    <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                     <TableBody>{byCarrier.map((c) => (
-                      <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.override)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(c.total)}</TableCell></TableRow>
+                      <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.trail)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.override)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.renewal)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(c.total)}</TableCell></TableRow>
                     ))}</TableBody>
                   </Table>
                 </>
@@ -479,13 +512,15 @@ Months 7-12: $450 / 6 = $75/month`}</pre>
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
                   <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
                   <Area type="monotone" dataKey="direct" stackId="1" stroke="#C9A227" fill="#C9A227" fillOpacity={0.3} name="Direct" />
+                  <Area type="monotone" dataKey="trail" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} name="Trail" />
                   <Area type="monotone" dataKey="override" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Override" />
+                  <Area type="monotone" dataKey="renewal" stackId="1" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Renewal" />
                 </AreaChart>
               </ResponsiveContainer>
               <Table>
-                <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                 <TableBody>{forecastData.map((m) => (
-                  <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(m.direct + m.override)}</TableCell></TableRow>
+                  <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.trail)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.renewal)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(m.direct + m.trail + m.override + m.renewal)}</TableCell></TableRow>
                 ))}</TableBody>
               </Table>
             </TabsContent>
@@ -521,14 +556,16 @@ function KpiTile({
   );
 }
 
-function TypeBadge({ type }: { type: Row["payment_type"] }) {
-  const cls = {
+function TypeBadge({ type }: { type: string }) {
+  const cls: Record<string, string> = {
     advance: "bg-[#C9A227]/15 text-[#AD8819] border-[#C9A227]/30",
+    trail: "bg-purple-500/15 text-purple-600 border-purple-500/30",
     deferred: "bg-purple-500/15 text-purple-600 border-purple-500/30",
     override: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-    renewal: "bg-gray-500/15 text-gray-600 border-gray-500/30",
-  }[type];
-  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{type}</span>;
+    renewal: "bg-sky-500/15 text-sky-600 border-sky-500/30",
+  };
+  const label = type === "deferred" ? "trail" : type;
+  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls[type] ?? "bg-muted"}`}>{label}</span>;
 }
 
 function PayoutRow({ row }: { row: Row }) {
@@ -550,12 +587,15 @@ function PayoutRow({ row }: { row: Row }) {
         {row.carrier && <span>{row.carrier}</span>}
         {row.product && <span>{row.product}</span>}
         {row.policy_number && <span className="font-mono">{row.policy_number}</span>}
+        {row.commission_pct != null && <span>{row.commission_pct}%</span>}
+        {row.policy_year != null && row.policy_year > 1 && <span>Yr {row.policy_year}</span>}
+        {isOverride && row.writing_agent_name && <span>via {row.writing_agent_name}</span>}
       </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: Row["status"] }) {
+function StatusBadge({ status }: { status: string }) {
   const cls = status === "paid"
     ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
     : "bg-amber-500/15 text-amber-600 border-amber-500/30";
