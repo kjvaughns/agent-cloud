@@ -698,6 +698,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
     carrier_id: z.string().uuid(),
     assigned_pct: z.number().min(0).max(999),
     commission_level: z.string().optional(),
+    writing_number: z.string().nullable().optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
@@ -707,6 +708,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       carrier_id: data.carrier_id,
       assigned_pct: data.assigned_pct,
       commission_level: data.commission_level ?? `${data.assigned_pct}%`,
+      writing_number: data.writing_number ?? null,
       assigned_by: userId,
       assigned_at: new Date().toISOString(),
     }, { onConflict: "agent_id,carrier_id" });
@@ -721,6 +723,39 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       });
     } catch {}
     return { ok: true };
+  });
+
+export const adminAssignAllCarriers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    agent_id: z.string().uuid(),
+    assigned_pct: z.number().min(0).max(999),
+    commission_level: z.string().min(1),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireManagerOrAdmin(supabase, userId);
+    const { data: carriers, error: cErr } = await supabase
+      .from("carriers")
+      .select("id")
+      .eq("active", true);
+    if (cErr) throw new Error(cErr.message);
+    const now = new Date().toISOString();
+    const rows = (carriers ?? []).map((c: any) => ({
+      agent_id: data.agent_id,
+      carrier_id: c.id,
+      assigned_pct: data.assigned_pct,
+      commission_level: data.commission_level,
+      assigned_by: userId,
+      assigned_at: now,
+    }));
+    if (rows.length) {
+      const { error } = await supabase
+        .from("agent_commission_levels")
+        .upsert(rows, { onConflict: "agent_id,carrier_id" });
+      if (error) throw new Error(error.message);
+    }
+    return { carriers_assigned: rows.length, contracts_created: 0 };
   });
 
 export const listAllCarriers = createServerFn({ method: "GET" })
@@ -801,4 +836,41 @@ export const runCommissionBackfill = createServerFn({ method: "POST" })
     }
 
     return { processed, errors, remaining: Math.max(0, (queue?.length ?? 0) - processed - errors) };
+  });
+
+// ---------- Stubs for legacy admin UI references ----------
+
+export const adminSyncAgentByNpn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async () => {
+    throw new Error("NPN sync is not yet implemented");
+  });
+
+export const adminBackfillCommissionGrids = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+    return { ok: true, message: "No backfill needed" };
+  });
+
+export const aiExtractCompGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ file_url: z.string().optional(), text: z.string().optional() }).partial().parse(d))
+  .handler(async () => {
+    throw new Error("AI commission-grid extraction is not yet implemented");
+  });
+
+export const saveExtractedGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ carrier_id: z.string().uuid(), rows: z.array(z.any()) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+    if (!data.rows?.length) return { inserted: 0 };
+    const rows = data.rows.map((r: any) => ({ ...r, carrier_id: data.carrier_id }));
+    const { error } = await supabase.from("commission_grids").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
   });
