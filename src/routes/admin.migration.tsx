@@ -1,279 +1,72 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { adminBatchInvite } from "@/lib/admin.functions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, CheckCircle, Circle, ArrowRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Upload, UserPlus, FileSpreadsheet } from "lucide-react";
 
 export const Route = createFileRoute("/admin/migration")({
   component: AdminMigration,
   head: () => ({ meta: [{ title: "Team Migration — Agent Cloud Admin" }] }),
 });
 
-const STEPS = [
-  "Connect AgentLink",
-  "Review Imported Agents",
-  "Configure Commission Templates",
-  "Send Invites",
-  "Track Onboarding",
-];
-
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-2">
-      {STEPS.map((label, i) => (
-        <div key={i} className="flex items-center">
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
-            i < current ? "bg-emerald-500/15 text-emerald-600" :
-            i === current ? "bg-primary text-primary-foreground" :
-            "bg-muted text-muted-foreground"
-          )}>
-            {i < current ? <CheckCircle className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{label}</span>
-            <span className="sm:hidden">{i + 1}</span>
-          </div>
-          {i < STEPS.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground mx-1" />}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-type ImportedAgent = {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone?: string;
-  policies_count?: number;
-  selected: boolean;
-};
-
 function AdminMigration() {
-  const [step, setStep] = useState(0);
-  const [apiKey, setApiKey] = useState("");
-  const [importing, setImporting] = useState(false);
-  const [agents, setAgents] = useState<ImportedAgent[]>([]);
-  const [tierA, setTierA] = useState("115");
-  const [tierB, setTierB] = useState("110");
-  const [tierC, setTierC] = useState("105");
-  const [sending, setSending] = useState(false);
-  const [inviteResults, setInviteResults] = useState<any[]>([]);
-
-  async function importAgents() {
-    if (!apiKey.trim()) { toast.error("Enter your AgentLink API key first"); return; }
-    setImporting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setAgents([
-      { first_name: "Sample", last_name: "Agent", email: "agent@example.com", policies_count: 12, selected: true },
-      { first_name: "Demo", last_name: "Producer", email: "demo@example.com", policies_count: 5, selected: true },
-    ]);
-    setImporting(false);
-    setStep(1);
-    toast.success("Imported 2 agents from AgentLink (demo data)");
-  }
-
-  async function sendInvites() {
-    const selectedAgents = agents.filter((a) => a.selected);
-    if (selectedAgents.length === 0) { toast.error("Select at least one agent"); return; }
-    setSending(true);
-    try {
-      const res = await adminBatchInvite({
-        data: {
-          agents: selectedAgents.map(({ first_name, last_name, email }) => ({ first_name, last_name, email })),
-          tier_assignments: {},
-        },
-      });
-      setInviteResults(res.results);
-      setStep(4);
-      toast.success(`${res.results.filter((r) => r.ok).length} invites sent`);
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-    setSending(false);
-  }
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold">Team Migration Wizard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Import your existing team from AgentLink and onboard them to Agent Cloud</p>
+        <h1 className="text-2xl font-bold">Team Migration</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Move an existing agency onto Agent Cloud. Pick the path that matches the data you have.
+        </p>
       </div>
 
-      <div className="overflow-x-auto pb-2">
-        <StepIndicator current={step} />
-      </div>
-
-      {/* Step 0: Connect AgentLink */}
-      {step === 0 && (
-        <Card className="max-w-lg">
-          <CardHeader><CardTitle className="text-base">Step 1 — Connect AgentLink</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Enter your AgentLink API key to import your full book of business and team hierarchy.</p>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">AgentLink API Key</label>
-              <Input
-                type="password"
-                placeholder="al_live_..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-            </div>
-            <Button onClick={importAgents} disabled={importing || !apiKey.trim()}>
-              {importing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Import Agency Book
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4 text-primary" /> Bulk import from CSV
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Upload an AgentLink, SureLC, or carrier-export CSV. AI extracts agents, clients, policies, and assigns them to the right writer.
+            </p>
+            <Button asChild>
+              <Link to="/admin/csv-import">Open CSV importer</Link>
             </Button>
           </CardContent>
         </Card>
-      )}
 
-      {/* Step 1: Review agents */}
-      {step === 1 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{agents.length} agents found. Select who to invite.</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAgents((a) => a.map((x) => ({ ...x, selected: !a.every((y) => y.selected) })))}
-            >
-              {agents.every((a) => a.selected) ? "Deselect All" : "Select All"}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-primary" /> Invite agents one by one
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Send a single invite with pre-assigned carriers and commission levels. Best for high-value producers you want to onboard personally.
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/contracting/invite">Open invite builder</Link>
             </Button>
-          </div>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 w-10" />
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
-                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Email</th>
-                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">Policies</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {agents.map((a, i) => (
-                  <tr key={i} className="hover:bg-muted/20">
-                    <td className="px-4 py-3">
-                      <Checkbox
-                        checked={a.selected}
-                        onCheckedChange={(v) => setAgents((prev) => prev.map((x, j) => j === i ? { ...x, selected: !!v } : x))}
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium">{a.first_name} {a.last_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{a.email}</td>
-                    <td className="px-4 py-3 text-right">{a.policies_count ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep(0)}>Back</Button>
-            <Button onClick={() => setStep(2)}>Continue</Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2: Commission templates */}
-      {step === 2 && (
-        <Card className="max-w-lg">
-          <CardHeader><CardTitle className="text-base">Step 3 — Commission Tiers</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Configure commission tier defaults. Agents will be assigned a tier when invited.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[
-                { label: "Tier A (%)", value: tierA, set: setTierA },
-                { label: "Tier B (%)", value: tierB, set: setTierB },
-                { label: "Tier C (%)", value: tierC, set: setTierC },
-              ].map(({ label, value, set }) => (
-                <div key={label}>
-                  <label className="text-xs text-muted-foreground mb-1 block">{label}</label>
-                  <Input type="number" value={value} onChange={(e) => set(e.target.value)} />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
-              <Button onClick={() => setStep(3)}>Continue</Button>
-            </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Step 3: Send invites */}
-      {step === 3 && (
-        <div className="space-y-4 max-w-lg">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Step 4 — Send Invites</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {agents.filter((a) => a.selected).length} agents selected to receive invites.
-                Each will get a 30-day invite link via email.
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-                <Button onClick={sendInvites} disabled={sending}>
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Send {agents.filter((a) => a.selected).length} Invites
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Step 4: Tracking */}
-      {step === 4 && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Step 5 — Onboarding Tracker</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border border-border rounded-lg overflow-x-auto">
-                <table className="w-full text-sm min-w-[400px]">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Agent</th>
-                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {inviteResults.map((r, i) => (
-                      <tr key={i}>
-                        <td className="px-4 py-3">{r.email}</td>
-                        <td className="px-4 py-3">
-                          <Badge className={r.ok ? "bg-yellow-500/15 text-yellow-600" : "bg-red-500/15 text-red-600"}>
-                            {r.ok ? "Invited" : "Failed"}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {r.ok && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs"
-                              onClick={() => toast.info("Reminder sent (demo)")}
-                            >
-                              Send Reminder
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        <Card className="sm:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Upload className="h-4 w-4 text-primary" /> Pending agent requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Agents who asked for a full AgentLink pull show up here with credentials. Review, run the import on their behalf, and mark complete.
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/admin/import-requests">Open import requests</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
