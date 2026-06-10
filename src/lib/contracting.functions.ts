@@ -399,24 +399,53 @@ export const getCommissionGrid = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+
+    // Agent's assigned level for this carrier
     const { data: levelRow } = await supabase
       .from("agent_commission_levels")
       .select("assigned_pct, commission_level")
       .eq("agent_id", userId)
       .eq("carrier_id", data.carrier_id)
       .maybeSingle();
-    const { data: rows, error } = await supabase
+
+    const myPct       = levelRow ? Number(levelRow.assigned_pct) : null;
+    const myLevelName = levelRow?.commission_level ?? null;
+
+    // Super admins see ALL levels
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "super_admin")
+      .maybeSingle();
+    const isSuperAdmin = !!roleRow;
+
+    if (!isSuperAdmin && myPct === null) {
+      return { myLevelName: null, myPct: null, rows: [], noLevelAssigned: true, isSuperAdmin: false };
+    }
+
+    let query = supabase
       .from("commission_grids")
       .select("id,product_name,age_group_min,age_group_max,level_name,year_1_pct,years_2_5_pct,years_6_plus_pct")
       .eq("carrier_id", data.carrier_id)
       .order("year_1_pct", { ascending: false })
       .order("age_group_min", { ascending: true, nullsFirst: true })
       .order("product_name", { ascending: true });
+
+    // Non-super-admins only see their level and below
+    if (!isSuperAdmin && myPct !== null) {
+      query = query.lte("year_1_pct", myPct);
+    }
+
+    const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
+
     return {
-      myLevelName: levelRow?.commission_level ?? null,
-      myPct: levelRow ? Number(levelRow.assigned_pct) : null,
+      myLevelName,
+      myPct,
       rows: rows ?? [],
+      noLevelAssigned: false,
+      isSuperAdmin,
     };
   });
 
