@@ -123,6 +123,7 @@ function AdminOverview() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/support"><LifeBuoy className="h-3.5 w-3.5 mr-1.5" />All Tickets</Link>
         </Button>
+        <RecalcCommissionsButton />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
