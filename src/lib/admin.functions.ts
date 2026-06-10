@@ -935,3 +935,65 @@ export const saveExtractedGrid = createServerFn({ method: "POST" })
 
     return { inserted: insertRows.length };
   });
+
+// ─── Backfill all commission rows from policies ──────────────────────────────
+// Deletes existing commission_schedule rows and rebuilds from every policy
+// using the current calculator logic. Idempotent; safe to re-run.
+export const backfillCommissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+
+    const { calculateAndInsertAllCommissions } = await import("@/lib/commission-calculator");
+
+    // 1. Wipe existing rows
+    const { error: delErr } = await supabase
+      .from("commission_schedule")
+      .delete()
+      .gte("created_at", "1900-01-01");
+    if (delErr) throw new Error(`Delete failed: ${delErr.message}`);
+
+    // 2. Load all policies that have premium and an agent
+    const { data: policies, error: polErr } = await supabase
+      .from("policies")
+      .select("id, agent_id, carrier_id, product, monthly_premium, annual_premium, effective_date, client_id, clients(first_name, last_name)")
+      .gt("monthly_premium", 0)
+      .not("agent_id", "is", null);
+    if (polErr) throw new Error(`Load failed: ${polErr.message}`);
+
+    let processed = 0, skipped = 0, errors = 0;
+    const errorSamples: string[] = [];
+
+    for (const p of policies ?? []) {
+      const clientName = p.clients
+        ? `${(p.clients as any).first_name ?? ""} ${(p.clients as any).last_name ?? ""}`.trim()
+        : "";
+      const monthly = Number(p.monthly_premium ?? 0);
+      if (!monthly || !p.carrier_id) { skipped++; continue; }
+      try {
+        await calculateAndInsertAllCommissions(supabase, {
+          policyId: p.id,
+          agentId: p.agent_id,
+          carrierId: p.carrier_id,
+          product: p.product ?? "",
+          monthlyPremium: monthly,
+          effectiveDate: p.effective_date ?? null,
+          clientName,
+        });
+        processed++;
+      } catch (e) {
+        errors++;
+        if (errorSamples.length < 5) errorSamples.push((e as Error).message);
+      }
+    }
+
+    return {
+      ok: true,
+      total_policies: policies?.length ?? 0,
+      processed,
+      skipped_no_carrier_or_premium: skipped,
+      errors,
+      error_samples: errorSamples,
+    };
+  });
