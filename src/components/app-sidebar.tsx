@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
 import { useOrganization } from "@/hooks/use-organization";
