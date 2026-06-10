@@ -837,3 +837,40 @@ export const runCommissionBackfill = createServerFn({ method: "POST" })
 
     return { processed, errors, remaining: Math.max(0, (queue?.length ?? 0) - processed - errors) };
   });
+
+// ---------- Stubs for legacy admin UI references ----------
+
+export const adminSyncAgentByNpn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async () => {
+    throw new Error("NPN sync is not yet implemented");
+  });
+
+export const adminBackfillCommissionGrids = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+    return { ok: true, message: "No backfill needed" };
+  });
+
+export const aiExtractCompGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ file_url: z.string().optional(), text: z.string().optional() }).partial().parse(d))
+  .handler(async () => {
+    throw new Error("AI commission-grid extraction is not yet implemented");
+  });
+
+export const saveExtractedGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ carrier_id: z.string().uuid(), rows: z.array(z.any()) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await requireAdmin(supabase, userId);
+    if (!data.rows?.length) return { inserted: 0 };
+    const rows = data.rows.map((r: any) => ({ ...r, carrier_id: data.carrier_id }));
+    const { error } = await supabase.from("commission_grids").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
+  });
