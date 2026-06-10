@@ -195,3 +195,30 @@ function AdminOverview() {
     </div>
   );
 }
+
+function RecalcCommissionsButton() {
+  const [running, setRunning] = useState(false);
+  const fn = useServerFn(backfillCommissions);
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={running}
+      onClick={async () => {
+        if (!confirm("Recalculate all commission rows from scratch? This wipes and rebuilds commission_schedule for every policy.")) return;
+        setRunning(true);
+        try {
+          const res = await fn();
+          toast.success(`Recalculated: ${res.processed} policies, ${res.errors} errors, ${res.skipped_no_carrier_or_premium} skipped.`);
+        } catch (e: any) {
+          toast.error(`Failed: ${e.message}`);
+        } finally {
+          setRunning(false);
+        }
+      }}
+    >
+      {running ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
+      Recalculate Commissions
+    </Button>
+  );
+}
