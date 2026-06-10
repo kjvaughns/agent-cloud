@@ -367,7 +367,7 @@ function DailyReportPanel() {
             <ul className="space-y-0.5 text-xs">{d?.lapse_pending?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {p.carrier}</li>)}</ul>
           </div>
           <div>
-            <div className="font-medium text-blue-600 mb-1">Upcoming Effective (next 7d)</div>
+            <div className="font-medium text-[#C9A227] mb-1">Upcoming Effective (next 7d)</div>
             <ul className="space-y-0.5 text-xs">{d?.upcoming_effective?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {new Date(p.effective_date).toLocaleDateString()}</li>)}</ul>
           </div>
         </CardContent></Card>
