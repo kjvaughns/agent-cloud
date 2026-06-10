@@ -131,7 +131,7 @@ function ChallengeCards() {
     };
   }, [q.data]);
 
-  const colors = { daily: "bg-blue-500", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
+  const colors = { daily: "bg-[#C9A227]", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
   const order: Array<"daily"|"weekly"|"monthly"|"quarterly"> = ["daily", "weekly", "monthly", "quarterly"];
 
   return (
