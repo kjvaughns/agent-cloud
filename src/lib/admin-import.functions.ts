@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import {
-  detectDuplicate,
   detectTeamDuplicate,
   mapStage,
   mapTemperature,
