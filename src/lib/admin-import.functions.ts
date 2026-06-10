@@ -695,6 +695,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
               carrierId,
               product: p.product ?? p.carrier ?? "Unknown",
               monthlyPremium: Number(p.monthly_premium ?? 0),
+              annualPremium: Number(p.annual_premium ?? 0) || null,
               effectiveDate: p.effective_date ?? null,
               clientName: "",
             });
