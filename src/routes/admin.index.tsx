@@ -1,15 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2, Calculator } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { useServerFn } from "@tanstack/react-start";
-import { backfillCommissions } from "@/lib/admin.functions";
 import { toast } from "sonner";
+import { runCommissionBackfill } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin/")({
   component: AdminOverview,
@@ -55,6 +57,14 @@ function AdminOverview() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [newAgents, setNewAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backfillResult, setBackfillResult] = useState<{ processed: number; errors: number; remaining: number } | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [nullCarrierPolicies, setNullCarrierPolicies] = useState<any[]>([]);
+  const [carriers, setCarriers] = useState<any[]>([]);
+  const [fixRow, setFixRow] = useState<any | null>(null);
+  const [fixCarrierId, setFixCarrierId] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const backfillFn = useServerFn(runCommissionBackfill);
 
   useEffect(() => {
     async function load() {
@@ -91,10 +101,44 @@ function AdminOverview() {
       setContracts(recentContracts.data ?? []);
       setTickets(recentTickets.data ?? []);
       setNewAgents(recentAgents.data ?? []);
+
+      // Maintenance: null carrier policies + carriers list
+      const [nullCarriersRes, carriersListRes] = await Promise.all([
+        supabase.from("policies")
+          .select("id, product, monthly_premium, agent_id, profiles!agent_id(first_name, last_name), clients(first_name, last_name)")
+          .is("carrier_id", null)
+          .limit(20),
+        supabase.from("carriers").select("id, name").eq("active", true).order("name"),
+      ]);
+      setNullCarrierPolicies(nullCarriersRes.data ?? []);
+      setCarriers(carriersListRes.data ?? []);
+
       setLoading(false);
     }
     load();
   }, []);
+
+  async function runBackfill() {
+    setBackfilling(true);
+    try {
+      const result = await backfillFn({ data: {} });
+      setBackfillResult(result);
+      toast.success(`Backfill complete: ${result.processed} processed, ${result.errors} errors`);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+    setBackfilling(false);
+  }
+
+  async function fixCarrier(policyId: string, carrierId: string) {
+    setFixing(true);
+    const { error } = await supabase.from("policies").update({ carrier_id: carrierId }).eq("id", policyId);
+    setFixing(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Carrier assigned");
+    setFixRow(null);
+    setNullCarrierPolicies((prev) => prev.filter((p) => p.id !== policyId));
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -123,7 +167,6 @@ function AdminOverview() {
         <Button variant="outline" size="sm" asChild>
           <Link to="/admin/support"><LifeBuoy className="h-3.5 w-3.5 mr-1.5" />All Tickets</Link>
         </Button>
-        <RecalcCommissionsButton />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -192,34 +235,79 @@ function AdminOverview() {
           </Card>
         </div>
       </div>
-    </div>
-  );
-}
 
-function RecalcCommissionsButton() {
-  const [running, setRunning] = useState(false);
-  const fn = useServerFn(backfillCommissions);
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={running}
-      onClick={async () => {
-        if (!confirm("Recalculate all commission rows from scratch? This wipes and rebuilds commission_schedule for every policy.")) return;
-        setRunning(true);
-        try {
-          const res = await fn();
-          const s = res.skipped;
-          toast.success(`Recalculated: ${res.processed} policies, ${res.errors} errors. Skipped — no carrier: ${s.no_carrier}, no premium: ${s.no_premium}, no comp level: ${s.no_writing_agent_level}.`);
-        } catch (e: any) {
-          toast.error(`Failed: ${e.message}`);
-        } finally {
-          setRunning(false);
-        }
-      }}
-    >
-      {running ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Calculator className="h-3.5 w-3.5 mr-1.5" />}
-      Recalculate Commissions
-    </Button>
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-3">
+          <Wrench className="h-4 w-4" /> Maintenance
+        </h2>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader><CardTitle className="text-sm font-medium">Commission Backfill</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Run the JS commission calculator on all policies that have premium but no commission rows.
+                Process 50 at a time. Run multiple times until remaining = 0.
+              </p>
+              {backfillResult && (
+                <div className="text-xs space-y-1">
+                  <div>Processed: <span className="font-semibold text-emerald-600">{backfillResult.processed}</span></div>
+                  <div>Errors: <span className="font-semibold text-red-600">{backfillResult.errors}</span></div>
+                  <div>Remaining: <span className="font-semibold">{backfillResult.remaining}</span></div>
+                </div>
+              )}
+              <Button size="sm" onClick={runBackfill} disabled={backfilling}>
+                {backfilling ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : null}
+                Run Backfill (50 at a time)
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm font-medium">Null Carrier Policies</CardTitle></CardHeader>
+            <CardContent>
+              {nullCarrierPolicies.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No policies with missing carrier. ✓</p>
+              ) : (
+                <div className="space-y-2">
+                  {nullCarrierPolicies.map((p) => {
+                    const client = p.clients as any;
+                    const agent = p.profiles as any;
+                    return (
+                      <div key={p.id} className="flex items-center justify-between gap-2 text-xs border-b pb-2 last:border-0 last:pb-0">
+                        <div>
+                          <div className="font-medium">{client ? `${client.first_name} ${client.last_name}` : "—"}</div>
+                          <div className="text-muted-foreground">{p.product} · Agent: {agent ? `${agent.first_name} ${agent.last_name}` : "—"}</div>
+                        </div>
+                        <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => { setFixRow(p); setFixCarrierId(""); }}>Fix</Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Dialog open={!!fixRow} onOpenChange={(o) => !o && setFixRow(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Assign Carrier</DialogTitle></DialogHeader>
+          <div className="py-2">
+            <Select value={fixCarrierId} onValueChange={setFixCarrierId}>
+              <SelectTrigger><SelectValue placeholder="Select carrier" /></SelectTrigger>
+              <SelectContent>
+                {carriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFixRow(null)}>Cancel</Button>
+            <Button onClick={() => fixRow && fixCarrierId && fixCarrier(fixRow.id, fixCarrierId)} disabled={!fixCarrierId || fixing}>
+              {fixing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : null}Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

@@ -173,7 +173,10 @@ function AIAssistantPage() {
         <TabsContent value="automations" className="mt-4">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Automation features — policy recovery calls, birthday messages, and SMS follow-ups — are coming soon. Contact your admin to enable early access.</p>
+              <p className="text-sm text-muted-foreground">
+                Automation features including policy recovery calls, birthday messages, and SMS follow-ups
+                are available for eligible agency plans. Contact your admin to enable.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

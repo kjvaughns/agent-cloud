@@ -17,9 +17,16 @@ function ForgotPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [lastSubmit, setLastSubmit] = useState(0);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const now = Date.now();
+    if (now - lastSubmit < 3000) {
+      toast.error("Please wait before requesting another reset email");
+      return;
+    }
+    setLastSubmit(now);
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,

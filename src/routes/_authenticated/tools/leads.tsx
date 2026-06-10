@@ -122,7 +122,6 @@ function LeadsPage() {
               <p className="text-sm text-muted-foreground max-w-sm">
                 Receive inbound calls and web form submissions routed directly to your pipeline. Configure your inbound lead flow and get notified in real time.
               </p>
-              <Badge variant="secondary">Coming Soon</Badge>
             </CardContent>
           </Card>
         </TabsContent>
