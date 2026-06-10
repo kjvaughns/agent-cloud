@@ -387,11 +387,11 @@ function EditableField({ label, client, field, type, select, address }: { label:
   );
 }
 
-// ============ Contact Tab (+ Banking, Health, Policy stacked) ============
+// ============ Contact Tab (6 stacked sections) ============
 function ContactTab({ detail }: { detail: any }) {
   const client = detail.client;
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-4">
       <SectionCard icon={User} title="Contact Information">
         <div className="grid grid-cols-2 gap-3">
           <EditableField label="First Name" client={client} field="first_name" />
@@ -400,6 +400,9 @@ function ContactTab({ detail }: { detail: any }) {
           <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
           <EditableField label="Email" client={client} field="email" />
           <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
+        </div>
+        <div className="mt-3 pt-3 border-t">
+          <TemperatureSelector client={client} />
         </div>
       </SectionCard>
 
@@ -411,22 +414,24 @@ function ContactTab({ detail }: { detail: any }) {
           <EditableField label="City" client={client} field="city" />
           <EditableField label="State" client={client} field="state" />
           <EditableField label="ZIP Code" client={client} field="zip_code" />
-          <EditableField label="Born: (Country/State)" client={client} field="born_country_state" />
+          <EditableField label="Born In (State / Country)" client={client} field="born_country_state" />
         </div>
-      </SectionCard>
-
-      <TemperatureSelector client={client} />
-
-      <SectionCard icon={Building} title="Banking Information">
-        <BankingFields detail={detail} />
       </SectionCard>
 
       <SectionCard icon={Activity} title="Health Information">
         <HealthFields detail={detail} />
       </SectionCard>
 
+      <SectionCard icon={Building} title="Banking Information">
+        <BankingFields detail={detail} />
+      </SectionCard>
+
       <SectionCard icon={FileText} title="Policy Information">
         <PolicyFields detail={detail} />
+      </SectionCard>
+
+      <SectionCard icon={Users} title="Beneficiaries">
+        <BeneficiariesInline detail={detail} />
       </SectionCard>
     </div>
   );
