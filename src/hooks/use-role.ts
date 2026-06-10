@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "super_admin" | "agency_owner" | "manager" | "agent" | "staff";
+export type AppRole = "super_admin" | "agency_owner" | "admin" | "manager" | "agent" | "staff";
 
-const ROLE_PRIORITY: AppRole[] = ["super_admin", "agency_owner", "manager", "agent", "staff"];
+const ROLE_PRIORITY: AppRole[] = ["super_admin", "agency_owner", "admin", "manager", "agent", "staff"];
 
 let _cachedRole: AppRole | null = null;
 let _cachedUserId: string | null = null;
