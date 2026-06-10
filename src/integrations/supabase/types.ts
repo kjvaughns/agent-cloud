@@ -1083,6 +1083,35 @@ export type Database = {
           },
         ]
       }
+      commission_backfill_queue: {
+        Row: {
+          created_at: string | null
+          id: string
+          policy_id: string
+          processed: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          policy_id: string
+          processed?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          policy_id?: string
+          processed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_backfill_queue_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_grids: {
         Row: {
           age_group_max: number | null
