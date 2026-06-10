@@ -340,7 +340,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
         <>
           {client.beneficiary_of && (
             <div className="mt-2 pt-2 border-t border-dashed">
-              <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+              <span className="inline-flex items-center gap-1 text-[10px] text-[#C9A227] font-medium">
                 <Heart className="h-2.5 w-2.5" /> Beneficiary of {client.beneficiary_of}
               </span>
             </div>
