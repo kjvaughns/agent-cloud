@@ -101,7 +101,7 @@ export function SoldTab({ clients, onOpen }: { clients: any[]; onOpen: (id: stri
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Kpi label="Clients" value={String(stats.clients)} tone="text-foreground" />
         <Kpi label="Policies" value={String(stats.policies)} tone="text-primary" />
-        <Kpi label="Total Face" value={fmtMoney(stats.face)} tone="text-blue-600" />
+        <Kpi label="Total Face" value={fmtMoney(stats.face)} tone="text-[#C9A227]" />
         <Kpi label="Annual Premium" value={fmtMoney(stats.annual)} tone="text-emerald-600" />
         <Kpi label="Avg Policy" value={fmtMoney(stats.avg)} tone="text-violet-600" />
         <Kpi label="This Month" value={String(stats.thisMonth)} tone="text-amber-600" />
