@@ -159,11 +159,11 @@ function AdminAgents() {
         const importedCount = agents.filter((a) => a.status === "imported").length;
         if (importedCount === 0 || statusFilter === "imported") return null;
         return (
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-sm">
-            <UserCheck className="h-4 w-4 text-blue-600 shrink-0" />
-            <span className="flex-1 text-blue-700">{importedCount} imported agent{importedCount !== 1 ? "s" : ""} haven't joined yet.</span>
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-[#C9A227]/30 bg-[#C9A227]/10 text-sm">
+            <UserCheck className="h-4 w-4 text-[#C9A227] shrink-0" />
+            <span className="flex-1 text-[#C9A227]">{importedCount} imported agent{importedCount !== 1 ? "s" : ""} haven't joined yet.</span>
             <button
-              className="text-xs font-medium text-blue-700 underline hover:no-underline"
+              className="text-xs font-medium text-[#C9A227] underline hover:no-underline"
               onClick={() => setStatusFilter("imported")}
             >
               View
