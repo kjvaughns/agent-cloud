@@ -45,8 +45,8 @@ export function useRole() {
 
   const isSuperAdmin  = role === "super_admin";
   const isAgencyOwner = role === "agency_owner" || role === "super_admin";
-  const isManager     = role === "manager" || role === "agency_owner" || role === "super_admin";
-  const isAdmin       = role === "super_admin" || role === "agency_owner";
+  const isAdmin       = role === "super_admin" || role === "agency_owner" || role === "admin";
+  const isManager     = role === "manager" || isAdmin;
   const isStaff       = role === "staff";
   const hasNoRole     = role === null && !loading;
 
