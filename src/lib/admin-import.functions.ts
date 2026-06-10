@@ -647,21 +647,18 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
         return null;
       };
 
+      const importCarrierIds = new Set<string>();
+
       for (const p of policiesRaw) {
         const key = normName(p.client_label);
         const c = clientIdByLabel.get(key);
         if (!c) continue;
 
         const ownerEmail = p.agent_label ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail : c.ownerEmail;
-        // Use effective date as the business "posted" date so historical
-        // production lands in the correct month; fall back to now() only
-        // when the source row has no effective date.
         const postedAt = p.effective_date
           ? new Date(`${p.effective_date}T12:00:00Z`).toISOString()
           : new Date().toISOString();
 
-        // Team-wide policy dedupe by (policy_number) — skip if any team
-        // member already has this policy number to prevent double imports
         if (p.policy_number) {
           const { data: existing } = await supabase
             .from("policies")
@@ -672,11 +669,14 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           if (existing) { duplicatesSkipped++; continue; }
         }
 
+        const carrierId = resolveCarrierId(p.carrier);
+        if (carrierId) importCarrierIds.add(carrierId);
+
         const { data: insertedPol, error } = await supabase.from("policies").insert({
           client_id: c.id,
           agent_id: targetAgent,
           assigned_to_email: ownerEmail,
-          carrier_id: resolveCarrierId(p.carrier),
+          carrier_id: carrierId,
           product: p.product ?? p.carrier ?? "Unknown",
           policy_number: p.policy_number,
           monthly_premium: p.monthly_premium,
@@ -692,7 +692,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             await calculateAndInsertAllCommissions(supabase, {
               policyId: insertedPol.id,
               agentId: targetAgent,
-              carrierId: resolveCarrierId(p.carrier),
+              carrierId,
               product: p.product ?? p.carrier ?? "Unknown",
               monthlyPremium: Number(p.monthly_premium ?? 0),
               effectiveDate: p.effective_date ?? null,
@@ -703,6 +703,53 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           }
         }
       }
+
+      // 3b. Auto-provision pending contract_requests + agent_commission_levels
+      // for every distinct carrier seen in the imported book of business.
+      if (importCarrierIds.size > 0) {
+        const carrierIdArr = Array.from(importCarrierIds);
+        const { data: existingContracts } = await supabase
+          .from("contract_requests")
+          .select("carrier_id")
+          .eq("agent_id", targetAgent)
+          .in("carrier_id", carrierIdArr);
+        const haveContract = new Set((existingContracts ?? []).map((r: any) => r.carrier_id));
+        const newContracts = carrierIdArr
+          .filter((cid) => !haveContract.has(cid))
+          .map((cid) => ({
+            agent_id: targetAgent,
+            carrier_id: cid,
+            status: "requested" as const,
+            source: "import_auto",
+            notes: "Auto-created from book-of-business import",
+          }));
+        if (newContracts.length > 0) {
+          await supabase.from("contract_requests").insert(newContracts);
+        }
+
+        const { data: existingLevels } = await supabase
+          .from("agent_commission_levels")
+          .select("carrier_id")
+          .eq("agent_id", targetAgent)
+          .in("carrier_id", carrierIdArr);
+        const haveLevel = new Set((existingLevels ?? []).map((r: any) => r.carrier_id));
+        const newLevels = carrierIdArr
+          .filter((cid) => !haveLevel.has(cid))
+          .map((cid) => ({
+            agent_id: targetAgent,
+            carrier_id: cid,
+            assigned_pct: null,
+            commission_level: null,
+            assigned_by: userId,
+            pending: true,
+          }));
+        if (newLevels.length > 0) {
+          await supabase
+            .from("agent_commission_levels")
+            .upsert(newLevels, { onConflict: "agent_id,carrier_id" });
+        }
+      }
+
 
       // 4. Notes
       for (const n of notesRaw) {
