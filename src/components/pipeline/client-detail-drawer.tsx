@@ -1069,7 +1069,107 @@ function BeneficiariesTab({ detail }: { detail: any }) {
   );
 }
 
-// ============ Referrals ============
+// ============ Beneficiaries Inline (used inside ContactTab) ============
+function BeneficiariesInline({ detail }: { detail: any }) {
+  const qc = useQueryClient();
+  const saveFn = useServerFn(saveBeneficiary);
+  const delFn = useServerFn(deleteBeneficiary);
+  const [adding, setAdding] = useState(false);
+  const blank = { first_name: "", last_name: "", relationship: "", phone: "", dob: "", percentage: 0 };
+  const [form, setForm] = useState<any>(blank);
+  const total = (detail.beneficiaries ?? []).reduce((s: number, b: any) => s + Number(b.percentage ?? 0), 0);
+
+  const saveMut = useMutation({
+    mutationFn: () => saveFn({ data: { client_id: detail.client.id, ...form, percentage: Number(form.percentage) } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] });
+      setAdding(false);
+      setForm(blank);
+      toast.success("Beneficiary saved");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+
+  return (
+    <div className="space-y-3">
+      {(detail.beneficiaries ?? []).length > 0 && (
+        <div className="space-y-2">
+          {detail.beneficiaries.map((b: any) => (
+            <div key={b.id} className="flex items-center justify-between rounded-lg border p-3 bg-muted/10">
+              <div className="min-w-0">
+                <div className="font-medium text-sm">{b.first_name} {b.last_name}</div>
+                <div className="text-xs text-muted-foreground space-x-2">
+                  <span>{b.relationship || "—"}</span>
+                  {b.dob && <span>· DOB: {b.dob}</span>}
+                  <span>· {b.percentage}%</span>
+                </div>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => delFn({ data: { id: b.id } }).then(() =>
+                  qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] })
+                )}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))}
+          <div className={cn(
+            "text-xs font-medium text-right",
+            total === 100 ? "text-emerald-600" : "text-amber-600"
+          )}>
+            Total: {total}%{total !== 100 && " — must equal 100%"}
+          </div>
+        </div>
+      )}
+
+      {adding ? (
+        <div className="rounded-lg border bg-background p-3 space-y-3">
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field label="First Name *">
+              <Input value={form.first_name} onChange={(e) => setForm({...form, first_name: e.target.value})} className="h-8 text-sm" />
+            </Field>
+            <Field label="Last Name">
+              <Input value={form.last_name} onChange={(e) => setForm({...form, last_name: e.target.value})} className="h-8 text-sm" />
+            </Field>
+            <Field label="Relationship">
+              <Select value={form.relationship} onValueChange={(v) => setForm({...form, relationship: v})}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Select..." /></SelectTrigger>
+                <SelectContent>
+                  {["Spouse","Child","Parent","Sibling","Other"].map((o) => (
+                    <SelectItem key={o} value={o}>{o}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Phone">
+              <Input value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} className="h-8 text-sm" />
+            </Field>
+            <Field label="Date of Birth">
+              <Input type="date" value={form.dob} onChange={(e) => setForm({...form, dob: e.target.value})} className="h-8 text-sm" />
+            </Field>
+            <Field label="Percentage (%)">
+              <Input type="number" min={0} max={100} value={form.percentage} onChange={(e) => setForm({...form, percentage: e.target.value})} className="h-8 text-sm" />
+            </Field>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setAdding(false); setForm(blank); }}>Cancel</Button>
+            <Button size="sm" className="flex-1" disabled={!form.first_name || saveMut.isPending} onClick={() => saveMut.mutate()}>
+              {saveMut.isPending ? "Saving..." : "Add Beneficiary"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={() => setAdding(true)}>
+          <Plus className="h-3.5 w-3.5" /> Add Beneficiary
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function ReferralsTab({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const fn = useServerFn(logContact);
