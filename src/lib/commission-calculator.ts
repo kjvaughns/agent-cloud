@@ -283,6 +283,7 @@ export async function calculateAndInsertAllCommissions(
     const { error } = await supabase.from("commission_schedule").insert(rows);
     if (error) throw new Error(`Commission insert error: ${error.message}`);
   }
+  return { ok: true, rows_inserted: rows.length };
 }
 
 // Keep old name as alias for backward compatibility
