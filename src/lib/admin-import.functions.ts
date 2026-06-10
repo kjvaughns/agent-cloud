@@ -537,7 +537,17 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             },
             { onConflict: "email" },
           );
-        if (!upErr) pendingAgentsImported++;
+        if (!upErr) {
+          pendingAgentsImported++;
+          // Notify the importing admin that this roster member isn't on Agent Cloud yet
+          await supabase.from("notifications").insert({
+            user_id: userId,
+            type: "missing_team_member",
+            title: "Team member not on Agent Cloud",
+            description: `${r.first_name} ${r.last_name} (${r.email}) was in your AgentLink roster but has no account yet. Consider sending them an invite.`,
+            read: false,
+          });
+        }
       }
 
       // 2. Clients — track id by label for note attachment
