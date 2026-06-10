@@ -495,3 +495,91 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---------- transfer workflow ----------
+
+export const getTransferWorkflowStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: profile } = await (supabase as any)
+      .from("profiles")
+      .select("needs_transfer_request, transfer_workflow_carriers")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const { data: existing } = await supabase
+      .from("transfer_requests")
+      .select("id, status")
+      .eq("agent_id", userId)
+      .in("status", ["pending", "accepted", "complete"] as any)
+      .limit(1);
+
+    return {
+      needs_transfer_request: (profile as any)?.needs_transfer_request ?? false,
+      workflow_carriers:      (profile as any)?.transfer_workflow_carriers ?? [],
+      transfer_complete:      ((existing ?? []) as any[]).length > 0,
+    };
+  });
+
+export const submitTransferSheet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    rows: z.array(z.object({
+      carrier_id:           z.string().optional(),
+      carrier_name:         z.string().min(1),
+      writing_number:       z.string().optional(),
+      current_upline_name:  z.string().min(1),
+      current_upline_email: z.string().email().optional().or(z.literal("")),
+    })).min(1),
+    reason: z.string().optional(),
+    notes:  z.string().max(1000).optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("upline_id, first_name, last_name")
+      .eq("id", userId)
+      .maybeSingle();
+
+    for (const row of data.rows) {
+      let carrierId = row.carrier_id;
+      if (!carrierId && row.carrier_name) {
+        const { data: carrier } = await supabase
+          .from("carriers")
+          .select("id")
+          .ilike("name", `%${row.carrier_name.split(" ")[0]}%`)
+          .maybeSingle();
+        carrierId = carrier?.id;
+      }
+
+      await (supabase as any).from("transfer_requests").insert({
+        agent_id:             userId,
+        carrier_id:           carrierId ?? null,
+        to_upline_id:         profile?.upline_id ?? null,
+        writing_number:       row.writing_number || null,
+        current_upline_name:  row.current_upline_name,
+        current_upline_email: row.current_upline_email || null,
+        reason:               data.reason ?? null,
+        notes:                data.notes ?? null,
+        status:               "pending",
+        requested_at:         new Date().toISOString(),
+      });
+    }
+
+    if (profile?.upline_id) {
+      const agentName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+      await supabase.from("notifications").insert({
+        user_id: profile.upline_id,
+        title:   `Transfer Request from ${agentName}`,
+        body:    `${agentName} has submitted a carrier release request for ${data.rows.length} carrier${data.rows.length !== 1 ? "s" : ""}. Review in Transfer Requests.`,
+        type:    "contracting",
+        link:    "/admin/agents",
+        read:    false,
+      }).catch(() => {});
+    }
+
+    return { ok: true, submitted: data.rows.length };
+  });

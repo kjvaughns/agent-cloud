@@ -26,9 +26,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw, AlertTriangle } from "lucide-react";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
@@ -105,16 +104,69 @@ function ProducerProfilePage() {
         <p className="text-muted-foreground mt-1">Your producer record, compliance documents, and account integrations.</p>
       </div>
 
-      {/* Completion meter */}
-      <Card>
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">Profile Completion</span>
-            <span className="text-muted-foreground font-semibold">{completion.pct}%</span>
+      {/* Profile Completion */}
+      <Card className={cn(
+        "border-2",
+        completion.pct >= 80 ? "border-emerald-500/30" :
+        completion.pct >= 50 ? "border-amber-500/30" : "border-red-500/40"
+      )}>
+        <CardContent className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-bold text-base">Profile Completion</div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                Complete your profile to unlock full contracting capabilities
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={cn(
+                "text-3xl font-bold",
+                completion.pct >= 80 ? "text-emerald-600" :
+                completion.pct >= 50 ? "text-amber-600" : "text-red-600"
+              )}>
+                {completion.pct}%
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {(completion.missing as string[]).length} items remaining
+              </div>
+            </div>
           </div>
-          <Progress value={completion.pct} className="h-2" />
+
+          <div className="h-3 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-700",
+                completion.pct >= 80 ? "bg-emerald-500" :
+                completion.pct >= 50 ? "bg-amber-500" : "bg-red-500"
+              )}
+              style={{ width: `${completion.pct}%` }}
+            />
+          </div>
+
           {(completion.missing as string[]).length > 0 && (
-            <p className="text-xs text-muted-foreground">Missing: {(completion.missing as string[]).join(", ")}</p>
+            <div className="space-y-1.5">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Missing</div>
+              <div className="flex flex-wrap gap-1.5">
+                {(completion.missing as string[]).map((item) => (
+                  <span key={item} className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    item.includes("Transfer")
+                      ? "bg-red-500/15 text-red-700 border-red-500/30"
+                      : "bg-amber-500/15 text-amber-700 border-amber-500/30"
+                  )}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {completion.pct === 100 && (
+            <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+              <CheckCircle2 className="h-4 w-4" />
+              Profile complete — you're fully set up for contracting!
+            </div>
           )}
         </CardContent>
       </Card>

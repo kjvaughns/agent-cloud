@@ -6,7 +6,7 @@ import {
   AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   PieChart, Pie, Cell,
 } from "recharts";
-import { DollarSign, Users, FileText, FolderOpen, ArrowRight } from "lucide-react";
+import { DollarSign, Users, FileText, FolderOpen, ArrowRight, AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
 import { getDashboardMetrics } from "@/lib/dashboard.functions";
+import { getProducerProfile } from "@/lib/account.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
@@ -47,6 +49,16 @@ function Dashboard() {
     queryFn: () => fetchMetrics({ data: { rangeStart, rangeEnd } }),
   });
 
+  const profileFn = useServerFn(getProducerProfile);
+  const { data: profileData } = useQuery({
+    queryKey: ["producer-profile-completion"],
+    queryFn: () => profileFn(),
+    staleTime: 5 * 60_000,
+  });
+  const completion = profileData?.completion ?? { pct: 0, missing: [] as string[] };
+  const missing = (completion.missing as string[]) ?? [];
+  const pct = completion.pct as number;
+
   const trend = data?.trend ?? [];
   const trendData = trend.map((t) => ({
     m: format(new Date(t.month), "MMM yy"),
@@ -74,6 +86,9 @@ function Dashboard() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+      {pct < 100 && pct > 0 && (
+        <ProfileCompletionBanner pct={pct} missing={missing} />
+      )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
         <Card className="w-72">
@@ -241,5 +256,136 @@ function KpiTile({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Profile Completion Banner ─────────────────────────────────────────────
+
+const COMPLETION_ITEMS: Record<string, {
+  label: string; description: string; link: string; linkLabel: string; priority: number;
+}> = {
+  "Name & Phone":             { label: "Name & Phone",        description: "Add your full name and phone number",                              link: "/account/producer-profile",              linkLabel: "Complete Profile",          priority: 1 },
+  "Date of Birth":            { label: "Date of Birth",        description: "Required for contracting with carriers",                          link: "/account/producer-profile",              linkLabel: "Complete Profile",          priority: 2 },
+  "Home Address":             { label: "Home Address",         description: "Required for E&O and carrier contracting",                        link: "/account/producer-profile",              linkLabel: "Complete Profile",          priority: 3 },
+  "NPN Number":               { label: "NPN Number",           description: "Your National Producer Number — found on your state license",     link: "/account/producer-profile",              linkLabel: "Add NPN",                   priority: 4 },
+  "SSN (last 4)":             { label: "SSN (last 4)",         description: "Last 4 digits of your Social Security Number",                   link: "/account/producer-profile",              linkLabel: "Complete Profile",          priority: 5 },
+  "E&O Certificate":          { label: "E&O Certificate",      description: "Upload your Errors & Omissions insurance certificate",           link: "/account/producer-profile",              linkLabel: "Upload E&O",                priority: 6 },
+  "Banking / Direct Deposit": { label: "Banking Information",  description: "Add your bank account for commission direct deposit",            link: "/account/producer-profile",              linkLabel: "Add Banking",               priority: 7 },
+  "Driver's License":         { label: "Driver's License",     description: "Upload a copy of your driver's license",                         link: "/account/producer-profile",              linkLabel: "Upload License",            priority: 8 },
+  "AML Certificate":          { label: "AML Certificate",      description: "Upload your Anti-Money Laundering training certificate",         link: "/account/producer-profile",              linkLabel: "Upload AML",                priority: 9 },
+  "Background Questions":     { label: "Background Questions", description: "Complete the required producer background disclosure",            link: "/account/producer-profile",              linkLabel: "Complete",                  priority: 10 },
+  "State License":            { label: "State License",        description: "Add at least one active state insurance license",                link: "/resources/state-licenses",              linkLabel: "Sync Licenses",             priority: 11 },
+  "Transfer Request (carrier release)": {
+    label: "Transfer Request", description: "You need to submit a carrier release from your previous upline",
+    link: "/contracting/transfers", linkLabel: "Complete Transfer Request", priority: 0,
+  },
+};
+
+function ProfileCompletionBanner({ pct, missing }: { pct: number; missing: string[] }) {
+  const [expanded, setExpanded] = useState(pct < 50);
+
+  const color = pct >= 80 ? "emerald" : pct >= 50 ? "amber" : "red";
+  const colorCls = {
+    red:     { bar: "bg-red-500",    border: "border-red-500/40",    bg: "bg-red-500/5",    text: "text-red-700 dark:text-red-400" },
+    amber:   { bar: "bg-amber-500",  border: "border-amber-500/40",  bg: "bg-amber-500/5",  text: "text-amber-700 dark:text-amber-400" },
+    emerald: { bar: "bg-emerald-500",border: "border-emerald-500/40",bg: "bg-emerald-500/5",text: "text-emerald-700 dark:text-emerald-400" },
+  }[color];
+
+  const sortedMissing = [...missing].sort((a, b) =>
+    (COMPLETION_ITEMS[a]?.priority ?? 99) - (COMPLETION_ITEMS[b]?.priority ?? 99)
+  );
+  const hasTransferRequest = missing.includes("Transfer Request (carrier release)");
+
+  return (
+    <div className={cn("rounded-xl border-2 p-4 space-y-3 transition-all", colorCls.border, colorCls.bg)}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {pct >= 80
+            ? <CheckCircle2 className={cn("h-5 w-5 shrink-0", colorCls.text)} />
+            : <AlertTriangle className={cn("h-5 w-5 shrink-0", colorCls.text)} />
+          }
+          <div className="flex-1 min-w-0">
+            <div className={cn("font-bold text-sm", colorCls.text)}>
+              {pct < 50 ? "Producer Profile Incomplete — Action Required"
+               : pct < 80 ? "Almost There — Finish Your Profile"
+               : "Profile Nearly Complete"}
+            </div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-2 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden max-w-[200px]">
+                <div
+                  className={cn("h-full rounded-full transition-all duration-500", colorCls.bar)}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className={cn("text-xs font-bold shrink-0", colorCls.text)}>{pct}%</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {missing.length} item{missing.length !== 1 ? "s" : ""} remaining
+              </span>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className={cn("text-xs font-medium shrink-0 flex items-center gap-1", colorCls.text)}
+        >
+          {expanded ? "Hide" : "Show details"}
+          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-90")} />
+        </button>
+      </div>
+
+      {hasTransferRequest && (
+        <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/30 p-3 flex items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold text-red-700 dark:text-red-400 text-sm flex items-center gap-1.5">
+              <AlertTriangle className="h-4 w-4" />
+              Urgent: Submit Your Transfer Request
+            </div>
+            <p className="text-xs text-red-600 dark:text-red-300 mt-0.5">
+              You need to complete a carrier release form before you can be fully contracted.
+            </p>
+          </div>
+          <Link to={"/contracting/transfers" as any}>
+            <Button size="sm" className="shrink-0 bg-red-600 hover:bg-red-700 text-white h-8">
+              Complete Now →
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="space-y-2">
+          {sortedMissing
+            .filter((m) => m !== "Transfer Request (carrier release)")
+            .map((item) => {
+              const meta = COMPLETION_ITEMS[item];
+              if (!meta) return null;
+              return (
+                <div key={item} className="flex items-center justify-between gap-3 py-1.5 border-b border-black/5 dark:border-white/5 last:border-0">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{meta.label}</div>
+                      <div className="text-xs text-muted-foreground">{meta.description}</div>
+                    </div>
+                  </div>
+                  <Link to={meta.link as any}>
+                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0">
+                      {meta.linkLabel} →
+                    </Button>
+                  </Link>
+                </div>
+              );
+            })}
+        </div>
+      )}
+
+      {!expanded && !hasTransferRequest && (
+        <Link to={"/account/producer-profile" as any}>
+          <Button size="sm" variant="outline" className={cn("h-8 text-xs gap-1", colorCls.text)}>
+            Complete Profile → {missing.length} items remaining
+          </Button>
+        </Link>
+      )}
+    </div>
   );
 }

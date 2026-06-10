@@ -133,6 +133,18 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }
     }
 
+    // Flag transfer workflow if any assigned carriers need release
+    const releaseNeeded = assignments.filter((a: any) => a.release_needed && a.carrier_id);
+    if (releaseNeeded.length > 0) {
+      await (supabaseAdmin as any).from("profiles").update({
+        needs_transfer_request: true,
+        transfer_workflow_carriers: releaseNeeded.map((a: any) => ({
+          carrier_id:   a.carrier_id,
+          carrier_name: a.carrier_name ?? a.carrier_id,
+        })),
+      }).eq("id", newUserId);
+    }
+
     return { ok: true, userId: newUserId };
   });
 
@@ -262,6 +274,30 @@ export const saveOnboardingCarriers = createServerFn({ method: "POST" })
           notes: choice.release_needed ? "Release needed from previous upline" : null,
         });
       }
+    }
+
+    // Flag transfer workflow if any included carrier needs a release
+    const releaseChoices = included.filter((c) => c.release_needed);
+    if (releaseChoices.length > 0) {
+      const { data: carrierRows } = await supabase
+        .from("carriers").select("id, name")
+        .in("id", releaseChoices.map((c) => c.carrier_id));
+      const nameMap = new Map(((carrierRows ?? []) as any[]).map((c) => [c.id, c.name]));
+      await (supabase as any).from("profiles").update({
+        needs_transfer_request: true,
+        transfer_workflow_carriers: releaseChoices.map((c) => ({
+          carrier_id:   c.carrier_id,
+          carrier_name: nameMap.get(c.carrier_id) ?? c.carrier_id,
+        })),
+      }).eq("id", userId);
+      await supabase.from("notifications").insert({
+        user_id: userId,
+        title: "Action Required: Complete Your Transfer Request",
+        body:  `You indicated you need a release from ${releaseChoices.length} carrier${releaseChoices.length !== 1 ? "s" : ""}. Go to Transfer Requests to complete your carrier release form.`,
+        type:  "action_required",
+        link:  "/contracting/transfers",
+        read:  false,
+      }).catch(() => {});
     }
 
     const invForStep = await loadInviteForUser(supabase, data.token, userId);
