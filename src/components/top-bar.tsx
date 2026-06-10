@@ -41,7 +41,7 @@ export function TopBar() {
       <div className="flex-1" />
 
       {(isAdmin || isManager) && (
-        <Button asChild variant="outline" size="sm" className="border-[#C9A227]/40 text-[#C9A227] hover:bg-[#C9A227]/10 gap-1.5">
+        <Button asChild variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/10 gap-1.5">
           <Link to="/admin">
             <ShieldCheck className="h-3.5 w-3.5" />
             Admin

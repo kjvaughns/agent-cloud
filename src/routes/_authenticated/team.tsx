@@ -109,7 +109,7 @@ function TeamPage() {
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Team Command Center</h1>
+          <h1 className="text-2xl font-bold font-heading tracking-wide">Team Command Center</h1>
           <p className="text-sm text-muted-foreground">
             {kpis.total} agent{kpis.total === 1 ? "" : "s"} · {kpis.max_depth} depth level{kpis.max_depth === 1 ? "" : "s"}
           </p>

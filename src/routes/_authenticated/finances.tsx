@@ -213,7 +213,7 @@ function FinancesPage() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Finances</h1>
+        <h1 className="text-2xl font-bold font-heading tracking-wide">Finances</h1>
         <p className="text-sm text-muted-foreground">Financial analytics &amp; forecasting</p>
       </div>
 

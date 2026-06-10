@@ -90,7 +90,7 @@ function Dashboard() {
         <ProfileCompletionBanner pct={pct} missing={missing} />
       )}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-bold font-heading tracking-wide">Dashboard</h1>
         <Card className="w-72">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">

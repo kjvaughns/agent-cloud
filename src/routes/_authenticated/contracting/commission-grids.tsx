@@ -37,7 +37,7 @@ function GridsPage() {
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Commission Grids</h1>
+        <h1 className="text-2xl font-bold font-heading tracking-wide">Commission Grids</h1>
         <p className="text-sm text-muted-foreground max-w-3xl">
           View commission rates for your contracted carriers. Your assigned level is highlighted in gold.
         </p>

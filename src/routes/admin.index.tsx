@@ -143,7 +143,7 @@ function AdminOverview() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Admin Overview</h1>
+        <h1 className="text-2xl font-bold font-heading tracking-wide">Admin Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">Platform-wide metrics and activity</p>
       </div>
 

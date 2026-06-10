@@ -172,7 +172,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="h-screen">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-2">
+        <div className="flex items-center gap-2.5 px-2 py-2.5">
           {org?.logo_url ? (
             <img
               src={org.logo_url}
@@ -180,15 +180,22 @@ export function AppSidebar() {
               className="h-8 w-8 shrink-0 rounded-lg object-contain border border-border"
             />
           ) : (
-            <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground">
+            <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground shadow-sm">
               <Cloud className="h-4 w-4" />
             </div>
           )}
           {!sidebarCollapsed && (
             <div className="min-w-0 flex-1">
-              <div className="font-bold tracking-tight truncate">{org?.name ?? "Agent Cloud"}</div>
-              {org?.tagline && (
+              <div
+                className="font-bold truncate text-sidebar-foreground leading-tight"
+                style={{ fontFamily: "var(--font-heading, 'Bebas Neue', sans-serif)", letterSpacing: "0.05em", fontSize: "1.1rem" }}
+              >
+                {org?.name ?? "Agent Cloud"}
+              </div>
+              {org?.tagline ? (
                 <div className="text-[10px] text-muted-foreground truncate leading-tight">{org.tagline}</div>
+              ) : (
+                <div className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5 tracking-wide uppercase">by APEX</div>
               )}
             </div>
           )}
