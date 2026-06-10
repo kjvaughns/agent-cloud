@@ -3,10 +3,11 @@ import { createServerFn } from "@tanstack/react-start";
 type CommissionInput = {
   policyId: string;
   agentId: string;
-  carrierId: string;
+  carrierId: string | null;
   product: string;
   monthlyPremium: number;
-  effectiveDate: string;
+  annualPremium?: number | null;
+  effectiveDate: string | null;
   clientName: string;
 };
 
