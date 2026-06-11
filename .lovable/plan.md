@@ -1,68 +1,51 @@
 ## Goal
+Load the 2026 Compensation Grid PDF into the database so the Commission Grids page reflects the new official data, and attach Kaeden's and Samuel's actual level assignments.
 
-Replace the generic black/white React Email scaffolds with cohesive, branded Agent Cloud emails that match the app's gold-on-light identity.
+## Scope decisions (confirmed)
+- **Carriers**: Replace ALL `commission_grids` rows. Only the 10 carriers in the PDF will have grid data afterward (GTL, Transamerica, American Home Life, Mutual of Omaha, Foresters Financial, American Amicable, Newbridge, Royal Neighbors, Baltimore Life, Prudential). Other carriers (AIG, Aflac, Americo, AHL non-FE, etc.) will have no grid rows.
+- **Renewals**: All Yr 2-5 and Yr 6+ rates set to `0` (PDF only shows Yr 1).
+- **Agent assignments**: Attach Kaeden (`kjvaughns13@gmail.com`) and Samuel (`info@kingofsales.net`) to their carrier levels per the ★YOU / FMO markers.
 
-## Brand tokens (email-safe hex)
+## Changes
 
-- Gold primary: `#C9A227` (CTA, accent rules, brand mark)
-- Gold hover/darker: `#A8861E`
-- Ink (headings): `#0F172A`
-- Body text: `#475569`
-- Muted text/footer: `#94A3B8`
-- Hairline border: `#E2E8F0`
-- Soft surface: `#F8FAFC`
-- Body background: `#FFFFFF` (required by email guidelines, even though app is light/neutral)
-- Heading font: `'Bebas Neue', 'Arial Narrow', Arial, sans-serif` (web-safe fallback since Bebas isn't installed on most mail clients — falls back gracefully)
-- Body font: `'Inter', -apple-system, 'Segoe UI', Arial, sans-serif`
+### 1. Migration: replace `commission_grids`
+Single migration that:
+- `DELETE FROM commission_grids` (full wipe)
+- Insert all rows from the PDF, one row per (carrier, product, level). `level_name` stores the printed level label (e.g. `"22 (60%) ★YOU"` becomes `"22"`, `"RK12"`, `"GA(10)"`, `"L15"`, `"PKRAGENT10"`, `"8"`, `"60-SA2"`, etc.), `year_1_pct` stores the Yr1 commission, `years_2_5_pct`/`years_6_plus_pct` = `0`.
+- Special case: **Newbridge** uses `age_group_min`/`age_group_max` for Level DB (0–79 vs 80–85) and Modified DB (0–79 vs 80–85).
+- Special case: **Royal Neighbors** uses age bands for SI WL (50–75, 76–80, 81–85) and Graded DB (50–75, 76–80, 81–85). GI WL Band 1/2, Single Premium WL, Jet WL Band 1/2, Jet Youth WL stay age-less.
+- **GTL** keeps `is_gtl` semantics (Heritage + Life Select). The 2026 grid uses levels `6` through `30` in steps of 2.
 
-## Shared layout (applied to all 6 templates)
+### 2. Migration: replace `agent_commission_levels` for Kaeden & Samuel
+- Delete existing rows for both users (clean slate).
+- Insert Kaeden's ★YOU level per carrier:
+  - GTL: `22 (60%)` → 60%
+  - Transamerica: `RK12` → 80%
+  - American Home Life: `GA(10)` → 80%
+  - Mutual of Omaha: `L15` → 74%
+  - Foresters Financial: `PKRAGENT10` → 80%
+  - American Amicable: `75` → 75%
+  - Newbridge: `8` → 75%
+  - Royal Neighbors: `60-SA2` → 75%
+  - Baltimore Life: `80` → 80%
+  - Prudential: `80` → 80%
+- Insert Samuel's top FMO level per carrier:
+  - GTL: `30 (80%)` → 80%
+  - Transamerica: `RK20` → 150%
+  - American Home Life: `GA(24)` → 150%
+  - Mutual of Omaha: `L1` → 140%
+  - Foresters Financial: `PKRAGENT24` → 150%
+  - American Amicable: `150` → 150%
+  - Newbridge: `23` → 150%
+  - Royal Neighbors: `150-FMO1` → 150%
+  - Baltimore Life: `150` → 150%
+  - Prudential: `150` → 150%
 
-```text
-┌──────────────────────────────────────┐
-│  [gold rule]                          │
-│  AGENT CLOUD          (wordmark, ink) │
-├──────────────────────────────────────┤
-│  HEADING (Bebas, uppercase, ink)      │
-│  Body copy (Inter, slate)             │
-│                                       │
-│  [  Gold CTA Button  ]                │
-│                                       │
-│  Fallback link: paste this URL …      │
-├──────────────────────────────────────┤
-│  Tiny footer — security note,         │
-│  © Agent Cloud · useagentcloud.com    │
-└──────────────────────────────────────┘
-```
-
-- 600px max container, centered, 32px padding.
-- Gold 4px top rule + wordmark header on every email.
-- Single gold CTA: `#C9A227` bg, white text, 8px radius, 14px/600 weight, 14px×24px padding.
-- Always include the raw URL below the button as a fallback (many clients strip buttons).
-- Footer: 12px muted text, security disclaimer + brand line + link to `https://useagentcloud.com`.
-
-## Per-template content
-
-| Template | Heading | Body framing | CTA label |
-|---|---|---|---|
-| `signup.tsx` | "Confirm your email" | Welcome to Agent Cloud, verify to activate your account | Verify email |
-| `magic-link.tsx` | "Your sign-in link" | One-tap sign-in, expires in 1 hour | Sign in to Agent Cloud |
-| `recovery.tsx` | "Reset your password" | Password reset requested, ignore if not you | Reset password |
-| `invite.tsx` | "You've been invited" | Join your team on Agent Cloud | Accept invite |
-| `email-change.tsx` | "Confirm your new email" | Verify the new address on your account | Confirm new email |
-| `reauthentication.tsx` | "Verification code" | Display 6-digit code prominently in a bordered card, no button | (code only) |
-
-## Implementation notes (technical)
-
-- Edit only the 6 files in `src/lib/email-templates/*.tsx`.
-- Keep each file's exported `template` object, props interface, and `previewData` intact — only restyle and restructure JSX.
-- Use inline style constants (React Email convention); no external CSS, no `<style>` tags, no `dangerouslySetInnerHTML`.
-- Use `Section`, `Hr`, and `Img` components from `@react-email/components` where helpful.
-- For `reauthentication.tsx`, render the token in a 28px monospace, letter-spaced card instead of a button.
-- Do not touch the unsubscribe footer (system-appended), the webhook route, the preview route, or the registry.
-- No new packages, no schema changes.
+### 3. No frontend changes required
+- The existing `src/routes/_authenticated/contracting/commission-grids.tsx` already groups by carrier, renders age-band tables, sorts levels descending, and highlights the agent's assigned level. It will display the new data automatically.
+- GTL advance cap row in `carriers` is already correct (`fixed`, `$600`, `6 months`).
 
 ## Out of scope
-
-- Logo image asset (text wordmark only for now — avoids hosting/CDN dependency in emails).
-- Marketing/app emails (auth templates only).
-- DNS / domain verification (separate task).
+- No changes to `commission-calculator.ts` (the calculation rules from the PDF — 75% advance / 25% trail months 10-12 for standard, GTL 50%/$600 cap with 6-month trail months 7-12, override = spread × annual — already match `calculateAndInsertAllCommissions`).
+- Renewal rates left at 0; can be filled in later when a separate renewal schedule is provided.
+- Non-PDF carriers' grids are wiped; if you want them preserved instead, say so and I'll switch to scoped deletes.
