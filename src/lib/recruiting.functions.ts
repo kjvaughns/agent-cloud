@@ -110,10 +110,19 @@ export const listProspects = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("recruiting_prospects")
-      .select("id,first_name,last_name,phone,email,stage,source,created_at,funnel_id,linked_agent_id")
+      .select(
+        "id,first_name,last_name,phone,email,stage,source,notes,created_at,funnel_id,linked_agent_id," +
+          "recruiter:profiles!recruiting_prospects_recruiter_id_fkey(first_name,last_name)," +
+          "recruiting_prospect_stage_history(changed_at)",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return (data ?? []).map((p: any) => {
+      const times = (p.recruiting_prospect_stage_history ?? []).map((h: any) => new Date(h.changed_at).getTime());
+      const entered = times.length ? Math.max(...times) : new Date(p.created_at).getTime();
+      const { recruiting_prospect_stage_history: _h, ...rest } = p;
+      return { ...rest, stage_entered_at: new Date(entered).toISOString() };
+    });
   });
 
 const stageEnum = z.enum(["new", "callback", "in_course", "getting_licensed", "onboarded"]);

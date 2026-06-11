@@ -458,6 +458,38 @@ export const addPolicy = createServerFn({ method: "POST" })
     return row;
   });
 
+// ---------- Update policy ----------
+const updatePolicySchema = z.object({
+  id: z.string().uuid(),
+  carrier_id: z.string().uuid().nullable().optional(),
+  policy_number: z.string().max(100).nullable().optional().or(z.literal("")),
+  product: z.string().max(200).optional().or(z.literal("")),
+  status: z.string().max(50).optional(),
+  annual_premium: z.number().nullable().optional(),
+  monthly_premium: z.number().nullable().optional(),
+  face_amount: z.number().nullable().optional(),
+  effective_date: z.string().nullable().optional().or(z.literal("")),
+});
+
+export const updatePolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => updatePolicySchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { id, ...fields } = data;
+    const payload: any = { ...fields };
+    for (const k of ["policy_number", "product", "effective_date"]) {
+      if (payload[k] === "") payload[k] = null;
+    }
+    const { error } = await supabase
+      .from("policies")
+      .update(payload)
+      .eq("id", id)
+      .eq("agent_id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // ---------- Calendar events ----------
 const eventSchema = z.object({
   client_id: z.string().uuid(),
