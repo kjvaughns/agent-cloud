@@ -65,7 +65,7 @@ export const SignupEmail = ({
           </Text>
           <Text style={footerBrand}>
             © {new Date().getFullYear()} Agent Cloud ·{' '}
-            <Link href={siteUrl || 'useagentcloud.com'} style={footerLink}>
+            <Link href={siteUrl || 'https://useagentcloud.com'} style={footerLink}>
               useagentcloud.com
             </Link>
           </Text>

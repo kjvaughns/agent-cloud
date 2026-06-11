@@ -31,10 +31,25 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 // Configuration
-const SITE_NAME = "agent-cloud"
+const SITE_NAME = "Agent Cloud"
 const SENDER_DOMAIN = "notify.useagentcloud.com"
 const ROOT_DOMAIN = "useagentcloud.com"
 const FROM_DOMAIN = "notify.useagentcloud.com"
+const SITE_URL = `https://${ROOT_DOMAIN}`
+
+function toAgentCloudUrl(rawUrl: string | null | undefined): string {
+  if (!rawUrl) return SITE_URL
+
+  try {
+    const url = new URL(rawUrl)
+    url.protocol = 'https:'
+    url.hostname = ROOT_DOMAIN
+    url.port = ''
+    return url.toString()
+  } catch {
+    return rawUrl
+  }
+}
 
 function redactEmail(email: string | null | undefined): string {
   if (!email) return '***'
@@ -132,11 +147,12 @@ export const Route = createFileRoute("/lovable/email/auth/webhook")({
         }
 
         // Build template props from payload.data (HookData structure)
+        const confirmationUrl = toAgentCloudUrl(payload.data.url)
         const templateProps = {
           siteName: SITE_NAME,
-          siteUrl: `https://${ROOT_DOMAIN}`,
+          siteUrl: SITE_URL,
           recipient: payload.data.email,
-          confirmationUrl: payload.data.url,
+          confirmationUrl,
           token: payload.data.token,
           email: payload.data.email,
           oldEmail: payload.data.old_email,

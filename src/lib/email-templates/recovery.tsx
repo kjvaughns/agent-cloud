@@ -57,7 +57,7 @@ export const RecoveryEmail = ({
           </Text>
           <Text style={footerBrand}>
             © {new Date().getFullYear()} Agent Cloud ·{' '}
-            <Link href="useagentcloud.com" style={footerLink}>
+            <Link href="https://useagentcloud.com" style={footerLink}>
               useagentcloud.com
             </Link>
           </Text>
