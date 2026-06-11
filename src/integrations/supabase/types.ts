@@ -29,6 +29,7 @@ export type Database = {
           sort_order: number | null
           thumbnail_url: string | null
           title: string
+          url: string | null
         }
         Insert: {
           category: string
@@ -44,6 +45,7 @@ export type Database = {
           sort_order?: number | null
           thumbnail_url?: string | null
           title: string
+          url?: string | null
         }
         Update: {
           category?: string
@@ -59,6 +61,7 @@ export type Database = {
           sort_order?: number | null
           thumbnail_url?: string | null
           title?: string
+          url?: string | null
         }
         Relationships: []
       }
