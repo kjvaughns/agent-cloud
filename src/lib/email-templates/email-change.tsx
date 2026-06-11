@@ -6,9 +6,11 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
   Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
 
@@ -32,31 +34,50 @@ export const EmailChangeEmail = ({
 }: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Confirm your email change for {siteName}</Preview>
+    <Preview>Confirm your new email for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Confirm your email change</Heading>
-        <Text style={text}>
-          You requested to change your email address for {siteName} from{' '}
-          <Link href={`mailto:${oldEmail}`} style={link}>
-            {oldEmail}
-          </Link>{' '}
-          to{' '}
-          <Link href={`mailto:${newEmail}`} style={link}>
-            {newEmail}
-          </Link>
-          .
-        </Text>
-        <Text style={text}>
-          Click the button below to confirm this change:
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Confirm Email Change
-        </Button>
-        <Text style={footer}>
-          If you didn't request this change, please secure your account
-          immediately.
-        </Text>
+        <Section style={topRule} />
+        <Section style={header}>
+          <Text style={wordmark}>AGENT CLOUD</Text>
+          <Text style={tagline}>Life insurance command center</Text>
+        </Section>
+
+        <Section style={card}>
+          <Heading style={h1}>Confirm your new email</Heading>
+          <Text style={lead}>
+            You requested to change the email address on your {siteName} account.
+          </Text>
+
+          <Section style={changeBlock}>
+            <Text style={changeLabel}>From</Text>
+            <Text style={changeValue}>{oldEmail}</Text>
+            <Text style={changeLabel}>To</Text>
+            <Text style={changeValueStrong}>{newEmail}</Text>
+          </Section>
+
+          <Section style={buttonWrap}>
+            <Button style={cta} href={confirmationUrl}>
+              Confirm new email
+            </Button>
+          </Section>
+
+          <Text style={fallbackLabel}>Button not working? Paste this link:</Text>
+          <Text style={fallbackUrl}>{confirmationUrl}</Text>
+        </Section>
+
+        <Hr style={hr} />
+        <Section style={footer}>
+          <Text style={footerText}>
+            If you didn't request this change, please secure your account immediately by resetting your password.
+          </Text>
+          <Text style={footerBrand}>
+            © {new Date().getFullYear()} Agent Cloud ·{' '}
+            <Link href="https://useagentcloud.com" style={footerLink}>
+              useagentcloud.com
+            </Link>
+          </Text>
+        </Section>
       </Container>
     </Body>
   </Html>
@@ -64,27 +85,92 @@ export const EmailChangeEmail = ({
 
 export default EmailChangeEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const GOLD = '#C9A227'
+const INK = '#0F172A'
+const BODY = '#475569'
+const MUTED = '#94A3B8'
+const BORDER = '#E2E8F0'
+const SURFACE = '#F8FAFC'
+
+const main = {
+  backgroundColor: '#ffffff',
+  fontFamily: "Inter, -apple-system, 'Segoe UI', Arial, sans-serif",
+  color: BODY,
+  margin: 0,
+  padding: '32px 16px',
+}
+const container = { maxWidth: '600px', margin: '0 auto' }
+const topRule = { height: '4px', backgroundColor: GOLD, borderRadius: '2px' }
+const header = { padding: '24px 0 8px' }
+const wordmark = {
+  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontSize: '24px',
+  letterSpacing: '0.18em',
+  color: INK,
+  margin: 0,
+  fontWeight: 700 as const,
+}
+const tagline = { fontSize: '12px', color: MUTED, margin: '4px 0 0', letterSpacing: '0.04em' }
+const card = {
+  border: `1px solid ${BORDER}`,
+  borderRadius: '12px',
+  padding: '32px',
+  backgroundColor: '#ffffff',
+  marginTop: '16px',
+}
 const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontSize: '32px',
+  letterSpacing: '0.04em',
+  color: INK,
+  margin: '0 0 16px',
+  fontWeight: 700 as const,
+  textTransform: 'uppercase' as const,
 }
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+const lead = { fontSize: '15px', lineHeight: '1.6', color: BODY, margin: '0 0 16px' }
+const changeBlock = {
+  backgroundColor: SURFACE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: '8px',
+  padding: '16px 20px',
+  margin: '0 0 24px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
-const button = {
-  backgroundColor: '#000000',
+const changeLabel = {
+  fontSize: '11px',
+  color: MUTED,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '0.08em',
+  margin: '0 0 2px',
+  fontWeight: 600 as const,
+}
+const changeValue = { fontSize: '14px', color: BODY, margin: '0 0 12px' }
+const changeValueStrong = { fontSize: '14px', color: INK, margin: 0, fontWeight: 600 as const }
+const buttonWrap = { textAlign: 'center' as const, padding: '8px 0 20px' }
+const cta = {
+  backgroundColor: GOLD,
   color: '#ffffff',
   fontSize: '14px',
+  fontWeight: 600 as const,
   borderRadius: '8px',
-  padding: '12px 20px',
+  padding: '14px 28px',
   textDecoration: 'none',
+  display: 'inline-block',
+  letterSpacing: '0.02em',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const fallbackLabel = { fontSize: '12px', color: MUTED, margin: '12px 0 4px' }
+const fallbackUrl = {
+  fontSize: '12px',
+  color: BODY,
+  wordBreak: 'break-all' as const,
+  backgroundColor: SURFACE,
+  border: `1px solid ${BORDER}`,
+  borderRadius: '6px',
+  padding: '10px 12px',
+  margin: 0,
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+}
+const hr = { borderColor: BORDER, margin: '24px 0 16px' }
+const footer = { padding: '0 8px' }
+const footerText = { fontSize: '12px', color: MUTED, margin: '0 0 8px', lineHeight: '1.5' }
+const footerBrand = { fontSize: '12px', color: MUTED, margin: 0 }
+const footerLink = { color: GOLD, textDecoration: 'none', fontWeight: 600 as const }
