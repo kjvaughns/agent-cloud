@@ -31,7 +31,7 @@ export const MagicLinkEmail = ({
         <Section style={topRule} />
         <Section style={header}>
           <Text style={wordmark}>AGENT CLOUD</Text>
-          <Text style={tagline}>Life insurance command center</Text>
+          
         </Section>
 
         <Section style={card}>
@@ -57,7 +57,7 @@ export const MagicLinkEmail = ({
           </Text>
           <Text style={footerBrand}>
             © {new Date().getFullYear()} Agent Cloud ·{' '}
-            <Link href="https://useagentcloud.com" style={footerLink}>
+            <Link href="useagentcloud.com" style={footerLink}>
               useagentcloud.com
             </Link>
           </Text>

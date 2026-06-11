@@ -33,14 +33,14 @@ export const InviteEmail = ({
         <Section style={topRule} />
         <Section style={header}>
           <Text style={wordmark}>AGENT CLOUD</Text>
-          <Text style={tagline}>Life insurance command center</Text>
+          
         </Section>
 
         <Section style={card}>
           <Heading style={h1}>You've been invited</Heading>
           <Text style={lead}>
             You've been invited to join{' '}
-            <Link href={siteUrl || 'https://useagentcloud.com'} style={inlineLink}>
+            <Link href={siteUrl || 'useagentcloud.com'} style={inlineLink}>
               <strong>{siteName}</strong>
             </Link>
             . Accept your invitation to create your account and join your team's pipeline.
@@ -63,7 +63,7 @@ export const InviteEmail = ({
           </Text>
           <Text style={footerBrand}>
             © {new Date().getFullYear()} Agent Cloud ·{' '}
-            <Link href={siteUrl || 'https://useagentcloud.com'} style={footerLink}>
+            <Link href={siteUrl || 'useagentcloud.com'} style={footerLink}>
               useagentcloud.com
             </Link>
           </Text>
