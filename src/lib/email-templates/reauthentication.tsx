@@ -5,8 +5,11 @@ import {
   Container,
   Head,
   Heading,
+  Hr,
   Html,
+  Link,
   Preview,
+  Section,
   Text,
 } from '@react-email/components'
 
@@ -17,16 +20,38 @@ interface ReauthenticationEmailProps {
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your verification code</Preview>
+    <Preview>Your Agent Cloud verification code</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Confirm reauthentication</Heading>
-        <Text style={text}>Use the code below to confirm your identity:</Text>
-        <Text style={codeStyle}>{token}</Text>
-        <Text style={footer}>
-          This code will expire shortly. If you didn't request this, you can
-          safely ignore this email.
-        </Text>
+        <Section style={topRule} />
+        <Section style={header}>
+          <Text style={wordmark}>AGENT CLOUD</Text>
+          <Text style={tagline}>Life insurance command center</Text>
+        </Section>
+
+        <Section style={card}>
+          <Heading style={h1}>Verification code</Heading>
+          <Text style={lead}>
+            Use the code below to confirm your identity. This code expires in 10 minutes.
+          </Text>
+
+          <Section style={codeWrap}>
+            <Text style={codeStyle}>{token}</Text>
+          </Section>
+        </Section>
+
+        <Hr style={hr} />
+        <Section style={footer}>
+          <Text style={footerText}>
+            If you didn't request this code, you can safely ignore this email — but consider changing your password if you weren't trying to sign in.
+          </Text>
+          <Text style={footerBrand}>
+            © {new Date().getFullYear()} Agent Cloud ·{' '}
+            <Link href="https://useagentcloud.com" style={footerLink}>
+              useagentcloud.com
+            </Link>
+          </Text>
+        </Section>
       </Container>
     </Body>
   </Html>
@@ -34,25 +59,67 @@ export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => 
 
 export default ReauthenticationEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+const GOLD = '#C9A227'
+const INK = '#0F172A'
+const BODY = '#475569'
+const MUTED = '#94A3B8'
+const BORDER = '#E2E8F0'
+const SURFACE = '#F8FAFC'
+
+const main = {
+  backgroundColor: '#ffffff',
+  fontFamily: "Inter, -apple-system, 'Segoe UI', Arial, sans-serif",
+  color: BODY,
+  margin: 0,
+  padding: '32px 16px',
 }
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+const container = { maxWidth: '600px', margin: '0 auto' }
+const topRule = { height: '4px', backgroundColor: GOLD, borderRadius: '2px' }
+const header = { padding: '24px 0 8px' }
+const wordmark = {
+  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontSize: '24px',
+  letterSpacing: '0.18em',
+  color: INK,
+  margin: 0,
+  fontWeight: 700 as const,
+}
+const tagline = { fontSize: '12px', color: MUTED, margin: '4px 0 0', letterSpacing: '0.04em' }
+const card = {
+  border: `1px solid ${BORDER}`,
+  borderRadius: '12px',
+  padding: '32px',
+  backgroundColor: '#ffffff',
+  marginTop: '16px',
+}
+const h1 = {
+  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontSize: '32px',
+  letterSpacing: '0.04em',
+  color: INK,
+  margin: '0 0 16px',
+  fontWeight: 700 as const,
+  textTransform: 'uppercase' as const,
+}
+const lead = { fontSize: '15px', lineHeight: '1.6', color: BODY, margin: '0 0 24px' }
+const codeWrap = {
+  backgroundColor: SURFACE,
+  border: `2px solid ${GOLD}`,
+  borderRadius: '10px',
+  padding: '20px',
+  textAlign: 'center' as const,
+  margin: '0 0 8px',
 }
 const codeStyle = {
-  fontFamily: 'Courier, monospace',
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 30px',
+  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+  fontSize: '32px',
+  fontWeight: 700 as const,
+  color: INK,
+  letterSpacing: '0.4em',
+  margin: 0,
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const hr = { borderColor: BORDER, margin: '24px 0 16px' }
+const footer = { padding: '0 8px' }
+const footerText = { fontSize: '12px', color: MUTED, margin: '0 0 8px', lineHeight: '1.5' }
+const footerBrand = { fontSize: '12px', color: MUTED, margin: 0 }
+const footerLink = { color: GOLD, textDecoration: 'none', fontWeight: 600 as const }
