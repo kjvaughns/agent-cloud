@@ -39,34 +39,25 @@ export const listPipelineClients = createServerFn({ method: "GET" })
       }
     }
 
-    // Latest policy for ALL clients (non-sold clients may have imported policies)
-    const allIds = (clients ?? []).map((c: any) => c.id);
+    // Latest policy per sold client
+    const soldIds = (clients ?? []).filter((c: any) => c.stage === "sold").map((c: any) => c.id);
     const policyMap = new Map<string, any>();
-    if (allIds.length) {
+    if (soldIds.length) {
       const { data: pols } = await supabase
         .from("policies")
-        .select("client_id,carrier_id,product,policy_number,effective_date,monthly_premium,annual_premium,face_amount,status,carriers(name)")
-        .in("client_id", allIds)
+        .select("client_id,carrier_id,product,policy_number,effective_date,monthly_premium,status,carriers(name)")
+        .in("client_id", soldIds)
         .order("posted_at", { ascending: false });
       for (const p of pols ?? []) {
         if (!policyMap.has(p.client_id)) policyMap.set(p.client_id, p);
       }
     }
 
-    return (clients ?? []).map((c: any) => {
-      const latestPolicy = policyMap.get(c.id) ?? null;
-      // Auto-promote: imported clients with active/issued policies should appear in Sold
-      let effectiveStage = c.stage;
-      if (latestPolicy && c.stage !== "sold" && ["active", "issued_not_paid"].includes(latestPolicy.status ?? "")) {
-        effectiveStage = "sold";
-      }
-      return {
-        ...c,
-        stage: effectiveStage,
-        beneficiary_of: benefMap.get(c.id) ?? null,
-        latest_policy: latestPolicy,
-      };
-    });
+    return (clients ?? []).map((c: any) => ({
+      ...c,
+      beneficiary_of: benefMap.get(c.id) ?? null,
+      latest_policy: policyMap.get(c.id) ?? null,
+    }));
   });
 
 // ---------- Create ----------
@@ -467,17 +458,17 @@ export const addPolicy = createServerFn({ method: "POST" })
     return row;
   });
 
-// ---------- Update existing policy ----------
+// ---------- Update policy ----------
 const updatePolicySchema = z.object({
   id: z.string().uuid(),
   carrier_id: z.string().uuid().nullable().optional(),
-  policy_number: z.string().nullable().optional(),
-  product: z.string().optional(),
-  status: z.string().optional(),
-  monthly_premium: z.number().nullable().optional(),
+  policy_number: z.string().max(100).nullable().optional().or(z.literal("")),
+  product: z.string().max(200).optional().or(z.literal("")),
+  status: z.string().max(50).optional(),
   annual_premium: z.number().nullable().optional(),
+  monthly_premium: z.number().nullable().optional(),
   face_amount: z.number().nullable().optional(),
-  effective_date: z.string().nullable().optional(),
+  effective_date: z.string().nullable().optional().or(z.literal("")),
 });
 
 export const updatePolicy = createServerFn({ method: "POST" })
@@ -485,10 +476,14 @@ export const updatePolicy = createServerFn({ method: "POST" })
   .inputValidator((d) => updatePolicySchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const { id, ...patch } = data;
+    const { id, ...fields } = data;
+    const payload: any = { ...fields };
+    for (const k of ["policy_number", "product", "effective_date"]) {
+      if (payload[k] === "") payload[k] = null;
+    }
     const { error } = await supabase
       .from("policies")
-      .update(patch)
+      .update(payload)
       .eq("id", id)
       .eq("agent_id", userId);
     if (error) throw new Error(error.message);

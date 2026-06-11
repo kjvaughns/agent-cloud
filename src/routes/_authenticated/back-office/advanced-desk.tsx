@@ -59,7 +59,7 @@ function AdvancedDeskPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">Retirement Planning Center</h2>
+        <h2 className="text-2xl font-bold font-heading tracking-wide">Advanced Desk</h2>
         <p className="text-muted-foreground">Interactive retirement projections and case management.</p>
       </div>
 
@@ -207,7 +207,9 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
           <TabsContent value="report"><ReportTab inputs={inputs} result={result} /></TabsContent>
           {["risk", "income", "expenses", "taxes", "health", "roth", "floor", "legacy", "scenarios"].map((t) => (
             <TabsContent key={t} value={t}>
-              <Card><CardContent className="p-10 text-center text-muted-foreground">Coming soon</CardContent></Card>
+              <Card><CardContent className="p-10 text-center text-muted-foreground">
+                This analysis module is coming soon. Use the Summary, What-If, and Cash Flow tabs above for full projections in the meantime.
+              </CardContent></Card>
             </TabsContent>
           ))}
         </Tabs>
