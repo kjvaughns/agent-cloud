@@ -1,51 +1,96 @@
+
 ## Goal
-Load the 2026 Compensation Grid PDF into the database so the Commission Grids page reflects the new official data, and attach Kaeden's and Samuel's actual level assignments.
 
-## Scope decisions (confirmed)
-- **Carriers**: Replace ALL `commission_grids` rows. Only the 10 carriers in the PDF will have grid data afterward (GTL, Transamerica, American Home Life, Mutual of Omaha, Foresters Financial, American Amicable, Newbridge, Royal Neighbors, Baltimore Life, Prudential). Other carriers (AIG, Aflac, Americo, AHL non-FE, etc.) will have no grid rows.
-- **Renewals**: All Yr 2-5 and Yr 6+ rates set to `0` (PDF only shows Yr 1).
-- **Agent assignments**: Attach Kaeden (`kjvaughns13@gmail.com`) and Samuel (`info@kingofsales.net`) to their carrier levels per the ★YOU / FMO markers.
+- `/` becomes a public marketing + waitlist landing page (no auto-redirect to login).
+- Login stays at `/login`.
+- Visitors can join a waitlist (email + name + optional phone/role) and receive confirmation + future update emails.
 
-## Changes
+## Routing changes
 
-### 1. Migration: replace `commission_grids`
-Single migration that:
-- `DELETE FROM commission_grids` (full wipe)
-- Insert all rows from the PDF, one row per (carrier, product, level). `level_name` stores the printed level label (e.g. `"22 (60%) ★YOU"` becomes `"22"`, `"RK12"`, `"GA(10)"`, `"L15"`, `"PKRAGENT10"`, `"8"`, `"60-SA2"`, etc.), `year_1_pct` stores the Yr1 commission, `years_2_5_pct`/`years_6_plus_pct` = `0`.
-- Special case: **Newbridge** uses `age_group_min`/`age_group_max` for Level DB (0–79 vs 80–85) and Modified DB (0–79 vs 80–85).
-- Special case: **Royal Neighbors** uses age bands for SI WL (50–75, 76–80, 81–85) and Graded DB (50–75, 76–80, 81–85). GI WL Band 1/2, Single Premium WL, Jet WL Band 1/2, Jet Youth WL stay age-less.
-- **GTL** keeps `is_gtl` semantics (Heritage + Life Select). The 2026 grid uses levels `6` through `30` in steps of 2.
+- `src/routes/index.tsx`: replace the auth-redirect stub with the new landing page component. Signed-in visitors get a small "Go to dashboard" button in the nav; not an auto-redirect.
+- `/login` unchanged. Header CTA "Sign in" links to `/login`; primary CTA "Join the waitlist" scrolls to the waitlist form.
 
-### 2. Migration: replace `agent_commission_levels` for Kaeden & Samuel
-- Delete existing rows for both users (clean slate).
-- Insert Kaeden's ★YOU level per carrier:
-  - GTL: `22 (60%)` → 60%
-  - Transamerica: `RK12` → 80%
-  - American Home Life: `GA(10)` → 80%
-  - Mutual of Omaha: `L15` → 74%
-  - Foresters Financial: `PKRAGENT10` → 80%
-  - American Amicable: `75` → 75%
-  - Newbridge: `8` → 75%
-  - Royal Neighbors: `60-SA2` → 75%
-  - Baltimore Life: `80` → 80%
-  - Prudential: `80` → 80%
-- Insert Samuel's top FMO level per carrier:
-  - GTL: `30 (80%)` → 80%
-  - Transamerica: `RK20` → 150%
-  - American Home Life: `GA(24)` → 150%
-  - Mutual of Omaha: `L1` → 140%
-  - Foresters Financial: `PKRAGENT24` → 150%
-  - American Amicable: `150` → 150%
-  - Newbridge: `23` → 150%
-  - Royal Neighbors: `150-FMO1` → 150%
-  - Baltimore Life: `150` → 150%
-  - Prudential: `150` → 150%
+## Landing page structure (Agent Cloud–branded, gold on white, Bebas display + Inter body — matches existing brand tokens)
 
-### 3. No frontend changes required
-- The existing `src/routes/_authenticated/contracting/commission-grids.tsx` already groups by carrier, renders age-band tables, sorts levels descending, and highlights the agent's assigned level. It will display the new data automatically.
-- GTL advance cap row in `carriers` is already correct (`fixed`, `$600`, `6 months`).
+Sections, top to bottom, modeled on insuracloud.ai/agents:
 
-## Out of scope
-- No changes to `commission-calculator.ts` (the calculation rules from the PDF — 75% advance / 25% trail months 10-12 for standard, GTL 50%/$600 cap with 6-month trail months 7-12, override = spread × annual — already match `calculateAndInsertAllCommissions`).
-- Renewal rates left at 0; can be filled in later when a separate renewal schedule is provided.
-- Non-PDF carriers' grids are wiped; if you want them preserved instead, say so and I'll switch to scoped deletes.
+1. Sticky top nav — Agent Cloud wordmark left; "Features", "Platform", "Sign in", gold "Join Waitlist" CTA right.
+2. Hero — "Your entire life insurance agency. One cloud." + subhead, waitlist email field + Join button, "X agents on the waitlist" social proof counter (live count from DB).
+3. Dashboard preview — screenshot/mock of the actual Agent Cloud dashboard (reuse existing components in a decorative frame, non-interactive).
+4. "Four powerful tools that run your day" — Pipeline, Calendar, Phone, AI Assistant (icon + 2-line description each).
+5. Pipeline visual section.
+6. Contracting + commissions section.
+7. Downline / team command center section.
+8. Sophai AI assistant section.
+9. Analytics section.
+10. Waitlist CTA band — larger form (first name, last name, email, phone optional, "I am a…" select: Solo agent / Agency owner / Recruit / Other), submit → confirmation state.
+11. Footer — small legal, links to `/login`, © Agent Cloud.
+
+Copy is Agent Cloud–specific (life-insurance CRM, contracting, downline, commissions), not a copy of insuracloud's text.
+
+## Waitlist backend
+
+New table `waitlist_signups`:
+
+```
+id uuid pk default gen_random_uuid()
+first_name text not null
+last_name text not null
+email citext not null unique
+phone text
+persona text        -- 'solo' | 'agency_owner' | 'recruit' | 'other'
+source text         -- 'landing_hero' | 'landing_cta'
+utm jsonb
+created_at timestamptz default now()
+notified_at timestamptz
+```
+
+- RLS on. `GRANT INSERT ON public.waitlist_signups TO anon, authenticated;` and `GRANT SELECT, UPDATE ON public.waitlist_signups TO service_role;` (admins read via has_role policy).
+- Policy: `anon` + `authenticated` can INSERT; only `has_role(auth.uid(),'admin')` can SELECT.
+- Public count exposed via a SECURITY DEFINER RPC `waitlist_count()` returning `bigint`, granted to `anon`.
+
+Public server route `src/routes/api/public/waitlist-signup.ts`:
+- Zod-validated POST (name/email/phone/persona, honeypot field, IP rate-limit via simple in-memory / row rate check by email+created_at).
+- Loads `supabaseAdmin` inside handler, inserts row (upsert on email so duplicates are idempotent).
+- Enqueues a "waitlist confirmation" transactional email (see below).
+- Returns `{ ok: true, count }`.
+
+Public GET route `src/routes/api/public/waitlist-count.ts` → RPC call, returns `{ count }`.
+
+## Waitlist emails
+
+Use existing email infrastructure (already scaffolded, queue-based, gold Agent Cloud template style).
+
+- New template `src/lib/email-templates/waitlist-confirmation.tsx` — "You're on the Agent Cloud waitlist" with brand header, personal greeting, what to expect, link to useagentcloud.com.
+- Registered in `src/lib/email-templates/registry.ts`.
+- Signup route calls `enqueue_email` via `supabaseAdmin.rpc('enqueue_email', …)` into `transactional_emails` with `template_name='waitlist-confirmation'`, `idempotency_key='waitlist-confirm-<email>'`.
+- Broadcast updates later use an admin-only server function `sendWaitlistUpdate({ subject, template })` that iterates `waitlist_signups` in batches and enqueues one message per recipient (respects `suppressed_emails`). Not built in this pass — table + confirmation email only.
+
+## Admin visibility
+
+Small addition to `src/routes/admin.index.tsx`: a "Waitlist" tile with total count + latest 10 signups (server function `listWaitlist` gated by `has_role`). Full page can come later.
+
+## Out of scope this pass
+
+- Broadcast/update email composer UI (table structure supports it; admin can send updates via a later prompt).
+- SMS notifications.
+- UTM capture beyond storing the query string.
+- Custom animations beyond simple fade/slide on scroll (Tailwind + minimal CSS).
+
+## Files touched
+
+- Modified: `src/routes/index.tsx`
+- New: `src/components/landing/*` (Hero, DashboardPreview, FeatureGrid, PipelineSection, ContractingSection, DownlineSection, SophaiSection, AnalyticsSection, WaitlistForm, Footer)
+- New: `src/routes/api/public/waitlist-signup.ts`
+- New: `src/routes/api/public/waitlist-count.ts`
+- New: `src/lib/email-templates/waitlist-confirmation.tsx`
+- Modified: `src/lib/email-templates/registry.ts`
+- New migration: `waitlist_signups` table, grants, RLS, `waitlist_count()` RPC.
+- Modified: `src/routes/admin.index.tsx` (waitlist tile) + `src/lib/admin.functions.ts` (`listWaitlist`, `waitlistStats`).
+- Head metadata on `/` set to Agent Cloud waitlist copy with proper OG tags.
+
+## Verification
+
+- `curl` POST to `/api/public/waitlist-signup` with a test email → row inserted, email enqueued, count increments.
+- Visit `/` unauth → landing renders; visit `/login` → login still works; visit `/dashboard` unauth → still redirects to login as before.
+- Playwright screenshot of `/` at 1280×1800 to confirm layout.

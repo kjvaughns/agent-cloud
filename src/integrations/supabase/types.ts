@@ -3360,6 +3360,48 @@ export type Database = {
         }
         Relationships: []
       }
+      waitlist_signups: {
+        Row: {
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          notified_at: string | null
+          persona: string | null
+          phone: string | null
+          source: string | null
+          updated_at: string
+          utm: Json | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          notified_at?: string | null
+          persona?: string | null
+          phone?: string | null
+          source?: string | null
+          updated_at?: string
+          utm?: Json | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          notified_at?: string | null
+          persona?: string | null
+          phone?: string | null
+          source?: string | null
+          updated_at?: string
+          utm?: Json | null
+        }
+        Relationships: []
+      }
       wallet: {
         Row: {
           agent_id: string
@@ -3561,6 +3603,7 @@ export type Database = {
       send_team_reminder: { Args: { _target: string }; Returns: Json }
       ssn_reveal: { Args: never; Returns: string }
       ssn_set: { Args: { _ssn: string }; Returns: undefined }
+      waitlist_count: { Args: never; Returns: number }
     }
     Enums: {
       app_role:
