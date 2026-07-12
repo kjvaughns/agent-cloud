@@ -54,6 +54,7 @@ import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authen
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
 import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/landing-lead'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
@@ -322,6 +323,11 @@ const AuthenticatedContractingIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const ApiPublicWaitlistSignupRoute = ApiPublicWaitlistSignupRouteImport.update({
+  id: '/api/public/waitlist-signup',
+  path: '/api/public/waitlist-signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicLeadSubmitRoute = ApiPublicLeadSubmitRouteImport.update({
   id: '/api/public/lead-submit',
   path: '/api/public/lead-submit',
@@ -605,6 +611,7 @@ export interface FileRoutesByFullPath {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -685,6 +692,7 @@ export interface FileRoutesByTo {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -769,6 +777,7 @@ export interface FileRoutesById {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/_authenticated/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -853,6 +862,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/waitlist-signup'
     | '/contracting/'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
@@ -933,6 +943,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/waitlist-signup'
     | '/contracting'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
@@ -1016,6 +1027,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/waitlist-signup'
     | '/_authenticated/contracting/'
     | '/_authenticated/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
@@ -1041,6 +1053,7 @@ export interface RootRouteChildren {
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLandingLeadRoute: typeof ApiPublicLandingLeadRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
+  ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -1363,6 +1376,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/contracting/'
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/api/public/waitlist-signup': {
+      id: '/api/public/waitlist-signup'
+      path: '/api/public/waitlist-signup'
+      fullPath: '/api/public/waitlist-signup'
+      preLoaderRoute: typeof ApiPublicWaitlistSignupRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/lead-submit': {
       id: '/api/public/lead-submit'
@@ -1849,6 +1869,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLandingLeadRoute: ApiPublicLandingLeadRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
+  ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
