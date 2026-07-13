@@ -36,11 +36,11 @@ import { Route as AdminAnnouncementsRouteImport } from './routes/admin.announcem
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
-import { Route as AuthenticatedSophaiRouteImport } from './routes/_authenticated/sophai'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/phone'
+import { Route as AuthenticatedNovaRouteImport } from './routes/_authenticated/nova'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
@@ -67,13 +67,13 @@ import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenti
 import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedToolsInboundCallsRouteImport } from './routes/_authenticated/tools/inbound-calls'
-import { Route as AuthenticatedSophaiSettingsRouteImport } from './routes/_authenticated/sophai/settings'
-import { Route as AuthenticatedSophaiActivityRouteImport } from './routes/_authenticated/sophai/activity'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
 import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
 import { Route as AuthenticatedResourcesAgentHandbookRouteImport } from './routes/_authenticated/resources/agent-handbook'
 import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes/_authenticated/resources/agent-academy'
+import { Route as AuthenticatedNovaSettingsRouteImport } from './routes/_authenticated/nova/settings'
+import { Route as AuthenticatedNovaActivityRouteImport } from './routes/_authenticated/nova/activity'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
@@ -231,11 +231,6 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedSophaiRoute = AuthenticatedSophaiRouteImport.update({
-  id: '/sophai',
-  path: '/sophai',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
   id: '/resources',
   path: '/resources',
@@ -254,6 +249,11 @@ const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
 const AuthenticatedPhoneRoute = AuthenticatedPhoneRouteImport.update({
   id: '/phone',
   path: '/phone',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedNovaRoute = AuthenticatedNovaRouteImport.update({
+  id: '/nova',
+  path: '/nova',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -397,18 +397,6 @@ const AuthenticatedToolsInboundCallsRoute =
     path: '/tools/inbound-calls',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedSophaiSettingsRoute =
-  AuthenticatedSophaiSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedSophaiRoute,
-  } as any)
-const AuthenticatedSophaiActivityRoute =
-  AuthenticatedSophaiActivityRouteImport.update({
-    id: '/activity',
-    path: '/activity',
-    getParentRoute: () => AuthenticatedSophaiRoute,
-  } as any)
 const AuthenticatedResourcesStateLicensesRoute =
   AuthenticatedResourcesStateLicensesRouteImport.update({
     id: '/state-licenses',
@@ -438,6 +426,18 @@ const AuthenticatedResourcesAgentAcademyRoute =
     id: '/agent-academy',
     path: '/agent-academy',
     getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
+const AuthenticatedNovaSettingsRoute =
+  AuthenticatedNovaSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedNovaRoute,
+  } as any)
+const AuthenticatedNovaActivityRoute =
+  AuthenticatedNovaActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedNovaRoute,
   } as any)
 const AuthenticatedContractingTransfersRoute =
   AuthenticatedContractingTransfersRouteImport.update({
@@ -588,11 +588,11 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/nova': typeof AuthenticatedNovaRouteWithChildren
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
-  '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -628,13 +628,13 @@ export interface FileRoutesByFullPath {
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/nova/activity': typeof AuthenticatedNovaActivityRoute
+  '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
-  '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
@@ -674,11 +674,11 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/nova': typeof AuthenticatedNovaRouteWithChildren
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
-  '/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -714,13 +714,13 @@ export interface FileRoutesByTo {
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/nova/activity': typeof AuthenticatedNovaActivityRoute
+  '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/sophai/activity': typeof AuthenticatedSophaiActivityRoute
-  '/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
@@ -764,11 +764,11 @@ export interface FileRoutesById {
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/nova': typeof AuthenticatedNovaRouteWithChildren
   '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
-  '/_authenticated/sophai': typeof AuthenticatedSophaiRouteWithChildren
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -804,13 +804,13 @@ export interface FileRoutesById {
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/_authenticated/nova/activity': typeof AuthenticatedNovaActivityRoute
+  '/_authenticated/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/_authenticated/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/_authenticated/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
   '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/_authenticated/sophai/activity': typeof AuthenticatedSophaiActivityRoute
-  '/_authenticated/sophai/settings': typeof AuthenticatedSophaiSettingsRoute
   '/_authenticated/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
@@ -854,11 +854,11 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/news-feed'
     | '/notifications'
+    | '/nova'
     | '/phone'
     | '/pipeline'
     | '/post-deal'
     | '/resources'
-    | '/sophai'
     | '/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -894,13 +894,13 @@ export interface FileRouteTypes {
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/nova/activity'
+    | '/nova/settings'
     | '/resources/agent-academy'
     | '/resources/agent-handbook'
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
-    | '/sophai/activity'
-    | '/sophai/settings'
     | '/tools/inbound-calls'
     | '/tools/leads'
     | '/tools/needs-analysis'
@@ -940,11 +940,11 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/news-feed'
     | '/notifications'
+    | '/nova'
     | '/phone'
     | '/pipeline'
     | '/post-deal'
     | '/resources'
-    | '/sophai'
     | '/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -980,13 +980,13 @@ export interface FileRouteTypes {
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/nova/activity'
+    | '/nova/settings'
     | '/resources/agent-academy'
     | '/resources/agent-handbook'
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
-    | '/sophai/activity'
-    | '/sophai/settings'
     | '/tools/inbound-calls'
     | '/tools/leads'
     | '/tools/needs-analysis'
@@ -1029,11 +1029,11 @@ export interface FileRouteTypes {
     | '/_authenticated/leaderboard'
     | '/_authenticated/news-feed'
     | '/_authenticated/notifications'
+    | '/_authenticated/nova'
     | '/_authenticated/phone'
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
     | '/_authenticated/resources'
-    | '/_authenticated/sophai'
     | '/_authenticated/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -1069,13 +1069,13 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting/commission-grids'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
+    | '/_authenticated/nova/activity'
+    | '/_authenticated/nova/settings'
     | '/_authenticated/resources/agent-academy'
     | '/_authenticated/resources/agent-handbook'
     | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
-    | '/_authenticated/sophai/activity'
-    | '/_authenticated/sophai/settings'
     | '/_authenticated/tools/inbound-calls'
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/needs-analysis'
@@ -1318,13 +1318,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sophai': {
-      id: '/_authenticated/sophai'
-      path: '/sophai'
-      fullPath: '/sophai'
-      preLoaderRoute: typeof AuthenticatedSophaiRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/resources': {
       id: '/_authenticated/resources'
       path: '/resources'
@@ -1351,6 +1344,13 @@ declare module '@tanstack/react-router' {
       path: '/phone'
       fullPath: '/phone'
       preLoaderRoute: typeof AuthenticatedPhoneRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/nova': {
+      id: '/_authenticated/nova'
+      path: '/nova'
+      fullPath: '/nova'
+      preLoaderRoute: typeof AuthenticatedNovaRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/notifications': {
@@ -1535,20 +1535,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsInboundCallsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/sophai/settings': {
-      id: '/_authenticated/sophai/settings'
-      path: '/settings'
-      fullPath: '/sophai/settings'
-      preLoaderRoute: typeof AuthenticatedSophaiSettingsRouteImport
-      parentRoute: typeof AuthenticatedSophaiRoute
-    }
-    '/_authenticated/sophai/activity': {
-      id: '/_authenticated/sophai/activity'
-      path: '/activity'
-      fullPath: '/sophai/activity'
-      preLoaderRoute: typeof AuthenticatedSophaiActivityRouteImport
-      parentRoute: typeof AuthenticatedSophaiRoute
-    }
     '/_authenticated/resources/state-licenses': {
       id: '/_authenticated/resources/state-licenses'
       path: '/state-licenses'
@@ -1583,6 +1569,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/resources/agent-academy'
       preLoaderRoute: typeof AuthenticatedResourcesAgentAcademyRouteImport
       parentRoute: typeof AuthenticatedResourcesRoute
+    }
+    '/_authenticated/nova/settings': {
+      id: '/_authenticated/nova/settings'
+      path: '/settings'
+      fullPath: '/nova/settings'
+      preLoaderRoute: typeof AuthenticatedNovaSettingsRouteImport
+      parentRoute: typeof AuthenticatedNovaRoute
+    }
+    '/_authenticated/nova/activity': {
+      id: '/_authenticated/nova/activity'
+      path: '/activity'
+      fullPath: '/nova/activity'
+      preLoaderRoute: typeof AuthenticatedNovaActivityRouteImport
+      parentRoute: typeof AuthenticatedNovaRoute
     }
     '/_authenticated/contracting/transfers': {
       id: '/_authenticated/contracting/transfers'
@@ -1811,6 +1811,19 @@ const AuthenticatedContractingRouteWithChildren =
     AuthenticatedContractingRouteChildren,
   )
 
+interface AuthenticatedNovaRouteChildren {
+  AuthenticatedNovaActivityRoute: typeof AuthenticatedNovaActivityRoute
+  AuthenticatedNovaSettingsRoute: typeof AuthenticatedNovaSettingsRoute
+}
+
+const AuthenticatedNovaRouteChildren: AuthenticatedNovaRouteChildren = {
+  AuthenticatedNovaActivityRoute: AuthenticatedNovaActivityRoute,
+  AuthenticatedNovaSettingsRoute: AuthenticatedNovaSettingsRoute,
+}
+
+const AuthenticatedNovaRouteWithChildren =
+  AuthenticatedNovaRoute._addFileChildren(AuthenticatedNovaRouteChildren)
+
 interface AuthenticatedResourcesRouteChildren {
   AuthenticatedResourcesAgentAcademyRoute: typeof AuthenticatedResourcesAgentAcademyRoute
   AuthenticatedResourcesAgentHandbookRoute: typeof AuthenticatedResourcesAgentHandbookRoute
@@ -1837,19 +1850,6 @@ const AuthenticatedResourcesRouteWithChildren =
     AuthenticatedResourcesRouteChildren,
   )
 
-interface AuthenticatedSophaiRouteChildren {
-  AuthenticatedSophaiActivityRoute: typeof AuthenticatedSophaiActivityRoute
-  AuthenticatedSophaiSettingsRoute: typeof AuthenticatedSophaiSettingsRoute
-}
-
-const AuthenticatedSophaiRouteChildren: AuthenticatedSophaiRouteChildren = {
-  AuthenticatedSophaiActivityRoute: AuthenticatedSophaiActivityRoute,
-  AuthenticatedSophaiSettingsRoute: AuthenticatedSophaiSettingsRoute,
-}
-
-const AuthenticatedSophaiRouteWithChildren =
-  AuthenticatedSophaiRoute._addFileChildren(AuthenticatedSophaiRouteChildren)
-
 interface AuthenticatedRouteChildren {
   AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
@@ -1864,11 +1864,11 @@ interface AuthenticatedRouteChildren {
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedNovaRoute: typeof AuthenticatedNovaRouteWithChildren
   AuthenticatedPhoneRoute: typeof AuthenticatedPhoneRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
-  AuthenticatedSophaiRoute: typeof AuthenticatedSophaiRouteWithChildren
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
@@ -1895,11 +1895,11 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedNovaRoute: AuthenticatedNovaRouteWithChildren,
   AuthenticatedPhoneRoute: AuthenticatedPhoneRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
-  AuthenticatedSophaiRoute: AuthenticatedSophaiRouteWithChildren,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,

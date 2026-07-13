@@ -740,7 +740,7 @@ function MessageBubble({ m }: { m: SmsMessage }) {
       <div className={cn("max-w-[75%]", out ? "items-end" : "items-start", "flex flex-col gap-1")}>
         {m.is_auto && (
           <div className="text-[10px] text-muted-foreground flex items-center gap-1 px-1">
-            <Bot className="h-3 w-3" /> Sophai
+            <Bot className="h-3 w-3" /> Nova
           </div>
         )}
         <div className={cn(

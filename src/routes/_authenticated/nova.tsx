@@ -2,21 +2,21 @@ import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-r
 import { Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/sophai")({
-  component: SophaiLayout,
+export const Route = createFileRoute("/_authenticated/nova")({
+  component: NovaLayout,
 });
 
 const TABS = [
-  { label: "Settings", url: "/sophai/settings" },
-  { label: "Activity", url: "/sophai/activity" },
+  { label: "Settings", url: "/nova/settings" },
+  { label: "Activity", url: "/nova/activity" },
 ];
 
-function SophaiLayout() {
+function NovaLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Shield className="h-7 w-7 text-primary" /> Sophai</h1>
+        <h1 className="text-3xl font-bold flex items-center gap-2"><Shield className="h-7 w-7 text-primary" /> Nova</h1>
         <p className="text-muted-foreground mt-1">Your AI sales assistant: policy recovery, follow-ups, and engagement.</p>
       </div>
       <div className="border-b flex gap-1">

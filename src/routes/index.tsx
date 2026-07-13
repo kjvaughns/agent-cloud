@@ -61,7 +61,7 @@ function LandingPage() {
       <PipelineSection />
       <ContractingSection />
       <DownlineSection />
-      <SophaiSection />
+      <NovaSection />
       <AnalyticsSection />
       <WaitlistBand onCount={setCount} />
       <Footer />
@@ -86,7 +86,7 @@ function TopNav() {
           <a href="#features" className="hover:text-foreground transition-colors">Features</a>
           <a href="#pipeline" className="hover:text-foreground transition-colors">Pipeline</a>
           <a href="#downline" className="hover:text-foreground transition-colors">Downline</a>
-          <a href="#sophai" className="hover:text-foreground transition-colors">Sophai AI</a>
+          <a href="#nova" className="hover:text-foreground transition-colors">Nova AI</a>
         </nav>
         <div className="flex items-center gap-2">
           <Link
@@ -228,7 +228,7 @@ function DashboardMock() {
         </div>
         <div className="grid md:grid-cols-[220px_1fr] min-h-[420px]">
           <aside className="hidden md:flex flex-col gap-1 border-r border-border p-3 bg-sidebar/40">
-            {["Dashboard", "Pipeline", "Book of Business", "Calendar", "Phone", "Contracting", "Team", "Finances", "Sophai AI"].map((it, i) => (
+            {["Dashboard", "Pipeline", "Book of Business", "Calendar", "Phone", "Contracting", "Team", "Finances", "Nova AI"].map((it, i) => (
               <div key={it} className={`px-3 py-2 rounded-md text-sm ${i === 0 ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground"}`}>
                 {it}
               </div>
@@ -273,11 +273,11 @@ function DashboardMock() {
                 </div>
               </div>
               <div className="rounded-xl border border-border p-4 bg-background">
-                <p className="text-sm font-semibold mb-3">Sophai AI</p>
+                <p className="text-sm font-semibold mb-3">Nova AI</p>
                 <div className="rounded-lg bg-muted/60 p-3 text-xs text-foreground leading-relaxed">
                   You have <b>3 warm leads</b> that haven't been contacted in 4+ days. Want me to draft SMS follow-ups?
                 </div>
-                <Button size="sm" className="mt-3 w-full bg-primary text-primary-foreground">Ask Sophai</Button>
+                <Button size="sm" className="mt-3 w-full bg-primary text-primary-foreground">Ask Nova</Button>
               </div>
             </div>
           </div>
@@ -312,7 +312,7 @@ function FeatureGrid() {
     { icon: LayoutDashboard, title: "Pipeline", desc: "Every lead, quote, and sale on one board — with temperature, stage, and follow-up automation." },
     { icon: CalendarClock, title: "Calendar & SMS", desc: "Book appointments, drip nurture text campaigns, and never lose a lead to silence again." },
     { icon: Phone, title: "Built-in Phone", desc: "Click-to-dial, call recording, and voicemail drops from any device — logged straight to the client." },
-    { icon: Sparkles, title: "Sophai AI", desc: "An assistant that reads your book, drafts messages, prices cases, and briefs you before every meeting." },
+    { icon: Sparkles, title: "Nova AI", desc: "An assistant that reads your book, drafts messages, prices cases, and briefs you before every meeting." },
   ];
   return (
     <section id="features" className="py-24">
@@ -403,20 +403,20 @@ function DownlineSection() {
   );
 }
 
-function SophaiSection() {
+function NovaSection() {
   return (
     <FeatureSection
-      id="sophai"
-      eyebrow="Sophai AI"
+      id="nova"
+      eyebrow="Nova AI"
       title="An assistant that actually knows your book."
-      copy="Sophai reads your pipeline, your policies, your carrier grids, and your calendar — then does the work. Draft the SMS, price the case, brief the meeting."
+      copy="Nova reads your pipeline, your policies, your carrier grids, and your calendar — then does the work. Draft the SMS, price the case, brief the meeting."
       bullets={[
         "Daily briefing every morning",
         "Meeting-prep summaries pulled from client history",
         "Quote and case-design recommendations",
         "Nurture drafts that sound like you, not like AI",
       ]}
-      right={<SophaiMock />}
+      right={<NovaMock />}
       reverse
     />
   );
@@ -570,7 +570,7 @@ function DownlineMock() {
   );
 }
 
-function SophaiMock() {
+function NovaMock() {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-lg shadow-primary/5 space-y-3">
       <div className="flex items-center gap-2 pb-2 border-b border-border">
@@ -578,7 +578,7 @@ function SophaiMock() {
           <Sparkles className="h-4 w-4" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-foreground">Sophai</p>
+          <p className="text-sm font-semibold text-foreground">Nova</p>
           <p className="text-[11px] text-muted-foreground">Daily briefing · 8:02 AM</p>
         </div>
       </div>

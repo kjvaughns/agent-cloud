@@ -1940,6 +1940,83 @@ export type Database = {
           },
         ]
       }
+      nova_activity: {
+        Row: {
+          activity_type: string
+          agent_id: string
+          client_id: string | null
+          created_at: string
+          id: string
+          outcome: string | null
+        }
+        Insert: {
+          activity_type: string
+          agent_id: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          outcome?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agent_id?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          outcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_activity_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nova_activity_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nova_settings: {
+        Row: {
+          agent_id: string
+          beneficiary_engagement_enabled: boolean | null
+          birthday_messages_enabled: boolean | null
+          id: string
+          policy_recovery_enabled: boolean | null
+          sms_followup_enabled: boolean | null
+        }
+        Insert: {
+          agent_id: string
+          beneficiary_engagement_enabled?: boolean | null
+          birthday_messages_enabled?: boolean | null
+          id?: string
+          policy_recovery_enabled?: boolean | null
+          sms_followup_enabled?: boolean | null
+        }
+        Update: {
+          agent_id?: string
+          beneficiary_engagement_enabled?: boolean | null
+          birthday_messages_enabled?: boolean | null
+          id?: string
+          policy_recovery_enabled?: boolean | null
+          sms_followup_enabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_settings_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_documents: {
         Row: {
           agent_id: string
@@ -2913,83 +2990,6 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "sms_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sophai_activity: {
-        Row: {
-          activity_type: string
-          agent_id: string
-          client_id: string | null
-          created_at: string
-          id: string
-          outcome: string | null
-        }
-        Insert: {
-          activity_type: string
-          agent_id: string
-          client_id?: string | null
-          created_at?: string
-          id?: string
-          outcome?: string | null
-        }
-        Update: {
-          activity_type?: string
-          agent_id?: string
-          client_id?: string | null
-          created_at?: string
-          id?: string
-          outcome?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sophai_activity_agent_id_fkey"
-            columns: ["agent_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sophai_activity_client_id_fkey"
-            columns: ["client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sophai_settings: {
-        Row: {
-          agent_id: string
-          beneficiary_engagement_enabled: boolean | null
-          birthday_messages_enabled: boolean | null
-          id: string
-          policy_recovery_enabled: boolean | null
-          sms_followup_enabled: boolean | null
-        }
-        Insert: {
-          agent_id: string
-          beneficiary_engagement_enabled?: boolean | null
-          birthday_messages_enabled?: boolean | null
-          id?: string
-          policy_recovery_enabled?: boolean | null
-          sms_followup_enabled?: boolean | null
-        }
-        Update: {
-          agent_id?: string
-          beneficiary_engagement_enabled?: boolean | null
-          birthday_messages_enabled?: boolean | null
-          id?: string
-          policy_recovery_enabled?: boolean | null
-          sms_followup_enabled?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sophai_settings_agent_id_fkey"
-            columns: ["agent_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

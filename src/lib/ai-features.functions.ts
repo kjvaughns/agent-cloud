@@ -203,15 +203,15 @@ export const getPolicyAiInsight = createServerFn({ method: "POST" })
   });
 
 // ------------------------------------------------------------------
-// 4) Sophai — draft outreach (SMS / birthday / beneficiary / recovery)
+// 4) Nova — draft outreach (SMS / birthday / beneficiary / recovery)
 // ------------------------------------------------------------------
 
-const SophaiKindSchema = z.object({
+const NovaKindSchema = z.object({
   kind: z.enum(["sms", "birthday", "beneficiary", "recovery"]),
   limit: z.number().int().min(1).max(20).default(5).optional(),
 });
 
-export type SophaiDraft = {
+export type NovaDraft = {
   kind: "sms" | "birthday" | "beneficiary" | "recovery";
   client_id: string;
   client_name: string;
@@ -220,9 +220,9 @@ export type SophaiDraft = {
   rationale: string;
 };
 
-export const generateSophaiDrafts = createServerFn({ method: "POST" })
+export const generateNovaDrafts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => SophaiKindSchema.parse(d))
+  .inputValidator((d: unknown) => NovaKindSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const limit = data.limit ?? 5;
@@ -281,14 +281,14 @@ export const generateSophaiDrafts = createServerFn({ method: "POST" })
         .map((e: any) => ({ ...e.client, _meta: { event: e.title } }));
     }
 
-    if (!targets.length) return { drafts: [] as SophaiDraft[] };
+    if (!targets.length) return { drafts: [] as NovaDraft[] };
 
-    const json = await callAiJson<{ drafts: SophaiDraft[] }>({
+    const json = await callAiJson<{ drafts: NovaDraft[] }>({
       messages: [
         {
           role: "system",
           content:
-            "You are Sophai, an AI assistant for life-insurance agents. Generate short personalized SMS drafts (under 320 chars, warm, no emojis unless natural, no markdown). Return JSON: {drafts: [{kind, client_id, client_name, channel:'sms', body, rationale}]}. Match the kind exactly. For 'birthday' — wish a happy birthday with a soft check-in. For 'recovery' — friendly lapse-saver, no scare tactics. For 'beneficiary' — quarterly check-in to confirm contact info. For 'sms' — post-appointment follow-up.",
+            "You are Nova, an AI assistant for life-insurance agents. Generate short personalized SMS drafts (under 320 chars, warm, no emojis unless natural, no markdown). Return JSON: {drafts: [{kind, client_id, client_name, channel:'sms', body, rationale}]}. Match the kind exactly. For 'birthday' — wish a happy birthday with a soft check-in. For 'recovery' — friendly lapse-saver, no scare tactics. For 'beneficiary' — quarterly check-in to confirm contact info. For 'sms' — post-appointment follow-up.",
         },
         { role: "user", content: JSON.stringify({ kind: data.kind, targets }) },
       ],

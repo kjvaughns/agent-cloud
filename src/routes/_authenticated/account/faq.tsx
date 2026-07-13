@@ -18,8 +18,8 @@ const FAQS = [
   { q: "How do override commissions work?", a: "You earn the spread between your commission level and your direct downline's level on their personal production. Each upline in the chain only earns their differential — not the full amount." },
   { q: "Can my downline see my commission level?", a: "No. Agents only see their own level and any levels below it in the commission grids. Levels above are completely hidden." },
   { q: "What's the difference between Login Email and Contact Email?", a: "Login Email is the credential you sign in with and never changes once set. Contact Email is what your prospects see and what carriers email you at — change it any time from Producer Profile." },
-  { q: "How does Sophai Policy Recovery decide who to call?", a: "Sophai targets policies in Lapse Pending status. When enabled, it dials the client, attempts re-engagement, and live-transfers warm leads back to you. You can pause it any time from the shield icon in the top bar." },
-  { q: "What is the wallet for?", a: "Wallet funds power SMS, MMS, voice calls, and Sophai Policy Recovery AI minutes. Top up from My Phone → Wallet." },
+  { q: "How does Nova Policy Recovery decide who to call?", a: "Nova targets policies in Lapse Pending status. When enabled, it dials the client, attempts re-engagement, and live-transfers warm leads back to you. You can pause it any time from the shield icon in the top bar." },
+  { q: "What is the wallet for?", a: "Wallet funds power SMS, MMS, voice calls, and Nova Policy Recovery AI minutes. Top up from My Phone → Wallet." },
   { q: "How do I invite a new agent?", a: "Contracting → Invite Agent. Create a link, assign carriers and commission levels (at or below your own), then share. Their contracting paperwork is pre-filled when they sign up." },
 ];
 
