@@ -185,6 +185,8 @@
 
   h1 {
     font-family: var(--font-heading);
-    letter-spacing: 0.02em;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
   }
 }
