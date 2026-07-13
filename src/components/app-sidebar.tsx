@@ -168,8 +168,8 @@ export function AppSidebar() {
             return (
               <div className="min-w-0 flex-1">
                 <div
-                  className="font-bold truncate text-sidebar-foreground leading-tight"
-                  style={{ fontFamily: "var(--font-heading, 'Bebas Neue', sans-serif)", letterSpacing: "0.05em", fontSize: "1.1rem" }}
+                  className="truncate text-sidebar-foreground leading-tight"
+                  style={{ fontFamily: "var(--font-heading)", fontWeight: 800, letterSpacing: "-0.02em", fontSize: "1.05rem" }}
                 >
                   {bigName}
                 </div>

@@ -95,7 +95,7 @@ const container = { maxWidth: '600px', margin: '0 auto' }
 const topRule = { height: '4px', backgroundColor: GOLD, borderRadius: '2px' }
 const header = { padding: '24px 0 8px' }
 const wordmark = {
-  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
   fontSize: '24px',
   letterSpacing: '0.18em',
   color: INK,
@@ -111,7 +111,7 @@ const card = {
   marginTop: '16px',
 }
 const h1 = {
-  fontFamily: "'Bebas Neue', 'Arial Narrow', Arial, sans-serif",
+  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
   fontSize: '32px',
   letterSpacing: '0.04em',
   color: INK,
