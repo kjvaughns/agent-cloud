@@ -912,7 +912,7 @@ function NeedsAnalysisTab({ detail }: { detail: any }) {
         )}
       </div>
       <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-xs">
-        <div className="font-semibold text-primary mb-1">Sophai's Tip:</div>
+        <div className="font-semibold text-primary mb-1">Nova's Tip:</div>
         <div className="text-muted-foreground">{q.tip}</div>
       </div>
       <div className="flex justify-between">

@@ -31,7 +31,7 @@ const TOPICS = [
   { title: "Posting Deals", desc: "Submit policies and track commissions", count: 6 },
   { title: "Contracting", desc: "Carrier requests, transfers, commission grids", count: 10 },
   { title: "Phone & SMS", desc: "Twilio setup, wallet, and dial lists", count: 7 },
-  { title: "Sophai AI", desc: "Policy recovery, follow-ups, and birthday outreach", count: 5 },
+  { title: "Nova AI", desc: "Policy recovery, follow-ups, and birthday outreach", count: 5 },
 ];
 
 const STATUS_COLORS: Record<string, string> = {

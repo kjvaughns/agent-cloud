@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 
-export const Route = createFileRoute("/_authenticated/sophai/settings")({
+export const Route = createFileRoute("/_authenticated/nova/settings")({
   head: () => ({
     meta: [
-      { title: "Sophai Settings — Agent Cloud" },
-      { name: "description", content: "Configure Sophai AI automations: policy recovery, SMS follow-ups, birthdays, and beneficiary outreach." },
+      { title: "Nova Settings — Agent Cloud" },
+      { name: "description", content: "Configure Nova AI automations: policy recovery, SMS follow-ups, birthdays, and beneficiary outreach." },
     ],
   }),
-  component: SophaiSettingsPage,
+  component: NovaSettingsPage,
 });
 
 const TOGGLES = [
@@ -19,7 +19,7 @@ const TOGGLES = [
   { key: "beneficiary", label: "Beneficiary Engagement", desc: "Quarterly check-ins with named beneficiaries to keep policies in force.", enabled: true, last: "Last run 3 days ago" },
 ];
 
-function SophaiSettingsPage() {
+function NovaSettingsPage() {
   return (
     <Card>
       <CardHeader><CardTitle>Automations</CardTitle></CardHeader>

@@ -7,26 +7,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PhoneCall, MessageSquare, Cake, Users, Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { generateSophaiDrafts, type SophaiDraft } from "@/lib/ai-features.functions";
+import { generateNovaDrafts, type NovaDraft } from "@/lib/ai-features.functions";
 
-export const Route = createFileRoute("/_authenticated/sophai/activity")({
+export const Route = createFileRoute("/_authenticated/nova/activity")({
   head: () => ({
     meta: [
-      { title: "Sophai Activity — Agent Cloud" },
+      { title: "Nova Activity — Agent Cloud" },
       { name: "description", content: "AI-drafted outreach to your clients — review and send." },
     ],
   }),
-  component: SophaiActivityPage,
+  component: NovaActivityPage,
 });
 
 type T = "recovery" | "sms" | "birthday" | "beneficiary";
 const ICONS: Record<T, React.ComponentType<{ className?: string }>> = { recovery: PhoneCall, sms: MessageSquare, birthday: Cake, beneficiary: Users };
 const LABEL: Record<T, string> = { recovery: "Policy Recovery", sms: "SMS Follow-up", birthday: "Birthday", beneficiary: "Beneficiary" };
 
-function SophaiActivityPage() {
+function NovaActivityPage() {
   const [kind, setKind] = useState<T>("sms");
-  const [drafts, setDrafts] = useState<SophaiDraft[]>([]);
-  const gen = useServerFn(generateSophaiDrafts);
+  const [drafts, setDrafts] = useState<NovaDraft[]>([]);
+  const gen = useServerFn(generateNovaDrafts);
   const mut = useMutation({
     mutationFn: (k: T) => gen({ data: { kind: k, limit: 8 } }),
     onSuccess: (d) => {
