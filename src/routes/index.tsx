@@ -78,7 +78,7 @@ function TopNav() {
             <Cloud className="h-5 w-5" />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="font-[Bebas_Neue] text-xl tracking-[0.14em] text-foreground">AGENT CLOUD</span>
+            <span className="font-black tracking-tight text-xl tracking-[0.14em] text-foreground">AGENT CLOUD</span>
             <span className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Insurance OS</span>
           </div>
         </div>
@@ -123,7 +123,7 @@ function Hero({ count }: { count: number | null }) {
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
             Now taking early access
           </div>
-          <h1 className="mt-6 font-[Bebas_Neue] text-5xl sm:text-6xl md:text-7xl leading-[0.95] tracking-[0.01em] text-foreground">
+          <h1 className="mt-6 font-black tracking-tight text-5xl sm:text-6xl md:text-7xl leading-[0.95] tracking-[0.01em] text-foreground">
             Your entire insurance <br className="hidden sm:block" />
             business. <span className="text-primary">One cloud.</span>
           </h1>
@@ -238,7 +238,7 @@ function DashboardMock() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">Good morning</p>
-                <h3 className="font-[Bebas_Neue] text-3xl tracking-wide">Dashboard</h3>
+                <h3 className="font-black tracking-tight text-3xl tracking-wide">Dashboard</h3>
               </div>
               <div className="text-xs text-muted-foreground">Q4 · 2026</div>
             </div>
@@ -246,7 +246,7 @@ function DashboardMock() {
               {tiles.map((t) => (
                 <div key={t.label} className="rounded-xl border border-border bg-background p-3">
                   <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{t.label}</p>
-                  <p className="mt-1 font-[Bebas_Neue] text-2xl tracking-wide text-foreground">{t.value}</p>
+                  <p className="mt-1 font-black tracking-tight text-2xl tracking-wide text-foreground">{t.value}</p>
                   {t.trend && <p className="text-xs text-emerald-600 mt-0.5">{t.trend}</p>}
                 </div>
               ))}
@@ -297,7 +297,7 @@ function LogoBar() {
         </p>
         <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
           {carriers.map((c) => (
-            <span key={c} className="font-[Bebas_Neue] text-lg tracking-[0.12em] text-muted-foreground">
+            <span key={c} className="font-black tracking-tight text-lg tracking-[0.12em] text-muted-foreground">
               {c}
             </span>
           ))}
@@ -328,7 +328,7 @@ function FeatureGrid() {
               <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary grid place-items-center">
                 <f.icon className="h-5 w-5" />
               </div>
-              <h3 className="mt-4 font-[Bebas_Neue] text-2xl tracking-wide text-foreground">{f.title}</h3>
+              <h3 className="mt-4 font-black tracking-tight text-2xl tracking-wide text-foreground">{f.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
             </div>
           ))}
@@ -342,7 +342,7 @@ function SectionHead({ eyebrow, title, copy }: { eyebrow: string; title: string;
   return (
     <div className="mx-auto max-w-2xl text-center">
       <p className="text-xs uppercase tracking-[0.24em] text-primary font-semibold">{eyebrow}</p>
-      <h2 className="mt-3 font-[Bebas_Neue] text-4xl md:text-5xl tracking-wide text-foreground">{title}</h2>
+      <h2 className="mt-3 font-black tracking-tight text-4xl md:text-5xl tracking-wide text-foreground">{title}</h2>
       <p className="mt-4 text-muted-foreground">{copy}</p>
     </div>
   );
@@ -463,7 +463,7 @@ function FeatureSection({
         <div className={`grid gap-12 lg:grid-cols-2 lg:items-center ${reverse ? "lg:[&>*:first-child]:order-2" : ""}`}>
           <div>
             <p className="text-xs uppercase tracking-[0.24em] text-primary font-semibold">{eyebrow}</p>
-            <h2 className="mt-3 font-[Bebas_Neue] text-4xl md:text-5xl tracking-wide text-foreground">{title}</h2>
+            <h2 className="mt-3 font-black tracking-tight text-4xl md:text-5xl tracking-wide text-foreground">{title}</h2>
             <p className="mt-4 text-muted-foreground">{copy}</p>
             <ul className="mt-6 space-y-3">
               {bullets.map((b) => (
@@ -655,7 +655,7 @@ function WaitlistBand({ onCount }: { onCount: (n: number) => void }) {
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-semibold">
               <ShieldCheck className="h-3.5 w-3.5" /> Early access
             </div>
-            <h2 className="mt-4 font-[Bebas_Neue] text-4xl md:text-5xl tracking-wide">Join the Agent Cloud waitlist</h2>
+            <h2 className="mt-4 font-black tracking-tight text-4xl md:text-5xl tracking-wide">Join the Agent Cloud waitlist</h2>
             <p className="mt-3 text-muted-foreground">
               Get early access, launch updates, and a founder-tier discount when we open the doors.
             </p>
@@ -664,7 +664,7 @@ function WaitlistBand({ onCount }: { onCount: (n: number) => void }) {
           {done ? (
             <div className="mt-8 rounded-2xl border border-primary/40 bg-primary/5 p-6 text-center">
               <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
-              <h3 className="mt-2 font-[Bebas_Neue] text-2xl tracking-wide">You're on the list</h3>
+              <h3 className="mt-2 font-black tracking-tight text-2xl tracking-wide">You're on the list</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 We'll email you as soon as your invite is ready. Check your inbox for a confirmation.
               </p>
@@ -725,7 +725,7 @@ function Footer() {
           <div className="h-6 w-6 rounded-md bg-primary grid place-items-center text-primary-foreground">
             <Cloud className="h-3.5 w-3.5" />
           </div>
-          <span className="font-[Bebas_Neue] tracking-[0.14em] text-foreground">AGENT CLOUD</span>
+          <span className="font-black tracking-tight tracking-[0.14em] text-foreground">AGENT CLOUD</span>
           <span>© {new Date().getFullYear()}</span>
         </div>
         <div className="flex items-center gap-6 text-sm text-muted-foreground">
