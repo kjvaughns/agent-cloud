@@ -1,30 +1,40 @@
-## Font swap: match insuracloud.ai
+# Rename Sophai → Nova (full sweep)
 
-InsuraCloud uses **Inter** across the board — the "big look" is just Inter at weight 800/900 with tight letter-spacing (no separate display font, no Bebas Neue). Agent Cloud currently uses Bebas Neue for every heading and the sidebar wordmark, which is what you don't like.
+Rename the in-app AI assistant from "Sophai" to "Nova" everywhere: UI copy, routes/URLs, filenames, code identifiers, and database tables.
 
-### Changes
+## Scope
 
-1. **`src/routes/__root.tsx`** — update the Google Fonts `<link>` to load only Inter (drop Bebas Neue), keep the full weight range 300–900.
+### 1. Routes / files (rename on disk)
+- `src/routes/_authenticated/sophai.tsx` → `nova.tsx`
+- `src/routes/_authenticated/sophai/settings.tsx` → `nova/settings.tsx`
+- `src/routes/_authenticated/sophai/activity.tsx` → `nova/activity.tsx`
+- Update every `createFileRoute("/_authenticated/sophai...")` string to `/nova...`
+- Let `src/routeTree.gen.ts` regenerate (do not hand-edit).
 
-2. **`src/styles.css`**
-   - `--font-heading`: change from `"Bebas Neue"` to `"Inter"` (same stack as `--font-sans`).
-   - Base `h1` rule: swap the Bebas-tuned `letter-spacing: 0.02em` for a tighter modern-sans treatment — `font-weight: 800; letter-spacing: -0.02em; line-height: 1.05;` — so headings read like insuracloud's bold Inter.
+### 2. Code references
+Update all imports, `<Link to="/sophai...">`, labels, and identifiers in:
+- `src/routes/index.tsx` (landing copy)
+- `src/components/pipeline/client-detail-drawer.tsx`
+- `src/lib/ai-features.functions.ts` (function names / table refs)
+- `src/routes/_authenticated/account/faq.tsx`, `account/help.tsx`
+- `src/routes/_authenticated/phone.tsx`
+- Sidebar entry + any icons/labels
 
-3. **`src/components/app-sidebar.tsx`** — the sidebar header currently forces `font-heading` (Bebas) on the "Agent Cloud" / agency-name wordmark and on the small "by Agent Cloud" tagline. Keep the classes as-is; because `--font-heading` now points at Inter, the wordmark automatically becomes bold Inter. No component logic changes.
+Rename symbols: `SophaiSettings` → `NovaSettings`, `sophai_activity` refs → `nova_activity`, etc.
 
-4. **Landing page `src/routes/index.tsx`** — any inline `font-family: 'Bebas Neue'` styles on the hero headline get replaced with the Inter treatment (weight 800, tight tracking) so the marketing page matches insuracloud's hero.
+### 3. Database migration
+- Rename tables: `sophai_activity` → `nova_activity`, `sophai_settings` → `nova_settings`
+- Preserve RLS policies, grants, indexes, FKs (Postgres `ALTER TABLE ... RENAME` carries these)
+- Regenerate `src/integrations/supabase/types.ts` (auto after migration approval)
 
-5. **Sweep** — grep for remaining `Bebas Neue` / `font-heading` overrides in email templates (`src/lib/email-templates/*`) and any route that hardcodes the family. Email templates keep Inter (already web-safe fallback) so branded emails match the app.
+### 4. User-facing copy
+Every visible "Sophai" string becomes "Nova". Tagline/description stays functionally the same.
 
-### Out of scope
+## Out of scope
+- No logic changes, no new features, no design changes.
+- Chat history / activity rows are preserved (table rename, not drop).
 
-- Body font stays Inter (already correct).
-- No color, layout, or logo changes.
-- Gold brand tokens untouched.
-
-### QA
-
-- Sidebar wordmark reads as bold Inter, not Bebas.
-- Dashboard / Pipeline / Finances page titles render in heavy Inter with tight tracking.
-- Landing hero (`/`) matches the visual weight of insuracloud's "Your Entire Insurance Business."
-- No 404s on font requests (Bebas Neue reference fully removed from the Google Fonts URL).
+## Verification
+- `rg -i sophai src/ supabase/` returns zero hits (except historical migration files, which stay untouched).
+- `/nova`, `/nova/settings`, `/nova/activity` load; old `/sophai/*` URLs 404 (acceptable — internal app).
+- Build passes; Nova settings & activity pages still read/write their (renamed) tables.
