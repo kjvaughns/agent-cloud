@@ -1967,14 +1967,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "nova_activity_agent_id_fkey"
+            foreignKeyName: "sophai_activity_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "nova_activity_client_id_fkey"
+            foreignKeyName: "sophai_activity_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
@@ -2009,7 +2009,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "nova_settings_agent_id_fkey"
+            foreignKeyName: "sophai_settings_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: true
             referencedRelation: "profiles"
