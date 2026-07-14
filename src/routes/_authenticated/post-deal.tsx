@@ -17,6 +17,7 @@ import {
   searchClients, listCarriersForDeal, getMyActiveCarrierIds, postDeal,
 } from "@/lib/post-deal.functions";
 import { PostDealQaButton } from "@/components/ai/post-deal-qa";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -142,10 +143,10 @@ function PostDealPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Post a Deal</h1>
-        <p className="text-sm text-muted-foreground mt-1">Record a new policy for yourself or a downline agent</p>
+    <PageShell>
+      <div className="max-w-3xl mx-auto">
+      <div className="mb-[var(--gap)]">
+        <HeroBand title="Post a Deal" subtitle="Record a new policy for yourself or a downline agent" />
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -329,6 +330,7 @@ function PostDealPage() {
           </Button>
         </div>
       </form>
-    </div>
+      </div>
+    </PageShell>
   );
 }

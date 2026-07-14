@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, HeroBand } from "@/components/page-shell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -90,18 +91,18 @@ function PhonePage() {
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="p-4 md:p-6 space-y-4 max-w-[1400px] mx-auto">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">My Phone</h1>
-            <p className="text-sm text-muted-foreground">Browser calls, SMS, and power dialer.</p>
-          </div>
-          <div className="flex items-center gap-3">
+      <PageShell>
+        <div className="space-y-4">
+        <HeroBand
+          title="My Phone"
+          subtitle="Browser calls, SMS, and power dialer."
+          actions={
+            <>
             <div className="text-right hidden sm:block">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Your number</div>
-              <div className="text-sm font-medium flex items-center gap-2">
+              <div className="text-sm font-medium flex items-center gap-2 tnum">
                 {number ? fmtPhone(number) : <span className="text-muted-foreground">Not provisioned</span>}
-                <span className={cn("h-2 w-2 rounded-full", number ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                <span className={cn("h-2 w-2 rounded-full", number ? "bg-success" : "bg-muted-foreground/40")} />
               </div>
             </div>
             <Tooltip>
@@ -117,8 +118,9 @@ function PhonePage() {
             <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
               <SettingsIcon className="h-4 w-4 mr-2" /> Settings
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         <Tabs
           value={tab}
@@ -145,7 +147,8 @@ function PhonePage() {
           onOpenChange={setSettingsOpen}
           settings={overview.data?.settings ?? null}
         />
-      </div>
+        </div>
+      </PageShell>
     </TooltipProvider>
   );
 }
@@ -190,7 +193,7 @@ function TelephonePanel() {
           )}
 
           {!callState && (
-            <div className="grid grid-cols-3 border-t bg-muted/30">
+            <div className="grid grid-cols-3 border-t border-border bg-surface-2">
               <SubTabBtn icon={PhoneCall} label="Recents" active={sub === "recents"} onClick={() => setSub("recents")} />
               <SubTabBtn icon={VoicemailIcon} label="Voicemail" active={sub === "voicemail"} onClick={() => setSub("voicemail")} />
               <SubTabBtn icon={Keyboard} label="Keypad" active={sub === "keypad"} onClick={() => setSub("keypad")} />
@@ -260,7 +263,7 @@ function Dialer({
           value={value}
           onChange={(e) => onChange(formatTyping(e.target.value))}
           placeholder="Enter a number"
-          className="text-2xl h-14 text-center font-medium tracking-wide pr-10"
+          className="text-2xl h-14 text-center font-medium tracking-wide pr-10 tnum"
         />
         {value && (
           <button
@@ -277,9 +280,9 @@ function Dialer({
           <button
             key={k}
             onClick={() => handleKey(k)}
-            className="h-16 rounded-full bg-muted hover:bg-muted/80 active:scale-95 transition-all flex flex-col items-center justify-center"
+            className="h-16 rounded-full bg-surface-2 border border-border hover:bg-card active:scale-95 transition-all flex flex-col items-center justify-center"
           >
-            <span className="text-2xl font-light leading-none">{k}</span>
+            <span className="text-2xl font-light leading-none tnum">{k}</span>
             {sub && <span className="text-[10px] tracking-wider text-muted-foreground mt-0.5">{sub}</span>}
           </button>
         ))}
@@ -352,8 +355,8 @@ function ActiveCall({
           <UserIcon className="h-8 w-8" />
         </AvatarFallback>
       </Avatar>
-      <div className="text-xl font-semibold">{fmtPhone(call.phone)}</div>
-      <div className="text-sm text-muted-foreground mt-1">
+      <div className="text-xl font-semibold tnum">{fmtPhone(call.phone)}</div>
+      <div className="text-sm text-muted-foreground mt-1 tnum">
         {status === "ringing" ? "Calling…" : `Connected · ${mm}:${ss}`}
       </div>
 
@@ -380,7 +383,7 @@ function CallBtn({ icon: Icon, label, active, onClick }: any) {
       onClick={onClick}
       className={cn(
         "h-14 rounded-full flex flex-col items-center justify-center transition-colors",
-        active ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70",
+        active ? "bg-primary text-primary-foreground" : "bg-surface-2 border border-border hover:bg-card",
       )}
     >
       <Icon className="h-5 w-5" />
@@ -411,7 +414,7 @@ function Recents({
 function RecentsList({ data, onPick }: { data: CallLog[]; onPick: (phone: string) => void }) {
   if (!data.length) return <EmptyState icon={PhoneCall} title="No recent calls" />;
   return (
-    <ul className="divide-y">
+    <ul className="divide-y divide-border">
       {data.map((c) => {
         const Icon =
           c.outcome === "no_answer" && c.direction === "inbound" ? PhoneMissed :
@@ -423,17 +426,17 @@ function RecentsList({ data, onPick }: { data: CallLog[]; onPick: (phone: string
           <li key={c.id}>
             <button
               onClick={() => onPick(c.phone_number)}
-              className="w-full flex items-center gap-3 py-2.5 px-2 hover:bg-muted/50 rounded text-left"
+              className="w-full flex items-center gap-3 py-2.5 px-2 hover:bg-surface-2 rounded text-left"
             >
-              <Icon className={cn("h-4 w-4 shrink-0", missed ? "text-rose-500" : "text-muted-foreground")} />
+              <Icon className={cn("h-4 w-4 shrink-0", missed ? "text-destructive" : "text-muted-foreground")} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{name || fmtPhone(c.phone_number)}</div>
-                <div className="text-xs text-muted-foreground truncate">
+                <div className="text-xs text-muted-foreground truncate tnum">
                   {c.direction === "outbound" ? "Outbound" : "Inbound"}
                   {dur > 0 && ` · ${Math.floor(dur / 60)}m ${dur % 60}s`}
                 </div>
               </div>
-              <div className="text-[11px] text-muted-foreground shrink-0">
+              <div className="text-[11px] text-muted-foreground shrink-0 tnum">
                 {new Date(c.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
               </div>
             </button>
@@ -577,8 +580,8 @@ function ConversationRow({
       <button
         onClick={onClick}
         className={cn(
-          "w-full px-3 py-2.5 flex gap-3 text-left hover:bg-muted/60 border-l-2 border-transparent transition-colors",
-          active && "bg-muted/70 border-l-primary",
+          "w-full px-3 py-2.5 flex gap-3 text-left hover:bg-surface-2 border-l-2 border-transparent transition-colors",
+          active && "bg-surface-2 border-l-primary",
         )}
       >
         <Avatar className="h-9 w-9">
@@ -664,7 +667,7 @@ function MessageThread({
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm truncate">{name}</div>
           {conversation && (
-            <div className="text-xs text-muted-foreground">{fmtPhone(conversation.phone_number)}</div>
+            <div className="text-xs text-muted-foreground tnum">{fmtPhone(conversation.phone_number)}</div>
           )}
         </div>
         <Button variant="ghost" size="icon">
@@ -745,7 +748,7 @@ function MessageBubble({ m }: { m: SmsMessage }) {
         )}
         <div className={cn(
           "rounded-2xl px-3.5 py-2 text-sm whitespace-pre-wrap break-words",
-          out ? "bg-primary text-primary-foreground rounded-br-md" : "bg-muted rounded-bl-md",
+          out ? "bg-primary text-primary-foreground rounded-br-md" : "bg-surface-2 rounded-bl-md",
         )}>
           {m.body}
           {m.media_url && (
@@ -814,10 +817,10 @@ function NewMessageDialog({
                     <button
                       onClick={() => c.phone && create.mutate({ clientId: c.id, phoneNumber: c.phone })}
                       disabled={!c.phone}
-                      className="w-full text-left px-3 py-2 hover:bg-muted/60 disabled:opacity-50 flex justify-between"
+                      className="w-full text-left px-3 py-2 hover:bg-surface-2 disabled:opacity-50 flex justify-between"
                     >
                       <span>{c.first_name} {c.last_name}</span>
-                      <span className="text-xs text-muted-foreground">{c.phone ? fmtPhone(c.phone) : "no phone"}</span>
+                      <span className="text-xs text-muted-foreground tnum">{c.phone ? fmtPhone(c.phone) : "no phone"}</span>
                     </button>
                   </li>
                 ))}
@@ -940,7 +943,7 @@ function DialListCard({
         <div className="mt-3">
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
             <span>Progress</span>
-            <span>{list.called}/{list.total} ({pct}%)</span>
+            <span className="tnum">{list.called}/{list.total} ({pct}%)</span>
           </div>
           <Progress value={pct} />
         </div>
@@ -1011,12 +1014,12 @@ function DialListEditor({
                       onClick={() => c.phone && toggle(c)}
                       disabled={!c.phone}
                       className={cn(
-                        "w-full text-left px-3 py-2 text-sm hover:bg-muted/60 flex justify-between disabled:opacity-50",
+                        "w-full text-left px-3 py-2 text-sm hover:bg-surface-2 flex justify-between disabled:opacity-50",
                         on && "bg-primary/10",
                       )}
                     >
                       <span>{c.first_name} {c.last_name}</span>
-                      <span className="text-xs text-muted-foreground">{c.phone ? fmtPhone(c.phone) : "no phone"}</span>
+                      <span className="text-xs text-muted-foreground tnum">{c.phone ? fmtPhone(c.phone) : "no phone"}</span>
                     </button>
                   );
                 })}
@@ -1034,7 +1037,7 @@ function DialListEditor({
                   <div key={s.id} className="flex items-center justify-between px-3 py-2 text-sm border-b last:border-0">
                     <div>
                       <div>{s.first_name} {s.last_name}</div>
-                      <div className="text-xs text-muted-foreground">{s.phone ? fmtPhone(s.phone) : ""}</div>
+                      <div className="text-xs text-muted-foreground tnum">{s.phone ? fmtPhone(s.phone) : ""}</div>
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => toggle(s)}>
                       <X className="h-4 w-4" />
@@ -1118,7 +1121,7 @@ function DialingSession({ listId, onClose }: { listId: string; onClose: () => vo
 
         {isLoading ? <Loading /> : !current ? (
           <div className="py-8 text-center">
-            <Check className="h-10 w-10 mx-auto text-emerald-500 mb-2" />
+            <Check className="h-10 w-10 mx-auto text-success mb-2" />
             <div className="font-semibold">All done</div>
             <p className="text-sm text-muted-foreground mt-1">Every contact in this list has been called.</p>
           </div>
@@ -1135,7 +1138,7 @@ function DialingSession({ listId, onClose }: { listId: string; onClose: () => vo
                 <div className="font-semibold">
                   {current.client_first_name} {current.client_last_name}
                 </div>
-                <div className="text-sm text-muted-foreground mt-0.5">
+                <div className="text-sm text-muted-foreground mt-0.5 tnum">
                   {current.client_phone ? fmtPhone(current.client_phone) : "No phone"}
                 </div>
                 {current.client_stage && (
@@ -1249,7 +1252,7 @@ function PhoneSettingsSheet({
 
           <section className="space-y-2 border-t pt-4">
             <div className="font-medium text-sm">Your business number</div>
-            <div className="text-lg">{settings?.phone_number ? fmtPhone(settings.phone_number) : <span className="text-muted-foreground">Not provisioned</span>}</div>
+            <div className="text-lg tnum">{settings?.phone_number ? fmtPhone(settings.phone_number) : <span className="text-muted-foreground">Not provisioned</span>}</div>
             <Button variant="outline" size="sm" disabled>Change number</Button>
             <p className="text-xs text-muted-foreground">Contact your admin to set up a dedicated phone number for your account.</p>
           </section>
@@ -1259,7 +1262,7 @@ function PhoneSettingsSheet({
             <div className="flex items-center gap-2 text-sm">
               <span className="capitalize">{settings?.sms_registration_status ?? "pending"}</span>
               {settings?.sms_registration_status === "active" ? (
-                <Check className="h-4 w-4 text-emerald-500" />
+                <Check className="h-4 w-4 text-success" />
               ) : (
                 <Loader2 className="h-4 w-4 text-muted-foreground" />
               )}

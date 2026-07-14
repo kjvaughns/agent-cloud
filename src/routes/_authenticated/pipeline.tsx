@@ -21,14 +21,15 @@ import { listPipelineClients, createClient, updateClient, importClients } from "
 import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
 
 const STAGE_COLS: { key: Stage; label: string; tint: string; header: string; badgeCls: string }[] = [
-  { key: "new", label: "New / Cold", tint: "bg-slate-50 dark:bg-slate-900/30", header: "text-slate-600 dark:text-slate-300", badgeCls: "bg-slate-100 text-slate-700 border-slate-200" },
-  { key: "callback", label: "Callback", tint: "bg-amber-50 dark:bg-amber-900/20", header: "text-amber-700 dark:text-amber-300", badgeCls: "bg-amber-100 text-amber-700 border-amber-200" },
-  { key: "almost_there", label: "Almost There", tint: "bg-emerald-50 dark:bg-emerald-900/20", header: "text-emerald-700 dark:text-emerald-300", badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { key: "new", label: "New / Cold", tint: "bg-surface-2", header: "text-muted-foreground", badgeCls: "bg-surface-2 text-muted-foreground border-border-soft" },
+  { key: "callback", label: "Callback", tint: "bg-surface-2", header: "text-amber-600 dark:text-amber-400", badgeCls: "bg-amber-100 text-amber-700 border-amber-200" },
+  { key: "almost_there", label: "Almost There", tint: "bg-surface-2", header: "text-emerald-600 dark:text-emerald-400", badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
 ];
 
 const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
@@ -58,13 +59,13 @@ function PipelineSkeleton() {
     <div className="h-full overflow-x-auto">
       <div className="flex gap-4 h-full min-w-max pb-2">
         {STAGE_COLS.map((col) => (
-          <div key={col.key} className={cn("w-80 shrink-0 flex flex-col rounded-xl border", col.tint)}>
-            <div className="px-4 py-3 border-b">
+          <div key={col.key} className={cn("w-80 shrink-0 flex flex-col rounded-[var(--radius)] border border-border-soft", col.tint)}>
+            <div className="px-4 py-3 border-b border-border-soft">
               <Skeleton className="h-4 w-32" />
             </div>
             <div className="flex-1 p-2 space-y-2">
               {Array.from({ length: 3 }).map((_, index) => (
-                <div key={index} className="bg-card border rounded-lg p-3 space-y-3">
+                <div key={index} className="bg-card border border-border rounded-[var(--radius)] p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <Skeleton className="h-4 w-28" />
                     <Skeleton className="h-5 w-14 rounded-full" />
@@ -143,45 +144,53 @@ function PipelinePage() {
     stageMutation.mutate({ id, stage });
   };
 
-  return (
-    <div className="p-4 md:p-6 space-y-4 h-[calc(100vh-3.5rem)] flex flex-col">
-      {/* Header row: tabs | search | buttons */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-          <TabsList className="h-9">
-            <TabsTrigger value="pipeline" className="gap-1.5">
-              Pipeline
-              <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-background text-[10px] font-bold text-foreground border">
-                {pipelineClients.length}
-              </span>
-            </TabsTrigger>
-            <TabsTrigger value="sold" className="gap-1.5">
-              Sold
-              <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-background text-[10px] font-bold text-foreground border">
-                {soldClients.length}
-              </span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <div className="relative flex-1 min-w-[180px] max-w-sm">
-          <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-9 h-9" />
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setAgentLinkOpen(true)}>
-            <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">AgentLink</span>
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
-            <Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import</span>
-          </Button>
-          <Button size="sm" className="h-9 gap-1.5" onClick={() => setAddOpen(true)}>
-            <Plus className="h-3.5 w-3.5" />Add Client
-          </Button>
-        </div>
-      </div>
+  const tabControls = (
+    <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+      <TabsList className="h-9">
+        <TabsTrigger value="pipeline" className="gap-1.5">
+          Pipeline
+          <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-surface-2 text-[10px] font-bold text-foreground border border-border-soft tnum">
+            {pipelineClients.length}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="sold" className="gap-1.5">
+          Sold
+          <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1 rounded-full bg-surface-2 text-[10px] font-bold text-foreground border border-border-soft tnum">
+            {soldClients.length}
+          </span>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
 
-      {/* Board content */}
-      <div className="flex-1 min-h-0">
+  return (
+    <PageShell>
+      <div className="flex flex-col gap-4 h-[calc(100vh_-_3.5rem_-_2*var(--gap))] min-h-0">
+        <HeroBand
+          title="Pipeline"
+          subtitle="Track every lead from first touch to sold."
+          actions={
+            <>
+              {tabControls}
+              <div className="relative w-full sm:w-56">
+                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-9 h-9" />
+              </div>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setAgentLinkOpen(true)}>
+                <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">AgentLink</span>
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
+                <Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import</span>
+              </Button>
+              <Button size="sm" className="h-9 gap-1.5" onClick={() => setAddOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />Add Client
+              </Button>
+            </>
+          }
+        />
+
+        {/* Board content */}
+        <div className="flex-1 min-h-0">
         {tab === "pipeline" ? (
           showSkeleton ? (
             <PipelineSkeleton />
@@ -216,24 +225,25 @@ function PipelinePage() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       <ClientDetailDrawer clientId={openId} onClose={() => setOpenId(null)} />
       <AddClientDialog open={addOpen} onOpenChange={setAddOpen} />
       <ImportClientsDialog open={importOpen} onOpenChange={setImportOpen} />
       <AgentLinkImportDialog open={agentLinkOpen} onOpenChange={setAgentLinkOpen} />
-    </div>
+    </PageShell>
   );
 }
 
 function KanbanColumn({ stage, label, tint, header, count, children }: { stage: Stage; label: string; tint: string; header: string; count: number; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
-    <div ref={setNodeRef} className={cn("w-72 sm:w-80 shrink-0 flex flex-col rounded-xl border transition-all", tint, isOver && "ring-2 ring-primary ring-offset-1")}>
-      <div className="flex items-center justify-between px-4 py-3 border-b">
+    <div ref={setNodeRef} className={cn("w-72 sm:w-80 shrink-0 flex flex-col rounded-[var(--radius)] border border-border-soft transition-all", tint, isOver && "ring-2 ring-primary ring-offset-1")}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-soft">
         <div>
-          <span className={cn("font-bold text-sm", header)}>{label}</span>
-          <span className="ml-2 text-muted-foreground text-sm font-normal">({count})</span>
+          <span className={cn("font-display text-[11px] font-semibold uppercase tracking-[0.09em]", header)} style={{ fontFamily: "var(--font-display)" }}>{label}</span>
+          <span className="ml-2 text-muted-foreground text-[11px] font-normal tnum">({count})</span>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2">
@@ -272,7 +282,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
       {...listeners}
       onClick={onClick}
       className={cn(
-        "bg-card border rounded-xl p-3.5 cursor-pointer select-none transition-all",
+        "bg-card border border-border rounded-[var(--radius)] p-3.5 cursor-pointer select-none transition-all",
         "hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
         isDragging && "opacity-50 shadow-xl rotate-1",
       )}
@@ -315,7 +325,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
 
       {/* Row 4: Policy info */}
       {pol ? (
-        <div className="mt-2.5 pt-2.5 border-t border-dashed space-y-1">
+        <div className="mt-2.5 pt-2.5 border-t border-dashed border-border-soft space-y-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="text-xs font-semibold text-foreground truncate">{pol.carriers?.name ?? "—"}</div>
@@ -324,7 +334,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
               </div>
             </div>
             <div className="text-right shrink-0">
-              <div className="text-sm font-bold text-emerald-600">
+              <div className="text-sm font-bold text-success tnum">
                 ${Number(pol.monthly_premium ?? 0).toFixed(2)}<span className="text-[10px] font-normal text-muted-foreground">/mo</span>
               </div>
             </div>
@@ -339,7 +349,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
       ) : (
         <>
           {client.beneficiary_of && (
-            <div className="mt-2 pt-2 border-t border-dashed">
+            <div className="mt-2 pt-2 border-t border-dashed border-border-soft">
               <span className="inline-flex items-center gap-1 text-[10px] text-primary font-medium">
                 <Heart className="h-2.5 w-2.5" /> Beneficiary of {client.beneficiary_of}
               </span>
@@ -354,7 +364,7 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
       )}
 
       {/* Quick Mark Sold action */}
-      <div className="mt-2 pt-2 border-t flex justify-end" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="mt-2 pt-2 border-t border-border-soft flex justify-end" onPointerDown={(e) => e.stopPropagation()}>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); nav({ to: "/post-deal", search: { client_id: client.id } }); }}

@@ -27,6 +27,7 @@ import {
 } from "@/lib/calendar.functions";
 import { metaFor, EVENT_META } from "@/lib/calendar-meta";
 import { supabase } from "@/integrations/supabase/client";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
@@ -90,59 +91,59 @@ function CalendarPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-sm text-muted-foreground">
-            Auto-generated insurance events and your appointments, in one view.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="day">Day</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="Jump to date">
-                <CalendarDays className="h-4 w-4" />
+    <PageShell className="space-y-4">
+      <HeroBand
+        title="Calendar"
+        subtitle="Auto-generated insurance events and your appointments, in one view."
+        actions={
+          <>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>Today</Button>
+              <Button variant="outline" size="icon" onClick={() => shift(-1)}>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <MiniCal
-                mode="single"
-                selected={cursor}
-                onSelect={(d) => d && setCursor(d)}
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-          <Button
-            onClick={() => {
-              setCreateDate(new Date());
-              setCreateOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" /> Create
-          </Button>
-        </div>
-      </div>
+              <Button variant="outline" size="icon" onClick={() => shift(1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <Tabs value={view} onValueChange={(v) => setView(v as ViewMode)}>
+              <TabsList>
+                <TabsTrigger value="day">Day</TabsTrigger>
+                <TabsTrigger value="week">Week</TabsTrigger>
+                <TabsTrigger value="month">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Jump to date">
+                  <CalendarDays className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <MiniCal
+                  mode="single"
+                  selected={cursor}
+                  onSelect={(d) => d && setCursor(d)}
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              onClick={() => {
+                setCreateDate(new Date());
+                setCreateOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" /> Create
+            </Button>
+          </>
+        }
+      />
 
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>Today</Button>
-        <Button variant="outline" size="icon" onClick={() => shift(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => shift(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <div className="font-semibold text-lg ml-2">{title}</div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="font-display font-semibold text-lg tnum">{title}</div>
         <div className="flex-1" />
-        <div className="hidden lg:flex items-center gap-3 text-xs">
+        <div className="hidden lg:flex items-center gap-3 text-xs text-muted-foreground">
           {Object.entries(EVENT_META)
             .filter(([k]) => ["birthday", "policy_starting_soon", "beneficiary_checkin", "lapse_follow_up", "policy_anniversary", "appointment"].includes(k))
             .map(([k, m]) => (
@@ -187,7 +188,7 @@ function CalendarPage() {
           qc.invalidateQueries({ queryKey: ["calendar"] });
         }}
       />
-    </div>
+    </PageShell>
   );
 }
 
@@ -210,8 +211,8 @@ function MonthView({
   const allEmpty = events.length === 0;
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="grid grid-cols-7 border-b bg-muted/40">
+    <Panel pad={false} className="overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-border-soft bg-surface-2">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div key={d} className="px-3 py-2 text-xs font-semibold text-muted-foreground">
             {d}
@@ -226,8 +227,8 @@ function MonthView({
               key={d.iso}
               onClick={() => onDayClick(d.date)}
               className={cn(
-                "border-r border-b p-2 last:border-r-0 cursor-pointer hover:bg-muted/30 transition-colors",
-                !d.inMonth && "bg-muted/10 text-muted-foreground",
+                "border-r border-b border-border-soft p-2 last:border-r-0 cursor-pointer hover:bg-surface-2 transition-colors",
+                !d.inMonth && "bg-surface-2/40 text-text-dim",
                 d.isPast && d.inMonth && "opacity-80",
               )}
             >
@@ -235,7 +236,7 @@ function MonthView({
                 <span
                   className={cn(
                     "text-xs font-semibold inline-flex items-center justify-center h-6 w-6 rounded-full",
-                    d.isToday && "bg-primary text-primary-foreground",
+                    d.isToday && "bg-gold-glow text-gold-bright ring-1 ring-primary/40",
                   )}
                 >
                   {d.day}
@@ -271,11 +272,11 @@ function MonthView({
         })}
       </div>
       {allEmpty && (
-        <div className="p-10 text-center text-sm text-muted-foreground border-t">
+        <div className="p-10 text-center text-sm text-muted-foreground border-t border-border-soft">
           No events this month — enjoy the quiet! Or create an appointment.
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -296,24 +297,24 @@ function WeekView({
   const now = new Date();
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <Panel pad={false} className="overflow-hidden">
       <div className="grid" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
-        <div className="border-b" />
+        <div className="border-b border-border-soft" />
         {days.map((d) => (
-          <div key={d.toISOString()} className="border-b border-l p-2 text-center">
+          <div key={d.toISOString()} className="border-b border-l border-border-soft p-2 text-center">
             <div className="text-xs text-muted-foreground">{d.toLocaleDateString("en-US", { weekday: "short" })}</div>
-            <div className={cn("text-lg font-semibold", sameDay(d, now) && "text-primary")}>{d.getDate()}</div>
+            <div className={cn("text-lg font-semibold", sameDay(d, now) && "text-gold-bright")}>{d.getDate()}</div>
           </div>
         ))}
       </div>
       <div className="grid relative" style={{ gridTemplateColumns: "60px repeat(7, 1fr)" }}>
         {hours.map((h) => (
           <div key={`h-${h}`} className="contents">
-            <div className="border-b border-r text-[10px] text-muted-foreground px-1 py-1 h-14">
+            <div className="border-b border-r border-border-soft text-[10px] text-muted-foreground px-1 py-1 h-14">
               {formatHour(h)}
             </div>
             {days.map((d) => (
-              <div key={`${d.toISOString()}-${h}`} className="border-b border-l h-14 relative" />
+              <div key={`${d.toISOString()}-${h}`} className="border-b border-l border-border-soft h-14 relative" />
             ))}
           </div>
         ))}
@@ -351,14 +352,14 @@ function WeekView({
         {/* now line */}
         {days.some((d) => sameDay(d, now)) && now.getHours() >= 6 && now.getHours() <= 21 && (
           <div
-            className="absolute left-[60px] right-0 h-px bg-red-500 z-10"
+            className="absolute left-[60px] right-0 h-px bg-destructive z-10"
             style={{ top: ((now.getHours() + now.getMinutes() / 60) - 6) * 56 }}
           >
-            <div className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+            <div className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-destructive" />
           </div>
         )}
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -377,14 +378,14 @@ function DayView({
   const hours = Array.from({ length: 16 }, (_, i) => i + 6);
 
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <div className="p-3 border-b bg-muted/40">
+    <Panel pad={false} className="overflow-hidden">
+      <div className="p-3 border-b border-border-soft bg-surface-2">
         <div className="font-semibold">
           {cursor.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
         <div className="text-xs text-muted-foreground">{dayEvents.length} event{dayEvents.length === 1 ? "" : "s"}</div>
       </div>
-      <div className="divide-y">
+      <div className="divide-y divide-border-soft">
         {hours.map((h) => {
           const slot = dayEvents.filter((e) => new Date(e.start_at).getHours() === h);
           return (
@@ -413,9 +414,9 @@ function DayView({
         })}
       </div>
       {dayEvents.length === 0 && (
-        <div className="p-10 text-center text-sm text-muted-foreground border-t">Nothing scheduled.</div>
+        <div className="p-10 text-center text-sm text-muted-foreground border-t border-border-soft">Nothing scheduled.</div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -597,7 +598,7 @@ function CreateEventModal({
                     {clientResults.map((c) => (
                       <button
                         key={c.id}
-                        className="w-full text-left px-2 py-1.5 hover:bg-muted text-sm"
+                        className="w-full text-left px-2 py-1.5 hover:bg-surface-2 text-sm"
                         onClick={() => {
                           setClientId(c.id);
                           setClientLabel(`${c.first_name} ${c.last_name}`);
@@ -756,16 +757,16 @@ function EventDetailDrawer({
 
 function SkeletonGrid() {
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <Panel pad={false} className="overflow-hidden">
       <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)]">
         {Array.from({ length: 35 }).map((_, i) => (
-          <div key={i} className="border-r border-b p-2 last:border-r-0">
-            <div className="h-3 w-6 bg-muted rounded animate-pulse mb-2" />
-            <div className="h-2 w-full bg-muted/60 rounded animate-pulse" />
+          <div key={i} className="border-r border-b border-border-soft p-2 last:border-r-0">
+            <div className="h-3 w-6 bg-surface-2 rounded animate-pulse mb-2" />
+            <div className="h-2 w-full bg-surface-2/60 rounded animate-pulse" />
           </div>
         ))}
       </div>
-    </div>
+    </Panel>
   );
 }
 
