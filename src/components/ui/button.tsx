@@ -10,15 +10,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "text-primary-foreground shadow-[0_1px_2px_rgba(143,111,18,.3),0_4px_12px_rgba(201,162,39,.22)] " +
-          "bg-[linear-gradient(180deg,#d8b23a,#c9a227_48%,#ad8819)] " +
-          "hover:brightness-[1.03] active:shadow-inner",
+          "text-gold-foreground border border-gold/60 " +
+          "bg-[linear-gradient(180deg,var(--gold),var(--gold-dim))] " +
+          "shadow-[inset_0_1px_0_rgba(255,255,255,.25),0_1px_2px_rgba(0,0,0,.15)] " +
+          "hover:brightness-[1.05] active:brightness-95",
         destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-primary hover:border-primary/40",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+          "border border-border bg-surface-2 shadow-sm hover:bg-accent hover:text-primary hover:border-primary/40",
+        secondary: "bg-surface-2 text-foreground border border-border shadow-sm hover:bg-accent",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-primary underline-offset-4 hover:underline hover:text-gold-bright",
       },
       size: {
         default: "h-9 px-4 py-2",
