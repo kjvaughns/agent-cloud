@@ -1,21 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Phone, Mail } from "lucide-react";
 import { getTemplate, type LandingTemplate } from "@/lib/landing-templates";
-import { getPublicTemplateLanding } from "@/lib/public-pages.functions";
 
 export const Route = createFileRoute("/agent/$agentSlug/$templateSlug")({
-  loader: ({ params }) => getPublicTemplateLanding({ data: { agentSlug: params.agentSlug, templateSlug: params.templateSlug } }),
-  head: ({ loaderData, params }) => {
-    const tpl = getTemplate(params.templateSlug);
+  head: () => {
     return {
       meta: [
-        { title: tpl?.headline ?? "Landing Page" },
-        { name: "description", content: tpl?.subhead ?? "Get a free quote today." },
+        { title: "Landing Page — Agent Cloud" },
+        { name: "description", content: "Get a free quote today." },
       ],
     };
   },
@@ -24,12 +21,25 @@ export const Route = createFileRoute("/agent/$agentSlug/$templateSlug")({
 });
 
 function LandingPage() {
-  const data = Route.useLoaderData();
   const { agentSlug, templateSlug } = Route.useParams();
   const tpl = getTemplate(templateSlug) as LandingTemplate | undefined;
+  const [data, setData] = useState<any | null | undefined>(undefined);
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    let alive = true;
+    const qs = new URLSearchParams({ type: "template", agentSlug, templateSlug });
+    fetch(`/api/public/page-data?${qs.toString()}`)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((json) => alive && setData(json.data ?? null))
+      .catch(() => alive && setData(null));
+    return () => {
+      alive = false;
+    };
+  }, [agentSlug, templateSlug]);
+
+  if (data === undefined) return <div className="p-12 text-center">Loading…</div>;
   if (!data || !tpl) return <div className="p-12 text-center">This page isn't available.</div>;
 
   const agentName = `${data.agent.first_name ?? ""} ${data.agent.last_name ?? ""}`.trim();

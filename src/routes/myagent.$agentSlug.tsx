@@ -1,5 +1,5 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,18 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Mail, Phone } from "lucide-react";
-import { getPublicAgentLanding } from "@/lib/public-pages.functions";
 
 export const Route = createFileRoute("/myagent/$agentSlug")({
-  loader: async ({ params }) => {
-    const data = await getPublicAgentLanding({ data: { slug: params.agentSlug } });
-    if (!data) throw notFound();
-    return data;
-  },
-  head: ({ loaderData }) => ({
+  head: () => ({
     meta: [
-      { title: loaderData ? `${loaderData.name} — Licensed Life Insurance Agent` : "Agent" },
-      { name: "description", content: loaderData?.message?.slice(0, 155) ?? "Get a free life insurance quote." },
+      { title: "Licensed Life Insurance Agent — Agent Cloud" },
+      { name: "description", content: "Get a free life insurance quote." },
     ],
   }),
   component: PublicAgentPage,
@@ -39,9 +33,24 @@ export const Route = createFileRoute("/myagent/$agentSlug")({
 });
 
 function PublicAgentPage() {
-  const d = Route.useLoaderData();
+  const { agentSlug } = Route.useParams();
+  const [d, setData] = useState<any | null | undefined>(undefined);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/public/page-data?type=agent&slug=${encodeURIComponent(agentSlug)}`)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((json) => alive && setData(json.data ?? null))
+      .catch(() => alive && setData(null));
+    return () => {
+      alive = false;
+    };
+  }, [agentSlug]);
+
+  if (d === undefined) return <div className="min-h-screen grid place-items-center p-6 text-center">Loading…</div>;
+  if (!d) return <div className="min-h-screen grid place-items-center p-6 text-center">This agent page is not available.</div>;
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
