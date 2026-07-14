@@ -1,22 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   PieChart, Pie, Cell,
 } from "recharts";
-import { DollarSign, Users, FileText, FolderOpen, ArrowRight, AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
+import { DollarSign, Users, FileText, FolderOpen, ArrowRight, AlertTriangle, CheckCircle2, ChevronRight, UserPlus, Bell, TrendingUp, AlertCircle } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed } from "@/lib/dashboard.functions";
 import { getProducerProfile } from "@/lib/account.functions";
+import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
@@ -47,6 +51,14 @@ function Dashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard-metrics", rangeStart, rangeEnd],
     queryFn: () => fetchMetrics({ data: { rangeStart, rangeEnd } }),
+  });
+
+  const fetchAgencyFeed = useServerFn(getAgencyFeed);
+  const { data: agencyFeed, isLoading: agencyFeedLoading } = useQuery({
+    queryKey: ["dashboard-agency-feed"],
+    queryFn: () => fetchAgencyFeed(),
+    enabled: view === "agency",
+    staleTime: 60_000,
   });
 
   const profileFn = useServerFn(getProducerProfile);
@@ -158,6 +170,14 @@ function Dashboard() {
         )}
       </div>
 
+      {/* Agency Command Center — only in agency view */}
+      {view === "agency" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ActivationQueueWidget feed={agencyFeed} loading={agencyFeedLoading} />
+          <TeamActivityFeed feed={agencyFeed} loading={agencyFeedLoading} />
+        </div>
+      )}
+
       {/* Production trend */}
       <Card>
         <CardHeader>
@@ -237,6 +257,159 @@ function Dashboard() {
 
       <AiDailyBriefing />
     </div>
+  );
+}
+
+// ── Agency Command Center Widgets ────────────────────────────────────────────
+
+function initials(f?: string | null, l?: string | null) {
+  return `${(f ?? "?")[0] ?? "?"}${(l ?? "")[0] ?? ""}`.toUpperCase();
+}
+
+function ActivationQueueWidget({ feed, loading }: { feed: any; loading: boolean }) {
+  const qc = useQueryClient();
+  const reminderFn = useServerFn(sendAgentReminder);
+  const remind = useMutation({
+    mutationFn: (agentId: string) => reminderFn({ data: { agentId } }),
+    onSuccess: (res: any) => {
+      if (res?.ok) toast.success("Reminder sent");
+      else if (res?.reason === "throttled") toast.info("Already reminded in last 24h");
+      else toast.error("Couldn't send reminder");
+      qc.invalidateQueries({ queryKey: ["dashboard-agency-feed"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Error"),
+  });
+
+  const queue: any[] = feed?.activationQueue ?? [];
+  const stuckContracts: number = feed?.stuckContracts ?? 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base">Activation Queue</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">Agents needing profile help</p>
+        </div>
+        <div className="flex gap-2 items-center">
+          {stuckContracts > 0 && (
+            <Link to="/contracting">
+              <Badge variant="destructive" className="text-xs gap-1">
+                <AlertCircle className="h-3 w-3" /> {stuckContracts} stuck contract{stuckContracts !== 1 ? "s" : ""}
+              </Badge>
+            </Link>
+          )}
+          <Link to="/team" className="text-xs text-primary hover:underline">View All →</Link>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {loading ? (
+          <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
+        ) : queue.length === 0 ? (
+          <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            All direct agents have complete profiles.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {queue.map((a: any) => (
+              <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg border bg-muted/30">
+                <Avatar className="h-9 w-9 shrink-0">
+                  <AvatarFallback className="text-xs">{initials(a.first_name, a.last_name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm truncate">{a.first_name} {a.last_name}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    Missing: {a.missing.slice(0, 3).join(", ")}{a.missing.length > 3 ? ` +${a.missing.length - 3}` : ""}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs shrink-0"
+                  onClick={() => remind.mutate(a.id)}
+                  disabled={remind.isPending}
+                >
+                  <Bell className="h-3 w-3 mr-1" /> Remind
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamActivityFeed({ feed, loading }: { feed: any; loading: boolean }) {
+  const policies: any[] = feed?.recentPolicies ?? [];
+  const newAgents: any[] = feed?.newAgents ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base">Team Activity</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">Recent from your direct downline</p>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        {loading ? (
+          <div className="space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10" />)}</div>
+        ) : (
+          <>
+            {newAgents.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">New This Week</div>
+                <div className="space-y-1.5">
+                  {newAgents.map((a: any) => (
+                    <div key={a.id} className="flex items-center gap-2 text-sm">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarFallback className="text-[10px]">{initials(a.first_name, a.last_name)}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{a.first_name} {a.last_name}</span>
+                      <Badge variant="outline" className="text-[10px] py-0 h-4 text-emerald-600 border-emerald-500/30 bg-emerald-500/10">New Agent</Badge>
+                      <span className="text-xs text-muted-foreground ml-auto">{new Date(a.created_at).toLocaleDateString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {policies.length > 0 && (
+              <div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Recent Policies</div>
+                <div className="space-y-1.5">
+                  {policies.map((p: any) => {
+                    const agentName = `${p.profiles?.first_name ?? ""} ${p.profiles?.last_name ?? ""}`.trim() || "Agent";
+                    const carrierName = p.carriers?.name ?? "Carrier";
+                    return (
+                      <div key={p.id} className="flex items-center gap-2 text-sm">
+                        <TrendingUp className="h-3.5 w-3.5 text-[#C9A227] shrink-0" />
+                        <span className="font-medium truncate max-w-[110px]">{agentName}</span>
+                        <span className="text-xs text-muted-foreground truncate">{p.product ?? carrierName}</span>
+                        <span className="text-xs font-medium ml-auto shrink-0">{money(Number(p.annual_premium ?? 0))}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {policies.length === 0 && newAgents.length === 0 && (
+              <div className="py-4 text-sm text-muted-foreground text-center">
+                No recent activity from your team.
+              </div>
+            )}
+
+            <div className="pt-1">
+              <Link to="/team" className="text-xs text-primary hover:underline flex items-center gap-1">
+                <UserPlus className="h-3 w-3" /> Invite new agent
+              </Link>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
