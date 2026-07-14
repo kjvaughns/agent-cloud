@@ -33,7 +33,7 @@ function LoginPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back");
-    navigate({ to: redirect });
+    window.location.assign(redirect);
   }
 
   async function onGoogle() {
