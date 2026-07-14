@@ -117,6 +117,182 @@ export const getAgencyFeed = createServerFn({ method: "GET" })
     } as AgencyFeed;
   });
 
+// ── Dashboard hero (reference-match): today/week/MTD ALP + daily trend ──────
+export type DashboardHero = {
+  todayAlp: number;
+  todayDelta: number;      // $ vs yesterday
+  weekAlp: number;
+  weekDeltaPct: number;    // % vs prior 7d
+  activePolicies: number;
+  activeToday: number;     // policies posted today
+  teamAlp: number;         // MTD team production
+  teamDeltaPct: number;    // % MoM
+  mtdAlp: number;
+  mtdGoal: number;
+  mtdPct: number;
+  daysLeft: number;
+  trend: number[];         // daily cumulative MTD ALP (in dollars)
+};
+
+export const getDashboardHero = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekAgo = new Date(startOfToday.getTime() - 7 * 86400000);
+    const twoWeeksAgo = new Date(startOfToday.getTime() - 14 * 86400000);
+    const yesterday = new Date(startOfToday.getTime() - 86400000);
+    const fetchSince = new Date(Math.min(startOfMonth.getTime(), twoWeeksAgo.getTime()));
+
+    const { data: pols } = await supabase
+      .from("policies")
+      .select("annual_premium, posted_at, status")
+      .eq("agent_id", userId)
+      .gte("posted_at", fetchSince.toISOString());
+    const rows: { annual_premium: number; posted_at: string; status: string }[] = (pols ?? []).map((p: any) => ({
+      annual_premium: Number(p.annual_premium ?? 0),
+      posted_at: p.posted_at,
+      status: p.status,
+    }));
+
+    const sumWhere = (from: Date, to?: Date) =>
+      rows.reduce((acc, r) => {
+        const t = new Date(r.posted_at).getTime();
+        if (t >= from.getTime() && (!to || t < to.getTime())) return acc + r.annual_premium;
+        return acc;
+      }, 0);
+
+    const todayAlp = sumWhere(startOfToday);
+    const yesterdayAlp = sumWhere(yesterday, startOfToday);
+    const weekAlp = sumWhere(weekAgo);
+    const priorWeekAlp = sumWhere(twoWeeksAgo, weekAgo);
+    const mtdAlp = sumWhere(startOfMonth);
+    const activeToday = rows.filter((r) => new Date(r.posted_at) >= startOfToday).length;
+
+    // Daily cumulative MTD trend
+    const daysSoFar = now.getDate();
+    const dailyTotals = new Array(daysSoFar).fill(0);
+    for (const r of rows) {
+      const d = new Date(r.posted_at);
+      if (d >= startOfMonth) {
+        const idx = d.getDate() - 1;
+        if (idx >= 0 && idx < daysSoFar) dailyTotals[idx] += r.annual_premium;
+      }
+    }
+    let running = 0;
+    const trend = dailyTotals.map((v) => (running += v));
+    if (trend.length < 2) trend.unshift(0);
+
+    const { count: activeCount } = await supabase
+      .from("policies")
+      .select("id", { count: "exact", head: true })
+      .eq("agent_id", userId)
+      .eq("status", "active");
+
+    // Team ALP (MTD) + prior month, via the existing RPC to reuse hierarchy logic
+    const priorMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const [mtdRpc, priorRpc] = await Promise.all([
+      supabase.rpc("get_dashboard_metrics", { _range_start: startOfMonth.toISOString(), _range_end: now.toISOString() }),
+      supabase.rpc("get_dashboard_metrics", { _range_start: priorMonthStart.toISOString(), _range_end: startOfMonth.toISOString() }),
+    ]);
+    const teamAlp = Number((mtdRpc.data as any)?.team_prod ?? 0);
+    const priorTeam = Number((priorRpc.data as any)?.team_prod ?? 0);
+
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const goal = 80000;
+
+    return {
+      todayAlp,
+      todayDelta: todayAlp - yesterdayAlp,
+      weekAlp,
+      weekDeltaPct: priorWeekAlp > 0 ? ((weekAlp - priorWeekAlp) / priorWeekAlp) * 100 : 0,
+      activePolicies: activeCount ?? 0,
+      activeToday,
+      teamAlp,
+      teamDeltaPct: priorTeam > 0 ? ((teamAlp - priorTeam) / priorTeam) * 100 : 0,
+      mtdAlp,
+      mtdGoal: goal,
+      mtdPct: goal > 0 ? Math.round((mtdAlp / goal) * 100) : 0,
+      daysLeft: daysInMonth - now.getDate(),
+      trend,
+    } as DashboardHero;
+  });
+
+// ── Commission summary (reference-match Commission card) ────────────────────
+export type CommissionSummary = {
+  advance: number;
+  trail: number;
+  override: number;
+  chargebacks: number;
+  chargebackCount: number;
+};
+
+export const getCommissionSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const { data } = await supabase
+      .from("commission_schedule")
+      .select("payment_type, amount, status, payment_date")
+      .eq("agent_id", userId)
+      .gte("payment_date", startOfMonth);
+    const rows: { payment_type: string; amount: number }[] = (data ?? []).map((r: any) => ({
+      payment_type: r.payment_type,
+      amount: Number(r.amount ?? 0),
+    }));
+    const sumType = (types: string[]) =>
+      rows.filter((r) => types.includes(r.payment_type) && r.amount >= 0).reduce((a, r) => a + r.amount, 0);
+    const chargebackRows = rows.filter((r) => r.amount < 0);
+    return {
+      advance: sumType(["advance"]),
+      trail: sumType(["trail", "deferred"]),
+      override: sumType(["override"]),
+      chargebacks: chargebackRows.reduce((a, r) => a + r.amount, 0),
+      chargebackCount: chargebackRows.length,
+    } as CommissionSummary;
+  });
+
+// ── At-risk policies (reference-match Needs-attention rail) ──────────────────
+export type AtRiskPolicy = {
+  id: string;
+  policy_number: string | null;
+  client: string;
+  days: number;
+  monthly_premium: number;
+};
+
+export const getAtRiskPolicies = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+    const { data } = await supabase
+      .from("policies")
+      .select("id, policy_number, status, monthly_premium, updated_at, posted_at, clients(first_name, last_name)")
+      .eq("agent_id", userId)
+      .eq("status", "lapse_pending")
+      .order("monthly_premium", { ascending: false })
+      .limit(6);
+    const now = Date.now();
+    return {
+      rows: (data ?? []).map((p: any) => {
+        const since = p.updated_at || p.posted_at;
+        const days = since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86400000)) : 0;
+        const c = p.clients;
+        return {
+          id: p.id,
+          policy_number: p.policy_number,
+          client: c ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() : "Client",
+          days,
+          monthly_premium: Number(p.monthly_premium ?? 0),
+        };
+      }) as AtRiskPolicy[],
+    };
+  });
+
 export type LeaderboardAgent = {
   id: string;
   name: string;

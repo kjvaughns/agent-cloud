@@ -7,6 +7,7 @@ type Accent = "gold" | "champagne" | "bronze";
 const THEME_KEY = "agentcloud-theme";
 const DENSITY_KEY = "agentcloud-density";
 const ACCENT_KEY = "agentcloud-accent";
+const NOVA_KEY = "agentcloud-nova-rail";
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -24,6 +25,11 @@ export function useTheme() {
   const [accent, setAccentState] = useState<Accent>(() => {
     if (typeof window === "undefined") return "gold";
     return (localStorage.getItem(ACCENT_KEY) as Accent | null) ?? "gold";
+  });
+
+  const [novaRail, setNovaRailState] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(NOVA_KEY) !== "off";
   });
 
   useEffect(() => {
@@ -46,6 +52,10 @@ export function useTheme() {
     localStorage.setItem(ACCENT_KEY, accent);
   }, [accent]);
 
+  useEffect(() => {
+    localStorage.setItem(NOVA_KEY, novaRail ? "on" : "off");
+  }, [novaRail]);
+
   return {
     theme,
     toggle: () => setTheme((t) => (t === "dark" ? "light" : "dark")),
@@ -54,5 +64,7 @@ export function useTheme() {
     setDensity: setDensityState,
     accent,
     setAccent: setAccentState,
+    novaRail,
+    setNovaRail: setNovaRailState,
   };
 }

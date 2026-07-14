@@ -16,6 +16,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { formatDistanceToNow } from "date-fns";
 import { listNotifications } from "@/lib/notifications.functions";
 import { OPEN_COMMAND_PALETTE } from "@/components/command-palette";
+import { AppearanceControls } from "@/components/appearance-controls";
 
 function greeting() {
   const h = new Date().getHours();
@@ -143,11 +144,15 @@ export function TopBar() {
             <Avatar className="h-7 w-7"><AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback></Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="truncate">{user?.email}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild><Link to="/account/producer-profile"><User className="h-4 w-4 mr-2" /> Producer Profile</Link></DropdownMenuItem>
           <DropdownMenuItem asChild><Link to="/account/my-landing-page"><Globe className="h-4 w-4 mr-2" /> My Landing Page</Link></DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <AppearanceControls />
+          </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
             <LogOut className="h-4 w-4 mr-2" /> Sign out

@@ -23,52 +23,52 @@ type NavGroup = { label: string; items: NavItem[]; defaultCollapsed?: boolean };
 
 const groups: NavGroup[] = [
   {
-    label: "Workspace",
+    label: "Production",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
       { title: "Pipeline", url: "/pipeline", icon: KanbanSquare },
       { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
-      { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "My Phone", url: "/phone", icon: Phone },
-      { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Business",
-    items: [
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
       { title: "Finances", url: "/finances", icon: Wallet },
-      { title: "Commission Grids", url: "/contracting/commission-grids", icon: Percent },
+      { title: "Comp Grids", url: "/contracting/commission-grids", icon: Percent },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
-      { title: "Challenges", url: "/challenges", icon: Target },
     ],
   },
   {
     label: "Agency",
     items: [
       { title: "Team", url: "/team", icon: Users },
-      { title: "Invite Agent", url: "/contracting/invite", icon: UserPlus },
-      { title: "My Contracts", url: "/contracting", icon: FileSignature },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
+      { title: "Onboarding", url: "/contracting/invite", icon: UserPlus },
+      { title: "Contracts", url: "/contracting", icon: FileSignature },
       { title: "Transfer Requests", url: "/contracting/transfers", icon: ArrowLeftRight },
       { title: "Carriers", url: "/contracting/carriers", icon: Building2 },
       { title: "Annuity Training", url: "/contracting/annuity-training", icon: GraduationCap },
+      { title: "Challenges", url: "/challenges", icon: Target },
     ],
   },
   {
     label: "Enablement",
     defaultCollapsed: true,
     items: [
+      { title: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
       { title: "New Agent Guide", url: "/resources/new-agent-guide", icon: BookText },
       { title: "Agent Handbook", url: "/resources/agent-handbook", icon: Library },
       { title: "Scripts", url: "/resources/scripts", icon: ScrollText },
       { title: "State Licenses", url: "/resources/state-licenses", icon: IdCard },
-      { title: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
       { title: "Case Design", url: "/back-office/case-design", icon: ClipboardList },
       { title: "Advanced Desk", url: "/back-office/advanced-desk", icon: BriefcaseIcon },
       { title: "Recruiting Funnels", url: "/back-office/recruiting-funnels", icon: Globe },
       { title: "Recruiting Tracker", url: "/back-office/recruiting-tracker", icon: Briefcase },
       { title: "Client Marketing", url: "/back-office/client-marketing", icon: MegaIcon },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { title: "Phone", url: "/phone", icon: Phone },
+      { title: "Calendar", url: "/calendar", icon: Calendar },
+      { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
       { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
       { title: "Toolkits", url: "/tools/quoter", icon: Wrench },
       { title: "Leads", url: "/tools/leads", icon: Target },

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -15,12 +15,20 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics, getAgencyFeed } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData } from "@/lib/dashboard.functions";
 import { getProducerProfile } from "@/lib/account.functions";
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PageShell, Panel } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
+import { LinkAction } from "@/components/ui/section-label";
+import { Icon } from "@/components/ui/icon";
+import { SmoothAreaChart } from "@/components/ui/area-chart";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { NovaRail } from "@/components/nova-rail";
+import { useTheme } from "@/hooks/use-theme";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
@@ -57,7 +65,24 @@ function Dashboard() {
   const { data: agencyFeed, isLoading: agencyFeedLoading } = useQuery({
     queryKey: ["dashboard-agency-feed"],
     queryFn: () => fetchAgencyFeed(),
-    enabled: view === "agency",
+    staleTime: 60_000,
+  });
+
+  const { novaRail } = useTheme();
+
+  const fetchHero = useServerFn(getDashboardHero);
+  const { data: hero } = useQuery({ queryKey: ["dashboard-hero"], queryFn: () => fetchHero(), staleTime: 60_000 });
+
+  const fetchCommission = useServerFn(getCommissionSummary);
+  const { data: commission } = useQuery({ queryKey: ["dashboard-commission"], queryFn: () => fetchCommission(), staleTime: 60_000 });
+
+  const fetchAtRisk = useServerFn(getAtRiskPolicies);
+  const { data: atRisk } = useQuery({ queryKey: ["dashboard-atrisk"], queryFn: () => fetchAtRisk(), staleTime: 60_000 });
+
+  const fetchLeaders = useServerFn(getLeaderboardData);
+  const { data: leaders } = useQuery({
+    queryKey: ["dashboard-leaders", rangeStart, rangeEnd],
+    queryFn: () => fetchLeaders({ data: { rangeStart, rangeEnd } }),
     staleTime: 60_000,
   });
 
@@ -96,167 +121,303 @@ function Dashboard() {
     { name: "In Review", value: data?.donut.in_review ?? 0, color: "#a855f7" },
   ];
 
+  const donutTotal = data?.donut.total ?? 0;
+
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <PageShell>
       {pct < 100 && pct > 0 && (
-        <ProfileCompletionBanner pct={pct} missing={missing} />
+        <div className="mb-[var(--gap)]"><ProfileCompletionBanner pct={pct} missing={missing} /></div>
       )}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <h1 className="text-2xl font-bold font-heading tracking-wide">Dashboard</h1>
-        <Card className="w-72">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm">Enrollment Tracker</CardTitle>
-                <p className="text-xs text-muted-foreground">Last 30 Days</p>
-              </div>
-              <Link to="/book-of-business" className="text-xs text-primary hover:underline">View All →</Link>
+      <div className={cn("cgrid", !novaRail && "nonova")}>
+        <div className="col">
+          <HeroPanel hero={hero} range={range} setRange={setRange} />
+
+          <div className="duo">
+            <LeaderboardPanel leaders={leaders} />
+            <CommissionPanel c={commission} />
+          </div>
+
+          <OnboardingPanel feed={agencyFeed} loading={agencyFeedLoading} />
+
+          {/* Detailed analytics (preserved features) */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex gap-1">
+              <Button size="sm" variant={view === "personal" ? "default" : "outline"} onClick={() => setView("personal")}>My View</Button>
+              <Button size="sm" variant={view === "agency" ? "default" : "outline"} onClick={() => setView("agency")}>Agency View</Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-3">
-              <div className="h-24 w-24">
+            <div className="flex">
+              <Button size="sm" variant={metric === "prod" ? "default" : "outline"} onClick={() => setMetric("prod")} className="rounded-r-none">$ Prod</Button>
+              <Button size="sm" variant={metric === "policies" ? "default" : "outline"} onClick={() => setMetric("policies")} className="rounded-l-none"># Policies</Button>
+            </div>
+          </div>
+
+          {view === "agency" && (
+            <div className="duo">
+              <ActivationQueueWidget feed={agencyFeed} loading={agencyFeedLoading} />
+              <TeamActivityFeed feed={agencyFeed} loading={agencyFeedLoading} />
+            </div>
+          )}
+
+          <div className="duo">
+            <Panel
+              title="Production Trend"
+              action={
+                <span className="text-[11px] text-muted-foreground tnum">
+                  Team {metric === "prod" ? money(sumRange(recent, "team_prod")) : number(recent.reduce((a, t) => a + Number(t.team_policies), 0))}{" "}
+                  <span className={teamDelta >= 0 ? "text-success" : "text-destructive"}>{teamDelta >= 0 ? "↑" : "↓"}{Math.abs(teamDelta).toFixed(0)}%</span>
+                </span>
+              }
+            >
+              <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={donutData} dataKey="value" innerRadius={26} outerRadius={42} stroke="none">
-                      {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
-                    </Pie>
-                  </PieChart>
+                  <AreaChart data={trendData}>
+                    <defs>
+                      <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient>
+                      <linearGradient id="teamGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.3} /><stop offset="100%" stopColor="var(--color-success)" stopOpacity={0} /></linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                    <XAxis dataKey="m" fontSize={12} stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false}
+                      tickFormatter={(v) => metric === "prod" ? `$${(v / 1000).toFixed(0)}K` : String(v)} />
+                    <Tooltip
+                      contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
+                      formatter={(v: number) => metric === "prod" ? money(v) : number(v)} />
+                    <Area type="monotone" dataKey="team" stroke="var(--color-success)" strokeWidth={2} fill="url(#teamGrad)" />
+                    {view === "personal" && (
+                      <Area type="monotone" dataKey="individual" stroke="var(--color-primary)" strokeWidth={2} fill="url(#indGrad)" />
+                    )}
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex-1">
-                <div className="text-2xl font-bold">{data?.donut.total ?? 0}</div>
-                <div className="text-xs space-y-1 mt-1">
-                  <div className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Active: {data?.donut.active ?? 0}</div>
-                  <div className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-purple-500" /> In Review: {data?.donut.in_review ?? 0}</div>
+            </Panel>
+
+            <Panel title="Enrollment" action={<LinkAction href="/book-of-business">View all</LinkAction>}>
+              <div className="flex items-center gap-4 flex-1">
+                <div className="h-24 w-24 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={donutData} dataKey="value" innerRadius={26} outerRadius={42} stroke="none">
+                        {donutData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 grid place-items-center text-lg font-bold tnum">{donutTotal}</div>
+                </div>
+                <div className="flex-1 text-xs space-y-1.5">
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-success" /> Active <span className="ml-auto font-semibold tnum">{data?.donut.active ?? 0}</span></div>
+                  <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full" style={{ background: "#a855f7" }} /> In Review <span className="ml-auto font-semibold tnum">{data?.donut.in_review ?? 0}</span></div>
+                  <div className="flex items-center gap-2 pt-1 border-t border-border"><span className="text-muted-foreground">Active downline</span> <span className="ml-auto font-semibold tnum">{data?.active_downline ?? 0}</span></div>
+                  <div className="flex items-center gap-2"><span className="text-muted-foreground">Active contracts</span> <span className="ml-auto font-semibold tnum">{data?.active_contracts ?? 0}</span></div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </Panel>
+          </div>
 
-      {/* Time range filter + view toggle */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
-          {RANGES.map((r) => (
-            <Button key={r.value} size="sm" variant={range === r.value ? "default" : "outline"} onClick={() => setRange(r.value)}>
-              {r.label}
-            </Button>
+          <Panel title="Policy Status">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {POLICY_STATUSES.map((s) => (
+                <Link key={s.value} to="/book-of-business" search={{ status: s.value } as any} className={`rounded-lg border p-3 transition hover:scale-[1.02] ${s.cardCls}`}>
+                  <div className="text-[11px] font-medium opacity-80">{s.label}</div>
+                  <div className="text-xl font-bold mt-1 tnum">{data?.status_grid?.[s.value] ?? 0}</div>
+                </Link>
+              ))}
+            </div>
+          </Panel>
+
+          <AiDailyBriefing />
+        </div>
+
+        {novaRail && <DashboardRail atRisk={atRisk?.rows ?? []} />}
+      </div>
+    </PageShell>
+  );
+}
+
+// ── Reference-match dashboard panels ─────────────────────────────────────────
+
+function pctStr(n: number, suffix = "%") {
+  return `${n >= 0 ? "+" : ""}${n.toFixed(0)}${suffix}`;
+}
+
+function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRange: (v: string) => void }) {
+  const kpis = [
+    { label: "Today ALP", value: money(hero?.todayAlp ?? 0), delta: `${(hero?.todayDelta ?? 0) >= 0 ? "+" : ""}${money(hero?.todayDelta ?? 0)}`, up: (hero?.todayDelta ?? 0) >= 0 },
+    { label: "Week ALP", value: money(hero?.weekAlp ?? 0), delta: pctStr(hero?.weekDeltaPct ?? 0), up: (hero?.weekDeltaPct ?? 0) >= 0 },
+    { label: "Active Policies", value: number(hero?.activePolicies ?? 0), delta: `+${hero?.activeToday ?? 0} today`, up: true },
+    { label: "Team ALP", value: money(hero?.teamAlp ?? 0), delta: `${pctStr(hero?.teamDeltaPct ?? 0)} MoM`, up: (hero?.teamDeltaPct ?? 0) >= 0 },
+  ];
+  return (
+    <Panel pad={false} className="overflow-hidden">
+      <div className="hgrid hgrid-swap">
+        <div className="hero-right grid grid-cols-2 border-r border-border">
+          {kpis.map((k, i) => (
+            <div
+              key={k.label}
+              className={cn(
+                "flex flex-col justify-center min-h-[96px]",
+                i < 2 && "border-b border-border",
+                i % 2 === 0 && "border-r border-border",
+              )}
+              style={{ padding: "var(--pad)" }}
+            >
+              <StatTile label={k.label} value={k.value} delta={k.delta} deltaUp={k.up} />
+            </div>
           ))}
         </div>
-        <div className="flex gap-1 ml-auto">
-          <Button size="sm" variant={view === "personal" ? "default" : "outline"} onClick={() => setView("personal")}>My View</Button>
-          <Button size="sm" variant={view === "agency" ? "default" : "outline"} onClick={() => setView("agency")}>Agency View</Button>
+        <div className="min-w-0" style={{ padding: "var(--pad)" }}>
+          <div className="flex justify-between items-start gap-3">
+            <div>
+              <div className="font-display text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Month-to-date ALP</div>
+              <div className="flex items-baseline gap-3 mt-1.5">
+                <div className="tnum font-display font-bold leading-none text-gold-bright" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(34px,4.5vw,46px)", letterSpacing: "-0.02em" }}>
+                  {money(hero?.mtdAlp ?? 0)}
+                </div>
+                <div className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-success rounded-full px-2 py-0.5" style={{ background: "rgba(69,185,104,.12)" }}>
+                  <Icon name="up" size={13} /> {pctStr(hero?.weekDeltaPct ?? 0)}
+                </div>
+              </div>
+              <div className="text-[11.5px] text-muted-foreground mt-1.5">
+                Goal {money(hero?.mtdGoal ?? 80000)} · <span className="text-foreground">{hero?.mtdPct ?? 0}% there</span> · {hero?.daysLeft ?? 0} days left
+              </div>
+            </div>
+            <DateRangePicker options={RANGES.map((r) => ({ value: r.value, label: r.label }))} value={range} onChange={setRange} />
+          </div>
+          <div className="mt-3.5"><SmoothAreaChart data={(hero?.trend?.length ?? 0) >= 2 ? hero.trend : [0, 0]} /></div>
         </div>
       </div>
+    </Panel>
+  );
+}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {view === "personal" ? (
-          <>
-            <KpiTile icon={DollarSign} color="text-primary" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={Users} color="text-emerald-500" label="Total Production (Team)" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={FileText} color="text-primary" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={FolderOpen} color="text-emerald-500" label="Team Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
-          </>
-        ) : (
-          <>
-            <KpiTile icon={DollarSign} color="text-primary" label="Total Agency Production" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={Users} color="text-emerald-500" label="Active Writers" value={number(data?.active_downline ?? 0)} sub="agents ready to sell" loading={isLoading} />
-            <KpiTile icon={FileText} color="text-primary" label="Total Agency Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={FolderOpen} color="text-emerald-500" label="Active Contracts" value={number(data?.active_contracts ?? 0)} sub="across all carriers" loading={isLoading} />
-          </>
-        )}
-      </div>
-
-      {/* Agency Command Center — only in agency view */}
-      {view === "agency" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <ActivationQueueWidget feed={agencyFeed} loading={agencyFeedLoading} />
-          <TeamActivityFeed feed={agencyFeed} loading={agencyFeedLoading} />
+function LeaderboardPanel({ leaders }: { leaders: any }) {
+  const agents: any[] = (leaders?.agents ?? []).slice(0, 5);
+  const selfId = leaders?.selfId;
+  return (
+    <Panel title="Leaderboard" action={<span className="text-[10.5px] text-muted-foreground">MTD ALP</span>}>
+      {agents.length === 0 ? (
+        <div className="py-6 text-center text-sm text-muted-foreground">No production yet this period.</div>
+      ) : (
+        <div className="flex flex-col gap-1 flex-1">
+          {agents.map((a, i) => {
+            const rank = i + 1;
+            const you = a.id === selfId;
+            return (
+              <div key={a.id} className={cn("flex items-center gap-3 px-2.5 py-2 rounded-lg border", you ? "bg-gold-glow border-primary/30" : "border-transparent")}>
+                <div className={cn("w-[18px] text-center font-display font-bold tnum", rank === 1 ? "text-primary text-[15px]" : "text-text-dim text-xs")} style={{ fontFamily: "var(--font-display)" }}>
+                  {rank === 1 ? "★" : rank}
+                </div>
+                <div className={cn("flex-1 text-[12.5px] truncate", you ? "font-bold text-gold-bright" : "font-medium")}>{a.name || "Agent"}</div>
+                <div className="tnum font-display font-bold text-[12.5px]" style={{ fontFamily: "var(--font-display)" }}>{money(a.premium)}</div>
+                {you && <div className="text-[8.5px] px-1.5 py-0.5 bg-primary text-gold-foreground rounded font-extrabold tracking-[0.05em]">YOU</div>}
+              </div>
+            );
+          })}
         </div>
       )}
+    </Panel>
+  );
+}
 
-      {/* Production trend */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <CardTitle>Production Trend</CardTitle>
-            <div className="flex items-center gap-4">
-              <div className="text-xs text-right space-y-0.5">
-                {view === "personal" && (
-                  <div><span className="inline-block h-2 w-2 rounded-full bg-primary mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
-                )}
-                <div><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1" />Team: {metric === "prod" ? money(sumRange(recent, "team_prod")) : number(recent.reduce((a, t) => a + Number(t.team_policies), 0))} <span className={teamDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{teamDelta >= 0 ? "↑" : "↓"} {Math.abs(teamDelta).toFixed(0)}%</span></div>
+function CommissionPanel({ c }: { c: any }) {
+  const items = [
+    { label: "Advance Paid", value: money(c?.advance ?? 0), sub: "this month", neg: false },
+    { label: "Trail Income", value: money(c?.trail ?? 0), sub: "year 2+", neg: false },
+    { label: "Override", value: money(c?.override ?? 0), sub: "downline", neg: false },
+    { label: "Chargebacks", value: money(c?.chargebacks ?? 0), sub: `${c?.chargebackCount ?? 0} policies`, neg: (c?.chargebacks ?? 0) < 0 },
+  ];
+  return (
+    <Panel title="Commission" action={<LinkAction href="/finances">Finances</LinkAction>}>
+      <div className="grid grid-cols-2 gap-2.5 flex-1">
+        {items.map((it) => (
+          <div key={it.label} className="flex flex-col justify-center rounded-[10px] border border-border-soft bg-surface-2 p-3.5">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{it.label}</div>
+            <div className={cn("tnum font-display font-bold text-xl mt-1.5", it.neg ? "text-destructive" : "text-gold-bright")} style={{ fontFamily: "var(--font-display)" }}>{it.value}</div>
+            <div className="text-[10.5px] text-muted-foreground mt-0.5">{it.sub}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function OnboardingPanel({ feed, loading }: { feed: any; loading: boolean }) {
+  const queue: any[] = (feed?.activationQueue ?? []).slice(0, 5);
+  const rows = queue.map((a) => {
+    const missingCount = (a.missing ?? []).length;
+    const pct = Math.max(5, Math.round(((4 - Math.min(4, missingCount)) / 4) * 100));
+    const status = missingCount === 0 ? "Ready to contract" : `Pending ${a.missing[0]}`;
+    const color = pct >= 100 ? "var(--green)" : pct >= 70 ? "var(--gold)" : pct >= 40 ? "var(--amber)" : "var(--red)";
+    return { name: `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() || "Agent", pct, status, color };
+  });
+  return (
+    <Panel title="Agent Onboarding" action={<LinkAction href="/contracting/invite">Invite</LinkAction>}>
+      {loading ? (
+        <div className="space-y-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-8" />)}</div>
+      ) : rows.length === 0 ? (
+        <div className="py-6 text-center text-sm text-muted-foreground">No agents in onboarding. Invite your first agent to get started.</div>
+      ) : (
+        <div className="flex flex-col gap-3.5 flex-1">
+          {rows.map((a, i) => (
+            <div key={i}>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[12.5px] font-medium">{a.name}</span>
+                <div className="flex gap-2.5 items-center">
+                  <span className="text-[10.5px] text-muted-foreground">{a.status}</span>
+                  <span className="tnum font-display font-bold text-xs" style={{ fontFamily: "var(--font-display)", color: a.color }}>{a.pct}%</span>
+                </div>
               </div>
-              <div className="flex">
-                <Button size="sm" variant={metric === "prod" ? "default" : "outline"} onClick={() => setMetric("prod")} className="rounded-r-none">$ Prod</Button>
-                <Button size="sm" variant={metric === "policies" ? "default" : "outline"} onClick={() => setMetric("policies")} className="rounded-l-none"># Policies</Button>
+              <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
+                <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${a.pct}%`, background: a.color }} />
               </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="teamGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="m" fontSize={12} stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} stroke="var(--color-muted-foreground)" tickLine={false} axisLine={false}
-                  tickFormatter={(v) => metric === "prod" ? `$${(v / 1000).toFixed(0)}K` : String(v)} />
-                <Tooltip
-                  contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
-                  formatter={(v: number) => metric === "prod" ? money(v) : number(v)} />
-                <Area type="monotone" dataKey="team" stroke="#10b981" strokeWidth={2} fill="url(#teamGrad)" />
-                {view === "personal" && (
-                  <Area type="monotone" dataKey="individual" stroke="var(--color-primary)" strokeWidth={2} fill="url(#indGrad)" />
-                )}
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card><CardContent className="pt-6">
-          <div className="text-3xl font-bold">{data?.active_downline ?? 0}</div>
-          <div className="font-medium mt-1">Active Downline</div>
-          <div className="text-xs text-muted-foreground">Agents ready to sell</div>
-        </CardContent></Card>
-        <Card><CardContent className="pt-6">
-          <div className="text-3xl font-bold">{data?.active_contracts ?? 0}</div>
-          <div className="font-medium mt-1">Active Contracts</div>
-          <div className="text-xs text-muted-foreground">Across all carriers</div>
-        </CardContent></Card>
-      </div>
-
-      {/* Policy Status grid */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Policy Status</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {POLICY_STATUSES.map((s) => (
-            <Link key={s.value} to="/book-of-business" search={{ status: s.value } as any} className={`rounded-lg border p-4 transition hover:scale-[1.02] ${s.cardCls}`}>
-              <div className="text-xs font-medium opacity-80">{s.label}</div>
-              <div className="text-2xl font-bold mt-1">{data?.status_grid?.[s.value] ?? 0}</div>
-            </Link>
           ))}
         </div>
-      </div>
+      )}
+    </Panel>
+  );
+}
 
-      <div className="flex flex-wrap gap-6 pt-2 text-sm">
-        <Link to="/analytics" className="text-primary hover:underline flex items-center gap-1">View Detailed Analytics <ArrowRight className="h-3 w-3" /></Link>
-        <Link to="/team" className="text-primary hover:underline flex items-center gap-1">View My Team <ArrowRight className="h-3 w-3" /></Link>
-        <Link to="/book-of-business" className="text-primary hover:underline flex items-center gap-1">View Book of Business <ArrowRight className="h-3 w-3" /></Link>
-      </div>
+function DashboardRail({ atRisk }: { atRisk: any[] }) {
+  const navigate = useNavigate();
+  const top = atRisk[0];
+  const insight = atRisk.length
+    ? `${atRisk.length} ${atRisk.length === 1 ? "policy is" : "policies are"} flagged at-risk. Top priority: Policy ${top?.policy_number ?? top?.id} — client hasn't paid in ${top?.days ?? 0} days. I'd recommend a call today.`
+    : "No at-risk policies right now. Your book looks healthy this week.";
+  return (
+    <aside className="col">
+      <Panel
+        title={<span className="text-destructive">Needs attention</span>}
+        action={<LinkAction href="/book-of-business">View all</LinkAction>}
+        style={{ borderColor: "rgba(239,83,80,.28)" }}
+      >
+        {atRisk.length === 0 ? (
+          <div className="py-4 text-sm text-muted-foreground flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success" /> All policies current.</div>
+        ) : (
+          <div className="flex flex-col gap-2 flex-1">
+            {atRisk.map((r) => (
+              <div key={r.id} className="flex items-center gap-2.5 rounded-[9px] border border-border-soft bg-surface-2 px-2.5 py-2.5">
+                <span className="text-destructive shrink-0"><Icon name="alert" size={15} /></span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold truncate">Policy {r.policy_number ?? "—"} · {r.client}</div>
+                  <div className="text-[10.5px] text-muted-foreground">{r.days} days unpaid · {money(r.monthly_premium)}/mo</div>
+                </div>
+                <a href="/phone" className="text-[10.5px] font-semibold text-primary whitespace-nowrap">Call →</a>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
-      <AiDailyBriefing />
-    </div>
+      <NovaRail
+        insight={insight}
+        context="Dashboard — agency owner view. At-risk policies and this week's production."
+        actions={[
+          { label: "Show all at-risk policies", onClick: () => navigate({ to: "/book-of-business", search: { status: "lapse_pending" } as any }) },
+          { label: "Draft a retention script", onClick: () => navigate({ to: "/resources/scripts" }) },
+          { label: "Summarize this week", onClick: () => navigate({ to: "/analytics" }) },
+        ]}
+      />
+    </aside>
   );
 }
 
