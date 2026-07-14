@@ -8,7 +8,9 @@ import {
   listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
 } from "@/lib/contracting.functions";
 import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses } from "@/lib/surelc.functions";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,22 +44,24 @@ const carriersQuery = queryOptions({
 
 function ContractingHome() {
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Contracting</h1>
-        <p className="text-sm text-muted-foreground">Manage your carrier contracts and downline agent contracting</p>
+    <PageShell>
+      <div className="space-y-4">
+        <HeroBand
+          title="My Contracts"
+          subtitle="Manage your carrier contracts and downline agent contracting"
+        />
+        <Tabs defaultValue="my">
+          <TabsList>
+            <TabsTrigger value="my">My Contracts</TabsTrigger>
+            <TabsTrigger value="downline">Downline Contracts</TabsTrigger>
+            <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
+          </TabsList>
+          <TabsContent value="my" className="mt-4"><MyContractsTab /></TabsContent>
+          <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>
+          <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
+        </Tabs>
       </div>
-      <Tabs defaultValue="my">
-        <TabsList>
-          <TabsTrigger value="my">My Contracts</TabsTrigger>
-          <TabsTrigger value="downline">Downline Contracts</TabsTrigger>
-          <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
-        </TabsList>
-        <TabsContent value="my" className="mt-4"><MyContractsTab /></TabsContent>
-        <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>
-        <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
-      </Tabs>
-    </div>
+    </PageShell>
   );
 }
 
@@ -171,35 +175,50 @@ function MyContractsTab() {
 
   return (
     <div className="space-y-4">
+      <HeroBand
+        title={undefined}
+        actions={
+          <>
+            {sureLcAvailable && (
+              <Button size="sm" variant="outline" onClick={openInSureLc}>
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open in SureLC
+              </Button>
+            )}
+            <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
+          </>
+        }
+      >
+        <Panel>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatTile label="Total" value={rows.length} tone="gold" />
+            <StatTile label="Active" value={counts.active ?? 0} />
+            <StatTile label="Requested" value={counts.requested ?? 0} />
+            <StatTile label="Issues" value={counts.issue ?? 0} tone={(counts.issue ?? 0) > 0 ? "red" : "default"} />
+          </div>
+        </Panel>
+      </HeroBand>
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setFilter("all")}
-            className={cn("text-xs rounded-full border px-3 py-1", filter === "all" ? "bg-foreground text-background" : "bg-card hover:bg-muted")}
+            className={cn("text-xs tnum rounded-full border px-3 py-1 transition-colors", filter === "all" ? "border-transparent bg-foreground text-background" : "border-border bg-surface-2 hover:bg-muted")}
           >All: {rows.length}</button>
           {CONTRACT_STATUSES.map(s => (
             <button key={s} onClick={() => setFilter(s)}
-              className={cn("text-xs rounded-full border px-3 py-1 capitalize", filter === s ? "bg-foreground text-background" : "bg-card hover:bg-muted")}
+              className={cn("text-xs tnum rounded-full border px-3 py-1 capitalize transition-colors", filter === s ? "border-transparent bg-foreground text-background" : "border-border bg-surface-2 hover:bg-muted")}
             >{s}: {counts[s] ?? 0}</button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          {sureLcAvailable && (
-            <Button size="sm" variant="outline" onClick={openInSureLc}>
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open in SureLC
-            </Button>
-          )}
-          <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
-        </div>
+        <p className="text-xs text-muted-foreground tnum">Showing {filtered.length} of {rows.length} contracts</p>
       </div>
-      <p className="text-xs text-muted-foreground">Showing {filtered.length} of {rows.length} contracts</p>
 
       {isLoading ? (
         <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">
+        <Panel className="p-10 text-center text-sm text-muted-foreground">
           No contracts yet. Click "+ Add Carrier" to add your first active carrier contract.
-        </CardContent></Card>
+        </Panel>
       ) : (
         <Accordion type="single" collapsible className="space-y-2">
           {filtered.map((c: any) => (
@@ -236,17 +255,17 @@ function MyContractsTab() {
               <AccordionContent className="px-4 pb-4">
                 <div className="space-y-3">
                   {c.status === "issue" && c.issue_description && (
-                    <Alert variant="default" className="border-orange-500/40 bg-orange-500/10">
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
-                      <AlertTitle className="text-orange-700 dark:text-orange-300">Issue</AlertTitle>
+                    <Alert variant="default" className="border-warning/30 bg-warning/15">
+                      <AlertTriangle className="h-4 w-4 text-warning" />
+                      <AlertTitle className="text-warning">Issue</AlertTitle>
                       <AlertDescription>{c.issue_description}</AlertDescription>
                     </Alert>
                   )}
                   {c.writing_number && (
-                    <div className="rounded-lg border p-3 flex items-center justify-between">
+                    <div className="rounded-lg border border-border bg-surface-2 p-3 flex items-center justify-between">
                       <div>
                         <div className="text-xs text-muted-foreground">Writing Number</div>
-                        <div className="font-mono font-semibold">{c.writing_number}</div>
+                        <div className="font-mono font-semibold tnum">{c.writing_number}</div>
                       </div>
                       {c.carriers?.agent_portal_url && (
                         <a href={c.carriers.agent_portal_url} target="_blank" rel="noreferrer"
@@ -257,12 +276,12 @@ function MyContractsTab() {
                     </div>
                   )}
                   {c.status === "active" && c.activated_at && (
-                    <div className="text-sm inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                    <div className="text-sm inline-flex items-center gap-2 text-success">
                       <CheckCircle2 className="h-4 w-4" /> Active: {fmtDate(c.activated_at)}
                     </div>
                   )}
                   {c.status === "assigned" && (
-                    <div className="flex items-center gap-2 flex-wrap rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                    <div className="flex items-center gap-2 flex-wrap rounded-lg border border-primary/30 bg-primary/10 px-3 py-2">
                       <span className="text-xs text-primary font-medium flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" /> Add your agent # to activate
                       </span>
@@ -453,7 +472,7 @@ function RequestLevelDialog({ contract, onClose }: { contract: any; onClose: () 
       <DialogContent>
         <DialogHeader><DialogTitle>Request Commission Level</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-lg border p-3 bg-muted/30">
+          <div className="rounded-lg border border-border bg-surface-2 p-3">
             <div className="text-xs text-muted-foreground">Carrier</div>
             <div className="font-semibold">{contract.carriers?.name ?? "Carrier"}</div>
           </div>
@@ -466,7 +485,7 @@ function RequestLevelDialog({ contract, onClose }: { contract: any; onClose: () 
               rows={3}
               placeholder="e.g. I've been writing for 2 years and would like to discuss my commission level..."
             />
-            <p className="text-xs text-muted-foreground mt-1">{message.length}/500</p>
+            <p className="text-xs text-muted-foreground mt-1 tnum">{message.length}/500</p>
           </div>
         </div>
         <DialogFooter>
@@ -497,16 +516,16 @@ function DownlineTab() {
   (data?.requests ?? []).forEach((r: any) => map.set(`${r.agent_id}:${r.carrier_id}`, r));
 
   if (agents.length === 0) {
-    return <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">No downline agents yet. Invite agents from the Agent Network page.</CardContent></Card>;
+    return <Panel className="p-10 text-center text-sm text-muted-foreground">No downline agents yet. Invite agents from the Agent Network page.</Panel>;
   }
 
   return (
     <>
-      <Card><CardContent className="p-0 overflow-x-auto">
+      <Panel pad={false} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <th className="sticky left-0 bg-muted/40 px-3 py-2 text-left">Agent</th>
+            <tr className="bg-surface-2 text-xs uppercase text-muted-foreground">
+              <th className="sticky left-0 bg-surface-2 px-3 py-2 text-left">Agent</th>
               {carriers.map((c: any) => (
                 <th key={c.id} className="px-2 py-2 text-center whitespace-nowrap">{c.name}</th>
               ))}
@@ -514,7 +533,7 @@ function DownlineTab() {
           </thead>
           <tbody>
             {agents.map((a: any) => (
-              <tr key={a.id} className="border-t">
+              <tr key={a.id} className="border-t border-border">
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
                 {carriers.map((c: any) => {
                   const existing = map.get(`${a.id}:${c.id}`);
@@ -534,7 +553,7 @@ function DownlineTab() {
             ))}
           </tbody>
         </table>
-      </CardContent></Card>
+      </Panel>
 
       {cell && (
         <DownlineCellDialog
@@ -638,14 +657,14 @@ function InboxTab() {
   if (isLoading) return <Skeleton className="h-32" />;
   const items = data?.items ?? [];
   if (items.length === 0) {
-    return <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">
+    return <Panel className="p-10 text-center text-sm text-muted-foreground">
       <Inbox className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
       Inbox zero. Nothing needs your attention.
-    </CardContent></Card>;
+    </Panel>;
   }
   return (
-    <Card><CardContent className="p-0">
-      <div className="divide-y">
+    <Panel pad={false}>
+      <div className="divide-y divide-border">
         {items.map((it: any) => (
           <div key={`${it.kind}-${it.id}`} className="flex items-center gap-3 p-4">
             <div className="flex-1">
@@ -657,7 +676,7 @@ function InboxTab() {
           </div>
         ))}
       </div>
-    </CardContent></Card>
+    </Panel>
   );
 }
 

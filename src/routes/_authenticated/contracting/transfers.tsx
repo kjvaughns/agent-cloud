@@ -6,7 +6,7 @@ import {
   listTransferRequests, respondTransferRequest,
   submitTransferSheet, getTransferWorkflowStatus,
 } from "@/lib/contracting.functions";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -56,28 +56,25 @@ function TransfersPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <ArrowLeftRight className="h-6 w-6" /> Transfer Requests
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage carrier release requests and transfer your existing contracts.
-        </p>
-      </div>
+    <PageShell>
+      <div className="max-w-3xl space-y-[var(--gap)]">
+      <HeroBand
+        title={<span className="flex items-center gap-2"><ArrowLeftRight className="h-6 w-6" /> Transfer Requests</span>}
+        subtitle="Manage carrier release requests and transfer your existing contracts."
+      />
 
       {/* ── Pending Transfer Workflow Banner ── */}
       {wLoading ? <Skeleton className="h-32" /> : needsTransfer && !workflowComplete && (
-        <div className="rounded-xl border-2 border-red-500 bg-red-50 dark:bg-red-950/30 p-5 space-y-4">
+        <div className="rounded-[var(--radius)] border-2 border-destructive bg-destructive/10 p-5 space-y-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-6 w-6 text-red-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
             <div>
-              <div className="font-bold text-red-700 dark:text-red-400 text-base">
+              <div className="font-bold text-destructive text-base">
                 Action Required — Complete Your Transfer Request
               </div>
-              <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+              <p className="text-sm text-destructive/80 mt-1">
                 You indicated you need a release from a previous upline for{" "}
-                {workflowCarriers.length} carrier{workflowCarriers.length !== 1 ? "s" : ""}.
+                <span className="tnum">{workflowCarriers.length}</span> carrier{workflowCarriers.length !== 1 ? "s" : ""}.
                 Complete the form below to submit your transfer request. Your profile completion
                 is blocked until this is done.
               </p>
@@ -96,10 +93,10 @@ function TransfersPage() {
 
       {/* ── Transfer Complete ── */}
       {!wLoading && needsTransfer && workflowComplete && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+        <div className="rounded-[var(--radius)] border border-success/30 bg-success/10 p-4 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
           <div>
-            <div className="font-semibold text-emerald-700">Transfer Request Submitted</div>
+            <div className="font-semibold text-success">Transfer Request Submitted</div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Your carrier release request has been submitted. Your upline will process it shortly.
             </p>
@@ -108,44 +105,40 @@ function TransfersPage() {
       )}
 
       {/* ── Incoming Transfer Requests ── */}
-      <div>
-        <h2 className="font-semibold text-base mb-3">Incoming Transfer Requests</h2>
+      <Panel title="Incoming Transfer Requests">
         {iLoading ? (
           <Skeleton className="h-24" />
         ) : (incomingData?.rows.length ?? 0) === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-sm text-muted-foreground">
-              No incoming transfer requests from your admin.
-            </CardContent>
-          </Card>
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            No incoming transfer requests from your admin.
+          </div>
         ) : (
           <div className="grid gap-3">
             {(incomingData?.rows ?? []).map((r: any) => (
-              <Card key={r.id}>
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold">{r.carriers?.name ?? "Carrier"}</div>
-                    <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"} className="capitalize">
-                      {r.status}
-                    </Badge>
+              <div key={r.id} className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold">{r.carriers?.name ?? "Carrier"}</div>
+                  <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"} className="capitalize">
+                    {r.status}
+                  </Badge>
+                </div>
+                <div className="text-sm space-y-1 text-muted-foreground">
+                  <div>From: {r.from ? `${r.from.first_name ?? ""} ${r.from.last_name ?? ""}`.trim() : "—"}</div>
+                  <div>To: {r.to ? `${r.to.first_name ?? ""} ${r.to.last_name ?? ""}`.trim() : "—"}</div>
+                </div>
+                {r.status === "pending" && (
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => respond(r.id, "accepted")}>Accept</Button>
+                    <Button size="sm" variant="outline" onClick={() => respond(r.id, "declined")}>Decline</Button>
                   </div>
-                  <div className="text-sm space-y-1 text-muted-foreground">
-                    <div>From: {r.from ? `${r.from.first_name ?? ""} ${r.from.last_name ?? ""}`.trim() : "—"}</div>
-                    <div>To: {r.to ? `${r.to.first_name ?? ""} ${r.to.last_name ?? ""}`.trim() : "—"}</div>
-                  </div>
-                  {r.status === "pending" && (
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => respond(r.id, "accepted")}>Accept</Button>
-                      <Button size="sm" variant="outline" onClick={() => respond(r.id, "declined")}>Decline</Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                )}
+              </div>
             ))}
           </div>
         )}
+      </Panel>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -205,7 +198,7 @@ function TransferRequestForm({
 
   return (
     <div className="space-y-4 mt-2">
-      <div className="rounded-lg bg-white/70 dark:bg-black/20 border p-4 text-sm space-y-1">
+      <div className="rounded-[var(--radius)] bg-card border border-border p-4 text-sm space-y-1">
         <p className="font-medium">Fill out the details for each carrier you need a release from:</p>
         <ul className="list-disc pl-4 text-muted-foreground space-y-0.5 text-xs">
           <li>Enter your <strong>current writing number</strong> with each carrier</li>
@@ -216,7 +209,7 @@ function TransferRequestForm({
 
       <div className="space-y-3">
         {rows.map((row, i) => (
-          <div key={i} className="rounded-lg border bg-white dark:bg-black/10 p-4 space-y-3">
+          <div key={i} className="rounded-[var(--radius)] border border-border bg-card p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="font-semibold text-sm">
                 {row.carrier_name || <span className="text-muted-foreground italic">Carrier {i + 1}</span>}

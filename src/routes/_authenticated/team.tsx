@@ -3,7 +3,6 @@ import { queryOptions, useSuspenseQuery, useQuery, useMutation, useQueryClient }
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +30,9 @@ import {
 } from "@/lib/team.functions";
 import { adminMoveAgent } from "@/lib/admin.functions";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
+import { cn } from "@/lib/utils";
 
 const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
@@ -106,27 +108,30 @@ function TeamPage() {
   const [openAgent, setOpenAgent] = useState<string | null>(null);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold font-heading tracking-wide">Team Command Center</h1>
-          <p className="text-sm text-muted-foreground">
-            {kpis.total} agent{kpis.total === 1 ? "" : "s"} · {kpis.max_depth} depth level{kpis.max_depth === 1 ? "" : "s"}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite</Link>
-        </Button>
-      </div>
+    <PageShell>
+      <div className="space-y-6">
+      <HeroBand
+        title="Team Command Center"
+        subtitle={
+          <>
+            <span className="tnum">{kpis.total}</span> agent{kpis.total === 1 ? "" : "s"} · <span className="tnum">{kpis.max_depth}</span> depth level{kpis.max_depth === 1 ? "" : "s"}
+          </>
+        }
+        actions={
+          <Button asChild>
+            <Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite</Link>
+          </Button>
+        }
+      />
 
       {downline.length === 0 ? (
-        <Card>
-          <CardContent className="py-16 text-center space-y-4">
+        <Panel>
+          <div className="py-16 text-center space-y-4">
             <Users className="h-12 w-12 mx-auto text-muted-foreground" />
             <p className="text-muted-foreground">No team members yet.</p>
             <Button asChild><Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite Your First Agent</Link></Button>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       ) : (
         <Tabs defaultValue="overview">
           <TabsList>
@@ -159,31 +164,28 @@ function TeamPage() {
       )}
 
       <AgentProfileDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
-    </div>
+      </div>
+    </PageShell>
   );
 }
 
 // ============ KPI Row ============
-function KpiCard({ value, label, sub, tone }: { value: number | string; label: string; sub: string; tone?: string }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className={`text-2xl font-bold ${tone ?? ""}`}>{value}</div>
-        <div className="text-xs font-medium uppercase text-muted-foreground mt-1">{label}</div>
-        <div className="text-xs text-muted-foreground mt-1">{sub}</div>
-      </CardContent>
-    </Card>
-  );
-}
 function KpiRow() {
   const { data: kpis } = useSuspenseQuery(kpisQO);
+  const tiles: { value: number | string; label: string; sub: string; tone?: "default" | "gold" }[] = [
+    { value: kpis.total, label: "Total Agents", sub: `${kpis.direct} direct reports` },
+    { value: kpis.active, label: "Active", sub: "Ready to sell", tone: "gold" },
+    { value: kpis.active_writers, label: "Active Writers", sub: "Sold in last 30 days", tone: "gold" },
+    { value: kpis.pending, label: "Pending", sub: "Awaiting review" },
+    { value: kpis.contracts_total, label: "Contracts", sub: `${kpis.contracts_active_pct}% active rate` },
+  ];
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-      <KpiCard value={kpis.total} label="Total Agents" sub={`${kpis.direct} direct reports`} />
-      <KpiCard value={kpis.active} label="Active" sub="Ready to sell" tone="text-green-600" />
-      <KpiCard value={kpis.active_writers} label="Active Writers" sub="Sold in last 30 days" tone="text-primary" />
-      <KpiCard value={kpis.pending} label="Pending" sub="Awaiting review" tone="text-amber-600" />
-      <KpiCard value={kpis.contracts_total} label="Contracts" sub={`${kpis.contracts_active_pct}% active rate`} />
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+      {tiles.map((t) => (
+        <div key={t.label} className="rounded-[10px] border border-border-soft bg-surface-2 p-3.5">
+          <StatTile label={t.label} value={t.value} tone={t.tone ?? "default"} delta={t.sub} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -194,23 +196,22 @@ function DepthChart() {
   const dist = kpis.depth_distribution ?? [];
   const max = Math.max(1, ...dist.map((d) => d.count));
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">Team Depth Distribution</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title="Team Depth Distribution">
+      <div className="space-y-2">
         {dist.length === 0 ? (
           <p className="text-sm text-muted-foreground">No agents yet.</p>
         ) : dist.map((d) => (
           <div key={d.level} className="flex items-center gap-3">
-            <div className="w-12 text-xs font-medium">L{d.level}{d.level === 1 ? " (Direct)" : ""}</div>
-            <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
+            <div className="w-12 text-xs font-medium tnum">L{d.level}{d.level === 1 ? " (Direct)" : ""}</div>
+            <div className="flex-1 h-6 bg-surface-2 rounded overflow-hidden">
               <div className="h-full bg-primary" style={{ width: `${(d.count / max) * 100}%` }} />
             </div>
-            <div className="w-20 text-xs text-right">{d.count} agent{d.count === 1 ? "" : "s"}</div>
+            <div className="w-20 text-xs text-right tnum">{d.count} agent{d.count === 1 ? "" : "s"}</div>
           </div>
         ))}
         <p className="text-xs text-muted-foreground pt-2">Levels deep in your organization</p>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 
@@ -223,14 +224,16 @@ function TeamAlertsCard() {
   if (alerts.stuck_contracts.length > 0) items.push({ kind: "stuck", text: `${alerts.stuck_contracts.length} contract request${alerts.stuck_contracts.length === 1 ? "" : "s"} in 'Issue' status for 7+ days` });
   if (items.length === 0) return null;
   return (
-    <div className="space-y-2">
-      {items.map((i) => (
-        <div key={i.kind} className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm">
-          <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-          <span>{i.text}</span>
-        </div>
-      ))}
-    </div>
+    <Panel title="Alerts">
+      <div className="space-y-2">
+        {items.map((i) => (
+          <div key={i.kind} className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm">
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <span>{i.text}</span>
+          </div>
+        ))}
+      </div>
+    </Panel>
   );
 }
 
@@ -253,52 +256,49 @@ function ActivationQueue({ downline, onOpen }: { downline: TeamAgent[]; onOpen: 
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base">Activation Queue</CardTitle>
-        {incomplete.length > 0 && <Badge variant="destructive">{incomplete.length} Needs Fix</Badge>}
-      </CardHeader>
-      <CardContent>
-        {incomplete.length === 0 ? (
-          <p className="text-sm text-muted-foreground">All agents have complete profiles. Nice.</p>
-        ) : (
-          <>
-            <p className="text-xs text-muted-foreground mb-3">These agents have incomplete profiles and cannot be fully contracted.</p>
-            <div className="grid md:grid-cols-2 gap-3">
-              {incomplete.map((a) => (
-                <div key={a.id} className="border rounded-lg p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar className="h-9 w-9"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">{a.email}</div>
-                      </div>
+    <Panel
+      title="Activation Queue"
+      action={incomplete.length > 0 ? <Badge variant="destructive" className="tnum">{incomplete.length} Needs Fix</Badge> : undefined}
+    >
+      {incomplete.length === 0 ? (
+        <p className="text-sm text-muted-foreground">All agents have complete profiles. Nice.</p>
+      ) : (
+        <>
+          <p className="text-xs text-muted-foreground mb-3">These agents have incomplete profiles and cannot be fully contracted.</p>
+          <div className="grid md:grid-cols-2 gap-3">
+            {incomplete.map((a) => (
+              <div key={a.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-9 w-9"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{a.email}</div>
                     </div>
-                    <Badge variant="outline" className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">Needs Fix</Badge>
                   </div>
-                  <div className="text-xs">
-                    Profile: <span className="font-medium">{a.completion_pct}% complete</span>
-                  </div>
-                  <Progress value={a.completion_pct} className="h-1.5" />
-                  {a.missing.length > 0 && (
-                    <div className="text-xs text-muted-foreground">Missing: {a.missing.join(", ")}</div>
-                  )}
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" variant="outline" onClick={() => m.mutate(a.id)} disabled={m.isPending}>
-                      <Mail className="h-3 w-3 mr-1" /> Send Reminder
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => onOpen(a.id)}>
-                      <Eye className="h-3 w-3 mr-1" /> View Profile
-                    </Button>
-                  </div>
+                  <Badge variant="outline" className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">Needs Fix</Badge>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+                <div className="text-xs">
+                  Profile: <span className="font-medium tnum">{a.completion_pct}% complete</span>
+                </div>
+                <Progress value={a.completion_pct} className="h-1.5" />
+                {a.missing.length > 0 && (
+                  <div className="text-xs text-muted-foreground">Missing: {a.missing.join(", ")}</div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" variant="outline" onClick={() => m.mutate(a.id)} disabled={m.isPending}>
+                    <Mail className="h-3 w-3 mr-1" /> Send Reminder
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => onOpen(a.id)}>
+                    <Eye className="h-3 w-3 mr-1" /> View Profile
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Panel>
   );
 }
 
@@ -307,22 +307,21 @@ function NewAgents({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: s
   const cutoff = Date.now() - 7 * 86400000;
   const recent = downline.filter((a) => new Date(a.created_at).getTime() > cutoff).slice(0, 5);
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">New Agents (Last 7 Days)</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title="New Agents (Last 7 Days)">
+      <div className="space-y-2">
         {recent.length === 0 ? (
           <p className="text-sm text-muted-foreground">No new agents this week.</p>
         ) : recent.map((a) => (
-          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-muted text-left">
+          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-surface-2 text-left transition-colors">
             <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
             <div className="flex-1 min-w-0 text-sm">
               <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-              <div className="text-xs text-muted-foreground">Joined {new Date(a.created_at).toLocaleDateString()} · {a.contracts_count} contracts · {a.policies_count} policies</div>
+              <div className="text-xs text-muted-foreground tnum">Joined {new Date(a.created_at).toLocaleDateString()} · {a.contracts_count} contracts · {a.policies_count} policies</div>
             </div>
           </button>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 
@@ -332,22 +331,21 @@ function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (
     .sort((a, b) => new Date(b.last_active_at!).getTime() - new Date(a.last_active_at!).getTime())
     .slice(0, 5);
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-base">Recently Active</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
+    <Panel title="Recently Active">
+      <div className="space-y-2">
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No recent activity yet.</p>
         ) : sorted.map((a) => (
-          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-muted text-left">
+          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-surface-2 text-left transition-colors">
             <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
             <div className="flex-1 min-w-0 text-sm">
               <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-              <div className="text-xs text-muted-foreground">Last active {timeAgo(a.last_active_at)} · {a.policies_count} policies · {fmtCurrency(Number(a.premium_total))}</div>
+              <div className="text-xs text-muted-foreground tnum">Last active {timeAgo(a.last_active_at)} · {a.policies_count} policies · {fmtCurrency(Number(a.premium_total))}</div>
             </div>
           </button>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 
@@ -375,8 +373,8 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
   const depths = Array.from(new Set(downline.map((a) => a.depth_level))).sort((a, b) => a - b);
 
   return (
-    <Card>
-      <CardContent className="p-4 space-y-3">
+    <Panel>
+      <div className="space-y-3">
         <div className="flex gap-2 flex-wrap">
           <Input placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="max-w-xs" />
           <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
@@ -399,7 +397,7 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
             </SelectContent>
           </Select>
         </div>
-        <div className="border rounded-lg overflow-x-auto">
+        <div className="border border-border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -437,11 +435,11 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
                       : <span className="text-muted-foreground text-xs">{a.upline_id ? "—" : "Root"}</span>
                     }
                   </TableCell>
-                  <TableCell>L{a.depth_level}</TableCell>
-                  <TableCell>{a.contracts_count} active</TableCell>
-                  <TableCell>{a.policies_count}</TableCell>
-                  <TableCell>{fmtCurrency(Number(a.premium_total))}</TableCell>
-                  <TableCell>{timeAgo(a.last_active_at)}</TableCell>
+                  <TableCell className="tnum">L{a.depth_level}</TableCell>
+                  <TableCell className="tnum">{a.contracts_count} active</TableCell>
+                  <TableCell className="tnum">{a.policies_count}</TableCell>
+                  <TableCell className="tnum">{fmtCurrency(Number(a.premium_total))}</TableCell>
+                  <TableCell className="tnum">{timeAgo(a.last_active_at)}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => onOpen(a.id)}><Eye className="h-4 w-4" /></Button>
                     {a.email && (
@@ -458,16 +456,16 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
         </div>
         {pages > 1 && (
           <div className="flex items-center justify-between text-sm">
-            <div className="text-muted-foreground">{filtered.length} total</div>
-            <div className="flex gap-2">
+            <div className="text-muted-foreground tnum">{filtered.length} total</div>
+            <div className="flex gap-2 items-center">
               <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-              <div className="px-3 py-1">Page {page + 1} of {pages}</div>
+              <div className="px-3 py-1 tnum">Page {page + 1} of {pages}</div>
               <Button size="sm" variant="outline" disabled={page >= pages - 1} onClick={() => setPage((p) => p + 1)}>Next</Button>
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 
@@ -505,21 +503,21 @@ function OrgChart({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: st
   });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+    <Panel>
+      <header className="flex items-center justify-between gap-3 mb-3.5">
         <div>
-          <CardTitle className="text-base">Organization Chart</CardTitle>
-          <p className="text-xs text-muted-foreground">Visual hierarchy of your team</p>
+          <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Organization Chart</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Visual hierarchy of your team</p>
         </div>
         <div className="flex gap-1">
           <Button size="icon" variant="outline" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}><ZoomIn className="h-4 w-4" /></Button>
           <Button size="icon" variant="outline" onClick={() => setZoom((z) => Math.max(0.4, z - 0.1))}><ZoomOut className="h-4 w-4" /></Button>
           <Button size="icon" variant="outline" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><RotateCcw className="h-4 w-4" /></Button>
         </div>
-      </CardHeader>
-      <CardContent>
+      </header>
+      <div>
         <div
-          className="border rounded-lg bg-muted/30 overflow-hidden h-[600px] relative cursor-grab active:cursor-grabbing"
+          className="border border-border rounded-lg bg-surface-2 overflow-hidden h-[600px] relative cursor-grab active:cursor-grabbing"
           onPointerDown={(e) => setDragging({ x: e.clientX - pan.x, y: e.clientY - pan.y })}
           onPointerMove={(e) => dragging && setPan({ x: e.clientX - dragging.x, y: e.clientY - dragging.y })}
           onPointerUp={() => setDragging(null)}
@@ -536,15 +534,15 @@ function OrgChart({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: st
             </TooltipProvider>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }
 
 function RootNode() {
   return (
-    <div className="border-2 border-primary rounded-lg bg-primary/10 px-4 py-3 text-center min-w-[140px]">
-      <div className="font-medium text-sm">You</div>
+    <div className="border border-primary/40 rounded-lg bg-gold-glow px-4 py-3 text-center min-w-[140px]">
+      <div className="font-medium text-sm text-gold-bright">You</div>
       <div className="text-xs text-muted-foreground">Upline</div>
     </div>
   );
@@ -552,20 +550,21 @@ function RootNode() {
 
 function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
   const isCollapsed = collapsed.has(node.id);
-  const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-blue-500" : "border-l-muted-foreground";
+  const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-primary" : "border-l-muted-foreground";
   const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-primary" : "bg-muted-foreground";
+  const isActive = node.status === "active";
   return (
     <div className="flex flex-col items-center gap-4">
       <Tooltip>
         <TooltipTrigger asChild>
-          <button onClick={() => toggle(node.id)} className={`border border-l-4 ${borderColor} rounded-lg bg-card px-3 py-2 min-w-[140px] hover:shadow-md transition-shadow`}>
+          <button onClick={() => toggle(node.id)} className={cn("border border-border border-l-4 rounded-lg px-3 py-2 min-w-[140px] hover:shadow-md transition-shadow", borderColor, isActive ? "bg-gold-glow" : "bg-card")}>
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8"><AvatarFallback className="text-xs">{initials(node.first_name, node.last_name)}</AvatarFallback></Avatar>
               <div className="text-left">
                 <div className="font-medium text-sm leading-tight">{node.first_name} {node.last_name}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
-                  {node.contracts_count} contracts
+                  <span className="tnum">{node.contracts_count}</span> contracts
                 </div>
               </div>
             </div>

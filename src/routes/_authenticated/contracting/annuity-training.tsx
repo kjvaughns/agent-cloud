@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Upload, FileCheck2, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/contracting/annuity-training")({
   component: AnnuityTrainingPage,
@@ -47,13 +48,12 @@ function AnnuityTrainingPage() {
   const cert = data?.cert;
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Annuity Training</h1>
-        <p className="text-sm text-muted-foreground max-w-2xl">
-          To sell annuities and request annuity contracts, you must complete a Best Interest training course and upload your certificate here.
-        </p>
-      </div>
+    <PageShell>
+      <div className="max-w-3xl space-y-4">
+      <HeroBand
+        title="Annuity Training"
+        subtitle="To sell annuities and request annuity contracts, you must complete a Best Interest training course and upload your certificate here."
+      />
 
       <Card><CardContent className="p-6 space-y-3">
         <h2 className="font-semibold">Best Interest Training Course</h2>
@@ -113,6 +113,7 @@ function AnnuityTrainingPage() {
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
         />
       </CardContent></Card>
-    </div>
+      </div>
+    </PageShell>
   );
 }

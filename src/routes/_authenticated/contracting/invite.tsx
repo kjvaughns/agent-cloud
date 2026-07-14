@@ -9,7 +9,7 @@ import {
 } from "@/lib/onboarding.functions";
 import { deleteInvitationLink } from "@/lib/contracting.functions";
 import { listCarrierGridLevels } from "@/lib/admin.functions";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,36 +78,41 @@ function InvitePage() {
       ? `${window.location.origin}/invite/${success.token}`
       : `/invite/${success.token}`;
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto">
-        <Card><CardContent className="p-8 text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 grid place-items-center">
-            <Check className="h-8 w-8 text-emerald-600" />
-          </div>
-          <h2 className="text-2xl font-bold">Link Created!</h2>
-          <p className="text-muted-foreground">Share this link with anyone you want to join your downline as <strong>{success.linkName}</strong>.</p>
-          <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-2">
-            <code className="flex-1 text-xs text-left truncate">{url}</code>
-            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(url); toast.success("Copied!"); }}>
-              <Copy className="h-4 w-4 mr-1" /> Copy
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">This link is reusable — anyone who clicks it can create their own account and join your team.</p>
-          <div className="flex gap-2 justify-center">
-            <Button variant="outline" onClick={resetForm}>Create Another</Button>
-          </div>
-        </CardContent></Card>
-      </div>
+      <PageShell>
+        <div className="max-w-3xl mx-auto">
+          <Panel>
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-full bg-success/10 grid place-items-center">
+                <Check className="h-8 w-8 text-success" />
+              </div>
+              <h2 className="text-2xl font-bold">Link Created!</h2>
+              <p className="text-muted-foreground">Share this link with anyone you want to join your downline as <strong>{success.linkName}</strong>.</p>
+              <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3 flex items-center gap-2">
+                <code className="flex-1 text-xs text-left truncate">{url}</code>
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(url); toast.success("Copied!"); }}>
+                  <Copy className="h-4 w-4 mr-1" /> Copy
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">This link is reusable — anyone who clicks it can create their own account and join your team.</p>
+              <div className="flex gap-2 justify-center">
+                <Button variant="outline" onClick={resetForm}>Create Another</Button>
+              </div>
+            </div>
+          </Panel>
+        </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Invite Links</h1>
-        <p className="text-sm text-muted-foreground">Create a shareable link that places new agents directly in your downline with pre-assigned carriers and commission levels.</p>
-      </div>
+    <PageShell>
+      <div className="max-w-4xl mx-auto space-y-[var(--gap)]">
+      <HeroBand
+        title="Invite Links"
+        subtitle="Create a shareable link that places new agents directly in your downline with pre-assigned carriers and commission levels."
+      />
 
-      <Card><CardContent className="p-6 space-y-5">
+      <Panel><div className="space-y-5">
         <div>
           <Label>Link Name *</Label>
           <Input
@@ -188,11 +193,11 @@ function InvitePage() {
           <p className="text-xs text-muted-foreground mb-3">Optionally pre-assign carriers and commission levels. You can skip this and assign carriers later from the Downline Contracts tab.</p>
 
           {(myCarriers?.rows ?? []).length === 0 ? (
-            <div className="p-6 text-center border rounded-md bg-muted/30">
+            <div className="p-6 text-center border border-border rounded-[var(--radius)] bg-surface-2">
               <p className="text-sm text-muted-foreground">You don't have any active carrier contracts to assign yet.</p>
             </div>
           ) : (
-            <Accordion type="multiple" className="border rounded-lg overflow-hidden divide-y">
+            <Accordion type="multiple" className="border border-border rounded-[var(--radius)] overflow-hidden divide-y">
               {(myCarriers?.rows ?? []).map((row: any) => {
                 const carrier = row.carriers;
                 if (!carrier) return null;
@@ -215,7 +220,7 @@ function InvitePage() {
                           onClick={(e) => e.stopPropagation()}
                         />
                         <span className="font-medium text-sm truncate">{carrier.name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto mr-2 shrink-0">
+                        <span className="text-xs text-muted-foreground ml-auto mr-2 shrink-0 tnum">
                           {isAssigned
                             ? (assignment!.level_name || `${assignment!.level_pct}%`)
                             : "Not assigned"}
@@ -223,7 +228,7 @@ function InvitePage() {
                       </div>
                     </AccordionTrigger>
                     {isAssigned && assignment && (
-                      <AccordionContent className="px-3 pb-3 pt-0 border-t bg-muted/10">
+                      <AccordionContent className="px-3 pb-3 pt-0 border-t border-border bg-surface-2">
                         <div className="pt-3">
                           <Label className="text-xs">Commission Level</Label>
                           <CarrierLevelSelector
@@ -262,20 +267,18 @@ function InvitePage() {
             <Link2 className="h-4 w-4 mr-1" /> {create.isPending ? "Creating..." : "Create Link"}
           </Button>
         </div>
-      </CardContent></Card>
+      </div></Panel>
 
       {/* My Links */}
-      <div>
-        <h2 className="font-semibold mb-3">My Invite Links</h2>
-        <Card><CardContent className="p-0">
-          {isLoading ? <Skeleton className="h-24 m-4" /> : (invites?.rows.length ?? 0) === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">No invite links created yet.</div>
-          ) : (
-            <LinksTable rows={invites?.rows ?? []} />
-          )}
-        </CardContent></Card>
+      <Panel title="My Invite Links">
+        {isLoading ? <Skeleton className="h-24" /> : (invites?.rows.length ?? 0) === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground">No invite links created yet.</div>
+        ) : (
+          <LinksTable rows={invites?.rows ?? []} />
+        )}
+      </Panel>
       </div>
-    </div>
+    </PageShell>
   );
 }
 
@@ -366,7 +369,7 @@ function LinksTable({ rows }: { rows: any[] }) {
                         {carriers.map((c: any) => (
                           <li key={c.carrier_id} className="flex items-center justify-between text-xs gap-2">
                             <span className="font-medium truncate">{c.carrier_name}</span>
-                            <span className="text-muted-foreground shrink-0">
+                            <span className="text-muted-foreground shrink-0 tnum">
                               {c.level_name ? `${c.level_name} (${c.level_pct}%)` : c.level_pct ? `${c.level_pct}%` : "—"}
                             </span>
                           </li>
@@ -376,7 +379,7 @@ function LinksTable({ rows }: { rows: any[] }) {
                   </Popover>
                 )}
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+              <TableCell className="text-muted-foreground text-sm tnum">{new Date(r.created_at).toLocaleDateString()}</TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-1 justify-end">
                   <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copied!"); }}>
@@ -384,7 +387,7 @@ function LinksTable({ rows }: { rows: any[] }) {
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button size="icon" variant="ghost" className="text-rose-600"><Trash2 className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -411,8 +414,8 @@ export function InviteStatusBadge({ status }: { status: string }) {
   const map: Record<string, { color: string; label: string }> = {
     pending: { color: "bg-muted text-muted-foreground", label: "Active" },
     in_progress: { color: "bg-primary/15 text-primary", label: "In Progress" },
-    completed: { color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", label: "Completed" },
-    expired: { color: "bg-rose-500/15 text-rose-700 dark:text-rose-300", label: "Expired" },
+    completed: { color: "bg-success/15 text-success", label: "Completed" },
+    expired: { color: "bg-destructive/15 text-destructive", label: "Expired" },
   };
   const cfg = map[status] ?? map.pending;
   return <span className={`px-2 py-0.5 rounded text-xs ${cfg.color}`}>{cfg.label}</span>;
