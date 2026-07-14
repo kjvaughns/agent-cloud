@@ -83,7 +83,7 @@ function StatusBadge({ status }: { status: string }) {
     pending: "bg-amber-500/15 text-amber-600 border-amber-500/30",
     inactive: "bg-muted text-muted-foreground border-border",
     terminated: "bg-red-500/15 text-red-600 border-red-500/30",
-    imported: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30",
+    imported: "bg-primary/15 text-primary border-primary/30",
   };
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
@@ -181,7 +181,7 @@ function KpiRow() {
     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
       <KpiCard value={kpis.total} label="Total Agents" sub={`${kpis.direct} direct reports`} />
       <KpiCard value={kpis.active} label="Active" sub="Ready to sell" tone="text-green-600" />
-      <KpiCard value={kpis.active_writers} label="Active Writers" sub="Sold in last 30 days" tone="text-[#C9A227]" />
+      <KpiCard value={kpis.active_writers} label="Active Writers" sub="Sold in last 30 days" tone="text-primary" />
       <KpiCard value={kpis.pending} label="Pending" sub="Awaiting review" tone="text-amber-600" />
       <KpiCard value={kpis.contracts_total} label="Contracts" sub={`${kpis.contracts_active_pct}% active rate`} />
     </div>
@@ -553,7 +553,7 @@ function RootNode() {
 function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
   const isCollapsed = collapsed.has(node.id);
   const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-blue-500" : "border-l-muted-foreground";
-  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-[#C9A227]" : "bg-muted-foreground";
+  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-primary" : "bg-muted-foreground";
   return (
     <div className="flex flex-col items-center gap-4">
       <Tooltip>

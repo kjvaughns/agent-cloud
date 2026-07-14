@@ -247,10 +247,10 @@ function FinancesPage() {
 
       {/* Commission type breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-l-4 border-l-[#C9A227]">
+        <Card className="border-l-4 border-l-primary">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <DollarSign className="h-3.5 w-3.5 text-[#C9A227]" /> Direct YTD
+              <DollarSign className="h-3.5 w-3.5 text-primary" /> Direct YTD
             </div>
             <div className="text-xl font-bold mt-1">{fmtCurrency(stats.directYtd)}</div>
             <p className="text-xs text-muted-foreground">Advance + trail paid</p>
@@ -299,7 +299,7 @@ function FinancesPage() {
                 formatter={(v: number) => fmtCurrency(v)}
               />
               <Legend />
-              <Line type="monotone" dataKey="direct" stroke="#C9A227" strokeWidth={2} name="Direct" dot={false} />
+              <Line type="monotone" dataKey="direct" stroke="var(--color-primary)" strokeWidth={2} name="Direct" dot={false} />
               <Line type="monotone" dataKey="override" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
               <Line type="monotone" dataKey="trail" stroke="#a855f7" strokeWidth={2} strokeDasharray="3 3" name="Trail" dot={false} />
               <Line type="monotone" dataKey="renewal" stroke="#0ea5e9" strokeWidth={1.5} strokeDasharray="4 4" name="Renewal" dot={false} />
@@ -482,7 +482,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                       <XAxis type="number" tickFormatter={(v) => `$${Math.round(v / 1000)}k`} stroke="var(--color-muted-foreground)" fontSize={12} />
                       <YAxis type="category" dataKey="name" width={120} stroke="var(--color-muted-foreground)" fontSize={12} />
                       <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
-                      <Bar dataKey="total" fill="#C9A227" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="total" fill="var(--color-primary)" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                   <Table>
@@ -515,7 +515,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                   <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
                   <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
-                  <Area type="monotone" dataKey="direct" stackId="1" stroke="#C9A227" fill="#C9A227" fillOpacity={0.3} name="Direct" />
+                  <Area type="monotone" dataKey="direct" stackId="1" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.3} name="Direct" />
                   <Area type="monotone" dataKey="trail" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} name="Trail" />
                   <Area type="monotone" dataKey="override" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Override" />
                   <Area type="monotone" dataKey="renewal" stackId="1" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Renewal" />
@@ -562,7 +562,7 @@ function KpiTile({
 
 function TypeBadge({ type }: { type: string }) {
   const cls: Record<string, string> = {
-    advance: "bg-[#C9A227]/15 text-[#AD8819] border-[#C9A227]/30",
+    advance: "bg-primary/15 text-gold-bright border-primary/30",
     trail: "bg-purple-500/15 text-purple-600 border-purple-500/30",
     deferred: "bg-purple-500/15 text-purple-600 border-purple-500/30",
     override: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",

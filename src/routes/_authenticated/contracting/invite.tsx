@@ -410,7 +410,7 @@ function LinksTable({ rows }: { rows: any[] }) {
 export function InviteStatusBadge({ status }: { status: string }) {
   const map: Record<string, { color: string; label: string }> = {
     pending: { color: "bg-muted text-muted-foreground", label: "Active" },
-    in_progress: { color: "bg-[#C9A227]/15 text-[#C9A227]", label: "In Progress" },
+    in_progress: { color: "bg-primary/15 text-primary", label: "In Progress" },
     completed: { color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300", label: "Completed" },
     expired: { color: "bg-rose-500/15 text-rose-700 dark:text-rose-300", label: "Expired" },
   };

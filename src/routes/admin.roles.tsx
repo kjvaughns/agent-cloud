@@ -17,7 +17,7 @@ export const Route = createFileRoute("/admin/roles")({
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-500/15 text-purple-600",
-  manager: "bg-[#C9A227]/15 text-[#C9A227]",
+  manager: "bg-primary/15 text-primary",
   agent: "bg-slate-500/15 text-slate-500",
 };
 
@@ -80,7 +80,7 @@ function AdminRoles() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center gap-3">
-        <ShieldCheck className="h-6 w-6 text-[#C9A227]" />
+        <ShieldCheck className="h-6 w-6 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Role Manager</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Assign admin and manager roles to agents</p>

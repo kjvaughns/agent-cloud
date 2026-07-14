@@ -35,7 +35,7 @@ const TOPICS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  open: "bg-[#C9A227]/10 text-[#C9A227]",
+  open: "bg-primary/10 text-primary",
   in_progress: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   resolved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   closed: "bg-muted text-muted-foreground",
@@ -43,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: "bg-slate-100 text-slate-600",
-  normal: "bg-[#C9A227]/10 text-[#C9A227]",
+  normal: "bg-primary/10 text-primary",
   high: "bg-amber-100 text-amber-700",
   urgent: "bg-red-100 text-red-700",
 };

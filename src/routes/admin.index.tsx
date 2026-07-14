@@ -20,7 +20,7 @@ export const Route = createFileRoute("/admin/")({
 
 const STATUS_COLORS: Record<string, string> = {
   requested: "bg-yellow-500/15 text-yellow-600",
-  submitted: "bg-[#C9A227]/15 text-[#C9A227]",
+  submitted: "bg-primary/15 text-primary",
   active: "bg-emerald-500/15 text-emerald-600",
   issue: "bg-red-500/15 text-red-600",
   declined: "bg-slate-500/15 text-slate-500",

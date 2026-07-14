@@ -58,7 +58,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
               active
-                ? "bg-[#C9A227]/15 text-[#C9A227] font-medium"
+                ? "bg-primary/15 text-primary font-medium"
                 : "text-white/60 hover:text-white hover:bg-white/5"
             )}
           >
@@ -74,9 +74,9 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 function SidebarHeader() {
   return (
     <div className="h-14 flex items-center gap-2 px-4 border-b border-white/10 shrink-0">
-      <Cloud className="h-5 w-5 text-[#C9A227]" />
+      <Cloud className="h-5 w-5 text-primary" />
       <span className="font-bold text-white tracking-tight">Agent Cloud</span>
-      <span className="ml-auto text-[10px] font-semibold uppercase tracking-widest text-[#C9A227] bg-[#C9A227]/10 px-2 py-0.5 rounded">Admin</span>
+      <span className="ml-auto text-[10px] font-semibold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded">Admin</span>
     </div>
   );
 }
@@ -130,9 +130,9 @@ function AdminLayout() {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <Cloud className="h-4 w-4 text-[#C9A227]" />
+            <Cloud className="h-4 w-4 text-primary" />
             <span className="font-bold text-sm">Agent Cloud</span>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[#C9A227] bg-[#C9A227]/10 px-1.5 py-0.5 rounded">Admin</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded">Admin</span>
           </div>
         </div>
 

@@ -17,7 +17,7 @@ const CHIPS: { key: Category; label: string; activeCls: string }[] = [
   { key: "medical",   label: "Medical",   activeCls: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900" },
   { key: "height",    label: "Height",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
   { key: "weight",    label: "Weight",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
-  { key: "physician", label: "Physician", activeCls: "bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30" },
+  { key: "physician", label: "Physician", activeCls: "bg-primary/15 text-primary border-primary/30" },
   { key: "tobacco",   label: "Tobacco",   activeCls: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900" },
 ];
 
@@ -238,7 +238,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="text-xs font-semibold flex flex-wrap items-center gap-1">
           {isImported(entry) && (
-            <span className="px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide bg-[#C9A227]/15 text-[#C9A227] border-[#C9A227]/30">
+            <span className="px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide bg-primary/15 text-primary border-primary/30">
               AgentLink Import
             </span>
           )}

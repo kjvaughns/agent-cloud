@@ -155,16 +155,16 @@ function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {view === "personal" ? (
           <>
-            <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={DollarSign} color="text-primary" label="Individual Production (You)" value={money(data?.my_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
             <KpiTile icon={Users} color="text-emerald-500" label="Total Production (Team)" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
-            <KpiTile icon={FileText} color="text-[#C9A227]" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={FileText} color="text-primary" label="My Policies" value={number(data?.my_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
             <KpiTile icon={FolderOpen} color="text-emerald-500" label="Team Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
           </>
         ) : (
           <>
-            <KpiTile icon={DollarSign} color="text-[#C9A227]" label="Total Agency Production" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={DollarSign} color="text-primary" label="Total Agency Production" value={money(data?.team_prod ?? 0)} sub={rangeLabel} loading={isLoading} />
             <KpiTile icon={Users} color="text-emerald-500" label="Active Writers" value={number(data?.active_downline ?? 0)} sub="agents ready to sell" loading={isLoading} />
-            <KpiTile icon={FileText} color="text-[#C9A227]" label="Total Agency Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
+            <KpiTile icon={FileText} color="text-primary" label="Total Agency Policies" value={number(data?.team_policies ?? 0)} sub={rangeLabel} loading={isLoading} />
             <KpiTile icon={FolderOpen} color="text-emerald-500" label="Active Contracts" value={number(data?.active_contracts ?? 0)} sub="across all carriers" loading={isLoading} />
           </>
         )}
@@ -186,7 +186,7 @@ function Dashboard() {
             <div className="flex items-center gap-4">
               <div className="text-xs text-right space-y-0.5">
                 {view === "personal" && (
-                  <div><span className="inline-block h-2 w-2 rounded-full bg-[#C9A227] mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
+                  <div><span className="inline-block h-2 w-2 rounded-full bg-primary mr-1" />Individual: {metric === "prod" ? money(sumRange(recent, "my_prod")) : number(recent.reduce((a, t) => a + Number(t.my_policies), 0))} <span className={indDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{indDelta >= 0 ? "↑" : "↓"} {Math.abs(indDelta).toFixed(0)}%</span></div>
                 )}
                 <div><span className="inline-block h-2 w-2 rounded-full bg-emerald-500 mr-1" />Team: {metric === "prod" ? money(sumRange(recent, "team_prod")) : number(recent.reduce((a, t) => a + Number(t.team_policies), 0))} <span className={teamDelta >= 0 ? "text-emerald-600" : "text-red-600"}>{teamDelta >= 0 ? "↑" : "↓"} {Math.abs(teamDelta).toFixed(0)}%</span></div>
               </div>
@@ -202,7 +202,7 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trendData}>
                 <defs>
-                  <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C9A227" stopOpacity={0.4} /><stop offset="100%" stopColor="#C9A227" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="indGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.4} /><stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} /></linearGradient>
                   <linearGradient id="teamGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -214,7 +214,7 @@ function Dashboard() {
                   formatter={(v: number) => metric === "prod" ? money(v) : number(v)} />
                 <Area type="monotone" dataKey="team" stroke="#10b981" strokeWidth={2} fill="url(#teamGrad)" />
                 {view === "personal" && (
-                  <Area type="monotone" dataKey="individual" stroke="#C9A227" strokeWidth={2} fill="url(#indGrad)" />
+                  <Area type="monotone" dataKey="individual" stroke="var(--color-primary)" strokeWidth={2} fill="url(#indGrad)" />
                 )}
               </AreaChart>
             </ResponsiveContainer>
@@ -384,7 +384,7 @@ function TeamActivityFeed({ feed, loading }: { feed: any; loading: boolean }) {
                     const carrierName = p.carriers?.name ?? "Carrier";
                     return (
                       <div key={p.id} className="flex items-center gap-2 text-sm">
-                        <TrendingUp className="h-3.5 w-3.5 text-[#C9A227] shrink-0" />
+                        <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
                         <span className="font-medium truncate max-w-[110px]">{agentName}</span>
                         <span className="text-xs text-muted-foreground truncate">{p.product ?? carrierName}</span>
                         <span className="text-xs font-medium ml-auto shrink-0">{money(Number(p.annual_premium ?? 0))}</span>

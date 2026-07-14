@@ -25,12 +25,12 @@ const STATUS_COLORS: Record<string, string> = {
   inactive: "bg-slate-500/15 text-slate-500",
   terminated: "bg-red-500/15 text-red-600",
   pending: "bg-yellow-500/15 text-yellow-600",
-  imported: "bg-[#C9A227]/15 text-[#C9A227]",
+  imported: "bg-primary/15 text-primary",
 };
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "bg-purple-500/15 text-purple-600",
-  manager: "bg-[#C9A227]/15 text-[#C9A227]",
+  manager: "bg-primary/15 text-primary",
   agent: "bg-slate-500/15 text-slate-500",
 };
 
@@ -159,11 +159,11 @@ function AdminAgents() {
         const importedCount = agents.filter((a) => a.status === "imported").length;
         if (importedCount === 0 || statusFilter === "imported") return null;
         return (
-          <div className="flex items-center gap-3 p-3 rounded-lg border border-[#C9A227]/30 bg-[#C9A227]/10 text-sm">
-            <UserCheck className="h-4 w-4 text-[#C9A227] shrink-0" />
-            <span className="flex-1 text-[#C9A227]">{importedCount} imported agent{importedCount !== 1 ? "s" : ""} haven't joined yet.</span>
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/10 text-sm">
+            <UserCheck className="h-4 w-4 text-primary shrink-0" />
+            <span className="flex-1 text-primary">{importedCount} imported agent{importedCount !== 1 ? "s" : ""} haven't joined yet.</span>
             <button
-              className="text-xs font-medium text-[#C9A227] underline hover:no-underline"
+              className="text-xs font-medium text-primary underline hover:no-underline"
               onClick={() => setStatusFilter("imported")}
             >
               View

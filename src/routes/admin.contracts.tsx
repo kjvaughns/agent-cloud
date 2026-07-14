@@ -19,7 +19,7 @@ const STATUSES = ["all", "requested", "submitted", "in_review", "active", "issue
 
 const STATUS_COLORS: Record<string, string> = {
   requested: "bg-yellow-500/15 text-yellow-600",
-  submitted: "bg-[#C9A227]/15 text-[#C9A227]",
+  submitted: "bg-primary/15 text-primary",
   in_review: "bg-purple-500/15 text-purple-600",
   active: "bg-emerald-500/15 text-emerald-600",
   issue: "bg-red-500/15 text-red-600",

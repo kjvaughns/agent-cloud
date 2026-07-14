@@ -227,14 +227,14 @@ function AgeBandTable({
                   className={cn(
                     "text-center px-3 py-2.5 font-semibold border-r whitespace-nowrap min-w-[100px]",
                     isMe
-                      ? "bg-[#C9A227]/20 text-[#8a6800] dark:text-[#C9A227]"
+                      ? "bg-primary/20 text-gold-bright dark:text-primary"
                       : "bg-muted/40 text-muted-foreground",
                   )}
                 >
                   <div className="flex flex-col items-center gap-0.5">
                     <span className="text-xs">{l.name}</span>
                     {isMe && (
-                      <span className="inline-flex items-center rounded-full bg-[#C9A227] text-[#1a0d00] text-[9px] font-bold px-1.5 py-0 leading-4">
+                      <span className="inline-flex items-center rounded-full bg-primary text-gold-foreground text-[9px] font-bold px-1.5 py-0 leading-4">
                         YOU
                       </span>
                     )}
@@ -260,7 +260,7 @@ function AgeBandTable({
                 return (
                   <td
                     key={l.name}
-                    className={cn("px-3 py-2.5 text-center border-r", isMe && "bg-[#C9A227]/10")}
+                    className={cn("px-3 py-2.5 text-center border-r", isMe && "bg-primary/10")}
                   >
                     {yr1 !== null ? (
                       <div className="space-y-0.5">
@@ -268,7 +268,7 @@ function AgeBandTable({
                           className={cn(
                             "font-mono font-semibold text-sm",
                             isMe
-                              ? "text-[#8a6800] dark:text-[#C9A227]"
+                              ? "text-gold-bright dark:text-primary"
                               : "text-foreground",
                           )}
                         >

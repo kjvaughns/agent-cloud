@@ -223,7 +223,7 @@ function AdminSupport() {
                     className={cn(
                       "max-w-[70%] rounded-lg px-4 py-2.5 text-sm",
                       m.sender_role === "support"
-                        ? "bg-[#C9A227] text-black"
+                        ? "bg-primary text-black"
                         : "bg-muted text-foreground"
                     )}
                   >

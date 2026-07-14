@@ -274,7 +274,7 @@ function MyContractsTab() {
                   )}
                   {c.notes && <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Notes:</span> {c.notes}</div>}
                   {c.surelc_request_id && (
-                    <div className="inline-flex items-center gap-1.5 text-xs text-[#C9A227]">
+                    <div className="inline-flex items-center gap-1.5 text-xs text-primary">
                       <RefreshCw className="h-3 w-3" /> Tracking in SureLC
                     </div>
                   )}

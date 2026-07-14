@@ -57,14 +57,14 @@ function AgentTable({ rows, selfId, isLoading }: { rows: LeaderboardAgent[]; sel
             {rows.map((agent, i) => {
               const rank = i + 1;
               const rankCls =
-                rank === 1 ? "text-[#C9A227] font-bold" :
+                rank === 1 ? "text-primary font-bold" :
                 rank === 2 ? "text-slate-400 font-semibold" :
                 rank === 3 ? "text-amber-600 font-semibold" : "text-muted-foreground";
               const isYou = agent.id === selfId;
               return (
                 <tr key={agent.id} className={cn("border-b last:border-0 transition-colors hover:bg-muted/20", isYou && "bg-primary/10")}>
                   <td className={cn("px-4 py-3 font-mono text-sm", rankCls)}>
-                    {rank === 1 && <Crown className="inline h-3.5 w-3.5 mr-1 text-[#C9A227] -mt-0.5" />}
+                    {rank === 1 && <Crown className="inline h-3.5 w-3.5 mr-1 text-primary -mt-0.5" />}
                     #{rank}
                   </td>
                   <td className="px-4 py-3">
