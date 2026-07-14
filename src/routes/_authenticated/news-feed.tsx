@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { format } from "date-fns";
 import { Newspaper, RefreshCw, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";

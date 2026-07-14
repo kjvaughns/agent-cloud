@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { draftUwResponse } from "@/lib/ai-features.functions";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 
 export const Route = createFileRoute("/admin/support")({
   component: AdminSupport,

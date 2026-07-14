@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { Sparkles, Send, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { askAiAssistant } from "@/lib/ai-assistant.functions";

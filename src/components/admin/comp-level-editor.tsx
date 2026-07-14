@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import {
   adminListAgentCompLevels,
   adminSetCompLevel,

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { Sparkles, Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";

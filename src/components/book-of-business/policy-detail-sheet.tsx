@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { ExternalLink, Link2 } from "lucide-react";

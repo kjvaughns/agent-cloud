@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { useQuery } from "@tanstack/react-query";
 import { getOnboardingStatus } from "@/lib/resources.functions";
 import { Card, CardContent } from "@/components/ui/card";

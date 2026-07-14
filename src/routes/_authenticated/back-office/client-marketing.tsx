@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { listLandingPages, quickDeployLandingPage, deleteLandingPage } from "@/lib/marketing.functions";
 import { LANDING_TEMPLATES } from "@/lib/landing-templates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

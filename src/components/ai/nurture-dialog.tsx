@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { getProspectNurture, type NurtureSequence } from "@/lib/ai-features.functions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
