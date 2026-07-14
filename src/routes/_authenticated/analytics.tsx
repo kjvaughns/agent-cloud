@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Sparkles, RefreshCw, Trophy, TrendingUp, TrendingDown, Minus, ArrowUp, ArrowDown, AlertTriangle, Star, AlertCircle, Lightbulb } from "lucide-react";
-import { KpiCard } from "@/components/kpi-card";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
 import { fmtCurrency } from "@/lib/format";
 import {
   getAnalyticsOverview, getDailyReport, getAgentAnalytics, getTeamLeaderboard,
@@ -32,75 +33,99 @@ export const Route = createFileRoute("/_authenticated/analytics")({
 });
 
 type RangeKey = "7d" | "30d" | "90d" | "ytd" | "all";
-const CHART_COLORS = ["hsl(217 91% 60%)", "hsl(142 71% 45%)", "hsl(262 83% 58%)", "hsl(25 95% 53%)", "hsl(0 84% 60%)", "hsl(199 89% 48%)", "hsl(48 96% 53%)", "hsl(280 80% 60%)"];
+const CHART_COLORS = [
+  "var(--color-primary)",
+  "var(--color-success)",
+  "var(--color-info)",
+  "var(--color-warning)",
+  "var(--color-destructive)",
+  "var(--color-chart-5)",
+  "var(--color-chart-3)",
+  "var(--color-chart-2)",
+];
+
+/** Premium metric tile: Panel-wrapped StatTile. Replaces the old KpiCard. */
+function Kpi({ label, value, delta }: { label: string; value: string; delta?: number }) {
+  const hasDelta = typeof delta === "number";
+  return (
+    <Panel>
+      <StatTile
+        label={label}
+        value={value}
+        delta={hasDelta ? `${delta! >= 0 ? "+" : ""}${delta!.toFixed(1)}%` : undefined}
+        deltaUp={hasDelta ? delta! >= 0 : undefined}
+      />
+    </Panel>
+  );
+}
 
 function AnalyticsPage() {
   const [range, setRange] = useState<RangeKey>("30d");
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <Header range={range} onRange={setRange} />
-      <ChallengeCards />
-      <TrophyCabinet />
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="daily">Daily Report</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="individual">Individual</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="carriers">Carriers</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="policy">Policy</TabsTrigger>
-          <TabsTrigger value="quality">Quality</TabsTrigger>
-          <TabsTrigger value="recruiting">Recruiting</TabsTrigger>
-          <TabsTrigger value="coach">AI Coach</TabsTrigger>
-        </TabsList>
-        <TabsContent value="daily" className="mt-4"><DailyReportPanel /></TabsContent>
-        <TabsContent value="overview" className="mt-4"><OverviewPanel range={range} /></TabsContent>
-        <TabsContent value="individual" className="mt-4"><IndividualPanel range={range} /></TabsContent>
-        <TabsContent value="team" className="mt-4"><TeamPanel range={range} /></TabsContent>
-        <TabsContent value="carriers" className="mt-4"><CarriersPanel range={range} /></TabsContent>
-        <TabsContent value="trends" className="mt-4"><TrendsPanel /></TabsContent>
-        <TabsContent value="policy" className="mt-4"><PolicyPanel /></TabsContent>
-        <TabsContent value="quality" className="mt-4"><QualityPanel /></TabsContent>
-        <TabsContent value="recruiting" className="mt-4"><RecruitingPanel /></TabsContent>
-        <TabsContent value="coach" className="mt-4"><AICoachPanel /></TabsContent>
-      </Tabs>
-    </div>
+    <PageShell>
+      <div className="col">
+        <HeroBand
+          title="Business Analytics"
+          subtitle="AI-powered performance across your agency"
+          actions={<HeaderActions range={range} onRange={setRange} />}
+        />
+        <ChallengeCards />
+        <TrophyCabinet />
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="flex-wrap h-auto gap-1 bg-card border border-border rounded-[var(--radius)] p-1">
+            <TabsTrigger value="daily">Daily Report</TabsTrigger>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="individual">Individual</TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="carriers">Carriers</TabsTrigger>
+            <TabsTrigger value="trends">Trends</TabsTrigger>
+            <TabsTrigger value="policy">Policy</TabsTrigger>
+            <TabsTrigger value="quality">Quality</TabsTrigger>
+            <TabsTrigger value="recruiting">Recruiting</TabsTrigger>
+            <TabsTrigger value="coach">AI Coach</TabsTrigger>
+          </TabsList>
+          <TabsContent value="daily" className="mt-4"><DailyReportPanel /></TabsContent>
+          <TabsContent value="overview" className="mt-4"><OverviewPanel range={range} /></TabsContent>
+          <TabsContent value="individual" className="mt-4"><IndividualPanel range={range} /></TabsContent>
+          <TabsContent value="team" className="mt-4"><TeamPanel range={range} /></TabsContent>
+          <TabsContent value="carriers" className="mt-4"><CarriersPanel range={range} /></TabsContent>
+          <TabsContent value="trends" className="mt-4"><TrendsPanel /></TabsContent>
+          <TabsContent value="policy" className="mt-4"><PolicyPanel /></TabsContent>
+          <TabsContent value="quality" className="mt-4"><QualityPanel /></TabsContent>
+          <TabsContent value="recruiting" className="mt-4"><RecruitingPanel /></TabsContent>
+          <TabsContent value="coach" className="mt-4"><AICoachPanel /></TabsContent>
+        </Tabs>
+      </div>
+    </PageShell>
   );
 }
 
-function Header({ range, onRange }: { range: RangeKey; onRange: (r: RangeKey) => void }) {
+function HeaderActions({ range, onRange }: { range: RangeKey; onRange: (r: RangeKey) => void }) {
   const fetchInsights = useServerFn(getAIInsights);
   const refresh = useMutation({
     mutationFn: () => fetchInsights({ data: { tab: "overview", force: true } }),
     onSuccess: () => window.dispatchEvent(new Event("ai-insights-refreshed")),
   });
   return (
-    <div className="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
-        <p className="text-sm text-muted-foreground">Track your team's performance and business growth</p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Select value={range} onValueChange={(v) => onRange(v as RangeKey)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7d">Last 7 days</SelectItem>
-            <SelectItem value="30d">Last 30 days</SelectItem>
-            <SelectItem value="90d">Last 90 days</SelectItem>
-            <SelectItem value="ytd">This Year</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
-          <Sparkles className="h-4 w-4 mr-2" />AI Insights
-        </Button>
-        <Button variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
-          <RefreshCw className={`h-4 w-4 ${refresh.isPending ? "animate-spin" : ""}`} />
-        </Button>
-      </div>
-    </div>
+    <>
+      <Select value={range} onValueChange={(v) => onRange(v as RangeKey)}>
+        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="7d">Last 7 days</SelectItem>
+          <SelectItem value="30d">Last 30 days</SelectItem>
+          <SelectItem value="90d">Last 90 days</SelectItem>
+          <SelectItem value="ytd">This Year</SelectItem>
+          <SelectItem value="all">All Time</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+        <Sparkles className="h-4 w-4 mr-2" />AI Insights
+      </Button>
+      <Button variant="outline" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+        <RefreshCw className={`h-4 w-4 ${refresh.isPending ? "animate-spin" : ""}`} />
+      </Button>
+    </>
   );
 }
 
@@ -288,28 +313,26 @@ function OverviewPanel({ range }: { range: RangeKey }) {
           Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20" />)
         ) : (
           <>
-            <KpiCard label="Total Deals" value={String(d?.kpis.deals ?? 0)} delta={d?.kpis.deals_delta} />
-            <KpiCard label="Total Premium" value={fmtCurrency(d?.kpis.premium ?? 0)} delta={d?.kpis.premium_delta} />
-            <KpiCard label="Active Producers" value={String(d?.kpis.producers ?? 0)} delta={d?.kpis.producers_delta} />
-            <KpiCard label="Avg Deal Size" value={fmtCurrency(d?.kpis.avg_deal ?? 0)} />
+            <Kpi label="Total Deals" value={String(d?.kpis.deals ?? 0)} delta={d?.kpis.deals_delta} />
+            <Kpi label="Total Premium" value={fmtCurrency(d?.kpis.premium ?? 0)} delta={d?.kpis.premium_delta} />
+            <Kpi label="Active Producers" value={String(d?.kpis.producers ?? 0)} delta={d?.kpis.producers_delta} />
+            <Kpi label="Avg Deal Size" value={fmtCurrency(d?.kpis.avg_deal ?? 0)} />
           </>
         )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        <Card><CardContent className="p-4">
-          <div className="text-sm text-muted-foreground">Conversion Rate</div>
-          <div className="text-3xl font-bold mt-1">{d?.conversion_rate ?? 0}%</div>
-          <div className="text-xs text-muted-foreground mt-1">Producers with at least one deal</div>
-        </CardContent></Card>
-        <Card><CardContent className="p-4">
-          <div className="text-sm text-muted-foreground">Premium Growth</div>
-          <div className="text-3xl font-bold mt-1">{d?.monthly_growth ?? 0}%</div>
-          <div className="text-xs text-muted-foreground mt-1">vs prior period</div>
-        </CardContent></Card>
+        <Panel title="Conversion Rate">
+          <div className="tnum text-3xl font-bold font-display leading-none" style={{ fontFamily: "var(--font-display)" }}>{d?.conversion_rate ?? 0}%</div>
+          <div className="text-xs text-muted-foreground mt-1.5">Producers with at least one deal</div>
+        </Panel>
+        <Panel title="Premium Growth">
+          <div className="tnum text-3xl font-bold font-display leading-none" style={{ fontFamily: "var(--font-display)" }}>{d?.monthly_growth ?? 0}%</div>
+          <div className="text-xs text-muted-foreground mt-1.5">vs prior period</div>
+        </Panel>
       </div>
 
-      <Card><CardHeader><CardTitle className="text-base">Top Carriers This Period</CardTitle></CardHeader><CardContent>
+      <Panel title="Top Carriers This Period">
         {d?.top_carriers?.length ? (
           <>
             <ResponsiveContainer width="100%" height={260}>
@@ -328,15 +351,15 @@ function OverviewPanel({ range }: { range: RangeKey }) {
               <TableBody>{d.top_carriers.map((c) => (
                 <TableRow key={c.carrier}>
                   <TableCell>{c.carrier}</TableCell>
-                  <TableCell>{c.deals}</TableCell>
-                  <TableCell>{fmtCurrency(c.premium)}</TableCell>
-                  <TableCell>{d.total_premium > 0 ? ((c.premium / d.total_premium) * 100).toFixed(1) : 0}%</TableCell>
+                  <TableCell className="tnum">{c.deals}</TableCell>
+                  <TableCell className="tnum">{fmtCurrency(c.premium)}</TableCell>
+                  <TableCell className="tnum">{d.total_premium > 0 ? ((c.premium / d.total_premium) * 100).toFixed(1) : 0}%</TableCell>
                 </TableRow>
               ))}</TableBody>
             </Table>
           </>
         ) : <div className="text-sm text-muted-foreground text-center py-8">No carrier data in this period.</div>}
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -348,29 +371,31 @@ function DailyReportPanel() {
   const d = q.data;
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold">Daily Report — {new Date().toLocaleDateString()}</h3>
+      <h3 className="font-display font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Daily Report — {new Date().toLocaleDateString()}</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Policies Posted" value={String(d?.policies_today ?? 0)} />
-        <KpiCard label="Calls Made" value={String(d?.calls_today ?? 0)} />
-        <KpiCard label="SMS Sent" value={String(d?.sms_today ?? 0)} />
-        <KpiCard label="New Clients" value={String(d?.new_clients_today ?? 0)} />
+        <Kpi label="Policies Posted" value={String(d?.policies_today ?? 0)} />
+        <Kpi label="Calls Made" value={String(d?.calls_today ?? 0)} />
+        <Kpi label="SMS Sent" value={String(d?.sms_today ?? 0)} />
+        <Kpi label="New Clients" value={String(d?.new_clients_today ?? 0)} />
       </div>
       <div className="grid md:grid-cols-2 gap-3">
-        <Card><CardHeader><CardTitle className="text-base">Active Agents Today</CardTitle></CardHeader><CardContent>
+        <Panel title="Active Agents Today">
           {d?.active_agents?.length ? (
             <ul className="space-y-1 text-sm">{d.active_agents.map((a) => <li key={a.id}>• {a.name}</li>)}</ul>
           ) : <p className="text-sm text-muted-foreground">No agent activity yet today.</p>}
-        </CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-base">Alerts</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
-          <div>
-            <div className="font-medium text-amber-600 mb-1">Lapse Pending ({d?.lapse_pending?.length ?? 0})</div>
-            <ul className="space-y-0.5 text-xs">{d?.lapse_pending?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {p.carrier}</li>)}</ul>
+        </Panel>
+        <Panel title="Alerts">
+          <div className="space-y-3 text-sm">
+            <div>
+              <div className="font-medium text-warning mb-1">Lapse Pending ({d?.lapse_pending?.length ?? 0})</div>
+              <ul className="space-y-0.5 text-xs">{d?.lapse_pending?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {p.carrier}</li>)}</ul>
+            </div>
+            <div>
+              <div className="font-medium text-primary mb-1">Upcoming Effective (next 7d)</div>
+              <ul className="space-y-0.5 text-xs">{d?.upcoming_effective?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {new Date(p.effective_date).toLocaleDateString()}</li>)}</ul>
+            </div>
           </div>
-          <div>
-            <div className="font-medium text-primary mb-1">Upcoming Effective (next 7d)</div>
-            <ul className="space-y-0.5 text-xs">{d?.upcoming_effective?.slice(0, 5).map((p) => <li key={p.id}>• {p.client_name} — {new Date(p.effective_date).toLocaleDateString()}</li>)}</ul>
-          </div>
-        </CardContent></Card>
+        </Panel>
       </div>
     </div>
   );
@@ -403,40 +428,40 @@ function IndividualPanel({ range }: { range: RangeKey }) {
           {(downlineQ.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.first_name} {a.last_name}</SelectItem>)}
         </SelectContent>
       </Select>
-      {!agentId && <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Select an agent to view their analytics.</CardContent></Card>}
+      {!agentId && <Panel><div className="p-4 text-center text-sm text-muted-foreground">Select an agent to view their analytics.</div></Panel>}
       {d && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KpiCard label="Policies" value={String(d.kpis?.policies ?? 0)} />
-            <KpiCard label="Premium" value={fmtCurrency(d.kpis?.premium ?? 0)} />
-            <KpiCard label="Avg Deal" value={fmtCurrency(d.kpis?.avg_deal ?? 0)} />
-            <KpiCard label="Last Active" value={d.kpis?.last_active ? new Date(d.kpis.last_active).toLocaleDateString() : "—"} />
+            <Kpi label="Policies" value={String(d.kpis?.policies ?? 0)} />
+            <Kpi label="Premium" value={fmtCurrency(d.kpis?.premium ?? 0)} />
+            <Kpi label="Avg Deal" value={fmtCurrency(d.kpis?.avg_deal ?? 0)} />
+            <Kpi label="Last Active" value={d.kpis?.last_active ? new Date(d.kpis.last_active).toLocaleDateString() : "—"} />
           </div>
           <div className="grid md:grid-cols-2 gap-3">
-            <Card><CardHeader><CardTitle className="text-base">6-Month Production</CardTitle></CardHeader><CardContent>
+            <Panel title="6-Month Production">
               <ResponsiveContainer width="100%" height={240}><BarChart data={d.monthly ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="month" fontSize={11} /><YAxis fontSize={11} />
+                <XAxis dataKey="month" fontSize={11} stroke="var(--color-muted-foreground)" /><YAxis fontSize={11} stroke="var(--color-muted-foreground)" />
                 <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)" }} />
                 <Bar dataKey="premium" fill={CHART_COLORS[0]} radius={[6,6,0,0]} />
               </BarChart></ResponsiveContainer>
-            </CardContent></Card>
-            <Card><CardHeader><CardTitle className="text-base">Status Breakdown</CardTitle></CardHeader><CardContent>
+            </Panel>
+            <Panel title="Status Breakdown">
               <ResponsiveContainer width="100%" height={240}><PieChart>
                 <Pie data={d.status_dist ?? []} dataKey="count" nameKey="status" outerRadius={80}>
                   {(d.status_dist ?? []).map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
                 <Tooltip /><Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart></ResponsiveContainer>
-            </CardContent></Card>
+            </Panel>
           </div>
-          <Card><CardHeader><CardTitle className="text-base">Recent Activity</CardTitle></CardHeader><CardContent>
+          <Panel title="Recent Activity">
             <ul className="space-y-1 text-sm">{(d.activity ?? []).map((a: any, i: number) => (
-              <li key={i} className="flex justify-between border-b py-1.5">
+              <li key={i} className="flex justify-between border-b border-border py-1.5">
                 <span>{a.label}</span><span className="text-xs text-muted-foreground">{new Date(a.at).toLocaleString()}</span>
               </li>
             ))}</ul>
-          </CardContent></Card>
+          </Panel>
         </>
       )}
     </div>
@@ -450,21 +475,21 @@ function TeamPanel({ range }: { range: RangeKey }) {
   const d = q.data;
   return (
     <div className="space-y-4">
-      <Card><CardHeader><CardTitle className="text-base">Production Leaderboard</CardTitle></CardHeader><CardContent>
+      <Panel title="Production Leaderboard">
         <Table>
           <TableHeader><TableRow><TableHead>Rank</TableHead><TableHead>Agent</TableHead><TableHead>Policies</TableHead><TableHead>Premium</TableHead><TableHead>Avg Deal</TableHead><TableHead>Trend</TableHead></TableRow></TableHeader>
           <TableBody>{(d?.rows ?? []).map((r, i) => (
             <TableRow key={r.id} className={r.id === d?.self_id ? "bg-primary/10" : ""}>
-              <TableCell>{i + 1}</TableCell>
+              <TableCell className="tnum">{i + 1}</TableCell>
               <TableCell className="font-medium">{r.name}</TableCell>
-              <TableCell>{r.policies}</TableCell>
-              <TableCell>{fmtCurrency(r.premium)}</TableCell>
-              <TableCell>{fmtCurrency(r.avg_deal)}</TableCell>
-              <TableCell>{r.trend === "up" ? <ArrowUp className="h-4 w-4 text-green-600" /> : r.trend === "down" ? <ArrowDown className="h-4 w-4 text-red-600" /> : <Minus className="h-4 w-4 text-muted-foreground" />}</TableCell>
+              <TableCell className="tnum">{r.policies}</TableCell>
+              <TableCell className="tnum">{fmtCurrency(r.premium)}</TableCell>
+              <TableCell className="tnum">{fmtCurrency(r.avg_deal)}</TableCell>
+              <TableCell>{r.trend === "up" ? <ArrowUp className="h-4 w-4 text-success" /> : r.trend === "down" ? <ArrowDown className="h-4 w-4 text-destructive" /> : <Minus className="h-4 w-4 text-muted-foreground" />}</TableCell>
             </TableRow>
           ))}</TableBody>
         </Table>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -478,23 +503,23 @@ function CarriersPanel({ range }: { range: RangeKey }) {
     <div className="space-y-4">
       <div className="grid md:grid-cols-3 gap-3">
         {rows.slice(0, 9).map((r) => (
-          <Card key={r.carrier}><CardContent className="p-4">
+          <Panel key={r.carrier}>
             <div className="font-semibold">{r.carrier ?? "Unknown"}</div>
-            <div className="text-xs text-muted-foreground mt-1">Deals: {r.deals}</div>
-            <div className="text-xs">Premium: {fmtCurrency(r.premium)}</div>
-            <div className="text-xs">Avg: {fmtCurrency(r.avg_deal)}</div>
+            <div className="text-xs text-muted-foreground mt-1 tnum">Deals: {r.deals}</div>
+            <div className="text-xs tnum">Premium: {fmtCurrency(r.premium)}</div>
+            <div className="text-xs tnum">Avg: {fmtCurrency(r.avg_deal)}</div>
             {r.top_agent && <div className="text-xs text-muted-foreground mt-1">Top agent: {r.top_agent}</div>}
-          </CardContent></Card>
+          </Panel>
         ))}
       </div>
-      <Card><CardContent className="p-4">
+      <Panel>
         <Table>
           <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead>Deals</TableHead><TableHead>Premium</TableHead><TableHead>Avg Deal</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map((r) => (
-            <TableRow key={r.carrier}><TableCell>{r.carrier ?? "Unknown"}</TableCell><TableCell>{r.deals}</TableCell><TableCell>{fmtCurrency(r.premium)}</TableCell><TableCell>{fmtCurrency(r.avg_deal)}</TableCell></TableRow>
+            <TableRow key={r.carrier}><TableCell>{r.carrier ?? "Unknown"}</TableCell><TableCell className="tnum">{r.deals}</TableCell><TableCell className="tnum">{fmtCurrency(r.premium)}</TableCell><TableCell className="tnum">{fmtCurrency(r.avg_deal)}</TableCell></TableRow>
           ))}</TableBody>
         </Table>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -516,20 +541,20 @@ function TrendsPanel() {
         <Button size="sm" variant={mode === "premium" ? "default" : "outline"} onClick={() => setMode("premium")}>$ Premium</Button>
         <Button size="sm" variant={mode === "policies" ? "default" : "outline"} onClick={() => setMode("policies")}># Policies</Button>
       </div>
-      <Card><CardHeader><CardTitle className="text-base">12-Month Trend</CardTitle></CardHeader><CardContent>
+      <Panel title="12-Month Trend">
         <ResponsiveContainer width="100%" height={300}><AreaChart data={series}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="month" fontSize={11} /><YAxis fontSize={11} />
+          <XAxis dataKey="month" fontSize={11} stroke="var(--color-muted-foreground)" /><YAxis fontSize={11} stroke="var(--color-muted-foreground)" />
           <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)" }} formatter={(v: number) => mode === "premium" ? fmtCurrency(v) : v} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           <Area type="monotone" dataKey={myKey} stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.3} name="You" />
           <Area type="monotone" dataKey={teamKey} stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.2} name="Team" />
         </AreaChart></ResponsiveContainer>
-      </CardContent></Card>
+      </Panel>
       {best && worst && (
         <div className="grid md:grid-cols-2 gap-3">
-          <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Best month</div><div className="text-lg font-bold">{best.month} — {fmtCurrency((best as any).team_premium)}</div></CardContent></Card>
-          <Card><CardContent className="p-4"><div className="text-xs text-muted-foreground">Slowest month</div><div className="text-lg font-bold">{worst.month} — {fmtCurrency((worst as any).team_premium)}</div></CardContent></Card>
+          <Panel title="Best Month"><div className="tnum text-lg font-bold font-display" style={{ fontFamily: "var(--font-display)" }}>{best.month} — {fmtCurrency((best as any).team_premium)}</div></Panel>
+          <Panel title="Slowest Month"><div className="tnum text-lg font-bold font-display" style={{ fontFamily: "var(--font-display)" }}>{worst.month} — {fmtCurrency((worst as any).team_premium)}</div></Panel>
         </div>
       )}
     </div>
@@ -545,35 +570,35 @@ function PolicyPanel() {
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-2 gap-3">
-        <Card><CardHeader><CardTitle className="text-base">Status Distribution</CardTitle></CardHeader><CardContent>
+        <Panel title="Status Distribution">
           <ResponsiveContainer width="100%" height={260}><PieChart>
             <Pie data={d?.status_dist ?? []} dataKey="count" nameKey="status" outerRadius={90}>
               {(d?.status_dist ?? []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
             </Pie><Tooltip /><Legend wrapperStyle={{ fontSize: 11 }} />
           </PieChart></ResponsiveContainer>
-        </CardContent></Card>
-        <Card><CardHeader><CardTitle className="text-base">Breakdown</CardTitle></CardHeader><CardContent>
+        </Panel>
+        <Panel title="Breakdown">
           <Table>
             <TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Count</TableHead><TableHead>%</TableHead><TableHead>Avg Premium</TableHead></TableRow></TableHeader>
             <TableBody>{(d?.status_dist ?? []).map((s) => (
-              <TableRow key={s.status}><TableCell>{s.status}</TableCell><TableCell>{s.count}</TableCell><TableCell>{total > 0 ? ((s.count / total) * 100).toFixed(1) : 0}%</TableCell><TableCell>{fmtCurrency(s.avg_premium)}</TableCell></TableRow>
+              <TableRow key={s.status}><TableCell>{s.status}</TableCell><TableCell className="tnum">{s.count}</TableCell><TableCell className="tnum">{total > 0 ? ((s.count / total) * 100).toFixed(1) : 0}%</TableCell><TableCell className="tnum">{fmtCurrency(s.avg_premium)}</TableCell></TableRow>
             ))}</TableBody>
           </Table>
-        </CardContent></Card>
+        </Panel>
       </div>
-      <Card><CardHeader><CardTitle className="text-base">Policies at Risk</CardTitle></CardHeader><CardContent>
+      <Panel title="Policies at Risk">
         {d?.at_risk?.length ? (
           <Table>
             <TableHeader><TableRow><TableHead>Client</TableHead><TableHead>Carrier</TableHead><TableHead>Premium</TableHead><TableHead></TableHead></TableRow></TableHeader>
             <TableBody>{d.at_risk.map((p) => (
               <TableRow key={p.id}>
-                <TableCell>{p.client_name}</TableCell><TableCell>{p.carrier}</TableCell><TableCell>{fmtCurrency(p.monthly_premium)}/mo</TableCell>
+                <TableCell>{p.client_name}</TableCell><TableCell>{p.carrier}</TableCell><TableCell className="tnum">{fmtCurrency(p.monthly_premium)}/mo</TableCell>
                 <TableCell><Button size="sm" variant="outline" asChild><a href={`/phone?client=${p.client_id}`}>Follow Up</a></Button></TableCell>
               </TableRow>
             ))}</TableBody>
           </Table>
         ) : <p className="text-sm text-muted-foreground">No policies at risk.</p>}
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -586,27 +611,27 @@ function QualityPanel() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <KpiCard label="Persistency (13-mo)" value={d?.persistency_pct != null ? `${d.persistency_pct}%` : "—"} />
-        <KpiCard label="Lapse Rate (12-mo)" value={`${d?.lapse_rate_pct ?? 0}%`} />
-        <KpiCard label="Avg Policy Duration" value={`${d?.avg_duration_months ?? 0} mo`} />
+        <Kpi label="Persistency (13-mo)" value={d?.persistency_pct != null ? `${d.persistency_pct}%` : "—"} />
+        <Kpi label="Lapse Rate (12-mo)" value={`${d?.lapse_rate_pct ?? 0}%`} />
+        <Kpi label="Avg Policy Duration" value={`${d?.avg_duration_months ?? 0} mo`} />
       </div>
-      <Card><CardHeader><CardTitle className="text-base">Lapse Rate Trend</CardTitle></CardHeader><CardContent>
+      <Panel title="Lapse Rate Trend">
         <ResponsiveContainer width="100%" height={260}><LineChart data={d?.lapse_trend ?? []}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="month" fontSize={11} /><YAxis fontSize={11} />
+          <XAxis dataKey="month" fontSize={11} stroke="var(--color-muted-foreground)" /><YAxis fontSize={11} stroke="var(--color-muted-foreground)" />
           <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)" }} />
-          <ReferenceLine y={15} stroke="hsl(0 84% 60%)" strokeDasharray="4 4" label={{ value: "Industry avg", fontSize: 10 }} />
+          <ReferenceLine y={15} stroke="var(--color-destructive)" strokeDasharray="4 4" label={{ value: "Industry avg", fontSize: 10 }} />
           <Line type="monotone" dataKey="lapse_rate" stroke={CHART_COLORS[0]} strokeWidth={2} />
         </LineChart></ResponsiveContainer>
-      </CardContent></Card>
-      <Card><CardHeader><CardTitle className="text-base">By Carrier</CardTitle></CardHeader><CardContent>
+      </Panel>
+      <Panel title="By Carrier">
         <Table>
           <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead>Placed</TableHead><TableHead>Active</TableHead><TableHead>Lapsed</TableHead><TableHead>Persistency</TableHead></TableRow></TableHeader>
           <TableBody>{(d?.by_carrier ?? []).map((c: any) => (
-            <TableRow key={c.carrier}><TableCell>{c.carrier ?? "—"}</TableCell><TableCell>{c.placed}</TableCell><TableCell>{c.active}</TableCell><TableCell>{c.lapsed}</TableCell><TableCell>{c.persistency_pct}%</TableCell></TableRow>
+            <TableRow key={c.carrier}><TableCell>{c.carrier ?? "—"}</TableCell><TableCell className="tnum">{c.placed}</TableCell><TableCell className="tnum">{c.active}</TableCell><TableCell className="tnum">{c.lapsed}</TableCell><TableCell className="tnum">{c.persistency_pct}%</TableCell></TableRow>
           ))}</TableBody>
         </Table>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -625,29 +650,31 @@ function RecruitingPanel() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <KpiCard label="Total Prospects" value={String(funnel.reduce((s, f) => s + f.count, 0))} />
-        <KpiCard label="Onboarded" value={String(onboarded)} />
-        <KpiCard label="Conversion" value={total > 0 ? `${((onboarded / total) * 100).toFixed(1)}%` : "—"} />
+        <Kpi label="Total Prospects" value={String(funnel.reduce((s, f) => s + f.count, 0))} />
+        <Kpi label="Onboarded" value={String(onboarded)} />
+        <Kpi label="Conversion" value={total > 0 ? `${((onboarded / total) * 100).toFixed(1)}%` : "—"} />
       </div>
-      <Card><CardHeader><CardTitle className="text-base">Recruiting Funnel</CardTitle></CardHeader><CardContent className="space-y-2">
-        {sorted.map((s, i) => {
-          const pct = total > 0 ? (s.count / total) * 100 : 0;
-          return (
-            <div key={s.stage}>
-              <div className="flex justify-between text-sm mb-1"><span className="capitalize">{s.stage.replace(/_/g, " ")}</span><span className="font-medium">{s.count}</span></div>
-              <Progress value={pct} />
-            </div>
-          );
-        })}
-      </CardContent></Card>
-      <Card><CardHeader><CardTitle className="text-base">New Agents Over Time</CardTitle></CardHeader><CardContent>
+      <Panel title="Recruiting Funnel">
+        <div className="space-y-2">
+          {sorted.map((s) => {
+            const pct = total > 0 ? (s.count / total) * 100 : 0;
+            return (
+              <div key={s.stage}>
+                <div className="flex justify-between text-sm mb-1"><span className="capitalize">{s.stage.replace(/_/g, " ")}</span><span className="font-medium tnum">{s.count}</span></div>
+                <Progress value={pct} />
+              </div>
+            );
+          })}
+        </div>
+      </Panel>
+      <Panel title="New Agents Over Time">
         <ResponsiveContainer width="100%" height={240}><BarChart data={monthly}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="month" fontSize={11} /><YAxis fontSize={11} />
+          <XAxis dataKey="month" fontSize={11} stroke="var(--color-muted-foreground)" /><YAxis fontSize={11} stroke="var(--color-muted-foreground)" />
           <Tooltip contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)" }} />
           <Bar dataKey="count" fill={CHART_COLORS[2]} radius={[6,6,0,0]} />
         </BarChart></ResponsiveContainer>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }

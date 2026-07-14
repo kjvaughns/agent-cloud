@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
+import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -198,97 +200,82 @@ function FinancesPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-6 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+      <PageShell>
+        <div className="col">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--gap)]">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+          <Skeleton className="h-72" />
         </div>
-        <Skeleton className="h-72" />
-      </div>
+      </PageShell>
     );
   }
 
   const hasData = rows.length > 0;
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold font-heading tracking-wide">Finances</h1>
-        <p className="text-sm text-muted-foreground">Financial analytics &amp; forecasting</p>
-      </div>
+    <PageShell>
+      <div className="col">
+        <HeroBand title="Finances" subtitle="Commissions, forecasts & payouts" />
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiTile
-          icon={<CalendarIcon className="h-4 w-4 text-muted-foreground" />}
-          label="Today"
-          value={fmtCurrency(stats.todayTotal)}
-          sub={today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-          zeroIsRed
-        />
-        <KpiTile
-          icon={<TrendingUp className="h-4 w-4 text-emerald-500" />}
-          label="Forecast 90-Day"
-          value={fmtCurrency(stats.forecast90)}
-          sub="Expected next 90 days"
-          valueClass="text-emerald-600"
-        />
-        <KpiTile
-          label="Month-to-Date (MTD)"
-          value={fmtCurrency(stats.mtd)}
-          sub={today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-        />
-        <KpiTile
-          label="Year-to-Date (YTD)"
-          value={fmtCurrency(stats.ytd)}
-          sub={`Since Jan 1, ${today.getFullYear()}`}
-        />
-      </div>
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--gap)]">
+          <Panel>
+            <StatTile
+              label="Today"
+              value={fmtCurrency(stats.todayTotal)}
+              tone={stats.todayTotal === 0 ? "red" : "gold"}
+              delta={today.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            />
+          </Panel>
+          <Panel>
+            <StatTile
+              label="Forecast 90-Day"
+              value={fmtCurrency(stats.forecast90)}
+              tone="gold"
+              delta="Expected next 90 days"
+            />
+          </Panel>
+          <Panel>
+            <StatTile
+              label="Month-to-Date (MTD)"
+              value={fmtCurrency(stats.mtd)}
+              delta={today.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            />
+          </Panel>
+          <Panel>
+            <StatTile
+              label="Year-to-Date (YTD)"
+              value={fmtCurrency(stats.ytd)}
+              delta={`Since Jan 1, ${today.getFullYear()}`}
+            />
+          </Panel>
+        </div>
 
-      {/* Commission type breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-l-4 border-l-primary">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <DollarSign className="h-3.5 w-3.5 text-primary" /> Direct YTD
-            </div>
-            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.directYtd)}</div>
-            <p className="text-xs text-muted-foreground">Advance + trail paid</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5 text-emerald-500" /> Override Pending
-            </div>
-            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.overridePending)}</div>
-            <p className="text-xs text-muted-foreground">From downline production</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3.5 w-3.5 text-purple-500" /> Trail Pending
-            </div>
-            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.trailPending)}</div>
-            <p className="text-xs text-muted-foreground">Months 10–12 deferred</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-sky-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <TrendingUp className="h-3.5 w-3.5 text-sky-500" /> Renewal Pending
-            </div>
-            <div className="text-xl font-bold mt-1">{fmtCurrency(stats.renewalPending)}</div>
-            <p className="text-xs text-muted-foreground">Years 2+ renewals</p>
-          </CardContent>
-        </Card>
-      </div>
+        {/* Commission type breakdown */}
+        <Panel title="Commission Types">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {[
+              { icon: <DollarSign className="h-3.5 w-3.5 text-primary" />, label: "Direct YTD", value: stats.directYtd, sub: "Advance + trail paid", tone: "gold" as const },
+              { icon: <Users className="h-3.5 w-3.5 text-success" />, label: "Override Pending", value: stats.overridePending, sub: "From downline production", tone: "default" as const },
+              { icon: <Clock className="h-3.5 w-3.5" style={{ color: "var(--color-chart-5)" }} />, label: "Trail Pending", value: stats.trailPending, sub: "Months 10–12 deferred", tone: "default" as const },
+              { icon: <TrendingUp className="h-3.5 w-3.5" style={{ color: "var(--color-chart-3)" }} />, label: "Renewal Pending", value: stats.renewalPending, sub: "Years 2+ renewals", tone: "default" as const },
+            ].map((it) => (
+              <div key={it.label} className="rounded-[10px] border border-border-soft bg-surface-2 p-3.5">
+                <StatTile
+                  label={<span className="inline-flex items-center gap-1.5">{it.icon}{it.label}</span>}
+                  value={fmtCurrency(it.value)}
+                  tone={it.tone}
+                  delta={it.sub}
+                />
+              </div>
+            ))}
+          </div>
+        </Panel>
 
-      {/* Forecast chart */}
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="font-semibold mb-3">12-month rolling forecast</h3>
+        {/* Forecast chart */}
+        <Panel title="12-Month Rolling Forecast">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={forecastData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -300,17 +287,15 @@ function FinancesPage() {
               />
               <Legend />
               <Line type="monotone" dataKey="direct" stroke="var(--color-primary)" strokeWidth={2} name="Direct" dot={false} />
-              <Line type="monotone" dataKey="override" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
-              <Line type="monotone" dataKey="trail" stroke="#a855f7" strokeWidth={2} strokeDasharray="3 3" name="Trail" dot={false} />
-              <Line type="monotone" dataKey="renewal" stroke="#0ea5e9" strokeWidth={1.5} strokeDasharray="4 4" name="Renewal" dot={false} />
+              <Line type="monotone" dataKey="override" stroke="var(--color-success)" strokeWidth={2} strokeDasharray="5 5" name="Override" dot={false} />
+              <Line type="monotone" dataKey="trail" stroke="var(--color-chart-5)" strokeWidth={2} strokeDasharray="3 3" name="Trail" dot={false} />
+              <Line type="monotone" dataKey="renewal" stroke="var(--color-chart-3)" strokeWidth={1.5} strokeDasharray="4 4" name="Renewal" dot={false} />
             </LineChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {/* How payouts are calculated */}
-      <Card>
-        <CardContent className="p-2">
+        {/* How payouts are calculated */}
+        <Panel pad={false}>
           <Accordion type="single" collapsible>
             <AccordionItem value="how" className="border-0">
               <AccordionTrigger className="px-3">
@@ -359,17 +344,15 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {/* Scheduled payouts */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="p-4 border-b flex flex-col gap-3">
+        {/* Scheduled payouts */}
+        <Panel pad={false}>
+          <div className="p-4 border-b border-border flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">Scheduled Payouts</h3>
-                <p className="text-xs text-muted-foreground">Your upcoming and past commission payments</p>
+                <SectionLabel>Scheduled Payouts</SectionLabel>
+                <p className="text-xs text-muted-foreground mt-1">Your upcoming and past commission payments</p>
               </div>
               <Button
                 size="sm"
@@ -401,7 +384,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => shiftMonth(1)}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 ml-2">{fmtCurrency(monthTotal)}</span>
+              <span className="tnum font-display font-bold text-success ml-2" style={{ fontFamily: "var(--font-display)" }}>{fmtCurrency(monthTotal)}</span>
             </div>
 
             <div>
@@ -446,7 +429,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                           <div className="font-medium text-sm">{fullDate}</div>
                           <div className="text-xs text-muted-foreground">{dayRows.length} payment{dayRows.length !== 1 ? "s" : ""}</div>
                         </div>
-                        <div className="text-sm font-semibold text-right mr-2">{fmtCurrency(dayTotal)}</div>
+                        <div className="tnum font-display font-bold text-right mr-2" style={{ fontFamily: "var(--font-display)" }}>{fmtCurrency(dayTotal)}</div>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-4 pb-3 pt-0 space-y-2">
@@ -457,12 +440,10 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
               })}
             </Accordion>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {/* Breakdown tabs */}
-      <Card>
-        <CardContent className="p-4">
+        {/* Breakdown tabs */}
+        <Panel title="Breakdown">
           <Tabs defaultValue="carrier">
             <TabsList className="overflow-x-auto flex-nowrap w-full justify-start">
               <TabsTrigger value="carrier">By Carrier</TabsTrigger>
@@ -488,7 +469,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                   <Table>
                     <TableHeader><TableRow><TableHead>Carrier</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                     <TableBody>{byCarrier.map((c) => (
-                      <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.trail)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.override)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(c.renewal)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(c.total)}</TableCell></TableRow>
+                      <TableRow key={c.name}><TableCell>{c.name}</TableCell><TableCell className="text-right">{c.count}</TableCell><TableCell className="text-right tnum">{fmtCurrency(c.direct)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(c.trail)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(c.override)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(c.renewal)}</TableCell><TableCell className="text-right tnum font-semibold">{fmtCurrency(c.total)}</TableCell></TableRow>
                     ))}</TableBody>
                   </Table>
                 </>
@@ -502,7 +483,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                 <Table>
                   <TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right"># Policies</TableHead><TableHead className="text-right">Avg Premium</TableHead><TableHead className="text-right">Total Commission</TableHead></TableRow></TableHeader>
                   <TableBody>{byProduct.map((p) => (
-                    <TableRow key={p.name}><TableCell>{p.name}</TableCell><TableCell className="text-right">{p.count}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(p.avg)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(p.total)}</TableCell></TableRow>
+                    <TableRow key={p.name}><TableCell>{p.name}</TableCell><TableCell className="text-right">{p.count}</TableCell><TableCell className="text-right tnum">{fmtCurrency(p.avg)}</TableCell><TableCell className="text-right tnum font-semibold">{fmtCurrency(p.total)}</TableCell></TableRow>
                   ))}</TableBody>
                 </Table>
               )}
@@ -516,15 +497,15 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
                   <Tooltip formatter={(v: number) => fmtCurrency(v)} contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }} />
                   <Area type="monotone" dataKey="direct" stackId="1" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.3} name="Direct" />
-                  <Area type="monotone" dataKey="trail" stackId="1" stroke="#a855f7" fill="#a855f7" fillOpacity={0.3} name="Trail" />
-                  <Area type="monotone" dataKey="override" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.3} name="Override" />
-                  <Area type="monotone" dataKey="renewal" stackId="1" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.3} name="Renewal" />
+                  <Area type="monotone" dataKey="trail" stackId="1" stroke="var(--color-chart-5)" fill="var(--color-chart-5)" fillOpacity={0.3} name="Trail" />
+                  <Area type="monotone" dataKey="override" stackId="1" stroke="var(--color-success)" fill="var(--color-success)" fillOpacity={0.3} name="Override" />
+                  <Area type="monotone" dataKey="renewal" stackId="1" stroke="var(--color-chart-3)" fill="var(--color-chart-3)" fillOpacity={0.3} name="Renewal" />
                 </AreaChart>
               </ResponsiveContainer>
               <Table>
                 <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
                 <TableBody>{forecastData.map((m) => (
-                  <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.trail)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right font-mono">{fmtCurrency(m.renewal)}</TableCell><TableCell className="text-right font-mono font-semibold">{fmtCurrency(m.direct + m.trail + m.override + m.renewal)}</TableCell></TableRow>
+                  <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.trail)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.renewal)}</TableCell><TableCell className="text-right tnum font-semibold">{fmtCurrency(m.direct + m.trail + m.override + m.renewal)}</TableCell></TableRow>
                 ))}</TableBody>
               </Table>
             </TabsContent>
@@ -536,27 +517,9 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
               />
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function KpiTile({
-  icon, label, value, sub, valueClass, zeroIsRed,
-}: { icon?: React.ReactNode; label: string; value: string; sub?: string; valueClass?: string; zeroIsRed?: boolean }) {
-  const isZero = value.includes("0.00") || value === "$0";
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{label}</span>
-          {icon}
-        </div>
-        <div className={`text-2xl font-bold mt-1 ${valueClass ?? ""} ${zeroIsRed && isZero ? "text-rose-500" : ""}`}>{value}</div>
-        {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-      </CardContent>
-    </Card>
+        </Panel>
+      </div>
+    </PageShell>
   );
 }
 
@@ -575,7 +538,7 @@ function TypeBadge({ type }: { type: string }) {
 function PayoutRow({ row }: { row: Row }) {
   const isOverride = row.payment_type === "override";
   return (
-    <div className={`rounded-lg border p-3 space-y-1 text-sm ${isOverride ? "bg-primary/5" : ""}`}>
+    <div className={`rounded-[10px] border p-3 space-y-1 text-sm ${isOverride ? "bg-gold-glow border-primary/30" : "border-border-soft bg-surface-2"}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           {isOverride ? <Users className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
@@ -584,7 +547,7 @@ function PayoutRow({ row }: { row: Row }) {
         <div className="flex items-center gap-2 shrink-0">
           <TypeBadge type={row.payment_type} />
           <StatusBadge status={row.status} />
-          <span className="font-mono font-semibold">{fmtCurrency(row.amount)}</span>
+          <span className="tnum font-display font-bold" style={{ fontFamily: "var(--font-display)" }}>{fmtCurrency(row.amount)}</span>
         </div>
       </div>
       <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">

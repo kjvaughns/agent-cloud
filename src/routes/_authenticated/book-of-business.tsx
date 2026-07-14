@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { money } from "@/lib/format";
+import { money, number } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import {
   listBookOfBusiness,
@@ -17,6 +17,8 @@ import {
   listCarriersForFilter,
 } from "@/lib/book-of-business.functions";
 import { PolicyDetailSheet } from "@/components/book-of-business/policy-detail-sheet";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
 
 export const Route = createFileRoute("/_authenticated/book-of-business")({
   head: () => ({
@@ -156,21 +158,30 @@ function BookPage() {
   statusToggles.forEach((s) => activeChips.push({ label: statusLabel(s), clear: () => toggleStatusCard(s) }));
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Book of Business</h1>
-          <p className="text-sm text-muted-foreground">View all your deals and track your team's production.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-            <Download className="h-4 w-4 mr-1.5" /> Export CSV
-          </Button>
-        </div>
-      </div>
+    <PageShell>
+      <div className="col">
+        <HeroBand
+          title="Book of Business"
+          subtitle="View all your deals and track your team's production."
+          actions={
+            <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
+              <Download className="h-4 w-4 mr-1.5" /> Export CSV
+            </Button>
+          }
+        />
 
-          {/* Filters */}
+        {/* Summary stats */}
+        <Panel>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatTile label="Total Policies" value={number(totals.count)} />
+            <StatTile label="Total Annual Premium" value={money(totals.premium, { maximumFractionDigits: 2 })} tone="gold" />
+            <StatTile label="Active Rate" value={`${totals.activeRate}%`} delta={`${filtered.filter((x: any) => x.status === "active").length} active`} />
+            <StatTile label="Avg Policy Size" value={money(totals.avg, { maximumFractionDigits: 2 })} />
+          </div>
+        </Panel>
+
+        {/* Filters toolbar */}
+        <Panel>
           <div className="flex flex-wrap items-center gap-2">
             <Select value={carrierFilter} onValueChange={(v) => { setCarrierFilter(v); setPage(0); }}>
               <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Carriers" /></SelectTrigger>
@@ -232,9 +243,9 @@ function BookPage() {
 
           {/* Active filter chips */}
           {activeChips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {activeChips.map((c, i) => (
-                <span key={i} className="inline-flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-xs">
+                <span key={i} className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs">
                   {c.label}
                   <button onClick={c.clear} className="ml-0.5 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
                 </span>
@@ -243,138 +254,136 @@ function BookPage() {
             </div>
           )}
 
-          <div className="text-xs text-muted-foreground">
-            Showing {filtered.length} of {allRows.length} policies
+          <div className="mt-3 text-xs text-muted-foreground">
+            Showing <span className="tnum text-foreground">{filtered.length}</span> of <span className="tnum text-foreground">{allRows.length}</span> policies
           </div>
+        </Panel>
 
-          {/* Status summary cards */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {POLICY_STATUSES.map((s) => {
-              const active = statusToggles.has(s.value);
-              return (
-                <button
-                  key={s.value}
-                  onClick={() => toggleStatusCard(s.value)}
-                  className={cn(
-                    "min-w-[120px] rounded-lg border p-3 text-left transition",
-                    s.cardCls,
-                    active ? "ring-2 ring-primary" : "hover:opacity-90",
-                  )}
-                >
-                  <div className="text-[11px] uppercase tracking-wide opacity-80">{s.label}</div>
-                  <div className="text-xl font-semibold">{statusCounts.get(s.value) ?? 0}</div>
-                </button>
-              );
-            })}
-            <div className="min-w-[120px] rounded-lg border bg-card p-3">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total</div>
-              <div className="text-xl font-semibold">{allRows.length}</div>
+        {/* Status summary toggle cards */}
+        <div className="grid grid-cols-2 gap-gap sm:grid-cols-3 lg:grid-cols-6">
+          {POLICY_STATUSES.map((s) => {
+            const active = statusToggles.has(s.value);
+            return (
+              <button
+                key={s.value}
+                onClick={() => toggleStatusCard(s.value)}
+                className={cn(
+                  "rounded-[var(--radius)] border p-3 text-left transition",
+                  s.cardCls,
+                  active ? "ring-2 ring-primary" : "hover:opacity-90",
+                )}
+              >
+                <div className="text-[10px] font-semibold uppercase tracking-[0.07em] opacity-80">{s.label}</div>
+                <div className="tnum font-display font-bold mt-1.5 text-[22px] leading-none" style={{ fontFamily: "var(--font-display)" }}>
+                  {number(statusCounts.get(s.value) ?? 0)}
+                </div>
+              </button>
+            );
+          })}
+          <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Total</div>
+            <div className="tnum font-display font-bold mt-1.5 text-[22px] leading-none" style={{ fontFamily: "var(--font-display)" }}>
+              {number(allRows.length)}
             </div>
           </div>
+        </div>
 
-          {/* Summary stats bar */}
-          <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/40 p-3 md:grid-cols-4">
-            <Stat label="Total Policies" value={String(totals.count)} />
-            <Stat label="Total Annual Premium" value={money(totals.premium, { maximumFractionDigits: 2 })} />
-            <Stat label="Active Rate" value={`${totals.activeRate}%`} />
-            <Stat label="Avg Policy Size" value={money(totals.avg, { maximumFractionDigits: 2 })} />
+        {/* Table */}
+        <Panel pad={false} className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-surface-2 backdrop-blur">
+                <tr className="text-left">
+                  <Th onClick={() => toggleSort("client_last_name")} sort={sort} k="client_last_name">Client Name</Th>
+                  {showAgentCol && <Th onClick={() => toggleSort("agent_last_name")} sort={sort} k="agent_last_name">Agent</Th>}
+                  <Th onClick={() => toggleSort("carrier_name")} sort={sort} k="carrier_name">Carrier</Th>
+                  <Th onClick={() => toggleSort("product")} sort={sort} k="product">Product</Th>
+                  <Th onClick={() => toggleSort("policy_number")} sort={sort} k="policy_number">Policy #</Th>
+                  <Th onClick={() => toggleSort("status")} sort={sort} k="status">Status</Th>
+                  <Th onClick={() => toggleSort("monthly_premium")} sort={sort} k="monthly_premium" className="text-right">Monthly</Th>
+                  <Th onClick={() => toggleSort("annual_premium")} sort={sort} k="annual_premium" className="text-right">Annual</Th>
+                  <Th onClick={() => toggleSort("effective_date")} sort={sort} k="effective_date">Effective</Th>
+                  <Th onClick={() => toggleSort("posted_at")} sort={sort} k="posted_at">Posted</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {listQ.isLoading || !hydrated ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i} className="border-t border-border">
+                      <td colSpan={showAgentCol ? 10 : 9} className="p-3"><Skeleton className="h-6 w-full" /></td>
+                    </tr>
+                  ))
+                ) : pageRows.length === 0 ? (
+                  <tr><td colSpan={showAgentCol ? 10 : 9}>
+                    <EmptyState
+                      hasFilters={activeChips.length > 0 || !!query}
+                      onClear={clearFilters}
+                    />
+                  </td></tr>
+                ) : (
+                  pageRows.map((r: any) => (
+                    <tr
+                      key={r.id}
+                      onClick={() => setOpenRowId(r.id)}
+                      className="border-t border-border cursor-pointer hover:bg-surface-2 transition-colors"
+                    >
+                      <td className="p-3 font-medium">
+                        {r.client_last_name}, {r.client_first_name}
+                        {r.carrier_integration && <Link2 className="inline-block ml-1.5 h-3 w-3 text-muted-foreground" />}
+                      </td>
+                      {showAgentCol && (
+                        <td className="p-3 text-muted-foreground text-xs">
+                          {[r.agent_first_name, r.agent_last_name].filter(Boolean).join(" ")}
+                        </td>
+                      )}
+                      <td className="p-3">{r.carrier_name ?? "—"}</td>
+                      <td className="p-3">{r.product ?? "—"}</td>
+                      <td className="p-3 font-mono text-xs">{r.policy_number ?? "—"}</td>
+                      <td className="p-3">
+                        <span className={cn("inline-flex h-6 items-center rounded-full border px-2 text-xs font-medium", statusBadgeClass(r.status))}>
+                          {statusLabel(r.status)}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right tnum">{r.monthly_premium ? money(r.monthly_premium, { maximumFractionDigits: 2 }) : "—"}</td>
+                      <td className="p-3 text-right tnum font-semibold text-success">
+                        {r.annual_premium ? money(r.annual_premium, { maximumFractionDigits: 2 }) : "—"}
+                      </td>
+                      <td className="p-3">{r.effective_date ? new Date(r.effective_date).toLocaleDateString() : "—"}</td>
+                      <td className="p-3">{r.posted_at ? new Date(r.posted_at).toLocaleDateString() : "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* Table */}
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted/60 backdrop-blur z-10">
-                  <tr className="text-left">
-                    <Th onClick={() => toggleSort("client_last_name")} sort={sort} k="client_last_name">Client Name</Th>
-                    {showAgentCol && <Th onClick={() => toggleSort("agent_last_name")} sort={sort} k="agent_last_name">Agent</Th>}
-                    <Th onClick={() => toggleSort("carrier_name")} sort={sort} k="carrier_name">Carrier</Th>
-                    <Th onClick={() => toggleSort("product")} sort={sort} k="product">Product</Th>
-                    <Th onClick={() => toggleSort("policy_number")} sort={sort} k="policy_number">Policy #</Th>
-                    <Th onClick={() => toggleSort("status")} sort={sort} k="status">Status</Th>
-                    <Th onClick={() => toggleSort("monthly_premium")} sort={sort} k="monthly_premium" className="text-right">Monthly</Th>
-                    <Th onClick={() => toggleSort("annual_premium")} sort={sort} k="annual_premium" className="text-right">Annual</Th>
-                    <Th onClick={() => toggleSort("effective_date")} sort={sort} k="effective_date">Effective</Th>
-                    <Th onClick={() => toggleSort("posted_at")} sort={sort} k="posted_at">Posted</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listQ.isLoading || !hydrated ? (
-                    Array.from({ length: 8 }).map((_, i) => (
-                      <tr key={i} className="border-t">
-                        <td colSpan={showAgentCol ? 10 : 9} className="p-3"><Skeleton className="h-6 w-full" /></td>
-                      </tr>
-                    ))
-                  ) : pageRows.length === 0 ? (
-                    <tr><td colSpan={showAgentCol ? 10 : 9}>
-                      <EmptyState
-                        hasFilters={activeChips.length > 0 || !!query}
-                        onClear={clearFilters}
-                      />
-                    </td></tr>
-                  ) : (
-                    pageRows.map((r: any) => (
-                      <tr
-                        key={r.id}
-                        onClick={() => setOpenRowId(r.id)}
-                        className="border-t cursor-pointer hover:bg-muted/40 transition-colors"
-                      >
-                        <td className="p-3 font-medium">
-                          {r.client_last_name}, {r.client_first_name}
-                          {r.carrier_integration && <Link2 className="inline-block ml-1.5 h-3 w-3 text-muted-foreground" />}
-                        </td>
-                        {showAgentCol && (
-                          <td className="p-3 text-muted-foreground text-xs">
-                            {[r.agent_first_name, r.agent_last_name].filter(Boolean).join(" ")}
-                          </td>
-                        )}
-                        <td className="p-3">{r.carrier_name ?? "—"}</td>
-                        <td className="p-3">{r.product ?? "—"}</td>
-                        <td className="p-3 font-mono text-xs">{r.policy_number ?? "—"}</td>
-                        <td className="p-3">
-                          <span className={cn("inline-flex h-6 items-center rounded-full border px-2 text-xs font-medium", statusBadgeClass(r.status))}>
-                            {statusLabel(r.status)}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right tabular-nums">{r.monthly_premium ? money(r.monthly_premium, { maximumFractionDigits: 2 }) : "—"}</td>
-                        <td className="p-3 text-right tabular-nums font-semibold text-emerald-700 dark:text-emerald-400">
-                          {r.annual_premium ? money(r.annual_premium, { maximumFractionDigits: 2 }) : "—"}
-                        </td>
-                        <td className="p-3">{r.effective_date ? new Date(r.effective_date).toLocaleDateString() : "—"}</td>
-                        <td className="p-3">{r.posted_at ? new Date(r.posted_at).toLocaleDateString() : "—"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {filtered.length > 0 && (
-              <div className="flex items-center justify-between border-t p-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">Rows per page</span>
-                  <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}>
-                    <SelectTrigger className="w-[90px] h-8"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">
-                    {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length}
-                  </span>
-                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</Button>
-                  <span className="text-xs">Page {page + 1} / {totalPages}</span>
-                  <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>›</Button>
-                </div>
+          {/* Pagination */}
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between border-t border-border p-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Rows per page</span>
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(0); }}>
+                  <SelectTrigger className="w-[90px] h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[25, 50, 100].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground tnum">
+                  {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length}
+                </span>
+                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</Button>
+                <span className="text-xs tnum">Page {page + 1} / {totalPages}</span>
+                <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>›</Button>
+              </div>
+            </div>
+          )}
+        </Panel>
+      </div>
 
       <PolicyDetailSheet row={openRow} open={!!openRowId} onOpenChange={(v) => !v && setOpenRowId(null)} />
-    </div>
+    </PageShell>
   );
 }
 
@@ -382,20 +391,11 @@ function Th({ children, onClick, sort, k, className }: { children: React.ReactNo
   const active = sort.key === k;
   const Icon = !active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <th className={cn("p-3 font-semibold text-xs uppercase tracking-wide text-muted-foreground", className)}>
+    <th className={cn("p-3 font-semibold text-[10px] uppercase tracking-[0.07em] text-muted-foreground", className)}>
       <button onClick={onClick} className="inline-flex items-center gap-1 hover:text-foreground">
         {children} <Icon className="h-3 w-3" />
       </button>
     </th>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="font-semibold tabular-nums">{value}</div>
-    </div>
   );
 }
 

@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, Target } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { getChallenges, getTrophies, type Challenge, type Trophy as TrophyType } from "@/lib/analytics.functions";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/challenges")({
   head: () => ({
@@ -39,15 +40,11 @@ function ChallengesPage() {
   );
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Target className="h-7 w-7 text-primary" /> Challenges &amp; Trophies</h1>
-        <p className="text-muted-foreground mt-1">Goals reset on their period. Trophies stay forever.</p>
-      </div>
+    <PageShell>
+      <div className="flex flex-col gap-[var(--gap)]">
+        <HeroBand title="Challenges & Trophies" subtitle="Goals reset on their period. Trophies stay forever." />
 
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5 text-warning" /> Trophy case</CardTitle></CardHeader>
-        <CardContent>
+        <Panel title="Trophy Case">
           {loadingTrophies ? (
             <div className="flex gap-3 overflow-x-auto pb-2">
               {[1, 2, 3].map((i) => <Skeleton key={i} className="shrink-0 h-24 w-32 rounded-xl" />)}
@@ -57,7 +54,7 @@ function ChallengesPage() {
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2">
               {(trophies as TrophyType[]).map((t) => (
-                <div key={t.id} className="shrink-0 w-32 text-center border rounded-xl p-3 bg-gradient-to-b from-warning/10 to-transparent">
+                <div key={t.id} className="shrink-0 w-32 text-center border border-border rounded-xl p-3 bg-gradient-to-b from-warning/10 to-transparent">
                   <Trophy className="h-8 w-8 mx-auto text-warning" />
                   <div className="font-medium text-sm mt-2">{t.type}</div>
                   <div className="text-xs text-muted-foreground">{t.earned_at ? new Date(t.earned_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}</div>
@@ -65,47 +62,41 @@ function ChallengesPage() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {loadingChallenges ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
-        </div>
-      ) : sortedChallenges.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            No active challenges right now. Check back tomorrow!
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedChallenges.map((c: Challenge) => {
-            const pct = Math.min(100, Math.round(((c.current_value ?? 0) / (c.target_value ?? 1)) * 100));
-            const isMoney = (c.type ?? "").toLowerCase().includes("premium") || (c.type ?? "").toLowerCase().includes("production");
-            const fmt = (n: number) => isMoney ? `$${n.toLocaleString()}` : n.toLocaleString();
-            return (
-              <Card key={c.id} className={c.completed ? "border-success/40 bg-success/5" : ""}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-base">{c.type}</CardTitle>
-                    <Badge variant="outline" className="capitalize">{c.period}</Badge>
+        {loadingChallenges ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[var(--gap)]">
+            {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+          </div>
+        ) : sortedChallenges.length === 0 ? (
+          <Panel>
+            <div className="py-12 text-center text-muted-foreground">No active challenges right now. Check back tomorrow!</div>
+          </Panel>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[var(--gap)]">
+            {sortedChallenges.map((c: Challenge) => {
+              const pct = Math.min(100, Math.round(((c.current_value ?? 0) / (c.target_value ?? 1)) * 100));
+              const isMoney = (c.type ?? "").toLowerCase().includes("premium") || (c.type ?? "").toLowerCase().includes("production");
+              const fmt = (n: number) => isMoney ? `$${n.toLocaleString()}` : n.toLocaleString();
+              return (
+                <Panel key={c.id} className={c.completed ? "border-success/40 bg-success/5" : ""}>
+                  <div className="flex items-start justify-between mb-1">
+                    <div className="font-display font-semibold" style={{ fontFamily: "var(--font-display)" }}>{c.type}</div>
+                    <Badge variant="gold" className="capitalize">{c.period}</Badge>
                   </div>
-                  {c.description && <p className="text-sm text-muted-foreground">{c.description}</p>}
-                </CardHeader>
-                <CardContent className="space-y-2">
+                  {c.description && <p className="text-sm text-muted-foreground mb-3">{c.description}</p>}
                   <div className="flex items-end justify-between">
-                    <div className="text-2xl font-bold">{fmt(c.current_value ?? 0)}</div>
-                    <div className="text-sm text-muted-foreground">of {fmt(c.target_value ?? 0)}</div>
+                    <div className="text-2xl font-bold tnum font-display" style={{ fontFamily: "var(--font-display)" }}>{fmt(c.current_value ?? 0)}</div>
+                    <div className="text-sm text-muted-foreground tnum">of {fmt(c.target_value ?? 0)}</div>
                   </div>
-                  <Progress value={pct} />
-                  <div className="text-xs text-muted-foreground">{pct}% complete{c.completed && " ✓"}</div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-    </div>
+                  <Progress value={pct} className="mt-2" />
+                  <div className="text-xs text-muted-foreground mt-1.5">{pct}% complete{c.completed && " ✓"}</div>
+                </Panel>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </PageShell>
   );
 }

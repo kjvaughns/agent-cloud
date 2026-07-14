@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/contracting/commission-grids")({
   component: GridsPage,
@@ -35,13 +36,12 @@ function GridsPage() {
   });
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold font-heading tracking-wide">Commission Grids</h1>
-        <p className="text-sm text-muted-foreground max-w-3xl">
-          View commission rates for your contracted carriers. Your assigned level is highlighted in gold.
-        </p>
-      </div>
+    <PageShell>
+      <div className="flex flex-col gap-[var(--gap)]">
+      <HeroBand
+        title="Commission Grids"
+        subtitle="Commission rates for your contracted carriers. Your assigned level is highlighted in gold."
+      />
 
       {isLoading ? (
         <Skeleton className="h-40" />
@@ -89,7 +89,8 @@ function GridsPage() {
           ))}
         </Accordion>
       )}
-    </div>
+      </div>
+    </PageShell>
   );
 }
 
