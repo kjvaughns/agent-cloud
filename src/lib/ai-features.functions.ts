@@ -1,7 +1,7 @@
 // Phase 1 AI server functions for Agent Cloud.
 // All functions are guarded with requireSupabaseAuth and use the AI Gateway helper.
 
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn } from "@tanstack/start-client-core";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAi, callAiJson } from "./ai-gateway";
