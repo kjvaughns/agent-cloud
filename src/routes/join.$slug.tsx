@@ -1,33 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Cloud, CheckCircle2 } from "lucide-react";
-
-const getFunnel = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ slug: z.string().min(1).max(80) }).parse(d))
-  .handler(async ({ data }) => {
-    const { data: funnel } = await supabaseAdmin
-      .from("recruiting_funnels")
-      .select("id,agent_id,name,slug,published")
-      .eq("slug", data.slug)
-      .maybeSingle();
-    if (!funnel || !funnel.published) return null;
-    const { data: agent } = await supabaseAdmin
-      .from("profiles")
-      .select("first_name,last_name,avatar_url,email,phone")
-      .eq("id", funnel.agent_id)
-      .maybeSingle();
-    return { funnel, agent };
-  });
+import { getPublicRecruitingFunnel } from "@/lib/public-pages.functions";
 
 export const Route = createFileRoute("/join/$slug")({
-  loader: ({ params }) => getFunnel({ data: { slug: params.slug } }),
+  loader: ({ params }) => getPublicRecruitingFunnel({ data: { slug: params.slug } }),
   head: ({ loaderData }) => ({
     meta: [
       { title: loaderData ? `Join ${loaderData.agent?.first_name ?? ""}'s Team` : "Recruiting Funnel" },

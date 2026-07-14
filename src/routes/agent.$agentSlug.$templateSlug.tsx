@@ -1,36 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { useState } from "react";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Phone, Mail } from "lucide-react";
 import { getTemplate, type LandingTemplate } from "@/lib/landing-templates";
-
-const getLanding = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ agentSlug: z.string().min(1).max(80), templateSlug: z.string().min(1).max(80) }).parse(d))
-  .handler(async ({ data }) => {
-    const { data: agent } = await supabaseAdmin
-      .from("profiles")
-      .select("id,first_name,last_name,email,phone,avatar_url")
-      .eq("agent_slug", data.agentSlug)
-      .maybeSingle();
-    if (!agent) return null;
-    const { data: page } = await supabaseAdmin
-      .from("landing_pages")
-      .select("id,template_slug,published,title")
-      .eq("agent_id", agent.id)
-      .eq("template_slug", data.templateSlug)
-      .maybeSingle();
-    if (!page || !page.published) return null;
-    return { agent, page };
-  });
+import { getPublicTemplateLanding } from "@/lib/public-pages.functions";
 
 export const Route = createFileRoute("/agent/$agentSlug/$templateSlug")({
-  loader: ({ params }) => getLanding({ data: { agentSlug: params.agentSlug, templateSlug: params.templateSlug } }),
+  loader: ({ params }) => getPublicTemplateLanding({ data: { agentSlug: params.agentSlug, templateSlug: params.templateSlug } }),
   head: ({ loaderData, params }) => {
     const tpl = getTemplate(params.templateSlug);
     return {
