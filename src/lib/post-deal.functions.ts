@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/start-client-core";
+import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";

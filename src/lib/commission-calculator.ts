@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/start-client-core";
+import { createServerFn } from "@tanstack/react-start";
 
 type CommissionInput = {
   policyId: string;

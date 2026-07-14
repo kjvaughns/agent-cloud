@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/start-client-core";
+import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const PublicLandingSchema = z.object({ slug: z.string().min(1).max(80) });

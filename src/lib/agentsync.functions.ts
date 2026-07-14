@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/start-client-core";
+import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { agentSyncIsConfigured, syncProducerByNpn } from "@/lib/agentsync.service";
