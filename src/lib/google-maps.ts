@@ -17,9 +17,7 @@ export function ensureMaps(): Promise<any> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loadPromise) return loadPromise;
 
-  const key =
-    import.meta.env.VITE_GOOGLE_MAPS_API_AC ||
-    import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
+  const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
   const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
   if (!key) return Promise.reject(new Error("Google Maps key not configured"));
 
