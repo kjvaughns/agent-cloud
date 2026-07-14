@@ -105,7 +105,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/favicon.jpg" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" },
       {
         rel: "stylesheet",
         href: appCss,
@@ -118,10 +118,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Runs before first paint to prevent a flash of the wrong theme/density.
+// Dark is the default; only an explicit stored "light" opts out.
+const THEME_INIT = `(function(){try{
+  var d=document.documentElement;
+  var t=localStorage.getItem("agentcloud-theme");
+  if(t!=="light"){d.classList.add("dark");}
+  var den=localStorage.getItem("agentcloud-density");
+  if(den&&den!=="regular"){d.setAttribute("data-density",den);}
+  var ac=localStorage.getItem("agentcloud-accent");
+  if(ac&&ac!=="gold"){d.setAttribute("data-accent",ac);}
+}catch(e){document.documentElement.classList.add("dark");}})();`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         <HeadContent />
       </head>
       <body>
