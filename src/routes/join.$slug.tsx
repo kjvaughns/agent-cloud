@@ -1,36 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { createServerFn } from "@tanstack/react-start";
 import { useState, useEffect } from "react";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Cloud, CheckCircle2 } from "lucide-react";
 
-const getFunnel = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ slug: z.string().min(1).max(80) }).parse(d))
-  .handler(async ({ data }) => {
-    const { data: funnel } = await supabaseAdmin
-      .from("recruiting_funnels")
-      .select("id,agent_id,name,slug,published")
-      .eq("slug", data.slug)
-      .maybeSingle();
-    if (!funnel || !funnel.published) return null;
-    const { data: agent } = await supabaseAdmin
-      .from("profiles")
-      .select("first_name,last_name,avatar_url,email,phone")
-      .eq("id", funnel.agent_id)
-      .maybeSingle();
-    return { funnel, agent };
-  });
-
 export const Route = createFileRoute("/join/$slug")({
-  loader: ({ params }) => getFunnel({ data: { slug: params.slug } }),
-  head: ({ loaderData }) => ({
+  head: () => ({
     meta: [
-      { title: loaderData ? `Join ${loaderData.agent?.first_name ?? ""}'s Team` : "Recruiting Funnel" },
+      { title: "Recruiting Funnel — Agent Cloud" },
       { name: "description", content: "Get contracted and start writing business in days." },
     ],
   }),
@@ -39,20 +18,29 @@ export const Route = createFileRoute("/join/$slug")({
 });
 
 function JoinPage() {
-  const data = Route.useLoaderData();
   const { slug } = Route.useParams();
+  const [data, setData] = useState<any | null | undefined>(undefined);
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let alive = true;
+    fetch(`/api/public/page-data?type=funnel&slug=${encodeURIComponent(slug)}`)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((json) => alive && setData(json.data ?? null))
+      .catch(() => alive && setData(null));
     fetch("/api/public/funnel-view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slug }),
     }).catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [slug]);
 
+  if (data === undefined) return <div className="p-12 text-center">Loading…</div>;
   if (!data) return <div className="p-12 text-center">This recruiting page isn't available.</div>;
 
   const agentName = `${data.agent?.first_name ?? ""} ${data.agent?.last_name ?? ""}`.trim() || "Our Team";

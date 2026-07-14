@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { adminListAllAgents, adminSetAgentRole, adminMoveAgent, adminSyncAgentByNpn } from "@/lib/admin.functions";
 import { checkAgentSyncStatus } from "@/lib/agentsync.functions";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";

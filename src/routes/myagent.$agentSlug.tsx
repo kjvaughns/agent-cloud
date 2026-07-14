@@ -1,8 +1,5 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { z } from "zod";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,44 +9,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Mail, Phone } from "lucide-react";
 
-const getPublicLanding = createServerFn({ method: "GET" })
-  .inputValidator((input) => z.object({ slug: z.string().min(1).max(80) }).parse(input))
-  .handler(async ({ data }) => {
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("id,first_name,last_name,email,phone,agent_slug,avatar_url")
-      .eq("agent_slug", data.slug)
-      .maybeSingle();
-    if (!profile) return null;
-    const { data: page } = await supabaseAdmin
-      .from("agent_landing_pages")
-      .select("published,contact_email,contact_phone,custom_message,specialties,carriers,licensed_states")
-      .eq("agent_id", profile.id)
-      .maybeSingle();
-    if (!page?.published) return null;
-    return {
-      name: `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim(),
-      slug: profile.agent_slug,
-      avatar_url: profile.avatar_url,
-      email: page.contact_email || profile.email,
-      phone: page.contact_phone || profile.phone,
-      message: page.custom_message,
-      specialties: (page.specialties as string[]) ?? [],
-      carriers: (page.carriers as string[]) ?? [],
-      licensed_states: (page.licensed_states as string[]) ?? [],
-    };
-  });
-
 export const Route = createFileRoute("/myagent/$agentSlug")({
-  loader: async ({ params }) => {
-    const data = await getPublicLanding({ data: { slug: params.agentSlug } });
-    if (!data) throw notFound();
-    return data;
-  },
-  head: ({ loaderData }) => ({
+  head: () => ({
     meta: [
-      { title: loaderData ? `${loaderData.name} — Licensed Life Insurance Agent` : "Agent" },
-      { name: "description", content: loaderData?.message?.slice(0, 155) ?? "Get a free life insurance quote." },
+      { title: "Licensed Life Insurance Agent — Agent Cloud" },
+      { name: "description", content: "Get a free life insurance quote." },
     ],
   }),
   component: PublicAgentPage,
@@ -69,9 +33,24 @@ export const Route = createFileRoute("/myagent/$agentSlug")({
 });
 
 function PublicAgentPage() {
-  const d = Route.useLoaderData();
+  const { agentSlug } = Route.useParams();
+  const [d, setData] = useState<any | null | undefined>(undefined);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/public/page-data?type=agent&slug=${encodeURIComponent(agentSlug)}`)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((json) => alive && setData(json.data ?? null))
+      .catch(() => alive && setData(null));
+    return () => {
+      alive = false;
+    };
+  }, [agentSlug]);
+
+  if (d === undefined) return <div className="min-h-screen grid place-items-center p-6 text-center">Loading…</div>;
+  if (!d) return <div className="min-h-screen grid place-items-center p-6 text-center">This agent page is not available.</div>;
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

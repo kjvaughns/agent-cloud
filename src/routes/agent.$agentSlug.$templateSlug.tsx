@@ -1,8 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { useState } from "react";
-import { z } from "zod";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,33 +7,12 @@ import { Card } from "@/components/ui/card";
 import { CheckCircle2, Phone, Mail } from "lucide-react";
 import { getTemplate, type LandingTemplate } from "@/lib/landing-templates";
 
-const getLanding = createServerFn({ method: "GET" })
-  .inputValidator((d) => z.object({ agentSlug: z.string().min(1).max(80), templateSlug: z.string().min(1).max(80) }).parse(d))
-  .handler(async ({ data }) => {
-    const { data: agent } = await supabaseAdmin
-      .from("profiles")
-      .select("id,first_name,last_name,email,phone,avatar_url")
-      .eq("agent_slug", data.agentSlug)
-      .maybeSingle();
-    if (!agent) return null;
-    const { data: page } = await supabaseAdmin
-      .from("landing_pages")
-      .select("id,template_slug,published,title")
-      .eq("agent_id", agent.id)
-      .eq("template_slug", data.templateSlug)
-      .maybeSingle();
-    if (!page || !page.published) return null;
-    return { agent, page };
-  });
-
 export const Route = createFileRoute("/agent/$agentSlug/$templateSlug")({
-  loader: ({ params }) => getLanding({ data: { agentSlug: params.agentSlug, templateSlug: params.templateSlug } }),
-  head: ({ loaderData, params }) => {
-    const tpl = getTemplate(params.templateSlug);
+  head: () => {
     return {
       meta: [
-        { title: tpl?.headline ?? "Landing Page" },
-        { name: "description", content: tpl?.subhead ?? "Get a free quote today." },
+        { title: "Landing Page — Agent Cloud" },
+        { name: "description", content: "Get a free quote today." },
       ],
     };
   },
@@ -45,12 +21,25 @@ export const Route = createFileRoute("/agent/$agentSlug/$templateSlug")({
 });
 
 function LandingPage() {
-  const data = Route.useLoaderData();
   const { agentSlug, templateSlug } = Route.useParams();
   const tpl = getTemplate(templateSlug) as LandingTemplate | undefined;
+  const [data, setData] = useState<any | null | undefined>(undefined);
   const [submitted, setSubmitted] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    let alive = true;
+    const qs = new URLSearchParams({ type: "template", agentSlug, templateSlug });
+    fetch(`/api/public/page-data?${qs.toString()}`)
+      .then((res) => (res.ok ? res.json() : { data: null }))
+      .then((json) => alive && setData(json.data ?? null))
+      .catch(() => alive && setData(null));
+    return () => {
+      alive = false;
+    };
+  }, [agentSlug, templateSlug]);
+
+  if (data === undefined) return <div className="p-12 text-center">Loading…</div>;
   if (!data || !tpl) return <div className="p-12 text-center">This page isn't available.</div>;
 
   const agentName = `${data.agent.first_name ?? ""} ${data.agent.last_name ?? ""}`.trim();

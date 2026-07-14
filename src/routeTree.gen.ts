@@ -58,6 +58,7 @@ import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_aut
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
+import { Route as ApiPublicPageDataRouteImport } from './routes/api/public/page-data'
 import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/landing-lead'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
@@ -346,6 +347,11 @@ const ApiPublicWaitlistSignupRoute = ApiPublicWaitlistSignupRouteImport.update({
 const ApiPublicWaitlistCountRoute = ApiPublicWaitlistCountRouteImport.update({
   id: '/api/public/waitlist-count',
   path: '/api/public/waitlist-count',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPageDataRoute = ApiPublicPageDataRouteImport.update({
+  id: '/api/public/page-data',
+  path: '/api/public/page-data',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicLeadSubmitRoute = ApiPublicLeadSubmitRouteImport.update({
@@ -644,6 +650,7 @@ export interface FileRoutesByFullPath {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -730,6 +737,7 @@ export interface FileRoutesByTo {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -820,6 +828,7 @@ export interface FileRoutesById {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -910,6 +919,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/page-data'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/lovable/email/suppression'
@@ -996,6 +1006,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/page-data'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/lovable/email/suppression'
@@ -1085,6 +1096,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/page-data'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/lovable/email/suppression'
@@ -1116,6 +1128,7 @@ export interface RootRouteChildren {
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLandingLeadRoute: typeof ApiPublicLandingLeadRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
+  ApiPublicPageDataRoute: typeof ApiPublicPageDataRoute
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
@@ -1470,6 +1483,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/waitlist-count'
       fullPath: '/api/public/waitlist-count'
       preLoaderRoute: typeof ApiPublicWaitlistCountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/page-data': {
+      id: '/api/public/page-data'
+      path: '/api/public/page-data'
+      fullPath: '/api/public/page-data'
+      preLoaderRoute: typeof ApiPublicPageDataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/lead-submit': {
@@ -1972,6 +1992,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLandingLeadRoute: ApiPublicLandingLeadRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
+  ApiPublicPageDataRoute: ApiPublicPageDataRoute,
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
@@ -1985,13 +2006,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

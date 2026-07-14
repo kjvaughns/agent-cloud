@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/hooks/use-server-fn";
 import {
   submitCaseDesign, listMyCaseDesigns, getCaseDesignDetail, searchClientsForCase,
 } from "@/lib/back-office.functions";
