@@ -18,75 +18,69 @@ import {
   SidebarMenuItem, SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
 
-const groups = [
-  {
-    label: "Overview",
-    items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Notifications", url: "/notifications", icon: Bell },
-      { title: "Announcements", url: "/announcements", icon: Megaphone },
-      { title: "News Feed", url: "/news-feed", icon: Newspaper },
-      { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
-    ],
-  },
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
+type NavGroup = { label: string; items: NavItem[]; defaultCollapsed?: boolean };
+
+const groups: NavGroup[] = [
   {
     label: "Workspace",
     items: [
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
       { title: "Pipeline", url: "/pipeline", icon: KanbanSquare },
+      { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
       { title: "Calendar", url: "/calendar", icon: Calendar },
       { title: "My Phone", url: "/phone", icon: Phone },
       { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
     ],
   },
   {
-    label: "My Business",
+    label: "Business",
     items: [
-      { title: "Team", url: "/team", icon: Users },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
-      { title: "Business Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Finances", url: "/finances", icon: Wallet },
+      { title: "Commission Grids", url: "/contracting/commission-grids", icon: Percent },
+      { title: "Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Challenges", url: "/challenges", icon: Target },
     ],
   },
   {
-    label: "Contracting",
+    label: "Agency",
     items: [
-      { title: "My Contracts", url: "/contracting", icon: FileSignature },
+      { title: "Team", url: "/team", icon: Users },
       { title: "Invite Agent", url: "/contracting/invite", icon: UserPlus },
+      { title: "My Contracts", url: "/contracting", icon: FileSignature },
       { title: "Transfer Requests", url: "/contracting/transfers", icon: ArrowLeftRight },
-      { title: "Commission Grids", url: "/contracting/commission-grids", icon: Percent },
-      { title: "Annuity Training", url: "/contracting/annuity-training", icon: GraduationCap },
       { title: "Carriers", url: "/contracting/carriers", icon: Building2 },
+      { title: "Annuity Training", url: "/contracting/annuity-training", icon: GraduationCap },
     ],
   },
   {
-    label: "Resources",
+    label: "Enablement",
+    defaultCollapsed: true,
     items: [
       { title: "New Agent Guide", url: "/resources/new-agent-guide", icon: BookText },
       { title: "Agent Handbook", url: "/resources/agent-handbook", icon: Library },
       { title: "Scripts", url: "/resources/scripts", icon: ScrollText },
       { title: "State Licenses", url: "/resources/state-licenses", icon: IdCard },
       { title: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
-    ],
-  },
-  {
-    label: "Back Office",
-    items: [
       { title: "Case Design", url: "/back-office/case-design", icon: ClipboardList },
       { title: "Advanced Desk", url: "/back-office/advanced-desk", icon: BriefcaseIcon },
       { title: "Recruiting Funnels", url: "/back-office/recruiting-funnels", icon: Globe },
       { title: "Recruiting Tracker", url: "/back-office/recruiting-tracker", icon: Briefcase },
       { title: "Client Marketing", url: "/back-office/client-marketing", icon: MegaIcon },
-    ],
-  },
-  {
-    label: "Tools",
-    items: [
       { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
       { title: "Toolkits", url: "/tools/quoter", icon: Wrench },
       { title: "Leads", url: "/tools/leads", icon: Target },
       { title: "Inbound Calls", url: "/tools/inbound-calls", icon: PhoneIncoming },
+    ],
+  },
+  {
+    label: "Updates",
+    items: [
+      { title: "Notifications", url: "/notifications", icon: Bell },
+      { title: "Announcements", url: "/announcements", icon: Megaphone },
+      { title: "News Feed", url: "/news-feed", icon: Newspaper },
     ],
   },
 ];
@@ -106,10 +100,14 @@ export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
+    const defaults = Object.fromEntries(
+      groups.filter((g) => g.defaultCollapsed).map((g) => [g.label, true]),
+    );
     try {
-      return JSON.parse(localStorage.getItem("nav-groups") ?? "{}");
+      const stored = JSON.parse(localStorage.getItem("nav-groups") ?? "null");
+      return stored ?? defaults;
     } catch {
-      return {};
+      return defaults;
     }
   });
 
@@ -169,7 +167,7 @@ export function AppSidebar() {
               <div className="min-w-0 flex-1">
                 <div
                   className="truncate text-sidebar-foreground leading-tight"
-                  style={{ fontFamily: "var(--font-heading)", fontWeight: 800, letterSpacing: "-0.02em", fontSize: "1.05rem" }}
+                  style={{ fontFamily: "var(--font-display)", fontWeight: 700, letterSpacing: "-0.02em", fontSize: "1.05rem" }}
                 >
                   {bigName}
                 </div>
@@ -222,7 +220,7 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Admin Portal" className="text-[#C9A227] hover:text-[#C9A227] hover:bg-[#C9A227]/10">
+                    <SidebarMenuButton asChild tooltip="Admin Portal" className="text-primary hover:text-primary hover:bg-primary/10">
                       <Link to="/admin">
                         <ShieldCheck className="h-4 w-4" />
                         <span>Admin Portal</span>

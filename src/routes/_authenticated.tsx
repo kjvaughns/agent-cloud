@@ -4,6 +4,7 @@ import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
+import { CommandPalette } from "@/components/command-palette";
 import { supabase } from "@/integrations/supabase/client";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -82,9 +83,10 @@ function AuthenticatedLayout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <TopBar />
-          <main className="flex-1 min-w-1"><Outlet /></main>
+          <main className="flex-1 min-w-1 content-container"><Outlet /></main>
         </div>
       </div>
+      <CommandPalette />
     </SidebarProvider>
   );
 }

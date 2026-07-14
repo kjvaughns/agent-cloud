@@ -1,4 +1,4 @@
-import { Bell, Moon, Phone, Sun, MessageSquare, LogOut, User, Globe, ShieldCheck } from "lucide-react";
+import { Bell, Moon, Sun, LogOut, User, Globe, ShieldCheck, Search, FilePlus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -15,6 +15,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { formatDistanceToNow } from "date-fns";
 import { listNotifications } from "@/lib/notifications.functions";
+import { OPEN_COMMAND_PALETTE } from "@/components/command-palette";
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export function TopBar() {
   const { theme, toggle } = useTheme();
@@ -32,28 +40,58 @@ export function TopBar() {
   const items = notifications ?? [];
   const unreadCount = items.filter((n: any) => !n.read).length;
 
+  const firstName = (user?.user_metadata?.full_name || user?.email || "").toString().split(/[ @]/)[0];
   const initials = (user?.user_metadata?.full_name || user?.email || "AC")
     .toString().split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
 
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+
+  const openPalette = () => window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE));
+
   return (
-    <header className="h-12 border-b border-border bg-background flex items-center px-2 gap-1 sticky top-0 z-30">
+    <header className="h-[60px] border-b border-border bg-background/95 backdrop-blur flex items-center px-3 gap-2 sticky top-0 z-30">
       <SidebarTrigger />
+
+      {/* Greeting + date + attention */}
+      <div className="min-w-0 hidden sm:block">
+        <div className="flex items-center gap-2 leading-tight">
+          <span className="font-display font-semibold text-[15px] truncate" style={{ fontFamily: "var(--font-display)" }}>
+            {greeting()}{firstName ? `, ${firstName}` : ""}
+          </span>
+          {unreadCount > 0 && (
+            <span className="hidden md:inline-flex items-center gap-1 text-xs text-warning">
+              <AlertTriangle className="h-3 w-3" />
+              {unreadCount} need{unreadCount === 1 ? "s" : ""} attention
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-muted-foreground leading-none">{today}</div>
+      </div>
+
       <div className="flex-1" />
 
+      {/* ⌘K search trigger */}
+      <button
+        onClick={openPalette}
+        className="hidden md:flex items-center gap-2 h-9 rounded-lg border border-border bg-surface-2 px-3 text-sm text-muted-foreground hover:text-foreground hover:border-border transition-colors min-w-[200px]"
+        aria-label="Search"
+      >
+        <Search className="h-4 w-4" />
+        <span className="flex-1 text-left">Search…</span>
+        <kbd className="pointer-events-none rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium tnum">⌘K</kbd>
+      </button>
+      <Button variant="ghost" size="icon" className="md:hidden" onClick={openPalette} aria-label="Search">
+        <Search className="h-4 w-4" />
+      </Button>
+
       {(isAdmin || isManager) && (
-        <Button asChild variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/10 gap-1.5">
+        <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex gap-1.5">
           <Link to="/admin">
             <ShieldCheck className="h-3.5 w-3.5" />
             Admin
           </Link>
         </Button>
       )}
-      <Button variant="ghost" size="icon" aria-label="Phone" asChild className="hidden sm:inline-flex">
-        <Link to="/phone" search={{ tab: "phone" }}><Phone className="h-4 w-4" /></Link>
-      </Button>
-      <Button variant="ghost" size="icon" aria-label="SMS" asChild className="hidden sm:inline-flex">
-        <Link to="/phone" search={{ tab: "sms" }}><MessageSquare className="h-4 w-4" /></Link>
-      </Button>
 
       {/* Notifications */}
       <DropdownMenu>
@@ -92,6 +130,11 @@ export function TopBar() {
 
       <Button variant="ghost" size="icon" onClick={toggle} aria-label="Theme">
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </Button>
+
+      {/* Primary CTA */}
+      <Button asChild size="sm" className="hidden sm:inline-flex gap-1.5">
+        <Link to="/post-deal"><FilePlus className="h-4 w-4" /> Post a Deal</Link>
       </Button>
 
       <DropdownMenu>
