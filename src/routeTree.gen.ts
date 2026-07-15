@@ -64,10 +64,7 @@ import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/la
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
-import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
-import { Route as AuthenticatedToolsNeedsAnalysisRouteImport } from './routes/_authenticated/tools/needs-analysis'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
-import { Route as AuthenticatedToolsInboundCallsRouteImport } from './routes/_authenticated/tools/inbound-calls'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
 import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
@@ -381,29 +378,11 @@ const AgentAgentSlugTemplateSlugRoute =
     path: '/agent/$agentSlug/$templateSlug',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AuthenticatedToolsQuoterRoute =
-  AuthenticatedToolsQuoterRouteImport.update({
-    id: '/tools/quoter',
-    path: '/tools/quoter',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const AuthenticatedToolsNeedsAnalysisRoute =
-  AuthenticatedToolsNeedsAnalysisRouteImport.update({
-    id: '/tools/needs-analysis',
-    path: '/tools/needs-analysis',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   id: '/tools/leads',
   path: '/tools/leads',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedToolsInboundCallsRoute =
-  AuthenticatedToolsInboundCallsRouteImport.update({
-    id: '/tools/inbound-calls',
-    path: '/tools/inbound-calls',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
 const AuthenticatedResourcesStateLicensesRoute =
   AuthenticatedResourcesStateLicensesRouteImport.update({
     id: '/state-licenses',
@@ -649,10 +628,7 @@ export interface FileRoutesByFullPath {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
-  '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
-  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -737,10 +713,7 @@ export interface FileRoutesByTo {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
-  '/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
-  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -829,10 +802,7 @@ export interface FileRoutesById {
   '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
-  '/_authenticated/tools/inbound-calls': typeof AuthenticatedToolsInboundCallsRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
-  '/_authenticated/tools/needs-analysis': typeof AuthenticatedToolsNeedsAnalysisRoute
-  '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -921,10 +891,7 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
-    | '/tools/inbound-calls'
     | '/tools/leads'
-    | '/tools/needs-analysis'
-    | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -1009,10 +976,7 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
-    | '/tools/inbound-calls'
     | '/tools/leads'
-    | '/tools/needs-analysis'
-    | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -1100,10 +1064,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
-    | '/_authenticated/tools/inbound-calls'
     | '/_authenticated/tools/leads'
-    | '/_authenticated/tools/needs-analysis'
-    | '/_authenticated/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -1540,32 +1501,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentAgentSlugTemplateSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tools/quoter': {
-      id: '/_authenticated/tools/quoter'
-      path: '/tools/quoter'
-      fullPath: '/tools/quoter'
-      preLoaderRoute: typeof AuthenticatedToolsQuoterRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tools/needs-analysis': {
-      id: '/_authenticated/tools/needs-analysis'
-      path: '/tools/needs-analysis'
-      fullPath: '/tools/needs-analysis'
-      preLoaderRoute: typeof AuthenticatedToolsNeedsAnalysisRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/tools/leads': {
       id: '/_authenticated/tools/leads'
       path: '/tools/leads'
       fullPath: '/tools/leads'
       preLoaderRoute: typeof AuthenticatedToolsLeadsRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/tools/inbound-calls': {
-      id: '/_authenticated/tools/inbound-calls'
-      path: '/tools/inbound-calls'
-      fullPath: '/tools/inbound-calls'
-      preLoaderRoute: typeof AuthenticatedToolsInboundCallsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources/state-licenses': {
@@ -1918,10 +1858,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
-  AuthenticatedToolsInboundCallsRoute: typeof AuthenticatedToolsInboundCallsRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
-  AuthenticatedToolsNeedsAnalysisRoute: typeof AuthenticatedToolsNeedsAnalysisRoute
-  AuthenticatedToolsQuoterRoute: typeof AuthenticatedToolsQuoterRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -1951,10 +1888,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
-  AuthenticatedToolsInboundCallsRoute: AuthenticatedToolsInboundCallsRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
-  AuthenticatedToolsNeedsAnalysisRoute: AuthenticatedToolsNeedsAnalysisRoute,
-  AuthenticatedToolsQuoterRoute: AuthenticatedToolsQuoterRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
