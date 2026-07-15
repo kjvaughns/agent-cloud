@@ -18,7 +18,7 @@ import {
   SidebarMenuItem, SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean };
 type NavGroup = { label: string; items: NavItem[]; defaultCollapsed?: boolean };
 
 const groups: NavGroup[] = [
