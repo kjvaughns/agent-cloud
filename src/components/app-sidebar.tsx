@@ -18,7 +18,7 @@ import {
   SidebarMenuItem, SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean };
 type NavGroup = { label: string; items: NavItem[]; defaultCollapsed?: boolean };
 
 const groups: NavGroup[] = [
@@ -60,11 +60,9 @@ const groups: NavGroup[] = [
     items: [
       { title: "Phone", url: "/phone", icon: Phone },
       { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-      { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
-      { title: "Toolkits", url: "/tools/quoter", icon: Wrench },
+      { title: "Nova AI", url: "/ai-assistant", icon: Sparkles },
+      { title: "Quoter", url: "https://app.insurancetoolkits.com/fex/quoter", icon: Wrench, external: true },
       { title: "Leads", url: "/tools/leads", icon: Target },
-      { title: "Inbound Calls", url: "/tools/inbound-calls", icon: PhoneIncoming },
     ],
   },
   {
@@ -111,8 +109,8 @@ export function AppSidebar() {
     });
   };
 
-  const renderItem = (it: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }) => {
-    const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
+  const renderItem = (it: NavItem) => {
+    const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
     return (
       <SidebarMenuItem key={it.url}>
         <SidebarMenuButton
@@ -127,10 +125,17 @@ export function AppSidebar() {
             "[&[data-active=true]_svg]:text-primary transition-colors",
           )}
         >
-          <Link to={it.url}>
-            <it.icon className="h-4 w-4" />
-            <span>{it.title}</span>
-          </Link>
+          {it.external ? (
+            <a href={it.url} target="_blank" rel="noopener noreferrer">
+              <it.icon className="h-4 w-4" />
+              <span>{it.title}</span>
+            </a>
+          ) : (
+            <Link to={it.url}>
+              <it.icon className="h-4 w-4" />
+              <span>{it.title}</span>
+            </Link>
+          )}
         </SidebarMenuButton>
       </SidebarMenuItem>
     );

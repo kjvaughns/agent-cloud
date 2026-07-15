@@ -54,7 +54,7 @@ export function NovaRail({
           <Sparkles className="h-3.5 w-3.5 text-primary" />
         </div>
         <span className="font-display font-semibold text-sm" style={{ fontFamily: "var(--font-display)" }}>Nova</span>
-        <span className="text-[10px] uppercase tracking-[0.14em] text-text-dim ml-auto">AI Assistant</span>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-text-dim ml-auto">Nova AI</span>
       </div>
 
       {insight && <p className="text-sm text-muted-foreground mb-3">{insight}</p>}
