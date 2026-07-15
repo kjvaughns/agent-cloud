@@ -139,6 +139,7 @@ export const createProspect = createServerFn({ method: "POST" })
         source: z.string().trim().max(60).optional(),
         notes: z.string().trim().max(2000).optional(),
         stage: stageEnum.default("new"),
+        tracker_type: z.enum(["recruiting", "client"]).default("recruiting"),
       })
       .parse(d),
   )
@@ -155,6 +156,7 @@ export const createProspect = createServerFn({ method: "POST" })
         source: data.source ?? null,
         notes: data.notes ?? null,
         stage: data.stage,
+        tracker_type: data.tracker_type,
       })
       .select()
       .single();
