@@ -21,7 +21,7 @@ const COMMANDS: Cmd[] = [
   { group: "Workspace", title: "Post a Deal", url: "/post-deal", icon: FilePlus },
   { group: "Workspace", title: "Calendar", url: "/calendar", icon: Calendar },
   { group: "Workspace", title: "My Phone", url: "/phone", icon: Phone },
-  { group: "Workspace", title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
+  { group: "Workspace", title: "Nova AI", url: "/ai-assistant", icon: Sparkles },
   { group: "Business", title: "Book of Business", url: "/book-of-business", icon: BookOpen },
   { group: "Business", title: "Finances", url: "/finances", icon: Wallet },
   { group: "Business", title: "Commission Grids", url: "/contracting/commission-grids", icon: Percent },
