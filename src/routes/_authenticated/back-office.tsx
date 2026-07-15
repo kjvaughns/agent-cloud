@@ -10,7 +10,7 @@ const TABS = [
   { label: "Case Design", url: "/back-office/case-design" },
   { label: "Advanced Desk", url: "/back-office/advanced-desk" },
   { label: "Recruiting Funnels", url: "/back-office/recruiting-funnels" },
-  { label: "Recruiting Tracker", url: "/back-office/recruiting-tracker" },
+  { label: "Marketing Tracker", url: "/back-office/marketing-tracker" },
   { label: "Client Marketing", url: "/back-office/client-marketing" },
 ];
 
