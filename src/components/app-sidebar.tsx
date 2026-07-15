@@ -109,8 +109,8 @@ export function AppSidebar() {
     });
   };
 
-  const renderItem = (it: { title: string; url: string; icon: React.ComponentType<{ className?: string }> }) => {
-    const active = path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/"));
+  const renderItem = (it: NavItem) => {
+    const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
     return (
       <SidebarMenuItem key={it.url}>
         <SidebarMenuButton
@@ -125,10 +125,17 @@ export function AppSidebar() {
             "[&[data-active=true]_svg]:text-primary transition-colors",
           )}
         >
-          <Link to={it.url}>
-            <it.icon className="h-4 w-4" />
-            <span>{it.title}</span>
-          </Link>
+          {it.external ? (
+            <a href={it.url} target="_blank" rel="noopener noreferrer">
+              <it.icon className="h-4 w-4" />
+              <span>{it.title}</span>
+            </a>
+          ) : (
+            <Link to={it.url}>
+              <it.icon className="h-4 w-4" />
+              <span>{it.title}</span>
+            </Link>
+          )}
         </SidebarMenuButton>
       </SidebarMenuItem>
     );
