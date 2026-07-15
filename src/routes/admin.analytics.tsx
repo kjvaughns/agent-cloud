@@ -8,8 +8,8 @@ export const Route = createFileRoute("/admin/analytics")({
 
 function AdminAnalytics() {
   return (
-    <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
-      <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+    <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center fadeup">
+      <div className="h-16 w-16 rounded-full bg-surface-2 border border-border flex items-center justify-center mb-4">
         <BarChart3 className="h-8 w-8 text-muted-foreground" />
       </div>
       <h1 className="text-2xl font-bold">Analytics</h1>

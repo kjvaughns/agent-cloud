@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/agency/settings")({
   ssr: false,
@@ -92,7 +93,8 @@ function OrganizationSettings() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl space-y-6">
+    <PageShell>
+    <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Agency Settings</h1>
         <p className="text-muted-foreground mt-1">
@@ -200,5 +202,6 @@ function OrganizationSettings() {
         </CardContent>
       </Card>
     </div>
+    </PageShell>
   );
 }

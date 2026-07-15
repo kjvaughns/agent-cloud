@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/settings")({
   component: AdminSettings,
@@ -26,7 +27,8 @@ function AdminSettings() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <PageShell>
+    <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">Admin Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">Agency-wide configuration</p>
@@ -95,5 +97,6 @@ function AdminSettings() {
 
       <Button onClick={save}>Save Settings</Button>
     </div>
+    </PageShell>
   );
 }

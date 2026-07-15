@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/carriers")({
   component: AdminCarriers,
@@ -69,7 +70,8 @@ function AdminCarriers() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <PageShell>
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Carriers</h1>
@@ -195,5 +197,6 @@ function AdminCarriers() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageShell>
   );
 }

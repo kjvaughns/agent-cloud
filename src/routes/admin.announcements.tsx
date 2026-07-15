@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/announcements")({
   component: AdminAnnouncements,
@@ -67,7 +68,8 @@ function AdminAnnouncements() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <PageShell>
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Announcements</h1>
@@ -153,5 +155,6 @@ function AdminAnnouncements() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PageShell>
   );
 }

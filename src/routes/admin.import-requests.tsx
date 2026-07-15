@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { adminListScrapeRequests, adminUpdateScrapeRequest } from "@/lib/admin.functions";
 import { replayAdminImportPolicies } from "@/lib/admin-import.functions";
 import { AIImportDialog } from "@/components/admin/ai-import-dialog";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/import-requests")({
   head: () => ({ meta: [{ title: "Import Requests — Admin" }] }),
@@ -81,7 +82,8 @@ function ImportRequestsPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <PageShell>
+    <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -240,5 +242,6 @@ function ImportRequestsPage() {
         />
       )}
     </div>
+    </PageShell>
   );
 }
