@@ -60,11 +60,9 @@ const groups: NavGroup[] = [
     items: [
       { title: "Phone", url: "/phone", icon: Phone },
       { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "AI Assistant", url: "/ai-assistant", icon: Sparkles },
-      { title: "Needs Analysis", url: "/tools/needs-analysis", icon: Calculator },
-      { title: "Toolkits", url: "/tools/quoter", icon: Wrench },
+      { title: "Nova AI", url: "/ai-assistant", icon: Sparkles },
+      { title: "Quoter", url: "https://app.insurancetoolkits.com/fex/quoter", icon: Wrench, external: true },
       { title: "Leads", url: "/tools/leads", icon: Target },
-      { title: "Inbound Calls", url: "/tools/inbound-calls", icon: PhoneIncoming },
     ],
   },
   {
