@@ -6,7 +6,7 @@ import { getStatesReference, getMyLicenses, upsertLicense, scanNiprPdf, bulkUpse
 import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { PageShell, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -166,7 +166,7 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
         {phase === "upload" && (
           <div className="space-y-4">
             <div
-              className="border-2 border-dashed rounded-lg p-10 text-center cursor-pointer hover:border-primary transition-colors"
+              className="border-2 border-dashed border-border bg-surface-2 rounded-[var(--radius)] p-10 text-center cursor-pointer hover:border-primary transition-colors"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
@@ -217,9 +217,9 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
               </div>
               <div className="ml-auto text-sm text-muted-foreground">{editedLicenses.length} license rows</div>
             </div>
-            <div className="rounded-md border overflow-auto max-h-80">
+            <div className="rounded-[var(--radius)] border border-border overflow-auto max-h-80">
               <table className="w-full text-xs">
-                <thead className="bg-muted/50 sticky top-0">
+                <thead className="bg-surface-2 sticky top-0">
                   <tr>
                     <th className="text-left p-2 font-medium">State</th>
                     <th className="text-left p-2 font-medium">License #</th>
@@ -233,7 +233,7 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
                 </thead>
                 <tbody>
                   {editedLicenses.map((lic, idx) => (
-                    <tr key={idx} className="border-t hover:bg-muted/20">
+                    <tr key={idx} className="border-t border-border-soft hover:bg-surface-2">
                       <td className="p-2 font-semibold">{lic.state_code}</td>
                       <td className="p-2 font-mono">{lic.license_number ?? "—"}</td>
                       <td className="p-2">{lic.loa ?? "—"}</td>
@@ -446,40 +446,39 @@ function Page() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2"><MapPin className="h-7 w-7" /> State Licenses</h1>
-          <p className="text-muted-foreground">Manage your licenses and explore new states</p>
-        </div>
-        {agentSyncAvailable ? (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <AgentSyncNpnButton onSynced={() => qc.invalidateQueries({ queryKey: ["my-licenses"] })} />
-            <Button variant="ghost" size="sm" onClick={() => setNiprOpen(true)} className="text-muted-foreground">
-              <Upload className="h-3.5 w-3.5 mr-1" /> Upload PDF instead
+    <PageShell>
+      <div className="space-y-5">
+      <HeroBand
+        title={<span className="flex items-center gap-2"><MapPin className="h-7 w-7" /> State Licenses</span>}
+        subtitle="Manage your licenses and explore new states"
+        actions={
+          agentSyncAvailable ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <AgentSyncNpnButton onSynced={() => qc.invalidateQueries({ queryKey: ["my-licenses"] })} />
+              <Button variant="ghost" size="sm" onClick={() => setNiprOpen(true)} className="text-text-dim">
+                <Upload className="h-3.5 w-3.5 mr-1" /> Upload PDF instead
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" className="flex-shrink-0" onClick={() => setNiprOpen(true)}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Sync from NIPR
             </Button>
-          </div>
-        ) : (
-          <Button variant="outline" className="flex-shrink-0" onClick={() => setNiprOpen(true)}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Sync from NIPR
-          </Button>
-        )}
-      </div>
+          )
+        }
+      />
 
       {stats.expiring + stats.expired > 0 && (
-        <Card className="border-amber-500/50 bg-amber-500/10">
-          <CardContent className="pt-4 flex items-center gap-2 text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-            {stats.expired > 0 && <span><strong>{stats.expired}</strong> expired</span>}
-            {stats.expiring > 0 && <span>· <strong>{stats.expiring}</strong> expiring within 90 days</span>}
-          </CardContent>
-        </Card>
+        <div className="rounded-[var(--radius)] border border-amber-500/50 bg-amber-500/10 p-pad flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          {stats.expired > 0 && <span><strong className="tnum">{stats.expired}</strong> expired</span>}
+          {stats.expiring > 0 && <span>· <strong className="tnum">{stats.expiring}</strong> expiring within 90 days</span>}
+        </div>
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="pt-5"><div className="text-xs text-muted-foreground">Licensed States</div><div className="text-2xl font-bold">{stats.total}</div></CardContent></Card>
-        <Card><CardContent className="pt-5"><div className="text-xs text-muted-foreground">Expiring (90d)</div><div className="text-2xl font-bold text-amber-600">{stats.expiring}</div></CardContent></Card>
-        <Card><CardContent className="pt-5"><div className="text-xs text-muted-foreground">Expired</div><div className="text-2xl font-bold text-destructive">{stats.expired}</div></CardContent></Card>
+        <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Licensed States</div><div className="text-2xl font-bold tnum">{stats.total}</div></div>
+        <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expiring (90d)</div><div className="text-2xl font-bold text-amber-600 tnum">{stats.expiring}</div></div>
+        <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expired</div><div className="text-2xl font-bold text-destructive tnum">{stats.expired}</div></div>
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -510,36 +509,35 @@ function Page() {
           const stateLics: any[] = licenses.filter((l: any) => l.state_code === s.state_code);
           const isLicensed = stateLics.length > 0;
           return (
-            <Card key={s.state_code} className={cn(isLicensed && "border-l-4 border-l-green-500")}>
-              <CardContent className="pt-5 space-y-2">
+            <div key={s.state_code} className={cn("rounded-[var(--radius)] border border-border bg-card p-pad space-y-2 transition-colors hover:bg-surface-2", isLicensed && "border-l-4 border-l-green-500")}>
                 <div className="flex items-start justify-between">
                   <div>
-                    <div className="font-semibold">{s.state_name} <span className="text-muted-foreground text-xs">{s.state_code}</span></div>
+                    <div className="font-semibold">{s.state_name} <span className="text-text-dim text-xs">{s.state_code}</span></div>
                   </div>
                   {isLicensed
                     ? statusBadge(stateLics.reduce((best: any, l: any) => {
                         if (!best) return l;
                         return new Date(l.expires_date) > new Date(best.expires_date) ? l : best;
                       }, null)?.expires_date ?? "")
-                    : <span className="text-sm font-semibold">${((s.license_fee_cents ?? 0) / 100).toFixed(2)}</span>
+                    : <span className="text-sm font-semibold tnum">${((s.license_fee_cents ?? 0) / 100).toFixed(2)}</span>
                   }
                 </div>
                 {stateLics.length > 0 && (
-                  <div className="rounded bg-muted/50 p-2 text-xs space-y-1.5">
+                  <div className="rounded-md bg-surface-2 p-2 text-xs space-y-1.5">
                     {stateLics.map((lic: any, i: number) => (
-                      <div key={i} className={cn(i > 0 && "border-t pt-1.5")}>
-                        {lic.loa && <div className="font-medium text-primary">{lic.loa}</div>}
-                        <div className="text-muted-foreground">LICENSE NUMBER</div>
+                      <div key={i} className={cn(i > 0 && "border-t border-border-soft pt-1.5")}>
+                        {lic.loa && <div className="font-medium text-gold-bright">{lic.loa}</div>}
+                        <div className="text-text-dim">LICENSE NUMBER</div>
                         <div className="font-mono">{lic.license_number ?? "—"}</div>
-                        <div className="text-muted-foreground mt-0.5">
+                        <div className="text-text-dim mt-0.5">
                           Issued: {lic.issued_date ?? "—"} · Expires: {lic.expires_date ?? "—"}
                         </div>
-                        {lic.npn_number && <div className="text-muted-foreground">NPN: {lic.npn_number}</div>}
+                        {lic.npn_number && <div className="text-text-dim">NPN: {lic.npn_number}</div>}
                       </div>
                     ))}
                   </div>
                 )}
-                <div className="text-xs text-muted-foreground space-y-1">
+                <div className="text-xs text-text-dim space-y-1">
                   <div className="flex items-center gap-1"><Clock className="h-3 w-3" /> {s.timezone}</div>
                   {s.doi_url && <a href={s.doi_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-primary"><Globe className="h-3 w-3" /> DOI Website</a>}
                   {s.prelicensing_url && <a href={s.prelicensing_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-primary"><GraduationCap className="h-3 w-3" /> Pre-Licensing</a>}
@@ -547,8 +545,7 @@ function Page() {
                 <Button size="sm" variant={isLicensed ? "outline" : "default"} className="w-full" onClick={() => openModal(s)}>
                   {isLicensed ? "Edit License" : "+ Add License"}
                 </Button>
-              </CardContent>
-            </Card>
+            </div>
           );
         })}
       </div>
@@ -575,6 +572,7 @@ function Page() {
         onClose={() => setNiprOpen(false)}
         onImported={() => qc.invalidateQueries({ queryKey: ["my-licenses"] })}
       />
-    </div>
+      </div>
+    </PageShell>
   );
 }

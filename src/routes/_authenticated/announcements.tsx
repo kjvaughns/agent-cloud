@@ -9,7 +9,6 @@ import DOMPurify from "isomorphic-dompurify";
 import { format } from "date-fns";
 import { Megaphone, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +19,7 @@ import { toast } from "sonner";
 import {
   listAnnouncements, canPostAnnouncements, createAnnouncement,
 } from "@/lib/announcements.functions";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
   head: () => ({ meta: [{ title: "Announcements — Agent Cloud" }] }),
@@ -40,33 +40,31 @@ function AnnouncementsPage() {
   });
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Megaphone className="h-6 w-6" /> Announcements
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Updates from your agency</p>
-        </div>
-        {perm?.canPost && <NewAnnouncementDialog />}
+    <PageShell>
+      <div className="max-w-3xl mx-auto">
+        <HeroBand
+          title={<span className="flex items-center gap-2"><Megaphone className="h-6 w-6" /> Announcements</span>}
+          subtitle="Updates from your agency"
+          actions={perm?.canPost ? <NewAnnouncementDialog /> : undefined}
+        >
+          {isLoading ? (
+            <div className="space-y-3 mt-2">
+              {[0, 1].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
+            </div>
+          ) : !items?.length ? (
+            <div className="text-center py-20 rounded-[var(--radius)] border border-border bg-card mt-2">
+              <Megaphone className="h-12 w-12 mx-auto text-muted-foreground/40" />
+              <p className="mt-4 text-lg font-medium">No announcements yet.</p>
+              <p className="text-sm text-muted-foreground">Check back for updates from your agency.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              {items.map((a: any) => <AnnouncementCard key={a.id} a={a} />)}
+            </div>
+          )}
+        </HeroBand>
       </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {[0, 1].map((i) => <Skeleton key={i} className="h-32 w-full" />)}
-        </div>
-      ) : !items?.length ? (
-        <div className="text-center py-20">
-          <Megaphone className="h-12 w-12 mx-auto text-muted-foreground/40" />
-          <p className="mt-4 text-lg font-medium">No announcements yet.</p>
-          <p className="text-sm text-muted-foreground">Check back for updates from your agency.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {items.map((a: any) => <AnnouncementCard key={a.id} a={a} />)}
-        </div>
-      )}
-    </div>
+    </PageShell>
   );
 }
 
@@ -76,35 +74,31 @@ function AnnouncementCard({ a }: { a: any }) {
   const clean = DOMPurify.sanitize(a.body_html ?? "", { USE_PROFILES: { html: true } });
   const isLong = (a.body_html?.length ?? 0) > 400;
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <Megaphone className="h-4 w-4 text-primary" />
-              {a.title}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Posted by {author || "Admin"}
-            </p>
-          </div>
-          <div className="text-xs text-muted-foreground shrink-0">
-            {format(new Date(a.created_at), "MMM d, yyyy")}
-          </div>
+    <Panel>
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-gold-bright" />
+            {a.title}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Posted by {author || "Admin"}
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div
-          className={isLong && !expanded ? "prose prose-sm dark:prose-invert max-w-none line-clamp-3" : "prose prose-sm dark:prose-invert max-w-none"}
-          dangerouslySetInnerHTML={{ __html: clean }}
-        />
-        {isLong && (
-          <Button variant="link" size="sm" className="px-0 mt-2" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? "Show less" : "Read more"}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+        <div className="text-xs text-muted-foreground shrink-0 tnum">
+          {format(new Date(a.created_at), "MMM d, yyyy")}
+        </div>
+      </div>
+      <div
+        className={isLong && !expanded ? "prose prose-sm dark:prose-invert max-w-none line-clamp-3" : "prose prose-sm dark:prose-invert max-w-none"}
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+      {isLong && (
+        <Button variant="link" size="sm" className="px-0 mt-2" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? "Show less" : "Read more"}
+        </Button>
+      )}
+    </Panel>
   );
 }
 

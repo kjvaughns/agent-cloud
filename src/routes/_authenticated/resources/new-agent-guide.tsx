@@ -2,9 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useQuery } from "@tanstack/react-query";
 import { getOnboardingStatus } from "@/lib/resources.functions";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { cn } from "@/lib/utils";
 import { Check, ArrowRight, BookOpen, ScrollText, GraduationCap } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/resources/new-agent-guide")({
@@ -30,61 +31,62 @@ function Page() {
   const { data, isLoading } = useQuery({ queryKey: ["onboarding-status"], queryFn: () => fn() });
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-3xl font-bold">New Agent Guide</h1>
-        <p className="text-muted-foreground">Everything you need to get started and writing business fast</p>
-      </div>
+    <PageShell>
+      <div className="space-y-6 max-w-4xl">
+        <HeroBand title="New Agent Guide" subtitle="Everything you need to get started and writing business fast" />
 
-      <Card>
-        <CardContent className="pt-6">
+        <Panel>
           <div className="flex items-center justify-between mb-2">
             <div className="font-semibold">Your Setup Progress</div>
-            <div className="text-sm text-muted-foreground">{data?.completed ?? 0} of 8 steps complete ({data?.pct ?? 0}%)</div>
+            <div className="text-sm text-text-dim tnum">{data?.completed ?? 0} of 8 steps complete ({data?.pct ?? 0}%)</div>
           </div>
           <Progress value={data?.pct ?? 0} />
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <div className="space-y-3">
-        {STEPS.map((step, i) => {
-          const done = data?.steps?.[step.key] ?? false;
-          return (
-            <Card key={step.key} className={done ? "border-green-500/40 bg-green-500/5" : ""}>
-              <CardContent className="pt-6 flex items-start gap-4">
-                <div className={`shrink-0 w-9 h-9 rounded-full grid place-items-center ${done ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                  {done ? <Check className="h-5 w-5" /> : <span className="text-sm font-semibold">{i + 1}</span>}
+        <div className="space-y-3">
+          {STEPS.map((step, i) => {
+            const done = data?.steps?.[step.key] ?? false;
+            return (
+              <div
+                key={step.key}
+                className={cn(
+                  "rounded-[var(--radius)] border p-pad flex items-start gap-4 transition-colors",
+                  done ? "border-success/40 bg-success/5" : "border-border bg-card hover:bg-surface-2",
+                )}
+              >
+                <div className={cn("shrink-0 w-9 h-9 rounded-full grid place-items-center", done ? "bg-success text-white" : "bg-surface-2 text-text-dim")}>
+                  {done ? <Check className="h-5 w-5" /> : <span className="text-sm font-semibold tnum">{i + 1}</span>}
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold">Step {i + 1}: {step.title}</div>
-                  <div className="text-sm text-muted-foreground mt-1">{step.desc}</div>
+                  <div className="text-sm text-text-dim mt-1">{step.desc}</div>
                 </div>
                 <Button asChild variant={done ? "outline" : "default"} size="sm">
                   <Link to={step.href}>{step.cta} <ArrowRight className="h-4 w-4 ml-1" /></Link>
                 </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
 
-      <div className="grid md:grid-cols-3 gap-4 pt-4">
-        {[
-          { icon: BookOpen, label: "Read the Agent Handbook", to: "/resources/agent-handbook" },
-          { icon: ScrollText, label: "Review Sales Scripts", to: "/resources/scripts" },
-          { icon: GraduationCap, label: "Start Agent Academy", to: "/resources/agent-academy" },
-        ].map((r) => (
-          <Card key={r.to} className="hover:bg-muted/40 transition">
-            <Link to={r.to}>
-              <CardContent className="pt-6 flex items-center gap-3">
-                <r.icon className="h-6 w-6 text-primary" />
-                <div className="font-medium">{r.label}</div>
-              </CardContent>
+        <div className="grid md:grid-cols-3 gap-4 pt-4">
+          {[
+            { icon: BookOpen, label: "Read the Agent Handbook", to: "/resources/agent-handbook" },
+            { icon: ScrollText, label: "Review Sales Scripts", to: "/resources/scripts" },
+            { icon: GraduationCap, label: "Start Agent Academy", to: "/resources/agent-academy" },
+          ].map((r) => (
+            <Link
+              key={r.to}
+              to={r.to}
+              className="rounded-[var(--radius)] border border-border bg-card p-pad flex items-center gap-3 transition-colors hover:bg-surface-2"
+            >
+              <r.icon className="h-6 w-6 text-primary" />
+              <div className="font-medium">{r.label}</div>
             </Link>
-          </Card>
-        ))}
+          ))}
+        </div>
+        {isLoading && <div className="text-xs text-text-dim">Loading status…</div>}
       </div>
-      {isLoading && <div className="text-xs text-muted-foreground">Loading status…</div>}
-    </div>
+    </PageShell>
   );
 }

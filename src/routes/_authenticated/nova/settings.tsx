@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Panel } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/nova/settings")({
   head: () => ({
@@ -21,9 +21,8 @@ const TOGGLES = [
 
 function NovaSettingsPage() {
   return (
-    <Card>
-      <CardHeader><CardTitle>Automations</CardTitle></CardHeader>
-      <CardContent className="divide-y">
+    <Panel title="Automations">
+      <div className="divide-y divide-border">
         {TOGGLES.map((t) => (
           <div key={t.key} className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
             <div className="flex-1">
@@ -34,7 +33,7 @@ function NovaSettingsPage() {
             <Switch defaultChecked={t.enabled} />
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </Panel>
   );
 }

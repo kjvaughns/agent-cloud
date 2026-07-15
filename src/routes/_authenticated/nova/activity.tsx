@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/page-shell";
 import { PhoneCall, MessageSquare, Cake, Users, Sparkles, Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { generateNovaDrafts, type NovaDraft } from "@/lib/ai-features.functions";
@@ -59,18 +59,18 @@ function NovaActivityPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="h-4 w-4 text-primary" />
+      <Panel pad={false}>
+        <div className="flex flex-row items-center justify-between p-[var(--pad)] border-b border-border">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <Sparkles className="h-4 w-4 text-gold-bright" />
             AI-drafted outreach
-          </CardTitle>
+          </h2>
           <Button size="sm" onClick={() => mut.mutate(kind)} disabled={mut.isPending}>
             {mut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
             Generate {LABEL[kind]}
           </Button>
-        </CardHeader>
-        <CardContent className="divide-y p-0">
+        </div>
+        <div className="divide-y divide-border">
           {drafts.length === 0 && !mut.isPending && (
             <div className="p-10 text-center text-sm text-muted-foreground">
               Pick an automation above and click Generate to draft personalized messages for your matching clients.
@@ -79,8 +79,8 @@ function NovaActivityPage() {
           {drafts.map((d, i) => {
             const Icon = ICONS[d.kind];
             return (
-              <div key={i} className="p-4 flex items-start gap-3">
-                <div className="h-9 w-9 rounded-full bg-primary/10 grid place-items-center text-primary shrink-0">
+              <div key={i} className="p-4 flex items-start gap-3 transition hover:bg-surface-2">
+                <div className="h-9 w-9 rounded-full bg-gold-glow grid place-items-center text-gold-bright shrink-0">
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -97,8 +97,8 @@ function NovaActivityPage() {
               </div>
             );
           })}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
     </div>
   );
 }
