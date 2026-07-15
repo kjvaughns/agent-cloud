@@ -6,7 +6,6 @@ import {
   createRetirementCase, saveRetirementCase, listRetirementCases, getRetirementCase, searchClientsForCase,
 } from "@/lib/back-office.functions";
 import { project, defaultInputs, readinessScore, type RetirementInputs, type AccountRow } from "@/lib/retirement-calc";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -377,7 +376,7 @@ function WhatIfTab({ base }: { base: RetirementInputs }) {
   }));
 
   return (
-    <Card><CardContent className="p-6 space-y-6">
+    <Panel><div className="space-y-6">
       <SliderRow label={`Retire ${retireDelta >= 0 ? "+" : ""}${retireDelta} years`}
         v={retireDelta} min={-5} max={5} onChange={setRetireDelta} />
       <SliderRow label={`Contribute ${contribDelta >= 0 ? "+$" : "-$"}${Math.abs(contribDelta)}/mo`}
@@ -385,7 +384,7 @@ function WhatIfTab({ base }: { base: RetirementInputs }) {
       <SliderRow label={`Expected return ${returnPct.toFixed(1)}%`}
         v={returnPct} min={2} max={10} step={0.5} onChange={setReturnPct} />
 
-      <div className="text-sm rounded-md border p-3 bg-muted/30">
+      <div className="text-sm rounded-[var(--radius)] border border-border-soft p-3 bg-surface-2 tnum">
         Nest egg: <b>${Math.round(modResult.nest_egg).toLocaleString()}</b>
         {" "}({modResult.nest_egg - baseResult.nest_egg >= 0 ? "+" : ""}${Math.round(modResult.nest_egg - baseResult.nest_egg).toLocaleString()} vs base).
         Success: <b>{Math.round(modResult.success_probability_pct)}%</b>.
@@ -394,16 +393,18 @@ function WhatIfTab({ base }: { base: RetirementInputs }) {
       <div className="h-72">
         <ResponsiveContainer>
           <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="age" />
-            <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
-            <Line type="monotone" dataKey="base" stroke="hsl(var(--muted-foreground))" strokeDasharray="4 4" dot={false} name="Base" />
-            <Line type="monotone" dataKey="modified" stroke="hsl(var(--primary))" dot={false} name="What-If" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="age" stroke="var(--color-muted-foreground)" fontSize={12} />
+            <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} stroke="var(--color-muted-foreground)" fontSize={12} />
+            <Tooltip
+              contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
+              formatter={(v: number) => `$${v.toLocaleString()}`} />
+            <Line type="monotone" dataKey="base" stroke="var(--color-muted-foreground)" strokeDasharray="4 4" dot={false} name="Base" />
+            <Line type="monotone" dataKey="modified" stroke="var(--color-primary)" dot={false} name="What-If" />
           </LineChart>
         </ResponsiveContainer>
       </div>
-    </CardContent></Card>
+    </div></Panel>
   );
 }
 function SliderRow({ label, v, min, max, step = 1, onChange }: { label: string; v: number; min: number; max: number; step?: number; onChange: (n: number) => void }) {
@@ -424,29 +425,31 @@ function CashFlowTab({ result }: { result: ReturnType<typeof project> }) {
   }));
   return (
     <div className="space-y-4">
-      <Card><CardContent className="p-4 h-80">
+      <Panel pad={false}><div className="p-4 h-80">
         <ResponsiveContainer>
           <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis dataKey="age" />
-            <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip formatter={(v: number) => `$${v.toLocaleString()}`} />
-            <Area type="monotone" dataKey="portfolio" stroke="hsl(var(--primary))" fill="hsl(var(--primary)/0.2)" name="Portfolio" />
-            <Area type="monotone" dataKey="guaranteed" stroke="hsl(var(--success))" fill="hsl(var(--success)/0.2)" name="Guaranteed Income" />
-            <Area type="monotone" dataKey="withdrawals" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive)/0.2)" name="Withdrawals" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="age" stroke="var(--color-muted-foreground)" fontSize={12} />
+            <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} stroke="var(--color-muted-foreground)" fontSize={12} />
+            <Tooltip
+              contentStyle={{ background: "var(--color-card)", border: "1px solid var(--color-border)", borderRadius: 8 }}
+              formatter={(v: number) => `$${v.toLocaleString()}`} />
+            <Area type="monotone" dataKey="portfolio" stroke="var(--color-primary)" fill="var(--color-primary)" fillOpacity={0.2} name="Portfolio" />
+            <Area type="monotone" dataKey="guaranteed" stroke="var(--color-success)" fill="var(--color-success)" fillOpacity={0.2} name="Guaranteed Income" />
+            <Area type="monotone" dataKey="withdrawals" stroke="var(--color-destructive)" fill="var(--color-destructive)" fillOpacity={0.2} name="Withdrawals" />
           </AreaChart>
         </ResponsiveContainer>
-      </CardContent></Card>
-      <Card><CardContent className="p-0">
+      </div></Panel>
+      <Panel pad={false}>
         <div className="max-h-80 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 bg-muted/60 backdrop-blur"><tr>
+          <table className="w-full text-xs tnum">
+            <thead className="sticky top-0 bg-surface-2 backdrop-blur"><tr>
               <th className="text-left p-2">Age</th><th className="text-left p-2">Year</th><th className="text-right p-2">Start</th>
               <th className="text-right p-2">Contrib.</th><th className="text-right p-2">Withdrawals</th><th className="text-right p-2">End</th>
             </tr></thead>
             <tbody>
               {result.years.map((y) => (
-                <tr key={y.age} className="border-t">
+                <tr key={y.age} className="border-t border-border-soft">
                   <td className="p-2">{y.age}</td><td className="p-2">{y.year}</td>
                   <td className="p-2 text-right">${Math.round(y.portfolio_start).toLocaleString()}</td>
                   <td className="p-2 text-right">${Math.round(y.contributions).toLocaleString()}</td>
@@ -457,17 +460,17 @@ function CashFlowTab({ result }: { result: ReturnType<typeof project> }) {
             </tbody>
           </table>
         </div>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
 
 function ReportTab({ inputs, result }: { inputs: RetirementInputs; result: ReturnType<typeof project> }) {
   return (
-    <Card><CardContent className="p-6 space-y-4">
-      <h3 className="text-xl font-semibold">Client Retirement Report</h3>
+    <Panel><div className="space-y-4">
+      <h3 className="text-xl font-display font-semibold" style={{ fontFamily: "var(--font-display)" }}>Client Retirement Report</h3>
       <p className="text-sm text-muted-foreground">Generate a professional summary you can share with your client. Uses your browser's print dialog — save as PDF from there.</p>
-      <div className="rounded-md border p-6 bg-muted/30 space-y-3">
+      <div className="rounded-[var(--radius)] border border-border-soft p-6 bg-surface-2 space-y-3 tnum">
         <div><b>Current Age:</b> {inputs.current_age} → Retirement at {inputs.retirement_age}, Life Expectancy {inputs.life_expectancy}</div>
         <div><b>Projected Nest Egg:</b> ${Math.round(result.nest_egg).toLocaleString()}</div>
         <div><b>Monthly Income at Retirement:</b> ${Math.round(result.monthly_income).toLocaleString()}</div>
@@ -476,7 +479,7 @@ function ReportTab({ inputs, result }: { inputs: RetirementInputs; result: Retur
       </div>
       <Button onClick={() => window.print()}><Printer className="h-4 w-4 mr-2" /> Print Report</Button>
       <p className="text-xs text-muted-foreground">Disclaimer: Projections are illustrative only and based on the inputs provided. Actual results will vary.</p>
-    </CardContent></Card>
+    </div></Panel>
   );
 }
 
@@ -510,18 +513,18 @@ function CaseTracker({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Cases</h3>
+        <h3 className="text-lg font-display font-semibold" style={{ fontFamily: "var(--font-display)" }}>Cases</h3>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" /> New Case</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New Retirement Case</DialogTitle></DialogHeader>
             <Input placeholder="Search clients..." value={q} onChange={(e) => setQ(e.target.value)} />
-            <div className="max-h-64 overflow-y-auto border rounded">
+            <div className="max-h-64 overflow-y-auto border border-border-soft rounded-[var(--radius)]">
               {results.data?.map((c) => (
                 <button key={c.id} onClick={() => {
                   const age = c.date_of_birth ? new Date().getFullYear() - new Date(c.date_of_birth).getFullYear() : 45;
                   create.mutate({ client_id: c.id, title: `${c.first_name} ${c.last_name}`, current_age: age });
-                }} className="w-full text-left px-3 py-2 hover:bg-muted text-sm border-b last:border-b-0">
+                }} className="w-full text-left px-3 py-2 hover:bg-surface-2 text-sm border-b border-border-soft last:border-b-0">
                   {c.first_name} {c.last_name}
                 </button>
               ))}
@@ -533,21 +536,21 @@ function CaseTracker({ onOpen }: { onOpen: (id: string) => void }) {
         </Dialog>
       </div>
 
-      <Card><CardContent className="p-0">
+      <Panel pad={false}>
         <table className="w-full text-sm">
-          <thead className="bg-muted/40"><tr>
+          <thead className="bg-surface-2"><tr>
             <th className="text-left p-3">Client</th><th className="text-left p-3">Created</th><th className="text-left p-3">Status</th>
             <th className="text-right p-3">Nest Egg</th><th className="text-right p-3">Success</th><th className="text-left p-3">Updated</th>
           </tr></thead>
           <tbody>
             {cases.data?.map((c) => (
-              <tr key={c.id} onClick={() => onOpen(c.id)} className="border-t hover:bg-muted/30 cursor-pointer">
+              <tr key={c.id} onClick={() => onOpen(c.id)} className="border-t border-border-soft hover:bg-surface-2 cursor-pointer">
                 <td className="p-3">{c.client_name || c.title}</td>
-                <td className="p-3">{format(new Date(c.created_at), "MMM d, yyyy")}</td>
+                <td className="p-3 tnum">{format(new Date(c.created_at), "MMM d, yyyy")}</td>
                 <td className="p-3"><Badge variant="outline">{c.status}</Badge></td>
-                <td className="p-3 text-right">{c.projected_nest_egg ? `$${Math.round(Number(c.projected_nest_egg)).toLocaleString()}` : "—"}</td>
-                <td className="p-3 text-right">{c.success_probability_pct ? `${Math.round(Number(c.success_probability_pct))}%` : "—"}</td>
-                <td className="p-3 text-muted-foreground">{format(new Date(c.updated_at), "MMM d")}</td>
+                <td className="p-3 text-right tnum">{c.projected_nest_egg ? `$${Math.round(Number(c.projected_nest_egg)).toLocaleString()}` : "—"}</td>
+                <td className="p-3 text-right tnum">{c.success_probability_pct ? `${Math.round(Number(c.success_probability_pct))}%` : "—"}</td>
+                <td className="p-3 text-muted-foreground tnum">{format(new Date(c.updated_at), "MMM d")}</td>
               </tr>
             ))}
             {cases.data?.length === 0 && (
@@ -555,7 +558,7 @@ function CaseTracker({ onOpen }: { onOpen: (id: string) => void }) {
             )}
           </tbody>
         </table>
-      </CardContent></Card>
+      </Panel>
     </div>
   );
 }
@@ -575,7 +578,7 @@ function NeedsAttention({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="space-y-3">
       {flagged.length === 0 && (
-        <Card><CardContent className="p-10 text-center text-muted-foreground">No cases need attention. Great work!</CardContent></Card>
+        <Panel><div className="p-6 text-center text-muted-foreground">No cases need attention. Great work!</div></Panel>
       )}
       {flagged.map((c) => {
         const success = Number(c.success_probability_pct ?? 100);
@@ -584,14 +587,14 @@ function NeedsAttention({ onOpen }: { onOpen: (id: string) => void }) {
         if ((Date.now() - new Date(c.updated_at).getTime()) > 90 * 86400 * 1000) issues.push("⏰ Case not updated in 90+ days");
         if (c.retirement_age && c.current_age && (c.retirement_age - c.current_age) <= 5) issues.push(`Retirement is ${c.retirement_age - c.current_age} years away`);
         return (
-          <Card key={c.id}><CardContent className="p-4 flex items-center gap-4">
+          <Panel key={c.id}><div className="flex items-center gap-4">
             <AlertTriangle className="h-6 w-6 text-warning shrink-0" />
             <div className="flex-1">
               <div className="font-medium">{c.client_name || c.title}</div>
               <div className="text-sm text-muted-foreground">{issues.join(" · ")}</div>
             </div>
             <Button variant="outline" size="sm" onClick={() => onOpen(c.id)}><FolderOpen className="h-4 w-4 mr-1" /> Open</Button>
-          </CardContent></Card>
+          </div></Panel>
         );
       })}
     </div>
