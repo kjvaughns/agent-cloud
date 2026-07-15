@@ -6,7 +6,7 @@ import {
   createRetirementCase, saveRetirementCase, listRetirementCases, getRetirementCase, searchClientsForCase,
 } from "@/lib/back-office.functions";
 import { project, defaultInputs, readinessScore, type RetirementInputs, type AccountRow } from "@/lib/retirement-calc";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line,
 } from "recharts";
 import { format } from "date-fns";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/back-office/advanced-desk")({
   head: () => ({ meta: [
@@ -57,23 +58,25 @@ function AdvancedDeskPage() {
   const [caseId, setCaseId] = useState<string | null>(null);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold font-heading tracking-wide">Advanced Desk</h2>
-        <p className="text-muted-foreground">Interactive retirement projections and case management.</p>
-      </div>
+    <PageShell>
+      <div className="space-y-6">
+        <HeroBand
+          title="Advanced Desk"
+          subtitle="Interactive retirement projections and case management."
+        />
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="planner">Planner</TabsTrigger>
-          <TabsTrigger value="tracker">Case Tracker</TabsTrigger>
-          <TabsTrigger value="attention">Needs Attention</TabsTrigger>
-        </TabsList>
-        <TabsContent value="planner"><Planner caseId={caseId} setCaseId={setCaseId} /></TabsContent>
-        <TabsContent value="tracker"><CaseTracker onOpen={(id) => { setCaseId(id); setTab("planner"); }} /></TabsContent>
-        <TabsContent value="attention"><NeedsAttention onOpen={(id) => { setCaseId(id); setTab("planner"); }} /></TabsContent>
-      </Tabs>
-    </div>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="planner">Planner</TabsTrigger>
+            <TabsTrigger value="tracker">Case Tracker</TabsTrigger>
+            <TabsTrigger value="attention">Needs Attention</TabsTrigger>
+          </TabsList>
+          <TabsContent value="planner"><Planner caseId={caseId} setCaseId={setCaseId} /></TabsContent>
+          <TabsContent value="tracker"><CaseTracker onOpen={(id) => { setCaseId(id); setTab("planner"); }} /></TabsContent>
+          <TabsContent value="attention"><NeedsAttention onOpen={(id) => { setCaseId(id); setTab("planner"); }} /></TabsContent>
+        </Tabs>
+      </div>
+    </PageShell>
   );
 }
 
@@ -137,16 +140,14 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
   return (
     <div className="grid lg:grid-cols-[380px_1fr] gap-6">
       {/* Left input panel */}
-      <Card className="lg:sticky lg:top-4 lg:self-start max-h-[calc(100vh-6rem)] overflow-y-auto">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Inputs</CardTitle>
-            {caseId && <Badge variant="outline" className="text-xs">Auto-saving</Badge>}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Panel
+        title="Inputs"
+        action={caseId ? <Badge variant="outline" className="text-xs">Auto-saving</Badge> : undefined}
+        className="lg:sticky lg:top-4 lg:self-start max-h-[calc(100vh-6rem)] overflow-y-auto"
+      >
+        <div className="space-y-4">
           {!caseId && (
-            <div className="text-xs text-muted-foreground p-2 rounded bg-muted/40">
+            <div className="text-xs text-muted-foreground p-2 rounded bg-surface-2">
               Scratch mode — go to <b>Case Tracker</b> to save your work.
             </div>
           )}
@@ -170,7 +171,7 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
 
           <Section title="Accounts">
             <AccountList inputs={inputs} setInputs={setInputs} />
-            <div className="text-xs space-y-1 mt-2 pt-2 border-t">
+            <div className="text-xs space-y-1 mt-2 pt-2 border-t border-border-soft">
               <Row k="Total Balance" v={`$${Math.round(result.total_balance).toLocaleString()}`} />
               <Row k="Monthly Contrib." v={`$${Math.round(result.total_monthly_contrib).toLocaleString()}`} />
               <Row k="Weighted Return" v={`${result.weighted_return_pct.toFixed(1)}%`} />
@@ -178,8 +179,8 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
               <Row k="Non-Qualified" v={`$${Math.round(result.non_qualified_total).toLocaleString()}`} />
             </div>
           </Section>
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
       {/* Right panel */}
       <div className="space-y-4">
@@ -207,9 +208,9 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
           <TabsContent value="report"><ReportTab inputs={inputs} result={result} /></TabsContent>
           {["risk", "income", "expenses", "taxes", "health", "roth", "floor", "legacy", "scenarios"].map((t) => (
             <TabsContent key={t} value={t}>
-              <Card><CardContent className="p-10 text-center text-muted-foreground">
+              <Panel><div className="p-6 text-center text-muted-foreground">
                 This analysis module is coming soon. Use the Summary, What-If, and Cash Flow tabs above for full projections in the meantime.
-              </CardContent></Card>
+              </div></Panel>
             </TabsContent>
           ))}
         </Tabs>
@@ -221,7 +222,7 @@ function Planner({ caseId, setCaseId }: { caseId: string | null; setCaseId: (id:
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <div className="text-xs font-semibold uppercase text-muted-foreground">{title}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{title}</div>
       {children}
     </div>
   );
@@ -230,19 +231,19 @@ function NumField({ label, v, onChange }: { label: string; v: number; onChange: 
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
-      <Input type="number" value={v} onChange={(e) => onChange(Number(e.target.value) || 0)} className="h-8" />
+      <Input type="number" value={v} onChange={(e) => onChange(Number(e.target.value) || 0)} className="h-8 tnum" />
     </div>
   );
 }
 function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex justify-between"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>;
+  return <div className="flex justify-between"><span className="text-muted-foreground">{k}</span><span className="font-medium tnum">{v}</span></div>;
 }
 function Metric({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
-    <Card><CardContent className="p-3">
-      <div className="text-[10px] font-semibold uppercase text-muted-foreground">{label}</div>
-      <div className={`text-lg font-bold mt-1 ${valueClass ?? ""}`}>{value}</div>
-    </CardContent></Card>
+    <div className="flex flex-col justify-center rounded-[var(--radius)] border border-border bg-card p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">{label}</div>
+      <div className={`tnum font-display font-bold mt-1.5 text-[22px] leading-none ${valueClass ?? "text-foreground"}`} style={{ fontFamily: "var(--font-display)" }}>{value}</div>
+    </div>
   );
 }
 
@@ -296,15 +297,15 @@ function AccountList({ inputs, setInputs }: { inputs: RetirementInputs; setInput
         </DropdownMenuContent>
       </DropdownMenu>
       {inputs.accounts.map((a) => (
-        <div key={a.id} className="rounded border p-2 space-y-1 text-xs">
+        <div key={a.id} className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-2 space-y-1 text-xs">
           <div className="flex items-center justify-between">
             <span className="font-medium truncate">{a.name}</span>
             <button onClick={() => removeAccount(a.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
           </div>
           <div className="grid grid-cols-3 gap-1">
-            <Input className="h-7 text-xs" placeholder="Balance" type="number" value={a.balance || ""} onChange={(e) => updateAccount(a.id, { balance: Number(e.target.value) || 0 })} />
-            <Input className="h-7 text-xs" placeholder="$/mo" type="number" value={a.monthly_contrib || ""} onChange={(e) => updateAccount(a.id, { monthly_contrib: Number(e.target.value) || 0 })} />
-            <Input className="h-7 text-xs" placeholder="Return %" type="number" value={a.return_pct} onChange={(e) => updateAccount(a.id, { return_pct: Number(e.target.value) || 0 })} />
+            <Input className="h-7 text-xs tnum" placeholder="Balance" type="number" value={a.balance || ""} onChange={(e) => updateAccount(a.id, { balance: Number(e.target.value) || 0 })} />
+            <Input className="h-7 text-xs tnum" placeholder="$/mo" type="number" value={a.monthly_contrib || ""} onChange={(e) => updateAccount(a.id, { monthly_contrib: Number(e.target.value) || 0 })} />
+            <Input className="h-7 text-xs tnum" placeholder="Return %" type="number" value={a.return_pct} onChange={(e) => updateAccount(a.id, { return_pct: Number(e.target.value) || 0 })} />
           </div>
         </div>
       ))}
@@ -323,7 +324,7 @@ function SummaryTab({ inputs, result }: { inputs: RetirementInputs; result: Retu
   if (actions.length === 0) actions.push("On track — continue current strategy and revisit annually.");
 
   return (
-    <Card><CardContent className="p-6 space-y-6">
+    <Panel><div className="space-y-6">
       <div className="flex items-center gap-6">
         <div className="relative h-32 w-32">
           <svg viewBox="0 0 100 100" className="h-32 w-32 -rotate-90">
@@ -332,12 +333,12 @@ function SummaryTab({ inputs, result }: { inputs: RetirementInputs; result: Retu
               className={color} strokeDasharray={`${(score / 100) * 283} 283`} strokeLinecap="round" />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className={`text-3xl font-bold ${color}`}>{score}</div>
-            <div className="text-[10px] uppercase text-muted-foreground">Readiness</div>
+            <div className={`text-3xl font-bold tnum font-display ${color}`} style={{ fontFamily: "var(--font-display)" }}>{score}</div>
+            <div className="text-[10px] uppercase tracking-[0.07em] text-muted-foreground">Readiness</div>
           </div>
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold mb-2">Key Finding</h3>
+          <h3 className="font-display font-semibold mb-2" style={{ fontFamily: "var(--font-display)" }}>Key Finding</h3>
           <p className="text-sm text-muted-foreground">
             Based on your inputs, your portfolio is projected to reach <b>${Math.round(result.nest_egg).toLocaleString()}</b> at age {inputs.retirement_age},
             supporting roughly <b>${Math.round(result.monthly_income).toLocaleString()}/month</b> in safe withdrawals.
@@ -346,12 +347,12 @@ function SummaryTab({ inputs, result }: { inputs: RetirementInputs; result: Retu
         </div>
       </div>
       <div>
-        <h3 className="font-semibold mb-2">Recommended Actions</h3>
+        <h3 className="font-display font-semibold mb-2" style={{ fontFamily: "var(--font-display)" }}>Recommended Actions</h3>
         <ol className="space-y-1 text-sm list-decimal list-inside">
           {actions.slice(0, 3).map((a) => <li key={a}>{a}</li>)}
         </ol>
       </div>
-    </CardContent></Card>
+    </div></Panel>
   );
 }
 

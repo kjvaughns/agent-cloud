@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listLandingPages, quickDeployLandingPage, deleteLandingPage } from "@/lib/marketing.functions";
 import { LANDING_TEMPLATES } from "@/lib/landing-templates";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink, Copy, Trash2, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/back-office/client-marketing")({
   head: () => ({
@@ -64,27 +64,29 @@ function ClientMarketingPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <section>
-        <h2 className="text-lg font-semibold mb-3">My landing pages</h2>
-        {isLoading ? (
-          <Skeleton className="h-28" />
-        ) : pages.length === 0 ? (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
+    <PageShell>
+      <div className="space-y-6">
+        <HeroBand
+          title="Client Marketing"
+          subtitle="Publish landing pages to capture leads — every submission lands in your Leads inbox."
+        />
+
+        <Panel title="My landing pages">
+          {isLoading ? (
+            <Skeleton className="h-28" />
+          ) : pages.length === 0 ? (
+            <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-10 text-center text-muted-foreground">
               <Rocket className="h-10 w-10 mx-auto mb-3 opacity-50" />
               <div className="font-medium text-foreground">No pages published yet</div>
               <p className="text-sm mt-1">
                 Pick a template below and click "Publish" — your personalized page goes live instantly with
                 your name and contact info, and every lead it captures lands in your Leads inbox.
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-0 divide-y">
+            </div>
+          ) : (
+            <div className="rounded-[var(--radius)] border border-border-soft divide-y divide-border-soft overflow-hidden">
               {(pages as any[]).map((p) => (
-                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4 bg-surface-2">
                   <div className="min-w-0">
                     <div className="font-medium flex items-center gap-2">
                       {p.title}
@@ -94,7 +96,7 @@ function ClientMarketingPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-sm text-right">
-                      <div>{Number(p.lead_count ?? 0)} leads</div>
+                      <div className="tnum">{Number(p.lead_count ?? 0)} leads</div>
                     </div>
                     <Button variant="ghost" size="icon" aria-label="Copy link" onClick={() => {
                       navigator.clipboard.writeText(pageUrl(agentSlug, p.template_slug));
@@ -109,44 +111,41 @@ function ClientMarketingPage() {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
-      </section>
+            </div>
+          )}
+        </Panel>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Templates</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {LANDING_TEMPLATES.map((t) => {
-            const live = deployedSlugs.has(t.slug);
-            return (
-              <Card key={t.slug} className="flex flex-col">
-                <div className={`h-28 bg-gradient-to-br ${t.gradient} rounded-t-xl p-3 flex flex-col justify-end`}>
-                  <div className="text-white text-sm font-semibold leading-tight line-clamp-2">{t.headline}</div>
-                </div>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base">{t.name}</CardTitle>
-                    <Badge variant="outline" className="shrink-0 text-xs">{t.category}</Badge>
+        <Panel title="Templates">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {LANDING_TEMPLATES.map((t) => {
+              const live = deployedSlugs.has(t.slug);
+              return (
+                <div key={t.slug} className="flex flex-col rounded-[var(--radius)] border border-border-soft bg-surface-2 overflow-hidden">
+                  <div className={`h-28 bg-gradient-to-br ${t.gradient} p-3 flex flex-col justify-end`}>
+                    <div className="text-white text-sm font-semibold leading-tight line-clamp-2">{t.headline}</div>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3 flex-1 flex flex-col">
-                  <p className="text-sm text-muted-foreground flex-1">{t.shortDesc}</p>
-                  {live ? (
-                    <Button size="sm" variant="outline" className="w-full" onClick={() => window.open(`/agent/${agentSlug}/${t.slug}`, "_blank", "noopener,noreferrer")}>
-                      <ExternalLink className="h-4 w-4 mr-1" /> View live page
-                    </Button>
-                  ) : (
-                    <Button size="sm" className="w-full" disabled={deploy.isPending} onClick={() => deploy.mutate(t.slug)}>
-                      <Rocket className="h-4 w-4 mr-1" /> Publish
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
-    </div>
+                  <div className="p-4 space-y-3 flex-1 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-display font-semibold" style={{ fontFamily: "var(--font-display)" }}>{t.name}</div>
+                      <Badge variant="outline" className="shrink-0 text-xs">{t.category}</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground flex-1">{t.shortDesc}</p>
+                    {live ? (
+                      <Button size="sm" variant="outline" className="w-full" onClick={() => window.open(`/agent/${agentSlug}/${t.slug}`, "_blank", "noopener,noreferrer")}>
+                        <ExternalLink className="h-4 w-4 mr-1" /> View live page
+                      </Button>
+                    ) : (
+                      <Button size="sm" className="w-full" disabled={deploy.isPending} onClick={() => deploy.mutate(t.slug)}>
+                        <Rocket className="h-4 w-4 mr-1" /> Publish
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
+    </PageShell>
   );
 }

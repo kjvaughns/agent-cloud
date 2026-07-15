@@ -32,6 +32,7 @@ import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
   head: () => ({
@@ -87,22 +88,23 @@ function ProducerProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-6 space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-64" />
-      </div>
+      <PageShell>
+        <div className="max-w-5xl mx-auto space-y-4">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-64" />
+        </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <IdCard className="h-7 w-7" /> Producer Profile
-        </h1>
-        <p className="text-muted-foreground mt-1">Your producer record, compliance documents, and account integrations.</p>
-      </div>
+    <PageShell>
+      <div className="max-w-5xl mx-auto space-y-6">
+      <HeroBand
+        title={<span className="flex items-center gap-2"><IdCard className="h-7 w-7" /> Producer Profile</span>}
+        subtitle="Your producer record, compliance documents, and account integrations."
+      />
 
       {/* Profile Completion */}
       <Card className={cn(
@@ -120,7 +122,7 @@ function ProducerProfilePage() {
             </div>
             <div className="text-right">
               <div className={cn(
-                "text-3xl font-bold",
+                "text-3xl font-bold tnum",
                 completion.pct >= 80 ? "text-emerald-600" :
                 completion.pct >= 50 ? "text-amber-600" : "text-red-600"
               )}>
@@ -132,7 +134,7 @@ function ProducerProfilePage() {
             </div>
           </div>
 
-          <div className="h-3 bg-muted rounded-full overflow-hidden">
+          <div className="h-3 bg-surface-2 rounded-full overflow-hidden">
             <div
               className={cn(
                 "h-full rounded-full transition-all duration-700",
@@ -202,7 +204,8 @@ function ProducerProfilePage() {
           <IntegrationsTab />
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </PageShell>
   );
 }
 
@@ -637,7 +640,7 @@ function UserAccountCard({ profile }: { profile: any }) {
     <Card>
       <CardHeader><CardTitle>User Account</CardTitle></CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg bg-muted/40 p-3 text-sm">
+        <div className="rounded-lg bg-surface-2 p-3 text-sm">
           <strong>Login Email vs Contact Email:</strong> Your login email is the credential you sign in with. Changing your contact email above does NOT change your login email.
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -689,7 +692,7 @@ function DocumentsTab({ documents, userId, onSaved }: { documents: any[]; userId
             const doc = documents.find((d: any) => d.doc_type === type);
             return (
               <div key={type} className="flex items-center gap-4 p-4">
-                <div className="h-10 w-10 rounded-lg bg-muted grid place-items-center shrink-0">
+                <div className="h-10 w-10 rounded-lg bg-surface-2 grid place-items-center shrink-0">
                   <FileText className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">

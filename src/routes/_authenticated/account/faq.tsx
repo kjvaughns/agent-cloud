@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { HelpCircle } from "lucide-react";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/account/faq")({
   head: () => ({
@@ -25,19 +26,23 @@ const FAQS = [
 
 function FaqPage() {
   return (
-    <div className="p-4 md:p-6 max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2"><HelpCircle className="h-7 w-7" /> Frequently Asked Questions</h1>
-        <p className="text-muted-foreground mt-1">Quick answers to the questions agents ask most.</p>
+    <PageShell>
+      <div className="max-w-3xl mx-auto flex flex-col gap-[var(--gap)]">
+        <HeroBand
+          title={<span className="flex items-center gap-2"><HelpCircle className="h-7 w-7" /> Frequently Asked Questions</span>}
+          subtitle="Quick answers to the questions agents ask most."
+        />
+        <Panel>
+          <Accordion type="single" collapsible className="w-full">
+            {FAQS.map((f, i) => (
+              <AccordionItem key={i} value={`q-${i}`}>
+                <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </Panel>
       </div>
-      <Accordion type="single" collapsible className="w-full">
-        {FAQS.map((f, i) => (
-          <AccordionItem key={i} value={`q-${i}`}>
-            <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
-            <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
-    </div>
+    </PageShell>
   );
 }

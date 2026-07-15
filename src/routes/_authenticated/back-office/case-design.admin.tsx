@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   listAllCaseDesignsAdmin, getCaseDesignDetail, updateCaseDesignAdmin,
 } from "@/lib/back-office.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/back-office/case-design/admin")({
   head: () => ({ meta: [{ title: "Case Design Admin — Agent Cloud" }] }),
@@ -54,17 +54,16 @@ function AdminPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Case Design — Admin Review</h2>
-        <p className="text-muted-foreground">Review and respond to submitted cases.</p>
-      </div>
+    <PageShell>
+      <div className="space-y-6">
+        <HeroBand
+          title="Case Design — Admin Review"
+          subtitle="Review and respond to submitted cases."
+        />
 
-      <Card>
-        <CardHeader><CardTitle>All Case Submissions</CardTitle></CardHeader>
-        <CardContent>
-          <div className="rounded-md border divide-y">
-            <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium bg-muted/40">
+        <Panel title="All Case Submissions">
+          <div className="rounded-[var(--radius)] border border-border-soft divide-y divide-border-soft overflow-hidden">
+            <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground bg-surface-2">
               <div className="col-span-2">Submitted</div>
               <div className="col-span-3">Client</div>
               <div className="col-span-2">Coverage</div>
@@ -77,10 +76,10 @@ function AdminPage() {
                 setOpenId(c.id);
                 setStatus((c.status as "pending" | "complete" | "needs_info") ?? "pending");
                 setResponseText("");
-              }} className="grid grid-cols-12 gap-2 px-4 py-3 text-sm w-full text-left hover:bg-muted/30">
-                <div className="col-span-2">{format(new Date(c.created_at), "MMM d, yyyy")}</div>
+              }} className="grid grid-cols-12 gap-2 px-4 py-3 text-sm w-full text-left hover:bg-surface-2 transition-colors">
+                <div className="col-span-2 tnum">{format(new Date(c.created_at), "MMM d, yyyy")}</div>
                 <div className="col-span-3 truncate">{c.client_name_manual ?? c.client_id?.slice(0, 8) ?? "—"}</div>
-                <div className="col-span-2">${Number(c.coverage_amount ?? 0).toLocaleString()}</div>
+                <div className="col-span-2 tnum">${Number(c.coverage_amount ?? 0).toLocaleString()}</div>
                 <div className="col-span-2">{c.product_type}</div>
                 <div className="col-span-2"><Badge variant="outline">{c.status}</Badge></div>
                 <div className="col-span-1"></div>
@@ -88,10 +87,9 @@ function AdminPage() {
             ))}
             {list.data?.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No cases yet.</div>}
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
+        <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
         <SheetContent className="sm:max-w-3xl overflow-y-auto">
           <SheetHeader><SheetTitle>Review Case</SheetTitle></SheetHeader>
           {detail.data && (
@@ -120,14 +118,15 @@ function AdminPage() {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+      </div>
+    </PageShell>
   );
 }
 
 function DetailGrid({ d }: { d: Record<string, unknown> }) {
   const f = (k: string) => (d[k] as string | number | boolean | null) ?? "—";
   return (
-    <div className="grid grid-cols-2 gap-3 text-sm rounded-md border p-4 bg-muted/20">
+    <div className="grid grid-cols-2 gap-3 text-sm rounded-[var(--radius)] border border-border-soft p-4 bg-surface-2 tnum">
       <Row label="Coverage" v={`$${Number(f("coverage_amount")).toLocaleString()}`} />
       <Row label="Product" v={String(f("product_type"))} />
       <Row label="Height (in)" v={String(f("height_in"))} />

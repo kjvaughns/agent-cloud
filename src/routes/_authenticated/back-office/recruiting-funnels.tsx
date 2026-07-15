@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listFunnels, createFunnel, deleteFunnel } from "@/lib/recruiting.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink, Plus, Copy, Trash2, Megaphone } from "lucide-react";
 import { toast } from "sonner";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { SectionLabel } from "@/components/ui/section-label";
 
 export const Route = createFileRoute("/_authenticated/back-office/recruiting-funnels")({
   head: () => ({
@@ -52,38 +53,40 @@ function FunnelsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
-        <CardContent className="pt-6 flex flex-col md:flex-row md:items-center gap-4">
-          <Megaphone className="h-10 w-10 text-primary shrink-0" />
-          <div className="flex-1">
-            <div className="font-semibold">Your personal recruiting page</div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Create a branded "Get Contracted Now" page with your name and contact info. Share the link on
-              social media, job boards, or with prospects directly — every application lands in your
-              Recruiting Tracker automatically.
-            </p>
-          </div>
-          <CreateFunnelDialog />
-        </CardContent>
-      </Card>
+    <PageShell>
+      <div className="space-y-6">
+        <HeroBand
+          title="Recruiting Funnels"
+          subtitle="Branded recruiting pages — every application lands in your Recruiting Tracker automatically."
+          actions={<CreateFunnelDialog />}
+        />
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">My funnels</h2>
-        {isLoading ? (
-          <Skeleton className="h-32" />
-        ) : funnels.length === 0 ? (
-          <Card>
-            <CardContent className="p-10 text-center text-muted-foreground">
+        <Panel className="bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
+          <div className="flex flex-col md:flex-row md:items-center gap-4">
+            <Megaphone className="h-10 w-10 text-primary shrink-0" />
+            <div className="flex-1">
+              <div className="font-display font-semibold" style={{ fontFamily: "var(--font-display)" }}>Your personal recruiting page</div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Create a branded "Get Contracted Now" page with your name and contact info. Share the link on
+                social media, job boards, or with prospects directly — every application lands in your
+                Recruiting Tracker automatically.
+              </p>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel title="My funnels">
+          {isLoading ? (
+            <Skeleton className="h-32" />
+          ) : funnels.length === 0 ? (
+            <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-10 text-center text-muted-foreground">
               <div className="font-medium text-foreground">No funnels yet</div>
               <p className="text-sm mt-1">Create your first recruiting funnel above — it takes less than a minute.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-0 divide-y">
+            </div>
+          ) : (
+            <div className="rounded-[var(--radius)] border border-border-soft divide-y divide-border-soft overflow-hidden">
               {(funnels as any[]).map((f) => (
-                <div key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div key={f.id} className="flex flex-wrap items-center justify-between gap-3 p-4 bg-surface-2">
                   <div className="min-w-0">
                     <div className="font-medium flex items-center gap-2">
                       {f.name}
@@ -93,8 +96,8 @@ function FunnelsPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-sm text-right">
-                      <div>{Number(f.page_views ?? 0).toLocaleString()} views</div>
-                      <div className="text-muted-foreground text-xs">
+                      <div className="tnum">{Number(f.page_views ?? 0).toLocaleString()} views</div>
+                      <div className="text-muted-foreground text-xs tnum">
                         {Number(f.applications ?? 0)} applications
                         {Number(f.production ?? 0) > 0 && ` · $${Math.round(Number(f.production)).toLocaleString()} recruited AP`}
                       </div>
@@ -112,44 +115,43 @@ function FunnelsPage() {
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        )}
-      </section>
+            </div>
+          )}
+        </Panel>
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Recruiting resources</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Where to share your link</CardTitle></CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-1.5">
-              <p>• Facebook groups for sales professionals and career changers</p>
-              <p>• LinkedIn posts and direct messages</p>
-              <p>• Indeed and ZipRecruiter job postings</p>
-              <p>• Text it directly to warm referrals</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-base">Who to recruit</CardTitle></CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-1.5">
-              <p>• Hungry, coachable people with some sales experience</p>
-              <p>• Career changers seeking remote, commission-based work</p>
-              <p>• Licensed agents unhappy at their current agency</p>
-              <p>• No insurance experience required — we train them</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader><CardTitle className="text-base">After they apply</CardTitle></CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-1.5">
-              <p>• Applications appear in your Recruiting Tracker as New Inquiries</p>
-              <p>• Call within 24 hours — speed wins recruits</p>
-              <p>• Move them through stages: callback → course → licensing → onboarded</p>
-              <p>• Send an Agent Cloud invite once they're licensed</p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    </div>
+        <Panel title="Recruiting resources">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-4">
+              <SectionLabel className="mb-2">Where to share your link</SectionLabel>
+              <div className="text-sm text-muted-foreground space-y-1.5">
+                <p>• Facebook groups for sales professionals and career changers</p>
+                <p>• LinkedIn posts and direct messages</p>
+                <p>• Indeed and ZipRecruiter job postings</p>
+                <p>• Text it directly to warm referrals</p>
+              </div>
+            </div>
+            <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-4">
+              <SectionLabel className="mb-2">Who to recruit</SectionLabel>
+              <div className="text-sm text-muted-foreground space-y-1.5">
+                <p>• Hungry, coachable people with some sales experience</p>
+                <p>• Career changers seeking remote, commission-based work</p>
+                <p>• Licensed agents unhappy at their current agency</p>
+                <p>• No insurance experience required — we train them</p>
+              </div>
+            </div>
+            <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-4">
+              <SectionLabel className="mb-2">After they apply</SectionLabel>
+              <div className="text-sm text-muted-foreground space-y-1.5">
+                <p>• Applications appear in your Recruiting Tracker as New Inquiries</p>
+                <p>• Call within 24 hours — speed wins recruits</p>
+                <p>• Move them through stages: callback → course → licensing → onboarded</p>
+                <p>• Send an Agent Cloud invite once they're licensed</p>
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </div>
+    </PageShell>
   );
 }
 

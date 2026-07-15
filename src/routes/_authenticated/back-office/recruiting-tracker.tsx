@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listProspects, createProspect, updateProspectStage } from "@/lib/recruiting.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, UserPlus, Sparkles } from "lucide-react";
 import { NurtureDialog } from "@/components/ai/nurture-dialog";
 import { toast } from "sonner";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { StatTile } from "@/components/ui/stat-tile";
 
 export const Route = createFileRoute("/_authenticated/back-office/recruiting-tracker")({
   head: () => ({ meta: [
@@ -70,97 +71,97 @@ function RecruitingTrackerPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {STAGES.map((s) => (
-          <Card key={s.key}>
-            <CardContent className="p-4">
-              <div className={`h-1 w-12 rounded-full ${s.color} mb-3`} />
-              <div className="text-3xl font-bold">{counts[s.key] ?? 0}</div>
-              <div className="text-sm text-muted-foreground">{s.label}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Pipeline</CardTitle>
-          <AddRecruitDialog />
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-4 space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10" />)}</div>
-          ) : prospects.length === 0 ? (
-            <div className="p-10 text-center text-muted-foreground">
-              <UserPlus className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <div className="font-medium text-foreground">No recruits yet</div>
-              <p className="text-sm mt-1">Add your first recruit, or share your recruiting funnel link to capture inbound prospects automatically.</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Recruit</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Recruiter</TableHead>
-                  <TableHead className="text-right">Days in stage</TableHead>
-                  <TableHead className="text-right">AI</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(prospects as any[]).map((p) => {
-                  const name = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
-                  const initials = `${(p.first_name ?? "?")[0] ?? ""}${(p.last_name ?? "")[0] ?? ""}`.toUpperCase();
-                  const recruiter = p.recruiter ? `${p.recruiter.first_name ?? ""} ${p.recruiter.last_name ?? ""}`.trim() : "—";
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7"><AvatarFallback className="text-xs">{initials}</AvatarFallback></Avatar>
-                          <div>
-                            <div className="font-medium">{name}</div>
-                            {p.phone && <div className="text-xs text-muted-foreground">{p.phone}</div>}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{p.source ?? "—"}</TableCell>
-                      <TableCell>
-                        <Select value={p.stage} onValueChange={(v) => updateStage.mutate({ id: p.id, stage: v })}>
-                          <SelectTrigger className="w-44 h-8">
-                            <SelectValue>{STAGE_LABEL[p.stage] ?? p.stage}</SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STAGES.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{recruiter}</TableCell>
-                      <TableCell className="text-right tabular-nums">{daysIn(p.stage_entered_at)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => setNurtureFor({ id: p.id, name })}>
-                          <Sparkles className="h-3 w-3 mr-1" /> Nurture
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {nurtureFor && (
-        <NurtureDialog
-          prospectId={nurtureFor.id}
-          prospectName={nurtureFor.name}
-          open={!!nurtureFor}
-          onOpenChange={(o) => !o && setNurtureFor(null)}
+    <PageShell>
+      <div className="space-y-6">
+        <HeroBand
+          title="Recruiting Tracker"
+          subtitle="Track prospects from first inquiry to onboarded agent."
         />
-      )}
-    </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {STAGES.map((s) => (
+            <div key={s.key} className="rounded-[var(--radius)] border border-border bg-card p-4">
+              <div className={`h-1 w-12 rounded-full ${s.color} mb-3`} />
+              <StatTile label={s.label} value={counts[s.key] ?? 0} />
+            </div>
+          ))}
+        </div>
+
+        <Panel title="Pipeline" action={<AddRecruitDialog />}>
+          <div className="rounded-[var(--radius)] border border-border-soft overflow-hidden">
+            {isLoading ? (
+              <div className="p-4 space-y-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-10" />)}</div>
+            ) : prospects.length === 0 ? (
+              <div className="p-10 text-center text-muted-foreground">
+                <UserPlus className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                <div className="font-medium text-foreground">No recruits yet</div>
+                <p className="text-sm mt-1">Add your first recruit, or share your recruiting funnel link to capture inbound prospects automatically.</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Recruit</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Recruiter</TableHead>
+                    <TableHead className="text-right">Days in stage</TableHead>
+                    <TableHead className="text-right">AI</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(prospects as any[]).map((p) => {
+                    const name = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+                    const initials = `${(p.first_name ?? "?")[0] ?? ""}${(p.last_name ?? "")[0] ?? ""}`.toUpperCase();
+                    const recruiter = p.recruiter ? `${p.recruiter.first_name ?? ""} ${p.recruiter.last_name ?? ""}`.trim() : "—";
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7"><AvatarFallback className="text-xs">{initials}</AvatarFallback></Avatar>
+                            <div>
+                              <div className="font-medium">{name}</div>
+                              {p.phone && <div className="text-xs text-muted-foreground">{p.phone}</div>}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{p.source ?? "—"}</TableCell>
+                        <TableCell>
+                          <Select value={p.stage} onValueChange={(v) => updateStage.mutate({ id: p.id, stage: v })}>
+                            <SelectTrigger className="w-44 h-8">
+                              <SelectValue>{STAGE_LABEL[p.stage] ?? p.stage}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STAGES.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{recruiter}</TableCell>
+                        <TableCell className="text-right tnum">{daysIn(p.stage_entered_at)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => setNurtureFor({ id: p.id, name })}>
+                            <Sparkles className="h-3 w-3 mr-1" /> Nurture
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </Panel>
+
+        {nurtureFor && (
+          <NurtureDialog
+            prospectId={nurtureFor.id}
+            prospectName={nurtureFor.name}
+            open={!!nurtureFor}
+            onOpenChange={(o) => !o && setNurtureFor(null)}
+          />
+        )}
+      </div>
+    </PageShell>
   );
 }
 

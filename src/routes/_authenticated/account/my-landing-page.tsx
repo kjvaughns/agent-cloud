@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Eye, Globe, Sparkles, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getLandingPage, saveLandingPage, setLandingPublished, generateBioAi } from "@/lib/account.functions";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/account/my-landing-page")({
   head: () => ({
@@ -113,61 +113,61 @@ function MyLandingPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 md:p-6 max-w-5xl space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-16 w-full" />
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Skeleton className="h-48" />
-          <Skeleton className="h-48" />
+      <PageShell>
+        <div className="max-w-5xl mx-auto space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-16 w-full" />
+          <div className="grid lg:grid-cols-2 gap-6">
+            <Skeleton className="h-48" />
+            <Skeleton className="h-48" />
+          </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2"><Globe className="h-7 w-7" /> My Landing Page</h1>
-          <p className="text-muted-foreground mt-1">Customize your public-facing agent profile.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { navigator.clipboard.writeText(pageUrl); toast.success("URL copied!"); }}
-          >
-            <Copy className="h-3 w-3 mr-1" /> Copy URL
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a href={pageUrl} target="_blank" rel="noopener noreferrer">
-              <Eye className="h-3 w-3 mr-1" /> Preview
-            </a>
-          </Button>
-          <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving…</> : "Save"}
-          </Button>
-        </div>
-      </div>
+    <PageShell>
+      <div className="max-w-5xl mx-auto space-y-6">
+      <HeroBand
+        title={<span className="flex items-center gap-2"><Globe className="h-7 w-7" /> My Landing Page</span>}
+        subtitle="Customize your public-facing agent profile."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { navigator.clipboard.writeText(pageUrl); toast.success("URL copied!"); }}
+            >
+              <Copy className="h-3 w-3 mr-1" /> Copy URL
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={pageUrl} target="_blank" rel="noopener noreferrer">
+                <Eye className="h-3 w-3 mr-1" /> Preview
+              </a>
+            </Button>
+            <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving…</> : "Save"}
+            </Button>
+          </>
+        }
+      />
 
-      <Card>
-        <CardContent className="p-5 flex items-center justify-between gap-4">
-          <div>
-            <div className="font-semibold">Landing Page Published</div>
-            <div className="text-sm text-muted-foreground mt-0.5 truncate max-w-xs">{pageUrl}</div>
-          </div>
-          <Switch
-            checked={published}
-            disabled={publishMutation.isPending}
-            onCheckedChange={(v) => publishMutation.mutate(v)}
-          />
-        </CardContent>
-      </Card>
+      <Panel className="flex-row items-center justify-between gap-4">
+        <div>
+          <div className="font-semibold">Landing Page Published</div>
+          <div className="text-sm text-muted-foreground mt-0.5 truncate max-w-xs">{pageUrl}</div>
+        </div>
+        <Switch
+          checked={published}
+          disabled={publishMutation.isPending}
+          onCheckedChange={(v) => publishMutation.mutate(v)}
+        />
+      </Panel>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+        <Panel title="Contact Information">
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Contact Email</Label>
               <Input
@@ -184,12 +184,11 @@ function MyLandingPage() {
                 placeholder="e.g., (512) 555-0188"
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
 
-        <Card>
-          <CardHeader><CardTitle>Profile Photo</CardTitle></CardHeader>
-          <CardContent className="flex items-center gap-4">
+        <Panel title="Profile Photo">
+          <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20">
               <AvatarFallback className="text-xl bg-primary text-primary-foreground">{initials}</AvatarFallback>
             </Avatar>
@@ -197,42 +196,38 @@ function MyLandingPage() {
               <Button variant="outline" size="sm">Change Photo</Button>
               <p className="text-xs text-muted-foreground mt-2">Square image, 400×400px min, max 5MB</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </Panel>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Custom Message</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => genBioMutation.mutate()}
-              disabled={genBioMutation.isPending}
-            >
-              {genBioMutation.isPending
-                ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Generating…</>
-                : <><Sparkles className="h-3 w-3 mr-1" /> Generate with AI</>
-              }
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            rows={4}
-            maxLength={500}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Tell prospects who you are and how you help families protect what matters most."
-          />
-          <div className="text-xs text-muted-foreground mt-1 text-right">{bio.length} / 500</div>
-        </CardContent>
-      </Card>
+      <Panel
+        title="Custom Message"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => genBioMutation.mutate()}
+            disabled={genBioMutation.isPending}
+          >
+            {genBioMutation.isPending
+              ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Generating…</>
+              : <><Sparkles className="h-3 w-3 mr-1" /> Generate with AI</>
+            }
+          </Button>
+        }
+      >
+        <Textarea
+          rows={4}
+          maxLength={500}
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="Tell prospects who you are and how you help families protect what matters most."
+        />
+        <div className="text-xs text-muted-foreground mt-1 text-right">{bio.length} / 500</div>
+      </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>What I Help With</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+      <Panel title="What I Help With">
+        <div className="flex flex-wrap gap-2">
           {ALL_SPECIALTIES.map((s) => (
             <Badge
               key={s}
@@ -243,12 +238,11 @@ function MyLandingPage() {
               {s}
             </Badge>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      <Card>
-        <CardHeader><CardTitle>Carriers I Represent</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+      <Panel title="Carriers I Represent">
+        <div className="flex flex-wrap gap-2">
           {ALL_CARRIERS.map((c) => (
             <Badge
               key={c}
@@ -259,19 +253,18 @@ function MyLandingPage() {
               {c}
             </Badge>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>States Licensed In</CardTitle>
-            <Button variant="link" size="sm" onClick={() => setStates(states.length === US_STATES.length ? [] : [...US_STATES])}>
-              {states.length === US_STATES.length ? "Deselect All" : "Select All"}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+      <Panel
+        title="States Licensed In"
+        action={
+          <Button variant="link" size="sm" onClick={() => setStates(states.length === US_STATES.length ? [] : [...US_STATES])}>
+            {states.length === US_STATES.length ? "Deselect All" : "Select All"}
+          </Button>
+        }
+      >
+        <div className="flex flex-wrap gap-2">
           {US_STATES.map((st) => (
             <Badge
               key={st}
@@ -288,8 +281,9 @@ function MyLandingPage() {
               )}
             </Badge>
           ))}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </Panel>
+      </div>
+    </PageShell>
   );
 }

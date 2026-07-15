@@ -14,6 +14,7 @@ import { LifeBuoy, Mail, MessageSquare, Phone, Search, CheckCircle2, ChevronDown
 import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
 import { AiHelpSearch } from "@/components/ai/ai-help-search";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/account/help")({
   head: () => ({
@@ -50,11 +51,12 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 function HelpPage() {
   return (
-    <div className="p-4 md:p-6 max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> Help Center</h1>
-        <p className="text-sm text-muted-foreground mt-1">Search the knowledge base, submit a support ticket, or view your ticket history.</p>
-      </div>
+    <PageShell>
+      <div className="max-w-5xl mx-auto space-y-6">
+      <HeroBand
+        title={<span className="flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> Help Center</span>}
+        subtitle="Search the knowledge base, submit a support ticket, or view your ticket history."
+      />
 
       <Tabs defaultValue="kb">
         <TabsList>
@@ -72,13 +74,11 @@ function HelpPage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {TOPICS.map((t) => (
-              <Card key={t.title} className="hover:shadow-md transition cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="font-semibold">{t.title}</div>
-                  <div className="text-sm text-muted-foreground mt-1">{t.desc}</div>
-                  <div className="text-xs text-muted-foreground mt-3">{t.count} articles</div>
-                </CardContent>
-              </Card>
+              <Panel key={t.title} className="hover:border-border-soft transition cursor-pointer">
+                <div className="font-semibold">{t.title}</div>
+                <div className="text-sm text-muted-foreground mt-1">{t.desc}</div>
+                <div className="text-xs text-muted-foreground mt-3">{t.count} articles</div>
+              </Panel>
             ))}
           </div>
 
@@ -88,14 +88,12 @@ function HelpPage() {
               { icon: Mail, title: "Email", desc: "support@agentcloud.com", cta: "Email Us" },
               { icon: Phone, title: "Phone", desc: "(800) 555-CLOUD", cta: "Call Support" },
             ].map((c) => (
-              <Card key={c.title}>
-                <CardContent className="p-5 text-center space-y-2">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><c.icon className="h-5 w-5" /></div>
-                  <div className="font-semibold">{c.title}</div>
-                  <div className="text-sm text-muted-foreground">{c.desc}</div>
-                  <Button variant="outline" size="sm" className="w-full">{c.cta}</Button>
-                </CardContent>
-              </Card>
+              <Panel key={c.title} className="text-center items-center gap-2">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><c.icon className="h-5 w-5" /></div>
+                <div className="font-semibold">{c.title}</div>
+                <div className="text-sm text-muted-foreground">{c.desc}</div>
+                <Button variant="outline" size="sm" className="w-full">{c.cta}</Button>
+              </Panel>
             ))}
           </div>
         </TabsContent>
@@ -108,7 +106,8 @@ function HelpPage() {
           <MyTicketsList />
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </PageShell>
   );
 }
 

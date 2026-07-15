@@ -5,7 +5,6 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import {
   submitCaseDesign, listMyCaseDesigns, getCaseDesignDetail, searchClientsForCase,
 } from "@/lib/back-office.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Clock, Lightbulb, CheckCircle2, ChevronRight, FileCheck2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/back-office/case-design")({
   head: () => ({ meta: [
@@ -109,77 +109,72 @@ function CaseDesignPage() {
   }, [coverage, product, primary, mode, clientId, manualName]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold">Case Design</h2>
-        <p className="text-muted-foreground">Get expert underwriting guidance for complex cases within 24 hours.</p>
-      </div>
+    <PageShell>
+      <div className="space-y-8">
+        <HeroBand
+          title="Case Design"
+          subtitle="Get expert underwriting guidance for complex cases within 24 hours."
+        />
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle className="text-base">What We Provide</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {[
-              "Carrier recommendations based on client's specific health situation",
-              "Underwriting strategy to maximize approval chances",
-              "Application approach and required documentation",
-              "Alternative solutions if standard coverage isn't available",
-              "Face amount optimization for best approval odds",
-              "Multiple carrier options ranked by likelihood of approval",
-            ].map((t) => (
-              <div key={t} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" /><span>{t}</span></div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle className="text-base">Perfect For</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {[
-              "Clients with medical conditions or health concerns",
-              "High face amount cases ($500,000+)",
-              "Business and estate planning cases",
-              "Previously declined applications",
-              "Clients with multiple health impairments",
-              "Any case you're unsure which carrier to use",
-            ].map((t) => (
-              <div key={t} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" /><span>{t}</span></div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          <Panel title="What We Provide">
+            <div className="space-y-2 text-sm">
+              {[
+                "Carrier recommendations based on client's specific health situation",
+                "Underwriting strategy to maximize approval chances",
+                "Application approach and required documentation",
+                "Alternative solutions if standard coverage isn't available",
+                "Face amount optimization for best approval odds",
+                "Multiple carrier options ranked by likelihood of approval",
+              ].map((t) => (
+                <div key={t} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" /><span>{t}</span></div>
+              ))}
+            </div>
+          </Panel>
+          <Panel title="Perfect For">
+            <div className="space-y-2 text-sm">
+              {[
+                "Clients with medical conditions or health concerns",
+                "High face amount cases ($500,000+)",
+                "Business and estate planning cases",
+                "Previously declined applications",
+                "Clients with multiple health impairments",
+                "Any case you're unsure which carrier to use",
+              ].map((t) => (
+                <div key={t} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-success mt-0.5 shrink-0" /><span>{t}</span></div>
+              ))}
+            </div>
+          </Panel>
+        </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <HighlightCard icon={<Clock className="h-5 w-5" />} title="24-Hour Turnaround" body="Get carrier recommendations within one business day." />
-        <HighlightCard icon={<Lightbulb className="h-5 w-5" />} title="Expert Underwriters" body="Cases reviewed by experienced life insurance underwriters." />
-        <HighlightCard icon={<FileCheck2 className="h-5 w-5" />} title="Included in Partnership" body="No additional cost, included with your Agent Cloud access." />
-      </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <HighlightCard icon={<Clock className="h-5 w-5" />} title="24-Hour Turnaround" body="Get carrier recommendations within one business day." />
+          <HighlightCard icon={<Lightbulb className="h-5 w-5" />} title="Expert Underwriters" body="Cases reviewed by experienced life insurance underwriters." />
+          <HighlightCard icon={<FileCheck2 className="h-5 w-5" />} title="Included in Partnership" body="No additional cost, included with your Agent Cloud access." />
+        </div>
 
-      <Card>
-        <CardHeader><CardTitle>How Our Service Works</CardTitle></CardHeader>
-        <CardContent>
+        <Panel title="How Our Service Works">
           <div className="grid md:grid-cols-3 gap-4 items-stretch">
             <StepCard n={1} title="Submit Your Case" body="Complete our form with client details, medical history, and coverage needs." />
             <StepCard n={2} title="Expert Review" body="Our underwriting team analyzes the case within 24 hours on business days." />
             <StepCard n={3} title="Get Recommendations" body="Receive specific carrier suggestions and application strategy via notification + email." />
           </div>
-        </CardContent>
-      </Card>
+        </Panel>
 
-      {submitted ? (
-        <Card className="border-success">
-          <CardContent className="p-6 flex items-center gap-4">
-            <CheckCircle2 className="h-10 w-10 text-success" />
-            <div className="flex-1">
-              <div className="font-semibold text-lg">Case Submitted!</div>
-              <div className="text-sm text-muted-foreground">Our team will review and respond within 24 hours.</div>
+        {submitted ? (
+          <Panel className="border-success">
+            <div className="flex items-center gap-4">
+              <CheckCircle2 className="h-10 w-10 text-success" />
+              <div className="flex-1">
+                <div className="font-display font-semibold text-lg" style={{ fontFamily: "var(--font-display)" }}>Case Submitted!</div>
+                <div className="text-sm text-muted-foreground">Our team will review and respond within 24 hours.</div>
+              </div>
+              <Button variant="outline" onClick={() => { setSubmitted(false); resetForm(); }}>Submit another</Button>
             </div>
-            <Button variant="outline" onClick={() => { setSubmitted(false); resetForm(); }}>Submit another</Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card id="submit-form">
-          <CardHeader><CardTitle>Submit a Case for Review</CardTitle></CardHeader>
-          <CardContent className="space-y-5">
+          </Panel>
+        ) : (
+          <Panel title="Submit a Case for Review">
+            <div id="submit-form" className="space-y-5">
             <div className="space-y-3">
               <Label>Client</Label>
               <div className="flex gap-3 text-sm">
@@ -264,16 +259,14 @@ function CaseDesignPage() {
                 Submit for Design Review
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          </Panel>
+        )}
 
-      {(cases.data?.length ?? 0) > 0 && (
-        <Card>
-          <CardHeader><CardTitle>My Case Submissions</CardTitle></CardHeader>
-          <CardContent>
-            <div className="rounded-md border divide-y">
-              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground bg-muted/40">
+        {(cases.data?.length ?? 0) > 0 && (
+          <Panel title="My Case Submissions">
+            <div className="rounded-[var(--radius)] border border-border-soft divide-y divide-border-soft overflow-hidden">
+              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground bg-surface-2">
                 <div className="col-span-2">Date</div>
                 <div className="col-span-3">Client</div>
                 <div className="col-span-2">Coverage</div>
@@ -283,37 +276,37 @@ function CaseDesignPage() {
               </div>
               {cases.data?.map((c) => (
                 <button key={c.id} onClick={() => c.status === "complete" && setOpenDetailId(c.id)}
-                  className="grid grid-cols-12 gap-2 px-4 py-3 text-sm w-full text-left hover:bg-muted/30 disabled:cursor-default" disabled={c.status !== "complete"}>
-                  <div className="col-span-2">{format(new Date(c.created_at), "MMM d, yyyy")}</div>
+                  className="grid grid-cols-12 gap-2 px-4 py-3 text-sm w-full text-left hover:bg-surface-2 transition-colors disabled:cursor-default" disabled={c.status !== "complete"}>
+                  <div className="col-span-2 tnum">{format(new Date(c.created_at), "MMM d, yyyy")}</div>
                   <div className="col-span-3 truncate">{c.client_name || "—"}</div>
-                  <div className="col-span-2">${Number(c.coverage_amount ?? 0).toLocaleString()}</div>
+                  <div className="col-span-2 tnum">${Number(c.coverage_amount ?? 0).toLocaleString()}</div>
                   <div className="col-span-2">{c.product_type}</div>
                   <div className="col-span-2"><StatusBadge status={c.status} /></div>
                   <div className="col-span-1 flex justify-end">{c.status === "complete" && <ChevronRight className="h-4 w-4 text-muted-foreground" />}</div>
                 </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </Panel>
+        )}
 
-      <Sheet open={!!openDetailId} onOpenChange={(o) => !o && setOpenDetailId(null)}>
-        <SheetContent className="sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Underwriter Recommendations</SheetTitle>
-            <SheetDescription>
-              Submitted {detail.data && format(new Date(detail.data.created_at), "MMM d, yyyy")}
-            </SheetDescription>
-          </SheetHeader>
-          {detail.data?.response_html ? (
-            <div className="prose prose-sm dark:prose-invert max-w-none mt-4"
-              dangerouslySetInnerHTML={{ __html: sanitize(detail.data.response_html) }} />
-          ) : (
-            <p className="text-sm text-muted-foreground mt-4">No response yet.</p>
-          )}
-        </SheetContent>
-      </Sheet>
-    </div>
+        <Sheet open={!!openDetailId} onOpenChange={(o) => !o && setOpenDetailId(null)}>
+          <SheetContent className="sm:max-w-2xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>Underwriter Recommendations</SheetTitle>
+              <SheetDescription>
+                Submitted {detail.data && format(new Date(detail.data.created_at), "MMM d, yyyy")}
+              </SheetDescription>
+            </SheetHeader>
+            {detail.data?.response_html ? (
+              <div className="prose prose-sm dark:prose-invert max-w-none mt-4"
+                dangerouslySetInnerHTML={{ __html: sanitize(detail.data.response_html) }} />
+            ) : (
+              <p className="text-sm text-muted-foreground mt-4">No response yet.</p>
+            )}
+          </SheetContent>
+        </Sheet>
+      </div>
+    </PageShell>
   );
 
   function resetForm() {
@@ -325,17 +318,17 @@ function CaseDesignPage() {
 
 function HighlightCard({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <Card><CardContent className="p-4 flex gap-3">
+    <div className="rounded-[var(--radius)] border border-border bg-card p-4 flex gap-3">
       <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">{icon}</div>
       <div><div className="font-medium">{title}</div><div className="text-sm text-muted-foreground">{body}</div></div>
-    </CardContent></Card>
+    </div>
   );
 }
 
 function StepCard({ n, title, body }: { n: number; title: string; body: string }) {
   return (
-    <div className="rounded-lg border p-4 relative">
-      <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold mb-2">{n}</div>
+    <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 p-4 relative">
+      <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold mb-2 tnum">{n}</div>
       <div className="font-medium">{title}</div>
       <div className="text-sm text-muted-foreground mt-1">{body}</div>
     </div>
