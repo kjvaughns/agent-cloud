@@ -48,31 +48,11 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    label: "Resources",
-    defaultCollapsed: true,
+    label: "Enablement",
     items: [
-      { title: "New Agent Guide", url: "/resources/new-agent-guide", icon: BookText },
-      { title: "Agent Handbook", url: "/resources/agent-handbook", icon: Library },
-      { title: "Scripts", url: "/resources/scripts", icon: ScrollText },
-      { title: "State Licenses", url: "/resources/state-licenses", icon: IdCard },
-      { title: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
-    ],
-  },
-  {
-    label: "Advanced Market",
-    defaultCollapsed: true,
-    items: [
-      { title: "Case Design", url: "/back-office/case-design", icon: ClipboardList },
-      { title: "Advanced Desk", url: "/back-office/advanced-desk", icon: BriefcaseIcon },
-    ],
-  },
-  {
-    label: "Marketing",
-    defaultCollapsed: true,
-    items: [
-      { title: "Recruiting Funnels", url: "/back-office/recruiting-funnels", icon: Globe },
-      { title: "Client Marketing", url: "/back-office/client-marketing", icon: MegaIcon },
-      { title: "Marketing Tracker", url: "/back-office/marketing-tracker", icon: Briefcase },
+      { title: "Resources", url: "/resources/new-agent-guide", icon: BookOpen },
+      { title: "Advanced Market", url: "/back-office/case-design", icon: BriefcaseIcon },
+      { title: "Marketing", url: "/back-office/recruiting-funnels", icon: MegaIcon },
     ],
   },
   {
