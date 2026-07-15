@@ -82,6 +82,7 @@ import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
 import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './routes/_authenticated/back-office/recruiting-funnels'
+import { Route as AuthenticatedBackOfficeMarketingTrackerRouteImport } from './routes/_authenticated/back-office/marketing-tracker'
 import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
 import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
@@ -487,6 +488,12 @@ const AuthenticatedBackOfficeRecruitingFunnelsRoute =
     path: '/recruiting-funnels',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedBackOfficeMarketingTrackerRoute =
+  AuthenticatedBackOfficeMarketingTrackerRouteImport.update({
+    id: '/marketing-tracker',
+    path: '/marketing-tracker',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
+  } as any)
 const AuthenticatedBackOfficeClientMarketingRoute =
   AuthenticatedBackOfficeClientMarketingRouteImport.update({
     id: '/client-marketing',
@@ -627,6 +634,7 @@ export interface FileRoutesByFullPath {
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -714,6 +722,7 @@ export interface FileRoutesByTo {
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -805,6 +814,7 @@ export interface FileRoutesById {
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
+  '/_authenticated/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
@@ -896,6 +906,7 @@ export interface FileRouteTypes {
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
+    | '/back-office/marketing-tracker'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
@@ -983,6 +994,7 @@ export interface FileRouteTypes {
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
+    | '/back-office/marketing-tracker'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting/annuity-training'
@@ -1073,6 +1085,7 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office/advanced-desk'
     | '/_authenticated/back-office/case-design'
     | '/_authenticated/back-office/client-marketing'
+    | '/_authenticated/back-office/marketing-tracker'
     | '/_authenticated/back-office/recruiting-funnels'
     | '/_authenticated/back-office/recruiting-tracker'
     | '/_authenticated/contracting/annuity-training'
@@ -1653,6 +1666,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/back-office/marketing-tracker': {
+      id: '/_authenticated/back-office/marketing-tracker'
+      path: '/marketing-tracker'
+      fullPath: '/back-office/marketing-tracker'
+      preLoaderRoute: typeof AuthenticatedBackOfficeMarketingTrackerRouteImport
+      parentRoute: typeof AuthenticatedBackOfficeRoute
+    }
     '/_authenticated/back-office/client-marketing': {
       id: '/_authenticated/back-office/client-marketing'
       path: '/client-marketing'
@@ -1780,6 +1800,7 @@ interface AuthenticatedBackOfficeRouteChildren {
   AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
   AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   AuthenticatedBackOfficeClientMarketingRoute: typeof AuthenticatedBackOfficeClientMarketingRoute
+  AuthenticatedBackOfficeMarketingTrackerRoute: typeof AuthenticatedBackOfficeMarketingTrackerRoute
   AuthenticatedBackOfficeRecruitingFunnelsRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
 }
@@ -1792,6 +1813,8 @@ const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren
       AuthenticatedBackOfficeCaseDesignRouteWithChildren,
     AuthenticatedBackOfficeClientMarketingRoute:
       AuthenticatedBackOfficeClientMarketingRoute,
+    AuthenticatedBackOfficeMarketingTrackerRoute:
+      AuthenticatedBackOfficeMarketingTrackerRoute,
     AuthenticatedBackOfficeRecruitingFunnelsRoute:
       AuthenticatedBackOfficeRecruitingFunnelsRoute,
     AuthenticatedBackOfficeRecruitingTrackerRoute:
@@ -2006,13 +2029,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

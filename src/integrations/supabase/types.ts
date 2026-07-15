@@ -2667,6 +2667,7 @@ export type Database = {
           recruiter_id: string
           source: string | null
           stage: Database["public"]["Enums"]["recruiting_stage"]
+          tracker_type: string
         }
         Insert: {
           created_at?: string
@@ -2681,6 +2682,7 @@ export type Database = {
           recruiter_id: string
           source?: string | null
           stage?: Database["public"]["Enums"]["recruiting_stage"]
+          tracker_type?: string
         }
         Update: {
           created_at?: string
@@ -2695,6 +2697,7 @@ export type Database = {
           recruiter_id?: string
           source?: string | null
           stage?: Database["public"]["Enums"]["recruiting_stage"]
+          tracker_type?: string
         }
         Relationships: [
           {
