@@ -111,7 +111,7 @@ export const listProspects = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("recruiting_prospects")
       .select(
-        "id,first_name,last_name,phone,email,stage,source,notes,created_at,funnel_id,linked_agent_id," +
+        "id,first_name,last_name,phone,email,stage,source,notes,created_at,funnel_id,linked_agent_id,tracker_type," +
           "recruiter:profiles!recruiting_prospects_recruiter_id_fkey(first_name,last_name)," +
           "recruiting_prospect_stage_history(changed_at)",
       )
