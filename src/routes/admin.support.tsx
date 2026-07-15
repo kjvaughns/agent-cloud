@@ -135,7 +135,7 @@ function AdminSupport() {
                 onClick={() => setStatusTab(s)}
                 className={cn(
                   "px-2.5 py-1 text-xs rounded-md capitalize transition-colors",
-                  statusTab === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                  statusTab === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-surface-2"
                 )}
               >
                 {s === "all" ? "All" : s.replace("_", " ")}
@@ -164,8 +164,8 @@ function AdminSupport() {
               key={t.id}
               onClick={() => openTicket(t)}
               className={cn(
-                "w-full text-left p-4 hover:bg-muted/30 transition-colors",
-                selected?.id === t.id && "bg-muted/40"
+                "w-full text-left p-4 hover:bg-surface-2 transition-colors",
+                selected?.id === t.id && "bg-surface-2"
               )}
             >
               <div className="flex items-center justify-between mb-1">
@@ -224,7 +224,7 @@ function AdminSupport() {
                       "max-w-[70%] rounded-lg px-4 py-2.5 text-sm",
                       m.sender_role === "support"
                         ? "bg-primary text-black"
-                        : "bg-muted text-foreground"
+                        : "bg-surface-2 border border-border-soft text-foreground"
                     )}
                   >
                     <p className="text-xs font-medium mb-1 opacity-70">

@@ -14,6 +14,7 @@ import { Loader2, RefreshCw, Search, User, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/agents")({
   component: AdminAgents,
@@ -122,7 +123,8 @@ function AdminAgents() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <PageShell>
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Agents</h1>
         <p className="text-sm text-muted-foreground mt-1">{agents.length} total agents</p>
@@ -329,5 +331,6 @@ function AdminAgents() {
         </SheetContent>
       </Sheet>
     </div>
+    </PageShell>
   );
 }

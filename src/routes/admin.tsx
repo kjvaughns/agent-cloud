@@ -58,8 +58,8 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
               active
-                ? "bg-primary/15 text-primary font-medium"
-                : "text-white/60 hover:text-white hover:bg-white/5"
+                ? "bg-gold-glow text-gold-bright font-medium"
+                : "text-muted-foreground hover:text-foreground hover:bg-surface-2"
             )}
           >
             <item.icon className="h-4 w-4 shrink-0" />
@@ -73,9 +73,9 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 
 function SidebarHeader() {
   return (
-    <div className="h-14 flex items-center gap-2 px-4 border-b border-white/10 shrink-0">
+    <div className="h-14 flex items-center gap-2 px-4 border-b border-border shrink-0">
       <Cloud className="h-5 w-5 text-primary" />
-      <span className="font-bold text-white tracking-tight">Agent Cloud</span>
+      <span className="font-bold tracking-tight">Agent Cloud</span>
       <span className="ml-auto text-[10px] font-semibold uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded">Admin</span>
     </div>
   );
@@ -83,11 +83,11 @@ function SidebarHeader() {
 
 function BackLink({ onClick }: { onClick?: () => void }) {
   return (
-    <div className="p-3 border-t border-white/10 shrink-0">
+    <div className="p-3 border-t border-border shrink-0">
       <Link
         to="/dashboard"
         onClick={onClick}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
       >
         <ChevronRight className="h-4 w-4 rotate-180" />
         Back to Agent View
@@ -100,9 +100,9 @@ function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex bg-[#0a0a0a]">
+    <div className="min-h-screen flex bg-card">
       {/* Desktop sidebar */}
-      <aside className="w-60 shrink-0 border-r border-white/10 hidden md:flex flex-col">
+      <aside className="w-60 shrink-0 border-r border-border hidden md:flex flex-col">
         <SidebarHeader />
         <NavItems />
         <BackLink />
@@ -110,7 +110,7 @@ function AdminLayout() {
 
       {/* Mobile sheet drawer */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-64 bg-[#0a0a0a] border-r border-white/10 flex flex-col">
+        <SheetContent side="left" className="p-0 w-64 bg-card border-r border-border flex flex-col">
           <SidebarHeader />
           <NavItems onNavigate={() => setMobileOpen(false)} />
           <BackLink onClick={() => setMobileOpen(false)} />

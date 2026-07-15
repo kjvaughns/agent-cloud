@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/hierarchy")({
   component: AdminHierarchy,
@@ -102,7 +103,8 @@ function AdminHierarchy() {
   });
 
   return (
-    <div className="p-6 space-y-4">
+    <PageShell>
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Agency Hierarchy</h1>
         <p className="text-sm text-muted-foreground mt-1">Full org chart of all agents. Click any node to expand/collapse.</p>
@@ -152,5 +154,6 @@ function AdminHierarchy() {
         </Card>
       )}
     </div>
+    </PageShell>
   );
 }

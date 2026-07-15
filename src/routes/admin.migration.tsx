@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, CheckCircle, Circle, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/migration")({
   component: AdminMigration,
@@ -118,7 +119,8 @@ function AdminMigration() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <PageShell>
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Team Migration Wizard</h1>
         <p className="text-sm text-muted-foreground mt-1">Import your existing team from AgentLink and onboard them to Agent Cloud</p>
@@ -294,5 +296,6 @@ function AdminMigration() {
         </div>
       )}
     </div>
+    </PageShell>
   );
 }

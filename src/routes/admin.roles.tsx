@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Loader2, Search, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/roles")({
   component: AdminRoles,
@@ -78,7 +79,8 @@ function AdminRoles() {
   });
 
   return (
-    <div className="p-6 space-y-4">
+    <PageShell>
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-6 w-6 text-primary" />
         <div>
@@ -176,5 +178,6 @@ function AdminRoles() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </PageShell>
   );
 }

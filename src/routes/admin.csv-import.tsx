@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { parseAgentLinkXLS } from "@/lib/agentlink-xls-parser";
 import type { ParsedExport } from "@/lib/agentlink-xls-parser";
 import { adminListAllAgents, adminImportAgentLinkXLS } from "@/lib/admin.functions";
+import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/csv-import")({
   head: () => ({ meta: [{ title: "AgentLink Import — Admin" }] }),
@@ -363,7 +364,8 @@ function AdminAgentLinkImport() {
   const stepIndex = Math.min(phaseIndex, 3);
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl space-y-6">
+    <PageShell>
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Upload className="h-6 w-6" /> AgentLink XLS Import
@@ -515,5 +517,6 @@ function AdminAgentLinkImport() {
         </div>
       )}
     </div>
+    </PageShell>
   );
 }
