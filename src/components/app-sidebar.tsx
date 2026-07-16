@@ -227,7 +227,7 @@ export function AppSidebar() {
                   {isAgencyOwner && (
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild tooltip="Agency Settings">
-                        <Link to={"/agency/settings" as any}>
+                        <Link to="/agency/settings">
                           <Building2 className="h-4 w-4" />
                           <span>Agency Settings</span>
                         </Link>

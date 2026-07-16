@@ -736,7 +736,7 @@ function ProfileCompletionBanner({ pct, missing }: { pct: number; missing: strin
               You need to complete a carrier release form before you can be fully contracted.
             </p>
           </div>
-          <Link to={"/contracting/transfers" as any}>
+          <Link to="/contracting/transfers">
             <Button size="sm" className="shrink-0 bg-red-600 hover:bg-red-700 text-white h-8">
               Complete Now →
             </Button>

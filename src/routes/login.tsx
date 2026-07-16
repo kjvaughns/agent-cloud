@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Cloud, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,27 +73,44 @@ function LoginPage() {
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      <div className="hidden lg:flex flex-col justify-between bg-sidebar text-sidebar-foreground p-12">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Cloud className="h-5 w-5" /></div>
-          <span className="text-lg font-bold tracking-tight">Agent Cloud</span>
+    // Auth always renders in the premium dark look regardless of stored theme.
+    <div className="dark min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
+      <div className="hidden lg:flex flex-col justify-between bg-card border-r border-border p-12 relative overflow-hidden">
+        <div
+          className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full"
+          style={{ background: "radial-gradient(circle, var(--gold-glow) 0%, transparent 70%)" }}
+        />
+        <div className="flex items-center gap-2.5">
+          <div
+            className="h-9 w-9 rounded-[9px] grid place-items-center text-gold-foreground font-bold"
+            style={{ background: "linear-gradient(140deg, var(--gold-bright), var(--gold-dim))", fontFamily: "var(--font-display)" }}
+          >
+            A
+          </div>
+          <span className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
         </div>
         <div className="space-y-4 max-w-md">
-          <h2 className="text-4xl font-bold leading-tight">Your entire agency, in one cloud.</h2>
-          <p className="text-sidebar-foreground/70 text-lg">
+          <h2 className="text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>
+            Your entire agency, <span className="text-gold-bright">in one cloud.</span>
+          </h2>
+          <p className="text-muted-foreground text-lg">
             Pipeline, contracting, calls, SMS, analytics, and a downline command center — built for life insurance teams.
           </p>
         </div>
-        <p className="text-sm text-sidebar-foreground/50">© Agent Cloud 2026</p>
+        <p className="text-sm text-text-dim">© Agent Cloud 2026</p>
       </div>
       <div className="flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-xl border bg-card p-8 shadow-sm">
+        <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card p-8" style={{ boxShadow: "var(--shadow-pop)" }}>
           <div className="mb-6 lg:hidden flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary grid place-items-center text-primary-foreground"><Cloud className="h-4 w-4" /></div>
-            <span className="font-bold">Agent Cloud</span>
+            <div
+              className="h-8 w-8 rounded-lg grid place-items-center text-gold-foreground font-bold"
+              style={{ background: "linear-gradient(140deg, var(--gold-bright), var(--gold-dim))", fontFamily: "var(--font-display)" }}
+            >
+              A
+            </div>
+            <span className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
           </div>
-          <h1 className="text-2xl font-bold">{title}</h1>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>{title}</h1>
           <p className="text-sm text-muted-foreground mt-1 mb-6">{subtitle}</p>
           {children}
         </div>
