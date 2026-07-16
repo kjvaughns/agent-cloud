@@ -42,6 +42,7 @@ export type AgencyFeedAgent = {
   first_name: string | null;
   last_name: string | null;
   missing: string[];
+  completion_pct: number;
 };
 
 export type AgencyFeedPolicy = {
@@ -69,10 +70,20 @@ export const getAgencyFeed = createServerFn({ method: "GET" })
 
     const { data: agents } = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, created_at, date_of_birth, street_address, npn_number, ssn_encrypted")
+      .select("id, first_name, last_name, created_at")
       .eq("upline_id", userId);
 
     const agentIds = (agents ?? []).map((r: any) => r.id);
+
+    // Real onboarding completion from get_team_downline (agent_completion SQL fn):
+    // pct + missing items across profile fields AND documents (E&O, banking, DL, AML).
+    const { data: downlineRows } = await supabase.rpc("get_team_downline");
+    const completionById = new Map<string, { pct: number; missing: string[] }>(
+      ((downlineRows ?? []) as any[]).map((r) => [
+        r.id,
+        { pct: Number(r.completion_pct ?? 0), missing: (r.missing as string[]) ?? [] },
+      ]),
+    );
 
     const [policiesRes, stuckRes] = await Promise.all([
       agentIds.length > 0
@@ -95,18 +106,18 @@ export const getAgencyFeed = createServerFn({ method: "GET" })
     const cutoff7d = new Date(Date.now() - 7 * 86400000).toISOString();
 
     const activationQueue = (agents ?? [])
-      .map((p: any) => ({
-        id: p.id,
-        first_name: p.first_name,
-        last_name: p.last_name,
-        missing: ([
-          !p.date_of_birth && "Date of Birth",
-          !p.street_address && "Address",
-          !p.npn_number && "NPN",
-          !p.ssn_encrypted && "SSN",
-        ] as (string | false)[]).filter(Boolean) as string[],
-      }))
-      .filter((a: any) => a.missing.length > 0)
+      .map((p: any) => {
+        const c = completionById.get(p.id) ?? { pct: 0, missing: [] };
+        return {
+          id: p.id,
+          first_name: p.first_name,
+          last_name: p.last_name,
+          missing: c.missing,
+          completion_pct: c.pct,
+        };
+      })
+      .filter((a: any) => a.completion_pct < 100)
+      .sort((a: any, b: any) => a.completion_pct - b.completion_pct)
       .slice(0, 5);
 
     return {
@@ -120,19 +131,23 @@ export const getAgencyFeed = createServerFn({ method: "GET" })
 // ── Dashboard hero (reference-match): today/week/MTD ALP + daily trend ──────
 export type DashboardHero = {
   todayAlp: number;
-  todayDelta: number;      // $ vs yesterday
+  todayDelta: number;          // $ vs yesterday
   weekAlp: number;
-  weekDeltaPct: number;    // % vs prior 7d
+  weekDeltaPct: number | null; // % vs prior 7d (null = no prior data)
   activePolicies: number;
-  activeToday: number;     // policies posted today
-  teamAlp: number;         // MTD team production
-  teamDeltaPct: number;    // % MoM
+  activeToday: number;         // policies posted today
+  teamAlp: number;             // MTD downline production (excludes self)
+  teamDeltaPct: number | null; // % vs prior month same-day (null = no prior data)
   mtdAlp: number;
+  mtdDeltaPct: number | null;  // % vs prior month, same day-of-month (null = no prior data)
   mtdGoal: number;
+  goalIsDefault: boolean;      // true until the agent sets their own goal
   mtdPct: number;
   daysLeft: number;
-  trend: number[];         // daily cumulative MTD ALP (in dollars)
+  trend: number[];             // daily cumulative MTD ALP (in dollars)
 };
+
+const DEFAULT_MTD_GOAL = 25000;
 
 export const getDashboardHero = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -144,7 +159,12 @@ export const getDashboardHero = createServerFn({ method: "GET" })
     const weekAgo = new Date(startOfToday.getTime() - 7 * 86400000);
     const twoWeeksAgo = new Date(startOfToday.getTime() - 14 * 86400000);
     const yesterday = new Date(startOfToday.getTime() - 86400000);
-    const fetchSince = new Date(Math.min(startOfMonth.getTime(), twoWeeksAgo.getTime()));
+    const priorMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // Same day-of-month in the prior month (clamped by Date's own rollover),
+    // so MTD vs prior month compares like-for-like partial months.
+    const priorMonthSameDay = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(),
+      now.getHours(), now.getMinutes());
+    const fetchSince = new Date(Math.min(priorMonthStart.getTime(), twoWeeksAgo.getTime()));
 
     const { data: pols } = await supabase
       .from("policies")
@@ -169,6 +189,8 @@ export const getDashboardHero = createServerFn({ method: "GET" })
     const weekAlp = sumWhere(weekAgo);
     const priorWeekAlp = sumWhere(twoWeeksAgo, weekAgo);
     const mtdAlp = sumWhere(startOfMonth);
+    // Like-for-like MTD comparison: prior month through the same day-of-month.
+    const priorMtdAlp = sumWhere(priorMonthStart, priorMonthSameDay);
     const activeToday = rows.filter((r) => new Date(r.posted_at) >= startOfToday).length;
 
     // Daily cumulative MTD trend
@@ -191,33 +213,50 @@ export const getDashboardHero = createServerFn({ method: "GET" })
       .eq("agent_id", userId)
       .eq("status", "active");
 
-    // Team ALP (MTD) + prior month, via the existing RPC to reuse hierarchy logic
-    const priorMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const [mtdRpc, priorRpc] = await Promise.all([
+    // Team ALP (MTD, downline-only via the fixed RPC) + prior month same-day,
+    // plus the agent's own monthly goal from their profile.
+    const [mtdRpc, priorRpc, profileRes] = await Promise.all([
       supabase.rpc("get_dashboard_metrics", { _range_start: startOfMonth.toISOString(), _range_end: now.toISOString() }),
-      supabase.rpc("get_dashboard_metrics", { _range_start: priorMonthStart.toISOString(), _range_end: startOfMonth.toISOString() }),
+      supabase.rpc("get_dashboard_metrics", { _range_start: priorMonthStart.toISOString(), _range_end: priorMonthSameDay.toISOString() }),
+      supabase.from("profiles").select("monthly_alp_goal").eq("id", userId).maybeSingle(),
     ]);
     const teamAlp = Number((mtdRpc.data as any)?.team_prod ?? 0);
     const priorTeam = Number((priorRpc.data as any)?.team_prod ?? 0);
 
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const goal = 80000;
+    const storedGoal = Number(profileRes.data?.monthly_alp_goal ?? 0);
+    const goal = storedGoal > 0 ? storedGoal : DEFAULT_MTD_GOAL;
 
     return {
       todayAlp,
       todayDelta: todayAlp - yesterdayAlp,
       weekAlp,
-      weekDeltaPct: priorWeekAlp > 0 ? ((weekAlp - priorWeekAlp) / priorWeekAlp) * 100 : 0,
+      weekDeltaPct: priorWeekAlp > 0 ? ((weekAlp - priorWeekAlp) / priorWeekAlp) * 100 : null,
       activePolicies: activeCount ?? 0,
       activeToday,
       teamAlp,
-      teamDeltaPct: priorTeam > 0 ? ((teamAlp - priorTeam) / priorTeam) * 100 : 0,
+      teamDeltaPct: priorTeam > 0 ? ((teamAlp - priorTeam) / priorTeam) * 100 : null,
       mtdAlp,
+      mtdDeltaPct: priorMtdAlp > 0 ? ((mtdAlp - priorMtdAlp) / priorMtdAlp) * 100 : null,
       mtdGoal: goal,
+      goalIsDefault: !(storedGoal > 0),
       mtdPct: goal > 0 ? Math.round((mtdAlp / goal) * 100) : 0,
       daysLeft: daysInMonth - now.getDate(),
       trend,
     } as DashboardHero;
+  });
+
+export const setMonthlyGoal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ goal: z.number().positive().max(100_000_000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+    const { error } = await supabase
+      .from("profiles")
+      .update({ monthly_alp_goal: data.goal })
+      .eq("id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 // ── Commission summary (reference-match Commission card) ────────────────────
@@ -249,7 +288,8 @@ export const getCommissionSummary = createServerFn({ method: "GET" })
     const chargebackRows = rows.filter((r) => r.amount < 0);
     return {
       advance: sumType(["advance"]),
-      trail: sumType(["trail", "deferred"]),
+      // Renewal income folded in so it isn't invisible on the card.
+      trail: sumType(["trail", "deferred", "renewal"]),
       override: sumType(["override"]),
       chargebacks: chargebackRows.reduce((a, r) => a + r.amount, 0),
       chargebackCount: chargebackRows.length,
@@ -305,9 +345,14 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => RangeSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
+    // Explicit hierarchy scope: self + recursive downline. Without this,
+    // admin/manager RLS grants would leak every agency's producers.
+    const { data: downline } = await supabase.rpc("get_team_downline");
+    const teamIds: string[] = [userId, ...((downline ?? []) as { id: string }[]).map((a) => a.id)];
     const { data: agents } = await supabase
       .from("policies")
       .select("agent_id, annual_premium, profiles!inner(first_name, last_name)")
+      .in("agent_id", teamIds)
       .gte("posted_at", data.rangeStart)
       .lte("posted_at", data.rangeEnd);
     const agentMap = new Map<string, { name: string; premium: number; policies: number }>();

@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal } from "@/lib/dashboard.functions";
 import { getProducerProfile } from "@/lib/account.functions";
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
@@ -133,7 +133,7 @@ function Dashboard() {
           <HeroPanel hero={hero} range={range} setRange={setRange} />
 
           <div className="duo">
-            <LeaderboardPanel leaders={leaders} />
+            <LeaderboardPanel leaders={leaders} rangeLabel={rangeLabel} />
             <CommissionPanel c={commission} />
           </div>
 
@@ -239,12 +239,61 @@ function pctStr(n: number, suffix = "%") {
   return `${n >= 0 ? "+" : ""}${n.toFixed(0)}${suffix}`;
 }
 
+function GoalEditor({ goal, isDefault }: { goal: number; isDefault: boolean }) {
+  const qc = useQueryClient();
+  const goalFn = useServerFn(setMonthlyGoal);
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(goal));
+  const save = useMutation({
+    mutationFn: (g: number) => goalFn({ data: { goal: g } }),
+    onSuccess: () => {
+      toast.success("Monthly goal updated");
+      qc.invalidateQueries({ queryKey: ["dashboard-hero"] });
+      setEditing(false);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't save goal"),
+  });
+  if (editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value.replace(/[^\d]/g, ""))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { const g = Number(value); if (g > 0) save.mutate(g); }
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className="w-20 h-5 px-1 text-[11.5px] tnum rounded border border-primary/50 bg-background outline-none"
+          aria-label="Monthly ALP goal"
+        />
+        <button
+          className="text-[10.5px] font-semibold text-primary"
+          disabled={save.isPending}
+          onClick={() => { const g = Number(value); if (g > 0) save.mutate(g); }}
+        >
+          {save.isPending ? "…" : "Save"}
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      onClick={() => { setValue(String(goal)); setEditing(true); }}
+      className="underline decoration-dotted underline-offset-2 hover:text-gold-bright transition-colors"
+      title={isDefault ? "Default goal — click to set your own" : "Click to edit your monthly goal"}
+    >
+      {money(goal)}{isDefault ? " (set yours)" : ""}
+    </button>
+  );
+}
+
 function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRange: (v: string) => void }) {
   const kpis = [
     { label: "Today ALP", value: money(hero?.todayAlp ?? 0), delta: `${(hero?.todayDelta ?? 0) >= 0 ? "+" : ""}${money(hero?.todayDelta ?? 0)}`, up: (hero?.todayDelta ?? 0) >= 0 },
-    { label: "Week ALP", value: money(hero?.weekAlp ?? 0), delta: pctStr(hero?.weekDeltaPct ?? 0), up: (hero?.weekDeltaPct ?? 0) >= 0 },
+    { label: "Week ALP", value: money(hero?.weekAlp ?? 0), delta: hero?.weekDeltaPct == null ? "no prior data" : pctStr(hero.weekDeltaPct), up: hero?.weekDeltaPct == null ? undefined : hero.weekDeltaPct >= 0 },
     { label: "Active Policies", value: number(hero?.activePolicies ?? 0), delta: `+${hero?.activeToday ?? 0} today`, up: true },
-    { label: "Team ALP", value: money(hero?.teamAlp ?? 0), delta: `${pctStr(hero?.teamDeltaPct ?? 0)} MoM`, up: (hero?.teamDeltaPct ?? 0) >= 0 },
+    { label: "Team ALP", value: money(hero?.teamAlp ?? 0), delta: hero?.teamDeltaPct == null ? "downline only" : `${pctStr(hero.teamDeltaPct)} MoM`, up: hero?.teamDeltaPct == null ? undefined : hero.teamDeltaPct >= 0 },
   ];
   return (
     <Panel pad={false} className="overflow-hidden">
@@ -272,12 +321,21 @@ function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRan
                 <div className="tnum font-display font-bold leading-none text-gold-bright" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(34px,4.5vw,46px)", letterSpacing: "-0.02em" }}>
                   {money(hero?.mtdAlp ?? 0)}
                 </div>
-                <div className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-success rounded-full px-2 py-0.5" style={{ background: "rgba(69,185,104,.12)" }}>
-                  <Icon name="up" size={13} /> {pctStr(hero?.weekDeltaPct ?? 0)}
-                </div>
+                {hero?.mtdDeltaPct != null && (
+                  <div
+                    className={cn(
+                      "inline-flex items-center gap-1 text-[12.5px] font-semibold rounded-full px-2 py-0.5",
+                      hero.mtdDeltaPct >= 0 ? "text-success" : "text-destructive",
+                    )}
+                    style={{ background: hero.mtdDeltaPct >= 0 ? "rgba(69,185,104,.12)" : "rgba(239,83,80,.12)" }}
+                    title="vs prior month, same day"
+                  >
+                    <Icon name={hero.mtdDeltaPct >= 0 ? "up" : "down"} size={13} /> {pctStr(hero.mtdDeltaPct)}
+                  </div>
+                )}
               </div>
               <div className="text-[11.5px] text-muted-foreground mt-1.5">
-                Goal {money(hero?.mtdGoal ?? 80000)} · <span className="text-foreground">{hero?.mtdPct ?? 0}% there</span> · {hero?.daysLeft ?? 0} days left
+                Goal <GoalEditor goal={hero?.mtdGoal ?? 25000} isDefault={!!hero?.goalIsDefault} /> · <span className="text-foreground">{hero?.mtdPct ?? 0}% there</span> · {hero?.daysLeft ?? 0} days left
               </div>
             </div>
             <DateRangePicker options={RANGES.map((r) => ({ value: r.value, label: r.label }))} value={range} onChange={setRange} />
@@ -289,11 +347,11 @@ function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRan
   );
 }
 
-function LeaderboardPanel({ leaders }: { leaders: any }) {
+function LeaderboardPanel({ leaders, rangeLabel }: { leaders: any; rangeLabel: string }) {
   const agents: any[] = (leaders?.agents ?? []).slice(0, 5);
   const selfId = leaders?.selfId;
   return (
-    <Panel title="Leaderboard" action={<span className="text-[10.5px] text-muted-foreground">MTD ALP</span>}>
+    <Panel title="Leaderboard" action={<span className="text-[10.5px] text-muted-foreground">{rangeLabel} ALP</span>}>
       {agents.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">No production yet this period.</div>
       ) : (
@@ -321,9 +379,9 @@ function LeaderboardPanel({ leaders }: { leaders: any }) {
 function CommissionPanel({ c }: { c: any }) {
   const items = [
     { label: "Advance Paid", value: money(c?.advance ?? 0), sub: "this month", neg: false },
-    { label: "Trail Income", value: money(c?.trail ?? 0), sub: "year 2+", neg: false },
-    { label: "Override", value: money(c?.override ?? 0), sub: "downline", neg: false },
-    { label: "Chargebacks", value: money(c?.chargebacks ?? 0), sub: `${c?.chargebackCount ?? 0} policies`, neg: (c?.chargebacks ?? 0) < 0 },
+    { label: "Trail + Renewal", value: money(c?.trail ?? 0), sub: "this month", neg: false },
+    { label: "Override", value: money(c?.override ?? 0), sub: "downline · this month", neg: false },
+    { label: "Chargebacks", value: money(c?.chargebacks ?? 0), sub: `${c?.chargebackCount ?? 0} this month`, neg: (c?.chargebacks ?? 0) < 0 },
   ];
   return (
     <Panel title="Commission" action={<LinkAction href="/finances">Finances</LinkAction>}>
@@ -343,9 +401,9 @@ function CommissionPanel({ c }: { c: any }) {
 function OnboardingPanel({ feed, loading }: { feed: any; loading: boolean }) {
   const queue: any[] = (feed?.activationQueue ?? []).slice(0, 5);
   const rows = queue.map((a) => {
-    const missingCount = (a.missing ?? []).length;
-    const pct = Math.max(5, Math.round(((4 - Math.min(4, missingCount)) / 4) * 100));
-    const status = missingCount === 0 ? "Ready to contract" : `Pending ${a.missing[0]}`;
+    // Real completion from agent_completion (profile fields + E&O/banking/DL/AML docs)
+    const pct = Math.min(100, Math.max(0, Number(a.completion_pct ?? 0)));
+    const status = pct >= 100 ? "Ready to contract" : a.missing?.length ? `Missing ${a.missing[0]}` : "In progress";
     const color = pct >= 100 ? "var(--green)" : pct >= 70 ? "var(--gold)" : pct >= 40 ? "var(--amber)" : "var(--red)";
     return { name: `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() || "Agent", pct, status, color };
   });
