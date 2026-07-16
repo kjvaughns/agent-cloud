@@ -5,13 +5,14 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Send, Mic, FileText, TrendingUp, Target, Lightbulb, Loader2, Sparkles,
-  Settings, ChevronDown,
+  Settings, Zap, Activity,
 } from "lucide-react";
 import { askAiAssistant } from "@/lib/ai-assistant.functions";
 import { cn } from "@/lib/utils";
+import { NovaAutomationsPanel } from "@/components/nova/automations-panel";
+import { NovaActivityPanel } from "@/components/nova/activity-panel";
 
 export const Route = createFileRoute("/_authenticated/ai-assistant")({
   component: NovaAIPage,
@@ -33,7 +34,7 @@ function NovaAIPage() {
     { role: "assistant", text: "Hi, I'm Nova — your AI co-pilot. I draft, summarize, coach objections, and build scripts. What do you need?" },
   ]);
   const [input, setInput] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tab, setTab] = useState("assistant");
   const bottomRef = useRef<HTMLDivElement>(null);
   const askFn = useServerFn(askAiAssistant);
 
@@ -94,11 +95,20 @@ function NovaAIPage() {
         </div>
       </div>
 
+      {/* Hub tabs */}
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="assistant"><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Assistant</TabsTrigger>
+          <TabsTrigger value="automations"><Zap className="h-3.5 w-3.5 mr-1.5" /> Automations</TabsTrigger>
+          <TabsTrigger value="activity"><Activity className="h-3.5 w-3.5 mr-1.5" /> Activity</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="assistant" className="mt-4">
       {/* Chat surface */}
       <div className="rounded-2xl border border-border bg-gradient-to-b from-surface-2/40 to-transparent overflow-hidden shadow-sm flex flex-col min-h-[70vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border/70 bg-surface-2/30">
           <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px] shadow-emerald-500/60" />
+            <div className="h-2 w-2 rounded-full bg-success shadow-[0_0_8px] shadow-success/60" />
             <span className="text-sm font-medium">Nova</span>
             <span className="text-xs text-muted-foreground">online</span>
           </div>
@@ -106,10 +116,10 @@ function NovaAIPage() {
             variant="ghost"
             size="sm"
             className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => setSettingsOpen((v) => !v)}
+            onClick={() => setTab("automations")}
           >
             <Settings className="h-3.5 w-3.5" />
-            <span className="text-xs">Settings</span>
+            <span className="text-xs">Automations</span>
           </Button>
         </div>
 
@@ -192,58 +202,16 @@ function NovaAIPage() {
           </div>
         </div>
       </div>
+        </TabsContent>
 
-      {/* Collapsible settings */}
-      <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <CollapsibleTrigger asChild>
-          <Button variant="outline" className="w-full justify-between">
-            <span className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Nova settings
-            </span>
-            <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen && "rotate-180")} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-4">
-          <Tabs defaultValue="memory">
-            <TabsList>
-              <TabsTrigger value="memory">Memory</TabsTrigger>
-              <TabsTrigger value="voice">Voice</TabsTrigger>
-              <TabsTrigger value="integrations">Integrations</TabsTrigger>
-              <TabsTrigger value="automations">Automations</TabsTrigger>
-              <TabsTrigger value="activity">Activity</TabsTrigger>
-            </TabsList>
-            <TabsContent value="memory" className="mt-4">
-              <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm text-muted-foreground">
-                Nova remembers your top objections, preferred carriers, and how you write. Manage what's stored here.
-              </div>
-            </TabsContent>
-            <TabsContent value="voice" className="mt-4">
-              <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm text-muted-foreground">
-                Enable live call coaching. Nova whispers suggestions during calls without the client hearing.
-              </div>
-            </TabsContent>
-            <TabsContent value="integrations" className="mt-4">
-              <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm text-muted-foreground">
-                Connect Nova to your dialer, calendar, and email so it has full context.
-              </div>
-            </TabsContent>
-            <TabsContent value="automations" className="mt-4">
-              <div className="rounded-xl border border-border bg-surface-1 p-4 text-sm text-muted-foreground">
-                Automations — policy recovery calls, birthday messages, SMS follow-ups — are available for eligible agency plans. Contact your admin to enable.
-              </div>
-            </TabsContent>
-            <TabsContent value="activity" className="mt-4">
-              <div className="rounded-xl border border-border bg-surface-1 p-4">
-                <p className="text-xs text-muted-foreground mb-3">Nova-attributed actions will appear here once automations are enabled.</p>
-                <div className="py-8 text-center text-sm text-muted-foreground">
-                  No activity yet. Activity logging starts when automations are active.
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CollapsibleContent>
-      </Collapsible>
+        <TabsContent value="automations" className="mt-4">
+          <NovaAutomationsPanel />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <NovaActivityPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
