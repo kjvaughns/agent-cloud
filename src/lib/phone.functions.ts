@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { trackNovaUsage } from "@/lib/billing.functions";
 
 // ============ Types ============
 export type PhoneSettings = {
@@ -255,6 +256,7 @@ export const sendSms = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    trackNovaUsage((context as any).userId, "sms").catch(() => {});
     const { error } = await supabase.from("sms_messages").insert({
       conversation_id: data.conversationId,
       direction: "outbound",

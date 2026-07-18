@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { trackNovaUsage } from "@/lib/billing.functions";
 
 const msgSchema = z.array(z.object({
   role: z.enum(["user", "assistant"]),
@@ -10,7 +11,7 @@ const msgSchema = z.array(z.object({
 export const askAiAssistant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ messages: msgSchema }).parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("AI service not configured");
 
@@ -40,5 +41,7 @@ export const askAiAssistant = createServerFn({ method: "POST" })
 
     const j = await res.json();
     const reply: string = j?.choices?.[0]?.message?.content ?? "";
+    // Nova Pro usage metering (no-op for non-Pro users)
+    trackNovaUsage((context as any).userId, "ai_queries").catch(() => {});
     return { reply };
   });

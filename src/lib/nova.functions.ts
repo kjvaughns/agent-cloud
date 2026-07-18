@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireNovaPro } from "@/lib/billing.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -103,6 +104,8 @@ export const createAutomation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => AutomationSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+    // DB-level gate: custom automations are a Nova Pro feature.
+    await requireNovaPro(userId);
     const { error } = await supabase.from("nova_automations").insert({
       agent_id: userId,
       name: data.name,
