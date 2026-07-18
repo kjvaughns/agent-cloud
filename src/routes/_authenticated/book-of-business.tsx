@@ -1,7 +1,8 @@
 import { createFileRoute, useHydrated, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Download, ArrowUpDown, ArrowDown, ArrowUp, Link2, X, Plus } from "lucide-react";
+import { Search, Download, ArrowUpDown, ArrowDown, ArrowUp, Link2, X, Plus, RefreshCw } from "lucide-react";
+import { useRole } from "@/hooks/use-role";
 import Papa from "papaparse";
 
 import { Input } from "@/components/ui/input";
@@ -157,6 +158,9 @@ function BookPage() {
   if (statusFilter !== "all") activeChips.push({ label: statusLabel(statusFilter), clear: () => setStatusFilter("all") });
   statusToggles.forEach((s) => activeChips.push({ label: statusLabel(s), clear: () => toggleStatusCard(s) }));
 
+  const { isAdmin, isAgencyOwner } = useRole();
+  const canCarrierSync = isAdmin || isAgencyOwner;
+
   return (
     <PageShell>
       <div className="col">
@@ -164,9 +168,16 @@ function BookPage() {
           title="Book of Business"
           subtitle="View all your deals and track your team's production."
           actions={
-            <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-              <Download className="h-4 w-4 mr-1.5" /> Export CSV
-            </Button>
+            <>
+              {canCarrierSync && (
+                <Button asChild>
+                  <Link to="/carrier-sync"><RefreshCw className="h-4 w-4 mr-1.5" /> Sync from Carrier</Link>
+                </Button>
+              )}
+              <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
+                <Download className="h-4 w-4 mr-1.5" /> Export CSV
+              </Button>
+            </>
           }
         />
 

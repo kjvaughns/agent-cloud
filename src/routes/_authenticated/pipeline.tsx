@@ -44,7 +44,7 @@ const pipelineQO = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline" } => ({
     tab: s.tab === "sold" ? "sold" as const : "pipeline" as const,
   }),
   head: () => ({ meta: [
@@ -87,7 +87,7 @@ function PipelinePage() {
   const hydrated = useHydrated();
   const { data: clients = [], isLoading } = useQuery({ ...pipelineQO, enabled: hydrated });
   const [query, setQuery] = useState("");
-  const { tab: initialTab } = Route.useSearch();
+  const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);

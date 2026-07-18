@@ -48,6 +48,7 @@ import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
 import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
+import { Route as AuthenticatedCarrierSyncRouteImport } from './routes/_authenticated/carrier-sync'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedBookOfBusinessRouteImport } from './routes/_authenticated/book-of-business'
 import { Route as AuthenticatedBackOfficeRouteImport } from './routes/_authenticated/back-office'
@@ -293,6 +294,12 @@ const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
   path: '/challenges',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCarrierSyncRoute =
+  AuthenticatedCarrierSyncRouteImport.update({
+    id: '/carrier-sync',
+    path: '/carrier-sync',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -573,6 +580,7 @@ export interface FileRoutesByFullPath {
   '/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -659,6 +667,7 @@ export interface FileRoutesByTo {
   '/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/calendar': typeof AuthenticatedCalendarRoute
+  '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
@@ -747,6 +756,7 @@ export interface FileRoutesById {
   '/_authenticated/back-office': typeof AuthenticatedBackOfficeRouteWithChildren
   '/_authenticated/book-of-business': typeof AuthenticatedBookOfBusinessRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -836,6 +846,7 @@ export interface FileRouteTypes {
     | '/back-office'
     | '/book-of-business'
     | '/calendar'
+    | '/carrier-sync'
     | '/challenges'
     | '/contracting'
     | '/dashboard'
@@ -922,6 +933,7 @@ export interface FileRouteTypes {
     | '/back-office'
     | '/book-of-business'
     | '/calendar'
+    | '/carrier-sync'
     | '/challenges'
     | '/dashboard'
     | '/finances'
@@ -1009,6 +1021,7 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office'
     | '/_authenticated/book-of-business'
     | '/_authenticated/calendar'
+    | '/_authenticated/carrier-sync'
     | '/_authenticated/challenges'
     | '/_authenticated/contracting'
     | '/_authenticated/dashboard'
@@ -1387,6 +1400,13 @@ declare module '@tanstack/react-router' {
       path: '/challenges'
       fullPath: '/challenges'
       preLoaderRoute: typeof AuthenticatedChallengesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/carrier-sync': {
+      id: '/_authenticated/carrier-sync'
+      path: '/carrier-sync'
+      fullPath: '/carrier-sync'
+      preLoaderRoute: typeof AuthenticatedCarrierSyncRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/calendar': {
@@ -1840,6 +1860,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedBackOfficeRoute: typeof AuthenticatedBackOfficeRouteWithChildren
   AuthenticatedBookOfBusinessRoute: typeof AuthenticatedBookOfBusinessRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedCarrierSyncRoute: typeof AuthenticatedCarrierSyncRoute
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -1868,6 +1889,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedBackOfficeRoute: AuthenticatedBackOfficeRouteWithChildren,
   AuthenticatedBookOfBusinessRoute: AuthenticatedBookOfBusinessRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedCarrierSyncRoute: AuthenticatedCarrierSyncRoute,
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
@@ -1963,3 +1985,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -20,7 +20,7 @@ import { PostDealQaButton } from "@/components/ai/post-deal-qa";
 import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { client_id?: string } => ({
     client_id: typeof s.client_id === "string" ? s.client_id : undefined,
   }),
   head: () => ({ meta: [{ title: "Post a Deal — Agent Cloud" }] }),

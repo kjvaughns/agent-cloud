@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search) => ({
+  validateSearch: (search): { redirect?: string } => ({
     redirect:
       typeof search.redirect === "string" && search.redirect.startsWith("/") && !search.redirect.startsWith("//")
         ? search.redirect
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { redirect } = Route.useSearch();
+  const { redirect = "/dashboard" } = Route.useSearch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
