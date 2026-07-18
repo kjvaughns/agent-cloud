@@ -370,6 +370,109 @@ export const createPortalSession = createServerFn({ method: "POST" })
     return { url: session.url };
   });
 
+// ── Solo agent workspace bootstrap ──────────────────────────────────────────
+
+export const initSoloWorkspace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context as Ctx;
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, last_name, email, organization_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!profile) throw new Error("Profile not found");
+    if (profile.organization_id) {
+      // Already in an org (invited earlier, or re-running) — never duplicate.
+      return { ok: true, existing: true };
+    }
+    const base = (`${profile.first_name ?? ""}-${profile.last_name ?? ""}`.toLowerCase().replace(/[^a-z0-9-]/g, "") || "agent").slice(0, 30);
+    const slug = `${base}-${userId.slice(0, 6)}`;
+    const { data: org, error } = await supabaseAdmin
+      .from("organizations")
+      .insert({
+        name: `${profile.first_name ?? "My"} ${profile.last_name ?? "Agency"}`.trim(),
+        slug,
+        owner_id: userId,
+        plan_type: "solo",
+        subscription_status: "inactive",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await supabaseAdmin.from("profiles").update({ organization_id: org.id }).eq("id", userId);
+    await supabaseAdmin.from("user_roles").upsert(
+      { user_id: userId, role: "agency_owner" },
+      { onConflict: "user_id,role", ignoreDuplicates: true },
+    );
+    return { ok: true, existing: false };
+  });
+
+// ── Super admin: platform subscriptions overview ─────────────────────────────
+
+export const getPlatformSubscriptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: roleRow } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "super_admin")
+      .maybeSingle();
+    if (!roleRow) throw new Error("Super admin only");
+
+    const { data: orgs } = await supabaseAdmin
+      .from("organizations")
+      .select("id, name, plan_type, subscription_status, nova_seats_purchased, subscription_current_period_end, created_at")
+      .order("created_at", { ascending: false });
+
+    const { data: novaProfiles } = await supabaseAdmin
+      .from("profiles")
+      .select("nova_pro_status, nova_pro_source")
+      .in("nova_pro_status", ["active", "grace_period", "past_due"]);
+
+    const { data: commissions } = await supabaseAdmin
+      .from("nova_partner_commissions")
+      .select("commission_amount, status, created_at")
+      .gte("created_at", new Date(Date.now() - 31 * 86400000).toISOString());
+
+    const rows = orgs ?? [];
+    const active = rows.filter((o: any) => o.subscription_status === "active");
+    const agency = active.filter((o: any) => o.plan_type === "agency");
+    const white = active.filter((o: any) => o.plan_type === "white_label");
+    const solo = active.filter((o: any) => o.plan_type === "solo");
+    const novaCount = (novaProfiles ?? []).filter((p: any) => p.nova_pro_status === "active").length;
+    const bySource = { personal: 0, agency: 0, solo: 0 } as Record<string, number>;
+    for (const p of novaProfiles ?? []) if (p.nova_pro_source) bySource[p.nova_pro_source] = (bySource[p.nova_pro_source] ?? 0) + 1;
+
+    const mrr = {
+      agency: agency.length * PRICING.agencyBase,
+      white_label: white.length * (PRICING.agencyBase + PRICING.whiteLabelMonthly),
+      solo: solo.length * PRICING.soloAgent,
+      nova_seats: rows.reduce((a: number, o: any) => a + (o.subscription_status === "active" ? (o.nova_seats_purchased ?? 0) : 0), 0) * PRICING.novaPro,
+      nova_personal: bySource.personal * PRICING.novaPro,
+    };
+
+    return {
+      orgs: rows,
+      counts: {
+        agency: agency.length,
+        white_label: white.length,
+        solo: solo.length,
+        past_due: rows.filter((o: any) => o.subscription_status === "past_due").length,
+        cancelled30d: rows.filter((o: any) => o.subscription_status === "cancelled").length,
+        nova_total: novaCount,
+        nova_by_source: bySource,
+      },
+      partnerPayoutsThisMonth: (commissions ?? [])
+        .filter((c: any) => c.status === "applied")
+        .reduce((a: number, c: any) => a + Number(c.commission_amount ?? 0), 0),
+      mrr,
+      mrrTotal: Object.values(mrr).reduce((a, b) => a + b, 0),
+    };
+  });
+
 // ── Nova Pro gating + usage metering (DB-level, used by feature server fns) ──
 
 /** Throws unless the user has active (or grace-period) Nova Pro. */

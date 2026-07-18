@@ -17,12 +17,14 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as SignupAgentRouteImport } from './routes/signup_.agent'
 import { Route as MyagentAgentSlugRouteImport } from './routes/myagent.$agentSlug'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
 import { Route as AdminMigrationRouteImport } from './routes/admin.migration'
@@ -67,6 +69,8 @@ import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/fun
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
+import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
+import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings.billing'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
 import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
@@ -137,6 +141,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const SignupAgentRoute = SignupAgentRouteImport.update({
+  id: '/signup_/agent',
+  path: '/signup/agent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyagentAgentSlugRoute = MyagentAgentSlugRouteImport.update({
   id: '/myagent/$agentSlug',
   path: '/myagent/$agentSlug',
@@ -165,6 +174,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
 const AdminSupportRoute = AdminSupportRouteImport.update({
   id: '/support',
   path: '/support',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -396,6 +410,18 @@ const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   path: '/tools/leads',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsNovaProRoute =
+  AuthenticatedSettingsNovaProRouteImport.update({
+    id: '/settings/nova-pro',
+    path: '/settings/nova-pro',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsBillingRoute =
+  AuthenticatedSettingsBillingRouteImport.update({
+    id: '/settings/billing',
+    path: '/settings/billing',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedResourcesStateLicensesRoute =
   AuthenticatedResourcesStateLicensesRouteImport.update({
     id: '/state-licenses',
@@ -612,12 +638,14 @@ export interface FileRoutesByFullPath {
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
+  '/signup/agent': typeof SignupAgentRoute
   '/admin/': typeof AdminIndexRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
@@ -642,6 +670,8 @@ export interface FileRoutesByFullPath {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -699,12 +729,14 @@ export interface FileRoutesByTo {
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
+  '/signup/agent': typeof SignupAgentRoute
   '/admin': typeof AdminIndexRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
@@ -729,6 +761,8 @@ export interface FileRoutesByTo {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -790,12 +824,14 @@ export interface FileRoutesById {
   '/admin/migration': typeof AdminMigrationRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
+  '/signup_/agent': typeof SignupAgentRoute
   '/admin/': typeof AdminIndexRoute
   '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
@@ -820,6 +856,8 @@ export interface FileRoutesById {
   '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -881,12 +919,14 @@ export interface FileRouteTypes {
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
     | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
+    | '/signup/agent'
     | '/admin/'
     | '/account/faq'
     | '/account/help'
@@ -911,6 +951,8 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
+    | '/settings/billing'
+    | '/settings/nova-pro'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -968,12 +1010,14 @@ export interface FileRouteTypes {
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
     | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
+    | '/signup/agent'
     | '/admin'
     | '/account/faq'
     | '/account/help'
@@ -998,6 +1042,8 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
+    | '/settings/billing'
+    | '/settings/nova-pro'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -1058,12 +1104,14 @@ export interface FileRouteTypes {
     | '/admin/migration'
     | '/admin/roles'
     | '/admin/settings'
+    | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
     | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
+    | '/signup_/agent'
     | '/admin/'
     | '/_authenticated/account/faq'
     | '/_authenticated/account/help'
@@ -1088,6 +1136,8 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
+    | '/_authenticated/settings/billing'
+    | '/_authenticated/settings/nova-pro'
     | '/_authenticated/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -1122,6 +1172,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   JoinSlugRoute: typeof JoinSlugRoute
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
+  SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
@@ -1198,6 +1249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/signup_/agent': {
+      id: '/signup_/agent'
+      path: '/signup/agent'
+      fullPath: '/signup/agent'
+      preLoaderRoute: typeof SignupAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/myagent/$agentSlug': {
       id: '/myagent/$agentSlug'
       path: '/myagent/$agentSlug'
@@ -1238,6 +1296,13 @@ declare module '@tanstack/react-router' {
       path: '/support'
       fullPath: '/admin/support'
       preLoaderRoute: typeof AdminSupportRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/settings': {
@@ -1546,6 +1611,20 @@ declare module '@tanstack/react-router' {
       path: '/tools/leads'
       fullPath: '/tools/leads'
       preLoaderRoute: typeof AuthenticatedToolsLeadsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/nova-pro': {
+      id: '/_authenticated/settings/nova-pro'
+      path: '/settings/nova-pro'
+      fullPath: '/settings/nova-pro'
+      preLoaderRoute: typeof AuthenticatedSettingsNovaProRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/billing': {
+      id: '/_authenticated/settings/billing'
+      path: '/settings/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof AuthenticatedSettingsBillingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources/state-licenses': {
@@ -1899,6 +1978,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
+  AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
+  AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
 }
 
@@ -1930,6 +2011,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
+  AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
+  AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
 }
 
@@ -1950,6 +2033,7 @@ interface AdminRouteChildren {
   AdminMigrationRoute: typeof AdminMigrationRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminSupportRoute: typeof AdminSupportRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -1967,6 +2051,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminMigrationRoute: AdminMigrationRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminSupportRoute: AdminSupportRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -1986,6 +2071,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   JoinSlugRoute: JoinSlugRoute,
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
+  SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,

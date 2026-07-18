@@ -5,7 +5,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, FileSignature, Building2, Percent,
   LifeBuoy, Settings, BarChart3, Bell, ChevronRight, Cloud,
-  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download,
+  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ const adminNav = [
   { title: "Analytics",        url: "/admin/analytics",    icon: BarChart3 },
   { title: "Hierarchy",        url: "/admin/hierarchy",    icon: ArrowLeftRight },
   { title: "Roles",            url: "/admin/roles",        icon: ShieldCheck },
+  { title: "Subscriptions",    url: "/admin/subscriptions", icon: CreditCard },
   { title: "Settings",         url: "/admin/settings",     icon: Settings },
   { title: "Migration",        url: "/admin/migration",    icon: GitMerge },
   { title: "AgentLink Import", url: "/admin/csv-import",   icon: Upload },

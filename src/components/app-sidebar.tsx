@@ -76,6 +76,8 @@ const groups: NavGroup[] = [
 ];
 
 const accountItems = [
+  { title: "Billing", url: "/settings/billing", icon: Wallet },
+  { title: "Nova Pro", url: "/settings/nova-pro", icon: Sparkles },
   { title: "Help Center", url: "/account/help", icon: LifeBuoy },
   { title: "FAQ", url: "/account/faq", icon: HelpCircle },
   { title: "Producer Profile", url: "/account/producer-profile", icon: IdCard },

@@ -20,6 +20,14 @@ function SignupPage() {
         <Link to="/login" className="text-sm text-primary font-medium hover:underline">
           Already have an account? Sign in →
         </Link>
+        <div className="pt-2 border-t border-border w-full">
+          <p className="text-xs text-muted-foreground mt-3">
+            Independent producer without an agency?{" "}
+            <Link to="/signup/agent" className="text-primary font-medium hover:underline">
+              Start as a Solo Agent — $79/mo
+            </Link>
+          </p>
+        </div>
       </div>
     </AuthShell>
   );
