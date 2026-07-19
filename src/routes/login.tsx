@@ -34,12 +34,12 @@ function LoginPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back");
-    window.location.assign(redirect);
+    await navigate({ to: redirect });
   }
 
   async function onGoogle() {
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}${redirect}`,
+      redirect_uri: window.location.origin,
     });
     if (result.error) toast.error(result.error.message);
   }

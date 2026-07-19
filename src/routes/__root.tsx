@@ -149,26 +149,27 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" || !session?.user) return;
 
-      // Auto-upgrade imported placeholder to active on first real sign-in
-      try {
-        const { data: profile } = await supabase
-          .from("profiles").select("status").eq("id", session.user.id).maybeSingle();
-        if ((profile as any)?.status === "imported") {
-          await supabase.from("profiles").update({ status: "active" }).eq("id", session.user.id);
-        }
-      } catch {}
-
-      const provider = (session.user.app_metadata as any)?.provider;
-      if (provider === "google") {
+      // Auth callbacks run while the client owns its session lock. Defer any
+      // further client calls so signInWithPassword can resolve immediately.
+      window.setTimeout(async () => {
         try {
-          await supabase.from("profiles").update({ google_oauth_connected: true }).eq("id", session.user.id);
-        } catch (e) {
-          console.error("Failed to mark google_oauth_connected", e);
+          const { data: profile } = await supabase
+            .from("profiles").select("status").eq("id", session.user.id).maybeSingle();
+          if ((profile as any)?.status === "imported") {
+            await supabase.from("profiles").update({ status: "active" }).eq("id", session.user.id);
+          }
+
+          const provider = (session.user.app_metadata as any)?.provider;
+          if (provider === "google") {
+            await supabase.from("profiles").update({ google_oauth_connected: true }).eq("id", session.user.id);
+          }
+        } catch (error) {
+          console.error("Failed to update profile after sign-in", error);
         }
-      }
+      }, 0);
     });
     return () => subscription.unsubscribe();
   }, []);
