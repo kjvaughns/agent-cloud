@@ -158,9 +158,7 @@ export function AppSidebar() {
               className="h-8 w-8 shrink-0 rounded-lg object-contain border border-border"
             />
           ) : (
-            <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground shadow-sm">
-              <Cloud className="h-4 w-4" />
-            </div>
+            <BrandLogo size={32} />
           )}
           {!sidebarCollapsed && (() => {
             const isAgency = !!org?.slug && org.slug !== "apex";
