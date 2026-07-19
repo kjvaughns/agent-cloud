@@ -82,12 +82,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           style={{ background: "radial-gradient(circle, var(--gold-glow) 0%, transparent 70%)" }}
         />
         <div className="flex items-center gap-2.5">
-          <div
-            className="h-9 w-9 rounded-[9px] grid place-items-center text-gold-foreground font-bold"
-            style={{ background: "linear-gradient(140deg, var(--gold-bright), var(--gold-dim))", fontFamily: "var(--font-display)" }}
-          >
-            A
-          </div>
+          <BrandLogo size={36} />
           <span className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
         </div>
         <div className="space-y-4 max-w-md">
