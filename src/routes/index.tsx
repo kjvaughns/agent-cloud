@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { SmoothAreaChart } from "@/components/ui/area-chart";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { toast } from "sonner";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
