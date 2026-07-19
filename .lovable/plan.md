@@ -1,38 +1,56 @@
-## Removals
-- Delete `src/routes/_authenticated/tools/needs-analysis.tsx`
-- Delete `src/routes/_authenticated/tools/inbound-calls.tsx`
-- Remove the "Needs Analysis" and "Inbound Calls" entries from the Tools group in `src/components/app-sidebar.tsx`.
-- Sweep for any lingering `<Link to="/tools/needs-analysis">` / `/tools/inbound-calls` references (grep) and remove them.
+## What I found
 
-## Quoter → external link
-- In `src/components/app-sidebar.tsx`, replace the current "Toolkits" Tools entry with **"Quoter"** that opens `https://app.insurancetoolkits.com/fex/quoter` in a new tab.
-- The sidebar's `renderItem` uses `<Link to>` for internal routes only. Introduce a small variant: if a nav item has `external: true` and an `href`, render an `<a href target="_blank" rel="noopener noreferrer">` inside `SidebarMenuButton asChild` instead of `<Link>`.
-- Leave `src/routes/_authenticated/tools/quoter.tsx` in place (doesn't hurt) — the sidebar simply no longer links to it. If preferred, delete it too; I'll delete unless you say otherwise.
+Recent commits (monetization, roles, carrier sync, dashboard real-data, Nova AI hub, premium landing/auth) shipped code but their migrations were never run against the database. Frontend calls tables/columns that don't exist yet, so every one of these features silently fails at runtime.
 
-## AI Assistant → Nova AI (rename + modernize)
-Keep the route path `/ai-assistant` (avoids breaking bookmarks and cross-links). Rename all visible copy and modernize the layout.
+**Missing in DB (code already references them):**
+- `role_permissions` + audit table (used by `permissions.functions.ts`, `agency.team.tsx`, sidebar access hook)
+- `carrier_sync_logs` + `policies.last_synced_at` / `sync_source` (used by `carrier-sync.functions.ts`, `/carrier-sync` page)
+- Monetization columns on `organizations` (`stripe_customer_id`, `plan_type`, `nova_seats_purchased`, `subscription_status`, `nova_partner_commission_*`, etc.) and `profiles` (`nova_pro_status`, `stripe_customer_id`, `nova_usage_*`, `nova_pro_phone_number`, etc.) — used across `billing.functions.ts`, `settings/billing`, `settings/nova-pro`, `admin/subscriptions`, Stripe webhook
+- Updated `get_dashboard_metrics` function from the dashboard-real-data migration
 
-Rename:
-- Sidebar label "AI Assistant" → **"Nova AI"** (keep Sparkles icon, gold accent).
-- Page hero title → **"Nova AI"**, subtitle → "Your sales co-pilot for objections, scripts, and pipeline strategy."
-- Chat panel header "Chat" → "Nova". Bot icon stays.
-- Initial assistant greeting: "Hi, I'm Nova — your AI co-pilot. I draft, summarize, coach objections, and build scripts. What do you need?"
-- Input placeholder → "Ask Nova anything…"
+**Logo:** the only brand asset in the repo is `public/favicon.jpg`. Sidebar, landing hero/footer, and the login side-panel all render the lucide `<Cloud />` icon as a placeholder instead. That's why "the logo is gone" in those spots.
 
-Modernize the layout to match the app's current gold/dark surface style:
-1. **Hero band**: replace the plain `HeroBand` with a gold-accented header row — sparkles glyph in a rounded gold tile, "Nova AI" in the display font, one-line subtitle, and a small "Beta" chip.
-2. **Full-height chat**: promote the chat to a single hero surface `min-h-[70vh]` with rounded-2xl border, subtle inner gradient, and a sticky composer at the bottom. Remove the 3-column split.
-3. **Quick prompts as chips above the composer** (not a side panel): show the 4 `PROMPTS` as horizontally-scrolling gold-outline pills; clicking sends the prompt. Merge with existing `SUGGESTIONS` into one row of ~6 chips.
-4. **Message bubbles**: user bubbles keep gold primary; assistant bubbles get a soft surface with a small "Nova" label and timestamp on hover. Add markdown rendering (simple: preserve current whitespace, add `prose prose-invert` styling).
-5. **Composer**: single rounded pill with mic + input + send. Send button in gold. Add subtle shadow.
-6. **Secondary tabs (Memory / Voice / Integrations / Automations / Activity)** move into a collapsible "Nova settings" section BELOW the chat, opened via a small "Settings" gear button in the chat header — collapsed by default so first paint is chat-focused.
+## Plan
 
-## Files touched
-- `src/routes/_authenticated/ai-assistant.tsx` — rewrite for the new layout and Nova copy.
-- `src/components/app-sidebar.tsx` — rename entry, external Quoter link, drop 2 removed items, support external nav item type.
-- Delete: `src/routes/_authenticated/tools/needs-analysis.tsx`, `src/routes/_authenticated/tools/inbound-calls.tsx` (and `tools/quoter.tsx` if you approve).
-- Grep-based cleanup of any stray links to the deleted routes.
+### 1. Apply the four missing migrations (one consolidated migration)
+Re-run the SQL that shipped in these files, guarded with `IF NOT EXISTS` so it's idempotent against any partial state:
+- `20260715120000_dashboard-real-data.sql` — `get_dashboard_metrics` rewrite
+- `20260716100000_carrier-book-sync.sql` — `carrier_sync_logs`, `policies.last_synced_at/sync_source`, RLS + GRANTs
+- `20260716120000_monetization.sql` — organization/profile billing columns, plan_type check, Nova Pro fields
+- `20260717100000_role-permissions.sql` — `role_permissions` + audit log + GRANTs + RLS
 
-## Non-goals
-- No changes to server-side `askAiAssistant` logic — it already returns Nova-branded replies.
-- No route path rename; only display copy changes to "Nova AI".
+Delivered as one new migration `20260719_apply_missing_features.sql` (safe re-run of everything).
+
+### 2. Brand logo everywhere it belongs
+- Add a real logo asset at `src/assets/agent-cloud-logo.png` (import + use as `<img>` — sourced from existing `public/favicon.jpg` copied over, so no new artwork required).
+- Replace `<Cloud className="…"/>` placeholder in:
+  - `src/components/app-sidebar.tsx` fallback (when no org logo)
+  - `src/routes/index.tsx` nav + footer
+  - `src/routes/login.tsx` side panel and inline mark
+  - `src/routes/signup.tsx` / auth shell
+  - Email templates that render an inline brand mark
+- Keep the org logo override behaviour intact — agencies with a custom `logo_url` still take precedence in the sidebar.
+
+### 3. Wire missing UI to real backend + polish
+- **Billing (`/settings/billing`, `/settings/nova-pro`, `/admin/subscriptions`)**: verify all reads now succeed with the new columns; hide plan-switch UI unless `stripe_customer_id` is set; show empty-state instead of a runtime error when a workspace has no subscription yet.
+- **Team & Permissions (`/agency/team`)**: load actual `role_permissions` rows and surface the "save permissions" audit trail; add loading/empty states.
+- **Carrier Sync (`/carrier-sync`)**: show real `carrier_sync_logs` history table + last synced timestamp on policies; gate the upload button by `has_role(admin) OR agency_owner`.
+- **Dashboard**: nothing to change component-side — the SQL fix restores correct team vs personal splits and status-grid/donut ranges.
+- **Sidebar `useMyAccess`**: fall through cleanly when `role_permissions` is empty (default deny for staff, full for admin/agency_owner) so nav doesn't flicker.
+
+### 4. Cross-cutting polish
+- Consistent page header (title + subtitle + primary action) on all four new pages using the existing `PageShell` / `HeroBand` from `page-shell.tsx`.
+- Gold `--primary` tokens (per project memory) on the new Nova Pro / billing status pills — no hardcoded blue/purple.
+- Update `__root.tsx` favicon link to reference the new PNG logo alongside the existing `favicon.jpg`.
+
+### Out of scope (say so up front)
+- No new features. No redesign of the pages themselves — just making them functional and on-brand.
+- Not touching Stripe keys/config — user already set those up in an earlier turn.
+
+### Technical notes
+- Every `CREATE TABLE` in the consolidated migration includes explicit `GRANT` to `authenticated` + `service_role` and `ENABLE ROW LEVEL SECURITY` before policies (per project rules).
+- `role_permissions` and `carrier_sync_logs` remain auth-only (no `anon` grant).
+- `get_dashboard_metrics` re-created with `SECURITY DEFINER` + fixed `search_path`.
+- All column adds use `IF NOT EXISTS`; policy creates use `DROP POLICY IF EXISTS` first — safe to run against a drifted remote.
+
+Approve and I'll ship it in one pass: migration → logo swap → UI wiring.
