@@ -23,15 +23,48 @@ async function getOwnedOrg(supabase: any, userId: string) {
   return org;
 }
 
-/** Billable seats = org members whose status grants workspace access. */
-async function countBillableSeats(orgId: string): Promise<number> {
-  const { count } = await supabaseAdmin
+/**
+ * Billable seats = org members whose status grants workspace access.
+ * The agency owner never consumes a seat — the 15 included seats apply to
+ * managers, staff, and agents only.
+ */
+async function countBillableSeats(orgId: string, ownerId: string | null): Promise<number> {
+  let q = supabaseAdmin
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("organization_id", orgId)
     .not("status", "in", `(${NON_BILLABLE_PROFILE_STATUSES.join(",")})`);
+  if (ownerId) q = q.neq("id", ownerId);
+  const { count } = await q;
   return count ?? 0;
 }
+
+/** Per-user seat breakdown so owners can see exactly who consumes seats. */
+export const getSeatBreakdown = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const org = await getOwnedOrg(supabase, userId);
+    const { data: members } = await supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, last_name, email, status, created_at")
+      .eq("organization_id", org.id)
+      .neq("id", org.owner_id ?? userId)
+      .order("created_at");
+    const ids = (members ?? []).map((m: any) => m.id);
+    const { data: roles } = ids.length
+      ? await supabaseAdmin.from("user_roles").select("user_id, role").in("user_id", ids)
+      : { data: [] as any[] };
+    const roleByUser = new Map<string, string>();
+    for (const r of roles ?? []) if (!roleByUser.has(r.user_id)) roleByUser.set(r.user_id, r.role);
+    return {
+      rows: (members ?? []).map((m: any) => ({
+        ...m,
+        role: roleByUser.get(m.id) ?? "agent",
+        billable: !NON_BILLABLE_PROFILE_STATUSES.includes(m.status ?? "pending"),
+      })),
+    };
+  });
 
 async function ensureStripeCustomerForOrg(org: any, email: string | null): Promise<string> {
   if (org.stripe_customer_id) return org.stripe_customer_id;
@@ -68,7 +101,7 @@ export const getBillingOverview = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
     const org = await getOwnedOrg(supabase, userId);
-    const seatCount = await countBillableSeats(org.id);
+    const seatCount = await countBillableSeats(org.id, org.owner_id ?? userId);
     const overageSeats = Math.max(0, seatCount - PRICING.includedSeats);
 
     // Nova subscribers in this org (any active source), excluding the owner —

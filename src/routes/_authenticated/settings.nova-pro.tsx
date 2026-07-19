@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getNovaProStatus, createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
+import { useMyAccess } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/settings/nova-pro")({
   head: () => ({ meta: [{ title: "Nova Pro — Agent Cloud" }] }),
@@ -45,6 +46,7 @@ function NovaProPage() {
   const statusFn = useServerFn(getNovaProStatus);
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
+  const { access } = useMyAccess();
 
   const { data: d, isLoading } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
 
@@ -60,6 +62,21 @@ function NovaProPage() {
   });
 
   if (isLoading || !d) return <PageShell><Skeleton className="h-72" /></PageShell>;
+
+  // Staff can only see Nova Pro when their agency owner has enabled it for them.
+  if (access && access.role === "staff" && !access.isOwner && !access.permissions?.staff_nova_pro_enabled) {
+    return (
+      <PageShell>
+        <div className="max-w-xl mx-auto">
+          <Panel>
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              Nova Pro isn't enabled for your account. Ask your agency owner if you need access.
+            </div>
+          </Panel>
+        </div>
+      </PageShell>
+    );
+  }
 
   const badge = STATUS_BADGE[d.status] ?? STATUS_BADGE.inactive;
   const isOn = d.status === "active" || d.status === "grace_period";

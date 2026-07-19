@@ -34,6 +34,7 @@ import { Route as AdminCsvImportRouteImport } from './routes/admin.csv-import'
 import { Route as AdminContractsRouteImport } from './routes/admin.contracts'
 import { Route as AdminCommissionsRouteImport } from './routes/admin.commissions'
 import { Route as AdminCarriersRouteImport } from './routes/admin.carriers'
+import { Route as AdminBillingRouteImport } from './routes/admin.billing'
 import { Route as AdminAnnouncementsRouteImport } from './routes/admin.announcements'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
@@ -89,6 +90,7 @@ import { Route as AuthenticatedBackOfficeMarketingTrackerRouteImport } from './r
 import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
 import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
+import { Route as AuthenticatedAgencyTeamRouteImport } from './routes/_authenticated/agency.team'
 import { Route as AuthenticatedAgencySettingsRouteImport } from './routes/_authenticated/agency/settings'
 import { Route as AuthenticatedAccountProducerProfileRouteImport } from './routes/_authenticated/account/producer-profile'
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
@@ -224,6 +226,11 @@ const AdminCommissionsRoute = AdminCommissionsRouteImport.update({
 const AdminCarriersRoute = AdminCarriersRouteImport.update({
   id: '/carriers',
   path: '/carriers',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBillingRoute = AdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminAnnouncementsRoute = AdminAnnouncementsRouteImport.update({
@@ -530,6 +537,11 @@ const AuthenticatedBackOfficeAdvancedDeskRoute =
     path: '/advanced-desk',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedAgencyTeamRoute = AuthenticatedAgencyTeamRouteImport.update({
+  id: '/agency/team',
+  path: '/agency/team',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedAgencySettingsRoute =
   AuthenticatedAgencySettingsRouteImport.update({
     id: '/agency/settings',
@@ -629,6 +641,7 @@ export interface FileRoutesByFullPath {
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
@@ -652,6 +665,7 @@ export interface FileRoutesByFullPath {
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
+  '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -720,6 +734,7 @@ export interface FileRoutesByTo {
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
@@ -743,6 +758,7 @@ export interface FileRoutesByTo {
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
+  '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -815,6 +831,7 @@ export interface FileRoutesById {
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
+  '/admin/billing': typeof AdminBillingRoute
   '/admin/carriers': typeof AdminCarriersRoute
   '/admin/commissions': typeof AdminCommissionsRoute
   '/admin/contracts': typeof AdminContractsRoute
@@ -838,6 +855,7 @@ export interface FileRoutesById {
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
   '/_authenticated/agency/settings': typeof AuthenticatedAgencySettingsRoute
+  '/_authenticated/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -910,6 +928,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
@@ -933,6 +952,7 @@ export interface FileRouteTypes {
     | '/account/my-landing-page'
     | '/account/producer-profile'
     | '/agency/settings'
+    | '/agency/team'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -1001,6 +1021,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
@@ -1024,6 +1045,7 @@ export interface FileRouteTypes {
     | '/account/my-landing-page'
     | '/account/producer-profile'
     | '/agency/settings'
+    | '/agency/team'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -1095,6 +1117,7 @@ export interface FileRouteTypes {
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
+    | '/admin/billing'
     | '/admin/carriers'
     | '/admin/commissions'
     | '/admin/contracts'
@@ -1118,6 +1141,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account/my-landing-page'
     | '/_authenticated/account/producer-profile'
     | '/_authenticated/agency/settings'
+    | '/_authenticated/agency/team'
     | '/_authenticated/back-office/advanced-desk'
     | '/_authenticated/back-office/case-design'
     | '/_authenticated/back-office/client-marketing'
@@ -1366,6 +1390,13 @@ declare module '@tanstack/react-router' {
       path: '/carriers'
       fullPath: '/admin/carriers'
       preLoaderRoute: typeof AdminCarriersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/billing': {
+      id: '/admin/billing'
+      path: '/billing'
+      fullPath: '/admin/billing'
+      preLoaderRoute: typeof AdminBillingRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/announcements': {
@@ -1753,6 +1784,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeAdvancedDeskRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/agency/team': {
+      id: '/_authenticated/agency/team'
+      path: '/agency/team'
+      fullPath: '/agency/team'
+      preLoaderRoute: typeof AuthenticatedAgencyTeamRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/agency/settings': {
       id: '/_authenticated/agency/settings'
       path: '/agency/settings'
@@ -1978,6 +2016,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
+  AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
@@ -2011,6 +2050,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
+  AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
@@ -2024,6 +2064,7 @@ interface AdminRouteChildren {
   AdminAgentsRoute: typeof AdminAgentsRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminAnnouncementsRoute: typeof AdminAnnouncementsRoute
+  AdminBillingRoute: typeof AdminBillingRoute
   AdminCarriersRoute: typeof AdminCarriersRoute
   AdminCommissionsRoute: typeof AdminCommissionsRoute
   AdminContractsRoute: typeof AdminContractsRoute
@@ -2042,6 +2083,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAgentsRoute: AdminAgentsRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminAnnouncementsRoute: AdminAnnouncementsRoute,
+  AdminBillingRoute: AdminBillingRoute,
   AdminCarriersRoute: AdminCarriersRoute,
   AdminCommissionsRoute: AdminCommissionsRoute,
   AdminContractsRoute: AdminContractsRoute,

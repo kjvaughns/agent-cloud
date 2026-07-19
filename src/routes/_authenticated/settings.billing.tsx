@@ -13,8 +13,11 @@ import { toast } from "sonner";
 import { money } from "@/lib/format";
 import {
   getBillingOverview, createCheckoutSession, createPortalSession,
-  listNovaSeatAgents, assignNovaSeat, unassignNovaSeat,
+  listNovaSeatAgents, assignNovaSeat, unassignNovaSeat, getSeatBreakdown, getNovaProStatus,
 } from "@/lib/billing.functions";
+import { getMyAccess } from "@/lib/permissions.functions";
+import { Link } from "@tanstack/react-router";
+import { Check, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings/billing")({
   head: () => ({ meta: [{ title: "Billing — Agent Cloud" }] }),
@@ -29,7 +32,136 @@ const STATUS_BADGE: Record<string, { v: any; label: string }> = {
   inactive: { v: "outline", label: "Inactive" },
 };
 
+/** Role-aware billing: one route, different content per role. */
 function BillingPage() {
+  const accessFn = useServerFn(getMyAccess);
+  const { data: access, isLoading } = useQuery({ queryKey: ["my-access"], queryFn: () => accessFn() });
+
+  if (isLoading || !access) return <PageShell><Skeleton className="h-72" /></PageShell>;
+  if (access.isSolo) return <SoloBilling access={access} />;
+  if (access.isOwner) return <OwnerBilling />;
+  return <MemberBilling access={access} />;
+}
+
+// ── Member view (manager / agent / staff) ────────────────────────────────────
+
+function MemberBilling({ access }: { access: any }) {
+  const statusFn = useServerFn(getNovaProStatus);
+  const { data: nova } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
+  const badge = STATUS_BADGE[access.orgStatus] ?? STATUS_BADGE.inactive;
+  // Staff need the owner's permission before Nova Pro is even shown.
+  const novaHidden = access.role === "staff" && !access.permissions?.staff_nova_pro_enabled;
+
+  return (
+    <PageShell>
+      <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
+        <HeroBand title="Your Account" />
+        <Panel>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm text-muted-foreground">You're a member of</div>
+              <div className="font-display font-semibold text-lg" style={{ fontFamily: "var(--font-display)" }}>{access.orgName ?? "your agency"}</div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Your seat is covered by your agency — you don't pay for platform access.
+              </p>
+            </div>
+            <Badge variant={badge.v}>Agency Plan · {badge.label}</Badge>
+          </div>
+        </Panel>
+
+        {!novaHidden && nova && (
+          <Panel title="Nova AI Pro" action={<Badge variant={(STATUS_BADGE as any)[nova.status === "grace_period" ? "past_due" : nova.status]?.v ?? "outline"}>{nova.status === "grace_period" ? "Grace Period" : nova.status === "active" ? "Active" : "Inactive"}</Badge>}>
+            {nova.status === "active" || nova.status === "grace_period" ? (
+              <div className="text-sm space-y-1.5">
+                <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span>{nova.source === "agency" ? "Agency-assigned seat" : "Personal subscription"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+                <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/settings/nova-pro">Usage & subscription →</Link></Button>
+              </div>
+            ) : (
+              <div className="text-sm space-y-3">
+                <p className="text-muted-foreground">
+                  Dedicated business number, automated retention alerts, and advanced client tools. {money(49)}/month · cancel anytime.
+                </p>
+                <Button asChild size="sm"><Link to="/settings/nova-pro">Upgrade to Nova Pro →</Link></Button>
+              </div>
+            )}
+          </Panel>
+        )}
+      </div>
+    </PageShell>
+  );
+}
+
+// ── Solo agent view ──────────────────────────────────────────────────────────
+
+function SoloBilling({ access }: { access: any }) {
+  const statusFn = useServerFn(getNovaProStatus);
+  const checkoutFn = useServerFn(createCheckoutSession);
+  const portalFn = useServerFn(createPortalSession);
+  const { data: nova } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
+  const badge = STATUS_BADGE[access.orgStatus] ?? STATUS_BADGE.inactive;
+
+  const upgrade = useMutation({
+    mutationFn: () => checkoutFn({ data: { product: "agency_plan" } }),
+    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
+    onError: (e: any) => toast.error(e?.message ?? "Upgrade failed"),
+  });
+  const portal = useMutation({
+    mutationFn: () => portalFn({ data: { scope: "personal" } }),
+    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't open portal"),
+  });
+
+  return (
+    <PageShell>
+      <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
+        <HeroBand title="Billing & Plan" actions={<Badge variant={badge.v}>Solo Agent Plan · {badge.label}</Badge>} />
+        <Panel title="Solo Agent Plan">
+          <div className="text-sm space-y-1.5">
+            <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="tnum font-semibold">{money(79)}/month</span></div>
+            {["Full CRM & pipeline", "Book of business", "Commission tracker", "Nova AI Pro (included)"].map((f) => (
+              <div key={f} className="flex items-center gap-2 text-muted-foreground"><Check className="h-3.5 w-3.5 text-success" /> {f}</div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button size="sm" variant="outline" onClick={() => portal.mutate()} disabled={portal.isPending}>
+              <ExternalLink className="h-3.5 w-3.5 mr-1" /> Manage Subscription
+            </Button>
+          </div>
+        </Panel>
+
+        {nova && (
+          <Panel title="Nova AI Pro" action={<Badge variant="gold">Included in your plan</Badge>}>
+            <div className="text-sm space-y-1.5 mb-3">
+              <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+            </div>
+            <Button asChild size="sm" variant="outline"><Link to="/settings/nova-pro">Usage meters →</Link></Button>
+          </Panel>
+        )}
+
+        <Panel title="Ready to grow your team?">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-lg bg-gold-glow grid place-items-center text-gold-bright shrink-0"><TrendingUp className="h-5 w-5" /></div>
+            <div className="flex-1">
+              <p className="text-sm text-muted-foreground">
+                Upgrade to the Agency Plan to unlock team management, recruiting pipeline, leaderboard, and multi-agent analytics.
+                Your clients, policies, and commissions stay exactly as they are.
+              </p>
+              <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(199)}/month (includes 15 agents)</p>
+              <Button className="mt-3" onClick={() => upgrade.mutate()} disabled={upgrade.isPending}>
+                Upgrade to Agency Plan →
+              </Button>
+            </div>
+          </div>
+        </Panel>
+      </div>
+    </PageShell>
+  );
+}
+
+// ── Agency owner view ────────────────────────────────────────────────────────
+
+function OwnerBilling() {
   const overviewFn = useServerFn(getBillingOverview);
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);
@@ -146,6 +278,12 @@ function BillingPage() {
           </p>
         </Panel>
 
+        {/* Seat breakdown */}
+        <SeatBreakdownPanel />
+
+        {/* Owner's personal Nova Pro — same $49 as everyone */}
+        <OwnerNovaCard />
+
         {/* Nova seat management */}
         <NovaSeatsPanel configured={d.configured} onPurchase={(qty) => go.mutate({ product: "nova_seats", quantity: qty })} purchasing={go.isPending} />
 
@@ -172,6 +310,64 @@ function BillingPage() {
         )}
       </div>
     </PageShell>
+  );
+}
+
+function SeatBreakdownPanel() {
+  const [open, setOpen] = useState(false);
+  const fn = useServerFn(getSeatBreakdown);
+  const { data } = useQuery({ queryKey: ["billing", "seat-breakdown"], queryFn: () => fn(), enabled: open });
+  return (
+    <Panel
+      title="Seat Breakdown"
+      action={<Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>{open ? "Hide" : "View seat breakdown"}</Button>}
+    >
+      <p className="text-xs text-muted-foreground">
+        Every member with workspace access consumes a seat. You (the owner) never consume one; invited and imported members don't either.
+      </p>
+      {open && (
+        <div className="mt-3 divide-y divide-border-soft">
+          {(data?.rows ?? []).map((m: any) => (
+            <div key={m.id} className="flex items-center gap-3 py-2 text-sm">
+              <span className="font-medium truncate">{m.first_name} {m.last_name}</span>
+              <Badge variant="outline" className="text-[10px] capitalize">{m.role}</Badge>
+              <span className="text-xs text-muted-foreground capitalize">{m.status ?? "pending"}</span>
+              <span className="ml-auto">
+                {m.billable
+                  ? <Badge variant="gold" className="text-[10px]">Billable</Badge>
+                  : <Badge variant="outline" className="text-[10px]">Free</Badge>}
+              </span>
+              <span className="text-xs text-text-dim tnum shrink-0">{new Date(m.created_at).toLocaleDateString()}</span>
+            </div>
+          ))}
+          {open && (data?.rows?.length ?? 0) === 0 && (
+            <div className="py-4 text-center text-sm text-muted-foreground">No members yet — invite your team from the Team page.</div>
+          )}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function OwnerNovaCard() {
+  const statusFn = useServerFn(getNovaProStatus);
+  const { data: nova } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
+  if (!nova) return null;
+  const on = nova.status === "active" || nova.status === "grace_period";
+  return (
+    <Panel title="Your Nova Pro" action={on ? <Badge variant="success">Active</Badge> : <span className="text-xs text-muted-foreground tnum">{money(49)}/month</span>}>
+      {on ? (
+        <div className="text-sm space-y-1.5">
+          <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+          <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/settings/nova-pro">Usage & subscription →</Link></Button>
+        </div>
+      ) : (
+        <div className="text-sm space-y-3">
+          <p className="text-muted-foreground">Same price as everyone on your team — your subscription counts toward adoption, but you don't earn partner credit on it.</p>
+          <Button asChild size="sm"><Link to="/settings/nova-pro">Subscribe to Nova Pro — {money(49)}/month</Link></Button>
+        </div>
+      )}
+    </Panel>
   );
 }
 

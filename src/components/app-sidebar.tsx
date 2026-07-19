@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
+import { useMyAccess, canSeeNavItem } from "@/hooks/use-my-access";
 import { useOrganization } from "@/hooks/use-organization";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
@@ -38,6 +39,7 @@ const groups: NavGroup[] = [
     label: "Agency",
     items: [
       { title: "Team", url: "/team", icon: Users },
+      { title: "Team & Permissions", url: "/agency/team", icon: ShieldCheck },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Onboarding", url: "/contracting/invite", icon: UserPlus },
       { title: "Contracts", url: "/contracting", icon: FileSignature },
@@ -88,6 +90,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const sidebarCollapsed = state === "collapsed";
   const { isAdmin, isManager, isAgencyOwner } = useRole();
+  const { access } = useMyAccess();
   const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
@@ -197,7 +200,7 @@ export function AppSidebar() {
             )}
             {(!collapsedGroups[g.label] || sidebarCollapsed) && (
               <SidebarGroupContent>
-                <SidebarMenu>{g.items.map(renderItem)}</SidebarMenu>
+                <SidebarMenu>{g.items.filter((it) => it.external || canSeeNavItem(it.url, access)).map(renderItem)}</SidebarMenu>
               </SidebarGroupContent>
             )}
           </SidebarGroup>
@@ -208,7 +211,7 @@ export function AppSidebar() {
         <SidebarGroup>
           {!sidebarCollapsed && <SidebarGroupLabel>Account</SidebarGroupLabel>}
           <SidebarGroupContent>
-            <SidebarMenu>{accountItems.map(renderItem)}</SidebarMenu>
+            <SidebarMenu>{accountItems.filter((it) => canSeeNavItem(it.url, access)).map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

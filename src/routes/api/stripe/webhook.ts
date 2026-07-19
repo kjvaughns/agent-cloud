@@ -24,6 +24,8 @@ async function handleOrgEvent(kind: string, orgId: string, type: string, obj: an
     const patch: any = { subscription_status: "active" };
     if (obj.subscription) patch.stripe_subscription_id = obj.subscription;
     if (kind === "white_label") patch.plan_type = "white_label";
+    // Solo -> Agency upgrade: same org, same records, team features unlock.
+    if (kind === "agency") patch.plan_type = "agency";
     if (kind === "nova_seats") {
       const qty = Number(obj.metadata?.quantity ?? 0);
       const { data: org } = await orgQ().select("nova_seats_purchased").eq("id", orgId).maybeSingle();
