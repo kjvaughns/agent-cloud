@@ -1982,6 +1982,50 @@ export type Database = {
           },
         ]
       }
+      nova_automations: {
+        Row: {
+          agent_id: string
+          channel: string
+          created_at: string
+          custom_date: string | null
+          enabled: boolean
+          id: string
+          message_template: string
+          name: string
+          trigger_type: string
+        }
+        Insert: {
+          agent_id: string
+          channel?: string
+          created_at?: string
+          custom_date?: string | null
+          enabled?: boolean
+          id?: string
+          message_template: string
+          name: string
+          trigger_type: string
+        }
+        Update: {
+          agent_id?: string
+          channel?: string
+          created_at?: string
+          custom_date?: string | null
+          enabled?: boolean
+          id?: string
+          message_template?: string
+          name?: string
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_automations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nova_settings: {
         Row: {
           agent_id: string
@@ -2416,6 +2460,7 @@ export type Database = {
           last_active_at: string | null
           last_name: string | null
           marital_status: string | null
+          monthly_alp_goal: number | null
           needs_transfer_request: boolean | null
           npn_number: string | null
           onboarding_completed_at: string | null
@@ -2455,6 +2500,7 @@ export type Database = {
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
+          monthly_alp_goal?: number | null
           needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
@@ -2494,6 +2540,7 @@ export type Database = {
           last_active_at?: string | null
           last_name?: string | null
           marital_status?: string | null
+          monthly_alp_goal?: number | null
           needs_transfer_request?: boolean | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
@@ -2993,6 +3040,95 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "sms_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sophai_activity: {
+        Row: {
+          activity_type: string
+          agent_id: string
+          client_id: string | null
+          created_at: string
+          id: string
+          outcome: string | null
+        }
+        Insert: {
+          activity_type: string
+          agent_id: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          outcome?: string | null
+        }
+        Update: {
+          activity_type?: string
+          agent_id?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          outcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophai_activity_agent_id_fkey1"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sophai_activity_client_id_fkey1"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sophai_settings: {
+        Row: {
+          agent_id: string
+          anniversary_messages_enabled: boolean
+          beneficiary_engagement_enabled: boolean | null
+          birthday_messages_enabled: boolean | null
+          email_notifications_enabled: boolean
+          id: string
+          lapse_followup_enabled: boolean
+          policy_recovery_enabled: boolean | null
+          sms_followup_enabled: boolean | null
+          sms_notifications_enabled: boolean
+        }
+        Insert: {
+          agent_id: string
+          anniversary_messages_enabled?: boolean
+          beneficiary_engagement_enabled?: boolean | null
+          birthday_messages_enabled?: boolean | null
+          email_notifications_enabled?: boolean
+          id?: string
+          lapse_followup_enabled?: boolean
+          policy_recovery_enabled?: boolean | null
+          sms_followup_enabled?: boolean | null
+          sms_notifications_enabled?: boolean
+        }
+        Update: {
+          agent_id?: string
+          anniversary_messages_enabled?: boolean
+          beneficiary_engagement_enabled?: boolean | null
+          birthday_messages_enabled?: boolean | null
+          email_notifications_enabled?: boolean
+          id?: string
+          lapse_followup_enabled?: boolean
+          policy_recovery_enabled?: boolean | null
+          sms_followup_enabled?: boolean | null
+          sms_notifications_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophai_settings_agent_id_fkey1"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
