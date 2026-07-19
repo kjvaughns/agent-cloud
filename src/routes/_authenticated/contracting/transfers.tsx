@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -6,7 +6,7 @@ import {
   listTransferRequests, respondTransferRequest,
   submitTransferSheet, getTransferWorkflowStatus,
 } from "@/lib/contracting.functions";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,16 +17,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { ArrowLeftRight, AlertTriangle, CheckCircle2, Plus, Trash2 } from "lucide-react";
 
+// Transfer Requests now live inside Contracts (tab). Old links redirect.
 export const Route = createFileRoute("/_authenticated/contracting/transfers")({
-  component: TransfersPage,
-  head: () => ({ meta: [{ title: "Transfer Requests | Agent Cloud" }] }),
+  beforeLoad: () => {
+    throw redirect({ to: "/contracting", search: { tab: "transfer-requests" } as any });
+  },
 });
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
   pending: "secondary", accepted: "default", declined: "destructive", complete: "default",
 };
 
-function TransfersPage() {
+export function CarrierReleasesContent() {
   const qc = useQueryClient();
 
   const getWorkflowFn = useServerFn(getTransferWorkflowStatus);
@@ -56,12 +58,7 @@ function TransfersPage() {
   };
 
   return (
-    <PageShell>
-      <div className="max-w-3xl space-y-[var(--gap)]">
-      <HeroBand
-        title={<span className="flex items-center gap-2"><ArrowLeftRight className="h-6 w-6" /> Transfer Requests</span>}
-        subtitle="Manage carrier release requests and transfer your existing contracts."
-      />
+    <div className="max-w-3xl space-y-[var(--gap)]">
 
       {/* ── Pending Transfer Workflow Banner ── */}
       {wLoading ? <Skeleton className="h-32" /> : needsTransfer && !workflowComplete && (
@@ -137,8 +134,7 @@ function TransfersPage() {
           </div>
         )}
       </Panel>
-      </div>
-    </PageShell>
+    </div>
   );
 }
 

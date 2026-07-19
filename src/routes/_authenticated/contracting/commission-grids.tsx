@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listMyCarrierLevels, getCommissionGrid } from "@/lib/contracting.functions";
@@ -8,11 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { PageShell, HeroBand } from "@/components/page-shell";
 
+
+// Comp Grids now lives inside Contracts (tab). Old links redirect.
 export const Route = createFileRoute("/_authenticated/contracting/commission-grids")({
-  component: GridsPage,
-  head: () => ({ meta: [{ title: "Commission Grids | Agent Cloud" }] }),
+  beforeLoad: () => {
+    throw redirect({ to: "/contracting", search: { tab: "comp-grids" } as any });
+  },
 });
 
 function levelIsMe(
@@ -29,19 +31,14 @@ function levelIsMe(
   return false;
 }
 
-function GridsPage() {
+export function CompGridsContent() {
   const { data, isLoading } = useQuery({
     queryKey: ["contracting", "myLevels"],
     queryFn: () => listMyCarrierLevels(),
   });
 
   return (
-    <PageShell>
-      <div className="flex flex-col gap-[var(--gap)]">
-      <HeroBand
-        title="Commission Grids"
-        subtitle="Commission rates for your contracted carriers. Your assigned level is highlighted in gold."
-      />
+    <div className="flex flex-col gap-[var(--gap)]">
 
       {isLoading ? (
         <Skeleton className="h-40" />
@@ -89,8 +86,7 @@ function GridsPage() {
           ))}
         </Accordion>
       )}
-      </div>
-    </PageShell>
+    </div>
   );
 }
 

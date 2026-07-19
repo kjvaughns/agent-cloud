@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CompGridsContent } from "./commission-grids";
+import { TransferRequestsTab } from "@/components/contracting/transfer-requests-tab";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,8 +31,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/contracting/")({
+  validateSearch: (s: Record<string, unknown>): { tab?: "my" | "downline" | "comp-grids" | "transfer-requests" | "inbox" } => ({
+    tab: ["my", "downline", "comp-grids", "transfer-requests", "inbox"].includes(String(s.tab)) ? (s.tab as any) : undefined,
+  }),
   component: ContractingHome,
-  head: () => ({ meta: [{ title: "Contract Requests | Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Contracts | Agent Cloud" }] }),
 });
 
 const myContractsQuery = queryOptions({
@@ -43,21 +48,38 @@ const carriersQuery = queryOptions({
 });
 
 function ContractingHome() {
+  const { tab: initialTab = "my" } = Route.useSearch();
+  const [tab, setTab] = useState<string>(initialTab);
+  const [transferPrefill, setTransferPrefill] = useState<string | null>(null);
+  const { data: carriersData } = useQuery(carriersQuery);
+  const carrierOptions = ((((carriersData as any)?.carriers ?? carriersData) ?? []) as any[]).map((c: any) => ({ id: c.id, name: c.name }));
+
+  const openTransferFor = (carrierId: string) => {
+    setTransferPrefill(carrierId);
+    setTab("transfer-requests");
+  };
+
   return (
     <PageShell>
       <div className="space-y-4">
         <HeroBand
-          title="My Contracts"
-          subtitle="Manage your carrier contracts and downline agent contracting"
+          title="Contracts"
+          subtitle="Carrier appointments, commission levels, writing numbers, and transfers — all in one place"
         />
-        <Tabs defaultValue="my">
-          <TabsList>
+        <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v !== "transfer-requests") setTransferPrefill(null); }}>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="my">My Contracts</TabsTrigger>
             <TabsTrigger value="downline">Downline Contracts</TabsTrigger>
+            <TabsTrigger value="comp-grids">Comp Grids</TabsTrigger>
+            <TabsTrigger value="transfer-requests">Transfer Requests</TabsTrigger>
             <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
           </TabsList>
-          <TabsContent value="my" className="mt-4"><MyContractsTab /></TabsContent>
+          <TabsContent value="my" className="mt-4"><MyContractsTab onViewGrid={() => setTab("comp-grids")} onRequestTransfer={openTransferFor} /></TabsContent>
           <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>
+          <TabsContent value="comp-grids" className="mt-4"><CompGridsContent /></TabsContent>
+          <TabsContent value="transfer-requests" className="mt-4">
+            <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
+          </TabsContent>
           <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
         </Tabs>
       </div>
@@ -102,7 +124,7 @@ function AddWritingNumberInline({ contractId, onActivated }: { contractId: strin
 }
 
 // ---------------- My Contracts ----------------
-function MyContractsTab() {
+function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => void; onRequestTransfer: (carrierId: string) => void }) {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery(myContractsQuery);
   const deleteFn = useServerFn(deleteContractRequest);
@@ -275,6 +297,19 @@ function MyContractsTab() {
                       )}
                     </div>
                   )}
+                  {(c.commission_level != null || c.effective_date || (c.products?.length ?? 0) > 0) && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                      {c.commission_level != null && (
+                        <div><div className="text-xs text-muted-foreground">Contract Level</div><div className="tnum font-semibold">{Number(c.commission_level)}%</div></div>
+                      )}
+                      {c.effective_date && (
+                        <div><div className="text-xs text-muted-foreground">Effective Date</div><div className="tnum">{fmtDate(c.effective_date)}</div></div>
+                      )}
+                      {(c.products?.length ?? 0) > 0 && (
+                        <div className="col-span-2 sm:col-span-1"><div className="text-xs text-muted-foreground">Products</div><div className="text-xs">{(c.products as string[]).join(" · ")}</div></div>
+                      )}
+                    </div>
+                  )}
                   {c.status === "active" && c.activated_at && (
                     <div className="text-sm inline-flex items-center gap-2 text-success">
                       <CheckCircle2 className="h-4 w-4" /> Active: {fmtDate(c.activated_at)}
@@ -298,6 +333,12 @@ function MyContractsTab() {
                     </div>
                   )}
                   <div className="pt-1 flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={onViewGrid}>
+                      View Comp Grid
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => onRequestTransfer(c.carrier_id)}>
+                      Request Transfer
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setRequestLevelFor(c)}>
                       Request Commission Level
                     </Button>
@@ -507,6 +548,8 @@ function DownlineTab() {
     queryFn: () => listDownlineMatrix(),
   });
   const [cell, setCell] = useState<{ agent: any; carrier: any; existing?: any } | null>(null);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [carrierFilter, setCarrierFilter] = useState<string>("all");
 
   if (isLoading) return <Skeleton className="h-64" />;
 
@@ -519,32 +562,62 @@ function DownlineTab() {
     return <Panel className="p-10 text-center text-sm text-muted-foreground">No downline agents yet. Invite agents from the Agent Network page.</Panel>;
   }
 
+  const reqs = data?.requests ?? [];
+  const activeCnt = reqs.filter((r: any) => r.status === "active").length;
+  const pendingCnt = reqs.filter((r: any) => ["requested", "submitted", "assigned", "processing"].includes(r.status)).length;
+  const issueCnt = reqs.filter((r: any) => r.status === "issue").length;
+  const filteredAgents = agents.filter((a: any) =>
+    !agentSearch.trim() || `${a.first_name ?? ""} ${a.last_name ?? ""}`.toLowerCase().includes(agentSearch.toLowerCase()));
+  const visibleCarriers = carrierFilter === "all" ? carriers : carriers.filter((c: any) => c.id === carrierFilter);
+
   return (
     <>
-      <Panel pad={false} className="overflow-x-auto">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-sm text-muted-foreground tnum">
+          {agents.length} agents · {carriers.length} carriers · <span className="text-success font-medium">{activeCnt} active</span> · <span className="text-warning font-medium">{pendingCnt} pending</span>{issueCnt > 0 && <> · <span className="text-destructive font-medium">{issueCnt} issue{issueCnt === 1 ? "" : "s"}</span></>}
+        </div>
+        <div className="flex gap-2 items-center">
+          <Input className="h-8 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
+          <Select value={carrierFilter} onValueChange={setCarrierFilter}>
+            <SelectTrigger className="h-8 w-40 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All carriers</SelectItem>
+              {carriers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <Panel pad={false} className="overflow-x-auto mt-3">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-2 text-xs uppercase text-muted-foreground">
               <th className="sticky left-0 bg-surface-2 px-3 py-2 text-left">Agent</th>
-              {carriers.map((c: any) => (
+              {visibleCarriers.map((c: any) => (
                 <th key={c.id} className="px-2 py-2 text-center whitespace-nowrap">{c.name}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {agents.map((a: any) => (
+            {filteredAgents.map((a: any) => (
               <tr key={a.id} className="border-t border-border">
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
-                {carriers.map((c: any) => {
+                {visibleCarriers.map((c: any) => {
                   const existing = map.get(`${a.id}:${c.id}`);
+                  const pct = existing?.commission_level != null ? `${Number(existing.commission_level)}%` : null;
                   return (
                     <td key={c.id} className="px-2 py-2 text-center">
                       <button onClick={() => setCell({ agent: a, carrier: c, existing })}
-                        className="h-7 w-7 rounded-full inline-flex items-center justify-center hover:ring-2 hover:ring-primary/30"
-                        title={existing ? existing.status : "Not contracted"}
+                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 hover:ring-2 hover:ring-primary/30 tnum text-xs font-semibold"
+                        title={existing ? existing.status : "Not contracted — click to assign"}
                       >
-                        {existing ? <span className={cn("h-3 w-3 rounded-full", statusDot(existing.status))} />
-                                  : <Plus className="h-3.5 w-3.5 text-muted-foreground" />}
+                        {existing ? (
+                          <>
+                            <span>{pct ?? "·"}</span>
+                            <span className={cn("h-2.5 w-2.5 rounded-full", statusDot(existing.status))} />
+                          </>
+                        ) : (
+                          <span className="text-text-dim">—</span>
+                        )}
                       </button>
                     </td>
                   );
