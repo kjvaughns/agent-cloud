@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
 import { useMyAccess, canSeeNavItem } from "@/hooks/use-my-access";
 import { useOrganization } from "@/hooks/use-organization";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen,
