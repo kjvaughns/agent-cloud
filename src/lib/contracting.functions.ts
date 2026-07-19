@@ -89,7 +89,7 @@ export const listMyContracts = createServerFn({ method: "GET" })
     const { supabase, userId } = context as Ctx;
     const { data, error } = await supabase
       .from("contract_requests")
-      .select("id,carrier_id,status,writing_number,requested_at,submitted_at,activated_at,issue_description,notes,carriers(name,agent_portal_url,is_annuity_carrier)")
+      .select("id,carrier_id,status,writing_number,commission_level,effective_date,products,requested_at,submitted_at,activated_at,issue_description,notes,carriers(name,agent_portal_url,is_annuity_carrier)")
       .eq("agent_id", userId)
       .order("requested_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -180,7 +180,7 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
     if (agentIds.length) {
       const { data: cr } = await supabase
         .from("contract_requests")
-        .select("id,agent_id,carrier_id,status,writing_number")
+        .select("id,agent_id,carrier_id,status,writing_number,commission_level")
         .in("agent_id", agentIds);
       requests = cr ?? [];
     }
