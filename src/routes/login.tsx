@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): { redirect?: string } => ({
@@ -81,12 +82,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           style={{ background: "radial-gradient(circle, var(--gold-glow) 0%, transparent 70%)" }}
         />
         <div className="flex items-center gap-2.5">
-          <div
-            className="h-9 w-9 rounded-[9px] grid place-items-center text-gold-foreground font-bold"
-            style={{ background: "linear-gradient(140deg, var(--gold-bright), var(--gold-dim))", fontFamily: "var(--font-display)" }}
-          >
-            A
-          </div>
+          <BrandLogo size={36} />
           <span className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
         </div>
         <div className="space-y-4 max-w-md">
@@ -102,12 +98,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card p-8" style={{ boxShadow: "var(--shadow-pop)" }}>
           <div className="mb-6 lg:hidden flex items-center gap-2">
-            <div
-              className="h-8 w-8 rounded-lg grid place-items-center text-gold-foreground font-bold"
-              style={{ background: "linear-gradient(140deg, var(--gold-bright), var(--gold-dim))", fontFamily: "var(--font-display)" }}
-            >
-              A
-            </div>
+            <BrandLogo size={32} />
             <span className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>{title}</h1>

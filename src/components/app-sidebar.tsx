@@ -4,10 +4,11 @@ import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
 import { useMyAccess, canSeeNavItem } from "@/hooks/use-my-access";
 import { useOrganization } from "@/hooks/use-organization";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   LayoutDashboard, KanbanSquare, Calendar, Phone, Sparkles, Users,
   BookOpen, BarChart3, Wallet, FileSignature, FolderOpen,
-  Megaphone, Newspaper, Bell, FilePlus, Cloud, UserPlus, ArrowLeftRight,
+  Megaphone, Newspaper, Bell, FilePlus, UserPlus, ArrowLeftRight,
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
@@ -157,9 +158,7 @@ export function AppSidebar() {
               className="h-8 w-8 shrink-0 rounded-lg object-contain border border-border"
             />
           ) : (
-            <div className="h-8 w-8 shrink-0 rounded-lg bg-primary grid place-items-center text-primary-foreground shadow-sm">
-              <Cloud className="h-4 w-4" />
-            </div>
+            <BrandLogo size={32} />
           )}
           {!sidebarCollapsed && (() => {
             const isAgency = !!org?.slug && org.slug !== "apex";

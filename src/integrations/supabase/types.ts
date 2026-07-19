@@ -532,6 +532,54 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          new_value: Json | null
+          organization_id: string | null
+          performed_by: string | null
+          previous_value: Json | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          new_value?: Json | null
+          organization_id?: string | null
+          performed_by?: string | null
+          previous_value?: Json | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          new_value?: Json | null
+          organization_id?: string | null
+          performed_by?: string | null
+          previous_value?: Json | null
+          target_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_log_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       background_questions: {
         Row: {
           agent_id: string
@@ -716,6 +764,99 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_mapping_templates: {
+        Row: {
+          carrier_id: string
+          column_map: Json
+          created_by: string
+          id: string
+          status_map: Json
+          updated_at: string
+        }
+        Insert: {
+          carrier_id: string
+          column_map?: Json
+          created_by: string
+          id?: string
+          status_map?: Json
+          updated_at?: string
+        }
+        Update: {
+          carrier_id?: string
+          column_map?: Json
+          created_by?: string
+          id?: string
+          status_map?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_mapping_templates_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_mapping_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_sync_logs: {
+        Row: {
+          carrier_id: string | null
+          created_at: string
+          file_name: string | null
+          id: string
+          matched: number
+          total_rows: number
+          unmatched: number
+          updated: number
+          uploaded_by: string
+        }
+        Insert: {
+          carrier_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          matched?: number
+          total_rows?: number
+          unmatched?: number
+          updated?: number
+          uploaded_by: string
+        }
+        Update: {
+          carrier_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          matched?: number
+          total_rows?: number
+          unmatched?: number
+          updated?: number
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_sync_logs_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_sync_logs_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2026,6 +2167,53 @@ export type Database = {
           },
         ]
       }
+      nova_partner_commissions: {
+        Row: {
+          billing_period_end: string
+          billing_period_start: string
+          commission_amount: number
+          commission_rate: number
+          created_at: string | null
+          id: string
+          nova_subscriber_count: number
+          organization_id: string | null
+          status: string | null
+          stripe_credit_id: string | null
+        }
+        Insert: {
+          billing_period_end: string
+          billing_period_start: string
+          commission_amount: number
+          commission_rate: number
+          created_at?: string | null
+          id?: string
+          nova_subscriber_count: number
+          organization_id?: string | null
+          status?: string | null
+          stripe_credit_id?: string | null
+        }
+        Update: {
+          billing_period_end?: string
+          billing_period_start?: string
+          commission_amount?: number
+          commission_rate?: number
+          created_at?: string | null
+          id?: string
+          nova_subscriber_count?: number
+          organization_id?: string | null
+          status?: string | null
+          stripe_credit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_partner_commissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nova_settings: {
         Row: {
           agent_id: string
@@ -2098,42 +2286,69 @@ export type Database = {
         Row: {
           accent_color: string | null
           active: boolean | null
+          active_seat_count: number | null
           created_at: string | null
           custom_domain: string | null
           id: string
           logo_url: string | null
           name: string
+          nova_partner_commission_rate: number | null
+          nova_partner_commission_ytd: number | null
+          nova_seats_purchased: number | null
           owner_id: string | null
           parent_org_id: string | null
+          plan_type: string | null
           slug: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string | null
           tagline: string | null
           updated_at: string | null
         }
         Insert: {
           accent_color?: string | null
           active?: boolean | null
+          active_seat_count?: number | null
           created_at?: string | null
           custom_domain?: string | null
           id?: string
           logo_url?: string | null
           name: string
+          nova_partner_commission_rate?: number | null
+          nova_partner_commission_ytd?: number | null
+          nova_seats_purchased?: number | null
           owner_id?: string | null
           parent_org_id?: string | null
+          plan_type?: string | null
           slug: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
           tagline?: string | null
           updated_at?: string | null
         }
         Update: {
           accent_color?: string | null
           active?: boolean | null
+          active_seat_count?: number | null
           created_at?: string | null
           custom_domain?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          nova_partner_commission_rate?: number | null
+          nova_partner_commission_ytd?: number | null
+          nova_seats_purchased?: number | null
           owner_id?: string | null
           parent_org_id?: string | null
+          plan_type?: string | null
           slug?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
           tagline?: string | null
           updated_at?: string | null
         }
@@ -2260,11 +2475,13 @@ export type Database = {
           face_amount: number | null
           id: string
           is_gtl: boolean
+          last_synced_at: string | null
           monthly_premium: number | null
           policy_number: string | null
           posted_at: string
           product: string | null
           status: Database["public"]["Enums"]["policy_status"]
+          sync_source: string | null
         }
         Insert: {
           agent_id: string
@@ -2277,11 +2494,13 @@ export type Database = {
           face_amount?: number | null
           id?: string
           is_gtl?: boolean
+          last_synced_at?: string | null
           monthly_premium?: number | null
           policy_number?: string | null
           posted_at?: string
           product?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          sync_source?: string | null
         }
         Update: {
           agent_id?: string
@@ -2294,11 +2513,13 @@ export type Database = {
           face_amount?: number | null
           id?: string
           is_gtl?: boolean
+          last_synced_at?: string | null
           monthly_premium?: number | null
           policy_number?: string | null
           posted_at?: string
           product?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          sync_source?: string | null
         }
         Relationships: [
           {
@@ -2462,6 +2683,16 @@ export type Database = {
           marital_status: string | null
           monthly_alp_goal: number | null
           needs_transfer_request: boolean | null
+          nova_pro_activated_at: string | null
+          nova_pro_expires_at: string | null
+          nova_pro_phone_number: string | null
+          nova_pro_source: string | null
+          nova_pro_status: string | null
+          nova_usage_ai_queries: number | null
+          nova_usage_automations: number | null
+          nova_usage_calls_minutes: number | null
+          nova_usage_reset_at: string | null
+          nova_usage_sms: number | null
           npn_number: string | null
           onboarding_completed_at: string | null
           organization_id: string | null
@@ -2472,6 +2703,8 @@ export type Database = {
           state: string | null
           status: string
           street_address: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           surelc_agent_id: string | null
           terminated_at: string | null
           transfer_workflow_carriers: Json | null
@@ -2502,6 +2735,16 @@ export type Database = {
           marital_status?: string | null
           monthly_alp_goal?: number | null
           needs_transfer_request?: boolean | null
+          nova_pro_activated_at?: string | null
+          nova_pro_expires_at?: string | null
+          nova_pro_phone_number?: string | null
+          nova_pro_source?: string | null
+          nova_pro_status?: string | null
+          nova_usage_ai_queries?: number | null
+          nova_usage_automations?: number | null
+          nova_usage_calls_minutes?: number | null
+          nova_usage_reset_at?: string | null
+          nova_usage_sms?: number | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
           organization_id?: string | null
@@ -2512,6 +2755,8 @@ export type Database = {
           state?: string | null
           status?: string
           street_address?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           surelc_agent_id?: string | null
           terminated_at?: string | null
           transfer_workflow_carriers?: Json | null
@@ -2542,6 +2787,16 @@ export type Database = {
           marital_status?: string | null
           monthly_alp_goal?: number | null
           needs_transfer_request?: boolean | null
+          nova_pro_activated_at?: string | null
+          nova_pro_expires_at?: string | null
+          nova_pro_phone_number?: string | null
+          nova_pro_source?: string | null
+          nova_pro_status?: string | null
+          nova_usage_ai_queries?: number | null
+          nova_usage_automations?: number | null
+          nova_usage_calls_minutes?: number | null
+          nova_usage_reset_at?: string | null
+          nova_usage_sms?: number | null
           npn_number?: string | null
           onboarding_completed_at?: string | null
           organization_id?: string | null
@@ -2552,6 +2807,8 @@ export type Database = {
           state?: string | null
           status?: string
           street_address?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           surelc_agent_id?: string | null
           terminated_at?: string | null
           transfer_workflow_carriers?: Json | null
@@ -2874,6 +3131,144 @@ export type Database = {
           withdrawal_rate_pct?: number | null
         }
         Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          admin_invite_users: boolean | null
+          admin_manage_staff_configs: boolean | null
+          admin_view_agency_tickets: boolean | null
+          admin_view_billing_readonly: boolean | null
+          created_at: string | null
+          id: string
+          mgr_access_recruiting: boolean | null
+          mgr_edit_agent_profiles: boolean | null
+          mgr_edit_client_records: boolean | null
+          mgr_manage_onboarding: boolean | null
+          mgr_post_deals_for_agents: boolean | null
+          mgr_submit_carrier_requests: boolean | null
+          mgr_view_agent_commissions: boolean | null
+          mgr_view_all_agents: boolean | null
+          mgr_view_client_records: boolean | null
+          mgr_view_team_analytics: boolean | null
+          organization_id: string | null
+          profile_id: string | null
+          staff_delete_clients: boolean | null
+          staff_edit_clients: boolean | null
+          staff_edit_contracts: boolean | null
+          staff_edit_policies: boolean | null
+          staff_edit_recruiting: boolean | null
+          staff_is_admin: boolean | null
+          staff_move_recruiting_stages: boolean | null
+          staff_nova_pro_enabled: boolean | null
+          staff_post_policies: boolean | null
+          staff_preset: string | null
+          staff_respond_tickets: boolean | null
+          staff_submit_carrier_requests: boolean | null
+          staff_view_all_tickets: boolean | null
+          staff_view_analytics: boolean | null
+          staff_view_clients: boolean | null
+          staff_view_commissions: boolean | null
+          staff_view_contracts: boolean | null
+          staff_view_policies: boolean | null
+          staff_view_recruiting: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_invite_users?: boolean | null
+          admin_manage_staff_configs?: boolean | null
+          admin_view_agency_tickets?: boolean | null
+          admin_view_billing_readonly?: boolean | null
+          created_at?: string | null
+          id?: string
+          mgr_access_recruiting?: boolean | null
+          mgr_edit_agent_profiles?: boolean | null
+          mgr_edit_client_records?: boolean | null
+          mgr_manage_onboarding?: boolean | null
+          mgr_post_deals_for_agents?: boolean | null
+          mgr_submit_carrier_requests?: boolean | null
+          mgr_view_agent_commissions?: boolean | null
+          mgr_view_all_agents?: boolean | null
+          mgr_view_client_records?: boolean | null
+          mgr_view_team_analytics?: boolean | null
+          organization_id?: string | null
+          profile_id?: string | null
+          staff_delete_clients?: boolean | null
+          staff_edit_clients?: boolean | null
+          staff_edit_contracts?: boolean | null
+          staff_edit_policies?: boolean | null
+          staff_edit_recruiting?: boolean | null
+          staff_is_admin?: boolean | null
+          staff_move_recruiting_stages?: boolean | null
+          staff_nova_pro_enabled?: boolean | null
+          staff_post_policies?: boolean | null
+          staff_preset?: string | null
+          staff_respond_tickets?: boolean | null
+          staff_submit_carrier_requests?: boolean | null
+          staff_view_all_tickets?: boolean | null
+          staff_view_analytics?: boolean | null
+          staff_view_clients?: boolean | null
+          staff_view_commissions?: boolean | null
+          staff_view_contracts?: boolean | null
+          staff_view_policies?: boolean | null
+          staff_view_recruiting?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_invite_users?: boolean | null
+          admin_manage_staff_configs?: boolean | null
+          admin_view_agency_tickets?: boolean | null
+          admin_view_billing_readonly?: boolean | null
+          created_at?: string | null
+          id?: string
+          mgr_access_recruiting?: boolean | null
+          mgr_edit_agent_profiles?: boolean | null
+          mgr_edit_client_records?: boolean | null
+          mgr_manage_onboarding?: boolean | null
+          mgr_post_deals_for_agents?: boolean | null
+          mgr_submit_carrier_requests?: boolean | null
+          mgr_view_agent_commissions?: boolean | null
+          mgr_view_all_agents?: boolean | null
+          mgr_view_client_records?: boolean | null
+          mgr_view_team_analytics?: boolean | null
+          organization_id?: string | null
+          profile_id?: string | null
+          staff_delete_clients?: boolean | null
+          staff_edit_clients?: boolean | null
+          staff_edit_contracts?: boolean | null
+          staff_edit_policies?: boolean | null
+          staff_edit_recruiting?: boolean | null
+          staff_is_admin?: boolean | null
+          staff_move_recruiting_stages?: boolean | null
+          staff_nova_pro_enabled?: boolean | null
+          staff_post_policies?: boolean | null
+          staff_preset?: string | null
+          staff_respond_tickets?: boolean | null
+          staff_submit_carrier_requests?: boolean | null
+          staff_view_all_tickets?: boolean | null
+          staff_view_analytics?: boolean | null
+          staff_view_clients?: boolean | null
+          staff_view_commissions?: boolean | null
+          staff_view_contracts?: boolean | null
+          staff_view_policies?: boolean | null
+          staff_view_recruiting?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scrape_requests: {
         Row: {
