@@ -10,6 +10,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Globe, Phone, Clock, Zap, DollarSign, Lock, User, ExternalLink, GraduationCap, Info, Search } from "lucide-react";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { useRole } from "@/hooks/use-role";
+import { useServerFn } from "@/hooks/use-server-fn";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { addCarrier } from "@/lib/contracting.functions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/contracting/carriers")({
   component: CarriersPage,
@@ -35,7 +42,7 @@ function CarriersPage() {
 
   return (
     <PageShell>
-      <HeroBand title="Carriers" subtitle="Partner with leading insurance carriers" />
+      <HeroBand title="Carriers" subtitle="Reference directory — contacts, pay schedules, and portals. Contracts and comp live in the Contracts hub." actions={<AddCarrierButton />} />
 
       <div className="flex flex-col md:flex-row gap-3 mt-[var(--gap)]">
         <div className="relative flex-1">
@@ -43,11 +50,13 @@ function CarriersPage() {
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search carriers..." className="pl-9" />
         </div>
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly Pay</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly Pay</TabsTrigger>
-            <TabsTrigger value="fast">Fast (&lt;5 days)</TabsTrigger>
+          <TabsList className="bg-surface-2 border border-border">
+            {(["all","weekly","monthly","fast"] as const).map((v) => (
+              <TabsTrigger key={v} value={v}
+                className="data-[state=active]:bg-gold-glow data-[state=active]:text-gold-bright data-[state=active]:shadow-none text-muted-foreground">
+                {v === "all" ? "All" : v === "weekly" ? "Weekly Pay" : v === "monthly" ? "Monthly Pay" : "Fast (<5 days)"}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
@@ -62,7 +71,11 @@ function CarriersPage() {
             {filtered.map((c: any) => (
               <div
                 key={c.id}
-                className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-5 transition-colors hover:border-border-soft hover:bg-surface-2"
+                role="button"
+                tabIndex={0}
+                onClick={() => setAboutFor(c)}
+                onKeyDown={(e) => { if (e.key === "Enter") setAboutFor(c); }}
+                className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-surface-2 cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -79,7 +92,7 @@ function CarriersPage() {
                   {(c.advance_cap || c.advance_cap_amount) && <Row Icon={Lock} label={<span>Advance Cap: <span className="tnum">{c.advance_cap ?? `$${Number(c.advance_cap_amount).toLocaleString()}`}</span></span>} />}
                   {c.ideal_client && <Row Icon={User} label={<span><span className="text-muted-foreground">Ideal:</span> {c.ideal_client}</span>} full />}
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-2">
+                <div className="grid grid-cols-2 gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   {c.agent_portal_url && (
                     <a href={c.agent_portal_url} target="_blank" rel="noreferrer">
                       <Button variant="outline" size="sm" className="w-full"><ExternalLink className="h-3.5 w-3.5" /> Agent Portal</Button>
@@ -91,9 +104,6 @@ function CarriersPage() {
                     </a>
                   )}
                 </div>
-                <Button onClick={() => setAboutFor(c)} className="w-full" size="sm">
-                  <Info className="h-4 w-4" /> About
-                </Button>
               </div>
             ))}
           </div>
@@ -125,3 +135,68 @@ function Row({ Icon, label, full }: { Icon: any; label: React.ReactNode; full?: 
 }
 
 function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+
+function AddCarrierButton() {
+  const { isAdmin, isAgencyOwner } = useRole();
+  const qc = useQueryClient();
+  const addFn = useServerFn(addCarrier);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({ name: "", phone: "", hours: "", pay_frequency: "", advance_cap: "", ideal_client: "", website: "", agent_portal_url: "", training_url: "" });
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const mut = useMutation({
+    mutationFn: () => addFn({ data: {
+      name: form.name.trim(),
+      phone: form.phone.trim() || undefined,
+      hours: form.hours.trim() || undefined,
+      pay_frequency: (form.pay_frequency === "weekly" || form.pay_frequency === "monthly") ? form.pay_frequency : undefined,
+      advance_cap: form.advance_cap.trim() || undefined,
+      ideal_client: form.ideal_client.trim() || undefined,
+      website: form.website.trim() || undefined,
+      agent_portal_url: form.agent_portal_url.trim() || undefined,
+      training_url: form.training_url.trim() || undefined,
+    } as any }),
+    onSuccess: () => {
+      toast.success("Carrier added");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["contracting"] });
+      qc.invalidateQueries({ queryKey: ["carriers-filter"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't add carrier"),
+  });
+
+  if (!(isAdmin || isAgencyOwner)) return null;
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>+ Add Carrier</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Add Carrier</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            {([["name","Carrier name *"],["phone","Phone"],["hours","Hours"],["advance_cap","Advance cap"],["ideal_client","Ideal client"],["website","Website URL"],["agent_portal_url","Agent portal URL"],["training_url","Training URL"]] as const).map(([k, label]) => (
+              <div key={k}>
+                <Label className="text-xs">{label}</Label>
+                <Input className="mt-1" value={form[k]} onChange={set(k)} />
+              </div>
+            ))}
+            <div>
+              <Label className="text-xs">Pay schedule</Label>
+              <div className="flex gap-2 mt-1">
+                {(["weekly","monthly"] as const).map((p) => (
+                  <Button key={p} type="button" size="sm" variant={form.pay_frequency === p ? "default" : "outline"} onClick={() => setForm((f) => ({ ...f, pay_frequency: f.pay_frequency === p ? "" : p }))}>
+                    {p === "weekly" ? "Weekly" : "Monthly"}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => mut.mutate()} disabled={!form.name.trim() || mut.isPending}>{mut.isPending ? "Saving…" : "Save Carrier"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
