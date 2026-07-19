@@ -612,3 +612,39 @@ export const submitTransferSheet = createServerFn({ method: "POST" })
 
     return { ok: true, submitted: data.rows.length };
   });
+
+// ── Add Carrier (agency owners/admins) — Carriers reference directory ────────
+export const addCarrier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    name: z.string().trim().min(1).max(120),
+    phone: z.string().trim().max(40).optional(),
+    hours: z.string().trim().max(120).optional(),
+    pay_frequency: z.enum(["weekly", "monthly"]).optional(),
+    advance_cap: z.string().trim().max(80).optional(),
+    ideal_client: z.string().trim().max(200).optional(),
+    website: z.string().trim().url().max(300).optional().or(z.literal("")),
+    agent_portal_url: z.string().trim().url().max(300).optional().or(z.literal("")),
+    training_url: z.string().trim().url().max(300).optional().or(z.literal("")),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: roleRow } = await supabase
+      .from("user_roles").select("role").eq("user_id", userId)
+      .in("role", ["super_admin", "agency_owner", "admin"]).limit(1);
+    if (!roleRow?.length) throw new Error("Only agency owners and admins can add carriers");
+    const { error } = await (supabase as any).from("carriers").insert({
+      name: data.name,
+      phone: data.phone || null,
+      hours: data.hours || null,
+      pay_frequency: data.pay_frequency ?? null,
+      advance_cap: data.advance_cap || null,
+      ideal_client: data.ideal_client || null,
+      website: data.website || null,
+      agent_portal_url: data.agent_portal_url || null,
+      training_url: data.training_url || null,
+      active: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
