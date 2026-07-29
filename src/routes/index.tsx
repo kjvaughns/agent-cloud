@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   KanbanSquare,
   Users,
-  Phone,
   Sparkles,
   BarChart3,
   Wallet,
@@ -29,7 +28,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A command-center dashboard, drag-and-drop pipeline, built-in phone & SMS, commissions, downline analytics, and Nova — an AI assistant with retention automations. Join the waitlist.",
+          "Recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, and reporting — the operating system for independent insurance agencies.",
       },
       { property: "og:title", content: "Agent Cloud — The operating system for life insurance agencies" },
       {
@@ -136,22 +135,19 @@ function Hero({ count }: { count: number | null }) {
             business. <span className="text-primary">One cloud.</span>
           </h1>
           <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
-            A command-center dashboard, drag-and-drop pipeline, built-in phone & SMS, commissions,
-            downline analytics, and an AI assistant that actually knows your book — built for life
-            insurance agents and the agencies that lead them.
+            Recruit agents, manage onboarding, track licensing and contracting, organize clients
+            and policies, monitor commissions, and protect retention — from one connected platform
+            built for independent insurance agencies.
           </p>
           <div className="mt-8">
             <HeroWaitlist />
           </div>
-          <div className="mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <div className="flex -space-x-2">
-              {["var(--gold)", "var(--surface-2)", "var(--gold-dim)"].map((c, i) => (
-                <span key={i} className="h-6 w-6 rounded-full border-2 border-background" style={{ backgroundColor: c }} />
-              ))}
-            </div>
-            <span>
-              {count === null ? "Loading…" : <><b className="tnum text-foreground">{count.toLocaleString()}</b> agents on the waitlist</>}
-            </span>
+          {/* No avatar stack: those were decorative shapes standing in for
+              people who do not exist. The count is real. */}
+          <div className="mt-5 text-sm text-muted-foreground">
+            {count === null ? null : (
+              <><b className="tnum text-foreground">{count.toLocaleString()}</b> on the waitlist</>
+            )}
           </div>
         </div>
 
@@ -163,6 +159,7 @@ function Hero({ count }: { count: number | null }) {
 
 function HeroWaitlist() {
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -175,8 +172,11 @@ function HeroWaitlist() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          first_name: "Friend",
-          last_name: "of Agent Cloud",
+          // Split on the first space; the endpoint requires both parts.
+          // Previously this posted the literal strings "Friend" and
+          // "of Agent Cloud" into the database on every submission.
+          first_name: name.trim().split(/\s+/)[0] || "—",
+          last_name: name.trim().split(/\s+/).slice(1).join(" ") || "—",
           email,
           source: "landing_hero",
         }),
@@ -203,12 +203,22 @@ function HeroWaitlist() {
   return (
     <form onSubmit={onSubmit} className="mx-auto flex max-w-md flex-col sm:flex-row items-stretch gap-2">
       <Input
+        type="text"
+        required
+        placeholder="Your name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="h-11 sm:max-w-[9rem]"
+        aria-label="Your name"
+      />
+      <Input
         type="email"
         required
         placeholder="you@agency.com"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         className="h-11"
+        aria-label="Work email"
       />
       <Button type="submit" disabled={loading} className="h-11">
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Join waitlist <ArrowRight className="ml-1.5 h-4 w-4" /></>}
@@ -376,20 +386,17 @@ function DashboardMock() {
 }
 
 function LogoBar() {
-  const carriers = ["Mutual of Omaha", "Transamerica", "AHL", "Foresters", "GTL", "Prudential", "Royal Neighbors"];
+  // Previously a strip of seven carrier names under "Built around the carriers
+  // you already write", which read as a partnership or customer logo bar. No
+  // such partnerships exist. Replaced with a credibility statement that is
+  // true, per the audit: no fabricated logos, counts, or testimonials.
   return (
-    <section className="border-y border-border/60 bg-surface-2/50 py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <p className="text-center text-xs uppercase tracking-[0.24em] text-muted-foreground mb-5">
-          Built around the carriers you already write
+    <section className="border-y border-border/60 bg-surface-2/50 py-10">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+        <p className="text-base text-muted-foreground leading-relaxed">
+          Built by insurance operators who understand the systems, workflows, and
+          administrative problems agencies deal with every day.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-          {carriers.map((c) => (
-            <span key={c} className="text-lg font-bold tracking-[0.12em] text-muted-foreground" style={display}>
-              {c}
-            </span>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -413,16 +420,19 @@ function FeatureGrid() {
       desc: "An assistant plus retention automations: birthday cards, policy-anniversary touches, and lapse follow-ups on autopilot.",
     },
     {
-      icon: Phone,
-      title: "Built-in Phone & SMS",
-      desc: "Click-to-dial, texting, and voicemail drops from any device — every touch logged straight to the client.",
+      // Was "Built-in Phone & SMS — click-to-dial, texting, voicemail drops".
+      // No telephony provider is connected: sendSms writes a row and returns,
+      // and there is no dialer. Replaced with a module that genuinely ships.
+      icon: Users,
+      title: "Recruiting & Onboarding",
+      desc: "Track every applicant from first contact to activated agent, with a structured onboarding checklist and visible progress.",
     },
   ];
   return (
     <section id="features" className="py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <SectionHead
-          eyebrow="Four tools that run your day"
+          eyebrow="The core of the platform"
           title="One platform. No more tab-hopping."
           copy="Stop stitching together five CRMs, three spreadsheets, and a Google Doc. Agent Cloud is the single home for your book — and when you need to move fast, the ⌘K command palette takes you anywhere in a keystroke."
         />
@@ -481,7 +491,7 @@ function ContractingSection() {
         "Live commission grids per carrier and level",
         "Advance + renewal schedules generated on issue",
         "Override chain walks your full downline",
-        "One-click carrier contracting with SureLC + AgentLink",
+        "SureLC single sign-on and AgentLink book imports",
       ]}
       right={<CommissionMock />}
       reverse
@@ -500,7 +510,7 @@ function DownlineSection() {
         "Personal vs team production, cleanly partitioned",
         "Recruiting funnels and pending-agent tracker",
         "Announcements, challenges, and leaderboards",
-        "White-label agency branding on every screen",
+        "White-label agency branding — your logo, colors, and domain (White Label plan)",
       ]}
       right={<DownlineMock />}
     />
@@ -513,13 +523,14 @@ function NovaSection() {
       id="nova"
       eyebrow="Nova AI"
       title="An assistant that actually knows your book."
-      copy="Nova reads your pipeline, your policies, your carrier grids, and your calendar — then does the work. Draft the SMS, price the case, brief the meeting, and keep every client warm without you lifting a finger."
+      copy="Nova works inside your agency's records — summarizing what changed, surfacing retention risk, drafting the follow-up, and explaining what is blocking an agent's onboarding. It only sees what your role already lets you see."
       bullets={[
-        "Daily briefing every morning",
-        "Automations manager — flip on birthday cards, policy-anniversary notes, and lapse follow-ups",
-        "Custom client touches: define the moment once, Nova runs it forever",
-        "Quote and case-design recommendations",
+        "Daily briefing on what moved overnight",
+        "Email automations — birthday, policy-anniversary, and lapse follow-ups, sent only when your agency turns them on",
+        "Custom client touches: define the moment once, Nova runs it on schedule",
+        "Case-design and needs-analysis support",
         "Nurture drafts that sound like you, not like AI",
+        "Voice and SMS unlock when a phone provider is connected to your workspace",
       ]}
       right={<NovaMock />}
       reverse
