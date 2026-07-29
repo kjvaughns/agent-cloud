@@ -44,8 +44,10 @@ const pipelineQO = queryOptions({
 });
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
-  validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline" } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline"; client?: string } => ({
     tab: s.tab === "sold" ? "sold" as const : "pipeline" as const,
+    // Deep link from global search: opens that client's detail drawer.
+    client: typeof s.client === "string" ? s.client : undefined,
   }),
   head: () => ({ meta: [
     { title: "Pipeline — Agent Cloud" },
@@ -89,7 +91,10 @@ function PipelinePage() {
   const [query, setQuery] = useState("");
   const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
-  const [openId, setOpenId] = useState<string | null>(null);
+  const { client: clientParam } = Route.useSearch();
+  const [openId, setOpenId] = useState<string | null>(clientParam ?? null);
+  // Follow later navigations to the same route (search -> search).
+  useEffect(() => { if (clientParam) setOpenId(clientParam); }, [clientParam]);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [agentLinkOpen, setAgentLinkOpen] = useState(false);

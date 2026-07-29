@@ -22,6 +22,7 @@ import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/page-shell";
+import { SetupChecklist } from "@/components/setup-checklist";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkAction } from "@/components/ui/section-label";
 import { Icon } from "@/components/ui/icon";
@@ -128,6 +129,8 @@ function Dashboard() {
       {pct < 100 && pct > 0 && (
         <div className="mb-[var(--gap)]"><ProfileCompletionBanner pct={pct} missing={missing} /></div>
       )}
+      {/* Renders only for an agency owner with unfinished setup. */}
+      <div className="mb-[var(--gap)] empty:mb-0"><SetupChecklist /></div>
       <div className={cn("cgrid", !novaRail && "nonova")}>
         <div className="col">
           <HeroPanel hero={hero} range={range} setRange={setRange} />

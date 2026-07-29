@@ -39,6 +39,7 @@ import { Route as AdminAnnouncementsRouteImport } from './routes/admin.announcem
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
+import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
@@ -252,6 +253,11 @@ const AdminAgentsRoute = AdminAgentsRouteImport.update({
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
@@ -644,6 +650,7 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -738,6 +745,7 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -836,6 +844,7 @@ export interface FileRoutesById {
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -934,6 +943,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/tasks'
     | '/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -1028,6 +1038,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/tasks'
     | '/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -1125,6 +1136,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
     | '/_authenticated/resources'
+    | '/_authenticated/tasks'
     | '/_authenticated/team'
     | '/admin/agents'
     | '/admin/analytics'
@@ -1438,6 +1450,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tasks': {
+      id: '/_authenticated/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AuthenticatedTasksRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources': {
@@ -2030,6 +2049,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
+  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
@@ -2063,6 +2083,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
+  AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,

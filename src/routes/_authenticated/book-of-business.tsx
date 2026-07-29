@@ -1,5 +1,5 @@
 import { createFileRoute, useHydrated, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Download, ArrowUpDown, ArrowDown, ArrowUp, Link2, X, Plus, RefreshCw } from "lucide-react";
 import { useRole } from "@/hooks/use-role";
@@ -28,6 +28,10 @@ export const Route = createFileRoute("/_authenticated/book-of-business")({
       { name: "description", content: "All placed policies across your hierarchy with filtering, sorting, and export." },
     ],
   }),
+  validateSearch: (s: Record<string, unknown>): { policy?: string } => ({
+    // Deep link from global search: opens that policy's detail sheet.
+    policy: typeof s.policy === "string" ? s.policy : undefined,
+  }),
   component: BookPage,
 });
 
@@ -50,7 +54,9 @@ function BookPage() {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "posted_at", dir: "desc" });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
-  const [openRowId, setOpenRowId] = useState<string | null>(null);
+  const { policy: policyParam } = Route.useSearch();
+  const [openRowId, setOpenRowId] = useState<string | null>(policyParam ?? null);
+  useEffect(() => { if (policyParam) setOpenRowId(policyParam); }, [policyParam]);
 
   const listQ = useQuery({
     enabled: hydrated && source === "agent",

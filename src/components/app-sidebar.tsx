@@ -60,6 +60,7 @@ const groups: NavGroup[] = [
     items: [
       { title: "Phone", url: "/phone", icon: Phone },
       { title: "Calendar", url: "/calendar", icon: Calendar },
+      { title: "Tasks", url: "/tasks", icon: ClipboardList },
       { title: "Nova AI", url: "/ai-assistant", icon: Sparkles },
       { title: "Quoter", url: "https://app.insurancetoolkits.com/fex/quoter", icon: Wrench, external: true },
       { title: "Leads", url: "/tools/leads", icon: Target },
