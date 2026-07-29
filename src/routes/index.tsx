@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   
   ArrowRight,
@@ -19,98 +19,146 @@ import { Label } from "@/components/ui/label";
 import { SmoothAreaChart } from "@/components/ui/area-chart";
 import { Icon, type IconName } from "@/components/ui/icon";
 import { toast } from "sonner";
-import { BrandLogo } from "@/components/brand-logo";
+import { useLandingPricing } from "@/hooks/use-landing-pricing";
+import { track } from "@/lib/landing-analytics";
+import { display } from "@/components/landing/primitives";
+import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
+import {
+  ProblemSection, PlatformMap, LifecycleSection, RoleSection,
+  StaffSection, OwnershipSection, ComparisonSection,
+} from "@/components/landing/story";
+import { PricingSection } from "@/components/landing/pricing";
+import {
+  IntegrationsSection, TestimonialSection, FaqSection, FinalCta, LandingFooter, faqItems,
+} from "@/components/landing/support";
+import { PRICING } from "@/lib/billing/pricing";
+
+const SITE = "https://useagentcloud.com";
+
+/**
+ * Structured data. SoftwareApplication carries the offers so pricing can show
+ * in search results; FAQPage mirrors the on-page accordion. Both must stay in
+ * step with what the page actually says — mismatched schema is a penalty, not
+ * a shortcut.
+ */
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE}/#organization`,
+      name: "Agent Cloud",
+      url: SITE,
+      description: "The operating system for independent insurance agencies.",
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: "Agent Cloud",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description:
+        "Insurance agency management software covering recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, staff workflows, and reporting.",
+      offers: [
+        { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
+        { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
+        { "@type": "Offer", name: "Nova AI Pro", price: String(PRICING.novaPro), priceCurrency: "USD" },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: faqItems(PRICING as unknown as Record<string, number>).map((f) => ({
+        "@type": "Question",
+        name: f.q,
+        acceptedAnswer: { "@type": "Answer", text: f.a },
+      })),
+    },
+  ],
+};
 
 export const Route = createFileRoute("/")({
   head: () => ({
+    links: [{ rel: "canonical", href: SITE }],
     meta: [
-      { title: "Agent Cloud — The operating system for life insurance agencies" },
+      { title: "Agent Cloud | Insurance Agency Management Software" },
       {
         name: "description",
         content:
-          "Recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, and reporting — the operating system for independent insurance agencies.",
+          "Run recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, staff workflows, and reporting from one insurance agency operating system.",
       },
-      { property: "og:title", content: "Agent Cloud — The operating system for life insurance agencies" },
+      { property: "og:title", content: "Agent Cloud | Insurance Agency Management Software" },
       {
         property: "og:description",
         content:
-          "One cloud to run your book, your team, and your commissions. Join the Agent Cloud waitlist.",
+          "The operating system for independent insurance agencies. Recruit, onboard, license, contract, sell, track, retain, and grow — from one connected platform.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: SITE },
+      { property: "og:image", content: `${SITE}/og-image.svg` },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Agent Cloud | Insurance Agency Management Software" },
+      {
+        name: "twitter:description",
+        content: "The operating system for independent insurance agencies.",
+      },
+      { name: "twitter:image", content: `${SITE}/og-image.svg` },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(STRUCTURED_DATA),
+      },
     ],
   }),
   component: LandingPage,
 });
 
-const display = { fontFamily: "var(--font-display)" } as const;
 
 function LandingPage() {
-  const [count, setCount] = useState<number | null>(null);
+  const { pricing, checkoutReady } = useLandingPricing();
 
-  useEffect(() => {
-    fetch("/api/public/waitlist-count")
-      .then((r) => r.json())
-      .then((d) => setCount(d.count ?? 0))
-      .catch(() => setCount(null));
-  }, []);
+  // A CTA must never lead into a workflow that cannot complete. Until Stripe
+  // is configured, checkout would fail, so the primary action becomes the
+  // demo form instead of a dead-ended signup.
+  const ctaLabel = checkoutReady ? "Start Free" : "Request a Demo";
+  const ctaHref = checkoutReady ? "/signup" : "/demo";
 
   return (
-    <div className="dark min-h-screen bg-background text-foreground antialiased">
-      <TopNav />
-      <Hero count={count} />
+    <div id="top" className="dark min-h-screen bg-background text-foreground antialiased">
+      <AnnouncementBar />
+      <LandingNav ctaLabel={ctaLabel} ctaHref={ctaHref} />
+
+      <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
       <LogoBar />
+
+      <ProblemSection />
+      <PlatformMap />
+      <LifecycleSection />
+      <RoleSection />
+
       <FeatureGrid />
       <PipelineSection />
       <ContractingSection />
       <DownlineSection />
+      <StaffSection />
       <NovaSection />
       <AnalyticsSection />
-      <WaitlistBand onCount={setCount} />
-      <Footer />
+
+      <IntegrationsSection />
+      <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
+      <ComparisonSection />
+      <OwnershipSection />
+      <TestimonialSection />
+      <FaqSection pricing={pricing} />
+
+      <WaitlistBand />
+      <FinalCta ctaLabel={ctaLabel} ctaHref={ctaHref} />
+      <LandingFooter />
+      <StickyMobileCta ctaLabel={ctaLabel} ctaHref={ctaHref} />
     </div>
   );
 }
 
-function TopNav() {
-  return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <BrandLogo size={36} />
-
-          <div className="flex flex-col leading-none">
-            <span className="text-xl font-bold tracking-[0.14em] text-foreground" style={display}>
-              AGENT CLOUD
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">Insurance OS</span>
-          </div>
-        </div>
-        <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-          <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-          <a href="#pipeline" className="hover:text-foreground transition-colors">Pipeline</a>
-          <a href="#downline" className="hover:text-foreground transition-colors">Downline</a>
-          <a href="#nova" className="hover:text-foreground transition-colors">Nova AI</a>
-        </nav>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/login"
-            className="hidden sm:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2"
-          >
-            Sign in
-          </Link>
-          <a href="#waitlist">
-            <Button size="sm">
-              Join waitlist <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Button>
-          </a>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function Hero({ count }: { count: number | null }) {
+function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
   return (
     <section className="relative overflow-hidden">
       <div
@@ -121,109 +169,48 @@ function Hero({ count }: { count: number | null }) {
             "radial-gradient(700px 400px at 15% 0%, color-mix(in srgb, var(--gold) 15%, transparent), transparent 60%), radial-gradient(600px 380px at 90% 10%, var(--gold-glow), transparent 60%)",
         }}
       />
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-20 md:pt-24 md:pb-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-14 pb-20 md:pt-20 md:pb-28">
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            Now taking early access
+            Now taking founding agencies
           </div>
+
           <h1
-            className="mt-6 font-bold tracking-tight text-5xl sm:text-6xl md:text-7xl leading-[0.98] text-foreground"
+            className="mt-6 font-bold tracking-tight text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
             style={display}
           >
-            Your entire insurance <br className="hidden sm:block" />
-            business. <span className="text-primary">One cloud.</span>
+            The operating system for <span className="text-primary">independent insurance agencies.</span>
           </h1>
-          <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
+
+          <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Recruit agents, manage onboarding, track licensing and contracting, organize clients
-            and policies, monitor commissions, and protect retention — from one connected platform
-            built for independent insurance agencies.
+            and policies, monitor commissions, and protect retention — from one connected platform.
           </p>
-          <div className="mt-8">
-            <HeroWaitlist />
+
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to={ctaHref} onClick={() => track("hero_cta_clicked", { label: ctaLabel })}>
+              <Button size="lg" className="w-full sm:w-auto">
+                {ctaLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
+              </Button>
+            </Link>
+            <a href="#lifecycle">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">See How It Works</Button>
+            </a>
           </div>
-          {/* No avatar stack: those were decorative shapes standing in for
-              people who do not exist. The count is real. */}
-          <div className="mt-5 text-sm text-muted-foreground">
-            {count === null ? null : (
-              <><b className="tnum text-foreground">{count.toLocaleString()}</b> on the waitlist</>
-            )}
-          </div>
+
+          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {["No commission overrides", "Your agency owns its data", "Built for insurance operations"].map((r) => (
+              <li key={r} className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {r}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <DashboardMock />
       </div>
     </section>
-  );
-}
-
-function HeroWaitlist() {
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!email) return;
-    setLoading(true);
-    try {
-      const res = await fetch("/api/public/waitlist-signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // Split on the first space; the endpoint requires both parts.
-          // Previously this posted the literal strings "Friend" and
-          // "of Agent Cloud" into the database on every submission.
-          first_name: name.trim().split(/\s+/)[0] || "—",
-          last_name: name.trim().split(/\s+/).slice(1).join(" ") || "—",
-          email,
-          source: "landing_hero",
-        }),
-      });
-      if (!res.ok) throw new Error("failed");
-      setDone(true);
-      toast.success("You're on the waitlist");
-    } catch {
-      toast.error("Couldn't join — try again");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (done) {
-    return (
-      <div className="mx-auto flex max-w-md items-center justify-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-4 py-3 text-sm">
-        <CheckCircle2 className="h-4 w-4 text-primary" />
-        <span>You're on the list. Check your inbox soon.</span>
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="mx-auto flex max-w-md flex-col sm:flex-row items-stretch gap-2">
-      <Input
-        type="text"
-        required
-        placeholder="Your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="h-11 sm:max-w-[9rem]"
-        aria-label="Your name"
-      />
-      <Input
-        type="email"
-        required
-        placeholder="you@agency.com"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="h-11"
-        aria-label="Work email"
-      />
-      <Button type="submit" disabled={loading} className="h-11">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Join waitlist <ArrowRight className="ml-1.5 h-4 w-4" /></>}
-      </Button>
-    </form>
   );
 }
 
@@ -431,7 +418,7 @@ function FeatureGrid() {
   return (
     <section id="features" className="py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <SectionHead
+        <FeatureHead
           eyebrow="The core of the platform"
           title="One platform. No more tab-hopping."
           copy="Stop stitching together five CRMs, three spreadsheets, and a Google Doc. Agent Cloud is the single home for your book — and when you need to move fast, the ⌘K command palette takes you anywhere in a keystroke."
@@ -452,7 +439,7 @@ function FeatureGrid() {
   );
 }
 
-function SectionHead({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) {
+function FeatureHead({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) {
   return (
     <div className="mx-auto max-w-2xl text-center">
       <p className="text-xs uppercase tracking-[0.24em] text-primary font-semibold">{eyebrow}</p>
@@ -745,7 +732,7 @@ function AnalyticsMock() {
   );
 }
 
-function WaitlistBand({ onCount }: { onCount: (n: number) => void }) {
+function WaitlistBand() {
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -768,7 +755,6 @@ function WaitlistBand({ onCount }: { onCount: (n: number) => void }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "failed");
       setDone(true);
-      if (typeof data.count === "number") onCount(data.count);
       toast.success("You're on the waitlist");
     } catch (err: any) {
       toast.error(err?.message || "Couldn't join — try again");
@@ -844,25 +830,5 @@ function WaitlistBand({ onCount }: { onCount: (n: number) => void }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-border/60 py-10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <BrandLogo size={24} rounded="rounded-md" />
-
-          <span className="font-bold tracking-[0.14em] text-foreground" style={display}>AGENT CLOUD</span>
-          <span className="tnum">© {new Date().getFullYear()}</span>
-        </div>
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <a href="#features" className="hover:text-foreground">Features</a>
-          <Link to="/login" className="hover:text-foreground">Sign in</Link>
-          <a href="mailto:hello@useagentcloud.com" className="hover:text-foreground">Contact</a>
-        </div>
-      </div>
-    </footer>
   );
 }

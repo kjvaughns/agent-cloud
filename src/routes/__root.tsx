@@ -97,8 +97,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@AgentCloud" },
       { name: "twitter:title", content: "Agent Cloud" },
       { name: "twitter:description", content: "Life insurance agency management platform — pipeline, contracting, calls, SMS, analytics, and a downline command center." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/v3puJ4myToWqyJr4IR5tpkpkKyR2/social-images/social-1780577617299-5100D1E7-2E55-4D65-BBF9-55FB59592A9B.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/v3puJ4myToWqyJr4IR5tpkpkKyR2/social-images/social-1780577617299-5100D1E7-2E55-4D65-BBF9-55FB59592A9B.webp" },
+      { property: "og:image", content: "https://useagentcloud.com/og-image.svg" },
+      { name: "twitter:image", content: "https://useagentcloud.com/og-image.svg" },
     ],
     links: [
       { rel: "icon", type: "image/jpeg", href: "/favicon.jpg" },

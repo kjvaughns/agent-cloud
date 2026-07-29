@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DemoRouteImport } from './routes/demo'
+import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -66,11 +72,13 @@ import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/em
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
+import { Route as ApiPublicPlansRouteImport } from './routes/api/public/plans'
 import { Route as ApiPublicPageDataRouteImport } from './routes/api/public/page-data'
 import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/landing-lead'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
+import { Route as ApiPublicDemoRequestRouteImport } from './routes/api/public/demo-request'
 import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
@@ -111,14 +119,34 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design.admin'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -129,6 +157,16 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CookiesRoute = CookiesRouteImport.update({
+  id: '/cookies',
+  path: '/cookies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -403,6 +441,11 @@ const ApiPublicWaitlistCountRoute = ApiPublicWaitlistCountRouteImport.update({
   path: '/api/public/waitlist-count',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPlansRoute = ApiPublicPlansRouteImport.update({
+  id: '/api/public/plans',
+  path: '/api/public/plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPageDataRoute = ApiPublicPageDataRouteImport.update({
   id: '/api/public/page-data',
   path: '/api/public/page-data',
@@ -426,6 +469,11 @@ const ApiPublicFunnelViewRoute = ApiPublicFunnelViewRouteImport.update({
 const ApiPublicFunnelApplyRoute = ApiPublicFunnelApplyRouteImport.update({
   id: '/api/public/funnel-apply',
   path: '/api/public/funnel-apply',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicDemoRequestRoute = ApiPublicDemoRequestRouteImport.update({
+  id: '/api/public/demo-request',
+  path: '/api/public/demo-request',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicBrandingRoute = ApiPublicBrandingRouteImport.update({
@@ -659,10 +707,16 @@ const AuthenticatedBackOfficeCaseDesignAdminRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/cookies': typeof CookiesRoute
+  '/demo': typeof DemoRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -740,11 +794,13 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
+  '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
+  '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -760,10 +816,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cookies': typeof CookiesRoute
+  '/demo': typeof DemoRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -840,11 +902,13 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
+  '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
+  '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -863,10 +927,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
+  '/cookies': typeof CookiesRoute
+  '/demo': typeof DemoRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/_authenticated/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -944,11 +1014,13 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
+  '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
+  '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -967,10 +1039,16 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/cookies'
+    | '/demo'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
+    | '/terms'
     | '/ai-assistant'
     | '/analytics'
     | '/announcements'
@@ -1048,11 +1126,13 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
+    | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
     | '/api/public/page-data'
+    | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
@@ -1068,10 +1148,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/cookies'
+    | '/demo'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
+    | '/terms'
     | '/ai-assistant'
     | '/analytics'
     | '/announcements'
@@ -1148,11 +1234,13 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
+    | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
     | '/api/public/page-data'
+    | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
@@ -1170,10 +1258,16 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/admin'
+    | '/cookies'
+    | '/demo'
     | '/forgot-password'
     | '/login'
+    | '/privacy'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
+    | '/terms'
     | '/_authenticated/ai-assistant'
     | '/_authenticated/analytics'
     | '/_authenticated/announcements'
@@ -1251,11 +1345,13 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
+    | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
     | '/api/public/page-data'
+    | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
@@ -1274,10 +1370,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
+  CookiesRoute: typeof CookiesRoute
+  DemoRoute: typeof DemoRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -1286,11 +1388,13 @@ export interface RootRouteChildren {
   SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
   ApiPublicBrandingRoute: typeof ApiPublicBrandingRoute
+  ApiPublicDemoRequestRoute: typeof ApiPublicDemoRequestRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLandingLeadRoute: typeof ApiPublicLandingLeadRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
   ApiPublicPageDataRoute: typeof ApiPublicPageDataRoute
+  ApiPublicPlansRoute: typeof ApiPublicPlansRoute
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
@@ -1305,6 +1409,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -1312,11 +1430,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1331,6 +1463,20 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cookies': {
+      id: '/cookies'
+      path: '/cookies'
+      fullPath: '/cookies'
+      preLoaderRoute: typeof CookiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -1704,6 +1850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWaitlistCountRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/plans': {
+      id: '/api/public/plans'
+      path: '/api/public/plans'
+      fullPath: '/api/public/plans'
+      preLoaderRoute: typeof ApiPublicPlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/page-data': {
       id: '/api/public/page-data'
       path: '/api/public/page-data'
@@ -1737,6 +1890,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/funnel-apply'
       fullPath: '/api/public/funnel-apply'
       preLoaderRoute: typeof ApiPublicFunnelApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/demo-request': {
+      id: '/api/public/demo-request'
+      path: '/api/public/demo-request'
+      fullPath: '/api/public/demo-request'
+      preLoaderRoute: typeof ApiPublicDemoRequestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/branding': {
@@ -2266,10 +2426,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
+  CookiesRoute: CookiesRoute,
+  DemoRoute: DemoRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   InviteTokenRoute: InviteTokenRoute,
@@ -2278,11 +2444,13 @@ const rootRouteChildren: RootRouteChildren = {
   SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
   ApiPublicBrandingRoute: ApiPublicBrandingRoute,
+  ApiPublicDemoRequestRoute: ApiPublicDemoRequestRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLandingLeadRoute: ApiPublicLandingLeadRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
   ApiPublicPageDataRoute: ApiPublicPageDataRoute,
+  ApiPublicPlansRoute: ApiPublicPlansRoute,
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Agent Cloud — the operating system for independent insurance agencies">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0A0A0B"/>
+      <stop offset="100%" stop-color="#141417"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="18%" cy="8%" r="60%">
+      <stop offset="0%" stop-color="#CBA35A" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#CBA35A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g transform="translate(88,150)">
+    <text font-family="'Space Grotesk','Hanken Grotesk',system-ui,sans-serif" font-size="26" letter-spacing="9" fill="#CBA35A" font-weight="700">AGENT CLOUD</text>
+    <text y="112" font-family="'Space Grotesk',system-ui,sans-serif" font-size="72" font-weight="700" fill="#F5F5F4" letter-spacing="-2">The operating system for</text>
+    <text y="196" font-family="'Space Grotesk',system-ui,sans-serif" font-size="72" font-weight="700" fill="#E7C877" letter-spacing="-2">independent insurance agencies.</text>
+    <text y="276" font-family="'Hanken Grotesk',system-ui,sans-serif" font-size="27" fill="#A3A3A0">Recruit · Onboard · License · Contract · Sell · Track · Retain · Grow</text>
+  </g>
+  <rect x="88" y="512" width="82" height="4" rx="2" fill="#CBA35A"/>
+</svg>
