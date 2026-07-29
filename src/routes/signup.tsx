@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Lock } from "lucide-react";
 import { AuthShell } from "./login";
+import { PRICING } from "@/lib/billing/pricing";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Agent Cloud" }] }),
@@ -24,7 +25,7 @@ function SignupPage() {
           <p className="text-xs text-muted-foreground mt-3">
             Independent producer without an agency?{" "}
             <Link to="/signup/agent" className="text-primary font-medium hover:underline">
-              Start as a Solo Agent — $79/mo
+              Start as a Solo Agent — {`$${PRICING.soloAgent}`}/mo
             </Link>
           </p>
         </div>

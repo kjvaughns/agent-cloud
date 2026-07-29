@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AuthShell } from "./login";
 import { initSoloWorkspace, createCheckoutSession } from "@/lib/billing.functions";
 import { useServerFn } from "@/hooks/use-server-fn";
+import { PRICING } from "@/lib/billing/pricing";
 
 export const Route = createFileRoute("/signup_/agent")({
   head: () => ({ meta: [{ title: "Solo Agent Signup — Agent Cloud" }] }),
@@ -16,10 +17,10 @@ export const Route = createFileRoute("/signup_/agent")({
 });
 
 const PERKS = [
-  "Full Nova AI Pro — number, automations, retention alerts",
   "Personal CRM & book of business",
   "Commission tracker & policy management",
   "Your own production analytics",
+  `Nova AI Pro available as an add-on — $${PRICING.novaPro}/mo`,
 ];
 
 function SoloSignupPage() {
@@ -80,7 +81,7 @@ function SoloSignupPage() {
   }
 
   return (
-    <AuthShell title="Start as a Solo Agent" subtitle="$79/month — the full platform plus Nova AI Pro, no invite needed">
+    <AuthShell title="Start as a Solo Agent" subtitle={`$${PRICING.soloAgent}/month — the full platform, no invite needed`}>
       <ul className="mb-5 space-y-1.5 text-sm text-muted-foreground">
         {PERKS.map((p) => (
           <li key={p} className="flex items-start gap-2">
@@ -98,7 +99,7 @@ function SoloSignupPage() {
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">You're signed in — finish setting up your solo workspace and start your subscription.</p>
           <Button className="w-full" onClick={completeSetup} disabled={busy}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Complete Setup — $79/mo"}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Complete Setup — $${PRICING.soloAgent}/mo`}
           </Button>
         </div>
       ) : (
@@ -122,7 +123,7 @@ function SoloSignupPage() {
             <Input id="pw" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Continue to Payment — $79/mo"}
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Continue to Payment — $${PRICING.soloAgent}/mo`}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
             Building a team later? Upgrade to the Agency Plan anytime — your clients and policies come with you.

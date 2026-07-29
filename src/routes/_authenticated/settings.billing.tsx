@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { CreditCard, Users, Sparkles, Crown, ExternalLink, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/format";
+import { PRICING } from "@/lib/billing/pricing";
 import {
   getBillingOverview, createCheckoutSession, createPortalSession,
   listNovaSeatAgents, assignNovaSeat, unassignNovaSeat, getSeatBreakdown, getNovaProStatus,
@@ -118,8 +119,8 @@ function SoloBilling({ access }: { access: any }) {
         <HeroBand title="Billing & Plan" actions={<Badge variant={badge.v}>Solo Agent Plan · {badge.label}</Badge>} />
         <Panel title="Solo Agent Plan">
           <div className="text-sm space-y-1.5">
-            <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="tnum font-semibold">{money(79)}/month</span></div>
-            {["Full CRM & pipeline", "Book of business", "Commission tracker", "Nova AI Pro (included)"].map((f) => (
+            <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="tnum font-semibold">{money(PRICING.soloAgent)}/month</span></div>
+            {["Full CRM & pipeline", "Book of business", "Commission tracker"].map((f) => (
               <div key={f} className="flex items-center gap-2 text-muted-foreground"><Check className="h-3.5 w-3.5 text-success" /> {f}</div>
             ))}
           </div>
@@ -130,12 +131,23 @@ function SoloBilling({ access }: { access: any }) {
           </div>
         </Panel>
 
-        {nova && (
-          <Panel title="Nova AI Pro" action={<Badge variant="gold">Included in your plan</Badge>}>
+        {nova && ["active", "grace_period", "past_due"].includes(nova.status) ? (
+          <Panel title="Nova AI Pro" action={<Badge variant="success">Active</Badge>}>
             <div className="text-sm space-y-1.5 mb-3">
+              <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="tnum">{money(PRICING.novaPro)}/month</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
             </div>
             <Button asChild size="sm" variant="outline"><Link to="/settings/nova-pro">Usage meters →</Link></Button>
+          </Panel>
+        ) : (
+          <Panel title="Nova AI Pro" action={<span className="text-xs text-muted-foreground tnum">{money(PRICING.novaPro)}/month</span>}>
+            <p className="text-sm text-muted-foreground">
+              A dedicated business number, automated retention alerts, and advanced client tools.
+              Sold separately from your Solo Agent Plan.
+            </p>
+            <Button asChild size="sm" className="mt-3">
+              <Link to="/settings/nova-pro">Add Nova Pro — {money(PRICING.novaPro)}/month</Link>
+            </Button>
           </Panel>
         )}
 
@@ -147,7 +159,7 @@ function SoloBilling({ access }: { access: any }) {
                 Upgrade to the Agency Plan to unlock team management, recruiting pipeline, leaderboard, and multi-agent analytics.
                 Your clients, policies, and commissions stay exactly as they are.
               </p>
-              <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(199)}/month (includes 15 agents)</p>
+              <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(PRICING.agencyBase)}/month (includes {PRICING.includedSeats} agents)</p>
               <Button className="mt-3" onClick={() => upgrade.mutate()} disabled={upgrade.isPending}>
                 Upgrade to Agency Plan →
               </Button>
