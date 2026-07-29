@@ -5,6 +5,7 @@ export interface Organization {
   id: string; name: string; slug: string;
   logo_url: string | null; accent_color: string;
   tagline: string | null; custom_domain: string | null; owner_id: string | null;
+  plan_type: string | null;
 }
 
 export function useOrganization() {
@@ -22,7 +23,7 @@ export function useOrganization() {
 
     const { data: orgData } = await (supabase as any)
       .from("organizations")
-      .select("id,name,slug,logo_url,accent_color,tagline,custom_domain,owner_id")
+      .select("id,name,slug,logo_url,accent_color,tagline,custom_domain,owner_id,plan_type")
       .eq("id", (profile as any).organization_id)
       .maybeSingle();
 

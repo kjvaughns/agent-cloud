@@ -71,6 +71,7 @@ import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lea
 import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/landing-lead'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
+import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
@@ -427,6 +428,11 @@ const ApiPublicFunnelApplyRoute = ApiPublicFunnelApplyRouteImport.update({
   path: '/api/public/funnel-apply',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBrandingRoute = ApiPublicBrandingRouteImport.update({
+  id: '/api/public/branding',
+  path: '/api/public/branding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentAgentSlugTemplateSlugRoute =
   AgentAgentSlugTemplateSlugRouteImport.update({
     id: '/agent/$agentSlug/$templateSlug',
@@ -733,6 +739,7 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
@@ -832,6 +839,7 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
@@ -935,6 +943,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
@@ -1038,6 +1047,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/branding'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
@@ -1137,6 +1147,7 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/branding'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
@@ -1239,6 +1250,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/security'
     | '/_authenticated/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/branding'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
@@ -1273,6 +1285,7 @@ export interface RootRouteChildren {
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
   SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
+  ApiPublicBrandingRoute: typeof ApiPublicBrandingRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLandingLeadRoute: typeof ApiPublicLandingLeadRoute
@@ -1724,6 +1737,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/funnel-apply'
       fullPath: '/api/public/funnel-apply'
       preLoaderRoute: typeof ApiPublicFunnelApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/branding': {
+      id: '/api/public/branding'
+      path: '/api/public/branding'
+      fullPath: '/api/public/branding'
+      preLoaderRoute: typeof ApiPublicBrandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agent/$agentSlug/$templateSlug': {
@@ -2257,6 +2277,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
   SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
+  ApiPublicBrandingRoute: ApiPublicBrandingRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLandingLeadRoute: ApiPublicLandingLeadRoute,

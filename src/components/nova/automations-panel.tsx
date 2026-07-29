@@ -19,6 +19,7 @@ import {
   getNovaSettings, updateNovaSettings, listAutomations, createAutomation,
   updateAutomation, deleteAutomation, type NovaSettings, type NovaAutomation,
 } from "@/lib/nova.functions";
+import { runDueAutomations, listAutomationRuns } from "@/lib/automation-worker.functions";
 
 const TRIGGER_LABEL: Record<NovaAutomation["trigger_type"], string> = {
   birthday: "Client birthday",
@@ -96,6 +97,24 @@ export function NovaAutomationsPanel() {
     onError: (e: any) => toast.error(e?.message ?? "Couldn't delete"),
   });
 
+  const runFn = useServerFn(runDueAutomations);
+  const runsFn = useServerFn(listAutomationRuns);
+  const { data: runsData } = useQuery({ queryKey: ["nova", "runs"], queryFn: () => runsFn() });
+
+  const runNow = useMutation({
+    mutationFn: () => runFn({ data: { dryRun: false } }),
+    onSuccess: (r: any) => {
+      const parts = [`${r.sent} sent`, `${r.skipped} skipped`];
+      if (r.blocked) parts.push(`${r.blocked} blocked`);
+      if (r.failed) parts.push(`${r.failed} failed`);
+      toast.success(parts.join(" · "));
+      if (r.blockedReasons?.length) toast.info(r.blockedReasons[0]);
+      qc.invalidateQueries({ queryKey: ["nova", "runs"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't run automations"),
+  });
+
+  const recentRuns = ((runsData as any)?.runs ?? []) as any[];
   const smsOff = !settings?.sms_notifications_enabled;
 
   if (settingsLoading) {
@@ -104,14 +123,41 @@ export function NovaAutomationsPanel() {
 
   return (
     <div className="space-y-[var(--gap)]">
-      {/* Honest stub notice */}
-      <div className="flex items-start gap-2.5 rounded-[var(--radius)] border border-warning/30 bg-warning/10 p-3 text-sm">
-        <Info className="h-4 w-4 text-warning mt-0.5 shrink-0" />
-        <span className="text-muted-foreground">
-          Your preferences save now and take effect when automated sending activates for your agency.
-          Nothing is sent to clients yet — automations show <em>Scheduled — activation pending</em> until then.
-        </span>
+      <div className="flex items-start gap-2.5 rounded-[var(--radius)] border border-border bg-surface-2 p-3 text-sm">
+        <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-muted-foreground">
+            Email automations run against today's birthdays, policy anniversaries and open
+            retention cases. Nothing sends unless your agency has enabled automated messaging
+            in Admin Settings. SMS stays blocked until a phone provider is connected.
+          </span>
+          <div className="mt-2">
+            <Button size="sm" variant="outline" onClick={() => runNow.mutate()} disabled={runNow.isPending}>
+              {runNow.isPending ? "Running…" : "Run due automations now"}
+            </Button>
+          </div>
+        </div>
       </div>
+
+      {recentRuns.length > 0 && (
+        <Panel title="Recent Automation Activity">
+          <ul className="divide-y divide-border-soft -my-1">
+            {recentRuns.slice(0, 8).map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="truncate text-muted-foreground">
+                  {r.rendered_message || r.reason || r.subject_type}
+                </span>
+                <Badge
+                  variant={r.status === "sent" ? "success" : r.status === "blocked" ? "warning" : "secondary"}
+                  className="text-[10px] shrink-0 capitalize"
+                >
+                  {r.status}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <Panel title="Notification Channels">
         <ToggleRow

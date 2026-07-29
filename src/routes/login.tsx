@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { BrandLogo } from "@/components/brand-logo";
+import { useDomainBranding } from "@/hooks/use-domain-branding";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): { redirect?: string } => ({
@@ -73,6 +74,10 @@ function LoginPage() {
 }
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  // White-label agencies on a custom domain get their own mark here; every
+  // other host falls through to Agent Cloud branding.
+  const brand = useDomainBranding();
+
   return (
     // Auth always renders in the premium dark look regardless of stored theme.
     <div className="dark min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
@@ -82,24 +87,33 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           style={{ background: "radial-gradient(circle, var(--gold-glow) 0%, transparent 70%)" }}
         />
         <div className="flex items-center gap-2.5">
-          <BrandLogo size={36} />
-          <span className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
+          {brand?.logo_url
+            ? <img src={brand.logo_url} alt={brand.name ?? ""} className="h-9 w-9 rounded-lg object-contain border border-border" />
+            : <BrandLogo size={36} />}
+          <span className="text-lg font-semibold tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+            {brand?.name ?? "Agent Cloud"}
+          </span>
         </div>
         <div className="space-y-4 max-w-md">
           <h2 className="text-4xl font-bold leading-tight" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>
             Your entire agency, <span className="text-gold-bright">in one cloud.</span>
           </h2>
           <p className="text-muted-foreground text-lg">
-            Pipeline, contracting, calls, SMS, analytics, and a downline command center — built for life insurance teams.
+            {brand?.tagline
+              ?? "Pipeline, contracting, calls, SMS, analytics, and a downline command center — built for life insurance teams."}
           </p>
         </div>
-        <p className="text-sm text-text-dim">© Agent Cloud 2026</p>
+        <p className="text-sm text-text-dim">© {brand?.name ?? "Agent Cloud"} 2026</p>
       </div>
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-md rounded-[var(--radius)] border border-border bg-card p-8" style={{ boxShadow: "var(--shadow-pop)" }}>
           <div className="mb-6 lg:hidden flex items-center gap-2">
-            <BrandLogo size={32} />
-            <span className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>Agent Cloud</span>
+            {brand?.logo_url
+              ? <img src={brand.logo_url} alt={brand.name ?? ""} className="h-8 w-8 rounded-lg object-contain border border-border" />
+              : <BrandLogo size={32} />}
+            <span className="font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+              {brand?.name ?? "Agent Cloud"}
+            </span>
           </div>
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>{title}</h1>
           <p className="text-sm text-muted-foreground mt-1 mb-6">{subtitle}</p>

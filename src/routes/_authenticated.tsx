@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
+import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { supabase } from "@/integrations/supabase/client";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -87,6 +88,7 @@ function AuthenticatedLayout() {
         </div>
       </div>
       <CommandPalette />
+      <WhiteLabelTheme />
     </SidebarProvider>
   );
 }
