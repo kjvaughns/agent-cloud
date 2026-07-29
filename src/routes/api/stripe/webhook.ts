@@ -120,29 +120,71 @@ async function handleOrgEvent(kind: string, orgId: string, type: string, obj: an
   }
 }
 
+/**
+ * Solo Agent Plan lifecycle. Solo is workspace access only — Nova Pro is a
+ * separate $49 subscription, so nothing here may touch the nova_pro_* fields.
+ */
+async function handleSoloEvent(profileId: string, type: string, obj: any) {
+  const soloOrg = async (patch: any) => {
+    const { data: p } = await supabaseAdmin.from("profiles")
+      .select("organization_id").eq("id", profileId).maybeSingle();
+    if (p?.organization_id) {
+      await supabaseAdmin.from("organizations")
+        .update(patch).eq("id", p.organization_id).eq("plan_type", "solo");
+    }
+  };
+
+  if (type === "checkout.session.completed") {
+    if (obj.subscription) {
+      await supabaseAdmin.from("profiles")
+        .update({ stripe_subscription_id: obj.subscription }).eq("id", profileId);
+    }
+    await soloOrg({ subscription_status: "active" });
+    await notify(profileId, "Solo Agent Plan active",
+      "Your workspace is live. Nova AI Pro is available as a separate add-on from Settings → Nova Pro.");
+    return;
+  }
+
+  if (type === "invoice.paid") {
+    const periodEnd = obj.period_end ? new Date(obj.period_end * 1000).toISOString() : null;
+    await soloOrg({
+      subscription_status: "active",
+      ...(periodEnd ? { subscription_current_period_end: periodEnd } : {}),
+    });
+    return;
+  }
+
+  if (type === "invoice.payment_failed") {
+    await soloOrg({ subscription_status: "past_due" });
+    await notify(profileId, "Payment failed",
+      "Your Solo Agent Plan payment failed. Update your payment method within 14 days to keep full access.");
+    return;
+  }
+
+  if (type === "customer.subscription.deleted") {
+    await soloOrg({ subscription_status: "cancelled" });
+    await notify(profileId, "Subscription cancelled",
+      "Your Solo Agent Plan has ended. You have 7 days of read access to reactivate before the workspace locks.");
+    return;
+  }
+}
+
 async function handleAgentEvent(kind: string, profileId: string, type: string, obj: any) {
+  if (kind === "solo") return handleSoloEvent(profileId, type, obj);
+
   const profQ = () => supabaseAdmin.from("profiles");
 
   if (type === "checkout.session.completed") {
     const now = new Date().toISOString();
     await profQ().update({
       nova_pro_status: "active",
-      nova_pro_source: kind === "solo" ? "solo" : "personal",
+      nova_pro_source: "personal",
       nova_pro_activated_at: now,
       nova_pro_expires_at: null,
       nova_usage_reset_at: now,
       ...(obj.subscription ? { stripe_subscription_id: obj.subscription } : {}),
     }).eq("id", profileId);
     // Phone provisioning: pending telephony provider — number assigned when connected.
-    if (kind === "solo") {
-      // Solo checkout also activates the personal org subscription.
-      const { data: p } = await profQ().select("organization_id").eq("id", profileId).maybeSingle();
-      if (p?.organization_id) {
-        await supabaseAdmin.from("organizations")
-          .update({ subscription_status: "active" })
-          .eq("id", p.organization_id).eq("plan_type", "solo");
-      }
-    }
     await notify(profileId, "Nova AI Pro activated", "Your Nova Pro subscription is live. Automations, retention alerts, and advanced Nova features are unlocked.");
     return;
   }
