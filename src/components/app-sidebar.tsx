@@ -34,6 +34,7 @@ const groups: NavGroup[] = [
       { title: "Finances", url: "/finances", icon: Wallet },
       { title: "Reconciliation", url: "/finances/reconciliation", icon: Calculator },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Reports", url: "/reports", icon: ScrollText },
     ],
   },
   {
@@ -82,6 +83,7 @@ const accountItems = [
   { title: "Billing", url: "/settings/billing", icon: Wallet },
   { title: "Nova Pro", url: "/settings/nova-pro", icon: Sparkles },
   { title: "Security", url: "/settings/security", icon: ShieldCheck },
+  { title: "Notifications", url: "/settings/notifications", icon: Bell },
   { title: "Help Center", url: "/account/help", icon: LifeBuoy },
   { title: "FAQ", url: "/account/faq", icon: HelpCircle },
   { title: "Producer Profile", url: "/account/producer-profile", icon: IdCard },

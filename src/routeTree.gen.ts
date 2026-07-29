@@ -42,6 +42,7 @@ import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/t
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedRetentionRouteImport } from './routes/_authenticated/retention'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/phone'
@@ -74,6 +75,7 @@ import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
 import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings.billing'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
@@ -272,6 +274,11 @@ const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
   path: '/resources',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPostDealRoute = AuthenticatedPostDealRouteImport.update({
   id: '/post-deal',
   path: '/post-deal',
@@ -441,6 +448,12 @@ const AuthenticatedSettingsNovaProRoute =
   AuthenticatedSettingsNovaProRouteImport.update({
     id: '/settings/nova-pro',
     path: '/settings/nova-pro',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsBillingRoute =
@@ -662,6 +675,7 @@ export interface FileRoutesByFullPath {
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -714,6 +728,7 @@ export interface FileRoutesByFullPath {
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -759,6 +774,7 @@ export interface FileRoutesByTo {
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
@@ -811,6 +827,7 @@ export interface FileRoutesByTo {
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -860,6 +877,7 @@ export interface FileRoutesById {
   '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/retention': typeof AuthenticatedRetentionRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
@@ -912,6 +930,7 @@ export interface FileRoutesById {
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -961,6 +980,7 @@ export interface FileRouteTypes {
     | '/phone'
     | '/pipeline'
     | '/post-deal'
+    | '/reports'
     | '/resources'
     | '/retention'
     | '/tasks'
@@ -1013,6 +1033,7 @@ export interface FileRouteTypes {
     | '/resources/scripts'
     | '/resources/state-licenses'
     | '/settings/billing'
+    | '/settings/notifications'
     | '/settings/nova-pro'
     | '/settings/security'
     | '/tools/leads'
@@ -1058,6 +1079,7 @@ export interface FileRouteTypes {
     | '/phone'
     | '/pipeline'
     | '/post-deal'
+    | '/reports'
     | '/resources'
     | '/retention'
     | '/tasks'
@@ -1110,6 +1132,7 @@ export interface FileRouteTypes {
     | '/resources/scripts'
     | '/resources/state-licenses'
     | '/settings/billing'
+    | '/settings/notifications'
     | '/settings/nova-pro'
     | '/settings/security'
     | '/tools/leads'
@@ -1158,6 +1181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/phone'
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
+    | '/_authenticated/reports'
     | '/_authenticated/resources'
     | '/_authenticated/retention'
     | '/_authenticated/tasks'
@@ -1210,6 +1234,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
     | '/_authenticated/settings/billing'
+    | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/nova-pro'
     | '/_authenticated/settings/security'
     | '/_authenticated/tools/leads'
@@ -1498,6 +1523,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedResourcesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/post-deal': {
       id: '/_authenticated/post-deal'
       path: '/post-deal'
@@ -1720,6 +1752,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/nova-pro'
       fullPath: '/settings/nova-pro'
       preLoaderRoute: typeof AuthenticatedSettingsNovaProRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings/billing': {
@@ -2101,6 +2140,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPhoneRoute: typeof AuthenticatedPhoneRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
   AuthenticatedRetentionRoute: typeof AuthenticatedRetentionRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
@@ -2112,6 +2152,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
   AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
+  AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
@@ -2136,6 +2177,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPhoneRoute: AuthenticatedPhoneRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
   AuthenticatedRetentionRoute: AuthenticatedRetentionRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
@@ -2149,6 +2191,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
   AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
+  AuthenticatedSettingsNotificationsRoute:
+    AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
