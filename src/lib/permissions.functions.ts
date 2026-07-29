@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
+import { assertMemberOfOrg } from "@/lib/org-guard";
 
 // Generated DB types predate the role_permissions migration; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -215,6 +216,7 @@ export const updateMemberPermissions = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     await assertCanManagePermissions(userId, data.organization_id);
+    await assertMemberOfOrg(data.member_id, data.organization_id);
 
     // Whitelist keys
     const patch: Record<string, any> = {};
@@ -260,6 +262,7 @@ export const applyStaffPreset = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     await assertCanManagePermissions(userId, data.organization_id);
+    await assertMemberOfOrg(data.member_id, data.organization_id);
 
     const full = { ...zeroPerms(), ...STAFF_PRESETS[data.preset] };
     const { data: prev } = await supabaseAdmin
@@ -293,6 +296,7 @@ export const setMemberRole = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     await assertCanManagePermissions(userId, data.organization_id);
+    await assertMemberOfOrg(data.member_id, data.organization_id);
     const { data: prevRoles } = await supabaseAdmin
       .from("user_roles").select("id, role").eq("user_id", data.member_id)
       .in("role", ["manager", "staff", "agent"]);
