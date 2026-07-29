@@ -31,3 +31,50 @@ export const NOVA_LIMITS = {
 /** Statuses that grant workspace access → billable seats. Access = billable. */
 export const BILLABLE_PROFILE_STATUSES = ["pending", "onboarding", "licensing", "contracting", "ready_to_sell", "active"];
 export const NON_BILLABLE_PROFILE_STATUSES = ["invited", "imported", "inactive", "terminated"];
+
+// ── Runtime pricing (plans table, with these constants as the fallback) ──────
+
+/** PRICING widened from its literal types, so runtime values can replace it. */
+export type Pricing = { -readonly [K in keyof typeof PRICING]: number };
+
+export type PlanRow = {
+  key: string;
+  name: string;
+  monthly_price: number;
+  setup_price: number;
+  included_seats: number;
+  seat_overage_price: number;
+  description: string | null;
+};
+
+/**
+ * Overlay the plans table onto PRICING.
+ *
+ * The constants above stay authoritative as a fallback so billing math never
+ * depends on a seed having run, or on the table being reachable. An operator
+ * editing plans changes the numbers; an empty or missing table changes nothing.
+ */
+export function pricingFromPlans(rows: PlanRow[] | null | undefined): Pricing {
+  if (!rows?.length) return PRICING;
+  const by = new Map(rows.map((r) => [r.key, r]));
+  const num = (v: unknown, fallback: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+
+  const solo = by.get("solo_agent");
+  const agency = by.get("agency_plan");
+  const nova = by.get("nova_pro");
+  const white = by.get("white_label");
+
+  return {
+    ...PRICING,
+    soloAgent:         num(solo?.monthly_price, PRICING.soloAgent),
+    agencyBase:        num(agency?.monthly_price, PRICING.agencyBase),
+    includedSeats:     num(agency?.included_seats, PRICING.includedSeats),
+    seatOverage:       num(agency?.seat_overage_price, PRICING.seatOverage),
+    novaPro:           num(nova?.monthly_price, PRICING.novaPro),
+    whiteLabelMonthly: num(white?.monthly_price, PRICING.whiteLabelMonthly),
+    whiteLabelSetup:   num(white?.setup_price, PRICING.whiteLabelSetup),
+  };
+}

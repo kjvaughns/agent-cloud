@@ -1,4 +1,10 @@
-# Agent Cloud — Phase 1 Platform Audit
+# Agent Cloud — Platform Audit
+
+> **Status update — Phases 1–7 delivered.** This document remains the audit of
+> record: findings below describe the platform **as found**. What has since been
+> built is tracked in `docs/PHASE-STATUS.md`, and the launch-readiness checklist
+> in section F is annotated with what is now done. Nothing here has been
+> rewritten to look better in hindsight.
 
 **Date:** 2026-07-29
 **Scope:** Full platform audit and stabilization, per §34 deliverables A–F of the Complete Platform Audit, Build, and Launch prompt.

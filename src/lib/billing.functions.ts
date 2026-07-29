@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import {
   getStripe, isStripeConfigured, PRICE_IDS, PRICING, NOVA_LIMITS, NON_BILLABLE_PROFILE_STATUSES,
+  pricingFromPlans, type Pricing,
 } from "@/lib/billing/stripe";
 
 // Generated DB types predate the monetization migration; cast until regenerated.
@@ -96,11 +97,28 @@ function appOrigin(): string {
 
 // ── Billing overview (agency owner) ──────────────────────────────────────────
 
+/**
+ * Current pricing: the plans table when it has rows, otherwise the code
+ * constants. Never throws — a pricing lookup failure must not break billing.
+ */
+async function resolvePricing(): Promise<Pricing> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("plans")
+      .select("key, name, monthly_price, setup_price, included_seats, seat_overage_price, description")
+      .eq("active", true);
+    return pricingFromPlans(data as any);
+  } catch {
+    return PRICING;
+  }
+}
+
 export const getBillingOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
     const org = await getOwnedOrg(supabase, userId);
+    const PRICING = await resolvePricing();
     const seatCount = await countBillableSeats(org.id, org.owner_id ?? userId);
     const overageSeats = Math.max(0, seatCount - PRICING.includedSeats);
 

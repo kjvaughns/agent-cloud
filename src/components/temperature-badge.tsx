@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { TEMP_META, type Temperature } from "@/lib/mock-data";
+import { TEMP_META, type Temperature } from "@/lib/pipeline-meta";
 import { Flame, Snowflake, Thermometer } from "lucide-react";
 
 const ICONS = { hot: Flame, warm: Thermometer, cold: Snowflake };

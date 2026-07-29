@@ -32,4 +32,7 @@ export const PRICE_IDS = {
 } as const;
 
 // Pricing lives in ./pricing so client bundles can read it without the Stripe SDK.
-export { PRICING, NOVA_LIMITS, BILLABLE_PROFILE_STATUSES, NON_BILLABLE_PROFILE_STATUSES } from "./pricing";
+export {
+  PRICING, NOVA_LIMITS, BILLABLE_PROFILE_STATUSES, NON_BILLABLE_PROFILE_STATUSES,
+  pricingFromPlans, type Pricing, type PlanRow,
+} from "./pricing";

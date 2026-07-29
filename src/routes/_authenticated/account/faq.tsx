@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { HelpCircle } from "lucide-react";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { listFaq } from "@/lib/account.functions";
 
 export const Route = createFileRoute("/_authenticated/account/faq")({
   head: () => ({
@@ -13,18 +17,26 @@ export const Route = createFileRoute("/_authenticated/account/faq")({
   component: FaqPage,
 });
 
-const FAQS = [
-  { q: "When do I get paid my advance commission?", a: "On the policy effective date the system schedules 75% of your first-year commission as an advance. The remaining 25% is split evenly across months 10, 11, and 12. GTL products use a different schedule — 50% advance capped at $600 and balance over months 7–12." },
-  { q: "Why can't I request an annuity contract?", a: "Annuity contracts are gated on a completed Best Interest / Suitability course. Upload your WebCE certificate on the Annuity Training page and the carriers will unlock automatically." },
-  { q: "How do override commissions work?", a: "You earn the spread between your commission level and your direct downline's level on their personal production. Each upline in the chain only earns their differential — not the full amount." },
-  { q: "Can my downline see my commission level?", a: "No. Agents only see their own level and any levels below it in the commission grids. Levels above are completely hidden." },
-  { q: "What's the difference between Login Email and Contact Email?", a: "Login Email is the credential you sign in with and never changes once set. Contact Email is what your prospects see and what carriers email you at — change it any time from Producer Profile." },
-  { q: "How does Nova Policy Recovery decide who to call?", a: "Nova targets policies in Lapse Pending status. When enabled, it dials the client, attempts re-engagement, and live-transfers warm leads back to you. You can pause it any time from the shield icon in the top bar." },
-  { q: "What is the wallet for?", a: "Wallet funds power SMS, MMS, voice calls, and Nova Policy Recovery AI minutes. Top up from My Phone → Wallet." },
-  { q: "How do I invite a new agent?", a: "Contracting → Invite Agent. Create a link, assign carriers and commission levels (at or below your own), then share. Their contracting paperwork is pre-filled when they sign up." },
-];
+type FaqItem = { id: string; section: string | null; question: string; answer: string };
 
 function FaqPage() {
+  // Reads faq_items, which listFaq already served and this page ignored in
+  // favour of a hardcoded array. Content is now editable without a deploy.
+  const fn = useServerFn(listFaq);
+  const { data, isLoading } = useQuery({ queryKey: ["faq"], queryFn: () => fn() });
+
+  const items = ((data as any)?.items ?? []) as FaqItem[];
+
+  // Preserve the order the query returned (section, then sort_order) while
+  // grouping, so an agency's own ordering is respected.
+  const sections: { name: string; items: FaqItem[] }[] = [];
+  for (const item of items) {
+    const name = item.section || "General";
+    const last = sections[sections.length - 1];
+    if (last && last.name === name) last.items.push(item);
+    else sections.push({ name, items: [item] });
+  }
+
   return (
     <PageShell>
       <div className="max-w-3xl mx-auto flex flex-col gap-[var(--gap)]">
@@ -32,16 +44,34 @@ function FaqPage() {
           title={<span className="flex items-center gap-2"><HelpCircle className="h-7 w-7" /> Frequently Asked Questions</span>}
           subtitle="Quick answers to the questions agents ask most."
         />
-        <Panel>
-          <Accordion type="single" collapsible className="w-full">
-            {FAQS.map((f, i) => (
-              <AccordionItem key={i} value={`q-${i}`}>
-                <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </Panel>
+
+        {isLoading ? (
+          <Panel><Skeleton className="h-64" /></Panel>
+        ) : items.length === 0 ? (
+          <Panel>
+            <div className="py-12 text-center space-y-2">
+              <div className="font-medium">No FAQ entries yet.</div>
+              <p className="text-sm text-muted-foreground">
+                Questions added to your agency's FAQ will appear here.
+              </p>
+            </div>
+          </Panel>
+        ) : (
+          sections.map((s) => (
+            <Panel key={s.name} title={sections.length > 1 ? s.name : undefined}>
+              <Accordion type="single" collapsible className="w-full">
+                {s.items.map((f) => (
+                  <AccordionItem key={f.id} value={f.id}>
+                    <AccordionTrigger className="text-left">{f.question}</AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground whitespace-pre-line">
+                      {f.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </Panel>
+          ))
+        )}
       </div>
     </PageShell>
   );
