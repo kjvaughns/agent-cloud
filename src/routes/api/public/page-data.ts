@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +22,8 @@ export const Route = createFileRoute("/api/public/page-data")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
       GET: async ({ request }) => {
+        const limited = await guardPublicEndpoint(request, "page-data", { perIp: 120, global: 10000, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (limited) return limited;
         const url = new URL(request.url);
         const parsed = QuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()));
         if (!parsed.success) return Response.json({ data: null }, { status: 400, headers: cors });

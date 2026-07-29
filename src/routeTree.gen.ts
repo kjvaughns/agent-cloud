@@ -70,6 +70,7 @@ import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/fun
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
+import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
 import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
 import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings.billing'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
@@ -417,6 +418,12 @@ const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   path: '/tools/leads',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsSecurityRoute =
+  AuthenticatedSettingsSecurityRouteImport.update({
+    id: '/settings/security',
+    path: '/settings/security',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsNovaProRoute =
   AuthenticatedSettingsNovaProRouteImport.update({
     id: '/settings/nova-pro',
@@ -686,6 +693,7 @@ export interface FileRoutesByFullPath {
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -779,6 +787,7 @@ export interface FileRoutesByTo {
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -876,6 +885,7 @@ export interface FileRoutesById {
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
   '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
   '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -973,6 +983,7 @@ export interface FileRouteTypes {
     | '/resources/state-licenses'
     | '/settings/billing'
     | '/settings/nova-pro'
+    | '/settings/security'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -1066,6 +1077,7 @@ export interface FileRouteTypes {
     | '/resources/state-licenses'
     | '/settings/billing'
     | '/settings/nova-pro'
+    | '/settings/security'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -1162,6 +1174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/state-licenses'
     | '/_authenticated/settings/billing'
     | '/_authenticated/settings/nova-pro'
+    | '/_authenticated/settings/security'
     | '/_authenticated/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/funnel-apply'
@@ -1644,6 +1657,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsLeadsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/security': {
+      id: '/_authenticated/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/nova-pro': {
       id: '/_authenticated/settings/nova-pro'
       path: '/settings/nova-pro'
@@ -2019,6 +2039,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
+  AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
 }
 
@@ -2053,6 +2074,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
+  AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
 }
 

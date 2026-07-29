@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
+import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 const Schema = z.object({ slug: z.string().trim().min(1).max(80) });
 
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/api/public/funnel-view")({
           },
         }),
       POST: async ({ request }) => {
+        const limited = await guardPublicEndpoint(request, "funnel-view", { perIp: 60, global: 5000, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (limited) return limited;
         try {
           const parsed = Schema.safeParse(await request.json().catch(() => ({})));
           if (!parsed.success) return new Response("bad request", { status: 400 });

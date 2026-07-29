@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { z } from "zod";
+import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 const Schema = z.object({
   slug: z.string().trim().min(1).max(80),
@@ -24,6 +25,8 @@ export const Route = createFileRoute("/api/public/landing-lead")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
       POST: async ({ request }) => {
+        const limited = await guardPublicEndpoint(request, "landing-lead", { perIp: 10, global: 500, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (limited) return limited;
         const parsed = Schema.safeParse(await request.json().catch(() => ({})));
         if (!parsed.success) return new Response("bad request", { status: 400, headers: cors });
         const d = parsed.data;

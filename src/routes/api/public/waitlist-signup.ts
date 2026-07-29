@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import * as React from "react";
 import { render } from "@react-email/render";
+import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 const Schema = z.object({
   first_name: z.string().trim().min(1).max(60),
@@ -127,6 +128,8 @@ export const Route = createFileRoute("/api/public/waitlist-signup")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
       POST: async ({ request }) => {
+        const limited = await guardPublicEndpoint(request, "waitlist-signup", { perIp: 5, global: 300, headers: { "Access-Control-Allow-Origin": "*" } });
+        if (limited) return limited;
         const parsed = Schema.safeParse(await request.json().catch(() => ({})));
         if (!parsed.success) {
           return new Response(JSON.stringify({ error: "invalid" }), {
