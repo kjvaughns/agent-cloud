@@ -40,6 +40,7 @@ import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedRetentionRouteImport } from './routes/_authenticated/retention'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
@@ -81,6 +82,7 @@ import { Route as AuthenticatedResourcesAgentHandbookRouteImport } from './route
 import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes/_authenticated/resources/agent-academy'
 import { Route as AuthenticatedNovaSettingsRouteImport } from './routes/_authenticated/nova/settings'
 import { Route as AuthenticatedNovaActivityRouteImport } from './routes/_authenticated/nova/activity'
+import { Route as AuthenticatedFinancesReconciliationRouteImport } from './routes/_authenticated/finances.reconciliation'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
@@ -258,6 +260,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedRetentionRoute = AuthenticatedRetentionRouteImport.update({
+  id: '/retention',
+  path: '/retention',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
@@ -484,6 +491,12 @@ const AuthenticatedNovaActivityRoute =
     path: '/activity',
     getParentRoute: () => AuthenticatedNovaRoute,
   } as any)
+const AuthenticatedFinancesReconciliationRoute =
+  AuthenticatedFinancesReconciliationRouteImport.update({
+    id: '/reconciliation',
+    path: '/reconciliation',
+    getParentRoute: () => AuthenticatedFinancesRoute,
+  } as any)
 const AuthenticatedContractingTransfersRoute =
   AuthenticatedContractingTransfersRouteImport.update({
     id: '/transfers',
@@ -641,7 +654,7 @@ export interface FileRoutesByFullPath {
   '/challenges': typeof AuthenticatedChallengesRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/finances': typeof AuthenticatedFinancesRoute
+  '/finances': typeof AuthenticatedFinancesRouteWithChildren
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -650,6 +663,7 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -691,6 +705,7 @@ export interface FileRoutesByFullPath {
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
@@ -736,7 +751,7 @@ export interface FileRoutesByTo {
   '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/finances': typeof AuthenticatedFinancesRoute
+  '/finances': typeof AuthenticatedFinancesRouteWithChildren
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -745,6 +760,7 @@ export interface FileRoutesByTo {
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -786,6 +802,7 @@ export interface FileRoutesByTo {
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
@@ -835,7 +852,7 @@ export interface FileRoutesById {
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/finances': typeof AuthenticatedFinancesRoute
+  '/_authenticated/finances': typeof AuthenticatedFinancesRouteWithChildren
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -844,6 +861,7 @@ export interface FileRoutesById {
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
+  '/_authenticated/retention': typeof AuthenticatedRetentionRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/admin/agents': typeof AdminAgentsRoute
@@ -885,6 +903,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/_authenticated/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/_authenticated/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/_authenticated/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/_authenticated/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
@@ -943,6 +962,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/retention'
     | '/tasks'
     | '/team'
     | '/admin/agents'
@@ -984,6 +1004,7 @@ export interface FileRouteTypes {
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/finances/reconciliation'
     | '/nova/activity'
     | '/nova/settings'
     | '/resources/agent-academy'
@@ -1038,6 +1059,7 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/post-deal'
     | '/resources'
+    | '/retention'
     | '/tasks'
     | '/team'
     | '/admin/agents'
@@ -1079,6 +1101,7 @@ export interface FileRouteTypes {
     | '/contracting/commission-grids'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/finances/reconciliation'
     | '/nova/activity'
     | '/nova/settings'
     | '/resources/agent-academy'
@@ -1136,6 +1159,7 @@ export interface FileRouteTypes {
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
     | '/_authenticated/resources'
+    | '/_authenticated/retention'
     | '/_authenticated/tasks'
     | '/_authenticated/team'
     | '/admin/agents'
@@ -1177,6 +1201,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting/commission-grids'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
+    | '/_authenticated/finances/reconciliation'
     | '/_authenticated/nova/activity'
     | '/_authenticated/nova/settings'
     | '/_authenticated/resources/agent-academy'
@@ -1457,6 +1482,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/retention': {
+      id: '/_authenticated/retention'
+      path: '/retention'
+      fullPath: '/retention'
+      preLoaderRoute: typeof AuthenticatedRetentionRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources': {
@@ -1746,6 +1778,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNovaActivityRouteImport
       parentRoute: typeof AuthenticatedNovaRoute
     }
+    '/_authenticated/finances/reconciliation': {
+      id: '/_authenticated/finances/reconciliation'
+      path: '/reconciliation'
+      fullPath: '/finances/reconciliation'
+      preLoaderRoute: typeof AuthenticatedFinancesReconciliationRouteImport
+      parentRoute: typeof AuthenticatedFinancesRoute
+    }
     '/_authenticated/contracting/transfers': {
       id: '/_authenticated/contracting/transfers'
       path: '/transfers'
@@ -1990,6 +2029,20 @@ const AuthenticatedContractingRouteWithChildren =
     AuthenticatedContractingRouteChildren,
   )
 
+interface AuthenticatedFinancesRouteChildren {
+  AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
+}
+
+const AuthenticatedFinancesRouteChildren: AuthenticatedFinancesRouteChildren = {
+  AuthenticatedFinancesReconciliationRoute:
+    AuthenticatedFinancesReconciliationRoute,
+}
+
+const AuthenticatedFinancesRouteWithChildren =
+  AuthenticatedFinancesRoute._addFileChildren(
+    AuthenticatedFinancesRouteChildren,
+  )
+
 interface AuthenticatedNovaRouteChildren {
   AuthenticatedNovaActivityRoute: typeof AuthenticatedNovaActivityRoute
   AuthenticatedNovaSettingsRoute: typeof AuthenticatedNovaSettingsRoute
@@ -2040,7 +2093,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
+  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRouteWithChildren
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -2049,6 +2102,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
+  AuthenticatedRetentionRoute: typeof AuthenticatedRetentionRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
@@ -2074,7 +2128,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
+  AuthenticatedFinancesRoute: AuthenticatedFinancesRouteWithChildren,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
@@ -2083,6 +2137,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
+  AuthenticatedRetentionRoute: AuthenticatedRetentionRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,

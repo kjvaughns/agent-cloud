@@ -12,7 +12,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase, Trophy, ShieldCheck,
+  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -32,6 +32,7 @@ const groups: NavGroup[] = [
       { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
       { title: "Finances", url: "/finances", icon: Wallet },
+      { title: "Reconciliation", url: "/finances/reconciliation", icon: Calculator },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
     ],
   },
@@ -39,6 +40,7 @@ const groups: NavGroup[] = [
     label: "Agency",
     items: [
       { title: "Team", url: "/team", icon: Users },
+      { title: "Retention", url: "/retention", icon: Heart },
       { title: "Team & Permissions", url: "/agency/team", icon: ShieldCheck },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Onboarding", url: "/contracting/invite", icon: UserPlus },
