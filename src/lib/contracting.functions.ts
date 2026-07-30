@@ -477,8 +477,15 @@ export const recordAnnuityCert = createServerFn({ method: "POST" })
     if (!data.storage_path.startsWith(`${userId}/`)) throw new Error("Invalid path");
     // remove old rows
     await supabase.from("producer_documents").delete().eq("agent_id", userId).eq("doc_type", "aml_certificate");
+
+    // Same reason as the producer-profile upload: an unstamped document never
+    // reaches the staff queue that is supposed to review it.
+    const { data: prof } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
     const { error } = await supabase.from("producer_documents").insert({
       agent_id: userId,
+      organization_id: (prof as any)?.organization_id ?? null,
       doc_type: "aml_certificate",
       file_url: data.storage_path,
       file_name: data.file_name,

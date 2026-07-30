@@ -47,7 +47,8 @@ const SECTIONS: Section[] = [
     cards: [
       { title: "Team", body: "Agents, managers and staff, their roles and their downline.", to: "/team", icon: Users },
       { title: "Roles & permissions", body: "Who can see and change what, per person.", to: "/agency/team", icon: ShieldCheck, adminOnly: true },
-      { title: "Onboarding", body: "Invite a new agent and track their setup to first sale.", to: "/contracting/invite", icon: UserPlus },
+      { title: "Getting agents ready", body: "Everyone mid-onboarding, and the one thing each is waiting on.", to: "/onboarding", icon: UserPlus },
+      { title: "Invite an agent", body: "Send an onboarding link with their carriers and levels attached.", to: "/contracting/invite", icon: UserPlus },
       { title: "Leaderboard", body: "Production standings across the agency.", to: "/leaderboard", icon: Trophy },
       { title: "Challenges", body: "Run a contest and track who is winning it.", to: "/challenges", icon: Target },
     ],

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/page-shell";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { MyOnboarding } from "@/components/onboarding/my-onboarding";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkAction } from "@/components/ui/section-label";
 import { Icon } from "@/components/ui/icon";
@@ -186,6 +187,10 @@ function Dashboard() {
       )}
       {/* Renders only for an agency owner with unfinished setup. */}
       <div className="mb-[var(--gap)] empty:mb-0"><SetupChecklist /></div>
+      {/* And only for an agent who is not yet ready to sell. A new agent's
+          first question is "what do I do now"; this answers it with one step
+          rather than five pages. */}
+      <div className="mb-[var(--gap)] empty:mb-0"><MyOnboarding /></div>
       {/* Actions first, scoreboard second. The numbers below say how the
           agency is doing; this says what to do about it, and that is the
           question somebody actually has when they open the app. */}

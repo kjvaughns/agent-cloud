@@ -106,6 +106,12 @@ export const getMyWork = createServerFn({ method: "GET" })
 
     // ── The agency's, if you run or support it ──────────────────────────────
 
+    // Who is in this agency. Needed for licences, and for documents — see below.
+    const { data: members } = await supabaseAdmin
+      .from("organization_memberships").select("profile_id")
+      .eq("organization_id", orgId).eq("status", "active");
+    const memberIds = (members ?? []).map((m: any) => m.profile_id);
+
     const [{ data: requests }, { data: hierarchy }, { data: docs }, { data: retention }] =
       await Promise.all([
         supabaseAdmin.from("contracting_requests")
@@ -114,8 +120,15 @@ export const getMyWork = createServerFn({ method: "GET" })
         supabaseAdmin.from("hierarchy_change_requests")
           .select("id, status").eq("organization_id", orgId)
           .in("status", ["awaiting_manager", "awaiting_owner"]),
-        supabaseAdmin.from("producer_documents")
-          .select("id").eq("organization_id", orgId).eq("review_status", "uploaded"),
+        // Scoped by who the document belongs to rather than by its
+        // organization_id. That column is nullable and was historically left
+        // unset by the upload paths, so filtering on it silently reported zero
+        // documents waiting — the one number on this list that must not be
+        // quietly wrong.
+        memberIds.length
+          ? supabaseAdmin.from("producer_documents")
+              .select("id").in("agent_id", memberIds).eq("review_status", "uploaded")
+          : Promise.resolve({ data: [] }),
         supabaseAdmin.from("retention_cases")
           .select("id, status").eq("organization_id", orgId)
           .in("status", ["open", "working"]),
@@ -214,11 +227,6 @@ export const getMyWork = createServerFn({ method: "GET" })
       .select("license_expiry_warning_days").eq("organization_id", orgId).maybeSingle();
     const warnDays = settings?.license_expiry_warning_days ?? 45;
     const warnBy = new Date(Date.now() + warnDays * 86_400_000).toISOString().slice(0, 10);
-
-    const { data: members } = await supabaseAdmin
-      .from("organization_memberships").select("profile_id")
-      .eq("organization_id", orgId).eq("status", "active");
-    const memberIds = (members ?? []).map((m: any) => m.profile_id);
 
     if (memberIds.length) {
       const { data: expiring } = await supabaseAdmin

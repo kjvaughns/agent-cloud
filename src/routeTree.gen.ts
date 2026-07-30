@@ -53,6 +53,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPostDealRouteImport } from './routes/_authenticated/post-deal'
 import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
 import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/phone'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedNovaRouteImport } from './routes/_authenticated/nova'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
@@ -364,6 +365,11 @@ const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
 const AuthenticatedPhoneRoute = AuthenticatedPhoneRouteImport.update({
   id: '/phone',
   path: '/phone',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedNovaRoute = AuthenticatedNovaRouteImport.update({
@@ -928,6 +934,7 @@ export interface FileRoutesByFullPath {
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/nova': typeof AuthenticatedNovaRouteWithChildren
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
@@ -1063,6 +1070,7 @@ export interface FileRoutesByTo {
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/nova': typeof AuthenticatedNovaRouteWithChildren
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/phone': typeof AuthenticatedPhoneRoute
   '/pipeline': typeof AuthenticatedPipelineRoute
   '/post-deal': typeof AuthenticatedPostDealRoute
@@ -1202,6 +1210,7 @@ export interface FileRoutesById {
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/nova': typeof AuthenticatedNovaRouteWithChildren
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/phone': typeof AuthenticatedPhoneRoute
   '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
   '/_authenticated/post-deal': typeof AuthenticatedPostDealRoute
@@ -1342,6 +1351,7 @@ export interface FileRouteTypes {
     | '/news-feed'
     | '/notifications'
     | '/nova'
+    | '/onboarding'
     | '/phone'
     | '/pipeline'
     | '/post-deal'
@@ -1477,6 +1487,7 @@ export interface FileRouteTypes {
     | '/news-feed'
     | '/notifications'
     | '/nova'
+    | '/onboarding'
     | '/phone'
     | '/pipeline'
     | '/post-deal'
@@ -1615,6 +1626,7 @@ export interface FileRouteTypes {
     | '/_authenticated/news-feed'
     | '/_authenticated/notifications'
     | '/_authenticated/nova'
+    | '/_authenticated/onboarding'
     | '/_authenticated/phone'
     | '/_authenticated/pipeline'
     | '/_authenticated/post-deal'
@@ -2073,6 +2085,13 @@ declare module '@tanstack/react-router' {
       path: '/phone'
       fullPath: '/phone'
       preLoaderRoute: typeof AuthenticatedPhoneRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/nova': {
@@ -2926,6 +2945,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedNovaRoute: typeof AuthenticatedNovaRouteWithChildren
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedPhoneRoute: typeof AuthenticatedPhoneRoute
   AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
   AuthenticatedPostDealRoute: typeof AuthenticatedPostDealRoute
@@ -2974,6 +2994,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedNovaRoute: AuthenticatedNovaRouteWithChildren,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedPhoneRoute: AuthenticatedPhoneRoute,
   AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
   AuthenticatedPostDealRoute: AuthenticatedPostDealRoute,
