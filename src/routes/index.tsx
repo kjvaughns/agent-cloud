@@ -6,8 +6,11 @@ import { track } from "@/lib/landing-analytics";
 import { display } from "@/components/landing/primitives";
 import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
 import {
-  ProblemSection, PlatformMap, LifecycleSection, RoleSection, OwnershipSection,
+  ProblemSection, PlatformMap, RoleSection, OwnershipSection,
 } from "@/components/landing/story";
+import { LifecycleSection } from "@/components/landing/lifecycle";
+import { ProductTour, FeatureBands } from "@/components/landing/tour";
+import { EverythingSection, ByTheNumbers } from "@/components/landing/everything";
 import { PricingSection } from "@/components/landing/pricing";
 import { LiveDemos, LiveDashboard } from "@/components/landing/live-demos";
 import { FloatingOrbs, Parallax } from "@/components/landing/motion";
@@ -112,11 +115,18 @@ function LandingPage() {
 
       <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
+      {/* Scroll rhythm: the pain, the map, the story animated, then screen
+          after screen. Someone who never clicks anything still passes real
+          product UI every few hundred pixels. */}
       <ProblemSection />
       <PlatformMap />
-      <LiveDemos />
       <LifecycleSection />
+      <FeatureBands />
+      <ProductTour />
+      <LiveDemos />
+      <ByTheNumbers includedSeats={pricing.includedSeats} />
       <RoleSection />
+      <EverythingSection />
 
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
       <OwnershipSection />
@@ -149,15 +159,16 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
           </div>
 
           <h1
-            className="mt-6 font-bold tracking-tight text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
+            className="mt-6 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
             style={display}
           >
-            The operating system for <span className="text-primary">independent insurance agencies.</span>
+            Stop running your agency across{" "}
+            <span className="text-primary">ten different tools.</span>
           </h1>
 
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Recruit, onboard, license and contract your agents. Track clients, policies,
-            commissions and retention. One platform, one record, from applicant to producing agent.
+            Recruit agents, manage onboarding, licensing, contracting, clients, policies,
+            commissions, retention and AI — all from one operating system.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

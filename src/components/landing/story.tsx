@@ -143,53 +143,9 @@ export function PlatformMap() {
   );
 }
 
-// ── Lifecycle ───────────────────────────────────────────────────────────────
-
-const LIFECYCLE = [
-  "Applicant", "Recruit", "License", "Onboard", "Contract",
-  "Activate", "Sell", "Track Policy", "Monitor Commission", "Protect Retention",
-];
-
-export function LifecycleSection() {
-  return (
-    <LandingSection id="lifecycle" event="lifecycle_viewed" className="border-t border-border/60 bg-surface-2/30">
-      <SectionHead
-        eyebrow="The differentiator"
-        title="One record, from applicant to producing agent."
-        copy="When you hire someone, they should not disappear into a different system. A recruiting profile becomes an agent profile — carrying onboarding, licensing, contracting, production and retention with it. Nothing is re-keyed. Nothing is lost between steps."
-      />
-
-      <div className="mt-14">
-        {/* Desktop: horizontal chain. Mobile: vertical, which reads far better
-            than a squeezed row of ten nodes. */}
-        <ol className="flex flex-col md:flex-row md:flex-wrap md:justify-center gap-2 md:gap-0">
-          {LIFECYCLE.map((step, i) => (
-            <FadeUp key={step} delay={i * 60} className="md:contents">
-              <li className="flex md:flex-col items-center gap-3 md:gap-2 md:px-1">
-                <span
-                  className={cn(
-                    "grid h-9 w-9 shrink-0 place-items-center rounded-full border text-xs font-bold tnum",
-                    i === 0 ? "border-primary/60 bg-primary/15 text-primary" : "border-border bg-card text-muted-foreground",
-                  )}
-                  style={display}
-                >
-                  {i + 1}
-                </span>
-                <span className="text-sm md:text-[11px] md:text-center font-medium text-foreground md:max-w-[84px] leading-tight">
-                  {step}
-                </span>
-                {i < LIFECYCLE.length - 1 && (
-                  <span aria-hidden className="hidden md:block absolute" />
-                )}
-              </li>
-            </FadeUp>
-          ))}
-        </ol>
-        <div aria-hidden className="hidden md:block mt-6 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-      </div>
-    </LandingSection>
-  );
-}
+// The lifecycle chain moved to ./lifecycle.tsx when it became animated — it
+// carries its own timing state, and that does not belong in a file of static
+// story sections.
 
 // ── Roles ───────────────────────────────────────────────────────────────────
 

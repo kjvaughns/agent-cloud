@@ -21,7 +21,9 @@ export type LandingEvent =
   | "integration_clicked"
   | "screenshot_viewed"
   | "role_tab_viewed"
-  | "lifecycle_viewed";
+  | "lifecycle_viewed"
+  | "tour_viewed"
+  | "tour_screen_viewed";
 
 declare global {
   interface Window {

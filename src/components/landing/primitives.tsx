@@ -55,7 +55,7 @@ export function SectionHead({
       {eyebrow && (
         <p className="text-xs uppercase tracking-[0.24em] text-primary font-semibold">{eyebrow}</p>
       )}
-      <h2 className="mt-3 text-3xl md:text-5xl font-bold tracking-tight text-foreground" style={display}>
+      <h2 className="mt-3 text-3xl md:text-5xl font-bold tracking-tight text-balance text-foreground" style={display}>
         {title}
       </h2>
       {copy && <p className="mt-4 text-muted-foreground leading-relaxed">{copy}</p>}
