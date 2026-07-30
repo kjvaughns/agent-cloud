@@ -149,7 +149,29 @@ export const updateRetentionCase = createServerFn({ method: "POST" })
     // resolved_at and updated_at are handled by touch_retention_case.
     const { error } = await supabase.from("retention_cases").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
+
+    if (rest.assigned_to) {
+      const { data: row } = await supabase
+        .from("retention_cases")
+        .select("client_name, reason")
+        .eq("id", id)
+        .maybeSingle();
+      const { queueEmail, APP_ORIGIN } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "retention-case-assigned",
+        profileId: rest.assigned_to,
+        category: "policy_at_risk",
+        key: `retention-assigned:${id}:${rest.assigned_to}`,
+        data: {
+          clientName: (row as any)?.client_name ?? undefined,
+          reason: (row as any)?.reason ?? undefined,
+          appUrl: `${APP_ORIGIN}/retention`,
+        },
+      });
+    }
+
     return { ok: true };
+
   });
 
 // ── Placement and persistency ───────────────────────────────────────────────
