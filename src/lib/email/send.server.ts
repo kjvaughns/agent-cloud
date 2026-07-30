@@ -156,8 +156,22 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
     }
     const normalized = recipient.toLowerCase();
 
+    // Org consent applies even when the caller didn't know the org — resolve it
+    // from the recipient's membership so no call site can skip the gate.
+    let orgId = args.orgId ?? null;
+    if (!exempt && !orgId && args.profileId) {
+      const { data: membership } = await supabaseAdmin
+        .from("organization_memberships")
+        .select("organization_id")
+        .eq("user_id", args.profileId)
+        .limit(1)
+        .maybeSingle();
+      orgId = membership?.organization_id ?? null;
+    }
+
     // --- consent layer 1: the organization opts in ---
-    if (!exempt && args.orgId) {
+    if (!exempt && orgId) {
+
       const { data: settings } = await supabaseAdmin
         .from("organization_settings")
         .select("emails_enabled, email_categories")
