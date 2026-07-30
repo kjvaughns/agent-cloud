@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -19,7 +19,10 @@ import {
 import { fileToImageDataUrl } from "@/lib/file-to-image";
 
 export const Route = createFileRoute("/_authenticated/contracting/comp-grids-manage")({
-  head: () => ({ meta: [{ title: "Manage Comp Grids — Agent Cloud" }] }),
+  // Comp grids moved into Contracting Operations, beside the comp levels and
+  // writing numbers they describe. Redirect rather than delete: this path is
+  // bookmarked and referenced by the setup checklist.
+  beforeLoad: () => { throw redirect({ to: "/contracting-ops/comp-grids" }); },
   component: ManageGridsPage,
 });
 
@@ -29,7 +32,7 @@ const BLANK: GridRow = {
   age_group_min: null, age_group_max: null,
 };
 
-function ManageGridsPage() {
+export function ManageGridsPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listMyGrids);
   const { data, isLoading } = useQuery({ queryKey: ["comp-grids"], queryFn: () => listFn() });
