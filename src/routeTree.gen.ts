@@ -60,6 +60,7 @@ import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenti
 import { Route as AuthenticatedIntakeRouteImport } from './routes/_authenticated/intake'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedContractingOpsRouteImport } from './routes/_authenticated/contracting-ops'
 import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
 import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
 import { Route as AuthenticatedCarrierSyncRouteImport } from './routes/_authenticated/carrier-sync'
@@ -71,6 +72,7 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
+import { Route as AuthenticatedContractingOpsIndexRouteImport } from './routes/_authenticated/contracting-ops/index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
@@ -103,6 +105,17 @@ import { Route as AuthenticatedContractingCompGridsManageRouteImport } from './r
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
+import { Route as AuthenticatedContractingOpsWritingNumbersRouteImport } from './routes/_authenticated/contracting-ops/writing-numbers'
+import { Route as AuthenticatedContractingOpsSettingsRouteImport } from './routes/_authenticated/contracting-ops/settings'
+import { Route as AuthenticatedContractingOpsRequestsRouteImport } from './routes/_authenticated/contracting-ops/requests'
+import { Route as AuthenticatedContractingOpsReadyToSellRouteImport } from './routes/_authenticated/contracting-ops/ready-to-sell'
+import { Route as AuthenticatedContractingOpsQueueRouteImport } from './routes/_authenticated/contracting-ops/queue'
+import { Route as AuthenticatedContractingOpsLicensingRouteImport } from './routes/_authenticated/contracting-ops/licensing'
+import { Route as AuthenticatedContractingOpsHierarchyChangesRouteImport } from './routes/_authenticated/contracting-ops/hierarchy-changes'
+import { Route as AuthenticatedContractingOpsHierarchiesRouteImport } from './routes/_authenticated/contracting-ops/hierarchies'
+import { Route as AuthenticatedContractingOpsDocumentsRouteImport } from './routes/_authenticated/contracting-ops/documents'
+import { Route as AuthenticatedContractingOpsCompensationRouteImport } from './routes/_authenticated/contracting-ops/compensation'
+import { Route as AuthenticatedContractingOpsCarriersRouteImport } from './routes/_authenticated/contracting-ops/carriers'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
 import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './routes/_authenticated/back-office/recruiting-funnels'
 import { Route as AuthenticatedBackOfficeMarketingTrackerRouteImport } from './routes/_authenticated/back-office/marketing-tracker'
@@ -117,6 +130,7 @@ import { Route as AuthenticatedAccountProducerProfileRouteImport } from './route
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
 import { Route as AuthenticatedAccountFaqRouteImport } from './routes/_authenticated/account/faq'
+import { Route as AuthenticatedContractingOpsRequestsIndexRouteImport } from './routes/_authenticated/contracting-ops/requests/index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -124,6 +138,7 @@ import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
+import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 
 const TermsRoute = TermsRouteImport.update({
@@ -382,6 +397,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedContractingOpsRoute =
+  AuthenticatedContractingOpsRouteImport.update({
+    id: '/contracting-ops',
+    path: '/contracting-ops',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedContractingRoute =
   AuthenticatedContractingRouteImport.update({
     id: '/contracting',
@@ -443,6 +464,12 @@ const AuthenticatedContractingIndexRoute =
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingOpsIndexRoute =
+  AuthenticatedContractingOpsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
   } as any)
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
@@ -623,6 +650,72 @@ const AuthenticatedContractingAnnuityTrainingRoute =
     path: '/annuity-training',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const AuthenticatedContractingOpsWritingNumbersRoute =
+  AuthenticatedContractingOpsWritingNumbersRouteImport.update({
+    id: '/writing-numbers',
+    path: '/writing-numbers',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsSettingsRoute =
+  AuthenticatedContractingOpsSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsRequestsRoute =
+  AuthenticatedContractingOpsRequestsRouteImport.update({
+    id: '/requests',
+    path: '/requests',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsReadyToSellRoute =
+  AuthenticatedContractingOpsReadyToSellRouteImport.update({
+    id: '/ready-to-sell',
+    path: '/ready-to-sell',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsQueueRoute =
+  AuthenticatedContractingOpsQueueRouteImport.update({
+    id: '/queue',
+    path: '/queue',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsLicensingRoute =
+  AuthenticatedContractingOpsLicensingRouteImport.update({
+    id: '/licensing',
+    path: '/licensing',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsHierarchyChangesRoute =
+  AuthenticatedContractingOpsHierarchyChangesRouteImport.update({
+    id: '/hierarchy-changes',
+    path: '/hierarchy-changes',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsHierarchiesRoute =
+  AuthenticatedContractingOpsHierarchiesRouteImport.update({
+    id: '/hierarchies',
+    path: '/hierarchies',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsDocumentsRoute =
+  AuthenticatedContractingOpsDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsCompensationRoute =
+  AuthenticatedContractingOpsCompensationRouteImport.update({
+    id: '/compensation',
+    path: '/compensation',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsCarriersRoute =
+  AuthenticatedContractingOpsCarriersRouteImport.update({
+    id: '/carriers',
+    path: '/carriers',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
 const AuthenticatedBackOfficeRecruitingTrackerRoute =
   AuthenticatedBackOfficeRecruitingTrackerRouteImport.update({
     id: '/recruiting-tracker',
@@ -705,6 +798,12 @@ const AuthenticatedAccountFaqRoute = AuthenticatedAccountFaqRouteImport.update({
   path: '/account/faq',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedContractingOpsRequestsIndexRoute =
+  AuthenticatedContractingOpsRequestsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedContractingOpsRequestsRoute,
+  } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -744,6 +843,12 @@ const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   path: '/api/public/hooks/fetch-news',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedContractingOpsRequestsRequestIdRoute =
+  AuthenticatedContractingOpsRequestsRequestIdRouteImport.update({
+    id: '/$requestId',
+    path: '/$requestId',
+    getParentRoute: () => AuthenticatedContractingOpsRequestsRoute,
+  } as any)
 const AuthenticatedBackOfficeCaseDesignAdminRoute =
   AuthenticatedBackOfficeCaseDesignAdminRouteImport.update({
     id: '/case-design_/admin',
@@ -773,6 +878,7 @@ export interface FileRoutesByFullPath {
   '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
+  '/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/intake': typeof AuthenticatedIntakeRoute
@@ -825,6 +931,17 @@ export interface FileRoutesByFullPath {
   '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
+  '/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
+  '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -857,9 +974,11 @@ export interface FileRoutesByFullPath {
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
+  '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -867,6 +986,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -940,6 +1060,16 @@ export interface FileRoutesByTo {
   '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
+  '/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
+  '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -972,9 +1102,11 @@ export interface FileRoutesByTo {
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
+  '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -982,6 +1114,7 @@ export interface FileRoutesByTo {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1007,6 +1140,7 @@ export interface FileRoutesById {
   '/_authenticated/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
+  '/_authenticated/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/intake': typeof AuthenticatedIntakeRoute
@@ -1059,6 +1193,17 @@ export interface FileRoutesById {
   '/_authenticated/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
+  '/_authenticated/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/_authenticated/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/_authenticated/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/_authenticated/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/_authenticated/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/_authenticated/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/_authenticated/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/_authenticated/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
+  '/_authenticated/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  '/_authenticated/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/_authenticated/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -1091,9 +1236,11 @@ export interface FileRoutesById {
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
+  '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1101,6 +1248,7 @@ export interface FileRoutesById {
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/_authenticated/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1126,6 +1274,7 @@ export interface FileRouteTypes {
     | '/carrier-sync'
     | '/challenges'
     | '/contracting'
+    | '/contracting-ops'
     | '/dashboard'
     | '/finances'
     | '/intake'
@@ -1178,6 +1327,17 @@ export interface FileRouteTypes {
     | '/back-office/marketing-tracker'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
+    | '/contracting-ops/carriers'
+    | '/contracting-ops/compensation'
+    | '/contracting-ops/documents'
+    | '/contracting-ops/hierarchies'
+    | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/licensing'
+    | '/contracting-ops/queue'
+    | '/contracting-ops/ready-to-sell'
+    | '/contracting-ops/requests'
+    | '/contracting-ops/settings'
+    | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
@@ -1210,9 +1370,11 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
+    | '/contracting-ops/'
     | '/contracting/'
     | '/settings/'
     | '/back-office/case-design/admin'
+    | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1220,6 +1382,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/contracting-ops/requests/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1293,6 +1456,16 @@ export interface FileRouteTypes {
     | '/back-office/marketing-tracker'
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
+    | '/contracting-ops/carriers'
+    | '/contracting-ops/compensation'
+    | '/contracting-ops/documents'
+    | '/contracting-ops/hierarchies'
+    | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/licensing'
+    | '/contracting-ops/queue'
+    | '/contracting-ops/ready-to-sell'
+    | '/contracting-ops/settings'
+    | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
@@ -1325,9 +1498,11 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
+    | '/contracting-ops'
     | '/contracting'
     | '/settings'
     | '/back-office/case-design/admin'
+    | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1335,6 +1510,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/contracting-ops/requests'
   id:
     | '__root__'
     | '/'
@@ -1359,6 +1535,7 @@ export interface FileRouteTypes {
     | '/_authenticated/carrier-sync'
     | '/_authenticated/challenges'
     | '/_authenticated/contracting'
+    | '/_authenticated/contracting-ops'
     | '/_authenticated/dashboard'
     | '/_authenticated/finances'
     | '/_authenticated/intake'
@@ -1411,6 +1588,17 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office/marketing-tracker'
     | '/_authenticated/back-office/recruiting-funnels'
     | '/_authenticated/back-office/recruiting-tracker'
+    | '/_authenticated/contracting-ops/carriers'
+    | '/_authenticated/contracting-ops/compensation'
+    | '/_authenticated/contracting-ops/documents'
+    | '/_authenticated/contracting-ops/hierarchies'
+    | '/_authenticated/contracting-ops/hierarchy-changes'
+    | '/_authenticated/contracting-ops/licensing'
+    | '/_authenticated/contracting-ops/queue'
+    | '/_authenticated/contracting-ops/ready-to-sell'
+    | '/_authenticated/contracting-ops/requests'
+    | '/_authenticated/contracting-ops/settings'
+    | '/_authenticated/contracting-ops/writing-numbers'
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
@@ -1443,9 +1631,11 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
+    | '/_authenticated/contracting-ops/'
     | '/_authenticated/contracting/'
     | '/_authenticated/settings/'
     | '/_authenticated/back-office/case-design_/admin'
+    | '/_authenticated/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1453,6 +1643,7 @@ export interface FileRouteTypes {
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/_authenticated/contracting-ops/requests/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1856,6 +2047,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting-ops': {
+      id: '/_authenticated/contracting-ops'
+      path: '/contracting-ops'
+      fullPath: '/contracting-ops'
+      preLoaderRoute: typeof AuthenticatedContractingOpsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/contracting': {
       id: '/_authenticated/contracting'
       path: '/contracting'
@@ -1932,6 +2130,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/contracting/'
       preLoaderRoute: typeof AuthenticatedContractingIndexRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting-ops/': {
+      id: '/_authenticated/contracting-ops/'
+      path: '/'
+      fullPath: '/contracting-ops/'
+      preLoaderRoute: typeof AuthenticatedContractingOpsIndexRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
     }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
@@ -2157,6 +2362,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingAnnuityTrainingRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
+    '/_authenticated/contracting-ops/writing-numbers': {
+      id: '/_authenticated/contracting-ops/writing-numbers'
+      path: '/writing-numbers'
+      fullPath: '/contracting-ops/writing-numbers'
+      preLoaderRoute: typeof AuthenticatedContractingOpsWritingNumbersRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/settings': {
+      id: '/_authenticated/contracting-ops/settings'
+      path: '/settings'
+      fullPath: '/contracting-ops/settings'
+      preLoaderRoute: typeof AuthenticatedContractingOpsSettingsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/requests': {
+      id: '/_authenticated/contracting-ops/requests'
+      path: '/requests'
+      fullPath: '/contracting-ops/requests'
+      preLoaderRoute: typeof AuthenticatedContractingOpsRequestsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/ready-to-sell': {
+      id: '/_authenticated/contracting-ops/ready-to-sell'
+      path: '/ready-to-sell'
+      fullPath: '/contracting-ops/ready-to-sell'
+      preLoaderRoute: typeof AuthenticatedContractingOpsReadyToSellRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/queue': {
+      id: '/_authenticated/contracting-ops/queue'
+      path: '/queue'
+      fullPath: '/contracting-ops/queue'
+      preLoaderRoute: typeof AuthenticatedContractingOpsQueueRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/licensing': {
+      id: '/_authenticated/contracting-ops/licensing'
+      path: '/licensing'
+      fullPath: '/contracting-ops/licensing'
+      preLoaderRoute: typeof AuthenticatedContractingOpsLicensingRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/hierarchy-changes': {
+      id: '/_authenticated/contracting-ops/hierarchy-changes'
+      path: '/hierarchy-changes'
+      fullPath: '/contracting-ops/hierarchy-changes'
+      preLoaderRoute: typeof AuthenticatedContractingOpsHierarchyChangesRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/hierarchies': {
+      id: '/_authenticated/contracting-ops/hierarchies'
+      path: '/hierarchies'
+      fullPath: '/contracting-ops/hierarchies'
+      preLoaderRoute: typeof AuthenticatedContractingOpsHierarchiesRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/documents': {
+      id: '/_authenticated/contracting-ops/documents'
+      path: '/documents'
+      fullPath: '/contracting-ops/documents'
+      preLoaderRoute: typeof AuthenticatedContractingOpsDocumentsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/compensation': {
+      id: '/_authenticated/contracting-ops/compensation'
+      path: '/compensation'
+      fullPath: '/contracting-ops/compensation'
+      preLoaderRoute: typeof AuthenticatedContractingOpsCompensationRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/carriers': {
+      id: '/_authenticated/contracting-ops/carriers'
+      path: '/carriers'
+      fullPath: '/contracting-ops/carriers'
+      preLoaderRoute: typeof AuthenticatedContractingOpsCarriersRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
     '/_authenticated/back-office/recruiting-tracker': {
       id: '/_authenticated/back-office/recruiting-tracker'
       path: '/recruiting-tracker'
@@ -2255,6 +2537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountFaqRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting-ops/requests/': {
+      id: '/_authenticated/contracting-ops/requests/'
+      path: '/'
+      fullPath: '/contracting-ops/requests/'
+      preLoaderRoute: typeof AuthenticatedContractingOpsRequestsIndexRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRequestsRoute
+    }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
       path: '/lovable/email/transactional/send'
@@ -2303,6 +2592,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/public/hooks/fetch-news'
       preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/contracting-ops/requests/$requestId': {
+      id: '/_authenticated/contracting-ops/requests/$requestId'
+      path: '/$requestId'
+      fullPath: '/contracting-ops/requests/$requestId'
+      preLoaderRoute: typeof AuthenticatedContractingOpsRequestsRequestIdRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRequestsRoute
     }
     '/_authenticated/back-office/case-design_/admin': {
       id: '/_authenticated/back-office/case-design_/admin'
@@ -2378,6 +2674,72 @@ const AuthenticatedContractingRouteWithChildren =
     AuthenticatedContractingRouteChildren,
   )
 
+interface AuthenticatedContractingOpsRequestsRouteChildren {
+  AuthenticatedContractingOpsRequestsRequestIdRoute: typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  AuthenticatedContractingOpsRequestsIndexRoute: typeof AuthenticatedContractingOpsRequestsIndexRoute
+}
+
+const AuthenticatedContractingOpsRequestsRouteChildren: AuthenticatedContractingOpsRequestsRouteChildren =
+  {
+    AuthenticatedContractingOpsRequestsRequestIdRoute:
+      AuthenticatedContractingOpsRequestsRequestIdRoute,
+    AuthenticatedContractingOpsRequestsIndexRoute:
+      AuthenticatedContractingOpsRequestsIndexRoute,
+  }
+
+const AuthenticatedContractingOpsRequestsRouteWithChildren =
+  AuthenticatedContractingOpsRequestsRoute._addFileChildren(
+    AuthenticatedContractingOpsRequestsRouteChildren,
+  )
+
+interface AuthenticatedContractingOpsRouteChildren {
+  AuthenticatedContractingOpsCarriersRoute: typeof AuthenticatedContractingOpsCarriersRoute
+  AuthenticatedContractingOpsCompensationRoute: typeof AuthenticatedContractingOpsCompensationRoute
+  AuthenticatedContractingOpsDocumentsRoute: typeof AuthenticatedContractingOpsDocumentsRoute
+  AuthenticatedContractingOpsHierarchiesRoute: typeof AuthenticatedContractingOpsHierarchiesRoute
+  AuthenticatedContractingOpsHierarchyChangesRoute: typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  AuthenticatedContractingOpsLicensingRoute: typeof AuthenticatedContractingOpsLicensingRoute
+  AuthenticatedContractingOpsQueueRoute: typeof AuthenticatedContractingOpsQueueRoute
+  AuthenticatedContractingOpsReadyToSellRoute: typeof AuthenticatedContractingOpsReadyToSellRoute
+  AuthenticatedContractingOpsRequestsRoute: typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  AuthenticatedContractingOpsSettingsRoute: typeof AuthenticatedContractingOpsSettingsRoute
+  AuthenticatedContractingOpsWritingNumbersRoute: typeof AuthenticatedContractingOpsWritingNumbersRoute
+  AuthenticatedContractingOpsIndexRoute: typeof AuthenticatedContractingOpsIndexRoute
+}
+
+const AuthenticatedContractingOpsRouteChildren: AuthenticatedContractingOpsRouteChildren =
+  {
+    AuthenticatedContractingOpsCarriersRoute:
+      AuthenticatedContractingOpsCarriersRoute,
+    AuthenticatedContractingOpsCompensationRoute:
+      AuthenticatedContractingOpsCompensationRoute,
+    AuthenticatedContractingOpsDocumentsRoute:
+      AuthenticatedContractingOpsDocumentsRoute,
+    AuthenticatedContractingOpsHierarchiesRoute:
+      AuthenticatedContractingOpsHierarchiesRoute,
+    AuthenticatedContractingOpsHierarchyChangesRoute:
+      AuthenticatedContractingOpsHierarchyChangesRoute,
+    AuthenticatedContractingOpsLicensingRoute:
+      AuthenticatedContractingOpsLicensingRoute,
+    AuthenticatedContractingOpsQueueRoute:
+      AuthenticatedContractingOpsQueueRoute,
+    AuthenticatedContractingOpsReadyToSellRoute:
+      AuthenticatedContractingOpsReadyToSellRoute,
+    AuthenticatedContractingOpsRequestsRoute:
+      AuthenticatedContractingOpsRequestsRouteWithChildren,
+    AuthenticatedContractingOpsSettingsRoute:
+      AuthenticatedContractingOpsSettingsRoute,
+    AuthenticatedContractingOpsWritingNumbersRoute:
+      AuthenticatedContractingOpsWritingNumbersRoute,
+    AuthenticatedContractingOpsIndexRoute:
+      AuthenticatedContractingOpsIndexRoute,
+  }
+
+const AuthenticatedContractingOpsRouteWithChildren =
+  AuthenticatedContractingOpsRoute._addFileChildren(
+    AuthenticatedContractingOpsRouteChildren,
+  )
+
 interface AuthenticatedNovaRouteChildren {
   AuthenticatedNovaActivityRoute: typeof AuthenticatedNovaActivityRoute
   AuthenticatedNovaSettingsRoute: typeof AuthenticatedNovaSettingsRoute
@@ -2427,6 +2789,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCarrierSyncRoute: typeof AuthenticatedCarrierSyncRoute
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
+  AuthenticatedContractingOpsRoute: typeof AuthenticatedContractingOpsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedIntakeRoute: typeof AuthenticatedIntakeRoute
@@ -2470,6 +2833,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCarrierSyncRoute: AuthenticatedCarrierSyncRoute,
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
+  AuthenticatedContractingOpsRoute:
+    AuthenticatedContractingOpsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedIntakeRoute: AuthenticatedIntakeRoute,
@@ -2595,3 +2960,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

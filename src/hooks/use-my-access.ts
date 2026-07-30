@@ -39,6 +39,14 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/finances": isStaff ? !!p.staff_view_commissions : true,
     "/contracting/commission-grids": isStaff ? !!p.staff_view_commissions : true,
     "/contracting": isStaff ? !!p.staff_view_contracts : true,
+    // The operations workspace is agency machinery, not an agent surface.
+    // Agents reach their own requests through Contracts; this is for the
+    // people who process them.
+    "/contracting-ops": canManage
+      || (isStaff && (!!p.staff_view_contracts || !!(p as any).contracting_manage_carriers
+                      || !!(p as any).contracting_submit || !!(p as any).contracting_approve
+                      || !!(p as any).contracting_assign_staff || !!(p as any).contracting_manage_licenses))
+      || (isManager && !!p.mgr_submit_carrier_requests),
     "/contracting/transfers": isStaff ? !!p.staff_view_contracts : true,
     "/contracting/carriers": isStaff ? !!p.staff_view_contracts : true,
     "/contracting/annuity-training": !isStaff,

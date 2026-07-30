@@ -44,6 +44,7 @@ const groups: NavGroup[] = [
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Onboarding", url: "/contracting/invite", icon: UserPlus },
       { title: "Contracts", url: "/contracting", icon: FileSignature },
+      { title: "Contracting Ops", url: "/contracting-ops", icon: ClipboardList },
       { title: "Carriers", url: "/contracting/carriers", icon: Building2 },
       { title: "Comp Grids", url: "/contracting/comp-grids-manage", icon: Percent },
       { title: "Challenges", url: "/challenges", icon: Target },
