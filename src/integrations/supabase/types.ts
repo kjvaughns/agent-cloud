@@ -1458,15 +1458,96 @@ export type Database = {
           },
         ]
       }
+      commission_grid_uploads: {
+        Row: {
+          carrier_id: string | null
+          carrier_name: string | null
+          created_at: string
+          error: string | null
+          extracted: Json | null
+          file_name: string
+          file_url: string | null
+          id: string
+          mime_type: string | null
+          organization_id: string | null
+          row_count: number
+          status: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          error?: string | null
+          extracted?: Json | null
+          file_name: string
+          file_url?: string | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string | null
+          row_count?: number
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          error?: string | null
+          extracted?: Json | null
+          file_name?: string
+          file_url?: string | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string | null
+          row_count?: number
+          status?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_grid_uploads_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_grid_uploads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_grid_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_grids: {
         Row: {
           age_group_max: number | null
           age_group_min: number | null
           carrier_id: string
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          effective_date: string | null
           id: string
           is_estimated: boolean
           level_name: string | null
+          organization_id: string | null
           product_name: string
+          source: string | null
+          source_file: string | null
+          updated_at: string
           year_1_pct: number | null
           years_2_5_pct: number | null
           years_6_plus_pct: number | null
@@ -1475,10 +1556,18 @@ export type Database = {
           age_group_max?: number | null
           age_group_min?: number | null
           carrier_id: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
           id?: string
           is_estimated?: boolean
           level_name?: string | null
+          organization_id?: string | null
           product_name: string
+          source?: string | null
+          source_file?: string | null
+          updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
           years_6_plus_pct?: number | null
@@ -1487,10 +1576,18 @@ export type Database = {
           age_group_max?: number | null
           age_group_min?: number | null
           carrier_id?: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
           id?: string
           is_estimated?: boolean
           level_name?: string | null
+          organization_id?: string | null
           product_name?: string
+          source?: string | null
+          source_file?: string | null
+          updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
           years_6_plus_pct?: number | null
@@ -1501,6 +1598,20 @@ export type Database = {
             columns: ["carrier_id"]
             isOneToOne: false
             referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_grids_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_grids_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2212,6 +2323,100 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_intake: {
+        Row: {
+          batch_id: string
+          carrier_name: string | null
+          confidence: number | null
+          created_at: string
+          doc_type: string | null
+          error: string | null
+          extracted: Json | null
+          file_name: string
+          file_url: string | null
+          id: string
+          mime_type: string | null
+          organization_id: string | null
+          period_label: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          size_bytes: number | null
+          status: string
+          suggested_action: string | null
+          summary: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          batch_id: string
+          carrier_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          doc_type?: string | null
+          error?: string | null
+          extracted?: Json | null
+          file_name: string
+          file_url?: string | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string | null
+          period_label?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          suggested_action?: string | null
+          summary?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          batch_id?: string
+          carrier_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          doc_type?: string | null
+          error?: string | null
+          extracted?: Json | null
+          file_name?: string
+          file_url?: string | null
+          id?: string
+          mime_type?: string | null
+          organization_id?: string | null
+          period_label?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          size_bytes?: number | null
+          status?: string
+          suggested_action?: string | null
+          summary?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_intake_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_intake_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_intake_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
