@@ -140,6 +140,17 @@ export const updateCaseDesignAdmin = createServerFn({ method: "POST" })
         type: "case_design",
       });
     }
+    if (data.status === "complete" || data.status === "needs_info") {
+      const { queueEmail, APP_ORIGIN } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "case-design-updated",
+        profileId: row.agent_id,
+        category: "transactional",
+        key: `case-design:${data.id}:${data.status}`,
+        data: { state: data.status, appUrl: APP_ORIGIN },
+      });
+    }
+
     return { ok: true };
   });
 
