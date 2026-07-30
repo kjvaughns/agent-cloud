@@ -339,7 +339,22 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
         carrier_assignments: carrierAssignments,
         is_reusable: false,
       });
+      if (!error) {
+        const { queueEmail } = await import("@/lib/email/send.server");
+        await queueEmail({
+          template: "agent-invited",
+          to: agent.email,
+          profileId: authData?.user?.id ?? null,
+          category: "onboarding",
+          key: `agent-invited:${token}`,
+          data: {
+            firstName: agent.first_name,
+            inviteUrl: `${(await import("@/lib/email/send.server")).APP_ORIGIN}/join/${token}`,
+          },
+        });
+      }
       results.push({ email: agent.email, ok: !error, token });
+
     }
     return { results };
   });
