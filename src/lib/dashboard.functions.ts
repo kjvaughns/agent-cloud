@@ -372,3 +372,94 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       .sort((a, b) => b.premium - a.premium);
     return { agents: sorted as LeaderboardAgent[], selfId: userId as string };
   });
+
+// ── Range-scoped production series (drives the hero chart) ──────────────────
+
+export type SeriesPoint = { label: string; personal: number; team: number };
+
+/**
+ * Daily / weekly / monthly ALP for an arbitrary range, split personal vs team.
+ *
+ * The hero chart previously always showed a month-to-date daily cumulative
+ * regardless of the selected period, so the chart and the numbers above it
+ * could disagree. This is bucketed from the same range the KPIs use.
+ *
+ * "team" here means the whole hierarchy including the caller, matching what an
+ * agency owner expects a Total Production line to mean. The RPC's team_prod is
+ * downline-only, so the KPI tiles and this series answer different questions on
+ * purpose — the tiles say "my production" and "the team's", the chart shows
+ * personal against the combined total.
+ */
+export const getProductionSeries = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RangeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+
+    const start = new Date(data.rangeStart);
+    const end = new Date(data.rangeEnd);
+    const spanDays = Math.max(1, (end.getTime() - start.getTime()) / 86400000);
+
+    // Hierarchy scope. get_downline_agents is org-constrained and cycle-safe.
+    const { data: downline } = await supabase.rpc("get_downline_agents");
+    const ids = [userId, ...(downline ?? []).map((d: any) => d.id)];
+
+    // biz_date is COALESCE(effective_date, posted_at) to match the RPC. That
+    // cannot be filtered server-side through PostgREST, so the window is
+    // widened on posted_at and narrowed here.
+    const pad = new Date(start.getTime() - 400 * 86400000).toISOString();
+    const { data: pols } = await supabase
+      .from("policies")
+      .select("agent_id, annual_premium, posted_at, effective_date")
+      .in("agent_id", ids.length ? ids : [userId])
+      .gte("posted_at", pad)
+      .lte("posted_at", end.toISOString())
+      .limit(20000);
+
+    type Bucket = "hour" | "day" | "week" | "month";
+    const bucket: Bucket =
+      spanDays <= 1.5 ? "hour" : spanDays <= 62 ? "day" : spanDays <= 190 ? "week" : "month";
+
+    const keyOf = (d: Date) => {
+      if (bucket === "hour") return `${d.getHours()}`.padStart(2, "0");
+      if (bucket === "day") return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (bucket === "week") {
+        const w = new Date(d);
+        w.setDate(w.getDate() - w.getDay());
+        return `${w.getFullYear()}-${w.getMonth()}-${w.getDate()}`;
+      }
+      return `${d.getFullYear()}-${d.getMonth()}`;
+    };
+
+    const labelOf = (d: Date) => {
+      if (bucket === "hour") return `${((d.getHours() + 11) % 12) + 1}${d.getHours() < 12 ? "a" : "p"}`;
+      if (bucket === "month") return d.toLocaleDateString(undefined, { month: "short" });
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+
+    // Pre-seed every bucket so a quiet day renders as zero rather than a gap.
+    const buckets = new Map<string, SeriesPoint>();
+    const cursor = new Date(start);
+    const guard = 400;
+    for (let i = 0; i < guard && cursor <= end; i++) {
+      const k = keyOf(cursor);
+      if (!buckets.has(k)) buckets.set(k, { label: labelOf(cursor), personal: 0, team: 0 });
+      if (bucket === "hour") cursor.setHours(cursor.getHours() + 1);
+      else if (bucket === "day") cursor.setDate(cursor.getDate() + 1);
+      else if (bucket === "week") cursor.setDate(cursor.getDate() + 7);
+      else cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    for (const p of pols ?? []) {
+      const biz = new Date(p.effective_date ?? p.posted_at);
+      if (biz < start || biz > end) continue;
+      const k = keyOf(biz);
+      const b = buckets.get(k);
+      if (!b) continue;
+      const alp = Number(p.annual_premium ?? 0);
+      b.team += alp;
+      if (p.agent_id === userId) b.personal += alp;
+    }
+
+    return { series: Array.from(buckets.values()) as SeriesPoint[], bucket };
+  });

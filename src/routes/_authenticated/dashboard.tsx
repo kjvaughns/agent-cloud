@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { DollarSign, Users, FileText, FolderOpen, ArrowRight, AlertTriangle, CheckCircle2, ChevronRight, UserPlus, Bell, TrendingUp, AlertCircle } from "lucide-react";
-import { format, subDays, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal, getProductionSeries } from "@/lib/dashboard.functions";
 import { getProducerProfile } from "@/lib/account.functions";
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
@@ -36,25 +36,70 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-const RANGES: { value: string; label: string; days: number | null }[] = [
-  { value: "today", label: "Today", days: 1 },
-  { value: "7d", label: "7 Days", days: 7 },
-  { value: "30d", label: "30 Days", days: 30 },
-  { value: "90d", label: "90 Days", days: 90 },
-  { value: "all", label: "All Time", days: null },
+/**
+ * Period presets. All are "to date" — week means week-to-date, quarter means
+ * quarter-to-date — so every option reads consistently against the Month
+ * default rather than mixing rolling windows with calendar periods.
+ */
+const RANGES: { value: string; label: string }[] = [
+  { value: "today",   label: "Today" },
+  { value: "week",    label: "This Week" },
+  { value: "month",   label: "This Month" },
+  { value: "quarter", label: "This Quarter" },
+  { value: "year",    label: "This Year" },
 ];
 
+function rangeBounds(range: string, custom: { from: string; to: string } | null) {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (range === "__custom" && custom?.from && custom?.to) {
+    const from = new Date(custom.from + "T00:00:00");
+    // Inclusive of the chosen end date.
+    const to = new Date(custom.to + "T23:59:59.999");
+    return {
+      start: from,
+      end: to,
+      label: `${from.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${to.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+      headline: "Production",
+    };
+  }
+
+  switch (range) {
+    case "today":
+      return { start: startOfToday, end: now, label: "Today", headline: "Today's ALP" };
+    case "week": {
+      const d = new Date(startOfToday);
+      d.setDate(d.getDate() - d.getDay());
+      return { start: d, end: now, label: "This Week", headline: "Week-to-date ALP" };
+    }
+    case "quarter": {
+      const q = Math.floor(now.getMonth() / 3) * 3;
+      return { start: new Date(now.getFullYear(), q, 1), end: now, label: "This Quarter", headline: "Quarter-to-date ALP" };
+    }
+    case "year":
+      return { start: new Date(now.getFullYear(), 0, 1), end: now, label: "This Year", headline: "Year-to-date ALP" };
+    case "month":
+    default:
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now, label: "This Month", headline: "Month-to-date ALP" };
+  }
+}
+
 function Dashboard() {
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState("month");
+  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
   const [metric, setMetric] = useState<"prod" | "policies">("prod");
   const [view, setView] = useState<"personal" | "agency">("personal");
 
-  const { rangeStart, rangeEnd, rangeLabel } = useMemo(() => {
-    const end = new Date();
-    const opt = RANGES.find((r) => r.value === range)!;
-    const start = opt.days ? startOfDay(subDays(end, opt.days)) : new Date("2000-01-01");
-    return { rangeStart: start.toISOString(), rangeEnd: end.toISOString(), rangeLabel: opt.label };
-  }, [range]);
+  const { rangeStart, rangeEnd, rangeLabel, rangeHeadline } = useMemo(() => {
+    const b = rangeBounds(range, custom);
+    return {
+      rangeStart: b.start.toISOString(),
+      rangeEnd: b.end.toISOString(),
+      rangeLabel: b.label,
+      rangeHeadline: b.headline,
+    };
+  }, [range, custom]);
 
   const fetchMetrics = useServerFn(getDashboardMetrics);
   const { data, isLoading } = useQuery({
@@ -73,6 +118,15 @@ function Dashboard() {
 
   const fetchHero = useServerFn(getDashboardHero);
   const { data: hero } = useQuery({ queryKey: ["dashboard-hero"], queryFn: () => fetchHero(), staleTime: 60_000 });
+
+  // Chart series for the selected period, so the line always matches the
+  // numbers above it.
+  const fetchSeries = useServerFn(getProductionSeries);
+  const { data: seriesData, isLoading: seriesLoading } = useQuery({
+    queryKey: ["dashboard-series", rangeStart, rangeEnd],
+    queryFn: () => fetchSeries({ data: { rangeStart, rangeEnd } }),
+    staleTime: 60_000,
+  });
 
   const fetchCommission = useServerFn(getCommissionSummary);
   const { data: commission } = useQuery({ queryKey: ["dashboard-commission"], queryFn: () => fetchCommission(), staleTime: 60_000 });
@@ -133,7 +187,17 @@ function Dashboard() {
       <div className="mb-[var(--gap)] empty:mb-0"><SetupChecklist /></div>
       <div className={cn("cgrid", !novaRail && "nonova")}>
         <div className="col">
-          <HeroPanel hero={hero} range={range} setRange={setRange} />
+          <HeroPanel
+            hero={hero}
+            metrics={data}
+            series={seriesData?.series ?? []}
+            seriesLoading={seriesLoading}
+            range={range}
+            setRange={setRange}
+            onCustom={(from, to) => setCustom({ from, to })}
+            rangeLabel={rangeLabel}
+            rangeHeadline={rangeHeadline}
+          />
 
           <div className="duo">
             <LeaderboardPanel leaders={leaders} rangeLabel={rangeLabel} />
@@ -291,13 +355,54 @@ function GoalEditor({ goal, isDefault }: { goal: number; isDefault: boolean }) {
   );
 }
 
-function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRange: (v: string) => void }) {
+/**
+ * Hero band.
+ *
+ * The four tiles come from get_dashboard_metrics, which is already scoped to
+ * the selected period, so changing the range moves every number here — the
+ * previous version read fixed today/week/MTD fields that ignored the picker.
+ *
+ * team_prod from the RPC is downline-only by design (see
+ * 20260610030000_fix_dashboard_team_prod), so "Total Production (Team)" is the
+ * team's production excluding your own, matching how an override is thought
+ * about.
+ */
+function HeroPanel({
+  hero, metrics, series, seriesLoading, range, setRange, onCustom, rangeLabel, rangeHeadline,
+}: {
+  hero: any;
+  metrics: any;
+  series: { label: string; personal: number; team: number }[];
+  seriesLoading: boolean;
+  range: string;
+  setRange: (v: string) => void;
+  onCustom: (from: string, to: string) => void;
+  rangeLabel: string;
+  rangeHeadline: string;
+}) {
+  const myProd = Number(metrics?.my_prod ?? 0);
+  const teamProd = Number(metrics?.team_prod ?? 0);
+  const myPolicies = Number(metrics?.my_policies ?? 0);
+  const teamPolicies = Number(metrics?.team_policies ?? 0);
+
   const kpis = [
-    { label: "Today ALP", value: money(hero?.todayAlp ?? 0), delta: `${(hero?.todayDelta ?? 0) >= 0 ? "+" : ""}${money(hero?.todayDelta ?? 0)}`, up: (hero?.todayDelta ?? 0) >= 0 },
-    { label: "Week ALP", value: money(hero?.weekAlp ?? 0), delta: hero?.weekDeltaPct == null ? "no prior data" : pctStr(hero.weekDeltaPct), up: hero?.weekDeltaPct == null ? undefined : hero.weekDeltaPct >= 0 },
-    { label: "Active Policies", value: number(hero?.activePolicies ?? 0), delta: `+${hero?.activeToday ?? 0} today`, up: true },
-    { label: "Team ALP", value: money(hero?.teamAlp ?? 0), delta: hero?.teamDeltaPct == null ? "downline only" : `${pctStr(hero.teamDeltaPct)} MoM`, up: hero?.teamDeltaPct == null ? undefined : hero.teamDeltaPct >= 0 },
+    { label: "Personal Production", value: money(myProd), delta: rangeLabel },
+    { label: "Total Production (Team)", value: money(teamProd), delta: "downline only" },
+    { label: "Total Policies (Personal)", value: number(myPolicies), delta: rangeLabel },
+    { label: "Total Policies (Team)", value: number(teamPolicies), delta: "incl. yours" },
   ];
+
+  // Cumulative personal ALP across the period — the running total reads better
+  // than per-bucket spikes at every range width.
+  const chart = (() => {
+    let running = 0;
+    const pts = series.map((p) => (running += p.personal));
+    return pts.length >= 2 ? pts : [0, ...pts];
+  })();
+
+  // The goal is a monthly target, so it is only meaningful on the month view.
+  const showGoal = range === "month";
+
   return (
     <Panel pad={false} className="overflow-hidden">
       <div className="hgrid hgrid-swap">
@@ -312,19 +417,28 @@ function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRan
               )}
               style={{ padding: "var(--pad)" }}
             >
-              <StatTile label={k.label} value={k.value} delta={k.delta} deltaUp={k.up} />
+              <StatTile label={k.label} value={k.value} delta={k.delta} />
             </div>
           ))}
         </div>
+
         <div className="min-w-0" style={{ padding: "var(--pad)" }}>
           <div className="flex justify-between items-start gap-3">
-            <div>
-              <div className="font-display text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Month-to-date ALP</div>
-              <div className="flex items-baseline gap-3 mt-1.5">
-                <div className="tnum font-display font-bold leading-none text-gold-bright" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(34px,4.5vw,46px)", letterSpacing: "-0.02em" }}>
-                  {money(hero?.mtdAlp ?? 0)}
+            <div className="min-w-0">
+              <div
+                className="font-display text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {rangeHeadline}
+              </div>
+              <div className="flex items-baseline gap-3 mt-1.5 flex-wrap">
+                <div
+                  className="tnum font-display font-bold leading-none text-gold-bright"
+                  style={{ fontFamily: "var(--font-display)", fontSize: "clamp(34px,4.5vw,46px)", letterSpacing: "-0.02em" }}
+                >
+                  {money(myProd)}
                 </div>
-                {hero?.mtdDeltaPct != null && (
+                {showGoal && hero?.mtdDeltaPct != null && (
                   <div
                     className={cn(
                       "inline-flex items-center gap-1 text-[12.5px] font-semibold rounded-full px-2 py-0.5",
@@ -337,13 +451,35 @@ function HeroPanel({ hero, range, setRange }: { hero: any; range: string; setRan
                   </div>
                 )}
               </div>
-              <div className="text-[11.5px] text-muted-foreground mt-1.5">
-                Goal <GoalEditor goal={hero?.mtdGoal ?? 25000} isDefault={!!hero?.goalIsDefault} /> · <span className="text-foreground">{hero?.mtdPct ?? 0}% there</span> · {hero?.daysLeft ?? 0} days left
-              </div>
+
+              {showGoal ? (
+                <div className="text-[11.5px] text-muted-foreground mt-1.5">
+                  Goal <GoalEditor goal={hero?.mtdGoal ?? 25000} isDefault={!!hero?.goalIsDefault} /> ·{" "}
+                  <span className="text-foreground">{hero?.mtdPct ?? 0}% there</span> · {hero?.daysLeft ?? 0} days left
+                </div>
+              ) : (
+                <div className="text-[11.5px] text-muted-foreground mt-1.5">
+                  {rangeLabel} · <span className="text-foreground tnum">{number(myPolicies)}</span>{" "}
+                  polic{myPolicies === 1 ? "y" : "ies"} ·{" "}
+                  <span className="text-foreground tnum">
+                    {money(myPolicies > 0 ? myProd / myPolicies : 0)}
+                  </span>{" "}
+                  avg
+                </div>
+              )}
             </div>
-            <DateRangePicker options={RANGES.map((r) => ({ value: r.value, label: r.label }))} value={range} onChange={setRange} />
+
+            <DateRangePicker
+              options={RANGES}
+              value={range}
+              onChange={setRange}
+              onCustom={onCustom}
+            />
           </div>
-          <div className="mt-3.5"><SmoothAreaChart data={(hero?.trend?.length ?? 0) >= 2 ? hero.trend : [0, 0]} /></div>
+
+          <div className="mt-3.5">
+            {seriesLoading ? <Skeleton className="h-[120px]" /> : <SmoothAreaChart data={chart} />}
+          </div>
         </div>
       </div>
     </Panel>
