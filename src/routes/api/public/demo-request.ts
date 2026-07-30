@@ -73,6 +73,8 @@ export const Route = createFileRoute("/api/public/demo-request")({
           const { data: admins } = await (supabaseAdmin as any)
             .from("user_roles").select("user_id").eq("role", "super_admin");
 
+          const { queueEmail } = await import("@/lib/email/send.server");
+
           for (const a of admins ?? []) {
             await (supabaseAdmin as any).from("notifications").insert({
               user_id: a.user_id,
@@ -87,10 +89,25 @@ export const Route = createFileRoute("/api/public/demo-request")({
               created_by: a.user_id,
               priority: "high",
             });
+            await queueEmail({
+              template: "demo-request",
+              profileId: a.user_id,
+              category: "transactional",
+              key: `demo-request:${lead.id}:${a.user_id}`,
+              data: {
+                name: `${row.first_name} ${row.last_name}`.trim(),
+                company: row.agency_name ?? undefined,
+                email: row.email ?? undefined,
+                phone: (row as any).phone ?? undefined,
+                teamSize: (row as any).team_size ?? undefined,
+                message: (row as any).primary_challenge ?? undefined,
+              },
+            });
           }
         } catch {
           // Notification failure must not lose the lead — it is already saved.
         }
+
 
         return json({ ok: true, id: lead.id });
       },
