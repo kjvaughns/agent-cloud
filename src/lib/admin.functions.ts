@@ -345,7 +345,7 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
           template: "agent-invited",
           to: agent.email,
           profileId: authData?.user?.id ?? null,
-          category: "onboarding",
+          category: "transactional",
           key: `agent-invited:${token}`,
           data: {
             firstName: agent.first_name,
