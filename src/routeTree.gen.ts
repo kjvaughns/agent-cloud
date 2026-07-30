@@ -110,6 +110,7 @@ import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
 import { Route as AuthenticatedAgencyTeamRouteImport } from './routes/_authenticated/agency.team'
 import { Route as AuthenticatedAgencySettingsRouteImport } from './routes/_authenticated/agency/settings'
+import { Route as AuthenticatedAgencyAutomationsRouteImport } from './routes/_authenticated/agency/automations'
 import { Route as AuthenticatedAccountProducerProfileRouteImport } from './routes/_authenticated/account/producer-profile'
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
@@ -662,6 +663,12 @@ const AuthenticatedAgencySettingsRoute =
     path: '/agency/settings',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAgencyAutomationsRoute =
+  AuthenticatedAgencyAutomationsRouteImport.update({
+    id: '/agency/automations',
+    path: '/agency/automations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAccountProducerProfileRoute =
   AuthenticatedAccountProducerProfileRouteImport.update({
     id: '/account/producer-profile',
@@ -794,6 +801,7 @@ export interface FileRoutesByFullPath {
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/agency/automations': typeof AuthenticatedAgencyAutomationsRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
@@ -906,6 +914,7 @@ export interface FileRoutesByTo {
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/agency/automations': typeof AuthenticatedAgencyAutomationsRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
@@ -1022,6 +1031,7 @@ export interface FileRoutesById {
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
+  '/_authenticated/agency/automations': typeof AuthenticatedAgencyAutomationsRoute
   '/_authenticated/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/_authenticated/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
@@ -1138,6 +1148,7 @@ export interface FileRouteTypes {
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
+    | '/agency/automations'
     | '/agency/settings'
     | '/agency/team'
     | '/back-office/advanced-desk'
@@ -1250,6 +1261,7 @@ export interface FileRouteTypes {
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
+    | '/agency/automations'
     | '/agency/settings'
     | '/agency/team'
     | '/back-office/advanced-desk'
@@ -1365,6 +1377,7 @@ export interface FileRouteTypes {
     | '/_authenticated/account/help'
     | '/_authenticated/account/my-landing-page'
     | '/_authenticated/account/producer-profile'
+    | '/_authenticated/agency/automations'
     | '/_authenticated/agency/settings'
     | '/_authenticated/agency/team'
     | '/_authenticated/back-office/advanced-desk'
@@ -2168,6 +2181,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgencySettingsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/agency/automations': {
+      id: '/_authenticated/agency/automations'
+      path: '/agency/automations'
+      fullPath: '/agency/automations'
+      preLoaderRoute: typeof AuthenticatedAgencyAutomationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/account/producer-profile': {
       id: '/_authenticated/account/producer-profile'
       path: '/account/producer-profile'
@@ -2387,6 +2407,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
+  AuthenticatedAgencyAutomationsRoute: typeof AuthenticatedAgencyAutomationsRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
   AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
   AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
@@ -2429,6 +2450,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountMyLandingPageRoute,
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
+  AuthenticatedAgencyAutomationsRoute: AuthenticatedAgencyAutomationsRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
   AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
   AuthenticatedFinancesReconciliationRoute:
