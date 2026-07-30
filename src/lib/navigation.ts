@@ -67,17 +67,15 @@ export const PAGES: Page[] = [
   { id: "licensing", label: "Licensing", path: "/contracting-ops/licensing", icon: FileSignature, area: "Contracting", audience: ["owner", "staff"] },
   { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"] },
   { id: "carriers-dir", label: "Carrier Directory", path: "/contracting-ops/carriers", icon: Building2, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Contracting", audience: ["owner"] },
-  { id: "comp-grids", label: "Comp Grids", path: "/contracting-ops/comp-grids", icon: Percent, area: "Contracting", audience: ["owner", "staff"] },
+  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Contracting", audience: ["owner", "staff"] },
   { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Contracting", audience: ["owner", "staff"] },
   { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Contracting", audience: ["owner", "staff"] },
   { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Contracting", audience: ["owner", "staff", "manager"] },
   { id: "my-contracts", label: "My Contracts", path: "/contracting", icon: FileSignature, area: "Contracting" },
   { id: "carriers", label: "Carriers", path: "/contracting/carriers", icon: Building2, area: "Contracting" },
 
-  // Reporting
+  // Reporting — one page. Analytics redirects here.
   { id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reporting", audience: ["owner", "manager"] },
-  { id: "analytics", label: "Analytics", path: "/analytics", icon: BarChart3, area: "Reporting" },
 
   // Tools
   { id: "phone", label: "Phone", path: "/phone", icon: Phone, area: "Tools", audience: ["solo", "agent", "manager", "owner"] },

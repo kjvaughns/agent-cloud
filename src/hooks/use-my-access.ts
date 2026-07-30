@@ -32,6 +32,9 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/leaderboard": !isSolo && !isStaff,
     "/challenges": !isSolo && !isStaff,
     "/contracting/invite": isOwner || (isManager && !!p.mgr_manage_onboarding) || (!isManager && !isStaff && !isSolo),
+    // Analytics merged into Reports; both paths carry the same gate while the
+    // old one still redirects.
+    "/reports": isStaff ? !!p.staff_view_analytics : isManager ? !!p.mgr_view_team_analytics : true,
     "/analytics": isStaff ? !!p.staff_view_analytics : isManager ? !!p.mgr_view_team_analytics : true,
     "/pipeline": isStaff ? !!p.staff_view_clients : true,
     "/book-of-business": isStaff ? !!p.staff_view_policies : true,

@@ -10,20 +10,50 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listCompLevels, saveCompLevel, saveRoleCompMapping } from "@/lib/contracting-records.functions";
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { EmptyState } from "@/components/contracting/shared";
+import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
+
+const TABS = ["levels", "grids"] as const;
+type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/compensation")({
   component: CompensationPage,
-  head: () => ({ meta: [{ title: "Compensation Levels | Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Compensation | Agent Cloud" }] }),
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } =>
+    TABS.includes(s.tab as Tab) ? { tab: s.tab as Tab } : {},
 });
 
 const INTERNAL_ROLES = ["agent", "senior_agent", "manager", "agency_owner"];
 
+/**
+ * One page for what a carrier pays.
+ *
+ * Levels are the deal your agency has with a carrier; grids are the product
+ * percentages behind it. They were two sidebar entries, which meant guessing
+ * which one held the number you wanted. Same question, one page.
+ */
 function CompensationPage() {
+  const { tab } = Route.useSearch();
+  return (
+    <Tabs defaultValue={tab ?? "levels"} className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="levels">Levels</TabsTrigger>
+        <TabsTrigger value="grids">Carrier grids</TabsTrigger>
+      </TabsList>
+      <TabsContent value="levels"><LevelsPanel /></TabsContent>
+      {/* The shipped grids page, without its own page chrome so it does not
+          nest a second shell inside this one. */}
+      <TabsContent value="grids"><ManageGridsPage embedded /></TabsContent>
+    </Tabs>
+  );
+}
+
+function LevelsPanel() {
   const qc = useQueryClient();
   const listFn = useServerFn(listCompLevels);
   const carriersFn = useServerFn(listOrgCarriers);

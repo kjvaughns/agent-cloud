@@ -19,11 +19,12 @@ import {
 import { fileToImageDataUrl } from "@/lib/file-to-image";
 
 export const Route = createFileRoute("/_authenticated/contracting/comp-grids-manage")({
-  // Comp grids moved into Contracting Operations, beside the comp levels and
-  // writing numbers they describe. Redirect rather than delete: this path is
-  // bookmarked and referenced by the setup checklist.
-  beforeLoad: () => { throw redirect({ to: "/contracting-ops/comp-grids" }); },
-  component: ManageGridsPage,
+  // Comp grids moved into Contracting Operations, beside the comp levels they
+  // describe. Redirect rather than delete: this path is bookmarked and
+  // referenced by the setup checklist.
+  beforeLoad: () => {
+    throw redirect({ to: "/contracting-ops/compensation", search: { tab: "grids" } });
+  },
 });
 
 const BLANK: GridRow = {
@@ -32,7 +33,11 @@ const BLANK: GridRow = {
   age_group_min: null, age_group_max: null,
 };
 
-export function ManageGridsPage() {
+/**
+ * Rendered as the Grids tab of Contracting → Compensation. `embedded` drops
+ * the page chrome so it does not nest a second shell inside that page.
+ */
+export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const listFn = useServerFn(listMyGrids);
   const { data, isLoading } = useQuery({ queryKey: ["comp-grids"], queryFn: () => listFn() });
@@ -116,13 +121,19 @@ export function ManageGridsPage() {
 
   const valid = carrierId && rows.some((r) => r.product_name.trim() && r.level_name.trim());
 
+  const Wrap = ({ children }: { children: React.ReactNode }) =>
+    embedded
+      ? <div className="flex flex-col gap-[var(--gap)]">{children}</div>
+      : <PageShell><div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">{children}</div></PageShell>;
+
   return (
-    <PageShell>
-      <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">
-        <HeroBand
-          title="Commission Grids"
-          subtitle="Your contract levels drive every payout forecast — keep them current"
-        />
+    <Wrap>
+        {!embedded && (
+          <HeroBand
+            title="Commission Grids"
+            subtitle="Your contract levels drive every payout forecast — keep them current"
+          />
+        )}
 
         <Panel title="Add or update a carrier grid">
           <div className="grid gap-4 sm:grid-cols-[260px_1fr] items-start">
@@ -250,7 +261,6 @@ export function ManageGridsPage() {
             </ul>
           )}
         </Panel>
-      </div>
-    </PageShell>
+    </Wrap>
   );
 }

@@ -619,7 +619,7 @@ function DashboardRail({ atRisk }: { atRisk: any[] }) {
         actions={[
           { label: "Show all at-risk policies", onClick: () => navigate({ to: "/book-of-business", search: { status: "lapse_pending" } as any }) },
           { label: "Draft a retention script", onClick: () => navigate({ to: "/resources/scripts" }) },
-          { label: "Summarize this week", onClick: () => navigate({ to: "/analytics" }) },
+          { label: "Summarize this week", onClick: () => navigate({ to: "/reports" }) },
         ]}
       />
     </aside>

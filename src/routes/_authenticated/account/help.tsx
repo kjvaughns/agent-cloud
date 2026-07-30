@@ -15,7 +15,10 @@ import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
 import { AiHelpSearch } from "@/components/ai/ai-help-search";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { FaqPage } from "../account/faq";
+import { FaqPanel } from "@/components/account/faq-panel";
+
+const TABS = ["kb", "faq", "ticket", "my-tickets"] as const;
+type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_authenticated/account/help")({
   head: () => ({
@@ -24,6 +27,12 @@ export const Route = createFileRoute("/_authenticated/account/help")({
       { name: "description", content: "Get help with Agent Cloud — articles, contact support, and live chat." },
     ],
   }),
+  // ?tab= lets the old /account/faq link land on the FAQ rather than dumping
+  // people on the knowledge base and making them hunt.
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => {
+    const t = s.tab;
+    return TABS.includes(t as Tab) ? { tab: t as Tab } : {};
+  },
   component: HelpPage,
 });
 
@@ -51,15 +60,16 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 function HelpPage() {
+  const { tab } = Route.useSearch();
   return (
     <PageShell>
       <div className="max-w-5xl mx-auto space-y-6">
       <HeroBand
         title={<span className="flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> Help Center</span>}
-        subtitle="Search the knowledge base, submit a support ticket, or view your ticket history."
+        subtitle="Search the knowledge base, read the FAQ, or open a support ticket."
       />
 
-      <Tabs defaultValue="kb">
+      <Tabs defaultValue={tab ?? "kb"}>
         <TabsList>
           <TabsTrigger value="kb">Knowledge Base</TabsTrigger>
           <TabsTrigger value="faq">FAQ</TabsTrigger>
@@ -103,7 +113,7 @@ function HelpPage() {
         {/* FAQ was its own sidebar entry; it belongs with the other
             self-service answers. */}
         <TabsContent value="faq" className="mt-4">
-          <FaqPage />
+          <FaqPanel />
         </TabsContent>
 
         <TabsContent value="ticket" className="mt-4">
