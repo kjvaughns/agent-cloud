@@ -126,6 +126,7 @@ import { Route as AuthenticatedBackOfficeMarketingTrackerRouteImport } from './r
 import { Route as AuthenticatedBackOfficeClientMarketingRouteImport } from './routes/_authenticated/back-office/client-marketing'
 import { Route as AuthenticatedBackOfficeCaseDesignRouteImport } from './routes/_authenticated/back-office/case-design'
 import { Route as AuthenticatedBackOfficeAdvancedDeskRouteImport } from './routes/_authenticated/back-office/advanced-desk'
+import { Route as AuthenticatedAgencyUsageRouteImport } from './routes/_authenticated/agency/usage'
 import { Route as AuthenticatedAgencyTeamRouteImport } from './routes/_authenticated/agency.team'
 import { Route as AuthenticatedAgencySettingsRouteImport } from './routes/_authenticated/agency/settings'
 import { Route as AuthenticatedAgencyEmailsRouteImport } from './routes/_authenticated/agency/emails'
@@ -780,6 +781,12 @@ const AuthenticatedBackOfficeAdvancedDeskRoute =
     path: '/advanced-desk',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedAgencyUsageRoute =
+  AuthenticatedAgencyUsageRouteImport.update({
+    id: '/agency/usage',
+    path: '/agency/usage',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAgencyTeamRoute = AuthenticatedAgencyTeamRouteImport.update({
   id: '/agency/team',
   path: '/agency/team',
@@ -953,6 +960,7 @@ export interface FileRoutesByFullPath {
   '/agency/emails': typeof AuthenticatedAgencyEmailsRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
+  '/agency/usage': typeof AuthenticatedAgencyUsageRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -1086,6 +1094,7 @@ export interface FileRoutesByTo {
   '/agency/emails': typeof AuthenticatedAgencyEmailsRoute
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
+  '/agency/usage': typeof AuthenticatedAgencyUsageRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -1223,6 +1232,7 @@ export interface FileRoutesById {
   '/_authenticated/agency/emails': typeof AuthenticatedAgencyEmailsRoute
   '/_authenticated/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/_authenticated/agency/team': typeof AuthenticatedAgencyTeamRoute
+  '/_authenticated/agency/usage': typeof AuthenticatedAgencyUsageRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
   '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
@@ -1361,6 +1371,7 @@ export interface FileRouteTypes {
     | '/agency/emails'
     | '/agency/settings'
     | '/agency/team'
+    | '/agency/usage'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -1494,6 +1505,7 @@ export interface FileRouteTypes {
     | '/agency/emails'
     | '/agency/settings'
     | '/agency/team'
+    | '/agency/usage'
     | '/back-office/advanced-desk'
     | '/back-office/case-design'
     | '/back-office/client-marketing'
@@ -1630,6 +1642,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agency/emails'
     | '/_authenticated/agency/settings'
     | '/_authenticated/agency/team'
+    | '/_authenticated/agency/usage'
     | '/_authenticated/back-office/advanced-desk'
     | '/_authenticated/back-office/case-design'
     | '/_authenticated/back-office/client-marketing'
@@ -2561,6 +2574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeAdvancedDeskRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/agency/usage': {
+      id: '/_authenticated/agency/usage'
+      path: '/agency/usage'
+      fullPath: '/agency/usage'
+      preLoaderRoute: typeof AuthenticatedAgencyUsageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/agency/team': {
       id: '/_authenticated/agency/team'
       path: '/agency/team'
@@ -2903,6 +2923,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgencyEmailsRoute: typeof AuthenticatedAgencyEmailsRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
   AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
+  AuthenticatedAgencyUsageRoute: typeof AuthenticatedAgencyUsageRoute
   AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
@@ -2951,6 +2972,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAgencyEmailsRoute: AuthenticatedAgencyEmailsRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
   AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
+  AuthenticatedAgencyUsageRoute: AuthenticatedAgencyUsageRoute,
   AuthenticatedFinancesReconciliationRoute:
     AuthenticatedFinancesReconciliationRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
@@ -3051,3 +3073,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

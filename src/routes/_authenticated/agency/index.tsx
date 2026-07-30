@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle, BarChart3, Bot, Building2, ClipboardList, FileSignature, Heart,
-  IdCard, Mail, Palette, Percent, ShieldCheck, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
+  Activity, IdCard, Mail, Palette, Percent, ShieldCheck, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
 } from "lucide-react";
 import { PageShell, Panel } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +70,7 @@ const SECTIONS: Section[] = [
       { title: "Automations", body: "Work that runs without somebody remembering to do it.", to: "/agency/automations", icon: Bot, adminOnly: true },
       { title: "Emails", body: "What the agency sends, and to whom.", to: "/agency/emails", icon: Mail, adminOnly: true },
       { title: "Reports", body: "Production, placement, persistency and operational health.", to: "/reports", icon: BarChart3 },
+      { title: "What people use", body: "Which pages get opened and which never do. Read this before removing anything.", to: "/agency/usage", icon: Activity, adminOnly: true },
     ],
   },
   {

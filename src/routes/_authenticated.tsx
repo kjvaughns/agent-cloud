@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useRouter, isRedirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useRouter, useRouterState, isRedirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -7,6 +7,7 @@ import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { supabase } from "@/integrations/supabase/client";
+import { installUsagelisteners, trackPageView } from "@/lib/usage";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   if (isRedirect(error)) throw error;
@@ -68,10 +69,16 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   const [open, setOpen] = useState(true);
+  const path = useRouterState({ select: (r) => r.location.pathname });
 
   useEffect(() => {
     setOpen(localStorage.getItem("sidebar-open") !== "false");
   }, []);
+
+  // Every authenticated page passes through here, so one hook gives full page
+  // coverage without instrumenting eighty routes by hand.
+  useEffect(() => { installUsagelisteners(); }, []);
+  useEffect(() => { trackPageView(path); }, [path]);
 
   function persistSidebarOpen(nextOpen: boolean) {
     setOpen(nextOpen);
