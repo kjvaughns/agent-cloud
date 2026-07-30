@@ -25,7 +25,7 @@ export type JobRunRow = {
   skipped: number;
   errored: number;
   error: string | null;
-  detail: Record<string, unknown> | null;
+  detail: any;
 };
 
 /** Static catalogue so the UI can list jobs that have never run. */

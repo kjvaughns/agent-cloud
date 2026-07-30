@@ -21,7 +21,7 @@ export type JobCounts = {
   acted: number;
   skipped: number;
   errored: number;
-  detail?: Record<string, unknown>;
+  detail?: any;
 };
 
 export type AutomationJob = {
