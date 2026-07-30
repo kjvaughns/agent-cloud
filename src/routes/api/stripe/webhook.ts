@@ -57,7 +57,22 @@ async function handleOrgEvent(kind: string, orgId: string, type: string, obj: an
       patch.nova_seats_purchased = (org?.nova_seats_purchased ?? 0) + qty;
     }
     await orgQ().update(patch).eq("id", orgId);
+
+    const { data: owner } = await orgQ().select("owner_id, name, plan_type").eq("id", orgId).maybeSingle();
+    if (owner?.owner_id) {
+      await billingEmail({
+        template: kind === "nova_seats" ? "nova-pro-changed" : "subscription-changed",
+        profileId: owner.owner_id,
+        orgId,
+        key: `checkout-completed:${obj.id ?? `${orgId}:${kind}`}`,
+        data:
+          kind === "nova_seats"
+            ? { state: "activated", seats: patch.nova_seats_purchased }
+            : { state: "activated", planName: kind === "white_label" ? "White Label" : "Agency" },
+      });
+    }
     return;
+
   }
 
   if (type === "invoice.paid") {
