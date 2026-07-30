@@ -2488,6 +2488,7 @@ export type Database = {
           message_id: string | null
           metadata: Json | null
           recipient_email: string
+          send_key: string | null
           status: string
           template_name: string
         }
@@ -2498,6 +2499,7 @@ export type Database = {
           message_id?: string | null
           metadata?: Json | null
           recipient_email: string
+          send_key?: string | null
           status: string
           template_name: string
         }
@@ -2508,6 +2510,7 @@ export type Database = {
           message_id?: string | null
           metadata?: Json | null
           recipient_email?: string
+          send_key?: string | null
           status?: string
           template_name?: string
         }
@@ -3226,6 +3229,8 @@ export type Database = {
       organization_settings: {
         Row: {
           created_at: string
+          email_categories: Json
+          emails_enabled: boolean
           notify_contract_request: boolean
           notify_new_agent: boolean
           notify_new_ticket: boolean
@@ -3238,6 +3243,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email_categories?: Json
+          emails_enabled?: boolean
           notify_contract_request?: boolean
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
@@ -3250,6 +3257,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email_categories?: Json
+          emails_enabled?: boolean
           notify_contract_request?: boolean
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
