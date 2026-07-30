@@ -114,18 +114,43 @@ export const reconcileStatement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ statement_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context as Ctx;
+    const { supabase, userId } = context as Ctx;
     const { data: result, error } = await supabase.rpc("reconcile_statement", {
       _statement_id: data.statement_id,
     });
     if (error) throw new Error(error.message);
     const r = Array.isArray(result) ? result[0] : result;
-    return {
+    const out = {
       matched: Number(r?.matched ?? 0),
       variance: Number(r?.variance_count ?? 0),
       unmatched: Number(r?.unmatched ?? 0),
     };
+
+    const { data: stmt } = await supabase
+      .from("commission_statements")
+      .select("id, carrier_id, statement_date")
+      .eq("id", data.statement_id)
+      .maybeSingle();
+    const { queueEmail, APP_ORIGIN } = await import("@/lib/email/send.server");
+    await queueEmail({
+      template: "statement-reconciled",
+      profileId: userId,
+      category: "commission_posted",
+      key: `statement-reconciled:${data.statement_id}`,
+      data: {
+        statementLabel: (stmt as any)?.statement_date
+          ? `Statement ${(stmt as any).statement_date}`
+          : undefined,
+        matched: out.matched,
+        varianceCount: out.variance,
+        unmatched: out.unmatched,
+        appUrl: `${APP_ORIGIN}/finances`,
+      },
+    });
+
+    return out;
   });
+
 
 export const getStatementDetail = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
