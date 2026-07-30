@@ -74,6 +74,23 @@ export const Route = createFileRoute("/api/public/lead-submit")({
           type: "lead",
         });
 
+        {
+          const { queueEmail } = await import("@/lib/email/send.server");
+          await queueEmail({
+            template: "new-lead",
+            profileId: agent.id,
+            category: "team_activity",
+            key: `new-lead:landing:${page.id}:${d.phone ?? d.email ?? ""}:${Date.now()}`,
+            data: {
+              leadName: `${d.first_name} ${d.last_name}`.trim(),
+              source: page.title ?? "Landing page",
+              state: d.state ?? undefined,
+              phone: d.phone ?? undefined,
+            },
+          });
+        }
+
+
         return Response.json({ ok: true }, { headers: { "Access-Control-Allow-Origin": "*" } });
       },
     },
