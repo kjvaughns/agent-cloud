@@ -1,80 +1,53 @@
+## What I verified first
 
-# Agent Cloud — AI automation layer
+- The send pipeline (`/lovable/email/transactional/send`), the queue worker, suppression, unsubscribe tokens and `email_send_log` all exist and look sound.
+- `registry.ts` registers **only** `waitlist-confirmation`. Six written templates (`signup`, `magic-link`, `recovery`, `email-change`, `reauthentication`, `invite`) are unreachable.
+- `email_send_log` has just 2 rows total — effectively nothing has ever been sent.
+- 15 files insert `notifications` rows (billing, contracting, onboarding, tasks, transfers, case design, leads, demo requests, funnel applications, SureLC contract approvals, Nova usage limits). None send email.
+- Two gaps that block the stated rules as written:
+  - **Idempotency is currently impossible.** The send route generates a fresh random `message_id` per request and only uses `idempotencyKey` inside the queue payload — so the `message_id` unique index can never dedupe an event. This must be fixed.
+  - **Org-level consent does not exist yet.** `organization_settings` has only `notify_new_agent` / `notify_new_ticket` / `notify_contract_request`. There is no per-category org opt-in and no org email kill switch. `may_notify(profile, category)` (recipient layer) does exist and works.
 
-Everything is built on what exists: `callAi`/`callAiJson`, the 12 AI functions, `automation_runs`, `document_intake`, `tasks`, `retention_cases`. Nothing is rewritten. Ship order below is the order things become useful; each phase stands alone.
+## Plan
 
-## What I confirmed first
+### Phase 1 — Foundation (no user-visible email yet)
+1. **Migration**: add to `organization_settings` an `emails_enabled` boolean (default false — absence of configuration means do not send) and an `email_categories` jsonb of per-category opt-ins. Add a `send_key` text column + unique index to `email_send_log` for event-level idempotency.
+2. **Fix the send route** so the caller's idempotency key becomes the dedupe key: reuse it as `message_id`/`send_key`, and short-circuit when a row for that key already exists in a non-failed state. Sending twice then produces one email.
+3. **One server-side helper**, `src/lib/email/send.server.ts`, exporting `sendTransactionalEmail({ template, to, profileId, orgId, category, key, data })`. It runs the whole gate in one place: environment check → org opt-in → `may_notify` → suppression → idempotency → enqueue. It never throws; every refusal is logged with its reason. The HTTP route becomes a thin wrapper over the same module so there is exactly one code path.
+4. **Environment guard**: nothing sends from local/preview unless an explicit opt-in flag is set. Blocked sends are logged as such.
 
-- `src/lib/ai-gateway.ts` exports `callAi` / `callAiJson<T>` (JSON mode + `{...}` fallback, multimodal parts). All AI goes through it.
-- `automation-worker.functions.ts` exports `runDueAutomations` and `listAutomationRuns` — a per-agent runner with the consent + idempotency + SMS-blocked rules already implemented. That is the pattern the scheduler reuses, not replaces.
-- `requireNovaPro(userId)` and `trackNovaUsage(userId, metric)` exist in `billing.functions.ts`; `NOVA_LIMITS` in `billing/pricing.ts`.
-- **Gaps that need schema:** there is no job-run table (nothing records that a sweep ran); `retention_cases` has no columns for an AI proposal; `organization_settings` has only `notify_new_agent` / `notify_new_ticket` / `notify_contract_request` — there is no switch for an automated agency brief, so one must be added rather than assumed.
+### Phase 2 — Brand layout + register what exists
+- One shared `EmailLayout` (`@react-email/components`, table-based, 600px, inline styles, plain-text alternative, image-blocked fallback, dark-mode-safe). Reads real tokens from `src/styles.css`; agency logo/accent from `organizations.logo_url` / `accent_color` only on the `white_label` plan, Agent Cloud mark otherwise.
+- Register the six orphaned templates with correct subjects and `previewData`; re-skin them onto the shared layout. This alone fixes auth mail.
 
----
+### Phase 3 — New templates
+Built in category batches, each registered with `previewData`:
+- **Onboarding & team** — agent invited, invite accepted, onboarding stalled nudge, carrier added, contract request status changed
+- **Money** — commission posted, statement reconciled (variance count), payment failed, subscription activated/cancelled, Nova Pro activated/ended
+- **Book of business** — policy at risk, retention case assigned, policy placed
+- **Work** — task assigned, daily digest, weekly agency summary
+- **Sales & lifecycle** — new lead, demo request (internal), transfer request submitted / action required
 
-## Phase 1 — Scheduler + the "what ran" surface
+No SSN, banking, card or full policy numbers in any body — link into the app instead.
 
-Build the visibility before the automation, per your instruction.
+### Phase 4 — Wire the call sites
+Every one of the 15 files that inserts a `notifications` row gets a matching `sendTransactionalEmail` call immediately alongside it, through the helper only. Where an event deliberately gets no email (e.g. Nova usage-percentage nudges), a comment states why. Email failure never breaks the action and never suppresses the in-app notification.
 
-**Schema:** `automation_job_runs` — org, job key, trigger (`cron` | `manual`), status (`running` / `ok` / `partial` / `failed`), `started_at`, `finished_at`, counts (`considered`, `acted`, `skipped`, `errored`), `error`, `detail` jsonb. Org-scoped RLS, owner-readable.
+### Phase 5 — Digests
+High-volume categories (policy at risk, leads, task assigned) route to a digest instead of per-event mail, using the automation job runner already in place: a daily digest job and a weekly agency summary job, both registered next to the existing hourly sweep. Only action-now events send immediately.
 
-**Entry point:** `src/routes/api/public/hooks/run-automations.ts` (POST). Verifies the `apikey` header, then dispatches registered jobs sequentially, one org at a time. A job registry maps a key → handler so later phases add a line, not a new endpoint. Each job opens its run row, runs inside try/catch, closes with counts. A per-job time budget stops a slow job from starving the rest. AI calls run sequentially in small batches with a short delay — never `Promise.all` over a whole table.
+### Phase 6 — Visibility
+- Admin preview page listing every registered template rendered from its `previewData`, plus a "send test to me" button per template.
+- An owner-facing email log view over `email_send_log` (deduplicated by key): template, recipient, status, timestamp, error, with time/template/status filters and summary counts — so "did that email actually send" is answerable.
+- Audit UI copy: remove or correct any "we've emailed you" claim not backed by an actual send.
 
-`pg_cron` is scheduled against the stable project URL, hourly, with an empty body.
+### Verification
+`npx tsgo --noEmit` plus a production build after each phase; render every registered template through the preview route; and a live double-send test against the log to prove one email results.
 
-**UI:** `/agency/automations` (owner-only) — list of recent job runs, status, counts, duration, error, and a "Run now" button per job that calls the same handler through an authenticated server fn.
+## Technical notes
+- The helper lives in a `.server.ts` module called from server functions with service-role credentials, so no per-call JWT round-trip; the existing JWT-gated HTTP route stays for client-triggered sends.
+- Org consent is fail-closed: unconfigured org → no send, logged.
+- Security/auth and billing-failure mail is exempt from unsubscribe; everything else carries a working unsubscribe link.
 
-Phase 1 ships with one real job wired in: the existing `runDueAutomations`, so the scheduler is proven end-to-end before any new AI job exists.
-
-## Phase 2 — Morning agency brief
-
-New job `agency_brief`. Aggregates overnight change through RLS-safe org-scoped queries: policies that entered at-risk, new retention cases, agents stalled in onboarding, contracting requests blocked >7 days, decisions due today. One `callAiJson` call per org producing a structured brief (sections, items, `confidence`), stored in a `agency_briefs` row and rendered on the dashboard for owners.
-
-Email only if a new `organization_settings.notify_daily_brief` is on **and** `may_notify(owner, 'announcements')` passes. Default off. Idempotent on `(org, date)`.
-
-## Phase 3 — Retention triage
-
-Add `ai_priority`, `ai_reason`, `ai_next_action`, `ai_confidence`, `ai_scored_at` to `retention_cases`. Job reads open/working cases with no score (or stale), pulls client + policy + contact history, and writes the proposal back. Never touches `assigned_to`, `status`, or `outcome_note`. Retention page sorts by AI priority with the reason shown inline and low confidence badged, not hidden.
-
-## Phase 4 — Commission variance explanation
-
-For statement lines where `match_status` is `variance` or `unexpected`, an advisory explainer reads the policy, carrier and applicable comp grid and returns one of: wrong level, chargeback, advance timing, split, unexplained — plus a `worth_disputing` flag and confidence. Written to `commission_statement_lines.note` plus new `ai_explanation` / `ai_confidence` / `ai_dispute` columns. Reporting only: no write to `commission_schedule`, and `commission-calculator.ts` is untouched.
-
-## Phase 5 — Onboarding and contracting nudges
-
-Detect stalls from `profiles.status`, `surelc_progress`, `agent_completion()` and stuck `contract_requests`. AI turns the raw blockers into a plain-language description; a `tasks` row is created for whoever can unblock it (upline, or owner for contracting). Idempotent through `automation_runs` keyed on the agent + week, so a stalled agent generates one task, not one per sweep. No email.
-
-## Phase 6 — Pipeline follow-up sweep
-
-Batch version of `getClientAiSuggestions` over stale pipeline clients (stage, temperature, days since last contact). Produces a ranked daily call list per agent — who to call and what to open with — stored per agent per day and surfaced as a dashboard card. Read-only against clients.
-
-## Phase 7 — Document intake, one-click apply
-
-Extend `analyzeIntakeDoc` for the two unambiguous types:
-- commission statement → extract lines, stage a draft `commission_statements` + lines, Apply runs the existing `reconcile_statement`.
-- lapse report → extract policy numbers, match, present draft retention cases; Apply inserts them.
-
-Everything lands in `document_intake.extracted` first; the row stays `needs_review` until a person clicks Apply. Unmatched rows are shown, not silently dropped.
-
-## Phase 8 — Natural-language ask
-
-Upgrade `askAiAssistant` into a two-step: the model picks from a fixed catalogue of parameterised, whitelisted queries (agent production, persistency by carrier, stalled agents, carrier mix, retention outcomes) and returns arguments; the server executes the chosen query through `context.supabase` so RLS scopes the answer; the model then narrates the returned rows. No generated SQL, no admin client. Gated by `requireNovaPro` + `trackNovaUsage(userId, "ai_queries")`.
-
----
-
-## Rules applied throughout
-
-- Reads and writes go through the RLS-bound `context.supabase`. The cron entry point has no user, so it iterates orgs with `supabaseAdmin` guarded by `src/lib/org-guard.ts` helpers and never returns rows to a user through that path.
-- Nothing autonomously changes a policy, commission row, client or contract. Every phase writes a proposal, a task, or a draft.
-- `commission-calculator.ts`, `saveClientFullRecord`, and the disabled `trg_generate_commission_schedule` are left alone.
-- Sends require both gates: the org switch and `may_notify()`. SMS stays recorded as `blocked`.
-- Every AI value that gets stored or compared comes from `callAiJson` with an explicit schema and a self-reported confidence.
-- Fail soft: one bad record is recorded on its own row and the batch continues.
-
-## Verification per phase
-
-`npx tsc --noEmit` and a build, plus running the job twice and showing the second pass acts on zero rows.
-
-## Note on sequencing
-
-You asked not to land all eight together. I'll implement Phase 1 and stop for you to look at the run log before Phase 2 — tell me if you'd rather I keep going through several phases per turn.
+## Sequencing
+Phases 1–2 are the smallest change that makes real mail work (auth emails start flowing). I'd suggest shipping and eyeballing those before I run 3–6, but I can run straight through if you'd rather.
