@@ -33,6 +33,7 @@ import { template as subscriptionChanged } from './subscription-changed'
 import { template as novaProChanged } from './nova-pro-changed'
 import { template as policyPlaced } from './policy-placed'
 import { template as policyAtRisk } from './policy-at-risk'
+import { template as caseDesignUpdated } from './case-design-updated'
 import { template as retentionCaseAssigned } from './retention-case-assigned'
 import { template as newLead } from './new-lead'
 import { template as demoRequest } from './demo-request'
@@ -109,6 +110,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'policy-placed': policyPlaced,
   'policy-at-risk': policyAtRisk,
   'retention-case-assigned': retentionCaseAssigned,
+  'case-design-updated': caseDesignUpdated,
 
   // Sales
   'new-lead': newLead,
