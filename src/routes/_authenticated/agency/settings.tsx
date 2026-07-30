@@ -19,13 +19,15 @@ export const Route = createFileRoute("/_authenticated/agency/settings")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/login" as any });
-    const { data: roleRow } = await supabase
+    // limit(1), not maybeSingle(): maybeSingle errors when more than one row
+    // matches, and an owner holds several of these roles at once.
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", data.session.user.id)
-      .in("role", ["super_admin", "agency_owner"] as any)
-      .maybeSingle();
-    if (!roleRow) throw redirect({ to: "/dashboard" as any });
+      .in("role", ["super_admin", "agency_owner", "admin"] as any)
+      .limit(1);
+    if (!roleRows?.length) throw redirect({ to: "/dashboard" as any });
   },
   component: OrganizationSettings,
 });

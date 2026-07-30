@@ -43,11 +43,12 @@ function SettingsHub() {
     return <PageShell><Skeleton className="h-72" /></PageShell>;
   }
 
-  // Management is agency configuration, so it only appears for the people who
-  // can actually change it.
-  const canManage =
-    Boolean(access?.isOwner) ||
-    (access?.role === "staff" && Boolean(access?.permissions?.admin_manage_staff_configs));
+  // Computed server-side by getMyAccess so this and the server's own check
+  // cannot disagree. Deriving it from isOwner here hid Support Desk,
+  // Integrations and Management from any owner whose account was never
+  // written into organizations.owner_id — the same bug already fixed on the
+  // Team page, missed in this file.
+  const canManage = Boolean(access?.canManageRoles);
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "billing", label: "Billing" },
@@ -79,7 +80,7 @@ function SettingsHub() {
           {tab === "notifications" && <NotificationSettings />}
           {tab === "support" && canManage && <SupportConsole />}
           {tab === "integrations" && canManage && <DiscordSettings />}
-          {tab === "management" && canManage && <ManagementTab isOwner={Boolean(access?.isOwner)} />}
+          {tab === "management" && canManage && <ManagementTab isOwner={canManage} />}
         </div>
       </div>
     </PageShell>

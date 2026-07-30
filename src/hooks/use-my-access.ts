@@ -20,6 +20,10 @@ export function useMyAccess(): { access: MyAccess | undefined; loading: boolean 
 export function canSeeNavItem(url: string, access: MyAccess | undefined): boolean {
   if (!access) return true; // until loaded, render default nav (agents are the common case)
   const { role, isSolo, isOwner, permissions: p } = access;
+  // Server-computed: true for the org owner, agency_owner/admin in their own
+  // org, and admin staff. isOwner alone is only organizations.owner_id, which
+  // many real owners are not.
+  const canManage = Boolean((access as any).canManageRoles) || isOwner;
   const isStaff = role === "staff" && !isOwner;
   const isManager = role === "manager" && !isOwner;
 
@@ -43,10 +47,10 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/ai-assistant": isStaff ? !!p.staff_nova_pro_enabled : true,
     "/settings": true,
     "/settings/nova-pro": isStaff ? !!p.staff_nova_pro_enabled : true,
-    "/agency/team": isOwner || (isStaff && !!p.staff_is_admin && !!p.admin_manage_staff_configs),
+    "/agency/team": canManage,
     // Both write agency-wide configuration, so they follow the owner gate.
-    "/intake": isOwner || (isStaff && !!p.staff_is_admin),
-    "/contracting/comp-grids-manage": isOwner,
+    "/intake": canManage || (isStaff && !!p.staff_is_admin),
+    "/contracting/comp-grids-manage": canManage,
     "/phone": isStaff ? false : true,
   };
   return url in rules ? rules[url] : true;
