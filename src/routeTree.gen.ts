@@ -44,6 +44,7 @@ import { Route as AdminBillingRouteImport } from './routes/admin.billing'
 import { Route as AdminAnnouncementsRouteImport } from './routes/admin.announcements'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
+import { Route as AuthenticatedWhiteLabelRouteImport } from './routes/_authenticated/white-label'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedRetentionRouteImport } from './routes/_authenticated/retention'
@@ -298,6 +299,11 @@ const AdminAgentsRoute = AdminAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
   getParentRoute: () => AdminRoute,
+} as any)
+const AuthenticatedWhiteLabelRoute = AuthenticatedWhiteLabelRouteImport.update({
+  id: '/white-label',
+  path: '/white-label',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
@@ -782,6 +788,7 @@ export interface FileRoutesByFullPath {
   '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -896,6 +903,7 @@ export interface FileRoutesByTo {
   '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
+  '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -1014,6 +1022,7 @@ export interface FileRoutesById {
   '/_authenticated/retention': typeof AuthenticatedRetentionRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -1132,6 +1141,7 @@ export interface FileRouteTypes {
     | '/retention'
     | '/tasks'
     | '/team'
+    | '/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -1246,6 +1256,7 @@ export interface FileRouteTypes {
     | '/retention'
     | '/tasks'
     | '/team'
+    | '/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -1363,6 +1374,7 @@ export interface FileRouteTypes {
     | '/_authenticated/retention'
     | '/_authenticated/tasks'
     | '/_authenticated/team'
+    | '/_authenticated/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -1731,6 +1743,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/agents'
       preLoaderRoute: typeof AdminAgentsRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/_authenticated/white-label': {
+      id: '/_authenticated/white-label'
+      path: '/white-label'
+      fullPath: '/white-label'
+      preLoaderRoute: typeof AuthenticatedWhiteLabelRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/team': {
       id: '/_authenticated/team'
@@ -2423,6 +2442,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRetentionRoute: typeof AuthenticatedRetentionRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedWhiteLabelRoute: typeof AuthenticatedWhiteLabelRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
@@ -2465,6 +2485,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRetentionRoute: AuthenticatedRetentionRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedWhiteLabelRoute: AuthenticatedWhiteLabelRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,
   AuthenticatedAccountMyLandingPageRoute:
