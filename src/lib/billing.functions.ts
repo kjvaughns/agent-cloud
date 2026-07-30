@@ -15,13 +15,22 @@ type Ctx = { supabase: any; userId: string };
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function getOwnedOrg(supabase: any, userId: string) {
-  const { data: org } = await supabase
+  // A user can legitimately own more than one organization, so this must not
+  // use maybeSingle() — that errors on multiple rows and looks like "no org".
+  const { data: orgs } = await supabase
     .from("organizations")
     .select("*")
     .eq("owner_id", userId)
-    .maybeSingle();
-  if (!org) throw new Error("You don't own an organization");
-  return org;
+    .order("created_at", { ascending: true });
+
+  const owned = orgs ?? [];
+  if (owned.length === 0) throw new Error("You don't own an organization");
+  if (owned.length === 1) return owned[0];
+
+  // Prefer the org the profile actually sits in.
+  const { data: profile } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  return owned.find((o: any) => o.id === profile?.organization_id) ?? owned[0];
 }
 
 /**

@@ -7,14 +7,16 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type Ctx = { supabase: any; userId: string };
 
+// limit(1), not maybeSingle(): users legitimately hold several of these roles
+// at once, and maybeSingle() errors on multiple rows. Legacy "admin" counts.
 async function requireAdmin(supabase: any, userId: string) {
   const { data } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .in("role", ["super_admin", "agency_owner"])
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden: admin role required");
+    .in("role", ["super_admin", "agency_owner", "admin"])
+    .limit(1);
+  if (!data?.length) throw new Error("Forbidden: admin role required");
 }
 
 async function requireManagerOrAdmin(supabase: any, userId: string) {
@@ -22,9 +24,9 @@ async function requireManagerOrAdmin(supabase: any, userId: string) {
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    .in("role", ["super_admin", "agency_owner", "manager"])
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden: manager or admin role required");
+    .in("role", ["super_admin", "agency_owner", "admin", "manager"])
+    .limit(1);
+  if (!data?.length) throw new Error("Forbidden: manager or admin role required");
 }
 
 export const adminListAllAgents = createServerFn({ method: "GET" })
