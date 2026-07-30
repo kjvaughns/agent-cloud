@@ -2576,6 +2576,212 @@ export type Database = {
           },
         ]
       }
+      contracting_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          metadata: Json
+          new_value: Json | null
+          organization_id: string | null
+          previous_value: Json | null
+          record_id: string | null
+          record_type: string
+          subject_agent_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          new_value?: Json | null
+          organization_id?: string | null
+          previous_value?: Json | null
+          record_id?: string | null
+          record_type: string
+          subject_agent_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          new_value?: Json | null
+          organization_id?: string | null
+          previous_value?: Json | null
+          record_id?: string | null
+          record_type?: string
+          subject_agent_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_audit_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_audit_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_audit_log_subject_agent_id_fkey"
+            columns: ["subject_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_email_templates: {
+        Row: {
+          active: boolean
+          applies_to: string[]
+          body: string
+          cc_email: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          org_carrier_id: string | null
+          organization_id: string
+          subject: string
+          suggested_attachments: string[]
+          to_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          applies_to?: string[]
+          body: string
+          cc_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          org_carrier_id?: string | null
+          organization_id: string
+          subject: string
+          suggested_attachments?: string[]
+          to_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          applies_to?: string[]
+          body?: string
+          cc_email?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          org_carrier_id?: string | null
+          organization_id?: string
+          subject?: string
+          suggested_attachments?: string[]
+          to_email?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_email_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_email_templates_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_email_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_field_mappings: {
+        Row: {
+          column_header: string
+          column_index: number | null
+          created_at: string
+          id: string
+          organization_id: string
+          required: boolean
+          sort_order: number
+          source_key: string
+          static_value: string | null
+          template_id: string
+          transform: string | null
+          updated_at: string
+        }
+        Insert: {
+          column_header: string
+          column_index?: number | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          required?: boolean
+          sort_order?: number
+          source_key: string
+          static_value?: string | null
+          template_id: string
+          transform?: string | null
+          updated_at?: string
+        }
+        Update: {
+          column_header?: string
+          column_index?: number | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          required?: boolean
+          sort_order?: number
+          source_key?: string
+          static_value?: string | null
+          template_id?: string
+          transform?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_field_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_field_mappings_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_spreadsheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracting_request_documents: {
         Row: {
           created_at: string
@@ -2919,6 +3125,76 @@ export type Database = {
           },
         ]
       }
+      contracting_spreadsheet_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          description: string | null
+          file_name: string | null
+          header_row: number
+          id: string
+          name: string
+          org_carrier_id: string | null
+          organization_id: string
+          sheet_name: string | null
+          storage_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_name?: string | null
+          header_row?: number
+          id?: string
+          name: string
+          org_carrier_id?: string | null
+          organization_id: string
+          sheet_name?: string | null
+          storage_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          file_name?: string | null
+          header_row?: number
+          id?: string
+          name?: string
+          org_carrier_id?: string | null
+          organization_id?: string
+          sheet_name?: string | null
+          storage_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_spreadsheet_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_spreadsheet_templates_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_spreadsheet_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracting_status_history: {
         Row: {
           agent_visible_message: string | null
@@ -2986,6 +3262,102 @@ export type Database = {
           },
           {
             foreignKeyName: "contracting_status_history_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_submissions: {
+        Row: {
+          artifact_type: string
+          change_request_id: string | null
+          confirmation_reference: string | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          marked_submitted_at: string | null
+          marked_submitted_by: string | null
+          method: string | null
+          notes: string | null
+          organization_id: string
+          payload_snapshot: Json
+          recipient: string | null
+          request_id: string | null
+          row_count: number | null
+          storage_path: string | null
+          template_id: string | null
+        }
+        Insert: {
+          artifact_type: string
+          change_request_id?: string | null
+          confirmation_reference?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          marked_submitted_at?: string | null
+          marked_submitted_by?: string | null
+          method?: string | null
+          notes?: string | null
+          organization_id: string
+          payload_snapshot?: Json
+          recipient?: string | null
+          request_id?: string | null
+          row_count?: number | null
+          storage_path?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          artifact_type?: string
+          change_request_id?: string | null
+          confirmation_reference?: string | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          marked_submitted_at?: string | null
+          marked_submitted_by?: string | null
+          method?: string | null
+          notes?: string | null
+          organization_id?: string
+          payload_snapshot?: Json
+          recipient?: string | null
+          request_id?: string | null
+          row_count?: number | null
+          storage_path?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_submissions_change_request_id_fkey"
+            columns: ["change_request_id"]
+            isOneToOne: false
+            referencedRelation: "hierarchy_change_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_submissions_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_submissions_marked_submitted_by_fkey"
+            columns: ["marked_submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_submissions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_submissions_request_id_fkey"
             columns: ["request_id"]
             isOneToOne: false
             referencedRelation: "contracting_requests"
@@ -3300,6 +3672,81 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_access_log: {
+        Row: {
+          access_type: string
+          accessed_by: string | null
+          created_at: string
+          document_id: string | null
+          id: string
+          ip_address: string | null
+          organization_id: string | null
+          pdb_upload_id: string | null
+          subject_agent_id: string | null
+          was_sensitive: boolean
+        }
+        Insert: {
+          access_type: string
+          accessed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string | null
+          pdb_upload_id?: string | null
+          subject_agent_id?: string | null
+          was_sensitive?: boolean
+        }
+        Update: {
+          access_type?: string
+          accessed_by?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          ip_address?: string | null
+          organization_id?: string | null
+          pdb_upload_id?: string | null
+          subject_agent_id?: string | null
+          was_sensitive?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_log_accessed_by_fkey"
+            columns: ["accessed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_log_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_log_pdb_upload_id_fkey"
+            columns: ["pdb_upload_id"]
+            isOneToOne: false
+            referencedRelation: "pdb_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_log_subject_agent_id_fkey"
+            columns: ["subject_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5837,6 +6284,83 @@ export type Database = {
           window_start?: string
         }
         Relationships: []
+      }
+      ready_to_sell_records: {
+        Row: {
+          agent_id: string
+          appointed_states: string[]
+          blockers: Json
+          computed_at: string
+          created_at: string
+          id: string
+          licensed_states: string[]
+          org_carrier_id: string
+          organization_id: string
+          product_lines: string[]
+          request_id: string | null
+          sellable_states: string[]
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          appointed_states?: string[]
+          blockers?: Json
+          computed_at?: string
+          created_at?: string
+          id?: string
+          licensed_states?: string[]
+          org_carrier_id: string
+          organization_id: string
+          product_lines?: string[]
+          request_id?: string | null
+          sellable_states?: string[]
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          appointed_states?: string[]
+          blockers?: Json
+          computed_at?: string
+          created_at?: string
+          id?: string
+          licensed_states?: string[]
+          org_carrier_id?: string
+          organization_id?: string
+          product_lines?: string[]
+          request_id?: string | null
+          sellable_states?: string[]
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ready_to_sell_records_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ready_to_sell_records_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ready_to_sell_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ready_to_sell_records_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recruiting_funnels: {
         Row: {
