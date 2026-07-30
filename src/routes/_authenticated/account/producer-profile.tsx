@@ -42,10 +42,48 @@ export const Route = createFileRoute("/_authenticated/account/producer-profile")
       { name: "description", content: "Manage your producer profile, documents, and integrations." },
     ],
   }),
+  // Lets the "Next" action, and links from elsewhere, land on the tab that
+  // actually contains the field being asked for.
+  validateSearch: (s: Record<string, unknown>): { tab?: ProfileTab } =>
+    PROFILE_TABS.includes(s.tab as ProfileTab) ? { tab: s.tab as ProfileTab } : {},
   component: ProducerProfilePage,
 });
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+
+const PROFILE_TABS = [
+  "profile", "contracting", "documents", "banking", "background", "integrations",
+] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+
+/**
+ * Where each outstanding item is actually fixed.
+ *
+ * Keyed on the labels agent_completion() returns, so there is one definition
+ * of what is missing rather than a second list here that can drift from it.
+ * An unrecognised label falls back to the profile tab, which is where a new
+ * field would most likely live.
+ */
+const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string }> = {
+  "Personal details":  { tab: "profile",   action: "Add your details" },
+  "NPN Number":        { tab: "profile",   action: "Add your NPN" },
+  "Home address":      { tab: "profile",   action: "Add your address" },
+  "E&O Certificate":   { tab: "documents", action: "Upload it" },
+  "AML Certificate":   { tab: "documents", action: "Upload it" },
+  "Driver's License":  { tab: "documents", action: "Upload it" },
+  "Banking Info":      { tab: "banking",   action: "Add your bank details" },
+};
+
+/** Why each item is worth doing — the consequence, not the instruction. */
+const WHY: Record<string, string> = {
+  "Personal details":  "Carriers contract your legal name and date of birth. Every packet needs them.",
+  "NPN Number":        "Your National Producer Number identifies you to every carrier and to NIPR.",
+  "Home address":      "Appointment paperwork is filed against your residential address.",
+  "E&O Certificate":   "No carrier will appoint you without current errors-and-omissions cover.",
+  "AML Certificate":   "Anti-money-laundering training is required before you can write annuities.",
+  "Driver's License":  "Used to verify your identity on carrier applications.",
+  "Banking Info":      "Where your commission gets paid.",
+};
 
 const BACKGROUND_QUESTIONS = [
   { id: "felony", text: "Have you ever been convicted of a felony?" },
@@ -73,6 +111,8 @@ const DOC_CATEGORIES = [
 function ProducerProfilePage() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const search = Route.useSearch();
+  const [tab, setTab] = useState<ProfileTab>(search.tab ?? "profile");
   const { data, isLoading } = useQuery({
     queryKey: ["account", "producerProfile"],
     queryFn: () => getProducerProfile(),
@@ -107,74 +147,13 @@ function ProducerProfilePage() {
         subtitle="Your producer record, compliance documents, and account integrations."
       />
 
-      {/* Profile Completion */}
-      <Card className={cn(
-        "border-2",
-        completion.pct >= 80 ? "border-emerald-500/30" :
-        completion.pct >= 50 ? "border-amber-500/30" : "border-red-500/40"
-      )}>
-        <CardContent className="p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-bold text-base">Profile Completion</div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                Complete your profile to unlock full contracting capabilities
-              </div>
-            </div>
-            <div className="text-right">
-              <div className={cn(
-                "text-3xl font-bold tnum",
-                completion.pct >= 80 ? "text-emerald-600" :
-                completion.pct >= 50 ? "text-amber-600" : "text-red-600"
-              )}>
-                {completion.pct}%
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {(completion.missing as string[]).length} items remaining
-              </div>
-            </div>
-          </div>
+      <NextStep
+        pct={completion.pct}
+        missing={completion.missing as string[]}
+        onGo={setTab}
+      />
 
-          <div className="h-3 bg-surface-2 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-700",
-                completion.pct >= 80 ? "bg-emerald-500" :
-                completion.pct >= 50 ? "bg-amber-500" : "bg-red-500"
-              )}
-              style={{ width: `${completion.pct}%` }}
-            />
-          </div>
-
-          {(completion.missing as string[]).length > 0 && (
-            <div className="space-y-1.5">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Missing</div>
-              <div className="flex flex-wrap gap-1.5">
-                {(completion.missing as string[]).map((item) => (
-                  <span key={item} className={cn(
-                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                    item.includes("Transfer")
-                      ? "bg-red-500/15 text-red-700 border-red-500/30"
-                      : "bg-amber-500/15 text-amber-700 border-amber-500/30"
-                  )}>
-                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {completion.pct === 100 && (
-            <div className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
-              <CheckCircle2 className="h-4 w-4" />
-              Profile complete — you're fully set up for contracting!
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Tabs defaultValue="profile">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as ProfileTab)}>
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="flex w-max">
             <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
@@ -212,6 +191,125 @@ function ProducerProfilePage() {
       </Tabs>
       </div>
     </PageShell>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Next step
+// ─────────────────────────────────────────────
+
+/**
+ * One thing to do, and the score.
+ *
+ * This page holds forty-odd fields across six tabs. Showing every outstanding
+ * item at once told you the size of the job without telling you where to
+ * start, which is the part that makes people close the tab.
+ *
+ * So: the next item, why it matters, and a button that goes to the tab
+ * containing it. The rest stays available behind a disclosure — hidden, not
+ * removed, because somebody who wants to work through all of them should be
+ * able to see the list.
+ *
+ * The percentage stays. People like knowing how far along they are; the
+ * problem was never the number, it was that the number came with a wall.
+ */
+function NextStep({
+  pct, missing, onGo,
+}: {
+  pct: number;
+  missing: string[];
+  onGo: (tab: ProfileTab) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+
+  if (missing.length === 0) {
+    return (
+      <Card className="border-2 border-emerald-500/30">
+        <CardContent className="flex items-center gap-2.5 p-5">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+          <div>
+            <div className="text-sm font-semibold">
+              Your profile is complete — you're fully set up for contracting.
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Everything carriers ask for is on file.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const next = missing[0];
+  const where = FIX_LOCATION[next] ?? { tab: "profile" as ProfileTab, action: "Go to it" };
+  const rest = missing.slice(1);
+
+  return (
+    <Card className="border-2 border-primary/30">
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+              Next
+            </div>
+            <div className="mt-1 text-base font-bold">{next}</div>
+            <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              {WHY[next] ?? "Carriers ask for this before they will appoint you."}
+            </div>
+            <Button size="sm" className="mt-3" onClick={() => onGo(where.tab)}>
+              {where.action}
+            </Button>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="tnum text-3xl font-bold text-foreground">{pct}%</div>
+            <div className="text-xs text-muted-foreground">
+              {missing.length} left
+            </div>
+          </div>
+        </div>
+
+        <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-700"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        {rest.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              aria-expanded={showAll}
+              className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {showAll ? "Hide the rest" : `Show the other ${rest.length}`}
+            </button>
+
+            {showAll && (
+              <ul className="mt-2 space-y-1">
+                {rest.map((item) => {
+                  const w = FIX_LOCATION[item] ?? { tab: "profile" as ProfileTab, action: "Go to it" };
+                  return (
+                    <li key={item} className="flex items-center gap-2 text-sm">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                      <span className="min-w-0 flex-1 truncate">{item}</span>
+                      <button
+                        type="button"
+                        onClick={() => onGo(w.tab)}
+                        className="shrink-0 text-xs font-medium text-primary hover:underline"
+                      >
+                        {w.action}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
