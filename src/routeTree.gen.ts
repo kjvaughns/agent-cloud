@@ -106,6 +106,7 @@ import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './r
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
 import { Route as AuthenticatedContractingOpsWritingNumbersRouteImport } from './routes/_authenticated/contracting-ops/writing-numbers'
+import { Route as AuthenticatedContractingOpsTemplatesRouteImport } from './routes/_authenticated/contracting-ops/templates'
 import { Route as AuthenticatedContractingOpsSettingsRouteImport } from './routes/_authenticated/contracting-ops/settings'
 import { Route as AuthenticatedContractingOpsRequestsRouteImport } from './routes/_authenticated/contracting-ops/requests'
 import { Route as AuthenticatedContractingOpsReadyToSellRouteImport } from './routes/_authenticated/contracting-ops/ready-to-sell'
@@ -656,6 +657,12 @@ const AuthenticatedContractingOpsWritingNumbersRoute =
     path: '/writing-numbers',
     getParentRoute: () => AuthenticatedContractingOpsRoute,
   } as any)
+const AuthenticatedContractingOpsTemplatesRoute =
+  AuthenticatedContractingOpsTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
 const AuthenticatedContractingOpsSettingsRoute =
   AuthenticatedContractingOpsSettingsRouteImport.update({
     id: '/settings',
@@ -941,6 +948,7 @@ export interface FileRoutesByFullPath {
   '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
   '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
   '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/templates': typeof AuthenticatedContractingOpsTemplatesRoute
   '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
@@ -1069,6 +1077,7 @@ export interface FileRoutesByTo {
   '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
   '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
   '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/templates': typeof AuthenticatedContractingOpsTemplatesRoute
   '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
@@ -1203,6 +1212,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
   '/_authenticated/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
   '/_authenticated/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/_authenticated/contracting-ops/templates': typeof AuthenticatedContractingOpsTemplatesRoute
   '/_authenticated/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
@@ -1337,6 +1347,7 @@ export interface FileRouteTypes {
     | '/contracting-ops/ready-to-sell'
     | '/contracting-ops/requests'
     | '/contracting-ops/settings'
+    | '/contracting-ops/templates'
     | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
@@ -1465,6 +1476,7 @@ export interface FileRouteTypes {
     | '/contracting-ops/queue'
     | '/contracting-ops/ready-to-sell'
     | '/contracting-ops/settings'
+    | '/contracting-ops/templates'
     | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
@@ -1598,6 +1610,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting-ops/ready-to-sell'
     | '/_authenticated/contracting-ops/requests'
     | '/_authenticated/contracting-ops/settings'
+    | '/_authenticated/contracting-ops/templates'
     | '/_authenticated/contracting-ops/writing-numbers'
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
@@ -2369,6 +2382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingOpsWritingNumbersRouteImport
       parentRoute: typeof AuthenticatedContractingOpsRoute
     }
+    '/_authenticated/contracting-ops/templates': {
+      id: '/_authenticated/contracting-ops/templates'
+      path: '/templates'
+      fullPath: '/contracting-ops/templates'
+      preLoaderRoute: typeof AuthenticatedContractingOpsTemplatesRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
     '/_authenticated/contracting-ops/settings': {
       id: '/_authenticated/contracting-ops/settings'
       path: '/settings'
@@ -2703,6 +2723,7 @@ interface AuthenticatedContractingOpsRouteChildren {
   AuthenticatedContractingOpsReadyToSellRoute: typeof AuthenticatedContractingOpsReadyToSellRoute
   AuthenticatedContractingOpsRequestsRoute: typeof AuthenticatedContractingOpsRequestsRouteWithChildren
   AuthenticatedContractingOpsSettingsRoute: typeof AuthenticatedContractingOpsSettingsRoute
+  AuthenticatedContractingOpsTemplatesRoute: typeof AuthenticatedContractingOpsTemplatesRoute
   AuthenticatedContractingOpsWritingNumbersRoute: typeof AuthenticatedContractingOpsWritingNumbersRoute
   AuthenticatedContractingOpsIndexRoute: typeof AuthenticatedContractingOpsIndexRoute
 }
@@ -2729,6 +2750,8 @@ const AuthenticatedContractingOpsRouteChildren: AuthenticatedContractingOpsRoute
       AuthenticatedContractingOpsRequestsRouteWithChildren,
     AuthenticatedContractingOpsSettingsRoute:
       AuthenticatedContractingOpsSettingsRoute,
+    AuthenticatedContractingOpsTemplatesRoute:
+      AuthenticatedContractingOpsTemplatesRoute,
     AuthenticatedContractingOpsWritingNumbersRoute:
       AuthenticatedContractingOpsWritingNumbersRoute,
     AuthenticatedContractingOpsIndexRoute:

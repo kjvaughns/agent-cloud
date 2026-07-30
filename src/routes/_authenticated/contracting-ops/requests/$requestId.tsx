@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
+import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 import {
   CONTRACT_TYPE_LABELS, METHOD_LABELS, type ContractType, type ContractingMethod,
 } from "@/lib/contracting-ops/types";
@@ -68,10 +69,41 @@ function RequestDetailPage() {
   const qc = useQueryClient();
   const getFn = useServerFn(getContractingRequest);
   const statusFn = useServerFn(updateRequestStatus);
+  const templatesFn = useServerFn(listTemplates);
+  const emailFn = useServerFn(generateEmail);
+  const sheetFn = useServerFn(generateSpreadsheetRow);
+  const [draftEmail, setDraftEmail] = useState<any | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["contracting-ops", "request", requestId],
     queryFn: () => getFn({ data: { id: requestId } }),
+  });
+  const { data: templateData } = useQuery({
+    queryKey: ["contracting-ops", "templates"], queryFn: () => templatesFn(),
+  });
+
+  const makeEmail = useMutation({
+    mutationFn: (templateId: string) => emailFn({ data: { request_id: requestId, template_id: templateId } }),
+    onSuccess: (r: any) => setDraftEmail(r),
+    onError: (e: any) => toast.error(e?.message ?? "Could not generate the email"),
+  });
+
+  const makeSheet = useMutation({
+    mutationFn: (templateId: string) => sheetFn({ data: { request_ids: [requestId], template_id: templateId } }),
+    onSuccess: (r: any) => {
+      // Required-but-empty columns are named rather than silently exported —
+      // a carrier rejecting a batch over one blank column costs days.
+      if (r.problems?.length) {
+        toast.warning(`Exported with gaps: ${r.problems[0].missing.join(", ")}`);
+      } else {
+        toast.success("Spreadsheet row exported");
+      }
+      const url = URL.createObjectURL(new Blob([r.csv], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = r.filename; a.click();
+      URL.revokeObjectURL(url);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not export"),
   });
 
   const setStatus = useMutation({
@@ -188,6 +220,44 @@ function RequestDetailPage() {
               </ul>
             )}
           </Panel>
+
+          {draftEmail && (
+            <Panel
+              title="Generated email"
+              action={
+                <span className="flex gap-2">
+                  <CopyButton label="Copy body" text={draftEmail.body} />
+                  <a
+                    href={`mailto:${encodeURIComponent(draftEmail.to ?? "")}?subject=${encodeURIComponent(draftEmail.subject)}&body=${encodeURIComponent(draftEmail.body)}`}
+                  >
+                    <Button size="sm"><Mail className="mr-1.5 h-3.5 w-3.5" /> Open in mail</Button>
+                  </a>
+                </span>
+              }
+            >
+              {draftEmail.unresolved?.length > 0 && (
+                <p className="mb-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-[11px] text-warning">
+                  These variables did not fill in and are still showing as placeholders:{" "}
+                  {draftEmail.unresolved.join(", ")}. Fix the underlying records or edit the draft
+                  before sending.
+                </p>
+              )}
+              <dl className="space-y-1 text-xs">
+                <div className="flex gap-2"><dt className="w-14 text-muted-foreground">To</dt><dd className="text-foreground">{draftEmail.to || "—"}</dd></div>
+                <div className="flex gap-2"><dt className="w-14 text-muted-foreground">Subject</dt><dd className="text-foreground">{draftEmail.subject}</dd></div>
+              </dl>
+              <textarea
+                readOnly
+                value={draftEmail.body}
+                rows={14}
+                className="mt-3 w-full rounded-md border border-border bg-surface-2/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground"
+              />
+              <p className="mt-2 text-[11px] text-text-dim">
+                Nothing has been sent. No document is attached — send any paperwork yourself, and
+                only what the carrier asked for.
+              </p>
+            </Panel>
+          )}
 
           <Panel title="History">
             {history.length === 0 ? (
@@ -328,10 +398,46 @@ function RequestDetailPage() {
                 </p>
               )}
 
-              <p className="mt-3 flex items-start gap-1.5 text-[11px] text-text-dim">
-                <Table2 className="mt-0.5 h-3 w-3 shrink-0" />
-                Spreadsheet export and generated email arrive with the templates surface.
-              </p>
+              <div className="mt-4 space-y-2 border-t border-border-soft pt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  Generate
+                </p>
+
+                {(templateData?.emails ?? []).length > 0 ? (
+                  <select
+                    defaultValue=""
+                    onChange={(e) => { if (e.target.value) { makeEmail.mutate(e.target.value); e.currentTarget.value = ""; } }}
+                    className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                  >
+                    <option value="">Generate an email…</option>
+                    {(templateData?.emails ?? []).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-[11px] text-text-dim">
+                    No email template yet — add one under Templates.
+                  </p>
+                )}
+
+                {(templateData?.spreadsheets ?? []).length > 0 ? (
+                  <select
+                    defaultValue=""
+                    onChange={(e) => { if (e.target.value) { makeSheet.mutate(e.target.value); e.currentTarget.value = ""; } }}
+                    className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                  >
+                    <option value="">Export a spreadsheet row…</option>
+                    {(templateData?.spreadsheets ?? []).map((t: any) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="flex items-start gap-1.5 text-[11px] text-text-dim">
+                    <Table2 className="mt-0.5 h-3 w-3 shrink-0" />
+                    No spreadsheet template yet — add one under Templates.
+                  </p>
+                )}
+              </div>
             </Panel>
           )}
         </div>
