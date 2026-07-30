@@ -114,9 +114,10 @@ function TeamPage() {
   // them; the page itself re-checks server-side regardless.
   const accessFn = useServerFn(getMyAccess);
   const { data: access } = useQuery({ queryKey: ["my-access"], queryFn: () => accessFn() });
-  const canManageRoles =
-    Boolean(access?.isOwner) ||
-    (access?.role === "staff" && Boolean(access?.permissions?.admin_manage_staff_configs));
+  // Computed server-side so this tab and the server's own check cannot
+  // disagree — gating the UI on isOwner alone hid it from owners whose
+  // account was never written into organizations.owner_id.
+  const canManageRoles = Boolean(access?.canManageRoles);
 
   return (
     <PageShell>
@@ -135,7 +136,11 @@ function TeamPage() {
         }
       />
 
-      {downline.length === 0 ? (
+      {/* The empty state used to replace the whole tab block, which hid Roles
+          & Permissions from exactly the people who need it first: an owner
+          setting up staff before they have any downline. The team tabs now
+          show their own empty state and the tab bar always renders. */}
+      {downline.length === 0 && !canManageRoles ? (
         <Panel>
           <div className="py-16 text-center space-y-4">
             <Users className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -144,7 +149,7 @@ function TeamPage() {
           </div>
         </Panel>
       ) : (
-        <Tabs defaultValue="overview">
+        <Tabs defaultValue={downline.length === 0 ? "roles" : "overview"}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="roster">Roster</TabsTrigger>
@@ -153,6 +158,15 @@ function TeamPage() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 mt-4">
+            {downline.length === 0 ? (
+            <Panel>
+              <div className="py-14 text-center space-y-4">
+                <Users className="h-10 w-10 mx-auto text-muted-foreground" />
+                <p className="text-muted-foreground">No team members yet.</p>
+                <Button asChild><Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite Your First Agent</Link></Button>
+              </div>
+            </Panel>
+            ) : (<>
             <KpiRow />
             <DepthChart />
             <TeamAlertsCard />
@@ -161,6 +175,7 @@ function TeamPage() {
               <NewAgents downline={downline} onOpen={setOpenAgent} />
               <RecentlyActive downline={downline} onOpen={setOpenAgent} />
             </div>
+            </>)}
           </TabsContent>
 
           <TabsContent value="roster" className="space-y-6 mt-4">

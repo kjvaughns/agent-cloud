@@ -99,9 +99,37 @@ async function audit(orgId: string | null, performedBy: string, action: string, 
 }
 
 /** Caller must be the org owner, or admin-staff with manage-configs, of orgId. */
-async function assertCanManagePermissions(userId: string, orgId: string) {
-  const { data: org } = await supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
+/**
+ * Who may manage roles and permissions for an organization.
+ *
+ * Gating on organizations.owner_id alone locked out accounts that hold the
+ * agency_owner or admin role but were never written into owner_id — which is
+ * every workspace where the org row predates the account, so an owner could
+ * not administer their own agency.
+ *
+ * The role paths below are still org-scoped: they only apply to the caller's
+ * OWN organization, checked against profiles.organization_id. This is
+ * deliberately not the global has_role('admin') bypass that Phase 1 removed —
+ * holding admin does not grant anything in someone else's agency.
+ */
+async function resolveCanManagePermissions(
+  userId: string,
+  orgId: string,
+): Promise<"owner" | "agency_owner" | "org_admin" | "admin_staff" | null> {
+  const [{ data: org }, { data: profile }, { data: roleRows }] = await Promise.all([
+    supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
+    supabaseAdmin.from("profiles").select("organization_id").eq("id", userId).maybeSingle(),
+    supabaseAdmin.from("user_roles").select("role").eq("user_id", userId),
+  ]);
+
   if (org?.owner_id === userId) return "owner";
+
+  const roles: string[] = (roleRows ?? []).map((r: any) => String(r.role));
+  const inThisOrg = profile?.organization_id === orgId;
+
+  if (inThisOrg && roles.includes("agency_owner")) return "agency_owner";
+  if (inThisOrg && (roles.includes("admin") || roles.includes("super_admin"))) return "org_admin";
+
   const { data: rp } = await supabaseAdmin
     .from("role_permissions")
     .select("staff_is_admin, admin_manage_staff_configs")
@@ -109,13 +137,24 @@ async function assertCanManagePermissions(userId: string, orgId: string) {
     .eq("organization_id", orgId)
     .maybeSingle();
   if (rp?.staff_is_admin && rp?.admin_manage_staff_configs) return "admin_staff";
-  throw new Error("Only the agency owner (or admin staff) can manage permissions");
+
+  return null;
+}
+
+async function assertCanManagePermissions(userId: string, orgId: string) {
+  const who = await resolveCanManagePermissions(userId, orgId);
+  if (who) return who;
+  throw new Error(
+    "You don't have permission to manage roles here. This is available to the agency owner and to staff granted admin access.",
+  );
 }
 
 // ── My access: role + permissions + solo detection (drives nav + billing UI) ─
 
 export type MyAccess = {
   role: string | null;
+  /** May manage roles and permissions for their own organization. */
+  canManageRoles: boolean;
   isSolo: boolean;
   isOwner: boolean;
   orgId: string | null;
@@ -163,8 +202,15 @@ export const getMyAccess = createServerFn({ method: "GET" })
       }
     }
 
+    // Computed here rather than re-derived in the UI, so the tab that offers
+    // the feature and the server that enforces it cannot disagree.
+    const canManageRoles = org
+      ? (await resolveCanManagePermissions(userId, org.id)) !== null
+      : false;
+
     return {
       role: pick,
+      canManageRoles,
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       orgId: org?.id ?? null,
