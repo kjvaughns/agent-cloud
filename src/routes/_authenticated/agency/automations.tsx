@@ -44,7 +44,7 @@ export const Route = createFileRoute("/_authenticated/agency/automations")({
       .maybeSingle();
     if (!roleRow) throw redirect({ to: "/dashboard" as any });
   },
-  component: AutomationsPage;
+  component: AutomationsPage,
 });
 
 function statusTone(status: string) {
