@@ -11,7 +11,7 @@ const TABS = [
   { label: "New Agent Guide", url: "/resources/new-agent-guide", icon: Compass },
   { label: "Agent Handbook", url: "/resources/agent-handbook", icon: BookOpen },
   { label: "Scripts", url: "/resources/scripts", icon: ScrollText },
-  { label: "State Licenses", url: "/resources/state-licenses", icon: IdCard },
+  { label: "Licensing", url: "/licensing", icon: IdCard },
   { label: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
 ];
 

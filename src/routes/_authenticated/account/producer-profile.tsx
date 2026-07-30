@@ -343,7 +343,7 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
             )}
           </div>
           {!agentSyncAvailable && (
-            <p className="text-xs text-muted-foreground">Verify pulls basic NPN info from NIPR. For full license import, use State Licenses → Sync from NIPR.</p>
+            <p className="text-xs text-muted-foreground">Verify pulls basic NPN info from NIPR. For full license import, use Licensing → Sync from NIPR.</p>
           )}
         </div>
 
