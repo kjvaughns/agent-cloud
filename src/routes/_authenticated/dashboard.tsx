@@ -19,6 +19,7 @@ import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSumm
 import { getProducerProfile } from "@/lib/account.functions";
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
+import { WorkQueue } from "@/components/work-queue";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/page-shell";
@@ -185,6 +186,11 @@ function Dashboard() {
       )}
       {/* Renders only for an agency owner with unfinished setup. */}
       <div className="mb-[var(--gap)] empty:mb-0"><SetupChecklist /></div>
+      {/* Actions first, scoreboard second. The numbers below say how the
+          agency is doing; this says what to do about it, and that is the
+          question somebody actually has when they open the app. */}
+      <div className="mb-[var(--gap)]"><WorkQueue /></div>
+
       <div className={cn("cgrid", !novaRail && "nonova")}>
         <div className="col">
           <HeroPanel
