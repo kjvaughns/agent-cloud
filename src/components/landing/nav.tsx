@@ -79,6 +79,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
   );
 
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <a href="#top" className="flex items-center gap-2.5" aria-label="Agent Cloud home">
@@ -122,10 +123,20 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
           </button>
         </div>
       </div>
+    </header>
 
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background" role="dialog" aria-modal="true" aria-label="Menu">
-          <div className="flex h-16 items-center justify-between border-b border-border/60 px-4">
+    {/* Rendered as a sibling of <header>, never inside it.
+        The header sets backdrop-blur, and a backdrop-filter creates a
+        containing block for fixed-position descendants — so inside it,
+        `fixed inset-0` sized to the 64px header instead of the viewport,
+        leaving the menu unpainted below that strip. It also formed a
+        stacking context that trapped this z-index below the sticky CTA. */}
+    {open && (
+      <div
+        className="lg:hidden fixed inset-0 z-[60] overflow-y-auto bg-background"
+        role="dialog" aria-modal="true" aria-label="Menu"
+      >
+          <div className="sticky top-0 flex h-16 items-center justify-between border-b border-border/60 bg-background px-4">
             <span className="font-bold tracking-[0.14em]" style={display}>MENU</span>
             <button
               onClick={() => setOpen(false)}
@@ -156,9 +167,9 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
               <Button className="w-full h-12 text-base">{ctaLabel}</Button>
             </Link>
           </nav>
-        </div>
-      )}
-    </header>
+      </div>
+    )}
+    </>
   );
 }
 
