@@ -6,14 +6,14 @@ import { getStatesReference, getMyLicenses, upsertLicense, scanNiprPdf, bulkUpse
 import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { PageShell, HeroBand } from "@/components/page-shell";
+import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Globe, GraduationCap, MapPin, AlertTriangle, RefreshCw, Upload, ExternalLink, ShieldCheck, CheckCircle2, X } from "lucide-react";
+import { Clock, Globe, GraduationCap, AlertTriangle, RefreshCw, Upload, ExternalLink, ShieldCheck, CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/resources/state-licenses")({
@@ -448,10 +448,10 @@ function Page() {
   return (
     <PageShell>
       <div className="space-y-5">
-      <HeroBand
-        title={<span className="flex items-center gap-2"><MapPin className="h-7 w-7" /> State Licenses</span>}
-        subtitle="Manage your licenses and explore new states"
-        actions={
+      {/* The Resources tab bar already names this section, so only the
+          controls live here. */}
+      <div className="flex justify-end">
+        {
           agentSyncAvailable ? (
             <div className="flex items-center gap-2 flex-shrink-0">
               <AgentSyncNpnButton onSynced={() => qc.invalidateQueries({ queryKey: ["my-licenses"] })} />
@@ -465,7 +465,7 @@ function Page() {
             </Button>
           )
         }
-      />
+      </div>
 
       {stats.expiring + stats.expired > 0 && (
         <div className="rounded-[var(--radius)] border border-amber-500/50 bg-amber-500/10 p-pad flex items-center gap-2 text-sm">

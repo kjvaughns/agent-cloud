@@ -201,3 +201,133 @@ export const bulkUpsertLicenses = createServerFn({ method: "POST" })
     }
     return { inserted, errors, total: data.licenses.length };
   });
+
+// ── Agent Academy: modules and progress ─────────────────────────────────────
+
+/**
+ * academy_modules and course_progress both existed and neither was used — the
+ * Academy page only ever opened a course's external URL in a new tab, so
+ * nothing an agent completed was ever recorded. These make the course a thing
+ * you work through rather than a link.
+ */
+
+export type AcademyModule = {
+  id: string;
+  course_id: string;
+  title: string;
+  content_html: string | null;
+  video_url: string | null;
+  resource_urls: string[] | null;
+  sort_order: number | null;
+  completed: boolean;
+  completed_at: string | null;
+};
+
+/** Per-course completion for the course list. */
+export const getAcademyProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+
+    const [{ data: modules }, { data: progress }] = await Promise.all([
+      supabase.from("academy_modules").select("id, course_id"),
+      supabase.from("course_progress").select("course_id, module_id, completed").eq("agent_id", userId),
+    ]);
+
+    const total = new Map<string, number>();
+    for (const m of modules ?? []) {
+      total.set(m.course_id, (total.get(m.course_id) ?? 0) + 1);
+    }
+
+    const done = new Map<string, number>();
+    for (const p of progress ?? []) {
+      if (p.completed) done.set(p.course_id, (done.get(p.course_id) ?? 0) + 1);
+    }
+
+    const byCourse: Record<string, { total: number; done: number; pct: number }> = {};
+    for (const [courseId, t] of total) {
+      const d = Math.min(done.get(courseId) ?? 0, t);
+      byCourse[courseId] = { total: t, done: d, pct: t > 0 ? Math.round((d / t) * 100) : 0 };
+    }
+    // A course with progress but no module rows still deserves a count.
+    for (const [courseId, d] of done) {
+      if (!byCourse[courseId]) byCourse[courseId] = { total: d, done: d, pct: 100 };
+    }
+
+    return { byCourse };
+  });
+
+export const getCourseDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ course_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+
+    const [{ data: course }, { data: modules }, { data: progress }] = await Promise.all([
+      supabase.from("academy_courses").select("*").eq("id", data.course_id).maybeSingle(),
+      supabase.from("academy_modules").select("*").eq("course_id", data.course_id).order("sort_order"),
+      supabase.from("course_progress").select("module_id, completed, completed_at")
+        .eq("agent_id", userId).eq("course_id", data.course_id),
+    ]);
+
+    if (!course) throw new Error("Course not found");
+
+    const doneBy = new Map<string, { completed: boolean; completed_at: string | null }>(
+      (progress ?? []).map((p: any) => [p.module_id, { completed: p.completed, completed_at: p.completed_at }]),
+    );
+
+    const withProgress: AcademyModule[] = (modules ?? []).map((m: any) => ({
+      ...m,
+      completed: Boolean(doneBy.get(m.id)?.completed),
+      completed_at: doneBy.get(m.id)?.completed_at ?? null,
+    }));
+
+    const done = withProgress.filter((m) => m.completed).length;
+
+    return {
+      course,
+      modules: withProgress,
+      progress: {
+        total: withProgress.length,
+        done,
+        pct: withProgress.length > 0 ? Math.round((done / withProgress.length) * 100) : 0,
+      },
+    };
+  });
+
+export const setModuleComplete = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      course_id: z.string().uuid(),
+      module_id: z.string().uuid(),
+      completed: z.boolean(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+
+    // course_progress has no unique constraint on (agent, module), so an
+    // upsert cannot be relied on — find the row first.
+    const { data: existing } = await supabase
+      .from("course_progress")
+      .select("id")
+      .eq("agent_id", userId)
+      .eq("module_id", data.module_id)
+      .maybeSingle();
+
+    const patch = {
+      agent_id: userId,
+      course_id: data.course_id,
+      module_id: data.module_id,
+      completed: data.completed,
+      completed_at: data.completed ? new Date().toISOString() : null,
+    };
+
+    const { error } = existing
+      ? await supabase.from("course_progress").update(patch).eq("id", existing.id)
+      : await supabase.from("course_progress").insert(patch);
+
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

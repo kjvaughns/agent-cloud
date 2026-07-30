@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOnboardingStatus } from "@/lib/resources.functions";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { PageShell, Panel } from "@/components/page-shell";
 import { cn } from "@/lib/utils";
 import { Check, ArrowRight, BookOpen, ScrollText, GraduationCap } from "lucide-react";
 
@@ -33,7 +33,6 @@ function Page() {
   return (
     <PageShell>
       <div className="space-y-6 max-w-4xl">
-        <HeroBand title="New Agent Guide" subtitle="Everything you need to get started and writing business fast" />
 
         <Panel>
           <div className="flex items-center justify-between mb-2">
