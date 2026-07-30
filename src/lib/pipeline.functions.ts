@@ -385,6 +385,17 @@ const bankingSchema = z.object({
   account_type: z.string().max(20).nullable().optional(),
   draft_date: z.number().int().min(1).max(28).nullable().optional(),
   payment_method: z.string().max(50).nullable().optional(),
+
+  // Card on file. There is no cvc field and there must never be one — PCI DSS
+  // 3.2 prohibits storing it after authorization. The full PAN is likewise not
+  // accepted; last4 is constrained to exactly four digits both here and by a
+  // CHECK constraint, so a full number sent by mistake is rejected rather than
+  // quietly written.
+  card_brand: z.string().max(20).nullable().optional(),
+  card_last4: z.string().regex(/^[0-9]{4}$/).nullable().optional(),
+  card_name: z.string().max(120).nullable().optional(),
+  card_exp_month: z.number().int().min(1).max(12).nullable().optional(),
+  card_exp_year: z.number().int().min(2000).max(2100).nullable().optional(),
 });
 
 export const upsertClientBanking = createServerFn({ method: "POST" })

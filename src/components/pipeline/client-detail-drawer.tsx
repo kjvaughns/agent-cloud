@@ -471,11 +471,67 @@ function TemperatureSelector({ client }: { client: any }) {
 }
 
 // ============ Banking Fields (used inline in ContactTab) ============
+
+/** Card brand from the leading digits, so the agent gets confirmation as they type. */
+function cardBrand(num: string): string | null {
+  const n = num.replace(/\D/g, "");
+  if (!n) return null;
+  if (/^4/.test(n)) return "Visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "Mastercard";
+  if (/^3[47]/.test(n)) return "Amex";
+  if (/^6(011|5)/.test(n)) return "Discover";
+  return null;
+}
+
+/** Group digits for readability. Amex is 4-6-5, everything else 4-4-4-4. */
+function formatCard(v: string): string {
+  const n = v.replace(/\D/g, "").slice(0, 16);
+  const amex = /^3[47]/.test(n);
+  const groups = amex ? [4, 6, 5] : [4, 4, 4, 4];
+  const out: string[] = [];
+  let i = 0;
+  for (const g of groups) {
+    if (i >= n.length) break;
+    out.push(n.slice(i, i + g));
+    i += g;
+  }
+  return out.join(" ");
+}
+
+/** Luhn check — catches a mistyped digit before it reaches the carrier. */
+function luhnValid(num: string): boolean {
+  const n = num.replace(/\D/g, "");
+  if (n.length < 13) return false;
+  let sum = 0, dbl = false;
+  for (let i = n.length - 1; i >= 0; i--) {
+    let d = Number(n[i]);
+    if (dbl) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+}
+
 function BankingFields({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const [bankingForm, setBankingForm] = useState<Record<string, any>>(detail?.banking ?? {});
   const [showAcct, setShowAcct] = useState(false);
+
+  /**
+   * Card number and CVC live in local state only and are never sent to the
+   * server. PCI DSS 3.2 prohibits storing the CVC after authorization, and
+   * keeping full PANs would put the whole platform in PCI scope. The agent
+   * types them to read to the carrier during the call; only the brand and
+   * last four are persisted. Closing the drawer discards both.
+   */
+  const [cardNumber, setCardNumber] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [showCard, setShowCard] = useState(false);
+
   useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
+
+  // Clear the transient card entry whenever a different client is opened.
+  useEffect(() => { setCardNumber(""); setCvc(""); setShowCard(false); }, [detail?.client?.id]);
 
   const upsertBankingFn = useServerFn(upsertClientBanking);
   const bankingMut = useMutation({
@@ -483,6 +539,150 @@ function BankingFields({ detail }: { detail: any }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
   });
   const save = (key: string, value: any) => bankingMut.mutate({ [key]: value });
+
+  const method = bankingForm.payment_method ?? "";
+  const isCard = method === "credit_card";
+
+  const digits = cardNumber.replace(/\D/g, "");
+  const brand = cardBrand(cardNumber);
+  const cardTouched = digits.length > 0;
+  const cardComplete = digits.length >= 13;
+
+  /** Persist only what is allowed to be kept. */
+  const saveCard = () => {
+    if (!cardComplete) return;
+    bankingMut.mutate({
+      card_last4: digits.slice(-4),
+      card_brand: brand,
+    });
+  };
+
+  const methodField = (
+    <Field label="Payment Method">
+      <Select
+        value={method}
+        onValueChange={v => { setBankingForm(f => ({ ...f, payment_method: v })); save("payment_method", v); }}
+      >
+        <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="bank_draft">Bank Draft</SelectItem>
+          <SelectItem value="credit_card">Credit Card</SelectItem>
+          <SelectItem value="money_order">Money Order</SelectItem>
+          <SelectItem value="direct_express">Direct Express</SelectItem>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+
+  if (isCard) {
+    const savedCard = bankingForm.card_last4
+      ? `${bankingForm.card_brand ?? "Card"} •••• ${bankingForm.card_last4}`
+      : null;
+
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        {methodField}
+
+        <Field label="Name on Card">
+          <Input
+            value={bankingForm.card_name ?? ""}
+            onChange={e => setBankingForm(f => ({ ...f, card_name: e.target.value }))}
+            onBlur={e => save("card_name", e.target.value || null)}
+            placeholder="As printed on the card"
+          />
+        </Field>
+
+        <Field label={`Card Number${brand ? ` · ${brand}` : ""}`}>
+          <div className="relative">
+            <Input
+              type={showCard ? "text" : "password"}
+              inputMode="numeric"
+              autoComplete="off"
+              value={cardNumber}
+              onChange={e => setCardNumber(formatCard(e.target.value))}
+              onBlur={saveCard}
+              placeholder={savedCard ?? "•••• •••• •••• ••••"}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowCard(v => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showCard ? "Hide card number" : "Show card number"}
+            >
+              {showCard ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {cardTouched && cardComplete && !luhnValid(cardNumber) && (
+            <p className="mt-1 text-[11px] text-destructive">
+              That number doesn't check out — worth re-reading it back.
+            </p>
+          )}
+          {!cardTouched && savedCard && (
+            <p className="mt-1 text-[11px] text-muted-foreground">On file: {savedCard}</p>
+          )}
+        </Field>
+
+        <Field label="CVC">
+          <Input
+            inputMode="numeric"
+            autoComplete="off"
+            value={cvc}
+            onChange={e => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            placeholder="3–4 digits"
+          />
+        </Field>
+
+        <Field label="Expiration Month">
+          <Select
+            value={bankingForm.card_exp_month ? String(bankingForm.card_exp_month) : ""}
+            onValueChange={v => { setBankingForm(f => ({ ...f, card_exp_month: Number(v) })); save("card_exp_month", Number(v)); }}
+          >
+            <SelectTrigger><SelectValue placeholder="MM" /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                <SelectItem key={m} value={String(m)}>{String(m).padStart(2, "0")}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Expiration Year">
+          <Select
+            value={bankingForm.card_exp_year ? String(bankingForm.card_exp_year) : ""}
+            onValueChange={v => { setBankingForm(f => ({ ...f, card_exp_year: Number(v) })); save("card_exp_year", Number(v)); }}
+          >
+            <SelectTrigger><SelectValue placeholder="YYYY" /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 15 }, (_, i) => new Date().getFullYear() + i).map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Draft Date">
+          <Select
+            value={String(bankingForm.draft_date ?? "")}
+            onValueChange={v => { setBankingForm(f => ({ ...f, draft_date: Number(v) })); save("draft_date", Number(v)); }}
+          >
+            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <p className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          Only the card brand and last four digits are saved. The full number and CVC stay on
+          this screen for the call and are cleared when you close it — card security codes may
+          not be stored.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -517,16 +717,7 @@ function BankingFields({ detail }: { detail: any }) {
           </SelectContent>
         </Select>
       </Field>
-      <Field label="Payment Method">
-        <Select value={bankingForm.payment_method ?? ""} onValueChange={v => { setBankingForm(f => ({...f, payment_method: v})); save("payment_method", v); }}>
-          <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="bank_draft">Bank Draft</SelectItem>
-            <SelectItem value="credit_card">Credit Card</SelectItem>
-            <SelectItem value="money_order">Money Order</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
+      {methodField}
     </div>
   );
 }
