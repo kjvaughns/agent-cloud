@@ -600,6 +600,65 @@ export type Database = {
           },
         ]
       }
+      automation_job_runs: {
+        Row: {
+          acted: number
+          considered: number
+          created_at: string
+          detail: Json
+          error: string | null
+          errored: number
+          finished_at: string | null
+          id: string
+          job_key: string
+          organization_id: string | null
+          skipped: number
+          started_at: string
+          status: string
+          trigger: string
+        }
+        Insert: {
+          acted?: number
+          considered?: number
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          errored?: number
+          finished_at?: string | null
+          id?: string
+          job_key: string
+          organization_id?: string | null
+          skipped?: number
+          started_at?: string
+          status?: string
+          trigger?: string
+        }
+        Update: {
+          acted?: number
+          considered?: number
+          created_at?: string
+          detail?: Json
+          error?: string | null
+          errored?: number
+          finished_at?: string | null
+          id?: string
+          job_key?: string
+          organization_id?: string | null
+          skipped?: number
+          started_at?: string
+          status?: string
+          trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_job_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_runs: {
         Row: {
           agent_id: string

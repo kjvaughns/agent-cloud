@@ -12,7 +12,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud, Settings,
+  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud, Settings, Bot,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -234,6 +234,16 @@ export function AppSidebar() {
                         <Link to="/agency/settings">
                           <Building2 className="h-4 w-4" />
                           <span>Agency Settings</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {isAgencyOwner && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild tooltip="Automations">
+                        <Link to="/agency/automations">
+                          <Bot className="h-4 w-4" />
+                          <span>Automations</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
