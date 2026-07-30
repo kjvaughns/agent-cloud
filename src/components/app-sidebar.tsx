@@ -20,72 +20,11 @@ import {
   SidebarMenuItem, SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
 
+import { audienceFor, navFor, ACCOUNT_PAGES, type Page } from "@/lib/navigation";
+
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean };
-type NavGroup = { label: string; items: NavItem[]; defaultCollapsed?: boolean };
 
-const groups: NavGroup[] = [
-  {
-    label: "Production",
-    items: [
-      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Pipeline", url: "/pipeline", icon: KanbanSquare },
-      { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
-      { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
-      { title: "Finances", url: "/finances", icon: Wallet },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "My Contracts", url: "/contracting", icon: FileSignature },
-      { title: "Carriers", url: "/contracting/carriers", icon: Building2 },
-    ],
-  },
-  {
-    label: "Agency",
-    items: [
-      { title: "Agency Admin", url: "/agency", icon: Building2 },
-      { title: "Team", url: "/team", icon: Users },
-      { title: "Contracting Ops", url: "/contracting-ops", icon: ClipboardList },
-      { title: "Retention", url: "/retention", icon: Heart },
-      { title: "Document Intake", url: "/intake", icon: UploadCloud },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
-      { title: "Challenges", url: "/challenges", icon: Target },
-    ],
-  },
-  {
-    label: "Enablement",
-    items: [
-      { title: "Resources", url: "/resources/new-agent-guide", icon: BookOpen },
-      { title: "Advanced Market", url: "/back-office/case-design", icon: BriefcaseIcon },
-      { title: "Marketing", url: "/back-office/recruiting-funnels", icon: MegaIcon },
-    ],
-  },
-  {
-    label: "Tools",
-    items: [
-      { title: "Phone", url: "/phone", icon: Phone },
-      { title: "Calendar", url: "/calendar", icon: Calendar },
-      { title: "Tasks", url: "/tasks", icon: ClipboardList },
-      { title: "Nova AI", url: "/ai-assistant", icon: Sparkles },
-      { title: "Quoter", url: "https://app.insurancetoolkits.com/fex/quoter", icon: Wrench, external: true },
-      { title: "Leads", url: "/tools/leads", icon: Target },
-    ],
-  },
-  {
-    label: "Updates",
-    items: [
-      { title: "Notifications", url: "/notifications", icon: Bell },
-      { title: "Announcements", url: "/announcements", icon: Megaphone },
-      { title: "News Feed", url: "/news-feed", icon: Newspaper },
-    ],
-  },
-];
-
-// Billing / Nova Pro / Security / Notifications / Management are tabs inside
-// /settings, and FAQ is a tab inside the Help Center.
-const accountItems = [
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Help Center", url: "/account/help", icon: LifeBuoy },
-  { title: "Producer Profile", url: "/account/producer-profile", icon: IdCard },
-  { title: "My Landing Page", url: "/account/my-landing-page", icon: Globe },
-];
+const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon });
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -95,15 +34,24 @@ export function AppSidebar() {
   const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
+  // The sidebar is composed for this person rather than filtered from one
+  // shared menu. A solo agent gets a five-item product, not the agency product
+  // with twenty-six things missing.
+  const audience = audienceFor({
+    role: access?.role ?? null,
+    isSolo: Boolean(access?.isSolo),
+    isOwner: Boolean(access?.isOwner),
+    canManage: Boolean((access as any)?.canManageRoles),
+  });
+  const groups = navFor(audience, (access?.permissions ?? {}) as Record<string, unknown>)
+    .map((g, i) => ({ label: g.label || (i === 0 ? "" : "More"), items: g.items.map(asNavItem) }));
+  const accountItems = ACCOUNT_PAGES.map(asNavItem);
+
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
-    const defaults = Object.fromEntries(
-      groups.filter((g) => g.defaultCollapsed).map((g) => [g.label, true]),
-    );
     try {
-      const stored = JSON.parse(localStorage.getItem("nav-groups") ?? "null");
-      return stored ?? defaults;
+      return JSON.parse(localStorage.getItem("nav-groups") ?? "null") ?? {};
     } catch {
-      return defaults;
+      return {};
     }
   });
 
@@ -181,9 +129,9 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {groups.map((g) => (
-          <SidebarGroup key={g.label}>
-            {!sidebarCollapsed && (
+        {groups.map((g, gi) => (
+          <SidebarGroup key={g.label || `group-${gi}`}>
+            {!sidebarCollapsed && g.label && (
               <SidebarGroupLabel
                 className="flex items-center justify-between cursor-pointer select-none hover:text-foreground transition-colors"
                 onClick={() => toggleGroup(g.label)}
@@ -214,7 +162,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {(isAdmin || isManager) && (
+        {isAdmin && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
@@ -228,26 +176,6 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                  {isAgencyOwner && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild tooltip="Agency Settings">
-                        <Link to="/agency/settings">
-                          <Building2 className="h-4 w-4" />
-                          <span>Agency Settings</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
-                  {isAgencyOwner && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton asChild tooltip="Automations">
-                        <Link to="/agency/automations">
-                          <Bot className="h-4 w-4" />
-                          <span>Automations</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
