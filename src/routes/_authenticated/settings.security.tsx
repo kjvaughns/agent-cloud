@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/settings/security")({
 
 type Enrolling = { factorId: string; qr: string; secret: string } | null;
 
-function SecurityPage() {
+export function SecurityPage() {
   const qc = useQueryClient();
   const [enrolling, setEnrolling] = useState<Enrolling>(null);
   const [code, setCode] = useState("");

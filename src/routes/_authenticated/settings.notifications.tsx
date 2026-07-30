@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_authenticated/settings/notifications")({
   component: NotificationSettings,
 });
 
-function NotificationSettings() {
+export function NotificationSettings() {
   const qc = useQueryClient();
   const getFn = useServerFn(getNotificationPrefs);
   const saveFn = useServerFn(updateNotificationPrefs);

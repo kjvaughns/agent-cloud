@@ -41,6 +41,7 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/back-office/recruiting-funnels": isStaff ? !!p.staff_view_recruiting : isManager ? !!p.mgr_access_recruiting : !isSolo,
     "/back-office/case-design": !isStaff,
     "/ai-assistant": isStaff ? !!p.staff_nova_pro_enabled : true,
+    "/settings": true,
     "/settings/nova-pro": isStaff ? !!p.staff_nova_pro_enabled : true,
     "/agency/team": isOwner || (isStaff && !!p.staff_is_admin && !!p.admin_manage_staff_configs),
     // Both write agency-wide configuration, so they follow the owner gate.

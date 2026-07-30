@@ -42,7 +42,7 @@ function UsageMeter({ label, used, included, overage }: { label: string; used: n
   );
 }
 
-function NovaProPage() {
+export function NovaProPage() {
   const statusFn = useServerFn(getNovaProStatus);
   const checkoutFn = useServerFn(createCheckoutSession);
   const portalFn = useServerFn(createPortalSession);

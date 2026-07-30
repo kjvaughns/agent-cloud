@@ -68,6 +68,7 @@ import { Route as AuthenticatedBackOfficeRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authenticated/announcements'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
@@ -420,6 +421,12 @@ const AuthenticatedAiAssistantRoute =
   AuthenticatedAiAssistantRouteImport.update({
     id: '/ai-assistant',
     path: '/ai-assistant',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/settings/',
+    path: '/settings/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedContractingIndexRoute =
@@ -821,6 +828,7 @@ export interface FileRoutesByFullPath {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -931,6 +939,7 @@ export interface FileRoutesByTo {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1045,6 +1054,7 @@ export interface FileRoutesById {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1159,6 +1169,7 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
     | '/contracting/'
+    | '/settings/'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
     | '/lovable/email/auth/preview'
@@ -1269,6 +1280,7 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
     | '/contracting'
+    | '/settings'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
     | '/lovable/email/auth/preview'
@@ -1382,6 +1394,7 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
     | '/_authenticated/contracting/'
+    | '/_authenticated/settings/'
     | '/_authenticated/back-office/case-design_/admin'
     | '/api/public/hooks/fetch-news'
     | '/lovable/email/auth/preview'
@@ -1845,6 +1858,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-assistant'
       fullPath: '/ai-assistant'
       preLoaderRoute: typeof AuthenticatedAiAssistantRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/contracting/': {
@@ -2354,6 +2374,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -2397,6 +2418,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

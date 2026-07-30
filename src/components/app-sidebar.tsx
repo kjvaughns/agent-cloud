@@ -12,7 +12,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud,
+  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud, Settings,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -40,7 +40,6 @@ const groups: NavGroup[] = [
     items: [
       { title: "Team", url: "/team", icon: Users },
       { title: "Retention", url: "/retention", icon: Heart },
-      { title: "Team & Permissions", url: "/agency/team", icon: ShieldCheck },
       { title: "Document Intake", url: "/intake", icon: UploadCloud },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Onboarding", url: "/contracting/invite", icon: UserPlus },
@@ -79,13 +78,11 @@ const groups: NavGroup[] = [
   },
 ];
 
+// Billing / Nova Pro / Security / Notifications / Management are tabs inside
+// /settings, and FAQ is a tab inside the Help Center.
 const accountItems = [
-  { title: "Billing", url: "/settings/billing", icon: Wallet },
-  { title: "Nova Pro", url: "/settings/nova-pro", icon: Sparkles },
-  { title: "Security", url: "/settings/security", icon: ShieldCheck },
-  { title: "Notifications", url: "/settings/notifications", icon: Bell },
+  { title: "Settings", url: "/settings", icon: Settings },
   { title: "Help Center", url: "/account/help", icon: LifeBuoy },
-  { title: "FAQ", url: "/account/faq", icon: HelpCircle },
   { title: "Producer Profile", url: "/account/producer-profile", icon: IdCard },
   { title: "My Landing Page", url: "/account/my-landing-page", icon: Globe },
 ];

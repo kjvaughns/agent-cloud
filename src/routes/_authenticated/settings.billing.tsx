@@ -34,7 +34,7 @@ const STATUS_BADGE: Record<string, { v: any; label: string }> = {
 };
 
 /** Role-aware billing: one route, different content per role. */
-function BillingPage() {
+export function BillingPage() {
   const accessFn = useServerFn(getMyAccess);
   const { data: access, isLoading } = useQuery({ queryKey: ["my-access"], queryFn: () => accessFn() });
 

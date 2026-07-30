@@ -116,7 +116,7 @@ const PRESETS = [
   { id: "client_services", label: "Client Services" },
 ] as const;
 
-function AgencyTeamPage() {
+export function AgencyTeamPage() {
   const listFn = useServerFn(listOrgMembers);
   const { data, isLoading, error } = useQuery({ queryKey: ["agency", "members"], queryFn: () => listFn(), retry: false });
   const [selected, setSelected] = useState<any | null>(null);

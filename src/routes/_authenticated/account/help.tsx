@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
 import { AiHelpSearch } from "@/components/ai/ai-help-search";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { FaqPage } from "../account/faq";
 
 export const Route = createFileRoute("/_authenticated/account/help")({
   head: () => ({
@@ -61,6 +62,7 @@ function HelpPage() {
       <Tabs defaultValue="kb">
         <TabsList>
           <TabsTrigger value="kb">Knowledge Base</TabsTrigger>
+          <TabsTrigger value="faq">FAQ</TabsTrigger>
           <TabsTrigger value="ticket">Submit Ticket</TabsTrigger>
           <TabsTrigger value="my-tickets">My Tickets</TabsTrigger>
         </TabsList>
@@ -96,6 +98,12 @@ function HelpPage() {
               </Panel>
             ))}
           </div>
+        </TabsContent>
+
+        {/* FAQ was its own sidebar entry; it belongs with the other
+            self-service answers. */}
+        <TabsContent value="faq" className="mt-4">
+          <FaqPage />
         </TabsContent>
 
         <TabsContent value="ticket" className="mt-4">

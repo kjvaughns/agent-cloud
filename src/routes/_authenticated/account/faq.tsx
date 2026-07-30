@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/account/faq")({
 
 type FaqItem = { id: string; section: string | null; question: string; answer: string };
 
-function FaqPage() {
+export function FaqPage() {
   // Reads faq_items, which listFaq already served and this page ignored in
   // favour of a hardcoded array. Content is now editable without a deploy.
   const fn = useServerFn(listFaq);

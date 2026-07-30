@@ -3,14 +3,36 @@ import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/ui/section-label";
 
 /**
+ * Tracks whether a PageShell is already mounted above us.
+ *
+ * Pages own their own shell, which is right when they are the page. But once
+ * a page is embedded as a tab inside another — Billing inside Settings, FAQ
+ * inside Help Center — the inner shell would double the padding and stack a
+ * second max-width container inside the first.
+ *
+ * Making PageShell nesting-aware means any page can be composed into another
+ * without being refactored, and without every embeddable page growing its own
+ * `embedded` prop.
+ */
+const InPageShell = React.createContext(false);
+
+/**
  * Standard page wrapper: container (for @container breakpoints), max width,
  * padding driven by the density token. Replaces ad-hoc `p-4 md:p-6 space-y-6`.
+ *
+ * Renders its children bare when already inside another PageShell.
  */
 export function PageShell({ children, className }: { children: React.ReactNode; className?: string }) {
+  const nested = React.useContext(InPageShell);
+
+  if (nested) return <>{children}</>;
+
   return (
-    <div className={cn("content-container fadeup", className)} style={{ padding: "var(--gap)" }}>
-      <div className="max-w-[1600px] mx-auto">{children}</div>
-    </div>
+    <InPageShell.Provider value={true}>
+      <div className={cn("content-container fadeup", className)} style={{ padding: "var(--gap)" }}>
+        <div className="max-w-[1600px] mx-auto">{children}</div>
+      </div>
+    </InPageShell.Provider>
   );
 }
 
