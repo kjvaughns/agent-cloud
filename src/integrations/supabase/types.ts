@@ -1227,6 +1227,68 @@ export type Database = {
         }
         Relationships: []
       }
+      client_banking: {
+        Row: {
+          account_number_masked: string | null
+          account_type: string | null
+          bank_name: string | null
+          card_brand: string | null
+          card_exp_month: number | null
+          card_exp_year: number | null
+          card_last4: string | null
+          card_name: string | null
+          client_id: string
+          created_at: string | null
+          draft_date: number | null
+          id: string
+          payment_method: string | null
+          routing_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_number_masked?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          card_brand?: string | null
+          card_exp_month?: number | null
+          card_exp_year?: number | null
+          card_last4?: string | null
+          card_name?: string | null
+          client_id: string
+          created_at?: string | null
+          draft_date?: number | null
+          id?: string
+          payment_method?: string | null
+          routing_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_number_masked?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          card_brand?: string | null
+          card_exp_month?: number | null
+          card_exp_year?: number | null
+          card_last4?: string | null
+          card_name?: string | null
+          client_id?: string
+          created_at?: string | null
+          draft_date?: number | null
+          id?: string
+          payment_method?: string | null
+          routing_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_banking_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_financials: {
         Row: {
           client_id: string
@@ -1998,6 +2060,74 @@ export type Database = {
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_requests: {
+        Row: {
+          agency_name: string | null
+          agent_count: string | null
+          assigned_to: string | null
+          created_at: string
+          current_tools: string | null
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          notes: string | null
+          phone: string | null
+          preferred_time: string | null
+          primary_challenge: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          utm: Json | null
+        }
+        Insert: {
+          agency_name?: string | null
+          agent_count?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          current_tools?: string | null
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          notes?: string | null
+          phone?: string | null
+          preferred_time?: string | null
+          primary_challenge?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm?: Json | null
+        }
+        Update: {
+          agency_name?: string | null
+          agent_count?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          current_tools?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          notes?: string | null
+          phone?: string | null
+          preferred_time?: string | null
+          primary_challenge?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          utm?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
