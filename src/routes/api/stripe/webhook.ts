@@ -17,6 +17,31 @@ async function notify(userId: string, title: string, description: string) {
   await supabaseAdmin.from("notifications").insert({ user_id: userId, title, description, type: "billing" });
 }
 
+/**
+ * Billing mail. Payment failures ride the exempt `transactional` category:
+ * losing access because an email was filtered by a preference is worse than
+ * one extra email. Everything else is opt-outable `billing`.
+ */
+async function billingEmail(args: {
+  template: string;
+  profileId: string;
+  orgId?: string | null;
+  key: string;
+  category?: "billing" | "transactional";
+  data?: Record<string, any>;
+}) {
+  const { queueEmail } = await import("@/lib/email/send.server");
+  await queueEmail({
+    template: args.template,
+    profileId: args.profileId,
+    orgId: args.orgId ?? null,
+    category: args.category ?? "billing",
+    key: args.key,
+    data: args.data,
+  });
+}
+
+
 async function handleOrgEvent(kind: string, orgId: string, type: string, obj: any) {
   const orgQ = () => supabaseAdmin.from("organizations");
 
