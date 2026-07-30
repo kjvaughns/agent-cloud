@@ -15,7 +15,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
-export const Route = createFileRoute("/_authenticated/back-office/case-design/admin")({
+export const Route = createFileRoute("/_authenticated/back-office/case-design_/admin")({
   head: () => ({ meta: [{ title: "Case Design Admin — Agent Cloud" }] }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();

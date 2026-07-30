@@ -20,7 +20,7 @@ import {
   getStatementDetail, type StatementLine,
 } from "@/lib/reconciliation.functions";
 
-export const Route = createFileRoute("/_authenticated/finances/reconciliation")({
+export const Route = createFileRoute("/_authenticated/finances_/reconciliation")({
   head: () => ({ meta: [{ title: "Commission Reconciliation — Agent Cloud" }] }),
   component: ReconciliationPage,
 });

@@ -93,7 +93,7 @@ import { Route as AuthenticatedResourcesAgentHandbookRouteImport } from './route
 import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes/_authenticated/resources/agent-academy'
 import { Route as AuthenticatedNovaSettingsRouteImport } from './routes/_authenticated/nova/settings'
 import { Route as AuthenticatedNovaActivityRouteImport } from './routes/_authenticated/nova/activity'
-import { Route as AuthenticatedFinancesReconciliationRouteImport } from './routes/_authenticated/finances.reconciliation'
+import { Route as AuthenticatedFinancesReconciliationRouteImport } from './routes/_authenticated/finances_.reconciliation'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
@@ -117,7 +117,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
-import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design.admin'
+import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -560,9 +560,9 @@ const AuthenticatedNovaActivityRoute =
   } as any)
 const AuthenticatedFinancesReconciliationRoute =
   AuthenticatedFinancesReconciliationRouteImport.update({
-    id: '/reconciliation',
-    path: '/reconciliation',
-    getParentRoute: () => AuthenticatedFinancesRoute,
+    id: '/finances_/reconciliation',
+    path: '/finances/reconciliation',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedContractingTransfersRoute =
   AuthenticatedContractingTransfersRouteImport.update({
@@ -699,9 +699,9 @@ const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
 } as any)
 const AuthenticatedBackOfficeCaseDesignAdminRoute =
   AuthenticatedBackOfficeCaseDesignAdminRouteImport.update({
-    id: '/admin',
-    path: '/admin',
-    getParentRoute: () => AuthenticatedBackOfficeCaseDesignRoute,
+    id: '/case-design_/admin',
+    path: '/case-design/admin',
+    getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -727,7 +727,7 @@ export interface FileRoutesByFullPath {
   '/challenges': typeof AuthenticatedChallengesRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/finances': typeof AuthenticatedFinancesRouteWithChildren
+  '/finances': typeof AuthenticatedFinancesRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -769,7 +769,7 @@ export interface FileRoutesByFullPath {
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
@@ -835,7 +835,7 @@ export interface FileRoutesByTo {
   '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/finances': typeof AuthenticatedFinancesRouteWithChildren
+  '/finances': typeof AuthenticatedFinancesRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -877,7 +877,7 @@ export interface FileRoutesByTo {
   '/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
+  '/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
@@ -947,7 +947,7 @@ export interface FileRoutesById {
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/finances': typeof AuthenticatedFinancesRouteWithChildren
+  '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -989,7 +989,7 @@ export interface FileRoutesById {
   '/_authenticated/agency/settings': typeof AuthenticatedAgencySettingsRoute
   '/_authenticated/agency/team': typeof AuthenticatedAgencyTeamRoute
   '/_authenticated/back-office/advanced-desk': typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
+  '/_authenticated/back-office/case-design': typeof AuthenticatedBackOfficeCaseDesignRoute
   '/_authenticated/back-office/client-marketing': typeof AuthenticatedBackOfficeClientMarketingRoute
   '/_authenticated/back-office/marketing-tracker': typeof AuthenticatedBackOfficeMarketingTrackerRoute
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
@@ -999,7 +999,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
-  '/_authenticated/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
+  '/_authenticated/finances_/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/_authenticated/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/_authenticated/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/_authenticated/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
@@ -1026,7 +1026,7 @@ export interface FileRoutesById {
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
-  '/_authenticated/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
+  '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1330,7 +1330,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting/commission-grids'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
-    | '/_authenticated/finances/reconciliation'
+    | '/_authenticated/finances_/reconciliation'
     | '/_authenticated/nova/activity'
     | '/_authenticated/nova/settings'
     | '/_authenticated/resources/agent-academy'
@@ -1357,7 +1357,7 @@ export interface FileRouteTypes {
     | '/api/stripe/webhook'
     | '/lovable/email/suppression'
     | '/_authenticated/contracting/'
-    | '/_authenticated/back-office/case-design/admin'
+    | '/_authenticated/back-office/case-design_/admin'
     | '/api/public/hooks/fetch-news'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1997,12 +1997,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNovaActivityRouteImport
       parentRoute: typeof AuthenticatedNovaRoute
     }
-    '/_authenticated/finances/reconciliation': {
-      id: '/_authenticated/finances/reconciliation'
-      path: '/reconciliation'
+    '/_authenticated/finances_/reconciliation': {
+      id: '/_authenticated/finances_/reconciliation'
+      path: '/finances/reconciliation'
       fullPath: '/finances/reconciliation'
       preLoaderRoute: typeof AuthenticatedFinancesReconciliationRouteImport
-      parentRoute: typeof AuthenticatedFinancesRoute
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/contracting/transfers': {
       id: '/_authenticated/contracting/transfers'
@@ -2165,38 +2165,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/back-office/case-design/admin': {
-      id: '/_authenticated/back-office/case-design/admin'
-      path: '/admin'
+    '/_authenticated/back-office/case-design_/admin': {
+      id: '/_authenticated/back-office/case-design_/admin'
+      path: '/case-design/admin'
       fullPath: '/back-office/case-design/admin'
       preLoaderRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRouteImport
-      parentRoute: typeof AuthenticatedBackOfficeCaseDesignRoute
+      parentRoute: typeof AuthenticatedBackOfficeRoute
     }
   }
 }
 
-interface AuthenticatedBackOfficeCaseDesignRouteChildren {
-  AuthenticatedBackOfficeCaseDesignAdminRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRoute
-}
-
-const AuthenticatedBackOfficeCaseDesignRouteChildren: AuthenticatedBackOfficeCaseDesignRouteChildren =
-  {
-    AuthenticatedBackOfficeCaseDesignAdminRoute:
-      AuthenticatedBackOfficeCaseDesignAdminRoute,
-  }
-
-const AuthenticatedBackOfficeCaseDesignRouteWithChildren =
-  AuthenticatedBackOfficeCaseDesignRoute._addFileChildren(
-    AuthenticatedBackOfficeCaseDesignRouteChildren,
-  )
-
 interface AuthenticatedBackOfficeRouteChildren {
   AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
-  AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRouteWithChildren
+  AuthenticatedBackOfficeCaseDesignRoute: typeof AuthenticatedBackOfficeCaseDesignRoute
   AuthenticatedBackOfficeClientMarketingRoute: typeof AuthenticatedBackOfficeClientMarketingRoute
   AuthenticatedBackOfficeMarketingTrackerRoute: typeof AuthenticatedBackOfficeMarketingTrackerRoute
   AuthenticatedBackOfficeRecruitingFunnelsRoute: typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   AuthenticatedBackOfficeRecruitingTrackerRoute: typeof AuthenticatedBackOfficeRecruitingTrackerRoute
+  AuthenticatedBackOfficeCaseDesignAdminRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRoute
 }
 
 const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren =
@@ -2204,7 +2190,7 @@ const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren
     AuthenticatedBackOfficeAdvancedDeskRoute:
       AuthenticatedBackOfficeAdvancedDeskRoute,
     AuthenticatedBackOfficeCaseDesignRoute:
-      AuthenticatedBackOfficeCaseDesignRouteWithChildren,
+      AuthenticatedBackOfficeCaseDesignRoute,
     AuthenticatedBackOfficeClientMarketingRoute:
       AuthenticatedBackOfficeClientMarketingRoute,
     AuthenticatedBackOfficeMarketingTrackerRoute:
@@ -2213,6 +2199,8 @@ const AuthenticatedBackOfficeRouteChildren: AuthenticatedBackOfficeRouteChildren
       AuthenticatedBackOfficeRecruitingFunnelsRoute,
     AuthenticatedBackOfficeRecruitingTrackerRoute:
       AuthenticatedBackOfficeRecruitingTrackerRoute,
+    AuthenticatedBackOfficeCaseDesignAdminRoute:
+      AuthenticatedBackOfficeCaseDesignAdminRoute,
   }
 
 const AuthenticatedBackOfficeRouteWithChildren =
@@ -2246,20 +2234,6 @@ const AuthenticatedContractingRouteChildren: AuthenticatedContractingRouteChildr
 const AuthenticatedContractingRouteWithChildren =
   AuthenticatedContractingRoute._addFileChildren(
     AuthenticatedContractingRouteChildren,
-  )
-
-interface AuthenticatedFinancesRouteChildren {
-  AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
-}
-
-const AuthenticatedFinancesRouteChildren: AuthenticatedFinancesRouteChildren = {
-  AuthenticatedFinancesReconciliationRoute:
-    AuthenticatedFinancesReconciliationRoute,
-}
-
-const AuthenticatedFinancesRouteWithChildren =
-  AuthenticatedFinancesRoute._addFileChildren(
-    AuthenticatedFinancesRouteChildren,
   )
 
 interface AuthenticatedNovaRouteChildren {
@@ -2312,7 +2286,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRouteWithChildren
+  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -2331,6 +2305,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
   AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
   AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
+  AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
@@ -2349,7 +2324,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedFinancesRoute: AuthenticatedFinancesRouteWithChildren,
+  AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
@@ -2370,6 +2345,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountProducerProfileRoute,
   AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
   AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
+  AuthenticatedFinancesReconciliationRoute:
+    AuthenticatedFinancesReconciliationRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
