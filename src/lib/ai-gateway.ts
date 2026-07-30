@@ -1,7 +1,19 @@
 // Shared helper for calling the Lovable AI Gateway from server functions.
 // Server-only — do not import from client code.
 
-type ChatMsg = { role: "system" | "user" | "assistant"; content: string };
+/**
+ * Content is either plain text or OpenAI-style multimodal parts. The parts
+ * form is what lets us hand the model a photographed or scanned commission
+ * grid — the gateway proxies the same schema.
+ */
+export type ChatPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+type ChatMsg = {
+  role: "system" | "user" | "assistant";
+  content: string | ChatPart[];
+};
 
 export type AiCallOpts = {
   messages: ChatMsg[];

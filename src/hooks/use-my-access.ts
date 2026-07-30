@@ -43,6 +43,9 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/ai-assistant": isStaff ? !!p.staff_nova_pro_enabled : true,
     "/settings/nova-pro": isStaff ? !!p.staff_nova_pro_enabled : true,
     "/agency/team": isOwner || (isStaff && !!p.staff_is_admin && !!p.admin_manage_staff_configs),
+    // Both write agency-wide configuration, so they follow the owner gate.
+    "/intake": isOwner || (isStaff && !!p.staff_is_admin),
+    "/contracting/comp-grids-manage": isOwner,
     "/phone": isStaff ? false : true,
   };
   return url in rules ? rules[url] : true;

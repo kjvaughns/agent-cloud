@@ -56,6 +56,7 @@ import { Route as AuthenticatedNovaRouteImport } from './routes/_authenticated/n
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
+import { Route as AuthenticatedIntakeRouteImport } from './routes/_authenticated/intake'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
@@ -96,6 +97,7 @@ import { Route as AuthenticatedNovaActivityRouteImport } from './routes/_authent
 import { Route as AuthenticatedFinancesReconciliationRouteImport } from './routes/_authenticated/finances_.reconciliation'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
+import { Route as AuthenticatedContractingCompGridsManageRouteImport } from './routes/_authenticated/contracting.comp-grids-manage'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
@@ -355,6 +357,11 @@ const AuthenticatedLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedIntakeRoute = AuthenticatedIntakeRouteImport.update({
+  id: '/intake',
+  path: '/intake',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
   id: '/finances',
   path: '/finances',
@@ -576,6 +583,12 @@ const AuthenticatedContractingInviteRoute =
     path: '/invite',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const AuthenticatedContractingCompGridsManageRoute =
+  AuthenticatedContractingCompGridsManageRouteImport.update({
+    id: '/comp-grids-manage',
+    path: '/comp-grids-manage',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
 const AuthenticatedContractingCommissionGridsRoute =
   AuthenticatedContractingCommissionGridsRouteImport.update({
     id: '/commission-grids',
@@ -728,6 +741,7 @@ export interface FileRoutesByFullPath {
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -777,6 +791,7 @@ export interface FileRoutesByFullPath {
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
   '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
@@ -836,6 +851,7 @@ export interface FileRoutesByTo {
   '/challenges': typeof AuthenticatedChallengesRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
@@ -885,6 +901,7 @@ export interface FileRoutesByTo {
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
   '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
@@ -948,6 +965,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
+  '/_authenticated/intake': typeof AuthenticatedIntakeRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
@@ -997,6 +1015,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/_authenticated/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
   '/_authenticated/finances_/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
@@ -1060,6 +1079,7 @@ export interface FileRouteTypes {
     | '/contracting'
     | '/dashboard'
     | '/finances'
+    | '/intake'
     | '/leaderboard'
     | '/news-feed'
     | '/notifications'
@@ -1109,6 +1129,7 @@ export interface FileRouteTypes {
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
+    | '/contracting/comp-grids-manage'
     | '/contracting/invite'
     | '/contracting/transfers'
     | '/finances/reconciliation'
@@ -1168,6 +1189,7 @@ export interface FileRouteTypes {
     | '/challenges'
     | '/dashboard'
     | '/finances'
+    | '/intake'
     | '/leaderboard'
     | '/news-feed'
     | '/notifications'
@@ -1217,6 +1239,7 @@ export interface FileRouteTypes {
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
+    | '/contracting/comp-grids-manage'
     | '/contracting/invite'
     | '/contracting/transfers'
     | '/finances/reconciliation'
@@ -1279,6 +1302,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting'
     | '/_authenticated/dashboard'
     | '/_authenticated/finances'
+    | '/_authenticated/intake'
     | '/_authenticated/leaderboard'
     | '/_authenticated/news-feed'
     | '/_authenticated/notifications'
@@ -1328,6 +1352,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
+    | '/_authenticated/contracting/comp-grids-manage'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
     | '/_authenticated/finances_/reconciliation'
@@ -1738,6 +1763,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeaderboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/intake': {
+      id: '/_authenticated/intake'
+      path: '/intake'
+      fullPath: '/intake'
+      preLoaderRoute: typeof AuthenticatedIntakeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/finances': {
       id: '/_authenticated/finances'
       path: '/finances'
@@ -2018,6 +2050,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingInviteRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
+    '/_authenticated/contracting/comp-grids-manage': {
+      id: '/_authenticated/contracting/comp-grids-manage'
+      path: '/comp-grids-manage'
+      fullPath: '/contracting/comp-grids-manage'
+      preLoaderRoute: typeof AuthenticatedContractingCompGridsManageRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
     '/_authenticated/contracting/commission-grids': {
       id: '/_authenticated/contracting/commission-grids'
       path: '/commission-grids'
@@ -2212,6 +2251,7 @@ interface AuthenticatedContractingRouteChildren {
   AuthenticatedContractingAnnuityTrainingRoute: typeof AuthenticatedContractingAnnuityTrainingRoute
   AuthenticatedContractingCarriersRoute: typeof AuthenticatedContractingCarriersRoute
   AuthenticatedContractingCommissionGridsRoute: typeof AuthenticatedContractingCommissionGridsRoute
+  AuthenticatedContractingCompGridsManageRoute: typeof AuthenticatedContractingCompGridsManageRoute
   AuthenticatedContractingInviteRoute: typeof AuthenticatedContractingInviteRoute
   AuthenticatedContractingTransfersRoute: typeof AuthenticatedContractingTransfersRoute
   AuthenticatedContractingIndexRoute: typeof AuthenticatedContractingIndexRoute
@@ -2225,6 +2265,8 @@ const AuthenticatedContractingRouteChildren: AuthenticatedContractingRouteChildr
       AuthenticatedContractingCarriersRoute,
     AuthenticatedContractingCommissionGridsRoute:
       AuthenticatedContractingCommissionGridsRoute,
+    AuthenticatedContractingCompGridsManageRoute:
+      AuthenticatedContractingCompGridsManageRoute,
     AuthenticatedContractingInviteRoute: AuthenticatedContractingInviteRoute,
     AuthenticatedContractingTransfersRoute:
       AuthenticatedContractingTransfersRoute,
@@ -2287,6 +2329,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
+  AuthenticatedIntakeRoute: typeof AuthenticatedIntakeRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
@@ -2325,6 +2368,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
+  AuthenticatedIntakeRoute: AuthenticatedIntakeRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,

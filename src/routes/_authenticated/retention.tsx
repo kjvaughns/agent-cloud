@@ -17,10 +17,10 @@ import {
 import { RefreshCw, PhoneCall, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { money } from "@/lib/format";
+import { money, number } from "@/lib/format";
 import {
   listRetentionCases, getRetentionStats, syncRetentionCases,
-  updateRetentionCase, type RetentionCase,
+  updateRetentionCase, getPersistency, type RetentionCase,
 } from "@/lib/retention.functions";
 
 export const Route = createFileRoute("/_authenticated/retention")({
@@ -45,6 +45,11 @@ const REASON_LABEL: Record<string, string> = {
   manual: "Flagged",
 };
 
+/** Null means "no policies old enough to judge", which is not the same as 0%. */
+function pct(v: number | null | undefined) {
+  return v == null ? "—" : `${v.toFixed(1)}%`;
+}
+
 function daysSince(iso: string) {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86400000));
 }
@@ -64,6 +69,9 @@ function RetentionPage() {
     queryFn: () => listFn({ data: { status: filter } }),
   });
   const { data: stats } = useQuery({ queryKey: ["retention", "stats"], queryFn: () => statsFn() });
+
+  const persistFn = useServerFn(getPersistency);
+  const { data: book } = useQuery({ queryKey: ["retention", "persistency"], queryFn: () => persistFn() });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["retention"] });
 
@@ -99,6 +107,34 @@ function RetentionPage() {
             </Button>
           }
         />
+
+        {/* Book health — how business places and how long it stays. */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-[var(--gap)]">
+          <Panel>
+            <StatTile
+              label="Placement Rate"
+              value={pct(book?.placementPct)}
+              delta={`${number(book?.placed ?? 0)} of ${number(book?.submitted ?? 0)}`}
+            />
+          </Panel>
+          <Panel>
+            <StatTile
+              label="Activation Rate"
+              value={pct(book?.activationPct)}
+              delta={`${number(book?.activated ?? 0)} paying`}
+              tone="gold"
+            />
+          </Panel>
+          {(book?.persistency ?? [4, 7, 13].map((m) => ({ months: m, pct: null, eligible: 0 }))).map((b: any) => (
+            <Panel key={b.months}>
+              <StatTile
+                label={`${b.months}-Month Persistency`}
+                value={pct(b.pct)}
+                delta={b.eligible === 0 ? "not enough history" : `${number(b.eligible)} eligible`}
+              />
+            </Panel>
+          ))}
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--gap)]">
           <Panel><StatTile label="Working" value={String(stats?.live ?? 0)} /></Panel>
