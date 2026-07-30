@@ -2386,6 +2386,120 @@ export type Database = {
           },
         ]
       }
+      discord_deliveries: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string
+          http_status: number | null
+          id: string
+          organization_id: string | null
+          policy_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type: string
+          http_status?: number | null
+          id?: string
+          organization_id?: string | null
+          policy_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string
+          http_status?: number | null
+          id?: string
+          organization_id?: string | null
+          policy_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discord_deliveries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_deliveries_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discord_integrations: {
+        Row: {
+          channel_label: string | null
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          last_error: string | null
+          last_error_at: string | null
+          last_success_at: string | null
+          min_annual_premium: number
+          organization_id: string
+          post_deals: boolean
+          post_milestones: boolean
+          post_new_agents: boolean
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          channel_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          min_annual_premium?: number
+          organization_id: string
+          post_deals?: boolean
+          post_milestones?: boolean
+          post_new_agents?: boolean
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          channel_label?: string | null
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          last_error?: string | null
+          last_error_at?: string | null
+          last_success_at?: string | null
+          min_annual_premium?: number
+          organization_id?: string
+          post_deals?: boolean
+          post_milestones?: boolean
+          post_new_agents?: boolean
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discord_integrations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_integrations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_intake: {
         Row: {
           batch_id: string
@@ -5499,6 +5613,88 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      white_label_applications: {
+        Row: {
+          accent_color: string | null
+          agent_count: string | null
+          brand_name: string
+          created_at: string
+          desired_domain: string | null
+          id: string
+          logo_url: string | null
+          notes: string | null
+          organization_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_by: string | null
+          tagline: string | null
+          timeline: string | null
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string | null
+          agent_count?: string | null
+          brand_name: string
+          created_at?: string
+          desired_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+          organization_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by?: string | null
+          tagline?: string | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string | null
+          agent_count?: string | null
+          brand_name?: string
+          created_at?: string
+          desired_domain?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+          organization_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_by?: string | null
+          tagline?: string | null
+          timeline?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "white_label_applications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "white_label_applications_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
