@@ -4469,6 +4469,19 @@ export type Database = {
           admin_manage_staff_configs: boolean | null
           admin_view_agency_tickets: boolean | null
           admin_view_billing_readonly: boolean | null
+          contracting_approve: boolean | null
+          contracting_assign_staff: boolean | null
+          contracting_export: boolean | null
+          contracting_manage_carriers: boolean | null
+          contracting_manage_comp_levels: boolean | null
+          contracting_manage_hierarchy: boolean | null
+          contracting_manage_licenses: boolean | null
+          contracting_submit: boolean | null
+          contracting_view_agency_comp: boolean | null
+          contracting_view_audit: boolean | null
+          contracting_view_banking: boolean | null
+          contracting_view_sensitive_docs: boolean | null
+          contracting_view_tax_docs: boolean | null
           created_at: string | null
           id: string
           mgr_access_recruiting: boolean | null
@@ -4509,6 +4522,19 @@ export type Database = {
           admin_manage_staff_configs?: boolean | null
           admin_view_agency_tickets?: boolean | null
           admin_view_billing_readonly?: boolean | null
+          contracting_approve?: boolean | null
+          contracting_assign_staff?: boolean | null
+          contracting_export?: boolean | null
+          contracting_manage_carriers?: boolean | null
+          contracting_manage_comp_levels?: boolean | null
+          contracting_manage_hierarchy?: boolean | null
+          contracting_manage_licenses?: boolean | null
+          contracting_submit?: boolean | null
+          contracting_view_agency_comp?: boolean | null
+          contracting_view_audit?: boolean | null
+          contracting_view_banking?: boolean | null
+          contracting_view_sensitive_docs?: boolean | null
+          contracting_view_tax_docs?: boolean | null
           created_at?: string | null
           id?: string
           mgr_access_recruiting?: boolean | null
@@ -4549,6 +4575,19 @@ export type Database = {
           admin_manage_staff_configs?: boolean | null
           admin_view_agency_tickets?: boolean | null
           admin_view_billing_readonly?: boolean | null
+          contracting_approve?: boolean | null
+          contracting_assign_staff?: boolean | null
+          contracting_export?: boolean | null
+          contracting_manage_carriers?: boolean | null
+          contracting_manage_comp_levels?: boolean | null
+          contracting_manage_hierarchy?: boolean | null
+          contracting_manage_licenses?: boolean | null
+          contracting_submit?: boolean | null
+          contracting_view_agency_comp?: boolean | null
+          contracting_view_audit?: boolean | null
+          contracting_view_banking?: boolean | null
+          contracting_view_sensitive_docs?: boolean | null
+          contracting_view_tax_docs?: boolean | null
           created_at?: string | null
           id?: string
           mgr_access_recruiting?: boolean | null
@@ -5705,6 +5744,17 @@ export type Database = {
     }
     Functions: {
       agent_completion: { Args: { _agent: string }; Returns: Json }
+      can_approve_contracts: { Args: { _org: string }; Returns: boolean }
+      can_assign_contracting_staff: { Args: { _org: string }; Returns: boolean }
+      can_manage_comp_levels: { Args: { _org: string }; Returns: boolean }
+      can_manage_contracting: { Args: { _org: string }; Returns: boolean }
+      can_manage_hierarchy: { Args: { _org: string }; Returns: boolean }
+      can_manage_licenses: { Args: { _org: string }; Returns: boolean }
+      can_submit_contracts: { Args: { _org: string }; Returns: boolean }
+      can_view_agency_comp: { Args: { _org: string }; Returns: boolean }
+      can_view_contracting: { Args: { _org: string }; Returns: boolean }
+      can_view_contracting_audit: { Args: { _org: string }; Returns: boolean }
+      can_view_sensitive_docs: { Args: { _org: string }; Returns: boolean }
       check_rate_limit: {
         Args: { _key: string; _max: number; _window_seconds: number }
         Returns: boolean
@@ -5800,6 +5850,10 @@ export type Database = {
         Returns: Json
       }
       get_trends_12mo: { Args: never; Returns: Json }
+      has_contracting_flag: {
+        Args: { _flag: string; _org: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5817,6 +5871,7 @@ export type Database = {
         Args: { _target: string; _upline: string }
         Returns: boolean
       }
+      is_org_admin: { Args: { _org: string }; Returns: boolean }
       is_org_owner: { Args: { _org: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       may_notify: {
