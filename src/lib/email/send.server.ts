@@ -175,7 +175,7 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
       const { data: settings } = await supabaseAdmin
         .from("organization_settings")
         .select("emails_enabled, email_categories")
-        .eq("organization_id", args.orgId)
+        .eq("organization_id", orgId)
         .maybeSingle();
 
       // Absence of configuration means do not send.
@@ -275,7 +275,7 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
     }
 
     // --- render ---
-    const brand = await resolveBrand(args.orgId);
+    const brand = await resolveBrand(orgId);
     const templateData = { appUrl: APP_ORIGIN, ...(args.data ?? {}), ...(brand ? { brand } : {}) };
     const element = React.createElement(template.component, templateData);
     const html = await render(element);
