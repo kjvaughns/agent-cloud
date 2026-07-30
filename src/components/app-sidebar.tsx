@@ -238,6 +238,16 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )}
+                  {isAgencyOwner && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild tooltip="Automations">
+                        <Link to="/agency/automations">
+                          <Bot className="h-4 w-4" />
+                          <span>Automations</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
