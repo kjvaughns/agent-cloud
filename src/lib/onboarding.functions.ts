@@ -358,6 +358,18 @@ export const signOnboardingAgreement = createServerFn({ method: "POST" })
       type: "contracting",
     });
 
+    {
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "invite-accepted",
+        profileId: inv.created_by,
+        category: "team_activity",
+        key: `invite-accepted:${inv.id}:${userId}`,
+        data: { agentName: data.signature_name },
+      });
+    }
+
+
     return { ok: true };
   });
 
