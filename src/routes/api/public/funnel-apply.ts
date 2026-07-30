@@ -67,6 +67,22 @@ export const Route = createFileRoute("/api/public/funnel-apply")({
           type: "recruiting",
         });
 
+        {
+          const { queueEmail } = await import("@/lib/email/send.server");
+          await queueEmail({
+            template: "new-lead",
+            profileId: funnel.agent_id,
+            category: "team_activity",
+            key: `new-lead:funnel:${funnel.id}:${d.phone ?? d.email ?? ""}:${Date.now()}`,
+            data: {
+              leadName: `${d.first_name} ${d.last_name}`.trim(),
+              source: `Recruiting funnel — ${funnel.name}`,
+              phone: d.phone ?? undefined,
+            },
+          });
+        }
+
+
         return Response.json({ ok: true }, { headers: { "Access-Control-Allow-Origin": "*" } });
       },
     },
