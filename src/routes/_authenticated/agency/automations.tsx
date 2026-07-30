@@ -92,10 +92,14 @@ function AutomationsPage() {
   }
 
   return (
-    <PageShell
-      title="Automations"
-      description="Scheduled jobs run hourly. Every run is recorded here — if it isn't listed, it didn't happen."
-    >
+    <PageShell>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Automations</h1>
+        <p className="text-sm text-muted-foreground">
+          Scheduled jobs run hourly. Every run is recorded here — if it isn't listed, it didn't happen.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         {jobs.map((j) => {
           const last = runs.find((r) => r.job_key === j.key);
