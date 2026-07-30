@@ -62,6 +62,7 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     // The hub is for people who administer the agency; an agent has
     // nothing to do on it.
     "/agency": canManage || (isStaff && !!p.staff_is_admin),
+    "/agency/usage": canManage,
     "/white-label": canManage,
     "/phone": isStaff ? false : true,
   };
