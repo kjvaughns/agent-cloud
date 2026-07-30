@@ -1,15 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 /**
- * Comp grids, hosted inside Contracting Operations.
+ * Grids are now a tab on Compensation.
  *
- * Commission grids are carrier compensation data — they belong beside the
- * comp levels and writing numbers they describe, not in a separate corner of
- * the sidebar. The page itself is the shipped one, rendered here rather than
- * reimplemented; the old route redirects to this one.
+ * Levels and grids answer the same question — what does this carrier pay —
+ * and having them as two sidebar entries meant guessing which one held the
+ * number you wanted. This route stays so existing links still land right.
  */
 export const Route = createFileRoute("/_authenticated/contracting-ops/comp-grids")({
-  component: ManageGridsPage,
-  head: () => ({ meta: [{ title: "Comp Grids | Agent Cloud" }] }),
+  beforeLoad: () => {
+    throw redirect({ to: "/contracting-ops/compensation", search: { tab: "grids" } });
+  },
 });

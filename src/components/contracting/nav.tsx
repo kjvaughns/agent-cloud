@@ -42,7 +42,6 @@ export const CONTRACTING_GROUPS: NavGroup[] = [
     items: [
       { label: "Carrier Directory", to: "/contracting-ops/carriers" },
       { label: "Compensation", to: "/contracting-ops/compensation" },
-      { label: "Comp Grids", to: "/contracting-ops/comp-grids" },
       { label: "Writing Numbers", to: "/contracting-ops/writing-numbers" },
       { label: "Hierarchies", to: "/contracting-ops/hierarchies" },
     ],

@@ -57,7 +57,7 @@ const SECTIONS: Section[] = [
     cards: [
       { title: "Contracting Operations", body: "Requests, carriers, writing numbers, licensing, hierarchy and Ready to Sell.", to: "/contracting-ops", icon: ClipboardList },
       { title: "Carrier directory", body: "Which carriers you use and how each takes submissions.", to: "/contracting-ops/carriers", icon: Building2 },
-      { title: "Comp grids", body: "Commission grids by carrier and product.", to: "/contracting-ops/comp-grids", icon: Percent },
+      { title: "Compensation", body: "What each carrier pays — levels, and the grids behind them.", to: "/contracting-ops/compensation", icon: Percent },
       { title: "Writing numbers", body: "Every number your producers hold, by carrier and state.", to: "/contracting-ops/writing-numbers", icon: IdCard },
       { title: "Licensing records", body: "PDB reviews, state licences and renewal dates.", to: "/contracting-ops/licensing", icon: FileSignature },
     ],
