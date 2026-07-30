@@ -937,6 +937,111 @@ export type Database = {
           },
         ]
       }
+      carrier_comp_levels: {
+        Row: {
+          advance_months: number | null
+          advance_pct: number | null
+          chargeback_rules: string | null
+          commission_pct: number | null
+          created_at: string
+          created_by: string | null
+          effective_date: string | null
+          id: string
+          level_name: string
+          max_downline_level_id: string | null
+          min_production_requirements: string | null
+          notes: string | null
+          org_carrier_id: string
+          organization_id: string
+          renewal_pct: number | null
+          role_eligibility: string[]
+          sort_order: number
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          advance_months?: number | null
+          advance_pct?: number | null
+          chargeback_rules?: string | null
+          commission_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          level_name: string
+          max_downline_level_id?: string | null
+          min_production_requirements?: string | null
+          notes?: string | null
+          org_carrier_id: string
+          organization_id: string
+          renewal_pct?: number | null
+          role_eligibility?: string[]
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          advance_months?: number | null
+          advance_pct?: number | null
+          chargeback_rules?: string | null
+          commission_pct?: number | null
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string | null
+          id?: string
+          level_name?: string
+          max_downline_level_id?: string | null
+          min_production_requirements?: string | null
+          notes?: string | null
+          org_carrier_id?: string
+          organization_id?: string
+          renewal_pct?: number | null
+          role_eligibility?: string[]
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_comp_levels_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_comp_levels_max_downline_level_id_fkey"
+            columns: ["max_downline_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_comp_levels_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_comp_levels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_comp_levels_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carrier_mapping_templates: {
         Row: {
           carrier_id: string
@@ -975,6 +1080,94 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_requirements: {
+        Row: {
+          active: boolean
+          applies_to_comp_levels: string[]
+          applies_to_contract_types: string[]
+          applies_to_product_lines: string[]
+          applies_to_states: string[]
+          created_at: string
+          created_by: string | null
+          help_text: string | null
+          hierarchy_changes_only: boolean
+          id: string
+          kind: string
+          label: string
+          necessity: string
+          org_carrier_id: string
+          organization_id: string
+          requirement_key: string
+          sort_order: number
+          transfers_only: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          applies_to_comp_levels?: string[]
+          applies_to_contract_types?: string[]
+          applies_to_product_lines?: string[]
+          applies_to_states?: string[]
+          created_at?: string
+          created_by?: string | null
+          help_text?: string | null
+          hierarchy_changes_only?: boolean
+          id?: string
+          kind: string
+          label: string
+          necessity?: string
+          org_carrier_id: string
+          organization_id: string
+          requirement_key: string
+          sort_order?: number
+          transfers_only?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          applies_to_comp_levels?: string[]
+          applies_to_contract_types?: string[]
+          applies_to_product_lines?: string[]
+          applies_to_states?: string[]
+          created_at?: string
+          created_by?: string | null
+          help_text?: string | null
+          hierarchy_changes_only?: boolean
+          id?: string
+          kind?: string
+          label?: string
+          necessity?: string
+          org_carrier_id?: string
+          organization_id?: string
+          requirement_key?: string
+          sort_order?: number
+          transfers_only?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_requirements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_requirements_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_requirements_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1049,12 +1242,17 @@ export type Database = {
           advance_cap_months: number | null
           agent_portal_url: string | null
           contracting_speed_days: number | null
+          created_at: string
+          created_by: string | null
           datalink_enabled: boolean
           hours: string | null
           id: string
           ideal_client: string | null
           is_annuity_carrier: boolean
+          is_private: boolean
+          logo_url: string | null
           name: string
+          owner_organization_id: string | null
           pay_frequency: string | null
           phone: string | null
           surelc_carrier_code: string | null
@@ -1069,12 +1267,17 @@ export type Database = {
           advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
+          created_at?: string
+          created_by?: string | null
           datalink_enabled?: boolean
           hours?: string | null
           id?: string
           ideal_client?: string | null
           is_annuity_carrier?: boolean
+          is_private?: boolean
+          logo_url?: string | null
           name: string
+          owner_organization_id?: string | null
           pay_frequency?: string | null
           phone?: string | null
           surelc_carrier_code?: string | null
@@ -1089,19 +1292,39 @@ export type Database = {
           advance_cap_months?: number | null
           agent_portal_url?: string | null
           contracting_speed_days?: number | null
+          created_at?: string
+          created_by?: string | null
           datalink_enabled?: boolean
           hours?: string | null
           id?: string
           ideal_client?: string | null
           is_annuity_carrier?: boolean
+          is_private?: boolean
+          logo_url?: string | null
           name?: string
+          owner_organization_id?: string | null
           pay_frequency?: string | null
           phone?: string | null
           surelc_carrier_code?: string | null
           training_url?: string | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "carriers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carriers_owner_organization_id_fkey"
+            columns: ["owner_organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       case_design_requests: {
         Row: {
@@ -3288,6 +3511,264 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "onboarding_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_carrier_methods: {
+        Row: {
+          applies_to: string[]
+          created_at: string
+          id: string
+          instructions: string | null
+          is_default: boolean
+          method: string
+          org_carrier_id: string
+          organization_id: string
+          sort_order: number
+          target_email: string | null
+          target_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          applies_to?: string[]
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          is_default?: boolean
+          method: string
+          org_carrier_id: string
+          organization_id: string
+          sort_order?: number
+          target_email?: string | null
+          target_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applies_to?: string[]
+          created_at?: string
+          id?: string
+          instructions?: string | null
+          is_default?: boolean
+          method?: string
+          org_carrier_id?: string
+          organization_id?: string
+          sort_order?: number
+          target_email?: string | null
+          target_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_carrier_methods_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_carrier_methods_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_carriers: {
+        Row: {
+          carrier_id: string
+          contracting_email: string | null
+          contracting_phone: string | null
+          contracting_portal_url: string | null
+          created_at: string
+          created_by: string | null
+          custom_statuses: Json
+          external_provider: string | null
+          external_record_id: string | null
+          external_status: string | null
+          id: string
+          integration_metadata: Json
+          internal_instructions: string | null
+          invitation_link: string | null
+          just_in_time_appointments: boolean
+          last_synced_at: string | null
+          manual_override: boolean
+          max_issue_age: number | null
+          min_issue_age: number | null
+          min_production_requirements: string | null
+          organization_id: string
+          product_types: string[]
+          release_required: boolean
+          release_requirements: string | null
+          staff_notes: string | null
+          status: string
+          support_email: string | null
+          support_phone: string | null
+          surelc_url: string | null
+          sync_error: string | null
+          sync_source: string | null
+          transfers_allowed: boolean
+          turnaround_days: number | null
+          updated_at: string
+          updated_by: string | null
+          writing_number_scope: string
+        }
+        Insert: {
+          carrier_id: string
+          contracting_email?: string | null
+          contracting_phone?: string | null
+          contracting_portal_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_statuses?: Json
+          external_provider?: string | null
+          external_record_id?: string | null
+          external_status?: string | null
+          id?: string
+          integration_metadata?: Json
+          internal_instructions?: string | null
+          invitation_link?: string | null
+          just_in_time_appointments?: boolean
+          last_synced_at?: string | null
+          manual_override?: boolean
+          max_issue_age?: number | null
+          min_issue_age?: number | null
+          min_production_requirements?: string | null
+          organization_id: string
+          product_types?: string[]
+          release_required?: boolean
+          release_requirements?: string | null
+          staff_notes?: string | null
+          status?: string
+          support_email?: string | null
+          support_phone?: string | null
+          surelc_url?: string | null
+          sync_error?: string | null
+          sync_source?: string | null
+          transfers_allowed?: boolean
+          turnaround_days?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          writing_number_scope?: string
+        }
+        Update: {
+          carrier_id?: string
+          contracting_email?: string | null
+          contracting_phone?: string | null
+          contracting_portal_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          custom_statuses?: Json
+          external_provider?: string | null
+          external_record_id?: string | null
+          external_status?: string | null
+          id?: string
+          integration_metadata?: Json
+          internal_instructions?: string | null
+          invitation_link?: string | null
+          just_in_time_appointments?: boolean
+          last_synced_at?: string | null
+          manual_override?: boolean
+          max_issue_age?: number | null
+          min_issue_age?: number | null
+          min_production_requirements?: string | null
+          organization_id?: string
+          product_types?: string[]
+          release_required?: boolean
+          release_requirements?: string | null
+          staff_notes?: string | null
+          status?: string
+          support_email?: string | null
+          support_phone?: string | null
+          surelc_url?: string | null
+          sync_error?: string | null
+          sync_source?: string | null
+          transfers_allowed?: boolean
+          turnaround_days?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          writing_number_scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_carriers_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_carriers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_carriers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_carriers_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_role_comp_mappings: {
+        Row: {
+          comp_level_id: string
+          created_at: string
+          id: string
+          internal_role: string
+          org_carrier_id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          comp_level_id: string
+          created_at?: string
+          id?: string
+          internal_role: string
+          org_carrier_id: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          comp_level_id?: string
+          created_at?: string
+          id?: string
+          internal_role?: string
+          org_carrier_id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_role_comp_mappings_comp_level_id_fkey"
+            columns: ["comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_role_comp_mappings_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_role_comp_mappings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
