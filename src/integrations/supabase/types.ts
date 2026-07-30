@@ -5922,6 +5922,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "producer_documents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "producer_documents_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
