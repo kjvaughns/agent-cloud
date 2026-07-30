@@ -112,6 +112,7 @@ import { Route as AuthenticatedContractingOpsRequestsRouteImport } from './route
 import { Route as AuthenticatedContractingOpsReadyToSellRouteImport } from './routes/_authenticated/contracting-ops/ready-to-sell'
 import { Route as AuthenticatedContractingOpsQueueRouteImport } from './routes/_authenticated/contracting-ops/queue'
 import { Route as AuthenticatedContractingOpsLicensingRouteImport } from './routes/_authenticated/contracting-ops/licensing'
+import { Route as AuthenticatedContractingOpsImportRouteImport } from './routes/_authenticated/contracting-ops/import'
 import { Route as AuthenticatedContractingOpsHierarchyChangesRouteImport } from './routes/_authenticated/contracting-ops/hierarchy-changes'
 import { Route as AuthenticatedContractingOpsHierarchiesRouteImport } from './routes/_authenticated/contracting-ops/hierarchies'
 import { Route as AuthenticatedContractingOpsDocumentsRouteImport } from './routes/_authenticated/contracting-ops/documents'
@@ -693,6 +694,12 @@ const AuthenticatedContractingOpsLicensingRoute =
     path: '/licensing',
     getParentRoute: () => AuthenticatedContractingOpsRoute,
   } as any)
+const AuthenticatedContractingOpsImportRoute =
+  AuthenticatedContractingOpsImportRouteImport.update({
+    id: '/import',
+    path: '/import',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
 const AuthenticatedContractingOpsHierarchyChangesRoute =
   AuthenticatedContractingOpsHierarchyChangesRouteImport.update({
     id: '/hierarchy-changes',
@@ -943,6 +950,7 @@ export interface FileRoutesByFullPath {
   '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
   '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
   '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/import': typeof AuthenticatedContractingOpsImportRoute
   '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
   '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
   '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
@@ -1073,6 +1081,7 @@ export interface FileRoutesByTo {
   '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
   '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
   '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/import': typeof AuthenticatedContractingOpsImportRoute
   '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
   '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
   '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
@@ -1207,6 +1216,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
   '/_authenticated/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
   '/_authenticated/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/_authenticated/contracting-ops/import': typeof AuthenticatedContractingOpsImportRoute
   '/_authenticated/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
   '/_authenticated/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
   '/_authenticated/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
@@ -1342,6 +1352,7 @@ export interface FileRouteTypes {
     | '/contracting-ops/documents'
     | '/contracting-ops/hierarchies'
     | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/import'
     | '/contracting-ops/licensing'
     | '/contracting-ops/queue'
     | '/contracting-ops/ready-to-sell'
@@ -1472,6 +1483,7 @@ export interface FileRouteTypes {
     | '/contracting-ops/documents'
     | '/contracting-ops/hierarchies'
     | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/import'
     | '/contracting-ops/licensing'
     | '/contracting-ops/queue'
     | '/contracting-ops/ready-to-sell'
@@ -1605,6 +1617,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting-ops/documents'
     | '/_authenticated/contracting-ops/hierarchies'
     | '/_authenticated/contracting-ops/hierarchy-changes'
+    | '/_authenticated/contracting-ops/import'
     | '/_authenticated/contracting-ops/licensing'
     | '/_authenticated/contracting-ops/queue'
     | '/_authenticated/contracting-ops/ready-to-sell'
@@ -2424,6 +2437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingOpsLicensingRouteImport
       parentRoute: typeof AuthenticatedContractingOpsRoute
     }
+    '/_authenticated/contracting-ops/import': {
+      id: '/_authenticated/contracting-ops/import'
+      path: '/import'
+      fullPath: '/contracting-ops/import'
+      preLoaderRoute: typeof AuthenticatedContractingOpsImportRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
     '/_authenticated/contracting-ops/hierarchy-changes': {
       id: '/_authenticated/contracting-ops/hierarchy-changes'
       path: '/hierarchy-changes'
@@ -2718,6 +2738,7 @@ interface AuthenticatedContractingOpsRouteChildren {
   AuthenticatedContractingOpsDocumentsRoute: typeof AuthenticatedContractingOpsDocumentsRoute
   AuthenticatedContractingOpsHierarchiesRoute: typeof AuthenticatedContractingOpsHierarchiesRoute
   AuthenticatedContractingOpsHierarchyChangesRoute: typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  AuthenticatedContractingOpsImportRoute: typeof AuthenticatedContractingOpsImportRoute
   AuthenticatedContractingOpsLicensingRoute: typeof AuthenticatedContractingOpsLicensingRoute
   AuthenticatedContractingOpsQueueRoute: typeof AuthenticatedContractingOpsQueueRoute
   AuthenticatedContractingOpsReadyToSellRoute: typeof AuthenticatedContractingOpsReadyToSellRoute
@@ -2740,6 +2761,8 @@ const AuthenticatedContractingOpsRouteChildren: AuthenticatedContractingOpsRoute
       AuthenticatedContractingOpsHierarchiesRoute,
     AuthenticatedContractingOpsHierarchyChangesRoute:
       AuthenticatedContractingOpsHierarchyChangesRoute,
+    AuthenticatedContractingOpsImportRoute:
+      AuthenticatedContractingOpsImportRoute,
     AuthenticatedContractingOpsLicensingRoute:
       AuthenticatedContractingOpsLicensingRoute,
     AuthenticatedContractingOpsQueueRoute:
