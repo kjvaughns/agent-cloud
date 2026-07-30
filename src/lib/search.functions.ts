@@ -87,13 +87,16 @@ export const globalSearch = createServerFn({ method: "POST" })
         href: `/book-of-business?policy=${p.id}`,
       });
     }
+    // Both of these deep-link to the record itself. Sending somebody who
+    // searched a name to an unfiltered list is a dead end dressed up as a
+    // result — they searched precisely so they would not have to scan a list.
     for (const a of agents.data ?? []) {
       hits.push({
         type: "agent",
         id: a.id,
         title: name(a.first_name, a.last_name),
         subtitle: a.email ?? null,
-        href: `/team`,
+        href: `/team?agent=${a.id}`,
       });
     }
     for (const r of prospects.data ?? []) {
@@ -102,7 +105,11 @@ export const globalSearch = createServerFn({ method: "POST" })
         id: r.id,
         title: name(r.first_name, r.last_name),
         subtitle: r.stage ?? r.email ?? null,
-        href: `/back-office/recruiting-tracker`,
+        // The page that actually lists prospects. This used to point at
+        // /back-office/recruiting-tracker, which is now a redirect, so a
+        // prospect result took two hops to arrive somewhere it was never
+        // shown. There is no per-prospect detail view to deep-link to yet.
+        href: `/back-office/marketing-tracker`,
       });
     }
 
