@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { money, phone as fmtPhone } from "@/lib/format";
 import {
   searchClients, listCarriersForDeal, getMyActiveCarrierIds, postDeal,
+  getClientDealPrefill,
 } from "@/lib/post-deal.functions";
 import { PostDealQaButton } from "@/components/ai/post-deal-qa";
 import { PageShell, HeroBand } from "@/components/page-shell";
@@ -72,7 +73,17 @@ function PostDealPage() {
   });
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = form;
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "beneficiaries" });
+  const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "beneficiaries" });
+
+  // Pull everything already on the client record so the agent is confirming a
+  // filled-in form rather than retyping what they just entered in the pipeline.
+  const prefillFn = useServerFn(getClientDealPrefill);
+  const { data: prefill } = useQuery({
+    queryKey: ["deal-prefill", client_id],
+    queryFn: () => prefillFn({ data: { client_id: client_id! } }),
+    enabled: Boolean(client_id),
+    staleTime: 0,
+  });
 
   useEffect(() => {
     if (client_id) {
@@ -80,6 +91,32 @@ function PostDealPage() {
       setValue("existing_id", client_id);
     }
   }, [client_id, setValue]);
+
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (!prefill || prefilled.current) return;
+    prefilled.current = true;
+
+    setValue("first_name", prefill.client.first_name);
+    setValue("last_name", prefill.client.last_name);
+    setValue("phone", prefill.client.phone);
+    setValue("date_of_birth", prefill.client.date_of_birth);
+
+    if (prefill.policy) {
+      setValue("carrier_id", prefill.policy.carrier_id);
+      setValue("product", prefill.policy.product);
+      setValue("policy_number", prefill.policy.policy_number);
+      setValue("effective_date", prefill.policy.effective_date);
+      setValue("face_amount", prefill.policy.face_amount);
+      setValue("monthly_premium", prefill.policy.monthly_premium);
+      setValue("status", prefill.policy.status);
+    }
+
+    if (prefill.beneficiaries.length) {
+      // replace() rather than append(), so a re-render cannot duplicate rows.
+      replace(prefill.beneficiaries);
+    }
+  }, [prefill, setValue, replace]);
 
   const clientType = watch("client_type");
   const monthly = Number(watch("monthly_premium") || 0);

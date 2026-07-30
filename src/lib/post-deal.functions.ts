@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
+import { announceDeal } from "@/lib/discord.functions";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -161,5 +162,86 @@ export const postDeal = createServerFn({ method: "POST" })
         .eq("id", clientId);
     }
 
+    // Announce in the agency's Discord, if they've connected one. Never
+    // awaited into the failure path — a Discord outage must not fail a deal
+    // that is already written. announceDeal swallows its own errors and
+    // records them for the owner to see.
+    void announceDeal(policy.id);
+
     return { policyId: policy.id, clientId };
+  });
+
+// ── Prefill from the pipeline ───────────────────────────────────────────────
+
+/**
+ * Everything already known about a client, for the Post a Deal form.
+ *
+ * Clicking "Post Deal" in the pipeline drawer used to pass only the client id,
+ * which flipped the form to "existing" and left every field blank — so the
+ * agent re-typed the name, phone, DOB, carrier, product, premium and
+ * beneficiaries they had just entered on the client record.
+ *
+ * Reads through the RLS-bound client, so this can only ever return a client
+ * the caller can already open.
+ */
+export const getClientDealPrefill = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ client_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as { supabase: any; userId: string };
+
+    const [{ data: client }, { data: policies }, { data: bens }] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, first_name, last_name, phone, date_of_birth")
+        .eq("id", data.client_id)
+        .maybeSingle(),
+      // Most recent policy entered on the client record — that is the one the
+      // agent is posting.
+      supabase
+        .from("policies")
+        .select("carrier_id, product, policy_number, effective_date, face_amount, monthly_premium, status")
+        .eq("client_id", data.client_id)
+        .order("posted_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("beneficiaries")
+        .select("first_name, last_name, relationship, dob, percentage")
+        .eq("client_id", data.client_id),
+    ]);
+
+    if (!client) throw new Error("Client not found");
+
+    const policy = (policies ?? [])[0] ?? null;
+
+    return {
+      client: {
+        id: client.id as string,
+        first_name: client.first_name ?? "",
+        last_name: client.last_name ?? "",
+        phone: client.phone ?? "",
+        date_of_birth: client.date_of_birth ?? "",
+      },
+      policy: policy
+        ? {
+            carrier_id: policy.carrier_id ?? "",
+            product: policy.product ?? "",
+            policy_number: policy.policy_number ?? "",
+            effective_date: policy.effective_date ?? "",
+            face_amount: policy.face_amount != null ? String(policy.face_amount) : "",
+            monthly_premium: policy.monthly_premium != null ? String(policy.monthly_premium) : "",
+            // Only the two statuses Post a Deal offers; anything else is a
+            // policy already past submission and should not preselect.
+            status: (policy.status === "in_review" ? "in_review" : "issued_not_paid") as
+              "issued_not_paid" | "in_review",
+          }
+        : null,
+      beneficiaries: (bens ?? []).map((b: any) => ({
+        first_name: b.first_name ?? "",
+        last_name: b.last_name ?? "",
+        relationship: b.relationship ?? "",
+        dob: b.dob ?? "",
+        percentage: b.percentage != null ? String(b.percentage) : "",
+      })),
+    };
   });
