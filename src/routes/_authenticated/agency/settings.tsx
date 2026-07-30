@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -43,6 +43,11 @@ function OrganizationSettings() {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Logo, accent colour and subdomain are the White Label product. Showing
+  // them to everyone means most agencies configure branding that never
+  // renders — the theme override and custom domain only apply on that plan.
+  const whiteLabel = org?.plan_type === "white_label";
 
   // Sync form when org loads
   useQuery({
@@ -98,13 +103,15 @@ function OrganizationSettings() {
       <div>
         <h1 className="text-2xl font-bold">Agency Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Customize how your agency appears to your team on Agent Cloud.
+          Your agency name and tagline appear in the sidebar and on every email your
+          agency sends.
         </p>
       </div>
 
       <Card>
         <CardContent className="p-6 space-y-5">
-          {/* Logo */}
+          {/* Logo — White Label only */}
+          {whiteLabel && (
           <div className="space-y-2">
             <Label>Agency Logo</Label>
             <div className="flex items-center gap-4">
@@ -134,6 +141,7 @@ function OrganizationSettings() {
             </div>
             <p className="text-xs text-muted-foreground">PNG or SVG recommended. Square logos work best.</p>
           </div>
+          )}
 
           {/* Name */}
           <div className="space-y-1.5">
@@ -156,7 +164,8 @@ function OrganizationSettings() {
             />
           </div>
 
-          {/* Accent color */}
+          {/* Accent colour — White Label only */}
+          {whiteLabel && (
           <div className="space-y-1.5">
             <Label>Accent Color</Label>
             <div className="flex items-center gap-3 flex-wrap">
@@ -179,8 +188,10 @@ function OrganizationSettings() {
               <p className="text-xs text-muted-foreground">Used for buttons, badges, and highlights.</p>
             </div>
           </div>
+          )}
 
-          {/* Subdomain */}
+          {/* Subdomain — White Label only */}
+          {whiteLabel && (
           <div className="space-y-1.5">
             <Label>Your Subdomain</Label>
             <div className="flex items-center gap-2 flex-wrap">
@@ -195,6 +206,20 @@ function OrganizationSettings() {
               Your team will access your platform at <strong>{form.slug || "…"}.agentcloud.com</strong>
             </p>
           </div>
+          )}
+
+          {!whiteLabel && (
+            <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-4">
+              <p className="text-sm font-medium">Want your own logo, colours and domain?</p>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                Custom branding is part of White Label. Your agency name and tagline above
+                apply on every plan.
+              </p>
+              <Button asChild variant="outline" size="sm" className="mt-3">
+                <Link to="/settings">See White Label →</Link>
+              </Button>
+            </div>
+          )}
 
           <Button onClick={save} disabled={saving} className="w-full">
             {saving ? "Saving..." : "Save Agency Settings"}

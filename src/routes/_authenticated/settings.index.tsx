@@ -15,13 +15,14 @@ import { SecurityPage } from "./settings.security";
 import { NotificationSettings } from "./settings.notifications";
 import { AgencyTeamPage } from "./agency.team";
 import { DiscordSettings } from "@/components/discord-settings";
+import { SupportConsole } from "@/components/support-console";
 
 export const Route = createFileRoute("/_authenticated/settings/")({
   head: () => ({ meta: [{ title: "Settings — Agent Cloud" }] }),
   component: SettingsHub,
 });
 
-type TabKey = "billing" | "nova" | "security" | "notifications" | "integrations" | "management";
+type TabKey = "billing" | "nova" | "security" | "notifications" | "support" | "integrations" | "management";
 
 /**
  * One Settings page instead of four sidebar entries.
@@ -53,6 +54,7 @@ function SettingsHub() {
     { key: "nova", label: "Nova Pro" },
     { key: "security", label: "Security" },
     { key: "notifications", label: "Notifications" },
+    ...(canManage ? [{ key: "support" as TabKey, label: "Support Desk" }] : []),
     ...(canManage ? [{ key: "integrations" as TabKey, label: "Integrations" }] : []),
     ...(canManage ? [{ key: "management" as TabKey, label: "Management" }] : []),
   ];
@@ -75,6 +77,7 @@ function SettingsHub() {
           {tab === "nova" && <NovaProPage />}
           {tab === "security" && <SecurityPage />}
           {tab === "notifications" && <NotificationSettings />}
+          {tab === "support" && canManage && <SupportConsole />}
           {tab === "integrations" && canManage && <DiscordSettings />}
           {tab === "management" && canManage && <ManagementTab isOwner={Boolean(access?.isOwner)} />}
         </div>

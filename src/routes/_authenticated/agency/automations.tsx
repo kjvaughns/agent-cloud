@@ -36,13 +36,16 @@ export const Route = createFileRoute("/_authenticated/agency/automations")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
     if (!data.session) throw redirect({ to: "/login" as any });
-    const { data: roleRow } = await supabase
+    // No maybeSingle() here: it errors when more than one row matches, and an
+    // owner legitimately holds several of these roles at once. That returned
+    // null and silently bounced them to the dashboard.
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", data.session.user.id)
       .in("role", ["super_admin", "admin", "agency_owner"] as any)
-      .maybeSingle();
-    if (!roleRow) throw redirect({ to: "/dashboard" as any });
+      .limit(1);
+    if (!roleRows?.length) throw redirect({ to: "/dashboard" as any });
   },
   component: AutomationsPage,
 });
