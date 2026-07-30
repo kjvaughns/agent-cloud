@@ -12,7 +12,7 @@ import {
   Percent, GraduationCap, Building2, BookText, ScrollText, IdCard,
   Library, Briefcase as BriefcaseIcon, ClipboardList, Globe, Megaphone as MegaIcon,
   Target, Calculator, Wrench, PhoneIncoming, LifeBuoy, HelpCircle,
-  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud, Settings,
+  ChevronDown, Briefcase, Trophy, ShieldCheck, Heart, UploadCloud, Settings, Bot,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
