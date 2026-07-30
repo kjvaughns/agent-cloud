@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowRight, Building2, FilePlus,
+  AlertTriangle, ArrowRight, Building2, FilePlus, IdCard, Percent, UploadCloud, Users,
 } from "lucide-react";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -86,12 +86,12 @@ function OverviewPage() {
   }
 
   const attention = [
-    { label: "Overdue requests", value: m.overdue, to: "/contracting-ops/requests" },
+    { label: "Overdue requests", value: m.overdue, to: "/contracting-ops/queue" },
     { label: "Not in good order", value: m.nigo, to: "/contracting-ops/requests" },
-    { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/requests" },
-    { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/requests" },
-    { label: "Licenses expiring soon", value: m.expiring_licenses, to: "/contracting-ops/requests" },
-    { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/requests" },
+    { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/licensing" },
+    { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/licensing" },
+    { label: "Licenses expiring soon", value: m.expiring_licenses, to: "/contracting-ops/licensing" },
+    { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/hierarchy-changes" },
   ].filter((a) => a.value > 0);
 
   return (
@@ -103,7 +103,7 @@ function OverviewPage() {
           value={m.agents_ready_to_sell}
           sub={`of ${m.active_agents} agents`}
           tone={m.agents_ready_to_sell > 0 ? "success" : "neutral"}
-          to="/contracting-ops/requests"
+          to="/contracting-ops/ready-to-sell"
         />
         <Metric label="Requests in progress" value={m.in_progress} to="/contracting-ops/requests" />
         <Metric
@@ -111,7 +111,7 @@ function OverviewPage() {
           value={m.ready_to_submit}
           sub="Nothing outstanding"
           tone={m.ready_to_submit > 0 ? "success" : "neutral"}
-          to="/contracting-ops/requests"
+          to="/contracting-ops/queue"
         />
       </div>
 
@@ -198,6 +198,10 @@ function OverviewPage() {
             <div className="grid gap-2 sm:grid-cols-2">
               <QuickAction to="/contracting-ops/carriers" icon={Building2} label="Add a carrier" />
               <QuickAction to="/contracting-ops/requests" icon={FilePlus} label="Create a request" />
+              <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
+              <QuickAction to="/contracting-ops/writing-numbers" icon={IdCard} label="Add a writing number" />
+              <QuickAction to="/contracting-ops/compensation" icon={Percent} label="Add a comp level" />
+              <QuickAction to="/contracting-ops/queue" icon={Users} label="Staff queue" />
             </div>
             {access && !access.canManageCarriers && (
               <p className="mt-3 text-[11px] text-text-dim">

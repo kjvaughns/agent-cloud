@@ -105,7 +105,16 @@ import { Route as AuthenticatedContractingCompGridsManageRouteImport } from './r
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
+import { Route as AuthenticatedContractingOpsWritingNumbersRouteImport } from './routes/_authenticated/contracting-ops/writing-numbers'
+import { Route as AuthenticatedContractingOpsSettingsRouteImport } from './routes/_authenticated/contracting-ops/settings'
 import { Route as AuthenticatedContractingOpsRequestsRouteImport } from './routes/_authenticated/contracting-ops/requests'
+import { Route as AuthenticatedContractingOpsReadyToSellRouteImport } from './routes/_authenticated/contracting-ops/ready-to-sell'
+import { Route as AuthenticatedContractingOpsQueueRouteImport } from './routes/_authenticated/contracting-ops/queue'
+import { Route as AuthenticatedContractingOpsLicensingRouteImport } from './routes/_authenticated/contracting-ops/licensing'
+import { Route as AuthenticatedContractingOpsHierarchyChangesRouteImport } from './routes/_authenticated/contracting-ops/hierarchy-changes'
+import { Route as AuthenticatedContractingOpsHierarchiesRouteImport } from './routes/_authenticated/contracting-ops/hierarchies'
+import { Route as AuthenticatedContractingOpsDocumentsRouteImport } from './routes/_authenticated/contracting-ops/documents'
+import { Route as AuthenticatedContractingOpsCompensationRouteImport } from './routes/_authenticated/contracting-ops/compensation'
 import { Route as AuthenticatedContractingOpsCarriersRouteImport } from './routes/_authenticated/contracting-ops/carriers'
 import { Route as AuthenticatedBackOfficeRecruitingTrackerRouteImport } from './routes/_authenticated/back-office/recruiting-tracker'
 import { Route as AuthenticatedBackOfficeRecruitingFunnelsRouteImport } from './routes/_authenticated/back-office/recruiting-funnels'
@@ -641,10 +650,64 @@ const AuthenticatedContractingAnnuityTrainingRoute =
     path: '/annuity-training',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
+const AuthenticatedContractingOpsWritingNumbersRoute =
+  AuthenticatedContractingOpsWritingNumbersRouteImport.update({
+    id: '/writing-numbers',
+    path: '/writing-numbers',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsSettingsRoute =
+  AuthenticatedContractingOpsSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
 const AuthenticatedContractingOpsRequestsRoute =
   AuthenticatedContractingOpsRequestsRouteImport.update({
     id: '/requests',
     path: '/requests',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsReadyToSellRoute =
+  AuthenticatedContractingOpsReadyToSellRouteImport.update({
+    id: '/ready-to-sell',
+    path: '/ready-to-sell',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsQueueRoute =
+  AuthenticatedContractingOpsQueueRouteImport.update({
+    id: '/queue',
+    path: '/queue',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsLicensingRoute =
+  AuthenticatedContractingOpsLicensingRouteImport.update({
+    id: '/licensing',
+    path: '/licensing',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsHierarchyChangesRoute =
+  AuthenticatedContractingOpsHierarchyChangesRouteImport.update({
+    id: '/hierarchy-changes',
+    path: '/hierarchy-changes',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsHierarchiesRoute =
+  AuthenticatedContractingOpsHierarchiesRouteImport.update({
+    id: '/hierarchies',
+    path: '/hierarchies',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsDocumentsRoute =
+  AuthenticatedContractingOpsDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthenticatedContractingOpsRoute,
+  } as any)
+const AuthenticatedContractingOpsCompensationRoute =
+  AuthenticatedContractingOpsCompensationRouteImport.update({
+    id: '/compensation',
+    path: '/compensation',
     getParentRoute: () => AuthenticatedContractingOpsRoute,
   } as any)
 const AuthenticatedContractingOpsCarriersRoute =
@@ -869,7 +932,16 @@ export interface FileRoutesByFullPath {
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
   '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -989,6 +1061,15 @@ export interface FileRoutesByTo {
   '/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
+  '/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -1113,7 +1194,16 @@ export interface FileRoutesById {
   '/_authenticated/back-office/recruiting-funnels': typeof AuthenticatedBackOfficeRecruitingFunnelsRoute
   '/_authenticated/back-office/recruiting-tracker': typeof AuthenticatedBackOfficeRecruitingTrackerRoute
   '/_authenticated/contracting-ops/carriers': typeof AuthenticatedContractingOpsCarriersRoute
+  '/_authenticated/contracting-ops/compensation': typeof AuthenticatedContractingOpsCompensationRoute
+  '/_authenticated/contracting-ops/documents': typeof AuthenticatedContractingOpsDocumentsRoute
+  '/_authenticated/contracting-ops/hierarchies': typeof AuthenticatedContractingOpsHierarchiesRoute
+  '/_authenticated/contracting-ops/hierarchy-changes': typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  '/_authenticated/contracting-ops/licensing': typeof AuthenticatedContractingOpsLicensingRoute
+  '/_authenticated/contracting-ops/queue': typeof AuthenticatedContractingOpsQueueRoute
+  '/_authenticated/contracting-ops/ready-to-sell': typeof AuthenticatedContractingOpsReadyToSellRoute
   '/_authenticated/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  '/_authenticated/contracting-ops/settings': typeof AuthenticatedContractingOpsSettingsRoute
+  '/_authenticated/contracting-ops/writing-numbers': typeof AuthenticatedContractingOpsWritingNumbersRoute
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
@@ -1238,7 +1328,16 @@ export interface FileRouteTypes {
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting-ops/carriers'
+    | '/contracting-ops/compensation'
+    | '/contracting-ops/documents'
+    | '/contracting-ops/hierarchies'
+    | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/licensing'
+    | '/contracting-ops/queue'
+    | '/contracting-ops/ready-to-sell'
     | '/contracting-ops/requests'
+    | '/contracting-ops/settings'
+    | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
@@ -1358,6 +1457,15 @@ export interface FileRouteTypes {
     | '/back-office/recruiting-funnels'
     | '/back-office/recruiting-tracker'
     | '/contracting-ops/carriers'
+    | '/contracting-ops/compensation'
+    | '/contracting-ops/documents'
+    | '/contracting-ops/hierarchies'
+    | '/contracting-ops/hierarchy-changes'
+    | '/contracting-ops/licensing'
+    | '/contracting-ops/queue'
+    | '/contracting-ops/ready-to-sell'
+    | '/contracting-ops/settings'
+    | '/contracting-ops/writing-numbers'
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
@@ -1481,7 +1589,16 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office/recruiting-funnels'
     | '/_authenticated/back-office/recruiting-tracker'
     | '/_authenticated/contracting-ops/carriers'
+    | '/_authenticated/contracting-ops/compensation'
+    | '/_authenticated/contracting-ops/documents'
+    | '/_authenticated/contracting-ops/hierarchies'
+    | '/_authenticated/contracting-ops/hierarchy-changes'
+    | '/_authenticated/contracting-ops/licensing'
+    | '/_authenticated/contracting-ops/queue'
+    | '/_authenticated/contracting-ops/ready-to-sell'
     | '/_authenticated/contracting-ops/requests'
+    | '/_authenticated/contracting-ops/settings'
+    | '/_authenticated/contracting-ops/writing-numbers'
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
@@ -2245,11 +2362,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingAnnuityTrainingRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
+    '/_authenticated/contracting-ops/writing-numbers': {
+      id: '/_authenticated/contracting-ops/writing-numbers'
+      path: '/writing-numbers'
+      fullPath: '/contracting-ops/writing-numbers'
+      preLoaderRoute: typeof AuthenticatedContractingOpsWritingNumbersRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/settings': {
+      id: '/_authenticated/contracting-ops/settings'
+      path: '/settings'
+      fullPath: '/contracting-ops/settings'
+      preLoaderRoute: typeof AuthenticatedContractingOpsSettingsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
     '/_authenticated/contracting-ops/requests': {
       id: '/_authenticated/contracting-ops/requests'
       path: '/requests'
       fullPath: '/contracting-ops/requests'
       preLoaderRoute: typeof AuthenticatedContractingOpsRequestsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/ready-to-sell': {
+      id: '/_authenticated/contracting-ops/ready-to-sell'
+      path: '/ready-to-sell'
+      fullPath: '/contracting-ops/ready-to-sell'
+      preLoaderRoute: typeof AuthenticatedContractingOpsReadyToSellRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/queue': {
+      id: '/_authenticated/contracting-ops/queue'
+      path: '/queue'
+      fullPath: '/contracting-ops/queue'
+      preLoaderRoute: typeof AuthenticatedContractingOpsQueueRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/licensing': {
+      id: '/_authenticated/contracting-ops/licensing'
+      path: '/licensing'
+      fullPath: '/contracting-ops/licensing'
+      preLoaderRoute: typeof AuthenticatedContractingOpsLicensingRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/hierarchy-changes': {
+      id: '/_authenticated/contracting-ops/hierarchy-changes'
+      path: '/hierarchy-changes'
+      fullPath: '/contracting-ops/hierarchy-changes'
+      preLoaderRoute: typeof AuthenticatedContractingOpsHierarchyChangesRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/hierarchies': {
+      id: '/_authenticated/contracting-ops/hierarchies'
+      path: '/hierarchies'
+      fullPath: '/contracting-ops/hierarchies'
+      preLoaderRoute: typeof AuthenticatedContractingOpsHierarchiesRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/documents': {
+      id: '/_authenticated/contracting-ops/documents'
+      path: '/documents'
+      fullPath: '/contracting-ops/documents'
+      preLoaderRoute: typeof AuthenticatedContractingOpsDocumentsRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRoute
+    }
+    '/_authenticated/contracting-ops/compensation': {
+      id: '/_authenticated/contracting-ops/compensation'
+      path: '/compensation'
+      fullPath: '/contracting-ops/compensation'
+      preLoaderRoute: typeof AuthenticatedContractingOpsCompensationRouteImport
       parentRoute: typeof AuthenticatedContractingOpsRoute
     }
     '/_authenticated/contracting-ops/carriers': {
@@ -2514,7 +2694,16 @@ const AuthenticatedContractingOpsRequestsRouteWithChildren =
 
 interface AuthenticatedContractingOpsRouteChildren {
   AuthenticatedContractingOpsCarriersRoute: typeof AuthenticatedContractingOpsCarriersRoute
+  AuthenticatedContractingOpsCompensationRoute: typeof AuthenticatedContractingOpsCompensationRoute
+  AuthenticatedContractingOpsDocumentsRoute: typeof AuthenticatedContractingOpsDocumentsRoute
+  AuthenticatedContractingOpsHierarchiesRoute: typeof AuthenticatedContractingOpsHierarchiesRoute
+  AuthenticatedContractingOpsHierarchyChangesRoute: typeof AuthenticatedContractingOpsHierarchyChangesRoute
+  AuthenticatedContractingOpsLicensingRoute: typeof AuthenticatedContractingOpsLicensingRoute
+  AuthenticatedContractingOpsQueueRoute: typeof AuthenticatedContractingOpsQueueRoute
+  AuthenticatedContractingOpsReadyToSellRoute: typeof AuthenticatedContractingOpsReadyToSellRoute
   AuthenticatedContractingOpsRequestsRoute: typeof AuthenticatedContractingOpsRequestsRouteWithChildren
+  AuthenticatedContractingOpsSettingsRoute: typeof AuthenticatedContractingOpsSettingsRoute
+  AuthenticatedContractingOpsWritingNumbersRoute: typeof AuthenticatedContractingOpsWritingNumbersRoute
   AuthenticatedContractingOpsIndexRoute: typeof AuthenticatedContractingOpsIndexRoute
 }
 
@@ -2522,8 +2711,26 @@ const AuthenticatedContractingOpsRouteChildren: AuthenticatedContractingOpsRoute
   {
     AuthenticatedContractingOpsCarriersRoute:
       AuthenticatedContractingOpsCarriersRoute,
+    AuthenticatedContractingOpsCompensationRoute:
+      AuthenticatedContractingOpsCompensationRoute,
+    AuthenticatedContractingOpsDocumentsRoute:
+      AuthenticatedContractingOpsDocumentsRoute,
+    AuthenticatedContractingOpsHierarchiesRoute:
+      AuthenticatedContractingOpsHierarchiesRoute,
+    AuthenticatedContractingOpsHierarchyChangesRoute:
+      AuthenticatedContractingOpsHierarchyChangesRoute,
+    AuthenticatedContractingOpsLicensingRoute:
+      AuthenticatedContractingOpsLicensingRoute,
+    AuthenticatedContractingOpsQueueRoute:
+      AuthenticatedContractingOpsQueueRoute,
+    AuthenticatedContractingOpsReadyToSellRoute:
+      AuthenticatedContractingOpsReadyToSellRoute,
     AuthenticatedContractingOpsRequestsRoute:
       AuthenticatedContractingOpsRequestsRouteWithChildren,
+    AuthenticatedContractingOpsSettingsRoute:
+      AuthenticatedContractingOpsSettingsRoute,
+    AuthenticatedContractingOpsWritingNumbersRoute:
+      AuthenticatedContractingOpsWritingNumbersRoute,
     AuthenticatedContractingOpsIndexRoute:
       AuthenticatedContractingOpsIndexRoute,
   }

@@ -9,19 +9,19 @@ import { cn } from "@/lib/utils";
  * does. Scrolls horizontally on a phone instead of wrapping into four rows.
  */
 
-/**
- * Only surfaces that exist are listed.
- *
- * The full module has twelve; Writing Numbers, Compensation, Hierarchies,
- * Licensing, Hierarchy Changes, Ready to Sell, Documents, Staff Queue and
- * Settings land in the next phase. Listing a tab that 404s reads as a broken
- * product, not as a roadmap, so they are added here as each ships — the
- * schema, policies and server layer behind them are already in place.
- */
 export const CONTRACTING_TABS = [
   { label: "Overview", to: "/contracting-ops" },
   { label: "Contract Requests", to: "/contracting-ops/requests" },
   { label: "Carrier Directory", to: "/contracting-ops/carriers" },
+  { label: "Writing Numbers", to: "/contracting-ops/writing-numbers" },
+  { label: "Compensation", to: "/contracting-ops/compensation" },
+  { label: "Hierarchies", to: "/contracting-ops/hierarchies" },
+  { label: "Licensing", to: "/contracting-ops/licensing" },
+  { label: "Hierarchy Changes", to: "/contracting-ops/hierarchy-changes" },
+  { label: "Ready to Sell", to: "/contracting-ops/ready-to-sell" },
+  { label: "Documents", to: "/contracting-ops/documents" },
+  { label: "Staff Queue", to: "/contracting-ops/queue" },
+  { label: "Settings", to: "/contracting-ops/settings" },
 ] as const;
 
 export function ContractingNav() {
