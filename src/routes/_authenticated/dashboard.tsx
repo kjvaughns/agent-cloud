@@ -362,10 +362,8 @@ function GoalEditor({ goal, isDefault }: { goal: number; isDefault: boolean }) {
  * the selected period, so changing the range moves every number here — the
  * previous version read fixed today/week/MTD fields that ignored the picker.
  *
- * team_prod from the RPC is downline-only by design (see
- * 20260610030000_fix_dashboard_team_prod), so "Total Production (Team)" is the
- * team's production excluding your own, matching how an override is thought
- * about.
+ * The RPC reports team_prod and team_policies as downline-only, so the totals
+ * here add the caller's own back in — "Total" means the whole agency.
  */
 function HeroPanel({
   hero, metrics, series, seriesLoading, range, setRange, onCustom, rangeLabel, rangeHeadline,
@@ -381,15 +379,19 @@ function HeroPanel({
   rangeHeadline: string;
 }) {
   const myProd = Number(metrics?.my_prod ?? 0);
-  const teamProd = Number(metrics?.team_prod ?? 0);
   const myPolicies = Number(metrics?.my_policies ?? 0);
-  const teamPolicies = Number(metrics?.team_policies ?? 0);
+
+  // The RPC reports team_prod and team_policies as downline-only — both are
+  // filtered on NOT is_mine (20260610030000_fix_dashboard_team_prod). "Total"
+  // means the whole agency, so the caller's own numbers are added back in.
+  const totalProd = myProd + Number(metrics?.team_prod ?? 0);
+  const totalPolicies = myPolicies + Number(metrics?.team_policies ?? 0);
 
   const kpis = [
     { label: "Personal Production", value: money(myProd), delta: rangeLabel },
-    { label: "Total Production (Team)", value: money(teamProd), delta: "downline only" },
+    { label: "Total Production (Team)", value: money(totalProd), delta: "you + downline" },
     { label: "Total Policies (Personal)", value: number(myPolicies), delta: rangeLabel },
-    { label: "Total Policies (Team)", value: number(teamPolicies), delta: "incl. yours" },
+    { label: "Total Policies (Team)", value: number(totalPolicies), delta: "you + downline" },
   ];
 
   // Cumulative personal ALP across the period — the running total reads better
