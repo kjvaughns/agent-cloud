@@ -150,7 +150,17 @@ export const createTask = createServerFn({ method: "POST" })
         description: data.title,
         type: "task",
       });
+
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "task-assigned",
+        profileId: assignee,
+        category: "task_assigned",
+        key: `task-assigned:${(row as any)?.id}`,
+        data: { title: data.title, dueDate: data.due_date ?? undefined },
+      });
     }
+
 
     return { task: row as Task };
   });
