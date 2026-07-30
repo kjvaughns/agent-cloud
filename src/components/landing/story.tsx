@@ -291,51 +291,6 @@ export function RoleSection() {
   );
 }
 
-// ── Staff & operations ──────────────────────────────────────────────────────
-
-export function StaffSection() {
-  return (
-    <LandingSection id="staff" className="border-t border-border/60 bg-surface-2/30">
-      <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-        <FadeUp>
-          <SectionHead
-            align="left"
-            eyebrow="Staff & operations"
-            title="Give your staff the system they need to run the back office."
-            copy="Invite your own administrators and virtual assistants, assign exactly the permissions they need, and give them organized queues instead of scattered messages. Sensitive fields stay restricted unless you grant access."
-          />
-          <p className="mt-5 max-w-2xl rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-            Agent Cloud does not supply staff. It makes the staff you already have measurably more effective.
-          </p>
-        </FadeUp>
-
-        <FadeUp delay={120}>
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-              What staff can handle
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {[
-                "Onboarding", "Licensing", "Contracting", "Documents",
-                "Client updates", "Policy updates", "Retention follow-up",
-                "Commission reconciliation", "Support coordination",
-              ].map((x) => (
-                <span key={x} className="rounded-lg border border-border-soft bg-surface-2 px-3 py-2 text-xs text-foreground">
-                  {x}
-                </span>
-              ))}
-            </div>
-            <p className="mt-5 text-xs text-muted-foreground leading-relaxed">
-              Every permission is configurable per person, and every change is written to your
-              agency's audit log.
-            </p>
-          </div>
-        </FadeUp>
-      </div>
-    </LandingSection>
-  );
-}
-
 // ── Ownership / trust ───────────────────────────────────────────────────────
 
 export function OwnershipSection() {
@@ -373,85 +328,6 @@ export function OwnershipSection() {
             Agent Cloud exists to make agencies more independent, not more dependent.
           </p>
         </div>
-      </div>
-    </LandingSection>
-  );
-}
-
-// ── Comparison ──────────────────────────────────────────────────────────────
-
-const COMPARE: [string, string, string, string][] = [
-  ["Recruiting", "Limited", "Manual", "Built in"],
-  ["Agent onboarding", "No", "Manual", "Structured"],
-  ["Licensing", "No", "Manual", "Tracked"],
-  ["Contracting", "No", "Email-based", "Workflow-based"],
-  ["Client CRM", "Yes", "Manual", "Insurance-specific"],
-  ["Policies", "Limited", "Manual", "Connected"],
-  ["Retention", "Limited", "Reactive", "Actionable queues"],
-  ["Commissions", "Limited", "Manual", "Tracked and reconciled"],
-  ["Staff permissions", "Basic", "None", "Role-based"],
-  ["Agency lifecycle", "Fragmented", "Fragmented", "Connected"],
-];
-
-export function ComparisonSection() {
-  return (
-    <LandingSection id="compare" className="border-t border-border/60 bg-surface-2/30">
-      <SectionHead
-        eyebrow="Why not a CRM"
-        title="A CRM manages contacts. An agency needs more than contacts."
-        copy="Category-level comparison — the point is what a generic tool is shaped to do, not a claim about any particular product."
-      />
-
-      {/* Desktop table */}
-      <div className="mt-12 hidden md:block overflow-hidden rounded-2xl border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-2">
-            <tr>
-              {["Capability", "Generic CRM", "Spreadsheets", "Agent Cloud"].map((h, i) => (
-                <th
-                  key={h}
-                  className={cn(
-                    "px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em]",
-                    i === 3 ? "text-primary" : "text-muted-foreground",
-                  )}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {COMPARE.map(([cap, crm, sheet, ac]) => (
-              <tr key={cap} className="border-t border-border-soft">
-                <td className="px-5 py-3 font-medium text-foreground">{cap}</td>
-                <td className="px-5 py-3 text-muted-foreground">{crm}</td>
-                <td className="px-5 py-3 text-muted-foreground">{sheet}</td>
-                <td className="px-5 py-3 font-semibold text-gold-bright">{ac}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile: a 4-column table is unreadable on a phone, so it becomes cards. */}
-      <div className="mt-10 md:hidden space-y-2">
-        {COMPARE.map(([cap, crm, sheet, ac]) => (
-          <div key={cap} className="rounded-xl border border-border bg-card p-4">
-            <p className="font-semibold text-foreground">{cap}</p>
-            <dl className="mt-2.5 space-y-1 text-xs">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Generic CRM</dt><dd className="text-muted-foreground">{crm}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Spreadsheets</dt><dd className="text-muted-foreground">{sheet}</dd>
-              </div>
-              <div className="flex justify-between gap-4 border-t border-border-soft pt-1.5">
-                <dt className="text-primary font-semibold">Agent Cloud</dt>
-                <dd className="text-gold-bright font-semibold">{ac}</dd>
-              </div>
-            </dl>
-          </div>
-        ))}
       </div>
     </LandingSection>
   );

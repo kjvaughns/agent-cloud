@@ -8,11 +8,11 @@ import { track } from "@/lib/landing-analytics";
 import { display } from "./primitives";
 
 const LINKS = [
-  { label: "Product", href: "#platform" },
-  { label: "Solutions", href: "#roles" },
-  { label: "Nova AI", href: "#nova" },
+  { label: "Platform", href: "#platform" },
+  { label: "Live demo", href: "#demo" },
+  { label: "Roles", href: "#roles" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Resources", href: "#faq" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 export function AnnouncementBar() {

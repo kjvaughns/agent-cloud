@@ -293,3 +293,61 @@
     .fadeup { animation: none; opacity: 1; transform: none; }
   }
 }
+
+/* ── Landing page ambient motion ──────────────────────────────────────────
+   Decorative only. Every rule here is disabled under reduced-motion. */
+
+@keyframes ac-float {
+  0%,100% { transform: translate3d(0,0,0) scale(1); }
+  33%     { transform: translate3d(24px,-30px,0) scale(1.06); }
+  66%     { transform: translate3d(-18px,18px,0) scale(0.96); }
+}
+
+.ac-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.ac-orb-1 {
+  width: 380px; height: 380px; top: -90px; left: -70px;
+  background: radial-gradient(circle, var(--gold) 0%, transparent 68%);
+  animation: ac-float 22s ease-in-out infinite;
+}
+.ac-orb-2 {
+  width: 300px; height: 300px; top: 30%; right: -80px;
+  background: radial-gradient(circle, var(--gold-bright) 0%, transparent 68%);
+  animation: ac-float 28s ease-in-out infinite reverse;
+  opacity: 0.32;
+}
+.ac-orb-3 {
+  width: 260px; height: 260px; bottom: -70px; left: 42%;
+  background: radial-gradient(circle, var(--gold-dim) 0%, transparent 68%);
+  animation: ac-float 34s ease-in-out infinite;
+  opacity: 0.28;
+}
+
+/* A card lifting under the cursor. */
+.ac-lift { transition: transform .28s cubic-bezier(.22,.61,.36,1), border-color .28s ease, box-shadow .28s ease; }
+.ac-lift:hover { transform: translateY(-4px); }
+
+/* Pipeline card settling into a new column. */
+@keyframes ac-drop-in {
+  from { opacity: 0; transform: translateY(-10px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+.ac-drop-in { animation: ac-drop-in .34s cubic-bezier(.22,.61,.36,1); }
+
+/* Live-data pulse on a value that just changed. */
+@keyframes ac-pulse-gold {
+  0%   { background-color: var(--gold-glow); }
+  100% { background-color: transparent; }
+}
+.ac-pulse { animation: ac-pulse-gold 1s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-orb { animation: none; }
+  .ac-lift:hover { transform: none; }
+  .ac-drop-in, .ac-pulse { animation: none; }
+}

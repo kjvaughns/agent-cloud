@@ -6,93 +6,7 @@ import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
 import { track } from "@/lib/landing-analytics";
 import { BrandLogo } from "@/components/brand-logo";
-import { LandingSection, SectionHead, FadeUp, StatusPill, display } from "./primitives";
-
-// ── Integrations ────────────────────────────────────────────────────────────
-
-/**
- * Status is verified against the codebase, not aspirational.
- *   available — shipped and in use
- *   beta      — works, not yet hardened across carriers/accounts
- *   soon      — not built; no provider connected
- */
-const INTEGRATIONS: { name: string; desc: string; status: "available" | "beta" | "soon" }[] = [
-  { name: "CSV import", desc: "Bring your book, clients and policies in from any system.", status: "available" },
-  { name: "Carrier book sync", desc: "Weekly carrier reports matched to your policies.", status: "available" },
-  { name: "Stripe", desc: "Subscriptions, seats and invoicing.", status: "available" },
-  { name: "SureLC", desc: "Single sign-on into contracting.", status: "beta" },
-  { name: "AgentLink", desc: "Import an existing downline and book.", status: "beta" },
-  { name: "NIPR / PDB", desc: "License lookup and verification.", status: "beta" },
-  { name: "Email", desc: "Transactional and automated agency email.", status: "available" },
-  { name: "Calendar", desc: "Appointments alongside client records.", status: "beta" },
-  { name: "SMS and calling", desc: "Requires a connected phone provider.", status: "soon" },
-  { name: "Cloud storage", desc: "Sync documents to your own storage.", status: "soon" },
-];
-
-export function IntegrationsSection() {
-  return (
-    <LandingSection id="integrations" className="border-t border-border/60">
-      <SectionHead
-        eyebrow="Integrations"
-        title="Connect the systems your agency already uses."
-        copy="Agent Cloud organizes and connects your agency's systems without trying to own your carrier relationships. Status shown below is current — nothing is listed as available before it is."
-      />
-
-      <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {INTEGRATIONS.map((it, i) => (
-          <FadeUp key={it.name} delay={i * 40}>
-            <div
-              onMouseEnter={() => track("integration_clicked", { name: it.name, status: it.status })}
-              className={cn(
-                "h-full rounded-xl border border-border bg-card p-4 transition-colors",
-                it.status !== "soon" && "hover:border-primary/40",
-              )}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-semibold text-foreground">{it.name}</h3>
-                <StatusPill status={it.status} />
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{it.desc}</p>
-            </div>
-          </FadeUp>
-        ))}
-      </div>
-    </LandingSection>
-  );
-}
-
-// ── Testimonials ────────────────────────────────────────────────────────────
-
-type Testimonial = { quote: string; name: string; role: string; agency: string };
-
-/**
- * Empty on purpose.
- *
- * The section renders nothing until real, permissioned testimonials exist.
- * Fabricated social proof is worse than none, and an empty array is the
- * honest state — not a gap to be filled with placeholders.
- */
-const TESTIMONIALS: Testimonial[] = [];
-
-export function TestimonialSection() {
-  if (TESTIMONIALS.length === 0) return null;
-
-  return (
-    <LandingSection id="testimonials" className="border-t border-border/60">
-      <SectionHead eyebrow="Customers" title="What agencies say." />
-      <div className="mt-12 grid gap-5 md:grid-cols-3">
-        {TESTIMONIALS.map((t) => (
-          <figure key={t.name} className="rounded-2xl border border-border bg-card p-6">
-            <blockquote className="text-sm text-foreground leading-relaxed">"{t.quote}"</blockquote>
-            <figcaption className="mt-4 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">{t.name}</span> · {t.role}, {t.agency}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </LandingSection>
-  );
-}
+import { LandingSection, SectionHead, display } from "./primitives";
 
 // ── FAQ ─────────────────────────────────────────────────────────────────────
 
@@ -221,16 +135,15 @@ export function LandingFooter() {
       title: "Product",
       links: [
         { label: "Platform", href: "#platform" },
-        { label: "Nova AI", href: "#nova" },
+        { label: "Live demo", href: "#demo" },
         { label: "Pricing", href: "#pricing" },
-        { label: "Integrations", href: "#integrations" },
+        { label: "FAQ", href: "#faq" },
       ],
     },
     {
       title: "Solutions",
       links: [
         { label: "Agency owners", href: "#roles" },
-        { label: "Staff & operations", href: "#staff" },
         { label: "Solo agents", href: "#pricing" },
         { label: "Agency lifecycle", href: "#lifecycle" },
       ],
