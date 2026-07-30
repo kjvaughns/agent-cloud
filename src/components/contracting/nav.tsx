@@ -20,6 +20,7 @@ export const CONTRACTING_TABS = [
   { label: "Hierarchy Changes", to: "/contracting-ops/hierarchy-changes" },
   { label: "Ready to Sell", to: "/contracting-ops/ready-to-sell" },
   { label: "Documents", to: "/contracting-ops/documents" },
+  { label: "Templates", to: "/contracting-ops/templates" },
   { label: "Staff Queue", to: "/contracting-ops/queue" },
   { label: "Settings", to: "/contracting-ops/settings" },
 ] as const;
