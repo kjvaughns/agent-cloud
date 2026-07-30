@@ -130,6 +130,16 @@ async function handleOrgEvent(kind: string, orgId: string, type: string, obj: an
     if (org?.owner_id) {
       await notify(org.owner_id, "Payment failed",
         `The payment for ${org.name}'s Agent Cloud subscription failed. Update your payment method within 14 days to keep full access.`);
+      await billingEmail({
+        template: "payment-failed",
+        profileId: org.owner_id,
+        orgId,
+        category: "transactional",
+        key: `payment-failed:${obj.id ?? orgId}`,
+        data: {
+          amountDue: typeof obj.amount_due === "number" ? `$${(obj.amount_due / 100).toFixed(2)}` : undefined,
+        },
+      });
     }
     return;
   }
@@ -140,9 +150,17 @@ async function handleOrgEvent(kind: string, orgId: string, type: string, obj: an
     if (org?.owner_id) {
       await notify(org.owner_id, "Subscription cancelled",
         "Your Agent Cloud subscription has ended. You have 7 days of read access to reactivate before the workspace locks.");
+      await billingEmail({
+        template: "subscription-changed",
+        profileId: org.owner_id,
+        orgId,
+        key: `subscription-cancelled:${obj.id ?? orgId}`,
+        data: { state: "cancelled", planName: org.name ? `${org.name} plan` : undefined },
+      });
     }
     return;
   }
+
 }
 
 /**
