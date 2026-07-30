@@ -3,6 +3,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ReportsContent } from "./reports";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,6 +83,7 @@ function AnalyticsPage() {
             <TabsTrigger value="trends">Trends</TabsTrigger>
             <TabsTrigger value="policy">Policy</TabsTrigger>
             <TabsTrigger value="quality">Quality</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
             <TabsTrigger value="recruiting">Recruiting</TabsTrigger>
             <TabsTrigger value="coach">AI Coach</TabsTrigger>
           </TabsList>
@@ -93,6 +95,7 @@ function AnalyticsPage() {
           <TabsContent value="trends" className="mt-4"><TrendsPanel /></TabsContent>
           <TabsContent value="policy" className="mt-4"><PolicyPanel /></TabsContent>
           <TabsContent value="quality" className="mt-4"><QualityPanel /></TabsContent>
+          <TabsContent value="reports" className="mt-4"><ReportsContent embedded /></TabsContent>
           <TabsContent value="recruiting" className="mt-4"><RecruitingPanel /></TabsContent>
           <TabsContent value="coach" className="mt-4"><AICoachPanel /></TabsContent>
         </Tabs>

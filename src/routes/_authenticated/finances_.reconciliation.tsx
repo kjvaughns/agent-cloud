@@ -72,20 +72,38 @@ function money2(s: string) {
 }
 
 function ReconciliationPage() {
-  const [openId, setOpenId] = useState<string | null>(null);
-  return openId
-    ? <StatementDetail id={openId} onBack={() => setOpenId(null)} />
-    : <StatementList onOpen={setOpenId} />;
+  return <ReconciliationContent />;
 }
 
-function StatementList({ onOpen }: { onOpen: (id: string) => void }) {
+/**
+ * Rendered both as its own route and as the Reconciliation tab inside
+ * Finances. `embedded` drops the page chrome so it sits inside the host
+ * page's shell instead of nesting a second one.
+ */
+export function ReconciliationContent({ embedded = false }: { embedded?: boolean }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return openId
+    ? <StatementDetail id={openId} onBack={() => setOpenId(null)} embedded={embedded} />
+    : <StatementList onOpen={setOpenId} embedded={embedded} />;
+}
+
+/** Page chrome that collapses to a plain fragment when embedded. */
+function Shell({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  if (embedded) return <div className="flex flex-col gap-[var(--gap)]">{children}</div>;
+  return (
+    <PageShell>
+      <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">{children}</div>
+    </PageShell>
+  );
+}
+
+function StatementList({ onOpen, embedded = false }: { onOpen: (id: string) => void; embedded?: boolean }) {
   const listFn = useServerFn(listStatements);
   const { data, isLoading } = useQuery({ queryKey: ["statements"], queryFn: () => listFn() });
   const rows = (data as any)?.statements ?? [];
 
   return (
-    <PageShell>
-      <div className="max-w-[1000px] mx-auto flex flex-col gap-[var(--gap)]">
+    <Shell embedded={embedded}>
         <HeroBand
           title="Commission Reconciliation"
           subtitle="Compare what carriers actually paid against what the platform expected"
@@ -150,8 +168,7 @@ function StatementList({ onOpen }: { onOpen: (id: string) => void }) {
             </table>
           </Panel>
         )}
-      </div>
-    </PageShell>
+    </Shell>
   );
 }
 
@@ -258,7 +275,7 @@ function UploadDialog() {
   );
 }
 
-function StatementDetail({ id, onBack }: { id: string; onBack: () => void }) {
+function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack: () => void; embedded?: boolean }) {
   const [filter, setFilter] = useState<"all" | "variance" | "unmatched" | "matched">("variance");
   const detailFn = useServerFn(getStatementDetail);
 
@@ -272,8 +289,7 @@ function StatementDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const lines = ((data as any)?.lines ?? []) as StatementLine[];
 
   return (
-    <PageShell>
-      <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">
+    <Shell embedded={embedded}>
         <Button variant="ghost" size="sm" className="self-start -ml-2" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-1" /> All statements
         </Button>
@@ -381,7 +397,6 @@ function StatementDetail({ id, onBack }: { id: string; onBack: () => void }) {
             </div>
           </Panel>
         )}
-      </div>
-    </PageShell>
+    </Shell>
   );
 }

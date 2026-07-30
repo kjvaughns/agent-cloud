@@ -36,6 +36,14 @@ function todayStr() {
 }
 
 function ReportsPage() {
+  return <ReportsContent />;
+}
+
+/**
+ * Rendered both as its own route and as the Reports tab inside Analytics.
+ * `embedded` drops the page chrome so it does not nest a second shell.
+ */
+export function ReportsContent({ embedded = false }: { embedded?: boolean }) {
   const [from, setFrom] = useState(startOfYear());
   const [to, setTo] = useState(todayStr());
 
@@ -81,9 +89,13 @@ function ReportsPage() {
   const p = prod.data as any;
   const c = comm.data as any;
 
+  const Wrap = ({ children }: { children: React.ReactNode }) =>
+    embedded
+      ? <div className="flex flex-col gap-[var(--gap)]">{children}</div>
+      : <PageShell><div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">{children}</div></PageShell>;
+
   return (
-    <PageShell>
-      <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">
+    <Wrap>
         <HeroBand
           title="Reports"
           subtitle="Production and commission summaries, and data export"
@@ -200,8 +212,7 @@ function ReportsPage() {
             </ul>
           </Panel>
         )}
-      </div>
-    </PageShell>
+    </Wrap>
   );
 }
 

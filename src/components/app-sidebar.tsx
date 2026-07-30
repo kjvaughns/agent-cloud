@@ -32,9 +32,7 @@ const groups: NavGroup[] = [
       { title: "Post a Deal", url: "/post-deal", icon: FilePlus },
       { title: "Book of Business", url: "/book-of-business", icon: BookOpen },
       { title: "Finances", url: "/finances", icon: Wallet },
-      { title: "Reconciliation", url: "/finances/reconciliation", icon: Calculator },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Reports", url: "/reports", icon: ScrollText },
     ],
   },
   {

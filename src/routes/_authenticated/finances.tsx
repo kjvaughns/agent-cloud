@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ReconciliationContent } from "./finances_.reconciliation";
 import {
   Table,
   TableBody,
@@ -85,6 +86,7 @@ function FinancesPage() {
 
   const rows: Row[] = data?.rows ?? [];
 
+  const [section, setSection] = useState<string>("overview");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewMonth, setViewMonth] = useState<Date>(() => new Date());
 
@@ -218,6 +220,16 @@ function FinancesPage() {
     <PageShell>
       <div className="col">
         <HeroBand title="Finances" subtitle="Commissions, forecasts & payouts" />
+
+        {/* Reconciliation was a separate nav item; it belongs with the money. */}
+        <Tabs value={section} onValueChange={setSection} className="w-full">
+          <TabsList className="bg-card border border-border rounded-[var(--radius)] p-1">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {section === "reconciliation" ? <ReconciliationContent embedded /> : <>
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-[var(--gap)]">
@@ -518,6 +530,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
             </TabsContent>
           </Tabs>
         </Panel>
+        </>}
       </div>
     </PageShell>
   );
