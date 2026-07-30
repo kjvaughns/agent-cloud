@@ -229,7 +229,20 @@ export const assignNovaSeat = createServerFn({ method: "POST" })
       description: "Your agency has assigned you a Nova Pro seat. Automations, retention alerts, and advanced Nova features are now unlocked.",
       type: "billing",
     });
+
+    {
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "nova-pro-changed",
+        profileId: data.agent_id,
+        orgId: org.id,
+        category: "billing",
+        key: `nova-seat-activated:${org.id}:${data.agent_id}:${new Date().toISOString().slice(0, 10)}`,
+        data: { state: "activated" },
+      });
+    }
     return { ok: true };
+
   });
 
 export const unassignNovaSeat = createServerFn({ method: "POST" })
