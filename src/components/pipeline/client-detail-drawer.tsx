@@ -334,7 +334,7 @@ function EditableField({ label, client, field, type, select, address }: { label:
   if (editing) {
     if (select) {
       return (
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
           <Select value={val} onValueChange={(v) => { setVal(v); setTimeout(() => { setEditing(false); if (v !== (client[field] ?? "")) mut.mutate({ [field]: v }); }, 50); }}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -345,7 +345,7 @@ function EditableField({ label, client, field, type, select, address }: { label:
     }
     if (address) {
       return (
-        <div className="space-y-1.5">
+        <div className="min-w-0 space-y-1.5">
           <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
           <AddressAutocomplete
             autoFocus
@@ -367,7 +367,7 @@ function EditableField({ label, client, field, type, select, address }: { label:
       );
     }
     return (
-      <div className="space-y-1.5">
+      <div className="min-w-0 space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
         <Input autoFocus type={type} value={val} onChange={(e) => setVal(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && save()} />
       </div>
@@ -375,10 +375,10 @@ function EditableField({ label, client, field, type, select, address }: { label:
   }
 
   return (
-    <button type="button" onClick={() => setEditing(true)} className="text-left space-y-1.5 group w-full">
+    <button type="button" onClick={() => setEditing(true)} className="min-w-0 text-left space-y-1.5 group w-full">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="flex items-center justify-between gap-2 min-h-[2.25rem] px-3 py-2 rounded-md bg-muted/40 border border-transparent group-hover:border-border group-hover:bg-muted/60 transition-colors">
-        <span className={cn("text-sm truncate", !client[field] && "text-muted-foreground/50 italic")}>
+      <div className="flex items-start justify-between gap-2 min-h-[2.25rem] px-3 py-2 rounded-md bg-muted/40 border border-transparent group-hover:border-border group-hover:bg-muted/60 transition-colors">
+        <span className={cn("min-w-0 flex-1 text-sm break-words", !client[field] && "text-muted-foreground/50 italic")}>
           {client[field] || "—"}
         </span>
         <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
@@ -393,7 +393,7 @@ function ContactTab({ detail }: { detail: any }) {
   return (
     <div className="space-y-4 pb-4">
       <SectionCard icon={User} title="Contact Information">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <EditableField label="First Name" client={client} field="first_name" />
           <EditableField label="Last Name" client={client} field="last_name" />
           <EditableField label="Phone" client={client} field="phone" />
@@ -407,7 +407,7 @@ function ContactTab({ detail }: { detail: any }) {
       </SectionCard>
 
       <SectionCard icon={MapPin} title="Address">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="col-span-2">
             <EditableField label="Street Address" client={client} field="street_address" address />
           </div>
@@ -580,7 +580,7 @@ function BankingFields({ detail }: { detail: any }) {
       : null;
 
     return (
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {methodField}
 
         <Field label="Name on Card">
@@ -685,7 +685,7 @@ function BankingFields({ detail }: { detail: any }) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <Field label="Bank Name">
         <Input value={bankingForm.bank_name ?? ""} onChange={e => setBankingForm(f => ({...f, bank_name: e.target.value}))} onBlur={e => save("bank_name", e.target.value || null)} placeholder="e.g. Bank of America" />
       </Field>
@@ -738,7 +738,7 @@ function HealthFields({ detail }: { detail: any }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="SSN (Last 4)">
           <Input
             type="text"
@@ -762,7 +762,7 @@ function HealthFields({ detail }: { detail: any }) {
           </div>
         </Field>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Field label="Height (ft)">
           <Input type="number" min={0} max={9} value={form.height_ft ?? ""} onChange={e => setForm(f => ({...f, height_ft: e.target.value}))} onBlur={e => save("height_ft", e.target.value ? Number(e.target.value) : null)} />
         </Field>
@@ -773,7 +773,7 @@ function HealthFields({ detail }: { detail: any }) {
           <Input type="number" min={0} value={form.weight_lbs ?? ""} onChange={e => setForm(f => ({...f, weight_lbs: e.target.value}))} onBlur={e => save("weight_lbs", e.target.value ? Number(e.target.value) : null)} />
         </Field>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Primary Physician">
           <Input value={form.primary_physician ?? ""} onChange={e => setForm(f => ({...f, primary_physician: e.target.value}))} onBlur={e => save("primary_physician", e.target.value || null)} />
         </Field>
@@ -869,7 +869,7 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
 
   return (
     <div className="rounded-lg border bg-background p-4 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Carrier">
           <Select value={form.carrier_id} onValueChange={v => setForm(f => ({...f, carrier_id: v}))}>
             <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
@@ -990,7 +990,7 @@ function PolicyRow({ pol, clientId }: { pol: any; clientId: string }) {
   const monthly = Number(form.monthly_premium || 0);
   return (
     <div className="rounded-lg border bg-background p-4 space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="col-span-2">
           <Label className="text-xs mb-1 block">Carrier</Label>
           <Select value={form.carrier_id} onValueChange={(v) => setForm(f => ({ ...f, carrier_id: v }))}>
@@ -1237,7 +1237,7 @@ function BeneficiariesTab({ detail }: { detail: any }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? "Edit" : "Add"} Beneficiary</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="First Name *"><Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} /></Field>
             <Field label="Last Name"><Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} /></Field>
             <Field label="Relationship">
@@ -1318,7 +1318,7 @@ function BeneficiariesInline({ detail }: { detail: any }) {
 
       {adding ? (
         <div className="rounded-lg border bg-background p-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <Field label="First Name *">
               <Input value={form.first_name} onChange={(e) => setForm({...form, first_name: e.target.value})} className="h-8 text-sm" />
             </Field>
@@ -1449,7 +1449,7 @@ function FinancialsTab({ detail }: { detail: any }) {
   return (
     <div className="space-y-4">
       <div className="text-sm font-semibold">Monthly Income</div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Earned Income"><Input type="number" value={form.earned_income} onChange={(e) => setForm({ ...form, earned_income: e.target.value as any })} onBlur={save} /></Field>
         <Field label="Social Security"><Input type="number" value={form.social_security} onChange={(e) => setForm({ ...form, social_security: e.target.value as any })} onBlur={save} /></Field>
         <Field label="Pension"><Input type="number" value={form.pension} onChange={(e) => setForm({ ...form, pension: e.target.value as any })} onBlur={save} /></Field>
@@ -1459,7 +1459,7 @@ function FinancialsTab({ detail }: { detail: any }) {
         Total Monthly Income: {money(total)}
       </div>
       <div className="text-sm font-semibold pt-2">Work & Retirement</div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Employment Status">
           <Select value={form.employment_status} onValueChange={(v) => { setForm({ ...form, employment_status: v }); setTimeout(save, 50); }}>
             <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
@@ -1517,7 +1517,7 @@ function ClientCareTab({ detail }: { detail: any }) {
     <div className="space-y-5">
       <div>
         <div className="text-sm font-semibold mb-3">Communication Preferences</div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Preferred Contact">
             <Select value={c.preferred_contact ?? ""} onValueChange={(v) => updMut.mutate({ preferred_contact: v })}>
               <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
