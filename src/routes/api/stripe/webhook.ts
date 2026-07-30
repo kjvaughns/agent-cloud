@@ -266,6 +266,12 @@ async function handleAgentEvent(kind: string, profileId: string, type: string, o
     }).eq("id", profileId);
     // Phone provisioning: pending telephony provider — number assigned when connected.
     await notify(profileId, "Nova AI Pro activated", "Your Nova Pro subscription is live. Automations, retention alerts, and advanced Nova features are unlocked.");
+    await billingEmail({
+      template: "nova-pro-changed",
+      profileId,
+      key: `nova-personal-active:${obj.id ?? profileId}`,
+      data: { state: "activated" },
+    });
     return;
   }
 
@@ -285,8 +291,18 @@ async function handleAgentEvent(kind: string, profileId: string, type: string, o
   if (type === "invoice.payment_failed") {
     await profQ().update({ nova_pro_status: "past_due" }).eq("id", profileId);
     await notify(profileId, "Nova Pro payment failed", "Update your payment method to keep Nova Pro. Your features stay on during the grace period.");
+    await billingEmail({
+      template: "payment-failed",
+      profileId,
+      category: "transactional",
+      key: `payment-failed:${obj.id ?? profileId}`,
+      data: {
+        amountDue: typeof obj.amount_due === "number" ? `$${(obj.amount_due / 100).toFixed(2)}` : undefined,
+      },
+    });
     return;
   }
+
 
   if (type === "customer.subscription.deleted") {
     // Personal subscription ended — fall back to a reserved agency seat if one exists.
