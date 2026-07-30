@@ -9,6 +9,7 @@ import { display } from "./primitives";
 
 const LINKS = [
   { label: "Platform", href: "#platform" },
+  { label: "Product", href: "#tour" },
   { label: "Live demo", href: "#demo" },
   { label: "Roles", href: "#roles" },
   { label: "Pricing", href: "#pricing" },

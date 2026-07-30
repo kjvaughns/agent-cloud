@@ -35,8 +35,8 @@ export function LiveDemos() {
     <LandingSection id="demo" className="border-t border-border/60">
       <SectionHead
         eyebrow="Try it"
-        title="This is the product, not a screenshot."
-        copy="Sample data, real behaviour. Click around."
+        title="This isn't a marketing mockup."
+        copy="Click around. You are working the actual application, on sample data — move a card, change a premium, close a retention case, and watch it respond the way it does for your team."
       />
 
       <div className="mt-10 flex flex-wrap justify-center gap-2" role="tablist">

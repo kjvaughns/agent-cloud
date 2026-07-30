@@ -346,8 +346,26 @@
 }
 .ac-pulse { animation: ac-pulse-gold 1s ease-out; }
 
+/* A product screen arriving after a tab change, so the swap reads as a
+   transition rather than a broken image. */
+@keyframes ac-screen-in {
+  from { opacity: 0; transform: translateY(8px) scale(.995); }
+  to   { opacity: 1; transform: none; }
+}
+.ac-screen-in { animation: ac-screen-in .42s cubic-bezier(.22,.61,.36,1); }
+
+/* Capability cards drifting. Small amplitude on purpose — the field should
+   feel alive at the edge of vision, not bob. */
+@keyframes ac-float-card {
+  0%,100% { transform: translateY(0); }
+  50%     { transform: translateY(-5px); }
+}
+.ac-float { animation: ac-float-card 6s ease-in-out infinite; }
+/* Hover intent wins over the ambient drift. */
+.ac-float:hover { animation-play-state: paused; }
+
 @media (prefers-reduced-motion: reduce) {
   .ac-orb { animation: none; }
   .ac-lift:hover { transform: none; }
-  .ac-drop-in, .ac-pulse { animation: none; }
+  .ac-drop-in, .ac-pulse, .ac-screen-in, .ac-float { animation: none; }
 }
