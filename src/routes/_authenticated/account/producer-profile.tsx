@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Eye, EyeOff, Upload, IdCard, ExternalLink, Download, FileText, CheckCircle2, RefreshCw, AlertTriangle } from "lucide-react";
+import { ContractingProfileTab } from "@/components/contracting/producer-profile-tab";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
@@ -177,6 +178,7 @@ function ProducerProfilePage() {
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="flex w-max">
             <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
+            <TabsTrigger value="contracting" className="whitespace-nowrap">Contracting</TabsTrigger>
             <TabsTrigger value="documents" className="whitespace-nowrap">Documents</TabsTrigger>
             <TabsTrigger value="banking" className="whitespace-nowrap">Banking</TabsTrigger>
             <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
@@ -186,6 +188,10 @@ function ProducerProfilePage() {
 
         <TabsContent value="profile" className="mt-4 space-y-4">
           <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} onSaved={invalidate} />
+        </TabsContent>
+
+        <TabsContent value="contracting" className="mt-4">
+          <ContractingProfileTab />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
