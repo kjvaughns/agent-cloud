@@ -558,7 +558,20 @@ export const addCarriersToInvite = createServerFn({ method: "POST" })
         description: `${names} has been added to your contracting application.`,
         type: "contracting",
       });
+
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "carrier-added",
+        profileId: inv.linked_agent_id,
+        category: "contract_updates",
+        key: `carrier-added:${data.invite_id}:${data.assignments
+          .map((a) => a.carrier_id)
+          .sort()
+          .join(",")}`,
+        data: { carrierName: names },
+      });
     }
+
 
     return { ok: true };
   });
