@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -50,6 +50,11 @@ function TeamPending() {
 
 export const Route = createFileRoute("/_authenticated/team")({
   head: () => ({ meta: [{ title: "Team Command Center — Agent Cloud" }] }),
+  // ?agent= opens that person's drawer directly. Search results for an agent
+  // used to land here on an unfiltered roster, which is a dead end dressed up
+  // as a result — you searched for a name and got a list to search again.
+  validateSearch: (s: Record<string, unknown>): { agent?: string } =>
+    typeof s.agent === "string" && s.agent ? { agent: s.agent } : {},
   pendingComponent: TeamPending,
   loader: async ({ context }) => {
     try {
@@ -107,7 +112,14 @@ function TeamPage() {
   );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
-  const [openAgent, setOpenAgent] = useState<string | null>(null);
+  const { agent: agentParam } = Route.useSearch();
+  const [openAgent, setOpenAgent] = useState<string | null>(agentParam ?? null);
+
+  // Following a second search result while the drawer is already open should
+  // swap to the new person rather than sit on the old one.
+  useEffect(() => {
+    if (agentParam) setOpenAgent(agentParam);
+  }, [agentParam]);
 
   // Roles and permissions belong on the Team page — it is where owners look
   // for them. The tab only appears for the people who can actually change
