@@ -1042,6 +1042,170 @@ export type Database = {
           },
         ]
       }
+      carrier_hierarchy_records: {
+        Row: {
+          agency_owner_id: string | null
+          agency_owner_npn: string | null
+          agency_writing_number: string | null
+          agent_id: string
+          confirmation_document_id: string | null
+          created_at: string
+          created_by: string | null
+          current_comp_level_id: string | null
+          current_role: string | null
+          direct_upline_comp_level_id: string | null
+          direct_upline_id: string | null
+          direct_upline_name: string | null
+          direct_upline_npn: string | null
+          direct_upline_writing_number: string | null
+          effective_date: string | null
+          external_provider: string | null
+          external_record_id: string | null
+          hierarchy_path: string | null
+          id: string
+          last_synced_at: string | null
+          manual_override: boolean
+          notes: string | null
+          org_carrier_id: string
+          organization_id: string
+          pending_change_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency_owner_id?: string | null
+          agency_owner_npn?: string | null
+          agency_writing_number?: string | null
+          agent_id: string
+          confirmation_document_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_comp_level_id?: string | null
+          current_role?: string | null
+          direct_upline_comp_level_id?: string | null
+          direct_upline_id?: string | null
+          direct_upline_name?: string | null
+          direct_upline_npn?: string | null
+          direct_upline_writing_number?: string | null
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          hierarchy_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          org_carrier_id: string
+          organization_id: string
+          pending_change_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency_owner_id?: string | null
+          agency_owner_npn?: string | null
+          agency_writing_number?: string | null
+          agent_id?: string
+          confirmation_document_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_comp_level_id?: string | null
+          current_role?: string | null
+          direct_upline_comp_level_id?: string | null
+          direct_upline_id?: string | null
+          direct_upline_name?: string | null
+          direct_upline_npn?: string | null
+          direct_upline_writing_number?: string | null
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          hierarchy_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          org_carrier_id?: string
+          organization_id?: string
+          pending_change_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_hierarchy_records_agency_owner_id_fkey"
+            columns: ["agency_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_confirmation_document_id_fkey"
+            columns: ["confirmation_document_id"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_current_comp_level_id_fkey"
+            columns: ["current_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_direct_upline_comp_level_id_fkey"
+            columns: ["direct_upline_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_direct_upline_id_fkey"
+            columns: ["direct_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_hierarchy_records_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       carrier_mapping_templates: {
         Row: {
           carrier_id: string
@@ -2412,6 +2576,423 @@ export type Database = {
           },
         ]
       }
+      contracting_request_documents: {
+        Row: {
+          created_at: string
+          document_id: string | null
+          id: string
+          organization_id: string
+          request_id: string
+          requirement_key: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          waived_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          organization_id: string
+          request_id: string
+          requirement_key: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          waived_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          organization_id?: string
+          request_id?: string
+          requirement_key?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          waived_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_request_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_request_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_request_documents_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_request_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_request_states: {
+        Row: {
+          appointment_effective_date: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          request_id: string
+          state_code: string
+          status: string
+          updated_at: string
+          writing_number: string | null
+        }
+        Insert: {
+          appointment_effective_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id: string
+          request_id: string
+          state_code: string
+          status?: string
+          updated_at?: string
+          writing_number?: string | null
+        }
+        Update: {
+          appointment_effective_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          request_id?: string
+          state_code?: string
+          status?: string
+          updated_at?: string
+          writing_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_request_states_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_request_states_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_requests: {
+        Row: {
+          agent_id: string
+          approved_at: string | null
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_to: string | null
+          carrier_confirmation_number: string | null
+          closed_at: string | null
+          contract_record_id: string | null
+          contract_type: string
+          created_at: string
+          created_by: string | null
+          decline_reason: string | null
+          declined_at: string | null
+          desired_effective_date: string | null
+          direct_upline_id: string | null
+          due_date: string | null
+          external_provider: string | null
+          external_record_id: string | null
+          external_status: string | null
+          id: string
+          integration_metadata: Json
+          internal_notes: string | null
+          is_transfer: boolean
+          last_synced_at: string | null
+          manual_override: boolean
+          notes: string | null
+          org_carrier_id: string
+          organization_id: string
+          priority: string
+          product_lines: string[]
+          readiness_blockers: Json
+          readiness_checked_at: string | null
+          readiness_pct: number
+          readiness_state: string
+          reference: string | null
+          requested_advance_level: string | null
+          requested_comp_level_id: string | null
+          requested_hierarchy_note: string | null
+          status: string
+          submission_method: string | null
+          submission_reference: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          sync_error: string | null
+          sync_source: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          approved_at?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          carrier_confirmation_number?: string | null
+          closed_at?: string | null
+          contract_record_id?: string | null
+          contract_type?: string
+          created_at?: string
+          created_by?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          desired_effective_date?: string | null
+          direct_upline_id?: string | null
+          due_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          external_status?: string | null
+          id?: string
+          integration_metadata?: Json
+          internal_notes?: string | null
+          is_transfer?: boolean
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          org_carrier_id: string
+          organization_id: string
+          priority?: string
+          product_lines?: string[]
+          readiness_blockers?: Json
+          readiness_checked_at?: string | null
+          readiness_pct?: number
+          readiness_state?: string
+          reference?: string | null
+          requested_advance_level?: string | null
+          requested_comp_level_id?: string | null
+          requested_hierarchy_note?: string | null
+          status?: string
+          submission_method?: string | null
+          submission_reference?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          sync_error?: string | null
+          sync_source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          approved_at?: string | null
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assigned_to?: string | null
+          carrier_confirmation_number?: string | null
+          closed_at?: string | null
+          contract_record_id?: string | null
+          contract_type?: string
+          created_at?: string
+          created_by?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          desired_effective_date?: string | null
+          direct_upline_id?: string | null
+          due_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          external_status?: string | null
+          id?: string
+          integration_metadata?: Json
+          internal_notes?: string | null
+          is_transfer?: boolean
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          org_carrier_id?: string
+          organization_id?: string
+          priority?: string
+          product_lines?: string[]
+          readiness_blockers?: Json
+          readiness_checked_at?: string | null
+          readiness_pct?: number
+          readiness_state?: string
+          reference?: string | null
+          requested_advance_level?: string | null
+          requested_comp_level_id?: string | null
+          requested_hierarchy_note?: string | null
+          status?: string
+          submission_method?: string | null
+          submission_reference?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          sync_error?: string | null
+          sync_source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_contract_record_id_fkey"
+            columns: ["contract_record_id"]
+            isOneToOne: false
+            referencedRelation: "contract_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_direct_upline_id_fkey"
+            columns: ["direct_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_requested_comp_level_id_fkey"
+            columns: ["requested_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_status_history: {
+        Row: {
+          agent_visible_message: string | null
+          attachment_document_id: string | null
+          changed_by: string | null
+          created_at: string
+          due_date: string | null
+          from_status: string | null
+          id: string
+          internal_message: string | null
+          next_action: string | null
+          organization_id: string
+          request_id: string
+          to_status: string
+        }
+        Insert: {
+          agent_visible_message?: string | null
+          attachment_document_id?: string | null
+          changed_by?: string | null
+          created_at?: string
+          due_date?: string | null
+          from_status?: string | null
+          id?: string
+          internal_message?: string | null
+          next_action?: string | null
+          organization_id: string
+          request_id: string
+          to_status: string
+        }
+        Update: {
+          agent_visible_message?: string | null
+          attachment_document_id?: string | null
+          changed_by?: string | null
+          created_at?: string
+          due_date?: string | null
+          from_status?: string | null
+          id?: string
+          internal_message?: string | null
+          next_action?: string | null
+          organization_id?: string
+          request_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_status_history_attachment_document_id_fkey"
+            columns: ["attachment_document_id"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_status_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_status_history_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_status_history_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_progress: {
         Row: {
           agent_id: string
@@ -3005,6 +3586,224 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      hierarchy_change_approvals: {
+        Row: {
+          approver_id: string | null
+          change_request_id: string
+          comment: string | null
+          created_at: string
+          decided_at: string | null
+          decision: string
+          id: string
+          organization_id: string
+          step: string
+          step_order: number
+          updated_at: string
+        }
+        Insert: {
+          approver_id?: string | null
+          change_request_id: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decision?: string
+          id?: string
+          organization_id: string
+          step: string
+          step_order?: number
+          updated_at?: string
+        }
+        Update: {
+          approver_id?: string | null
+          change_request_id?: string
+          comment?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decision?: string
+          id?: string
+          organization_id?: string
+          step?: string
+          step_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hierarchy_change_approvals_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_approvals_change_request_id_fkey"
+            columns: ["change_request_id"]
+            isOneToOne: false
+            referencedRelation: "hierarchy_change_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_approvals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hierarchy_change_requests: {
+        Row: {
+          agent_id: string
+          applied_at: string | null
+          assigned_to: string | null
+          carrier_impact: Json
+          change_type: string
+          commission_impact: Json
+          created_at: string
+          current_comp_level_id: string | null
+          current_role: string | null
+          current_upline_id: string | null
+          current_writing_number: string | null
+          decline_reason: string | null
+          declined_at: string | null
+          id: string
+          internal_notes: string | null
+          notes: string | null
+          org_carrier_id: string | null
+          organization_id: string
+          reason: string | null
+          reference: string | null
+          requested_comp_level_id: string | null
+          requested_effective_date: string | null
+          requested_role: string | null
+          requested_upline_id: string | null
+          status: string
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          applied_at?: string | null
+          assigned_to?: string | null
+          carrier_impact?: Json
+          change_type: string
+          commission_impact?: Json
+          created_at?: string
+          current_comp_level_id?: string | null
+          current_role?: string | null
+          current_upline_id?: string | null
+          current_writing_number?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          org_carrier_id?: string | null
+          organization_id: string
+          reason?: string | null
+          reference?: string | null
+          requested_comp_level_id?: string | null
+          requested_effective_date?: string | null
+          requested_role?: string | null
+          requested_upline_id?: string | null
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          applied_at?: string | null
+          assigned_to?: string | null
+          carrier_impact?: Json
+          change_type?: string
+          commission_impact?: Json
+          created_at?: string
+          current_comp_level_id?: string | null
+          current_role?: string | null
+          current_upline_id?: string | null
+          current_writing_number?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          id?: string
+          internal_notes?: string | null
+          notes?: string | null
+          org_carrier_id?: string | null
+          organization_id?: string
+          reason?: string | null
+          reference?: string | null
+          requested_comp_level_id?: string | null
+          requested_effective_date?: string | null
+          requested_role?: string | null
+          requested_upline_id?: string | null
+          status?: string
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hierarchy_change_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_current_comp_level_id_fkey"
+            columns: ["current_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_current_upline_id_fkey"
+            columns: ["current_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_requested_comp_level_id_fkey"
+            columns: ["requested_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_requested_upline_id_fkey"
+            columns: ["requested_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hierarchy_change_requests_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitation_links: {
         Row: {
@@ -6751,6 +7550,169 @@ export type Database = {
           {
             foreignKeyName: "white_label_applications_submitted_by_fkey"
             columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      writing_numbers: {
+        Row: {
+          advance_level: string | null
+          agent_id: string
+          comp_level_id: string | null
+          confirmation_document_id: string | null
+          created_at: string
+          created_by: string | null
+          direct_upline_id: string | null
+          effective_date: string | null
+          external_provider: string | null
+          external_record_id: string | null
+          hierarchy_path: string | null
+          id: string
+          last_synced_at: string | null
+          manual_override: boolean
+          notes: string | null
+          number_type: string
+          org_carrier_id: string
+          organization_id: string
+          product_line: string | null
+          request_id: string | null
+          scope: string
+          source: string
+          state_code: string | null
+          status: string
+          termination_date: string | null
+          updated_at: string
+          updated_by: string | null
+          upline_npn: string | null
+          upline_writing_number: string | null
+          writing_number: string
+        }
+        Insert: {
+          advance_level?: string | null
+          agent_id: string
+          comp_level_id?: string | null
+          confirmation_document_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          direct_upline_id?: string | null
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          hierarchy_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          number_type?: string
+          org_carrier_id: string
+          organization_id: string
+          product_line?: string | null
+          request_id?: string | null
+          scope?: string
+          source?: string
+          state_code?: string | null
+          status?: string
+          termination_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          upline_npn?: string | null
+          upline_writing_number?: string | null
+          writing_number: string
+        }
+        Update: {
+          advance_level?: string | null
+          agent_id?: string
+          comp_level_id?: string | null
+          confirmation_document_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          direct_upline_id?: string | null
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          hierarchy_path?: string | null
+          id?: string
+          last_synced_at?: string | null
+          manual_override?: boolean
+          notes?: string | null
+          number_type?: string
+          org_carrier_id?: string
+          organization_id?: string
+          product_line?: string | null
+          request_id?: string | null
+          scope?: string
+          source?: string
+          state_code?: string | null
+          status?: string
+          termination_date?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          upline_npn?: string | null
+          upline_writing_number?: string | null
+          writing_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "writing_numbers_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_comp_level_id_fkey"
+            columns: ["comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_confirmation_document_id_fkey"
+            columns: ["confirmation_document_id"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_direct_upline_id_fkey"
+            columns: ["direct_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "writing_numbers_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
