@@ -877,6 +877,23 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       read: false,
     });
 
+    {
+      const { queueEmail, APP_ORIGIN } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "import-complete",
+        profileId: targetAgent,
+        category: "transactional",
+        key: `import-complete:${job.id}`,
+        data: {
+          clients: clientsImported,
+          policies: policiesImported,
+          notes: notesImported,
+          appUrl: APP_ORIGIN,
+        },
+      });
+    }
+
+
     return {
       ok: true,
       clients_imported: clientsImported,
