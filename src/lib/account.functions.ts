@@ -97,8 +97,16 @@ export const upsertProducerDocument = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const { supabase, userId } = context;
     const { data: existing } = await supabase.from("producer_documents").select("id,file_url,file_name").eq("agent_id", userId).eq("doc_type", data.doc_type).maybeSingle();
+
+    // Stamp the owning agency. Staff queues and the dashboard work queue scope
+    // documents by organization_id; without it an uploaded document is invisible
+    // to the people whose job is to review it.
+    const { data: prof } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
     const row: Record<string, unknown> = {
       agent_id: userId,
+      organization_id: (prof as any)?.organization_id ?? null,
       doc_type: data.doc_type,
       file_url: data.file_path ?? existing?.file_url ?? null,
       file_name: data.file_name ?? existing?.file_name ?? null,

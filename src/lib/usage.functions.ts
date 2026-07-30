@@ -98,6 +98,7 @@ export const ROUTE_INVENTORY: { path: string; label: string; area: string }[] = 
   { path: "/contracting", label: "My Contracts", area: "Contracting" },
   { path: "/contracting/carriers", label: "Carrier directory", area: "Contracting" },
   { path: "/contracting/invite", label: "Onboarding invite", area: "Contracting" },
+  { path: "/onboarding", label: "Getting agents ready", area: "Contracting" },
   { path: "/contracting/transfers", label: "Transfers", area: "Contracting" },
   { path: "/contracting/annuity-training", label: "Annuity training", area: "Contracting" },
   { path: "/contracting-ops", label: "Contracting Overview", area: "Contracting Ops" },

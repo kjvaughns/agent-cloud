@@ -58,6 +58,7 @@ export const PAGES: Page[] = [
   { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", audience: ["owner", "manager", "agent"] },
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"] },
   { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", audience: ["owner", "manager"] },
+  { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", audience: ["owner", "manager", "staff"] },
 
   // Contracting
   { id: "contracting-ops", label: "Contracting", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", audience: ["owner", "staff", "manager"] },
