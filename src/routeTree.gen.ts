@@ -119,6 +119,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 
@@ -712,6 +713,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksRunAutomationsRoute =
+  ApiPublicHooksRunAutomationsRouteImport.update({
+    id: '/api/public/hooks/run-automations',
+    path: '/api/public/hooks/run-automations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   id: '/api/public/hooks/fetch-news',
   path: '/api/public/hooks/fetch-news',
@@ -831,6 +838,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -942,6 +950,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1057,6 +1066,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1172,6 +1182,7 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1283,6 +1294,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/back-office/case-design/admin'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1397,6 +1409,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/back-office/case-design_/admin'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -1438,6 +1451,7 @@ export interface RootRouteChildren {
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
+  ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -2217,6 +2231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/run-automations': {
+      id: '/api/public/hooks/run-automations'
+      path: '/api/public/hooks/run-automations'
+      fullPath: '/api/public/hooks/run-automations'
+      preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/fetch-news': {
       id: '/api/public/hooks/fetch-news'
       path: '/api/public/hooks/fetch-news'
@@ -2499,6 +2520,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
+  ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
