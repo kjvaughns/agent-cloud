@@ -51,6 +51,7 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     // Both write agency-wide configuration, so they follow the owner gate.
     "/intake": canManage || (isStaff && !!p.staff_is_admin),
     "/contracting/comp-grids-manage": canManage,
+    "/white-label": canManage,
     "/phone": isStaff ? false : true,
   };
   return url in rules ? rules[url] : true;

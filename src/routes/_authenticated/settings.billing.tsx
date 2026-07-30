@@ -309,12 +309,8 @@ function OwnerBilling() {
                   Your brand everywhere: custom logo and colors, your own subdomain, branded emails and login, white-label support.
                   <span className="tnum"> {money(999)}</span> one-time setup + <span className="tnum">{money(499)}/mo</span>. Requires an active Agency Plan.
                 </p>
-                <Button
-                  className="mt-3" variant="outline"
-                  onClick={() => go.mutate({ product: "white_label" })}
-                  disabled={!d.configured || d.org.subscription_status !== "active" || go.isPending}
-                >
-                  Upgrade to White-Label
+                <Button asChild className="mt-3" variant="outline">
+                  <Link to="/white-label">Apply for White-Label →</Link>
                 </Button>
               </div>
             </div>

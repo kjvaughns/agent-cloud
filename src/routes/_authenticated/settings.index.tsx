@@ -6,7 +6,7 @@ import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, ShieldCheck, UploadCloud, ChevronRight } from "lucide-react";
+import { Building2, ShieldCheck, UploadCloud, ChevronRight, Crown } from "lucide-react";
 import { getMyAccess } from "@/lib/permissions.functions";
 
 import { BillingPage } from "./settings.billing";
@@ -110,6 +110,13 @@ function ManagementTab({ isOwner }: { isOwner: boolean }) {
       ownerOnly: false,
     },
     {
+      to: "/white-label",
+      icon: Crown,
+      title: "White Label",
+      body: "Run Agent Cloud under your own brand and domain.",
+      ownerOnly: true,
+    },
+    {
       to: "/contracting/comp-grids-manage",
       icon: ShieldCheck,
       title: "Commission Grids",
@@ -121,7 +128,7 @@ function ManagementTab({ isOwner }: { isOwner: boolean }) {
   return (
     <div className="flex flex-col gap-[var(--gap)]">
       {links.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {links.map((l) => (
             <Link key={l.to} to={l.to}>
               <Panel className="ac-lift h-full hover:border-primary/40">

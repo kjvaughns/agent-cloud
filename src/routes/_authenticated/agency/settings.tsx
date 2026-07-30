@@ -218,7 +218,7 @@ function OrganizationSettings() {
                 apply on every plan.
               </p>
               <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link to="/settings">See White Label →</Link>
+                <Link to="/white-label">Apply for White Label →</Link>
               </Button>
             </div>
           )}
