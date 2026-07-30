@@ -120,10 +120,14 @@ export function PlatformMap() {
                 )}
               >
                 <h3 className="text-base font-bold text-foreground" style={display}>{m.name}</h3>
+                {/* Desktop only — expands on hover/focus. Without `hidden`
+                    this also rendered on mobile, so tapping a card showed the
+                    copy twice alongside the always-visible version below. */}
                 <p
                   className={cn(
-                    "text-xs text-muted-foreground leading-relaxed transition-all duration-300 overflow-hidden",
-                    on ? "mt-2 max-h-24 opacity-100" : "mt-0 max-h-0 opacity-0 md:opacity-0",
+                    "hidden md:block text-xs text-muted-foreground leading-relaxed",
+                    "transition-all duration-300 overflow-hidden",
+                    on ? "mt-2 max-h-32 opacity-100" : "mt-0 max-h-0 opacity-0",
                   )}
                 >
                   {m.copy}
