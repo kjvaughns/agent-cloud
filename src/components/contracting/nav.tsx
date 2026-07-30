@@ -21,6 +21,7 @@ export const CONTRACTING_TABS = [
   { label: "Ready to Sell", to: "/contracting-ops/ready-to-sell" },
   { label: "Documents", to: "/contracting-ops/documents" },
   { label: "Templates", to: "/contracting-ops/templates" },
+  { label: "Import", to: "/contracting-ops/import" },
   { label: "Staff Queue", to: "/contracting-ops/queue" },
   { label: "Settings", to: "/contracting-ops/settings" },
 ] as const;

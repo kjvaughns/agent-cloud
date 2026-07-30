@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft, Check, Copy, ExternalLink, Lock, Mail, Send, Table2, UserPlus,
+  ArrowLeft, Check, Copy, ExternalLink, Lock, Mail, Printer, Send, Table2, UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Panel } from "@/components/page-shell";
@@ -136,9 +136,9 @@ function RequestDetailPage() {
   const isStaff = access.canSubmit || access.canApprove;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 ac-print-root">
       <div className="flex flex-wrap items-center gap-3">
-        <Link to="/contracting-ops/requests">
+        <Link to="/contracting-ops/requests" className="ac-no-print">
           <Button variant="ghost" size="sm"><ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> All requests</Button>
         </Link>
         <span className="tnum text-sm font-semibold text-foreground">{packet.request.reference}</span>
@@ -146,6 +146,17 @@ function RequestDetailPage() {
         <span className="text-sm text-muted-foreground">
           {packet.carrier.name} · {CONTRACT_TYPE_LABELS[packet.request.contract_type as ContractType]}
         </span>
+        {/* Browser print-to-PDF rather than a bundled PDF library: it produces
+            a correct, selectable document with no extra dependency, and the
+            print rules below strip the app chrome. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto ac-no-print"
+          onClick={() => window.print()}
+        >
+          <Printer className="mr-1.5 h-3.5 w-3.5" /> Print or save as PDF
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -358,7 +369,7 @@ function RequestDetailPage() {
           </Panel>
 
           {isStaff && (
-            <Panel title="Actions">
+            <Panel title="Actions" className="ac-no-print">
               <div className="space-y-2">
                 <Button
                   size="sm"

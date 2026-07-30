@@ -364,6 +364,35 @@
 /* Hover intent wins over the ambient drift. */
 .ac-float:hover { animation-play-state: paused; }
 
+/* ── Printing a contracting packet ────────────────────────────────────────
+   A carrier packet is routinely printed or saved as a PDF. These rules drop
+   the application chrome so the printed page is the packet, not a screenshot
+   of the app around it. */
+@media print {
+  .ac-no-print,
+  [data-sidebar],
+  header, nav, aside { display: none !important; }
+
+  .ac-print-root { display: block !important; }
+  .ac-print-root * { color: #000 !important; }
+
+  /* Panels become plain bordered blocks that do not split across a page. */
+  .ac-print-root section {
+    border: 1px solid #999 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 12px;
+  }
+
+  /* The two-column layout is a screen affordance; print reads better in one. */
+  .ac-print-root .grid { display: block !important; }
+
+  body { background: #fff !important; }
+  @page { margin: 14mm; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ac-orb { animation: none; }
   .ac-lift:hover { transform: none; }
