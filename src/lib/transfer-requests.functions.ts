@@ -145,7 +145,18 @@ export const createTransferRequest = createServerFn({ method: "POST" })
           description: "An agent submitted a carrier transfer request. Review it in Contracts → Transfer Requests.",
           type: "contracting",
         });
+
+        const { queueEmail } = await import("@/lib/email/send.server");
+        await queueEmail({
+          template: "transfer-request",
+          profileId: org.owner_id,
+          orgId,
+          category: "contract_updates",
+          key: `transfer-request:${created.id}`,
+          data: { state: "submitted" },
+        });
       }
+
     }
     return { ok: true, id: created.id };
   });
