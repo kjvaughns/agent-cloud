@@ -273,7 +273,20 @@ export const unassignNovaSeat = createServerFn({ method: "POST" })
       description: "Subscribe personally within 48 hours to keep access — your phone number and automations continue uninterrupted during the grace period.",
       type: "billing",
     });
+
+    {
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "nova-pro-changed",
+        profileId: data.agent_id,
+        orgId: org.id,
+        category: "billing",
+        key: `nova-seat-ended:${org.id}:${data.agent_id}:${expires}`,
+        data: { state: "ended" },
+      });
+    }
     return { ok: true, grace_until: expires };
+
   });
 
 // ── Nova Pro status (individual agent) ───────────────────────────────────────
