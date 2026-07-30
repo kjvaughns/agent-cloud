@@ -207,7 +207,17 @@ export const syncSureLcStatuses = createServerFn({ method: "POST" })
           type:    "contracting",
           read:    false,
         }).catch(() => {});
+
+        const { queueEmail } = await import("@/lib/email/send.server");
+        await queueEmail({
+          template: "contract-status-changed",
+          profileId: userId,
+          category: "contract_updates",
+          key: `contract-status:${contract.id}:active`,
+          data: { carrierName: (carrier as any)?.name ?? "Carrier", status: "active" },
+        });
       }
+
     }
 
     return { synced, activated };
