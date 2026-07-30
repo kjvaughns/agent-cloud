@@ -64,9 +64,13 @@ export const PAGES: Page[] = [
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Contracting", audience: ["staff", "owner"] },
   { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Contracting", audience: ["owner", "staff", "manager"] },
   { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Contracting", audience: ["owner", "staff", "manager"] },
-  { id: "licensing", label: "Licensing", path: "/contracting-ops/licensing", icon: FileSignature, area: "Contracting", audience: ["owner", "staff"] },
+  // One Licensing entry for everyone. The page routes you to your own licences
+  // or to the agency roster, whichever is your job.
+  { id: "licensing", label: "Licensing", path: "/licensing", icon: FileSignature, area: "Contracting" },
   { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "carriers-dir", label: "Carrier Directory", path: "/contracting-ops/carriers", icon: Building2, area: "Contracting", audience: ["owner", "staff"] },
+  // Not a second Carriers page: this is which carriers the agency uses and how
+  // each one takes a submission. The directory below is the reference one.
+  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Contracting", audience: ["owner", "staff"] },
   { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Contracting", audience: ["owner", "staff"] },
   { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Contracting", audience: ["owner", "staff"] },
   { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Contracting", audience: ["owner", "staff"] },

@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/carriers")({
   component: CarrierDirectoryPage,
-  head: () => ({ meta: [{ title: "Carrier Directory | Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Carrier Setup | Agent Cloud" }] }),
 });
 
 function CarrierDirectoryPage() {

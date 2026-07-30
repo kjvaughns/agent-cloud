@@ -813,7 +813,7 @@ const COMPLETION_ITEMS: Record<string, {
   "Driver's License":         { label: "Driver's License",     description: "Upload a copy of your driver's license",                         link: "/account/producer-profile",              linkLabel: "Upload License",            priority: 8 },
   "AML Certificate":          { label: "AML Certificate",      description: "Upload your Anti-Money Laundering training certificate",         link: "/account/producer-profile",              linkLabel: "Upload AML",                priority: 9 },
   "Background Questions":     { label: "Background Questions", description: "Complete the required producer background disclosure",            link: "/account/producer-profile",              linkLabel: "Complete",                  priority: 10 },
-  "State License":            { label: "State License",        description: "Add at least one active state insurance license",                link: "/resources/state-licenses",              linkLabel: "Sync Licenses",             priority: 11 },
+  "State License":            { label: "State License",        description: "Add at least one active state insurance license",                link: "/licensing",                             linkLabel: "Sync Licenses",             priority: 11 },
   "Transfer Request (carrier release)": {
     label: "Transfer Request", description: "You need to submit a carrier release from your previous upline",
     link: "/contracting/transfers", linkLabel: "Complete Transfer Request", priority: 0,

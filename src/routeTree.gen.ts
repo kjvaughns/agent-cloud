@@ -56,6 +56,7 @@ import { Route as AuthenticatedPhoneRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedNovaRouteImport } from './routes/_authenticated/nova'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticated/news-feed'
+import { Route as AuthenticatedLicensingRouteImport } from './routes/_authenticated/licensing'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedIntakeRouteImport } from './routes/_authenticated/intake'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
@@ -379,6 +380,11 @@ const AuthenticatedNotificationsRoute =
 const AuthenticatedNewsFeedRoute = AuthenticatedNewsFeedRouteImport.update({
   id: '/news-feed',
   path: '/news-feed',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedLicensingRoute = AuthenticatedLicensingRouteImport.update({
+  id: '/licensing',
+  path: '/licensing',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedLeaderboardRoute =
@@ -918,6 +924,7 @@ export interface FileRoutesByFullPath {
   '/finances': typeof AuthenticatedFinancesRoute
   '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/licensing': typeof AuthenticatedLicensingRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/nova': typeof AuthenticatedNovaRouteWithChildren
@@ -1052,6 +1059,7 @@ export interface FileRoutesByTo {
   '/finances': typeof AuthenticatedFinancesRoute
   '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/licensing': typeof AuthenticatedLicensingRoute
   '/news-feed': typeof AuthenticatedNewsFeedRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/nova': typeof AuthenticatedNovaRouteWithChildren
@@ -1190,6 +1198,7 @@ export interface FileRoutesById {
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/intake': typeof AuthenticatedIntakeRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
+  '/_authenticated/licensing': typeof AuthenticatedLicensingRoute
   '/_authenticated/news-feed': typeof AuthenticatedNewsFeedRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/nova': typeof AuthenticatedNovaRouteWithChildren
@@ -1329,6 +1338,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/intake'
     | '/leaderboard'
+    | '/licensing'
     | '/news-feed'
     | '/notifications'
     | '/nova'
@@ -1463,6 +1473,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/intake'
     | '/leaderboard'
+    | '/licensing'
     | '/news-feed'
     | '/notifications'
     | '/nova'
@@ -1600,6 +1611,7 @@ export interface FileRouteTypes {
     | '/_authenticated/finances'
     | '/_authenticated/intake'
     | '/_authenticated/leaderboard'
+    | '/_authenticated/licensing'
     | '/_authenticated/news-feed'
     | '/_authenticated/notifications'
     | '/_authenticated/nova'
@@ -2082,6 +2094,13 @@ declare module '@tanstack/react-router' {
       path: '/news-feed'
       fullPath: '/news-feed'
       preLoaderRoute: typeof AuthenticatedNewsFeedRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/licensing': {
+      id: '/_authenticated/licensing'
+      path: '/licensing'
+      fullPath: '/licensing'
+      preLoaderRoute: typeof AuthenticatedLicensingRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/leaderboard': {
@@ -2903,6 +2922,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedIntakeRoute: typeof AuthenticatedIntakeRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
+  AuthenticatedLicensingRoute: typeof AuthenticatedLicensingRoute
   AuthenticatedNewsFeedRoute: typeof AuthenticatedNewsFeedRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedNovaRoute: typeof AuthenticatedNovaRouteWithChildren
@@ -2950,6 +2970,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedIntakeRoute: AuthenticatedIntakeRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
+  AuthenticatedLicensingRoute: AuthenticatedLicensingRoute,
   AuthenticatedNewsFeedRoute: AuthenticatedNewsFeedRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedNovaRoute: AuthenticatedNovaRouteWithChildren,
