@@ -21,7 +21,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Copy, Check, Trash2, Lock, Link2, User, Users, Building2, ClipboardList, CheckCircle2 } from "lucide-react";
+import { Copy, Check, Trash2, Lock, Link2, User, Users, Building2, ClipboardList, CheckCircle2, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRole } from "@/hooks/use-role";
 
@@ -43,6 +44,7 @@ function InvitePage() {
   const [success, setSuccess] = useState<{ token: string; linkName: string } | null>(null);
   const [linkName, setLinkName] = useState("");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [carriersOpen, setCarriersOpen] = useState(false);
   const [invitedRole, setInvitedRole] = useState<"agent" | "manager" | "agency_owner" | "staff">("agent");
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
@@ -188,10 +190,31 @@ function InvitePage() {
           </div>
         </div>
 
-        <div>
-          <div className="text-sm font-medium mb-2">Carriers &amp; Commission Levels</div>
-          <p className="text-xs text-muted-foreground mb-3">Optionally pre-assign carriers and commission levels. You can skip this and assign carriers later from the Downline Contracts tab.</p>
+        <div className="rounded-[var(--radius)] border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setCarriersOpen((o) => !o)}
+            aria-expanded={carriersOpen}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-surface-2"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-medium">Carriers &amp; Commission Levels</span>
+              <span className="block text-xs text-muted-foreground">
+                Optional — you can assign carriers later from Downline Contracts.
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {assignments.length > 0 && (
+                <span className="rounded-full bg-gold-glow px-2 py-0.5 text-[11px] font-semibold text-gold-bright tnum">
+                  {assignments.length} assigned
+                </span>
+              )}
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", carriersOpen && "rotate-180")} />
+            </span>
+          </button>
 
+          {carriersOpen && (
+          <div className="border-t border-border p-3">
           {(myCarriers?.rows ?? []).length === 0 ? (
             <div className="p-6 text-center border border-border rounded-[var(--radius)] bg-surface-2">
               <p className="text-sm text-muted-foreground">You don't have any active carrier contracts to assign yet.</p>
@@ -259,6 +282,8 @@ function InvitePage() {
 
           {assignments.length > 0 && (
             <p className="text-sm text-muted-foreground pt-2">{assignments.length} carrier{assignments.length === 1 ? "" : "s"} assigned</p>
+          )}
+          </div>
           )}
         </div>
 

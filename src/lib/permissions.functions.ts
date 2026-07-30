@@ -16,6 +16,10 @@ export const MANAGER_PERMS = [
   "mgr_view_agent_commissions", "mgr_view_team_analytics", "mgr_access_recruiting",
   "mgr_submit_carrier_requests", "mgr_manage_onboarding", "mgr_view_client_records",
   "mgr_edit_client_records",
+  // Lets a promoted manager maintain the agency's handbook, scripts and
+  // academy content instead of routing every edit through the owner.
+  "mgr_manage_resources",
+  "mgr_respond_tickets",
 ] as const;
 
 export const STAFF_PERMS = [
@@ -26,6 +30,7 @@ export const STAFF_PERMS = [
   "staff_view_contracts", "staff_submit_carrier_requests", "staff_edit_contracts",
   "staff_view_analytics",
   "staff_view_all_tickets", "staff_respond_tickets",
+  "staff_manage_resources",
   "staff_nova_pro_enabled", "staff_is_admin",
 ] as const;
 
@@ -57,13 +62,24 @@ export const STAFF_PRESETS: Record<string, Permissions> = {
   },
   contracting_specialist: {
     staff_view_contracts: true, staff_submit_carrier_requests: true, staff_edit_contracts: true,
-    staff_view_clients: true, staff_view_policies: true, staff_view_all_tickets: true,
+    staff_view_clients: true, staff_view_policies: true,
+    staff_view_all_tickets: true, staff_respond_tickets: true,
     staff_preset: "contracting_specialist",
   },
   client_services: {
     staff_view_clients: true, staff_edit_clients: true, staff_delete_clients: true,
     staff_view_policies: true, staff_view_all_tickets: true, staff_respond_tickets: true,
     staff_preset: "client_services",
+  },
+  reports_support: {
+    staff_view_analytics: true,
+    staff_view_all_tickets: true, staff_respond_tickets: true,
+    staff_preset: "reports_support",
+  },
+  support_desk: {
+    staff_view_all_tickets: true, staff_respond_tickets: true,
+    staff_view_clients: true, staff_view_policies: true,
+    staff_preset: "support_desk",
   },
 };
 

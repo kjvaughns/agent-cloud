@@ -46,6 +46,13 @@ const MANAGER_GROUPS: { label: string; items: { key: string; label: string }[] }
       { key: "mgr_manage_onboarding", label: "Manage agent onboarding" },
     ],
   },
+  {
+    label: "Agency Content",
+    items: [
+      { key: "mgr_manage_resources", label: "Add and edit resources (handbook, scripts, academy)" },
+      { key: "mgr_respond_tickets", label: "Respond to support tickets" },
+    ],
+  },
 ];
 
 const STAFF_GROUPS: { label: string; items: { key: string; label: string }[] }[] = [
@@ -68,6 +75,10 @@ const STAFF_GROUPS: { label: string; items: { key: string; label: string }[] }[]
   {
     label: "Commissions",
     items: [{ key: "staff_view_commissions", label: "View commissions (read-only)" }],
+  },
+  {
+    label: "Agency Content",
+    items: [{ key: "staff_manage_resources", label: "Add and edit resources (handbook, scripts, academy)" }],
   },
   {
     label: "Recruiting",
@@ -109,14 +120,20 @@ const ADMIN_EXTRAS: { key: string; label: string }[] = [
   { key: "admin_view_agency_tickets", label: "View agency support tickets" },
 ];
 
+/**
+ * Starting points, not a cage — a preset sets the switches and the owner can
+ * change any of them afterwards. Order runs broadest to narrowest.
+ */
 const PRESETS = [
-  { id: "admin", label: "Admin" },
-  { id: "recruiter", label: "Recruiter" },
-  { id: "contracting_specialist", label: "Contracting" },
-  { id: "client_services", label: "Client Services" },
+  { id: "admin", label: "Admin", hint: "Everything, including managing other staff" },
+  { id: "contracting_specialist", label: "Contracting", hint: "Carrier requests, contracts, support" },
+  { id: "client_services", label: "Client Services", hint: "Clients, policies, support" },
+  { id: "recruiter", label: "Recruiter", hint: "Recruiting pipeline and candidates" },
+  { id: "reports_support", label: "Reports & Support", hint: "Analytics and support tickets only" },
+  { id: "support_desk", label: "Support Desk", hint: "Support tickets, read-only clients" },
 ] as const;
 
-export function AgencyTeamPage() {
+export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}) {
   const listFn = useServerFn(listOrgMembers);
   const { data, isLoading, error } = useQuery({ queryKey: ["agency", "members"], queryFn: () => listFn(), retry: false });
   const [selected, setSelected] = useState<any | null>(null);
@@ -134,12 +151,14 @@ export function AgencyTeamPage() {
 
   return (
     <PageShell>
-      <div className="max-w-3xl mx-auto flex flex-col gap-[var(--gap)]">
-        <HeroBand
-          title="Team & Permissions"
-          subtitle="Set each member's role and exactly what they can see and do. Changes take effect immediately."
-          actions={<Button asChild variant="outline" size="sm"><Link to="/team">Team Command Center →</Link></Button>}
-        />
+      <div className={embedded ? "flex flex-col gap-[var(--gap)]" : "max-w-3xl mx-auto flex flex-col gap-[var(--gap)]"}>
+        {!embedded && (
+          <HeroBand
+            title="Team & Permissions"
+            subtitle="Set each member's role and exactly what they can see and do. Changes take effect immediately."
+            actions={<Button asChild variant="outline" size="sm"><Link to="/team">Team Command Center →</Link></Button>}
+          />
+        )}
         <Panel pad={false}>
           <div className="divide-y divide-border-soft">
             {data.members.map((m: any) => {
@@ -263,6 +282,7 @@ function MemberConfigDialog({ member, orgId, onClose }: { member: any; orgId: st
                     className="h-7 text-xs"
                     onClick={() => preset.mutate(p.id)}
                     disabled={preset.isPending}
+                    title={p.hint}
                   >
                     {p.label}
                   </Button>

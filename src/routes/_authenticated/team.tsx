@@ -31,6 +31,8 @@ import {
 import { adminMoveAgent } from "@/lib/admin.functions";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { AgencyTeamPage } from "./agency.team";
+import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +109,15 @@ function TeamPage() {
   const isAdmin = adminCheck?.isAdmin ?? false;
   const [openAgent, setOpenAgent] = useState<string | null>(null);
 
+  // Roles and permissions belong on the Team page — it is where owners look
+  // for them. The tab only appears for the people who can actually change
+  // them; the page itself re-checks server-side regardless.
+  const accessFn = useServerFn(getMyAccess);
+  const { data: access } = useQuery({ queryKey: ["my-access"], queryFn: () => accessFn() });
+  const canManageRoles =
+    Boolean(access?.isOwner) ||
+    (access?.role === "staff" && Boolean(access?.permissions?.admin_manage_staff_configs));
+
   return (
     <PageShell>
       <div className="space-y-6">
@@ -138,6 +149,7 @@ function TeamPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="roster">Roster</TabsTrigger>
             <TabsTrigger value="org">Organization</TabsTrigger>
+            {canManageRoles && <TabsTrigger value="roles">Roles &amp; Permissions</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6 mt-4">
@@ -160,6 +172,12 @@ function TeamPage() {
           <TabsContent value="org" className="mt-4">
             <OrgChart downline={downline} onOpen={setOpenAgent} />
           </TabsContent>
+
+          {canManageRoles && (
+            <TabsContent value="roles" className="mt-4">
+              <AgencyTeamPage embedded />
+            </TabsContent>
+          )}
         </Tabs>
       )}
 
