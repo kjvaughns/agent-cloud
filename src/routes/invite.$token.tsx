@@ -217,7 +217,7 @@ function Step1Personal({ token, invite, migrationMatch, onDone }: { token: strin
       <div className="grid grid-cols-2 gap-3">
         <div><Label>First name *</Label><Input value={form.first_name} onChange={(e) => set("first_name", e.target.value)} /></div>
         <div><Label>Last name *</Label><Input value={form.last_name} onChange={(e) => set("last_name", e.target.value)} /></div>
-        <div><Label>Date of birth *</Label><Input type="date" value={form.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} /></div>
+        <div className="min-w-0"><Label>Date of birth *</Label><Input type="date" value={form.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} /></div>
         <div>
           <Label className="flex items-center gap-1"><Lock className="h-3 w-3" /> SSN *</Label>
           <div className="flex gap-1">

@@ -1663,6 +1663,18 @@ function EmailTab({ detail }: { detail: any }) {
   );
 }
 
+/**
+ * min-w-0 matters here. Field is used as a grid item, and grid items default
+ * to min-width:auto — which resolves to the child's min-content width. A
+ * native <input type="date"> has a wide intrinsic control width on iOS, so
+ * without this it overflowed its track and collided with the next column
+ * (Date of Birth running into Percentage on the beneficiary form).
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><Label className="text-xs font-medium text-muted-foreground">{label}</Label>{children}</div>;
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
 }

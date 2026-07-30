@@ -614,7 +614,7 @@ function CreateEventModal({
             )}
           </div>
           <div className="grid grid-cols-3 gap-3 items-end">
-            <div className="col-span-1">
+            <div className="col-span-1 min-w-0">
               <Label>Date *</Label>
               <Input
                 type="date"

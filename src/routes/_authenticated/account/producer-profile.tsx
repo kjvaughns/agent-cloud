@@ -609,7 +609,7 @@ function AmlCard({ doc, onSaved }: { doc: any; onSaved: () => void }) {
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">Annual anti-money-laundering training, required by most carriers.</p>
         <div className="grid sm:grid-cols-3 gap-4">
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <Label className="text-xs">Completion Date</Label>
             <Input type="date" value={completionDate} onChange={(e) => setCompletionDate(e.target.value)} onBlur={() => saveMetadata({ start_date: completionDate || null })} />
           </div>
