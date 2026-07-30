@@ -3724,6 +3724,88 @@ export type Database = {
           },
         ]
       }
+      org_contracting_settings: {
+        Row: {
+          agents_may_request_contracts: boolean
+          auto_assign_staff_id: string | null
+          created_at: string
+          default_request_priority: string
+          license_expiry_warning_days: number
+          notify_on_missing_documents: boolean
+          notify_on_status_change: boolean
+          organization_id: string
+          pdb_refresh_days: number
+          request_sla_days: number
+          require_manager_review: boolean
+          require_owner_approval: boolean
+          require_owner_approval_for_comp_change: boolean
+          require_owner_approval_for_hierarchy: boolean
+          updated_at: string
+          updated_by: string | null
+          warn_on_duplicate_requests: boolean
+        }
+        Insert: {
+          agents_may_request_contracts?: boolean
+          auto_assign_staff_id?: string | null
+          created_at?: string
+          default_request_priority?: string
+          license_expiry_warning_days?: number
+          notify_on_missing_documents?: boolean
+          notify_on_status_change?: boolean
+          organization_id: string
+          pdb_refresh_days?: number
+          request_sla_days?: number
+          require_manager_review?: boolean
+          require_owner_approval?: boolean
+          require_owner_approval_for_comp_change?: boolean
+          require_owner_approval_for_hierarchy?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          warn_on_duplicate_requests?: boolean
+        }
+        Update: {
+          agents_may_request_contracts?: boolean
+          auto_assign_staff_id?: string | null
+          created_at?: string
+          default_request_priority?: string
+          license_expiry_warning_days?: number
+          notify_on_missing_documents?: boolean
+          notify_on_status_change?: boolean
+          organization_id?: string
+          pdb_refresh_days?: number
+          request_sla_days?: number
+          require_manager_review?: boolean
+          require_owner_approval?: boolean
+          require_owner_approval_for_comp_change?: boolean
+          require_owner_approval_for_hierarchy?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          warn_on_duplicate_requests?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_contracting_settings_auto_assign_staff_id_fkey"
+            columns: ["auto_assign_staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_contracting_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_contracting_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_role_comp_mappings: {
         Row: {
           comp_level_id: string
@@ -3993,35 +4075,157 @@ export type Database = {
           },
         ]
       }
-      pdb_uploads: {
+      pdb_reviews: {
         Row: {
           agent_id: string
-          filename: string | null
+          appointments_recorded: number
+          created_at: string
           id: string
-          parsed_states: string[] | null
-          storage_path: string
-          uploaded_at: string
+          licenses_recorded: number
+          next_review_date: string | null
+          organization_id: string
+          pdb_upload_id: string
+          regulatory_actions_found: number
+          rejection_reason: string | null
+          report_date: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          status: string
+          updated_at: string
         }
         Insert: {
           agent_id: string
-          filename?: string | null
+          appointments_recorded?: number
+          created_at?: string
           id?: string
-          parsed_states?: string[] | null
-          storage_path: string
-          uploaded_at?: string
+          licenses_recorded?: number
+          next_review_date?: string | null
+          organization_id: string
+          pdb_upload_id: string
+          regulatory_actions_found?: number
+          rejection_reason?: string | null
+          report_date?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          updated_at?: string
         }
         Update: {
           agent_id?: string
+          appointments_recorded?: number
+          created_at?: string
+          id?: string
+          licenses_recorded?: number
+          next_review_date?: string | null
+          organization_id?: string
+          pdb_upload_id?: string
+          regulatory_actions_found?: number
+          rejection_reason?: string | null
+          report_date?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdb_reviews_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_reviews_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_reviews_pdb_upload_id_fkey"
+            columns: ["pdb_upload_id"]
+            isOneToOne: false
+            referencedRelation: "pdb_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pdb_uploads: {
+        Row: {
+          agent_id: string
+          file_size_bytes: number | null
+          filename: string | null
+          id: string
+          organization_id: string | null
+          parsed_states: string[] | null
+          report_date: string | null
+          storage_path: string
+          superseded_by: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          agent_id: string
+          file_size_bytes?: number | null
           filename?: string | null
           id?: string
+          organization_id?: string | null
           parsed_states?: string[] | null
-          storage_path?: string
+          report_date?: string | null
+          storage_path: string
+          superseded_by?: string | null
           uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          agent_id?: string
+          file_size_bytes?: number | null
+          filename?: string | null
+          id?: string
+          organization_id?: string | null
+          parsed_states?: string[] | null
+          report_date?: string | null
+          storage_path?: string
+          superseded_by?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "pdb_uploads_agent_id_fkey"
             columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_uploads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_uploads_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "pdb_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdb_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4252,6 +4456,107 @@ export type Database = {
         }
         Relationships: []
       }
+      producer_appointments: {
+        Row: {
+          agent_id: string
+          carrier_id: string | null
+          carrier_name: string | null
+          created_at: string
+          effective_date: string | null
+          external_provider: string | null
+          external_record_id: string | null
+          id: string
+          last_synced_at: string | null
+          last_verified_at: string | null
+          line_of_authority: string | null
+          notes: string | null
+          organization_id: string
+          source_document_id: string | null
+          state_code: string
+          status: string
+          termination_date: string | null
+          termination_reason: string | null
+          updated_at: string
+          verification_source: string
+          verified_by: string | null
+        }
+        Insert: {
+          agent_id: string
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          last_verified_at?: string | null
+          line_of_authority?: string | null
+          notes?: string | null
+          organization_id: string
+          source_document_id?: string | null
+          state_code: string
+          status?: string
+          termination_date?: string | null
+          termination_reason?: string | null
+          updated_at?: string
+          verification_source?: string
+          verified_by?: string | null
+        }
+        Update: {
+          agent_id?: string
+          carrier_id?: string | null
+          carrier_name?: string | null
+          created_at?: string
+          effective_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          last_verified_at?: string | null
+          line_of_authority?: string | null
+          notes?: string | null
+          organization_id?: string
+          source_document_id?: string | null
+          state_code?: string
+          status?: string
+          termination_date?: string | null
+          termination_reason?: string | null
+          updated_at?: string
+          verification_source?: string
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_appointments_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_appointments_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_appointments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_appointments_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       producer_banking: {
         Row: {
           account_last4: string | null
@@ -4305,10 +4610,19 @@ export type Database = {
           file_name: string | null
           file_url: string | null
           id: string
+          is_sensitive: boolean
           organization_id: string | null
           policy_number: string | null
           provider_name: string | null
+          rejection_reason: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           start_date: string | null
+          storage_path: string | null
+          superseded_by: string | null
+          updated_at: string
+          uploaded_by: string | null
         }
         Insert: {
           agent_id: string
@@ -4321,10 +4635,19 @@ export type Database = {
           file_name?: string | null
           file_url?: string | null
           id?: string
+          is_sensitive?: boolean
           organization_id?: string | null
           policy_number?: string | null
           provider_name?: string | null
+          rejection_reason?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           start_date?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
         }
         Update: {
           agent_id?: string
@@ -4337,10 +4660,19 @@ export type Database = {
           file_name?: string | null
           file_url?: string | null
           id?: string
+          is_sensitive?: boolean
           organization_id?: string | null
           policy_number?: string | null
           provider_name?: string | null
+          rejection_reason?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           start_date?: string | null
+          storage_path?: string | null
+          superseded_by?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -4348,6 +4680,169 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_documents_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_documents_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "producer_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_profiles: {
+        Row: {
+          address_history: Json
+          completeness_checked_at: string | null
+          contracting_notes: string | null
+          created_at: string
+          employment_history: Json
+          legal_first_name: string | null
+          legal_last_name: string | null
+          legal_middle_name: string | null
+          organization_id: string | null
+          preferred_name: string | null
+          profile_completeness: number
+          profile_id: string
+          resident_license_number: string | null
+          resident_state: string | null
+          suffix: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_history?: Json
+          completeness_checked_at?: string | null
+          contracting_notes?: string | null
+          created_at?: string
+          employment_history?: Json
+          legal_first_name?: string | null
+          legal_last_name?: string | null
+          legal_middle_name?: string | null
+          organization_id?: string | null
+          preferred_name?: string | null
+          profile_completeness?: number
+          profile_id: string
+          resident_license_number?: string | null
+          resident_state?: string | null
+          suffix?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_history?: Json
+          completeness_checked_at?: string | null
+          contracting_notes?: string | null
+          created_at?: string
+          employment_history?: Json
+          legal_first_name?: string | null
+          legal_last_name?: string | null
+          legal_middle_name?: string | null
+          organization_id?: string | null
+          preferred_name?: string | null
+          profile_completeness?: number
+          profile_id?: string
+          resident_license_number?: string | null
+          resident_state?: string | null
+          suffix?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_profiles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_regulatory_actions: {
+        Row: {
+          action_date: string | null
+          action_type: string | null
+          agent_id: string
+          created_at: string
+          disposition: string | null
+          id: string
+          organization_id: string
+          recorded_by: string | null
+          resolved: boolean
+          source_document_id: string | null
+          state_code: string | null
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_date?: string | null
+          action_type?: string | null
+          agent_id: string
+          created_at?: string
+          disposition?: string | null
+          id?: string
+          organization_id: string
+          recorded_by?: string | null
+          resolved?: boolean
+          source_document_id?: string | null
+          state_code?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_date?: string | null
+          action_type?: string | null
+          agent_id?: string
+          created_at?: string
+          disposition?: string | null
+          id?: string
+          organization_id?: string
+          recorded_by?: string | null
+          resolved?: boolean
+          source_document_id?: string | null
+          state_code?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_regulatory_actions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_regulatory_actions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_regulatory_actions_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5435,49 +5930,85 @@ export type Database = {
           agent_id: string
           created_at: string
           expires_date: string | null
+          external_provider: string | null
+          external_record_id: string | null
           id: string
           is_resident: boolean | null
           issued_date: string | null
+          last_synced_at: string | null
+          last_verified_at: string | null
           license_number: string | null
           license_type: string | null
           loa: string | null
           loa_status: string | null
+          manual_override: boolean
+          next_review_date: string | null
+          notes: string | null
           npn_number: string | null
           organization_id: string | null
+          source_document_id: string | null
           state_code: string
+          status: string
+          sync_error: string | null
           updated_at: string | null
+          verification_source: string
+          verified_by: string | null
         }
         Insert: {
           agent_id: string
           created_at?: string
           expires_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
           id?: string
           is_resident?: boolean | null
           issued_date?: string | null
+          last_synced_at?: string | null
+          last_verified_at?: string | null
           license_number?: string | null
           license_type?: string | null
           loa?: string | null
           loa_status?: string | null
+          manual_override?: boolean
+          next_review_date?: string | null
+          notes?: string | null
           npn_number?: string | null
           organization_id?: string | null
+          source_document_id?: string | null
           state_code: string
+          status?: string
+          sync_error?: string | null
           updated_at?: string | null
+          verification_source?: string
+          verified_by?: string | null
         }
         Update: {
           agent_id?: string
           created_at?: string
           expires_date?: string | null
+          external_provider?: string | null
+          external_record_id?: string | null
           id?: string
           is_resident?: boolean | null
           issued_date?: string | null
+          last_synced_at?: string | null
+          last_verified_at?: string | null
           license_number?: string | null
           license_type?: string | null
           loa?: string | null
           loa_status?: string | null
+          manual_override?: boolean
+          next_review_date?: string | null
+          notes?: string | null
           npn_number?: string | null
           organization_id?: string | null
+          source_document_id?: string | null
           state_code?: string
+          status?: string
+          sync_error?: string | null
           updated_at?: string | null
+          verification_source?: string
+          verified_by?: string | null
         }
         Relationships: [
           {
@@ -5492,6 +6023,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "state_licenses_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
