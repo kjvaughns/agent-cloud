@@ -200,6 +200,12 @@ async function handleSoloEvent(profileId: string, type: string, obj: any) {
     await soloOrg({ subscription_status: "active" });
     await notify(profileId, "Solo Agent Plan active",
       "Your workspace is live. Nova AI Pro is available as a separate add-on from Settings → Nova Pro.");
+    await billingEmail({
+      template: "subscription-changed",
+      profileId,
+      key: `solo-active:${obj.id ?? profileId}`,
+      data: { state: "activated", planName: "Solo Agent Plan" },
+    });
     return;
   }
 
@@ -216,6 +222,15 @@ async function handleSoloEvent(profileId: string, type: string, obj: any) {
     await soloOrg({ subscription_status: "past_due" });
     await notify(profileId, "Payment failed",
       "Your Solo Agent Plan payment failed. Update your payment method within 14 days to keep full access.");
+    await billingEmail({
+      template: "payment-failed",
+      profileId,
+      category: "transactional",
+      key: `payment-failed:${obj.id ?? profileId}`,
+      data: {
+        amountDue: typeof obj.amount_due === "number" ? `$${(obj.amount_due / 100).toFixed(2)}` : undefined,
+      },
+    });
     return;
   }
 
@@ -223,8 +238,15 @@ async function handleSoloEvent(profileId: string, type: string, obj: any) {
     await soloOrg({ subscription_status: "cancelled" });
     await notify(profileId, "Subscription cancelled",
       "Your Solo Agent Plan has ended. You have 7 days of read access to reactivate before the workspace locks.");
+    await billingEmail({
+      template: "subscription-changed",
+      profileId,
+      key: `solo-cancelled:${obj.id ?? profileId}`,
+      data: { state: "cancelled", planName: "Solo Agent Plan" },
+    });
     return;
   }
+
 }
 
 async function handleAgentEvent(kind: string, profileId: string, type: string, obj: any) {
