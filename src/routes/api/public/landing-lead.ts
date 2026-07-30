@@ -63,6 +63,23 @@ export const Route = createFileRoute("/api/public/landing-lead")({
           type: "lead",
         });
 
+        {
+          const { queueEmail } = await import("@/lib/email/send.server");
+          await queueEmail({
+            template: "new-lead",
+            profileId: agent.id,
+            category: "team_activity",
+            key: `new-lead:page:${agent.id}:${d.phone ?? d.email ?? ""}:${Date.now()}`,
+            data: {
+              leadName: `${d.first_name} ${d.last_name}`.trim(),
+              source: "Landing page",
+              state: d.state || undefined,
+              phone: d.phone ?? undefined,
+            },
+          });
+        }
+
+
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { ...cors, "Content-Type": "application/json" },
