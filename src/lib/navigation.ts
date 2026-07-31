@@ -162,15 +162,17 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     { label: "", ids: ["nova"] },
   ],
 
-  // A team to run. Clients carries the pipeline, the book and the retention
-  // queue — a manager works their own clients as well as the team's.
+  // A team to run. Clients sits above Team for the same reason it sits above
+  // Agency for an owner: a manager still sells, and the day starts with their
+  // own pipeline before it gets to anybody else's.
   manager: [
-    { label: "", ids: ["dashboard", "team", "clients", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "clients", "team", "contracting-ops", "reports", "nova"] },
   ],
 
-  // The whole agency.
+  // The whole agency — but their own clients first. Running the agency is the
+  // job you do after the selling, not instead of it.
   owner: [
-    { label: "", ids: ["dashboard", "agency", "clients", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "clients", "agency", "contracting-ops", "reports", "nova"] },
   ],
 };
 
