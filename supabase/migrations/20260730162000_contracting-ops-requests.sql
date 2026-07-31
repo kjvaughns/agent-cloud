@@ -505,7 +505,7 @@ create table if not exists public.carrier_hierarchy_records (
   agency_writing_number text,
 
   hierarchy_path text,
-  current_role text,
+  "current_role" text,
   current_comp_level_id uuid references public.carrier_comp_levels(id) on delete set null,
 
   effective_date date,
@@ -580,7 +580,7 @@ create table if not exists public.hierarchy_change_requests (
   requested_upline_id uuid references public.profiles(id) on delete set null,
   current_comp_level_id uuid references public.carrier_comp_levels(id) on delete set null,
   requested_comp_level_id uuid references public.carrier_comp_levels(id) on delete set null,
-  current_role text,
+  "current_role" text,
   requested_role text,
   current_writing_number text,
 
