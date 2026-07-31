@@ -214,6 +214,79 @@ export function reachableFor(audience: Audience, perms: Record<string, unknown> 
 /** The handful of things worth a shortcut on any screen. */
 export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
 
+// ── Hubs ────────────────────────────────────────────────────────────────────
+
+/**
+ * What sits inside each hub.
+ *
+ * These used to be a second vertical rail rendered beside the page, which put
+ * two sidebars side by side on a desktop and squeezed the content between
+ * them. The destinations are the same; they hang off the sidebar entry now,
+ * so there is one navigation column and the page gets its width back.
+ *
+ * The group labels survive because they are what makes fourteen contracting
+ * destinations readable rather than a list to scan.
+ */
+export type HubGroup = { label: string; ids: string[] };
+
+const HUBS: Record<string, HubGroup[]> = {
+  agency: [
+    { label: "Your people", ids: ["team", "onboarding", "invite"] },
+    { label: "How they're doing", ids: ["leaderboard", "challenges", "retention"] },
+    { label: "Support them", ids: ["resources"] },
+  ],
+  "contracting-ops": [
+    { label: "Work", ids: ["requests", "queue", "hierarchy-changes", "intake"] },
+    { label: "Producers", ids: ["ready", "licensing", "documents"] },
+    { label: "Carriers & pay", ids: ["carriers-setup", "comp", "writing-numbers", "hierarchies"] },
+  ],
+  settings: [
+    { label: "You", ids: ["billing", "notif-settings", "security", "nova-pro"] },
+    { label: "Your agency", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label"] },
+    { label: "Support", ids: ["support-desk", "integrations", "agency-usage"] },
+  ],
+};
+
+export function isHub(id: string): boolean {
+  return id in HUBS;
+}
+
+/** The pages inside a hub that this person may actually open. */
+export function hubGroupsFor(
+  hubId: string,
+  audience: Audience,
+  perms: Record<string, unknown> = {},
+): { label: string; items: Page[] }[] {
+  return (HUBS[hubId] ?? [])
+    .map((g) => ({
+      label: g.label,
+      items: g.ids.map((id) => BY_ID.get(id)).filter(
+        (p): p is Page => Boolean(p) && allowed(p as Page, audience, perms),
+      ),
+    }))
+    .filter((g) => g.items.length > 0);
+}
+
+/** Every page inside a hub, flattened — used to avoid listing one twice. */
+export function hubChildIds(hubId: string): Set<string> {
+  return new Set((HUBS[hubId] ?? []).flatMap((g) => g.ids));
+}
+
+/** Which hub, if any, a path belongs to. Longest match wins. */
+export function hubForPath(path: string): string | null {
+  let best: { id: string; len: number } | null = null;
+  for (const hubId of Object.keys(HUBS)) {
+    const candidates = [hubId, ...hubChildIds(hubId)];
+    for (const id of candidates) {
+      const p = BY_ID.get(id);
+      if (!p) continue;
+      const matches = path === p.path || path.startsWith(p.path + "/");
+      if (matches && (!best || p.path.length > best.len)) best = { id: hubId, len: p.path.length };
+    }
+  }
+  return best?.id ?? null;
+}
+
 /** Look a page up by id, or by the path currently in the address bar. */
 export function pageById(id: string): Page | undefined {
   return BY_ID.get(id);
@@ -263,6 +336,9 @@ export function arrangeFavorites(
     if (!p || !allowed(p, audience, perms)) continue;
     // A page already in the sidebar does not need a second copy of itself.
     if (sidebarIds.has(p.id)) continue;
+    // Nor does one the hub above it already lists — the hub marks it starred
+    // in place instead of repeating it.
+    if (p.parent && isHub(p.parent) && sidebarIds.has(p.parent)) continue;
 
     if (p.parent && sidebarIds.has(p.parent)) {
       (under[p.parent] ??= []).push(p);

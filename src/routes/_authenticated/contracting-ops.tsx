@@ -1,12 +1,16 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { PageShell } from "@/components/page-shell";
-import { ContractingNav } from "@/components/contracting/nav";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops")({
   component: ContractingOpsLayout,
   head: () => ({ meta: [{ title: "Contracting Operations | Agent Cloud" }] }),
 });
 
+/**
+ * The rail that used to sit beside this content now hangs off the sidebar's
+ * Contracting entry. One navigation column instead of two, and the page keeps
+ * its full width.
+ */
 function ContractingOpsLayout() {
   return (
     <PageShell>
@@ -18,15 +22,7 @@ function ContractingOpsLayout() {
             here, submitted through whichever system each carrier requires.
           </p>
         </div>
-
-        {/* The rail is a column on desktop and a select above the content on a
-            phone, so the fourteen surfaces never become a horizontal scroll. */}
-        <div className="lg:grid lg:grid-cols-[188px_minmax(0,1fr)] lg:gap-6">
-          <ContractingNav />
-          <div className="mt-4 min-w-0 lg:mt-0">
-            <Outlet />
-          </div>
-        </div>
+        <Outlet />
       </div>
     </PageShell>
   );

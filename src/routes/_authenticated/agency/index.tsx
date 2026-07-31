@@ -106,6 +106,16 @@ function AgencyOverviewPage() {
 
   return (
     <div className="space-y-5">
+      {/* Its own heading again — the frame that used to supply it went with the
+          rail, and /agency has no layout above it now. */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Agency</h1>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          Your people — who is here, who is joining, how they are doing, and who is at risk of
+          leaving.
+        </p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {TILES.map((t) => {
           const n = t.value(m);

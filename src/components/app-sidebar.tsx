@@ -22,7 +22,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Star, X } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
-import { arrangeFavorites, audienceFor, navFor, ACCOUNT_PAGES, type Page } from "@/lib/navigation";
+import {
+  arrangeFavorites, audienceFor, hubForPath, hubGroupsFor, isHub, navFor,
+  ACCOUNT_PAGES, type Page,
+} from "@/lib/navigation";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean; id?: string };
 
@@ -98,6 +101,7 @@ export function AppSidebar() {
   const unstar = (id: string) => toggle(id, false);
   const sidebarIds = new Set(navGroups.flatMap((g) => g.items.map((p) => p.id)));
   const favorites = arrangeFavorites(pageIds, sidebarIds, audience, perms);
+  const currentHub = hubForPath(path);
 
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
@@ -138,9 +142,21 @@ export function AppSidebar() {
   const renderItem = (it: NavItem) => {
     const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
     const starred = it.id ? favorites.under[it.id] ?? [] : [];
-    const expanded = starred.length > 0 && openHubs[it.id!] !== false;
 
-    if (starred.length > 0 && !sidebarCollapsed) {
+    // A hub's own pages, listed under it rather than in a second rail beside
+    // the page. Groups are kept — they are what makes fourteen contracting
+    // destinations readable instead of a list to scan.
+    const groups = it.id && isHub(it.id) ? hubGroupsFor(it.id, audience, perms) : [];
+    const children: { label: string; items: Page[] }[] = groups.length
+      ? (starred.length ? [...groups, { label: "Starred", items: starred }] : groups)
+      : (starred.length ? [{ label: "", items: starred }] : []);
+
+    // Open by default while you are inside it, so moving between a hub's pages
+    // never means re-opening the thing you are already in.
+    const insideHub = it.id ? currentHub === it.id : false;
+    const expanded = children.length > 0 && (openHubs[it.id!] ?? insideHub) !== false;
+
+    if (children.length > 0 && !sidebarCollapsed) {
       return (
         <SidebarMenuItem key={it.url}>
           <div className="flex items-center">
@@ -176,16 +192,32 @@ export function AppSidebar() {
 
           {expanded && (
             <SidebarMenuSub>
-              {starred.map((p) => (
-                <SidebarMenuSubItem key={p.path} className="group/fav relative">
-                  <SidebarMenuSubButton asChild isActive={path === p.path || path.startsWith(p.path + "/")}>
-                    <Link to={p.path} className="pr-7">
-                      <Star className="h-3 w-3 fill-primary/70 text-primary/70" />
-                      <span>{p.label}</span>
-                    </Link>
-                  </SidebarMenuSubButton>
-                  <UnstarButton pageId={p.id} label={p.label} onUnstar={unstar} />
-                </SidebarMenuSubItem>
+              {children.map((g, gi) => (
+                <div key={g.label || `g-${gi}`}>
+                  {g.label && (
+                    <p className="px-2 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-foreground/40">
+                      {g.label}
+                    </p>
+                  )}
+                  {g.items.map((p) => {
+                    const isStarred = pageIds.includes(p.id);
+                    return (
+                      <SidebarMenuSubItem key={p.path} className="group/fav relative">
+                        <SidebarMenuSubButton asChild isActive={path === p.path || path.startsWith(p.path + "/")}>
+                          <Link to={p.path} className="pr-7">
+                            {/* Starred pages are marked in place rather than
+                                repeated in a second list below. */}
+                            {isStarred
+                              ? <Star className="h-3 w-3 shrink-0 fill-primary/70 text-primary/70" />
+                              : <span className="h-3 w-3 shrink-0" />}
+                            <span className="truncate">{p.label}</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                        {isStarred && <UnstarButton pageId={p.id} label={p.label} onUnstar={unstar} />}
+                      </SidebarMenuSubItem>
+                    );
+                  })}
+                </div>
               ))}
             </SidebarMenuSub>
           )}
