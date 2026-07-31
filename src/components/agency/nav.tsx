@@ -50,6 +50,21 @@ function isActive(path: string, to: string) {
   return to === "/agency" ? path === to || path === "/agency/" : path === to || path.startsWith(to + "/");
 }
 
+/**
+ * Which paths belong to this hub.
+ *
+ * Resources is matched on its section rather than its landing page, since it
+ * has tabs of its own and you should not fall out of the hub by opening one.
+ */
+const HUB_PREFIXES = [
+  "/agency", "/team", "/onboarding", "/contracting/invite",
+  "/leaderboard", "/challenges", "/retention", "/resources",
+];
+
+export function isAgencyHubPath(path: string): boolean {
+  return HUB_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+}
+
 export function AgencyNav() {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const navigate = useNavigate();

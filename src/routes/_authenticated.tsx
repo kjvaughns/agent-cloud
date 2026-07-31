@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { supabase } from "@/integrations/supabase/client";
 import { installUsagelisteners, trackPageView } from "@/lib/usage";
+import { AgencyFrame } from "@/components/agency/frame";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   if (isRedirect(error)) throw error;
@@ -91,7 +92,12 @@ function AuthenticatedLayout() {
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
           <TopBar />
-          <main className="flex-1 min-w-1 content-container"><Outlet /></main>
+          <main className="flex-1 min-w-1 content-container">
+            {/* Keeps the Agency rail on screen across the hub's pages, which
+                are top-level routes rather than children of /agency. Renders
+                its children untouched everywhere else. */}
+            <AgencyFrame><Outlet /></AgencyFrame>
+          </main>
         </div>
       </div>
       <CommandPalette />
