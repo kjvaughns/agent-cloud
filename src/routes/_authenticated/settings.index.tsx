@@ -6,14 +6,14 @@ import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, ShieldCheck, UploadCloud, ChevronRight, Crown } from "lucide-react";
+import { Activity, Bot, Building2, ShieldCheck, UploadCloud, ChevronRight, Crown, Mail } from "lucide-react";
 import { getMyAccess } from "@/lib/permissions.functions";
 
 import { BillingPage } from "./settings.billing";
 import { NovaProPage } from "./settings.nova-pro";
 import { SecurityPage } from "./settings.security";
 import { NotificationSettings } from "./settings.notifications";
-import { AgencyTeamPage } from "./agency.team";
+import { AgencyTeamPage } from "./settings.roles";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SupportConsole } from "@/components/support-console";
 
@@ -96,10 +96,41 @@ function SettingsHub() {
 function ManagementTab({ isOwner }: { isOwner: boolean }) {
   const links = [
     {
-      to: "/agency/settings",
+      to: "/settings/agency",
       icon: Building2,
       title: "Agency Settings",
       body: "Name, subdomain, logo and brand colour.",
+      ownerOnly: true,
+    },
+    // These four moved out of the Agency hub, which is about the people in the
+    // agency rather than how the workspace is configured. This is where the
+    // configuration side already lived.
+    {
+      to: "/settings/roles",
+      icon: ShieldCheck,
+      title: "Roles & Permissions",
+      body: "Who can see and change what, per person.",
+      ownerOnly: true,
+    },
+    {
+      to: "/settings/automations",
+      icon: Bot,
+      title: "Automations",
+      body: "Work that runs without somebody remembering to do it.",
+      ownerOnly: true,
+    },
+    {
+      to: "/settings/emails",
+      icon: Mail,
+      title: "Emails",
+      body: "What the agency sends, and to whom.",
+      ownerOnly: true,
+    },
+    {
+      to: "/settings/usage",
+      icon: Activity,
+      title: "What People Use",
+      body: "Which pages get opened and which never do.",
       ownerOnly: true,
     },
     {

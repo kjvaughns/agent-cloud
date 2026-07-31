@@ -154,7 +154,7 @@ function AdminSettings() {
             </div>
             <p className="text-xs text-muted-foreground">
               Agency name, logo and branding live in{" "}
-              <Link to="/agency/settings" className="text-primary hover:underline">Agency Settings</Link>.
+              <Link to="/settings/agency" className="text-primary hover:underline">Agency Settings</Link>.
             </p>
           </CardContent>
         </Card>

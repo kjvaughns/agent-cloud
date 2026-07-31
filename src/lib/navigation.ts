@@ -66,14 +66,10 @@ export const PAGES: Page[] = [
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
   { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", audience: ["owner", "manager"], parent: "agency" },
   { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", audience: ["owner", "manager", "staff"], parent: "agency" },
-  // The pages inside the Agency hub. Registered here so the palette can reach
-  // them and so they can be starred — until now they existed only as cards and
-  // rail links, which made them unfindable by name.
-  { id: "agency-roles", label: "Roles & permissions", path: "/agency/team", icon: ShieldCheck, area: "Agency", audience: ["owner"], parent: "agency" },
-  { id: "agency-settings", label: "Agency settings", path: "/agency/settings", icon: Settings, area: "Agency", audience: ["owner"], parent: "agency" },
-  { id: "agency-automations", label: "Automations", path: "/agency/automations", icon: Bot, area: "Agency", audience: ["owner"], parent: "agency" },
-  { id: "agency-emails", label: "Emails", path: "/agency/emails", icon: Mail, area: "Agency", audience: ["owner"], parent: "agency" },
-  { id: "agency-usage", label: "What people use", path: "/agency/usage", icon: Activity, area: "Agency", audience: ["owner"], parent: "agency" },
+  // Guides, scripts and the academy. Filed under Agency because keeping agents
+  // able to sell is the agency's job, and it is the one thing in this hub that
+  // is for them to read rather than for you to act on.
+  { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Agency", parent: "agency" },
 
   // Contracting
   { id: "contracting-ops", label: "Contracting", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", audience: ["owner", "staff", "manager"] },
@@ -108,12 +104,17 @@ export const PAGES: Page[] = [
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
 
   // Learning
-  { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Learning" },
   { id: "academy", label: "Agent Academy", path: "/resources/agent-academy", icon: BookOpen, area: "Learning" },
   { id: "scripts", label: "Scripts", path: "/resources/scripts", icon: BookOpen, area: "Learning" },
 
-  // Account
-  { id: "settings", label: "Settings", path: "/settings", icon: Settings, area: "Account" },
+  // Settings — agency configuration lives here, not in the Agency hub. That
+  // hub is about people; this is about how the workspace is set up.
+  { id: "settings", label: "Settings", path: "/settings", icon: Settings, area: "Settings" },
+  { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "agency-automations", label: "Automations", path: "/settings/automations", icon: Bot, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", audience: ["owner"], parent: "settings" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
   { id: "landing", label: "My Landing Page", path: "/account/my-landing-page", icon: Contact, area: "Account" },
@@ -137,10 +138,12 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
   ],
 
-  // Same job, inside somebody's agency.
+  // Same job, inside somebody's agency. Resources is here because a new agent
+  // needs the guides and the scripts more than anybody, and having to search
+  // for them is how they end up never being read.
   agent: [
     { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
-    { label: "Me", ids: ["my-contracts", "tasks"] },
+    { label: "Me", ids: ["my-contracts", "tasks", "resources"] },
   ],
 
   // Queues, not scoreboards.

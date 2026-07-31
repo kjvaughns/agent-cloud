@@ -6,13 +6,12 @@ import { cn } from "@/lib/utils";
  * Agency Admin navigation.
  *
  * The same shape as the Contracting Operations rail: a grouped vertical list
- * on desktop, one select on a phone. Grouped by the question being asked —
- * who is in the agency, how it is configured, what it sends — rather than by
- * which release added the page.
+ * on desktop, one select on a phone.
  *
- * Only the pages that live under /agency are here. The Overview links out to
- * Team, Reports, Retention and the rest; putting those in the rail would mean
- * the rail vanishes the moment you use it, which is worse than not having one.
+ * This hub is about the people in the agency — who is here, who is joining,
+ * how they are doing, and who is at risk of leaving. Configuration lives in
+ * Settings, contracting in Contracting Operations, numbers in Reports. A hub
+ * that lists every admin page in the product is a second sidebar, not a hub.
  */
 
 export type NavItem = { label: string; to: string; adminOnly?: boolean };
@@ -22,23 +21,25 @@ export const AGENCY_OVERVIEW: NavItem = { label: "Overview", to: "/agency" };
 
 export const AGENCY_GROUPS: NavGroup[] = [
   {
-    label: "People",
+    label: "Your people",
     items: [
-      { label: "Roles & permissions", to: "/agency/team", adminOnly: true },
+      { label: "Team", to: "/team" },
+      { label: "Getting agents ready", to: "/onboarding" },
+      { label: "Invite an agent", to: "/contracting/invite" },
     ],
   },
   {
-    label: "How it runs",
+    label: "How they're doing",
     items: [
-      { label: "Automations", to: "/agency/automations", adminOnly: true },
-      { label: "Emails", to: "/agency/emails", adminOnly: true },
+      { label: "Leaderboard", to: "/leaderboard" },
+      { label: "Challenges", to: "/challenges" },
+      { label: "Retention", to: "/retention" },
     ],
   },
   {
-    label: "Setup",
+    label: "Support them",
     items: [
-      { label: "Agency settings", to: "/agency/settings", adminOnly: true },
-      { label: "What people use", to: "/agency/usage", adminOnly: true },
+      { label: "Resources", to: "/resources/new-agent-guide" },
     ],
   },
 ];

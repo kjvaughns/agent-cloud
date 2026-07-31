@@ -91,10 +91,15 @@ import { Route as ApiPublicDemoRequestRouteImport } from './routes/api/public/de
 import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
+import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated/settings.usage'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
+import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
 import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
+import { Route as AuthenticatedSettingsEmailsRouteImport } from './routes/_authenticated/settings.emails'
 import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings.billing'
+import { Route as AuthenticatedSettingsAutomationsRouteImport } from './routes/_authenticated/settings.automations'
+import { Route as AuthenticatedSettingsAgencyRouteImport } from './routes/_authenticated/settings.agency'
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
 import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
@@ -571,10 +576,22 @@ const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   path: '/tools/leads',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsUsageRoute =
+  AuthenticatedSettingsUsageRouteImport.update({
+    id: '/settings/usage',
+    path: '/settings/usage',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsSecurityRoute =
   AuthenticatedSettingsSecurityRouteImport.update({
     id: '/settings/security',
     path: '/settings/security',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsRolesRoute =
+  AuthenticatedSettingsRolesRouteImport.update({
+    id: '/settings/roles',
+    path: '/settings/roles',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedSettingsNovaProRoute =
@@ -589,10 +606,28 @@ const AuthenticatedSettingsNotificationsRoute =
     path: '/settings/notifications',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsEmailsRoute =
+  AuthenticatedSettingsEmailsRouteImport.update({
+    id: '/settings/emails',
+    path: '/settings/emails',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsBillingRoute =
   AuthenticatedSettingsBillingRouteImport.update({
     id: '/settings/billing',
     path: '/settings/billing',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsAutomationsRoute =
+  AuthenticatedSettingsAutomationsRouteImport.update({
+    id: '/settings/automations',
+    path: '/settings/automations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsAgencyRoute =
+  AuthenticatedSettingsAgencyRouteImport.update({
+    id: '/settings/agency',
+    path: '/settings/agency',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedResourcesStateLicensesRoute =
@@ -1016,10 +1051,15 @@ export interface FileRoutesByFullPath {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/settings/agency': typeof AuthenticatedSettingsAgencyRoute
+  '/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
@@ -1151,10 +1191,15 @@ export interface FileRoutesByTo {
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/settings/agency': typeof AuthenticatedSettingsAgencyRoute
+  '/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
@@ -1293,10 +1338,15 @@ export interface FileRoutesById {
   '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
+  '/_authenticated/settings/agency': typeof AuthenticatedSettingsAgencyRoute
+  '/_authenticated/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/_authenticated/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
@@ -1435,10 +1485,15 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
+    | '/settings/agency'
+    | '/settings/automations'
     | '/settings/billing'
+    | '/settings/emails'
     | '/settings/notifications'
     | '/settings/nova-pro'
+    | '/settings/roles'
     | '/settings/security'
+    | '/settings/usage'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
@@ -1570,10 +1625,15 @@ export interface FileRouteTypes {
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
+    | '/settings/agency'
+    | '/settings/automations'
     | '/settings/billing'
+    | '/settings/emails'
     | '/settings/notifications'
     | '/settings/nova-pro'
+    | '/settings/roles'
     | '/settings/security'
+    | '/settings/usage'
     | '/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
@@ -1711,10 +1771,15 @@ export interface FileRouteTypes {
     | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
+    | '/_authenticated/settings/agency'
+    | '/_authenticated/settings/automations'
     | '/_authenticated/settings/billing'
+    | '/_authenticated/settings/emails'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/nova-pro'
+    | '/_authenticated/settings/roles'
     | '/_authenticated/settings/security'
+    | '/_authenticated/settings/usage'
     | '/_authenticated/tools/leads'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
@@ -2363,11 +2428,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedToolsLeadsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/usage': {
+      id: '/_authenticated/settings/usage'
+      path: '/settings/usage'
+      fullPath: '/settings/usage'
+      preLoaderRoute: typeof AuthenticatedSettingsUsageRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/security': {
       id: '/_authenticated/settings/security'
       path: '/settings/security'
       fullPath: '/settings/security'
       preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/roles': {
+      id: '/_authenticated/settings/roles'
+      path: '/settings/roles'
+      fullPath: '/settings/roles'
+      preLoaderRoute: typeof AuthenticatedSettingsRolesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/settings/nova-pro': {
@@ -2384,11 +2463,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/emails': {
+      id: '/_authenticated/settings/emails'
+      path: '/settings/emails'
+      fullPath: '/settings/emails'
+      preLoaderRoute: typeof AuthenticatedSettingsEmailsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/billing': {
       id: '/_authenticated/settings/billing'
       path: '/settings/billing'
       fullPath: '/settings/billing'
       preLoaderRoute: typeof AuthenticatedSettingsBillingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/automations': {
+      id: '/_authenticated/settings/automations'
+      path: '/settings/automations'
+      fullPath: '/settings/automations'
+      preLoaderRoute: typeof AuthenticatedSettingsAutomationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/agency': {
+      id: '/_authenticated/settings/agency'
+      path: '/settings/agency'
+      fullPath: '/settings/agency'
+      preLoaderRoute: typeof AuthenticatedSettingsAgencyRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/resources/state-licenses': {
@@ -2999,10 +3099,15 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
   AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
+  AuthenticatedSettingsAgencyRoute: typeof AuthenticatedSettingsAgencyRoute
+  AuthenticatedSettingsAutomationsRoute: typeof AuthenticatedSettingsAutomationsRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
+  AuthenticatedSettingsEmailsRoute: typeof AuthenticatedSettingsEmailsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
+  AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
+  AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
@@ -3046,11 +3151,16 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountProducerProfileRoute,
   AuthenticatedFinancesReconciliationRoute:
     AuthenticatedFinancesReconciliationRoute,
+  AuthenticatedSettingsAgencyRoute: AuthenticatedSettingsAgencyRoute,
+  AuthenticatedSettingsAutomationsRoute: AuthenticatedSettingsAutomationsRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
+  AuthenticatedSettingsEmailsRoute: AuthenticatedSettingsEmailsRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
+  AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
+  AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
