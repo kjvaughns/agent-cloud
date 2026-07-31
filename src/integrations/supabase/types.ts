@@ -7858,6 +7858,89 @@ export type Database = {
           },
         ]
       }
+      usage_events: {
+        Row: {
+          action: string | null
+          created_at: string
+          duration_ms: number | null
+          event: string
+          id: number
+          meta: Json
+          organization_id: string | null
+          path: string
+          plan_type: string | null
+          profile_id: string | null
+          role: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          event: string
+          id?: never
+          meta?: Json
+          organization_id?: string | null
+          path: string
+          plan_type?: string | null
+          profile_id?: string | null
+          role?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          event?: string
+          id?: never
+          meta?: Json
+          organization_id?: string | null
+          path?: string
+          plan_type?: string | null
+          profile_id?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_page_favorites: {
+        Row: {
+          created_at: string
+          page_id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          page_id: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          page_id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_page_favorites_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -8402,6 +8485,7 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
       prune_rate_limits: { Args: never; Returns: undefined }
+      prune_usage_events: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
