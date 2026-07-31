@@ -310,7 +310,7 @@ function OwnerBilling() {
                   <span className="tnum"> {money(999)}</span> one-time setup + <span className="tnum">{money(499)}/mo</span>. Requires an active Agency Plan.
                 </p>
                 <Button asChild className="mt-3" variant="outline">
-                  <Link to="/white-label">Apply for White-Label →</Link>
+                  <Link to="/settings/white-label">Apply for White-Label →</Link>
                 </Button>
               </div>
             </div>

@@ -3,7 +3,7 @@ import {
   Activity, BarChart3, BookOpen, Bot, Building2, Calendar, ClipboardList, Contact,
   FilePlus, FileSignature, Heart, IdCard, KanbanSquare, LayoutDashboard, LifeBuoy,
   ListTodo, Mail, Megaphone, Newspaper, Percent, Phone, Settings, ShieldCheck,
-  Sparkles, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
+  Palette, Sparkles, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
 } from "lucide-react";
 
 /**
@@ -61,7 +61,7 @@ export const PAGES: Page[] = [
   { id: "agency", label: "Agency", path: "/agency", icon: Building2, area: "Agency", audience: ["owner"] },
   { id: "team", label: "Team", path: "/team", icon: Users, area: "Agency", audience: ["owner", "manager"] },
   { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Agency", audience: ["owner", "manager", "staff"] },
-  { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Agency", audience: ["owner", "staff"] },
+  { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
   { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
   { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", audience: ["owner", "manager"], parent: "agency" },
@@ -115,6 +115,13 @@ export const PAGES: Page[] = [
   { id: "agency-automations", label: "Automations", path: "/settings/automations", icon: Bot, area: "Settings", audience: ["owner"], parent: "settings" },
   { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Settings", audience: ["owner"], parent: "settings" },
   { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
+  { id: "notif-settings", label: "Notification settings", path: "/settings/notifications", icon: Megaphone, area: "Settings", parent: "settings" },
+  { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
+  { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings" },
+  { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", audience: ["owner"], parent: "settings" },
+  { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Settings", audience: ["owner"], parent: "settings" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
   { id: "landing", label: "My Landing Page", path: "/account/my-landing-page", icon: Contact, area: "Account" },
