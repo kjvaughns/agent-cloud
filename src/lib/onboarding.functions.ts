@@ -46,7 +46,7 @@ async function assignInviteCarriers(opts: {
   for (const a of assignments) {
     if (!a.carrier_id) continue;
 
-    const { data: record } = await client
+    const { data: record, error: recordError } = await client
       .from("contract_requests")
       .upsert({
         agent_id: agentId,
@@ -58,6 +58,19 @@ async function assignInviteCarriers(opts: {
       }, { onConflict: "agent_id,carrier_id" })
       .select("id")
       .maybeSingle();
+
+    // Loud rather than silent. This upsert's error was never read, so if it
+    // failed — an enum value missing, a constraint — the agent joined with
+    // none of the carriers their upline had chosen and nothing said so. The
+    // signup itself still succeeds: having an account and no carriers is
+    // recoverable, having neither is not.
+    if (recordError) {
+      console.error(
+        `[invite] could not assign carrier ${a.carrier_id} to ${agentId}:`,
+        recordError.message,
+      );
+      continue;
+    }
 
     if (a.level_pct != null) {
       await client.from("agent_commission_levels").upsert({
