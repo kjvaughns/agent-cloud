@@ -1061,3 +1061,22 @@ export const saveExtractedGrid = createServerFn({ method: "POST" })
 
     return { inserted: insertRows.length };
   });
+
+/**
+ * Applied database migrations, newest first.
+ *
+ * The migration log lives in an internal schema the app roles cannot read, so
+ * this goes through a security-definer function that re-checks the admin role
+ * itself. Read-only — nothing here runs SQL.
+ */
+export const adminListMigrations = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    await requireAdmin(supabase, userId);
+
+    const { data, error } = await (supabase as any).rpc("list_applied_migrations");
+    if (error) throw new Error(error.message);
+
+    return (data ?? []) as { version: string; name: string }[];
+  });

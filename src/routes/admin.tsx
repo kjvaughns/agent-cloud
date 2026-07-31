@@ -5,7 +5,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, FileSignature, Building2, Percent,
   LifeBuoy, Settings, BarChart3, Bell, ChevronRight, Cloud,
-  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download, CreditCard,
+  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download, CreditCard, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ const adminNav = [
   { title: "Subscriptions",    url: "/admin/subscriptions", icon: CreditCard },
   { title: "Settings",         url: "/admin/settings",     icon: Settings },
   { title: "Migration",        url: "/admin/migration",    icon: GitMerge },
+  { title: "DB Migrations",    url: "/admin/migrations",   icon: Database },
   { title: "AgentLink Import", url: "/admin/csv-import",   icon: Upload },
   { title: "Import Requests",  url: "/admin/import-requests", icon: Download },
 ];
@@ -50,7 +51,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
       {adminNav.map((item) => {
-        const active = path === item.url || (item.url !== "/admin" && path.startsWith(item.url));
+        const active = path === item.url || (item.url !== "/admin" && path.startsWith(item.url + "/"));
         return (
           <Link
             key={item.url}
