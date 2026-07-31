@@ -36,6 +36,9 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     // old one still redirects.
     "/reports": isStaff ? !!p.staff_view_analytics : isManager ? !!p.mgr_view_team_analytics : true,
     "/analytics": isStaff ? !!p.staff_view_analytics : isManager ? !!p.mgr_view_team_analytics : true,
+    // The hub row follows the same gate as the pipeline it opens onto —
+    // otherwise the hub is a way past the rule.
+    "/clients": isStaff ? !!p.staff_view_clients : true,
     "/pipeline": isStaff ? !!p.staff_view_clients : true,
     "/book-of-business": isStaff ? !!p.staff_view_policies : true,
     "/post-deal": isStaff ? !!p.staff_post_policies : true,

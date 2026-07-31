@@ -50,8 +50,12 @@ export type Page = {
 export const PAGES: Page[] = [
   // Everyday
   { id: "dashboard", label: "Home", path: "/dashboard", icon: LayoutDashboard, area: "Everyday" },
-  { id: "pipeline", label: "Clients", path: "/pipeline", icon: KanbanSquare, area: "Everyday" },
-  { id: "book", label: "Business", path: "/book-of-business", icon: BookOpen, area: "Everyday", parent: "pipeline" },
+  { id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Everyday" },
+  { id: "pipeline", label: "Pipeline", path: "/pipeline", icon: KanbanSquare, area: "Everyday", parent: "clients" },
+  { id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Everyday", parent: "clients" },
+  // Filed under Clients, not Agency: a policy about to lapse is a client
+  // problem you work the same day you work the pipeline, not an HR one.
+  { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Everyday", audience: ["owner", "manager", "staff"], parent: "clients" },
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Everyday" },
   { id: "finances", label: "Money", path: "/finances", icon: Wallet, area: "Everyday" },
   { id: "tasks", label: "Tasks", path: "/tasks", icon: ListTodo, area: "Everyday" },
@@ -60,7 +64,6 @@ export const PAGES: Page[] = [
   // Agency
   { id: "agency", label: "Agency", path: "/agency", icon: Building2, area: "Agency", audience: ["owner"] },
   { id: "team", label: "Team", path: "/team", icon: Users, area: "Agency", audience: ["owner", "manager"] },
-  { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Agency", audience: ["owner", "manager", "staff"] },
   { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
   { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
@@ -142,14 +145,14 @@ export type NavGroup = { label: string; items: Page[] };
 const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
   // Sell. Retain. Get paid.
   solo: [
-    { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
+    { label: "", ids: ["dashboard", "clients", "finances", "nova"] },
   ],
 
   // Same job, inside somebody's agency. Resources is here because a new agent
   // needs the guides and the scripts more than anybody, and having to search
   // for them is how they end up never being read.
   agent: [
-    { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
+    { label: "", ids: ["dashboard", "clients", "finances", "nova"] },
     { label: "Me", ids: ["my-contracts", "tasks", "resources"] },
   ],
 
@@ -159,16 +162,15 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     { label: "", ids: ["nova"] },
   ],
 
-  // A team to run. Business sits beside Clients here the same as it does for
-  // an agent — a manager still has their own book, and dropping it meant the
-  // only way back to it was search.
+  // A team to run. Clients carries the pipeline, the book and the retention
+  // queue — a manager works their own clients as well as the team's.
   manager: [
-    { label: "", ids: ["dashboard", "team", "pipeline", "book", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "team", "clients", "contracting-ops", "reports", "nova"] },
   ],
 
   // The whole agency.
   owner: [
-    { label: "", ids: ["dashboard", "agency", "pipeline", "book", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "agency", "clients", "contracting-ops", "reports", "nova"] },
   ],
 };
 
@@ -230,9 +232,15 @@ export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
 export type HubGroup = { label: string; ids: string[] };
 
 const HUBS: Record<string, HubGroup[]> = {
+  // One person, three stages: someone you are working, someone you sold, and
+  // someone about to leave. Three unrelated sidebar rows before this, which
+  // made them read as three unrelated jobs.
+  clients: [
+    { label: "", ids: ["pipeline", "book", "retention"] },
+  ],
   agency: [
     { label: "Your people", ids: ["team", "onboarding", "invite"] },
-    { label: "How they're doing", ids: ["leaderboard", "challenges", "retention"] },
+    { label: "How they're doing", ids: ["leaderboard", "challenges"] },
     { label: "Support them", ids: ["resources"] },
   ],
   "contracting-ops": [

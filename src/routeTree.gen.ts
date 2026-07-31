@@ -66,6 +66,7 @@ import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContractingOpsRouteImport } from './routes/_authenticated/contracting-ops'
 import { Route as AuthenticatedContractingRouteImport } from './routes/_authenticated/contracting'
+import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChallengesRouteImport } from './routes/_authenticated/challenges'
 import { Route as AuthenticatedCarrierSyncRouteImport } from './routes/_authenticated/carrier-sync'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -446,6 +447,11 @@ const AuthenticatedContractingRoute =
     path: '/contracting',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedChallengesRoute = AuthenticatedChallengesRouteImport.update({
   id: '/challenges',
   path: '/challenges',
@@ -992,6 +998,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
+  '/clients': typeof AuthenticatedClientsRoute
   '/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -1140,6 +1147,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/challenges': typeof AuthenticatedChallengesRoute
+  '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
   '/intake': typeof AuthenticatedIntakeRoute
@@ -1287,6 +1295,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/carrier-sync': typeof AuthenticatedCarrierSyncRoute
   '/_authenticated/challenges': typeof AuthenticatedChallengesRoute
+  '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/contracting': typeof AuthenticatedContractingRouteWithChildren
   '/_authenticated/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -1438,6 +1447,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/carrier-sync'
     | '/challenges'
+    | '/clients'
     | '/contracting'
     | '/contracting-ops'
     | '/dashboard'
@@ -1586,6 +1596,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/carrier-sync'
     | '/challenges'
+    | '/clients'
     | '/dashboard'
     | '/finances'
     | '/intake'
@@ -1732,6 +1743,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar'
     | '/_authenticated/carrier-sync'
     | '/_authenticated/challenges'
+    | '/_authenticated/clients'
     | '/_authenticated/contracting'
     | '/_authenticated/contracting-ops'
     | '/_authenticated/dashboard'
@@ -2302,6 +2314,13 @@ declare module '@tanstack/react-router' {
       path: '/contracting'
       fullPath: '/contracting'
       preLoaderRoute: typeof AuthenticatedContractingRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/clients': {
+      id: '/_authenticated/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof AuthenticatedClientsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/challenges': {
@@ -3170,6 +3189,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCarrierSyncRoute: typeof AuthenticatedCarrierSyncRoute
   AuthenticatedChallengesRoute: typeof AuthenticatedChallengesRoute
+  AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedContractingRoute: typeof AuthenticatedContractingRouteWithChildren
   AuthenticatedContractingOpsRoute: typeof AuthenticatedContractingOpsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -3214,6 +3234,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCarrierSyncRoute: AuthenticatedCarrierSyncRoute,
   AuthenticatedChallengesRoute: AuthenticatedChallengesRoute,
+  AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedContractingRoute: AuthenticatedContractingRouteWithChildren,
   AuthenticatedContractingOpsRoute:
     AuthenticatedContractingOpsRouteWithChildren,
