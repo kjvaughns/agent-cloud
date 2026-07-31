@@ -17,6 +17,7 @@ import { formatDistanceToNow } from "date-fns";
 import { listNotifications } from "@/lib/notifications.functions";
 import { OPEN_COMMAND_PALETTE } from "@/components/command-palette";
 import { AppearanceControls } from "@/components/appearance-controls";
+import { StarPage } from "@/components/star-page";
 
 function greeting() {
   const h = new Date().getHours();
@@ -84,6 +85,9 @@ export function TopBar() {
       <Button variant="ghost" size="icon" className="md:hidden" onClick={openPalette} aria-label="Search">
         <Search className="h-4 w-4" />
       </Button>
+
+      {/* Star the current page — it appears in the sidebar under its hub. */}
+      <StarPage />
 
       {(isAdmin || isManager) && (
         <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex gap-1.5">

@@ -17,14 +17,16 @@ import {
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
-  SidebarMenuItem, SidebarSeparator, useSidebar,
+  SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
+  SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
+import { Star } from "lucide-react";
+import { useFavorites } from "@/hooks/use-favorites";
+import { arrangeFavorites, audienceFor, navFor, ACCOUNT_PAGES, type Page } from "@/lib/navigation";
 
-import { audienceFor, navFor, ACCOUNT_PAGES, type Page } from "@/lib/navigation";
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean; id?: string };
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean };
-
-const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon });
+const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon, id: p.id });
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -43,9 +45,18 @@ export function AppSidebar() {
     isOwner: Boolean(access?.isOwner),
     canManage: Boolean((access as any)?.canManageRoles),
   });
-  const groups = navFor(audience, (access?.permissions ?? {}) as Record<string, unknown>)
+  const perms = (access?.permissions ?? {}) as Record<string, unknown>;
+  const navGroups = navFor(audience, perms);
+  const groups = navGroups
     .map((g, i) => ({ label: g.label || (i === 0 ? "" : "More"), items: g.items.map(asNavItem) }));
   const accountItems = ACCOUNT_PAGES.map(asNavItem);
+
+  // Starred pages. Ones belonging to a hub already in this sidebar nest under
+  // it; the rest collect in a Starred group below.
+  const { pageIds } = useFavorites();
+  const sidebarIds = new Set(navGroups.flatMap((g) => g.items.map((p) => p.id)));
+  const favorites = arrangeFavorites(pageIds, sidebarIds, audience, perms);
+  const looseFavorites = favorites.loose.map(asNavItem);
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     try {
@@ -63,8 +74,82 @@ export function AppSidebar() {
     });
   };
 
+  // A hub with starred pages under it expands. Open by default — somebody
+  // starred these to have them one click away, so hiding them behind a closed
+  // disclosure would undo the point of starring them.
+  const [openHubs, setOpenHubs] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("nav-hubs") ?? "null") ?? {};
+    } catch {
+      return {};
+    }
+  });
+
+  const toggleHub = (id: string) => {
+    setOpenHubs((prev) => {
+      const next = { ...prev, [id]: prev[id] === false ? true : false };
+      localStorage.setItem("nav-hubs", JSON.stringify(next));
+      return next;
+    });
+  };
+
   const renderItem = (it: NavItem) => {
     const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
+    const starred = it.id ? favorites.under[it.id] ?? [] : [];
+    const expanded = starred.length > 0 && openHubs[it.id!] !== false;
+
+    if (starred.length > 0 && !sidebarCollapsed) {
+      return (
+        <SidebarMenuItem key={it.url}>
+          <div className="flex items-center">
+            <SidebarMenuButton
+              asChild
+              isActive={active}
+              tooltip={it.title}
+              className={cn(
+                "data-[active=true]:bg-primary/12 data-[active=true]:text-foreground data-[active=true]:font-semibold",
+                "data-[active=true]:relative data-[active=true]:before:absolute data-[active=true]:before:left-0",
+                "data-[active=true]:before:top-1.5 data-[active=true]:before:bottom-1.5 data-[active=true]:before:w-[3px]",
+                "data-[active=true]:before:rounded-r data-[active=true]:before:bg-primary",
+                "[&[data-active=true]_svg]:text-primary transition-colors",
+              )}
+            >
+              <Link to={it.url}>
+                <it.icon className="h-4 w-4" />
+                <span>{it.title}</span>
+              </Link>
+            </SidebarMenuButton>
+            {/* Separate from the link so expanding does not navigate, and
+                navigating does not collapse. */}
+            <button
+              type="button"
+              onClick={() => toggleHub(it.id!)}
+              aria-expanded={expanded}
+              aria-label={expanded ? `Collapse ${it.title}` : `Expand ${it.title}`}
+              className="mr-1 rounded p-1 text-sidebar-foreground/50 transition-colors hover:text-sidebar-foreground"
+            >
+              <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", !expanded && "-rotate-90")} />
+            </button>
+          </div>
+
+          {expanded && (
+            <SidebarMenuSub>
+              {starred.map((p) => (
+                <SidebarMenuSubItem key={p.path}>
+                  <SidebarMenuSubButton asChild isActive={path === p.path || path.startsWith(p.path + "/")}>
+                    <Link to={p.path}>
+                      <Star className="h-3 w-3 fill-primary/70 text-primary/70" />
+                      <span>{p.label}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          )}
+        </SidebarMenuItem>
+      );
+    }
+
     return (
       <SidebarMenuItem key={it.url}>
         <SidebarMenuButton
@@ -152,6 +237,21 @@ export function AppSidebar() {
             )}
           </SidebarGroup>
         ))}
+
+        {/* Starred pages with no hub in this sidebar to sit under. */}
+        {looseFavorites.length > 0 && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              {!sidebarCollapsed && <SidebarGroupLabel>Starred</SidebarGroupLabel>}
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {looseFavorites.filter((it) => canSeeNavItem(it.url, access)).map(renderItem)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         <SidebarSeparator />
 

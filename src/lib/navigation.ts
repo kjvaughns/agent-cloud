@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3, BookOpen, Building2, Calendar, ClipboardList, Contact, FilePlus,
-  FileSignature, Heart, IdCard, KanbanSquare, LayoutDashboard, LifeBuoy, ListTodo,
-  Megaphone, Newspaper, Percent, Phone, Settings, Sparkles, Target, Trophy,
-  UploadCloud, UserPlus, Users, Wallet,
+  Activity, BarChart3, BookOpen, Bot, Building2, Calendar, ClipboardList, Contact,
+  FilePlus, FileSignature, Heart, IdCard, KanbanSquare, LayoutDashboard, LifeBuoy,
+  ListTodo, Mail, Megaphone, Newspaper, Percent, Phone, Settings, ShieldCheck,
+  Sparkles, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
 } from "lucide-react";
 
 /**
@@ -36,6 +36,13 @@ export type Page = {
   audience?: Audience[];
   /** Extra gate on top of audience, checked against role_permissions. */
   permission?: string;
+  /**
+   * The hub this page belongs under. Used when somebody stars it: the
+   * favourite nests beneath its hub in the sidebar rather than floating loose,
+   * so starring "Invite an agent" makes Agency expandable rather than adding
+   * an unrelated top-level entry.
+   */
+  parent?: string;
 };
 
 // ── The registry ────────────────────────────────────────────────────────────
@@ -55,27 +62,35 @@ export const PAGES: Page[] = [
   { id: "team", label: "Team", path: "/team", icon: Users, area: "Agency", audience: ["owner", "manager"] },
   { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Agency", audience: ["owner", "manager", "staff"] },
   { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Agency", audience: ["owner", "staff"] },
-  { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", audience: ["owner", "manager", "agent"] },
-  { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"] },
-  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", audience: ["owner", "manager"] },
-  { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", audience: ["owner", "manager", "staff"] },
+  { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
+  { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Agency", audience: ["owner", "manager", "agent"], parent: "agency" },
+  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", audience: ["owner", "manager"], parent: "agency" },
+  { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", audience: ["owner", "manager", "staff"], parent: "agency" },
+  // The pages inside the Agency hub. Registered here so the palette can reach
+  // them and so they can be starred — until now they existed only as cards and
+  // rail links, which made them unfindable by name.
+  { id: "agency-roles", label: "Roles & permissions", path: "/agency/team", icon: ShieldCheck, area: "Agency", audience: ["owner"], parent: "agency" },
+  { id: "agency-settings", label: "Agency settings", path: "/agency/settings", icon: Settings, area: "Agency", audience: ["owner"], parent: "agency" },
+  { id: "agency-automations", label: "Automations", path: "/agency/automations", icon: Bot, area: "Agency", audience: ["owner"], parent: "agency" },
+  { id: "agency-emails", label: "Emails", path: "/agency/emails", icon: Mail, area: "Agency", audience: ["owner"], parent: "agency" },
+  { id: "agency-usage", label: "What people use", path: "/agency/usage", icon: Activity, area: "Agency", audience: ["owner"], parent: "agency" },
 
   // Contracting
   { id: "contracting-ops", label: "Contracting", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", audience: ["owner", "staff", "manager"] },
-  { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Contracting", audience: ["staff", "owner"] },
-  { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Contracting", audience: ["owner", "staff", "manager"] },
-  { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Contracting", audience: ["owner", "staff", "manager"] },
+  { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Contracting", audience: ["staff", "owner"], parent: "contracting-ops" },
+  { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Contracting", audience: ["owner", "staff", "manager"], parent: "contracting-ops" },
+  { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Contracting", audience: ["owner", "staff", "manager"], parent: "contracting-ops" },
   // One Licensing entry for everyone. The page routes you to your own licences
   // or to the agency roster, whichever is your job.
   { id: "licensing", label: "Licensing", path: "/licensing", icon: FileSignature, area: "Contracting" },
-  { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"] },
+  { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
   // Not a second Carriers page: this is which carriers the agency uses and how
   // each one takes a submission. The directory below is the reference one.
-  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Contracting", audience: ["owner", "staff"] },
-  { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Contracting", audience: ["owner", "staff", "manager"] },
+  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
+  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
+  { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
+  { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Contracting", audience: ["owner", "staff"], parent: "contracting-ops" },
+  { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Contracting", audience: ["owner", "staff", "manager"], parent: "contracting-ops" },
   { id: "my-contracts", label: "My Contracts", path: "/contracting", icon: FileSignature, area: "Contracting" },
   { id: "carriers", label: "Carriers", path: "/contracting/carriers", icon: Building2, area: "Contracting" },
 
@@ -186,3 +201,63 @@ export function reachableFor(audience: Audience, perms: Record<string, unknown> 
 
 /** The handful of things worth a shortcut on any screen. */
 export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
+
+/** Look a page up by id, or by the path currently in the address bar. */
+export function pageById(id: string): Page | undefined {
+  return BY_ID.get(id);
+}
+
+export function pageByPath(path: string): Page | undefined {
+  // Exact match first; otherwise the longest registered prefix, so a detail
+  // route still resolves to the page it belongs to.
+  const exact = PAGES.find((p) => p.path === path);
+  if (exact) return exact;
+  return PAGES
+    .filter((p) => p.path !== "/" && path.startsWith(p.path + "/"))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+}
+
+export type Favorites = {
+  /** Starred pages that hang off a sidebar entry, keyed by that entry's id. */
+  under: Record<string, Page[]>;
+  /** Starred pages with no sidebar entry to hang off. */
+  loose: Page[];
+};
+
+/**
+ * Arrange starred pages for the sidebar.
+ *
+ * A favourite whose hub is already in the sidebar nests under it, so starring
+ * "Invite an agent" makes Agency expandable rather than adding a stray
+ * top-level row. Everything else collects in one Starred group.
+ *
+ * Ids that no longer resolve — a page renamed or retired — are dropped rather
+ * than rendered as a dead entry. Favourites outliving their page is expected,
+ * not exceptional.
+ */
+export function arrangeFavorites(
+  pageIds: string[],
+  sidebarIds: Set<string>,
+  audience: Audience,
+  perms: Record<string, unknown> = {},
+): Favorites {
+  const under: Record<string, Page[]> = {};
+  const loose: Page[] = [];
+
+  for (const id of pageIds) {
+    const p = BY_ID.get(id);
+    // Permission is re-checked here: a favourite must never become a way to
+    // keep reaching something your role no longer allows.
+    if (!p || !allowed(p, audience, perms)) continue;
+    // A page already in the sidebar does not need a second copy of itself.
+    if (sidebarIds.has(p.id)) continue;
+
+    if (p.parent && sidebarIds.has(p.parent)) {
+      (under[p.parent] ??= []).push(p);
+    } else {
+      loose.push(p);
+    }
+  }
+
+  return { under, loose };
+}
