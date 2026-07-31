@@ -33,6 +33,7 @@ import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminRolesRouteImport } from './routes/admin.roles'
+import { Route as AdminMigrationsRouteImport } from './routes/admin.migrations'
 import { Route as AdminMigrationRouteImport } from './routes/admin.migration'
 import { Route as AdminImportRequestsRouteImport } from './routes/admin.import-requests'
 import { Route as AdminHierarchyRouteImport } from './routes/admin.hierarchy'
@@ -274,6 +275,11 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
 const AdminRolesRoute = AdminRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMigrationsRoute = AdminMigrationsRouteImport.update({
+  id: '/migrations',
+  path: '/migrations',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminMigrationRoute = AdminMigrationRouteImport.update({
@@ -1018,6 +1024,7 @@ export interface FileRoutesByFullPath {
   '/admin/hierarchy': typeof AdminHierarchyRoute
   '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
+  '/admin/migrations': typeof AdminMigrationsRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -1162,6 +1169,7 @@ export interface FileRoutesByTo {
   '/admin/hierarchy': typeof AdminHierarchyRoute
   '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
+  '/admin/migrations': typeof AdminMigrationsRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -1311,6 +1319,7 @@ export interface FileRoutesById {
   '/admin/hierarchy': typeof AdminHierarchyRoute
   '/admin/import-requests': typeof AdminImportRequestsRoute
   '/admin/migration': typeof AdminMigrationRoute
+  '/admin/migrations': typeof AdminMigrationsRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -1461,6 +1470,7 @@ export interface FileRouteTypes {
     | '/admin/hierarchy'
     | '/admin/import-requests'
     | '/admin/migration'
+    | '/admin/migrations'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -1605,6 +1615,7 @@ export interface FileRouteTypes {
     | '/admin/hierarchy'
     | '/admin/import-requests'
     | '/admin/migration'
+    | '/admin/migrations'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -1753,6 +1764,7 @@ export interface FileRouteTypes {
     | '/admin/hierarchy'
     | '/admin/import-requests'
     | '/admin/migration'
+    | '/admin/migrations'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/subscriptions'
@@ -2059,6 +2071,13 @@ declare module '@tanstack/react-router' {
       path: '/roles'
       fullPath: '/admin/roles'
       preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/migrations': {
+      id: '/admin/migrations'
+      path: '/migrations'
+      fullPath: '/admin/migrations'
+      preLoaderRoute: typeof AdminMigrationsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/migration': {
@@ -3250,6 +3269,7 @@ interface AdminRouteChildren {
   AdminHierarchyRoute: typeof AdminHierarchyRoute
   AdminImportRequestsRoute: typeof AdminImportRequestsRoute
   AdminMigrationRoute: typeof AdminMigrationRoute
+  AdminMigrationsRoute: typeof AdminMigrationsRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
@@ -3269,6 +3289,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminHierarchyRoute: AdminHierarchyRoute,
   AdminImportRequestsRoute: AdminImportRequestsRoute,
   AdminMigrationRoute: AdminMigrationRoute,
+  AdminMigrationsRoute: AdminMigrationsRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
