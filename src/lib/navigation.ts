@@ -51,7 +51,7 @@ export const PAGES: Page[] = [
   // Everyday
   { id: "dashboard", label: "Home", path: "/dashboard", icon: LayoutDashboard, area: "Everyday" },
   { id: "pipeline", label: "Clients", path: "/pipeline", icon: KanbanSquare, area: "Everyday" },
-  { id: "book", label: "Business", path: "/book-of-business", icon: BookOpen, area: "Everyday" },
+  { id: "book", label: "Business", path: "/book-of-business", icon: BookOpen, area: "Everyday", parent: "pipeline" },
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Everyday" },
   { id: "finances", label: "Money", path: "/finances", icon: Wallet, area: "Everyday" },
   { id: "tasks", label: "Tasks", path: "/tasks", icon: ListTodo, area: "Everyday" },
@@ -159,14 +159,16 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     { label: "", ids: ["nova"] },
   ],
 
-  // A team to run.
+  // A team to run. Business sits beside Clients here the same as it does for
+  // an agent — a manager still has their own book, and dropping it meant the
+  // only way back to it was search.
   manager: [
-    { label: "", ids: ["dashboard", "team", "pipeline", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "team", "pipeline", "book", "contracting-ops", "reports", "nova"] },
   ],
 
   // The whole agency.
   owner: [
-    { label: "", ids: ["dashboard", "agency", "pipeline", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "agency", "pipeline", "book", "contracting-ops", "reports", "nova"] },
   ],
 };
 
