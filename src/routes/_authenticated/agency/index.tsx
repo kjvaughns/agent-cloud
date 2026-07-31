@@ -2,10 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
-  AlertTriangle, BarChart3, Bot, Building2, ClipboardList, FileSignature, Heart,
-  Activity, IdCard, Mail, Palette, Percent, ShieldCheck, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
+  AlertTriangle, BarChart3, Building2, ClipboardList, FileSignature, Heart,
+  IdCard, Palette, Percent, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
 } from "lucide-react";
-import { PageShell, Panel } from "@/components/page-shell";
+import { Panel } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useMyAccess } from "@/hooks/use-my-access";
@@ -41,12 +41,18 @@ type Card = {
 
 type Section = { label: string; cards: Card[] };
 
+/**
+ * What the Overview links to.
+ *
+ * Only destinations that live outside /agency. The pages you configure here —
+ * roles, settings, automations, emails, usage — are in the rail beside this,
+ * and listing them twice would mean adding navigation without removing any.
+ */
 const SECTIONS: Section[] = [
   {
     label: "People",
     cards: [
       { title: "Team", body: "Agents, managers and staff, their roles and their downline.", to: "/team", icon: Users },
-      { title: "Roles & permissions", body: "Who can see and change what, per person.", to: "/agency/team", icon: ShieldCheck, adminOnly: true },
       { title: "Getting agents ready", body: "Everyone mid-onboarding, and the one thing each is waiting on.", to: "/onboarding", icon: UserPlus },
       { title: "Invite an agent", body: "Send an onboarding link with their carriers and levels attached.", to: "/contracting/invite", icon: UserPlus },
       { title: "Leaderboard", body: "Production standings across the agency.", to: "/leaderboard", icon: Trophy },
@@ -68,16 +74,12 @@ const SECTIONS: Section[] = [
     cards: [
       { title: "Retention", body: "At-risk policies worked before they lapse.", to: "/retention", icon: Heart },
       { title: "Document intake", body: "Paperwork arriving from agents and carriers.", to: "/intake", icon: UploadCloud },
-      { title: "Automations", body: "Work that runs without somebody remembering to do it.", to: "/agency/automations", icon: Bot, adminOnly: true },
-      { title: "Emails", body: "What the agency sends, and to whom.", to: "/agency/emails", icon: Mail, adminOnly: true },
       { title: "Reports", body: "Production, placement, persistency and operational health.", to: "/reports", icon: BarChart3 },
-      { title: "What people use", body: "Which pages get opened and which never do. Read this before removing anything.", to: "/agency/usage", icon: Activity, adminOnly: true },
     ],
   },
   {
     label: "Agency setup",
     cards: [
-      { title: "Agency settings", body: "Name, branding, notifications and defaults.", to: "/agency/settings", icon: Palette, adminOnly: true },
       { title: "Billing", body: "Plan, active users and invoices.", to: "/settings/billing", icon: Wallet, adminOnly: true },
       { title: "White label", body: "Your branding, your colours, your domain.", to: "/white-label", icon: Palette, adminOnly: true },
       { title: "Contracting settings", body: "PDB refresh interval, approval gates and request defaults.", to: "/contracting-ops/settings", icon: ClipboardList, adminOnly: true },
@@ -107,17 +109,10 @@ function AgencyAdminPage() {
     { label: "Hierarchy changes pending", value: m?.pending_hierarchy_changes ?? 0, to: "/contracting-ops/hierarchy-changes" },
   ].filter((a) => a.value > 0);
 
+  // The page shell, the heading and the rail all belong to the /agency layout.
+  // This page is only the overview that sits beside them.
   return (
-    <PageShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Agency Admin</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Everything you run the agency with, in one place. The day-to-day surfaces stay in the
-            sidebar; what you set up once lives here.
-          </p>
-        </div>
-
         {isLoading ? (
           <Skeleton className="h-20 rounded-xl" />
         ) : attention.length > 0 ? (
@@ -172,6 +167,5 @@ function AgencyAdminPage() {
           );
         })}
       </div>
-    </PageShell>
   );
 }

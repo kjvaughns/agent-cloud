@@ -72,6 +72,7 @@ import { Route as AuthenticatedBackOfficeRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAnnouncementsRouteImport } from './routes/_authenticated/announcements'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiAssistantRouteImport } from './routes/_authenticated/ai-assistant'
+import { Route as AuthenticatedAgencyRouteImport } from './routes/_authenticated/agency'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_authenticated/contracting/index'
 import { Route as AuthenticatedContractingOpsIndexRouteImport } from './routes/_authenticated/contracting-ops/index'
@@ -470,6 +471,11 @@ const AuthenticatedAiAssistantRoute =
     path: '/ai-assistant',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedAgencyRoute = AuthenticatedAgencyRouteImport.update({
+  id: '/agency',
+  path: '/agency',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/settings/',
@@ -490,9 +496,9 @@ const AuthenticatedContractingOpsIndexRoute =
   } as any)
 const AuthenticatedAgencyIndexRoute =
   AuthenticatedAgencyIndexRouteImport.update({
-    id: '/agency/',
-    path: '/agency/',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAgencyRoute,
   } as any)
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
@@ -795,32 +801,32 @@ const AuthenticatedBackOfficeAdvancedDeskRoute =
   } as any)
 const AuthenticatedAgencyUsageRoute =
   AuthenticatedAgencyUsageRouteImport.update({
-    id: '/agency/usage',
-    path: '/agency/usage',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/usage',
+    path: '/usage',
+    getParentRoute: () => AuthenticatedAgencyRoute,
   } as any)
 const AuthenticatedAgencyTeamRoute = AuthenticatedAgencyTeamRouteImport.update({
-  id: '/agency/team',
-  path: '/agency/team',
-  getParentRoute: () => AuthenticatedRoute,
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AuthenticatedAgencyRoute,
 } as any)
 const AuthenticatedAgencySettingsRoute =
   AuthenticatedAgencySettingsRouteImport.update({
-    id: '/agency/settings',
-    path: '/agency/settings',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAgencyRoute,
   } as any)
 const AuthenticatedAgencyEmailsRoute =
   AuthenticatedAgencyEmailsRouteImport.update({
-    id: '/agency/emails',
-    path: '/agency/emails',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/emails',
+    path: '/emails',
+    getParentRoute: () => AuthenticatedAgencyRoute,
   } as any)
 const AuthenticatedAgencyAutomationsRoute =
   AuthenticatedAgencyAutomationsRouteImport.update({
-    id: '/agency/automations',
-    path: '/agency/automations',
-    getParentRoute: () => AuthenticatedRoute,
+    id: '/automations',
+    path: '/automations',
+    getParentRoute: () => AuthenticatedAgencyRoute,
   } as any)
 const AuthenticatedAccountProducerProfileRoute =
   AuthenticatedAccountProducerProfileRouteImport.update({
@@ -916,6 +922,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/agency': typeof AuthenticatedAgencyRouteWithChildren
   '/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -1192,6 +1199,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/_authenticated/agency': typeof AuthenticatedAgencyRouteWithChildren
   '/_authenticated/ai-assistant': typeof AuthenticatedAiAssistantRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/announcements': typeof AuthenticatedAnnouncementsRoute
@@ -1333,6 +1341,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/agency'
     | '/ai-assistant'
     | '/analytics'
     | '/announcements'
@@ -1608,6 +1617,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sitemap.xml'
     | '/terms'
+    | '/_authenticated/agency'
     | '/_authenticated/ai-assistant'
     | '/_authenticated/analytics'
     | '/_authenticated/announcements'
@@ -2220,6 +2230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAiAssistantRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/agency': {
+      id: '/_authenticated/agency'
+      path: '/agency'
+      fullPath: '/agency'
+      preLoaderRoute: typeof AuthenticatedAgencyRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/settings'
@@ -2243,10 +2260,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/agency/': {
       id: '/_authenticated/agency/'
-      path: '/agency'
+      path: '/'
       fullPath: '/agency/'
       preLoaderRoute: typeof AuthenticatedAgencyIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
@@ -2614,38 +2631,38 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/agency/usage': {
       id: '/_authenticated/agency/usage'
-      path: '/agency/usage'
+      path: '/usage'
       fullPath: '/agency/usage'
       preLoaderRoute: typeof AuthenticatedAgencyUsageRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/_authenticated/agency/team': {
       id: '/_authenticated/agency/team'
-      path: '/agency/team'
+      path: '/team'
       fullPath: '/agency/team'
       preLoaderRoute: typeof AuthenticatedAgencyTeamRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/_authenticated/agency/settings': {
       id: '/_authenticated/agency/settings'
-      path: '/agency/settings'
+      path: '/settings'
       fullPath: '/agency/settings'
       preLoaderRoute: typeof AuthenticatedAgencySettingsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/_authenticated/agency/emails': {
       id: '/_authenticated/agency/emails'
-      path: '/agency/emails'
+      path: '/emails'
       fullPath: '/agency/emails'
       preLoaderRoute: typeof AuthenticatedAgencyEmailsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/_authenticated/agency/automations': {
       id: '/_authenticated/agency/automations'
-      path: '/agency/automations'
+      path: '/automations'
       fullPath: '/agency/automations'
       preLoaderRoute: typeof AuthenticatedAgencyAutomationsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+      parentRoute: typeof AuthenticatedAgencyRoute
     }
     '/_authenticated/account/producer-profile': {
       id: '/_authenticated/account/producer-profile'
@@ -2747,6 +2764,27 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedAgencyRouteChildren {
+  AuthenticatedAgencyAutomationsRoute: typeof AuthenticatedAgencyAutomationsRoute
+  AuthenticatedAgencyEmailsRoute: typeof AuthenticatedAgencyEmailsRoute
+  AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
+  AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
+  AuthenticatedAgencyUsageRoute: typeof AuthenticatedAgencyUsageRoute
+  AuthenticatedAgencyIndexRoute: typeof AuthenticatedAgencyIndexRoute
+}
+
+const AuthenticatedAgencyRouteChildren: AuthenticatedAgencyRouteChildren = {
+  AuthenticatedAgencyAutomationsRoute: AuthenticatedAgencyAutomationsRoute,
+  AuthenticatedAgencyEmailsRoute: AuthenticatedAgencyEmailsRoute,
+  AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
+  AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
+  AuthenticatedAgencyUsageRoute: AuthenticatedAgencyUsageRoute,
+  AuthenticatedAgencyIndexRoute: AuthenticatedAgencyIndexRoute,
+}
+
+const AuthenticatedAgencyRouteWithChildren =
+  AuthenticatedAgencyRoute._addFileChildren(AuthenticatedAgencyRouteChildren)
 
 interface AuthenticatedBackOfficeRouteChildren {
   AuthenticatedBackOfficeAdvancedDeskRoute: typeof AuthenticatedBackOfficeAdvancedDeskRoute
@@ -2927,6 +2965,7 @@ const AuthenticatedResourcesRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAgencyRoute: typeof AuthenticatedAgencyRouteWithChildren
   AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedAnnouncementsRoute: typeof AuthenticatedAnnouncementsRoute
@@ -2959,22 +2998,17 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
-  AuthenticatedAgencyAutomationsRoute: typeof AuthenticatedAgencyAutomationsRoute
-  AuthenticatedAgencyEmailsRoute: typeof AuthenticatedAgencyEmailsRoute
-  AuthenticatedAgencySettingsRoute: typeof AuthenticatedAgencySettingsRoute
-  AuthenticatedAgencyTeamRoute: typeof AuthenticatedAgencyTeamRoute
-  AuthenticatedAgencyUsageRoute: typeof AuthenticatedAgencyUsageRoute
   AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
-  AuthenticatedAgencyIndexRoute: typeof AuthenticatedAgencyIndexRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAgencyRoute: AuthenticatedAgencyRouteWithChildren,
   AuthenticatedAiAssistantRoute: AuthenticatedAiAssistantRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedAnnouncementsRoute: AuthenticatedAnnouncementsRoute,
@@ -3010,11 +3044,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountMyLandingPageRoute,
   AuthenticatedAccountProducerProfileRoute:
     AuthenticatedAccountProducerProfileRoute,
-  AuthenticatedAgencyAutomationsRoute: AuthenticatedAgencyAutomationsRoute,
-  AuthenticatedAgencyEmailsRoute: AuthenticatedAgencyEmailsRoute,
-  AuthenticatedAgencySettingsRoute: AuthenticatedAgencySettingsRoute,
-  AuthenticatedAgencyTeamRoute: AuthenticatedAgencyTeamRoute,
-  AuthenticatedAgencyUsageRoute: AuthenticatedAgencyUsageRoute,
   AuthenticatedFinancesReconciliationRoute:
     AuthenticatedFinancesReconciliationRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
@@ -3023,7 +3052,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
-  AuthenticatedAgencyIndexRoute: AuthenticatedAgencyIndexRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
