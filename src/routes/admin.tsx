@@ -5,7 +5,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, FileSignature, Building2, Percent,
   LifeBuoy, Settings, BarChart3, Bell, ChevronRight, Cloud,
-  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download, CreditCard,
+  ArrowLeftRight, ShieldCheck, GitMerge, Menu, X, Upload, Download, CreditCard, Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
