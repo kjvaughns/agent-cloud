@@ -51,7 +51,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
       {adminNav.map((item) => {
-        const active = path === item.url || (item.url !== "/admin" && path.startsWith(item.url));
+        const active = path === item.url || (item.url !== "/admin" && path.startsWith(item.url + "/"));
         return (
           <Link
             key={item.url}
