@@ -142,14 +142,14 @@ export type NavGroup = { label: string; items: Page[] };
 const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
   // Sell. Retain. Get paid.
   solo: [
-    { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
+    { label: "", ids: ["dashboard", "pipeline", "finances", "nova"] },
   ],
 
   // Same job, inside somebody's agency. Resources is here because a new agent
   // needs the guides and the scripts more than anybody, and having to search
   // for them is how they end up never being read.
   agent: [
-    { label: "", ids: ["dashboard", "pipeline", "book", "finances", "nova"] },
+    { label: "", ids: ["dashboard", "pipeline", "finances", "nova"] },
     { label: "Me", ids: ["my-contracts", "tasks", "resources"] },
   ],
 
@@ -159,16 +159,15 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     { label: "", ids: ["nova"] },
   ],
 
-  // A team to run. Business sits beside Clients here the same as it does for
-  // an agent — a manager still has their own book, and dropping it meant the
-  // only way back to it was search.
+  // A team to run. Clients still carries Business under it — a manager has
+  // their own book, and dropping it meant the only way back was search.
   manager: [
-    { label: "", ids: ["dashboard", "team", "pipeline", "book", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "team", "pipeline", "contracting-ops", "reports", "nova"] },
   ],
 
   // The whole agency.
   owner: [
-    { label: "", ids: ["dashboard", "agency", "pipeline", "book", "contracting-ops", "reports", "nova"] },
+    { label: "", ids: ["dashboard", "agency", "pipeline", "contracting-ops", "reports", "nova"] },
   ],
 };
 
@@ -230,6 +229,12 @@ export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
 export type HubGroup = { label: string; ids: string[] };
 
 const HUBS: Record<string, HubGroup[]> = {
+  // Your book is the same people your pipeline is, further along. Listing it
+  // under Clients says that; listing it beside Clients implied two separate
+  // places to keep track of.
+  pipeline: [
+    { label: "", ids: ["book"] },
+  ],
   agency: [
     { label: "Your people", ids: ["team", "onboarding", "invite"] },
     { label: "How they're doing", ids: ["leaderboard", "challenges", "retention"] },

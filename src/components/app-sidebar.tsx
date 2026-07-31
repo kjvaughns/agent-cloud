@@ -141,12 +141,18 @@ export function AppSidebar() {
 
   const renderItem = (it: NavItem) => {
     const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
-    const starred = it.id ? favorites.under[it.id] ?? [] : [];
+    const starred = (it.id ? favorites.under[it.id] ?? [] : [])
+      .filter((p) => canSeeNavItem(p.path, access));
 
     // A hub's own pages, listed under it rather than in a second rail beside
     // the page. Groups are kept — they are what makes fourteen contracting
     // destinations readable instead of a list to scan.
-    const groups = it.id && isHub(it.id) ? hubGroupsFor(it.id, audience, perms) : [];
+    // Same per-URL gate the top-level rows go through. Without it a hub is a
+    // way around the rules table — Document Intake sitting inside Contracting
+    // would show to any staff member, not only an admin one.
+    const groups = (it.id && isHub(it.id) ? hubGroupsFor(it.id, audience, perms) : [])
+      .map((g) => ({ ...g, items: g.items.filter((p) => canSeeNavItem(p.path, access)) }))
+      .filter((g) => g.items.length > 0);
     const children: { label: string; items: Page[] }[] = groups.length
       ? (starred.length ? [...groups, { label: "Starred", items: starred }] : groups)
       : (starred.length ? [{ label: "", items: starred }] : []);
