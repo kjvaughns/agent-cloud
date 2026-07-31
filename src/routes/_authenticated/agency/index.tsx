@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowRight, BookOpen, Heart, Target, Trophy, UserPlus, Users,
+  ArrowRight, BookOpen, Target, Trophy, UserPlus, Users,
 } from "lucide-react";
 import { Panel } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,8 +23,8 @@ export const Route = createFileRoute("/_authenticated/agency/")({
  * you visit all six to find out where the work is; these say it up front.
  *
  * Deliberately narrow. Configuration is in Settings, contracting in
- * Contracting Operations, numbers in Reports. This hub answers "how are my
- * people doing" and nothing else.
+ * Contracting Operations, clients and retention in Clients, numbers in
+ * Reports. This hub answers "how are my people doing" and nothing else.
  */
 
 type Tile = {
@@ -43,6 +43,10 @@ type Metrics = {
   team: number; ready: number; onboarding: number;
   invites: number; retention: number; challenges: number;
 };
+
+// Retention moved to the Clients hub — a policy about to lapse is a client
+// problem, not a people-management one. The count still comes back from the
+// overview query; this hub just stopped being one of the places showing it.
 
 const TILES: Tile[] = [
   {
@@ -74,14 +78,6 @@ const TILES: Tile[] = [
     title: "Challenges", to: "/challenges", icon: Target,
     value: (m) => m.challenges,
     caption: (n) => n === 0 ? "Nothing running" : `${n} running now`,
-  },
-  {
-    title: "Retention", to: "/retention", icon: Heart,
-    value: (m) => m.retention,
-    caption: (n) => n === 0
-      ? "No policies at risk"
-      : `${n} ${n === 1 ? "policy" : "policies"} at risk`,
-    warnWhenPositive: true,
   },
 ];
 
@@ -162,7 +158,8 @@ function AgencyOverviewPage() {
 
       <p className="text-[11px] text-text-dim">
         Agency settings, automations and emails live in Settings. Contracting lives in Contracting
-        Operations. Production numbers live in Reports.
+        Operations. Your pipeline, book and retention queue live in Clients. Production numbers
+        live in Reports.
       </p>
     </div>
   );
