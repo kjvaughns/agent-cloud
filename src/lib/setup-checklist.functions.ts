@@ -66,7 +66,7 @@ export const getSetupChecklist = createServerFn({ method: "GET" })
         key: "branding",
         title: "Name your agency",
         description: "Set your agency name, subdomain and logo so the workspace looks like yours.",
-        href: "/agency/settings",
+        href: "/settings/agency",
         done: Boolean(o.name && o.slug && o.logo_url),
       },
       {

@@ -183,7 +183,7 @@ function WhiteLabelPage() {
                   <>
                     <p className="text-sm font-medium">Your agency is already on White Label.</p>
                     <Button asChild variant="outline" size="sm" className="mt-3">
-                      <Link to="/agency/settings">Manage your branding →</Link>
+                      <Link to="/settings/agency">Manage your branding →</Link>
                     </Button>
                   </>
                 )}

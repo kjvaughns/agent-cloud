@@ -31,7 +31,7 @@ import {
 import { adminMoveAgent } from "@/lib/admin.functions";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { AgencyTeamPage } from "./agency.team";
+import { AgencyTeamPage } from "./settings.roles";
 import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";

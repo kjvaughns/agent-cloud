@@ -58,14 +58,17 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/ai-assistant": isStaff ? !!p.staff_nova_pro_enabled : true,
     "/settings": true,
     "/settings/nova-pro": isStaff ? !!p.staff_nova_pro_enabled : true,
-    "/agency/team": canManage,
+    "/settings/roles": canManage,
     // Both write agency-wide configuration, so they follow the owner gate.
     "/intake": canManage || (isStaff && !!p.staff_is_admin),
     "/contracting-ops/comp-grids": canManage,
     // The hub is for people who administer the agency; an agent has
     // nothing to do on it.
     "/agency": canManage || (isStaff && !!p.staff_is_admin),
-    "/agency/usage": canManage,
+    "/settings/usage": canManage,
+    "/settings/agency": canManage,
+    "/settings/automations": canManage,
+    "/settings/emails": canManage,
     "/white-label": canManage,
     "/phone": isStaff ? false : true,
   };
