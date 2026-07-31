@@ -69,7 +69,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
 
     const [
       { data: producer }, { data: licences }, { data: docs },
-      { data: requests }, { data: ready },
+      { data: requests }, { data: ready }, { data: contractRecords },
     ] = await Promise.all([
       supabaseAdmin.from("producer_profiles")
         .select("legal_first_name, legal_last_name, resident_state")
@@ -81,6 +81,12 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       supabaseAdmin.from("contracting_requests")
         .select("id, status, readiness_state").eq("agent_id", agentId),
       supabaseAdmin.from("ready_to_sell_records")
+        .select("id, status").eq("agent_id", agentId),
+      // Contract records, which is where a contract that came in through an
+      // import or was completed outside the queue actually lives. Reading only
+      // the workflow table told agents with live carrier contracts that they
+      // had not started contracting.
+      supabaseAdmin.from("contract_requests")
         .select("id, status").eq("agent_id", agentId),
     ]);
 
@@ -109,9 +115,15 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const eoUploaded = eoDocs.length > 0;
 
     const reqs = requests ?? [];
+    const records = contractRecords ?? [];
     const OPEN_STATUSES = ["approved", "writing_number_issued", "declined", "cancelled", "closed"];
-    const contractingStarted = reqs.length > 0;
-    const contractingLive = reqs.some((r: any) =>
+
+    // A contract counts as live whichever half of the system knows about it:
+    // the workflow reaching approval, or a record already sitting at active —
+    // which is how every imported and externally-completed contract arrives.
+    const recordLive = records.some((r: any) => r.status === "active");
+    const contractingStarted = reqs.length > 0 || records.length > 0;
+    const contractingLive = recordLive || reqs.some((r: any) =>
       ["approved", "writing_number_issued"].includes(r.status));
     const awaitingCarrier = reqs.some((r: any) => !OPEN_STATUSES.includes(r.status));
     // What the agent themselves is holding up, as distinct from what the
@@ -226,8 +238,10 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const [{ data: profiles }, { data: licences }, { data: docs }, { data: requests }] =
-      await Promise.all([
+    const [
+      { data: profiles }, { data: licences }, { data: docs },
+      { data: requests }, { data: contractRecords },
+    ] = await Promise.all([
         supabaseAdmin.from("profiles")
           .select("id, first_name, last_name, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code")
           .in("id", ids),
@@ -235,6 +249,7 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
         supabaseAdmin.from("producer_documents")
           .select("agent_id, doc_type, review_status, expiration_date").in("agent_id", ids),
         supabaseAdmin.from("contracting_requests").select("agent_id, status").in("agent_id", ids),
+        supabaseAdmin.from("contract_requests").select("agent_id, status").in("agent_id", ids),
       ]);
 
     const byAgent = <T extends { agent_id: string }>(rows: T[] | null) => {
@@ -250,6 +265,7 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
     const lic = byAgent(licences);
     const doc = byAgent(docs);
     const req = byAgent(requests);
+    const rec = byAgent(contractRecords);
 
     type Row = {
       agent_id: string; name: string;
@@ -262,8 +278,10 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
       const hasEo = (doc.get(p.id) ?? []).some((d: any) =>
         REQUIRED_DOC_TYPES.includes(d.doc_type) && d.review_status === "approved" &&
         (!d.expiration_date || d.expiration_date >= today));
+      // Live in either half of the system — see getAgentOnboarding.
       const rs = req.get(p.id) ?? [];
-      const live = rs.some((r: any) => ["approved", "writing_number_issued"].includes(r.status));
+      const live = rs.some((r: any) => ["approved", "writing_number_issued"].includes(r.status))
+        || (rec.get(p.id) ?? []).some((r: any) => r.status === "active");
       const identity = Boolean(
         p.npn_number && p.date_of_birth && p.ssn_last4 &&
         p.street_address && p.city && p.state && p.zip_code);
