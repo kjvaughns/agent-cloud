@@ -43,12 +43,24 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     last_name: z.string().trim().min(1).max(60),
     email: z.string().email().max(120),
     password: z.string().min(8).max(100),
-    phone: z.string().min(7).max(30).optional().nullable(),
+    phone: z.string().trim().min(7).max(30),
+    npn_number: z.string().trim().max(40).optional().nullable(),
   }).parse(d))
   .handler(async ({ data }) => {
-    const { data: invRaw } = await supabaseAdmin.rpc("get_invite_by_token", { _token: data.token });
-    const inv = invRaw as any;
-    if (!inv || inv.expired) throw new Error("Invite expired or not found");
+    // Read the row itself rather than get_invite_by_token. That RPC does not
+    // return is_reusable, so every guard below used to see `undefined` and
+    // treat a shareable link as single-use: the first signup stamped the link
+    // as consumed and everybody after them was told it had already been used.
+    const { data: inv } = await (supabaseAdmin as any)
+      .from("invitation_links")
+      .select("*")
+      .eq("token", data.token)
+      .maybeSingle();
+
+    if (!inv) throw new Error("Invite not found");
+    if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
+      throw new Error("Invite expired or not found");
+    }
     if (inv.linked_agent_id && !inv.is_reusable) throw new Error("This invite has already been used");
 
     let newUserId: string;
@@ -78,9 +90,15 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       newUserId = created.user.id;
     }
 
+    // Phone and NPN are collected at the door because they are cheap to give
+    // and expensive to chase later — an NPN is the one identifier every
+    // carrier packet needs and the agent already knows it by heart. Everything
+    // else the packet wants is asked for by the readiness checklist, in the
+    // app, where it can be saved and returned to.
     await supabaseAdmin.from("profiles").update({
       upline_id: inv.created_by,
-      phone: data.phone ?? null,
+      phone: data.phone,
+      npn_number: data.npn_number || null,
       first_name: data.first_name,
       last_name: data.last_name,
       status: "active",
@@ -122,12 +140,23 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }).eq("id", newUserId);
     }
 
+    // Every acceptance is its own row, so a shareable link can be accepted by
+    // as many people as it is sent to.
+    await (supabaseAdmin as any).from("invite_acceptances").upsert(
+      { invitation_id: inv.id, profile_id: newUserId },
+      { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
+    );
+
+    // Only a single-use link is consumed by being used. Writing this to a
+    // reusable link is what used to break it for everybody after the first
+    // person — and onboarding_step in particular made the shared link resume
+    // mid-form for strangers who had no account yet.
     if (!inv.is_reusable) {
       await supabaseAdmin.from("invitation_links").update({
         linked_agent_id: newUserId,
-        status: "in_progress",
-        onboarding_step: 1,
+        status: "completed",
         agent_started_at: new Date().toISOString(),
+        agent_completed_at: new Date().toISOString(),
       }).eq("token", data.token);
     }
 
@@ -166,6 +195,31 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }).eq("id", newUserId);
     }
 
+    // Tell the upline somebody joined. This used to happen at the end of a
+    // four-step wizard; joining is the moment worth knowing about, and the
+    // readiness checklist reports everything after it.
+    await supabaseAdmin.from("notifications").insert({
+      user_id: inv.created_by,
+      title: `${data.first_name} ${data.last_name} joined your team`,
+      description: "They can sign in now. Their next steps are on Getting agents ready.",
+      type: "contracting",
+    });
+
+    try {
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "invite-accepted",
+        profileId: inv.created_by,
+        category: "team_activity",
+        key: `invite-accepted:${inv.id}:${newUserId}`,
+        data: { agentName: `${data.first_name} ${data.last_name}` },
+      });
+    } catch (e) {
+      // A failed notification email must never fail the signup that triggered
+      // it — the account exists either way.
+      console.error("[invite] accepted email failed", e);
+    }
+
     return { ok: true, userId: newUserId };
   });
 
@@ -193,6 +247,14 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const inv = await loadInviteForUser(supabase, data.token, userId);
+
+    // Recorded the same way a new signup is, so a shareable link reports all
+    // of its acceptances whether the person was new or already had an account.
+    await (supabaseAdmin as any).from("invite_acceptances").upsert(
+      { invitation_id: inv.id, profile_id: userId },
+      { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
+    );
+
     // Set upline if not already set
     await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
     // Wire pre-assigned carriers → contract_requests + commission levels
@@ -220,227 +282,16 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
     return { ok: true, invite: inv };
   });
 
-export const saveOnboardingPersonal = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    token: z.string().min(8).max(100),
-    first_name: z.string().trim().min(1).max(60),
-    last_name: z.string().trim().min(1).max(60),
-    date_of_birth: z.string().min(8).max(20),
-    ssn: z.string().regex(/^\d{9}$/),
-    npn_number: z.string().max(40).optional().nullable(),
-    street_address: z.string().trim().min(1).max(200),
-    city: z.string().trim().min(1).max(80),
-    state: z.string().trim().min(2).max(60),
-    zip_code: z.string().trim().min(3).max(20),
-    phone: z.string().trim().min(7).max(30),
-    contact_email: z.string().email().max(120),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    const inv = await loadInviteForUser(supabase, data.token, userId);
-
-    await supabase.from("profiles").update({
-      first_name: data.first_name,
-      last_name: data.last_name,
-      date_of_birth: data.date_of_birth,
-      npn_number: data.npn_number || null,
-      street_address: data.street_address,
-      city: data.city,
-      state: data.state,
-      zip_code: data.zip_code,
-      phone: data.phone,
-      email: data.contact_email,
-      ssn_last4: data.ssn.slice(-4),
-    }).eq("id", userId);
-
-    // Save SSN via existing pgcrypto path
-    try {
-      await supabase.rpc("ssn_set", { _ssn: data.ssn });
-    } catch {
-      // some envs may not yet have ssn_set; non-fatal
-    }
-
-    if (!inv.is_reusable) {
-      await supabaseAdmin.from("invitation_links").update({ onboarding_step: 2 }).eq("token", data.token);
-    }
-    return { ok: true };
-  });
-
-export const saveOnboardingCarriers = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    token: z.string().min(8).max(100),
-    choices: z.array(z.object({
-      carrier_id: z.string().uuid(),
-      include: z.boolean(),
-      release_needed: z.boolean(),
-    })).min(1).max(50),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    const included = data.choices.filter((c) => c.include);
-    if (included.length === 0) throw new Error("Select at least one carrier");
-
-    for (const choice of included) {
-      const { data: existing } = await supabase
-        .from("contract_requests").select("id")
-        .eq("agent_id", userId).eq("carrier_id", choice.carrier_id)
-        .neq("status", "rejected").maybeSingle();
-      if (!existing) {
-        await supabase.from("contract_requests").insert({
-          agent_id: userId,
-          carrier_id: choice.carrier_id,
-          status: "requested",
-          notes: choice.release_needed ? "Release needed from previous upline" : null,
-        });
-      }
-    }
-
-    // Flag transfer workflow if any included carrier needs a release
-    const releaseChoices = included.filter((c) => c.release_needed);
-    if (releaseChoices.length > 0) {
-      const { data: carrierRows } = await supabase
-        .from("carriers").select("id, name")
-        .in("id", releaseChoices.map((c) => c.carrier_id));
-      const nameMap = new Map(((carrierRows ?? []) as any[]).map((c) => [c.id, c.name]));
-      await (supabase as any).from("profiles").update({
-        needs_transfer_request: true,
-        transfer_workflow_carriers: releaseChoices.map((c) => ({
-          carrier_id:   c.carrier_id,
-          carrier_name: nameMap.get(c.carrier_id) ?? c.carrier_id,
-        })),
-      }).eq("id", userId);
-      await supabase.from("notifications").insert({
-        user_id: userId,
-        title: "Action Required: Complete Your Transfer Request",
-        body:  `You indicated you need a release from ${releaseChoices.length} carrier${releaseChoices.length !== 1 ? "s" : ""}. Go to Transfer Requests to complete your carrier release form.`,
-        type:  "action_required",
-        link:  "/contracting/transfers",
-        read:  false,
-      }).catch(() => {});
-    }
-
-    const invForStep = await loadInviteForUser(supabase, data.token, userId);
-    if (!invForStep.is_reusable) {
-      await supabaseAdmin.from("invitation_links").update({ onboarding_step: 3 }).eq("token", data.token);
-    }
-    return { ok: true, count: included.length };
-  });
-
-export const signOnboardingAgreement = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({
-    token: z.string().min(8).max(100),
-    signature_name: z.string().trim().min(2).max(120),
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    const inv = await loadInviteForUser(supabase, data.token, userId);
-
-    await supabase.from("producer_agreements").insert({
-      agent_id: userId,
-      signature_name: data.signature_name,
-      agreement_version: "1.0",
-    });
-
-    if (!inv.is_reusable) {
-      await supabaseAdmin.from("invitation_links").update({
-        onboarding_step: 4,
-        agent_completed_at: new Date().toISOString(),
-      }).eq("id", inv.id);
-    }
-
-    await supabase.from("notifications").insert({
-      user_id: inv.created_by,
-      title: "Agent accepted your invite",
-      description: "Contracting in progress — they're joining your downline.",
-      type: "contracting",
-    });
-
-    {
-      const { queueEmail } = await import("@/lib/email/send.server");
-      await queueEmail({
-        template: "invite-accepted",
-        profileId: inv.created_by,
-        category: "team_activity",
-        key: `invite-accepted:${inv.id}:${userId}`,
-        data: { agentName: data.signature_name },
-      });
-    }
-
-
-    return { ok: true };
-  });
-
-export const startSurelcSso = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ token: z.string().min(8).max(100) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    const inv = await loadInviteForUser(supabase, data.token, userId);
-
-    const surelcId = inv.surelc_agent_id ?? `pending_${userId.slice(0, 8)}_${Date.now()}`;
-
-    // Seed progress rows (all incomplete) - one row per section
-    for (const section of SURELC_SECTIONS) {
-      await supabase.from("surelc_progress").upsert({
-        agent_id: userId,
-        invitation_id: inv.id,
-        section_name: section,
-        completed: false,
-        last_synced_at: new Date().toISOString(),
-      }, { onConflict: "agent_id,section_name" });
-    }
-
-    await supabaseAdmin.from("invitation_links").update({
-      status: "in_surelc",
-      surelc_agent_id: surelcId,
-    }).eq("id", inv.id);
-
-    // SureLC integration — live when credentials configured, graceful pending otherwise
-    const { sureLcIsConfigured, generateSsoUrl } = await import("@/lib/surelc.service");
-
-    if (sureLcIsConfigured()) {
-      let surelcId = inv.surelc_agent_id && !inv.surelc_agent_id.startsWith("pending_")
-        ? inv.surelc_agent_id
-        : null;
-
-      if (!surelcId) {
-        const { findProducerByEmail, createProducer } = await import("@/lib/surelc.service");
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("email, first_name, last_name, npn_number")
-          .eq("id", userId)
-          .maybeSingle();
-
-        surelcId = await findProducerByEmail(profile?.email ?? "");
-        if (!surelcId && profile) {
-          surelcId = await createProducer({
-            firstName: profile.first_name ?? "",
-            lastName:  profile.last_name ?? "",
-            email:     profile.email ?? "",
-            npn:       profile.npn_number ?? undefined,
-          });
-        }
-        if (surelcId) {
-          await supabaseAdmin.from("invitation_links").update({ surelc_agent_id: surelcId }).eq("id", inv.id);
-          await (supabase as any).from("profiles").update({ surelc_agent_id: surelcId }).eq("id", userId);
-        }
-      }
-
-      const ssoUrl = surelcId ? await generateSsoUrl(surelcId) : null;
-      return { ok: true, sso_url: ssoUrl, pending: !ssoUrl };
-    }
-
-    // SureLC not configured yet — graceful pending state
-    return {
-      ok:      true,
-      sso_url: null,
-      pending: true,
-      message: "Contracting setup is handled by your admin. You'll receive an email when your SureLC account is ready.",
-    };
-  });
+// The four onboarding-step writers that used to live here — personal details,
+// carrier selection, the producer agreement and the SureLC hand-off — are gone.
+//
+// They existed because the invite wizard was the only onboarding there was.
+// It is not: /onboarding derives what each agent still needs from live data and
+// asks for one thing at a time, in the app, where it can be saved and returned
+// to. Collecting the same fields at the door meant asking a stranger for their
+// SSN before they had seen a single screen, and losing everything if they
+// stopped. The producer agreement already had a home on the Producer Profile
+// (signProducerAgreement), so this was a second copy of it.
 
 // ============ UPLINE / ADMIN DASHBOARD ============
 
@@ -506,10 +357,29 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
       (agents ?? []).forEach((a: any) => agentMap.set(a.id, a));
     }
 
+    // How many people actually joined through each link. A shareable link has
+    // many acceptances, so this is the only honest answer to "did my link
+    // work" — the old linked_agent_id could only ever hold the first one.
+    const inviteIds = ((rows ?? []) as any[]).map((r: any) => r.id);
+    const accepted = new Map<string, number>();
+    if (inviteIds.length) {
+      const { data: acc } = await supabase
+        .from("invite_acceptances").select("invitation_id").in("invitation_id", inviteIds);
+      for (const a of (acc ?? []) as any[]) {
+        accepted.set(a.invitation_id, (accepted.get(a.invitation_id) ?? 0) + 1);
+      }
+    }
+
+    const now = Date.now();
     return {
       rows: (rows ?? []).map((r: any) => ({
         ...r,
         linked_agent: r.linked_agent_id ? agentMap.get(r.linked_agent_id) ?? null : null,
+        accepted_count: accepted.get(r.id) ?? 0,
+        expired: r.expires_at ? new Date(r.expires_at).getTime() < now : false,
+        days_left: r.expires_at
+          ? Math.ceil((new Date(r.expires_at).getTime() - now) / 86_400_000)
+          : null,
       })),
     };
   });

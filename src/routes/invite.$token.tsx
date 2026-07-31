@@ -1,177 +1,277 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import {
-  getInviteByToken,
-  acceptInviteCreateAccount,
-  linkInviteToCurrentUser,
-  saveOnboardingPersonal,
-  saveOnboardingCarriers,
-  signOnboardingAgreement,
-} from "@/lib/onboarding.functions";
+import { getInviteByToken, acceptInviteCreateAccount, linkInviteToCurrentUser } from "@/lib/onboarding.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Cloud, CheckCircle2, Eye, EyeOff, Lock } from "lucide-react";
+import { Cloud, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 export const Route = createFileRoute("/invite/$token")({
   component: PublicInvitePage,
-  loader: async ({ params }) => {
-    const res = await getInviteByToken({ data: { token: params.token } });
-    return res;
-  },
+  loader: async ({ params }) => getInviteByToken({ data: { token: params.token } }),
   head: () => ({ meta: [{ title: "Accept Invite | Agent Cloud" }] }),
 });
 
+/**
+ * Accepting an invite.
+ *
+ * One screen. Name, email, phone, NPN, password — the things that make
+ * somebody a member of a downline, and the two identifiers that are cheap to
+ * give now and expensive to chase later.
+ *
+ * It used to be a four-step wizard that asked for date of birth, SSN, full
+ * address, carrier choices and a signed producer agreement before you were
+ * in. That existed because the wizard was the only onboarding there was. It
+ * is not any more: /onboarding works out what each agent still needs from
+ * live data and asks for one thing at a time, in the app, where it saves as
+ * you go. Asking for a stranger's SSN before they have seen a single screen
+ * cost more than it collected, and anyone who stopped halfway left nothing
+ * behind but a half-made account.
+ */
 function PublicInvitePage() {
   const { token } = Route.useParams();
   const initial = Route.useLoaderData();
-  const navigate = useNavigate();
   const [authedUser, setAuthedUser] = useState<any>(null);
-  const [step, setStep] = useState(0);
+  const [checkedAuth, setCheckedAuth] = useState(false);
+  const [done, setDone] = useState(false);
+
   const invite = (initial as any)?.invite as any;
   const migrationMatch = (initial as any)?.migration_match;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthedUser(data.user));
+    supabase.auth.getUser().then(({ data }) => { setAuthedUser(data.user); setCheckedAuth(true); });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setAuthedUser(sess?.user ?? null));
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (invite?.onboarding_step) setStep(invite.onboarding_step);
-  }, [invite?.onboarding_step]);
-
   if (!invite) {
-    return <Centered><h1 className="text-2xl font-bold mb-2">Invite not found</h1><p className="text-muted-foreground">This link is invalid.</p></Centered>;
+    return (
+      <Centered>
+        <h1 className="text-2xl font-bold mb-2">Invite not found</h1>
+        <p className="text-muted-foreground">This link is invalid.</p>
+      </Centered>
+    );
   }
   if (invite.expired) {
-    return <Centered><h1 className="text-2xl font-bold mb-2">Invite expired</h1><p className="text-muted-foreground">Ask your upline to send a new one.</p></Centered>;
+    return (
+      <Centered>
+        <h1 className="text-2xl font-bold mb-2">Invite expired</h1>
+        <p className="text-muted-foreground">Ask your upline to send a new one.</p>
+      </Centered>
+    );
   }
 
   const carriers = Array.isArray(invite.carrier_assignments) ? invite.carrier_assignments : [];
-  const totalSteps = 5;
-  const progress = (step / 4) * 100;
+  const uplineName = invite.upline_name?.trim() || "your upline";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      <header className="max-w-3xl mx-auto px-6 py-6 flex items-center gap-2">
+      <header className="mx-auto flex max-w-xl items-center gap-2 px-6 py-6">
         <Cloud className="h-7 w-7 text-primary" />
         <span className="font-semibold">Agent Cloud</span>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 pb-16 space-y-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">You've been invited by {invite.upline_name?.trim() || "your upline"}</h1>
-          {carriers.length > 0 ? (
-            <>
-              <p className="text-muted-foreground mt-1">Join their team and get contracted with the following carriers:</p>
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {carriers.map((c: any) => <Badge key={c.carrier_id} variant="secondary">{c.carrier_name}</Badge>)}
-              </div>
-            </>
-          ) : (
-            <p className="text-muted-foreground mt-1">
-              Create your account to join their team. Your upline will assign your carrier commission levels after you're onboarded.
-            </p>
-          )}
-        </div>
-
-        {migrationMatch && step <= 1 && (
-          <div className="flex items-center gap-3 rounded-lg border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-4 py-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
-            <div className="text-sm">
-              <span className="font-semibold text-emerald-800 dark:text-emerald-300">Welcome back! </span>
-              <span className="text-emerald-700 dark:text-emerald-400">We found your Apex record and pre-filled your name below.</span>
+      <main className="mx-auto max-w-xl space-y-6 px-6 pb-16">
+        {done ? (
+          <Welcome uplineName={uplineName} />
+        ) : (
+          <>
+            <div>
+              <h1 className="text-2xl font-bold md:text-3xl">
+                You've been invited by {uplineName}
+              </h1>
+              {carriers.length > 0 ? (
+                <>
+                  <p className="mt-1 text-muted-foreground">
+                    Join their team. These carriers are already lined up for you:
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {carriers.map((c: any) => (
+                      <Badge key={c.carrier_id} variant="secondary">{c.carrier_name}</Badge>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  Create your account to join their team.
+                </p>
+              )}
+              <p className="mt-3 text-sm text-muted-foreground">
+                Takes about a minute. Everything carriers need for contracting is asked for
+                afterwards, one step at a time.
+              </p>
             </div>
-          </div>
-        )}
 
-        {step > 0 && (
-          <div className="space-y-1">
-            <Progress value={progress} />
-            <div className="text-xs text-muted-foreground text-right">Step {step} of 4</div>
-          </div>
-        )}
+            {migrationMatch && (
+              <div className="flex items-center gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/20">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+                <div className="text-sm">
+                  <span className="font-semibold text-emerald-800 dark:text-emerald-300">Welcome back! </span>
+                  <span className="text-emerald-700 dark:text-emerald-400">
+                    We found your Apex record and pre-filled your name.
+                  </span>
+                </div>
+              </div>
+            )}
 
-        {step === 0 && !authedUser && <Step0NewAccount token={token} invite={invite} migrationMatch={migrationMatch} onDone={() => setStep(1)} />}
-        {step === 0 && authedUser && <Step0LinkExisting token={token} onDone={() => setStep(1)} />}
-        {step === 1 && <Step1Personal token={token} invite={invite} migrationMatch={migrationMatch} onDone={() => setStep(2)} />}
-        {step === 2 && <Step2Carriers token={token} carriers={carriers} onDone={() => setStep(3)} />}
-        {step === 3 && <Step3Agreement token={token} onDone={() => setStep(4)} />}
-        {step === 4 && <Step4Confirmation invite={invite} />}
+            {!checkedAuth ? (
+              <Card className="p-6 text-center text-muted-foreground">Loading…</Card>
+            ) : authedUser ? (
+              <JoinWithExistingAccount token={token} onDone={() => setDone(true)} />
+            ) : (
+              <JoinForm
+                token={token}
+                invite={invite}
+                migrationMatch={migrationMatch}
+                onDone={() => setDone(true)}
+              />
+            )}
+          </>
+        )}
       </main>
     </div>
   );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen grid place-items-center p-6"><Card className="p-8 max-w-md text-center">{children}</Card></div>;
+  return (
+    <div className="grid min-h-screen place-items-center p-6">
+      <Card className="max-w-md p-8 text-center">{children}</Card>
+    </div>
+  );
 }
 
-function Step0NewAccount({ token, invite, migrationMatch, onDone }: { token: string; invite: any; migrationMatch?: any; onDone: () => void }) {
-  const [mode, setMode] = useState<"login" | "create">("create");
-  const [email, setEmail] = useState(invite.new_agent_email ?? "");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState(invite.new_agent_first_name ?? migrationMatch?.first_name ?? "");
-  const [lastName, setLastName] = useState(invite.new_agent_last_name ?? migrationMatch?.last_name ?? "");
-  const [phone, setPhone] = useState("");
+function JoinForm({
+  token, invite, migrationMatch, onDone,
+}: {
+  token: string; invite: any; migrationMatch?: any; onDone: () => void;
+}) {
+  const [mode, setMode] = useState<"create" | "login">("create");
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({
+    first_name: invite.new_agent_first_name ?? migrationMatch?.first_name ?? "",
+    last_name: invite.new_agent_last_name ?? migrationMatch?.last_name ?? "",
+    email: invite.new_agent_email ?? "",
+    phone: "",
+    npn_number: "",
+    password: "",
+  });
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const createFn = useServerFn(acceptInviteCreateAccount);
+  const linkFn = useServerFn(linkInviteToCurrentUser);
 
   const create = useMutation({
-    mutationFn: () => createFn({ data: { token, first_name: firstName, last_name: lastName, email, password, phone } }),
+    mutationFn: () => createFn({ data: { token, ...form, npn_number: form.npn_number || null } }),
     onSuccess: async () => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email, password: form.password,
+      });
       if (error) toast.error(error.message);
-      else { toast.success("Account created"); onDone(); }
+      else onDone();
     },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+    onError: (e: any) => toast.error(e?.message ?? "Could not create your account"),
   });
 
   const login = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email, password: form.password,
+      });
       if (error) throw new Error(error.message);
+      // Signing in does not join the team on its own — the invite still has to
+      // be attached to the account that just signed in.
+      await linkFn({ data: { token } });
     },
     onSuccess: () => onDone(),
-    onError: (e: any) => toast.error(e?.message ?? "Login failed"),
+    onError: (e: any) => toast.error(e?.message ?? "Could not sign you in"),
   });
 
+  const ready =
+    form.first_name.trim() && form.last_name.trim() && form.email.trim() &&
+    form.phone.trim().length >= 7 && form.password.length >= 8;
+
   return (
-    <Card className="p-6 space-y-4">
+    <Card className="space-y-4 p-6">
       <div className="flex gap-2">
-        <Button size="sm" variant={mode === "create" ? "default" : "outline"} onClick={() => setMode("create")}>New to Agent Cloud</Button>
-        <Button size="sm" variant={mode === "login" ? "default" : "outline"} onClick={() => setMode("login")}>I already have an account</Button>
+        <Button size="sm" variant={mode === "create" ? "default" : "outline"} onClick={() => setMode("create")}>
+          New to Agent Cloud
+        </Button>
+        <Button size="sm" variant={mode === "login" ? "default" : "outline"} onClick={() => setMode("login")}>
+          I already have an account
+        </Button>
       </div>
 
       {mode === "create" ? (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>First name *</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
-            <div><Label>Last name *</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+            <div>
+              <Label>First name *</Label>
+              <Input value={form.first_name} onChange={(e) => set("first_name", e.target.value)} />
+            </div>
+            <div>
+              <Label>Last name *</Label>
+              <Input value={form.last_name} onChange={(e) => set("last_name", e.target.value)} />
+            </div>
           </div>
-          <div><Label>Email *</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
-          <div><Label>Create password *</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-          <Button className="w-full" disabled={create.isPending || !email || password.length < 8 || !firstName || !lastName}
-            onClick={() => create.mutate()}>
-            {create.isPending ? "Creating..." : "Create Account & Start →"}
+          <div>
+            <Label>Email *</Label>
+            <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+          </div>
+          <div>
+            <Label>Mobile number *</Label>
+            <Input type="tel" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+          </div>
+          <div>
+            <Label>NPN</Label>
+            <Input
+              value={form.npn_number}
+              onChange={(e) => set("npn_number", e.target.value.replace(/\D/g, "").slice(0, 20))}
+              placeholder="Optional — you can add it later"
+            />
+            {/* Says where to find it rather than assuming they know. A new
+                agent frequently does not have it to hand. */}
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your National Producer Number. On your licence, or look it up at nipr.com.
+            </p>
+          </div>
+          <div>
+            <Label>Create a password *</Label>
+            <div className="flex gap-1">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(e) => set("password", e.target.value)}
+              />
+              <Button type="button" size="icon" variant="outline" onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}>
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
+          </div>
+          <Button className="w-full" disabled={create.isPending || !ready} onClick={() => create.mutate()}>
+            {create.isPending ? "Creating your account…" : "Join the team →"}
           </Button>
         </div>
       ) : (
         <div className="space-y-3">
-          <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          <div>
+            <Label>Email</Label>
+            <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+          </div>
+          <div>
+            <Label>Password</Label>
+            <Input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
+          </div>
           <Button className="w-full" disabled={login.isPending} onClick={() => login.mutate()}>
-            {login.isPending ? "Signing in..." : "Log In & Continue"}
+            {login.isPending ? "Signing in…" : "Sign in and join →"}
           </Button>
         </div>
       )}
@@ -179,192 +279,41 @@ function Step0NewAccount({ token, invite, migrationMatch, onDone }: { token: str
   );
 }
 
-function Step0LinkExisting({ token, onDone }: { token: string; onDone: () => void }) {
+/** Already signed in — one button, no forms they have already filled in once. */
+function JoinWithExistingAccount({ token, onDone }: { token: string; onDone: () => void }) {
   const linkFn = useServerFn(linkInviteToCurrentUser);
-  useEffect(() => {
-    linkFn({ data: { token } }).then(() => onDone()).catch((e: any) => toast.error(e?.message ?? "Failed"));
-  }, []);
-  return <Card className="p-6 text-center text-muted-foreground">Linking invite to your account...</Card>;
-}
-
-function Step1Personal({ token, invite, migrationMatch, onDone }: { token: string; invite: any; migrationMatch?: any; onDone: () => void }) {
-  const [form, setForm] = useState({
-    first_name: invite.new_agent_first_name ?? migrationMatch?.first_name ?? "",
-    last_name: invite.new_agent_last_name ?? migrationMatch?.last_name ?? "",
-    date_of_birth: "",
-    ssn: "",
-    npn_number: "",
-    street_address: "",
-    city: "",
-    state: "",
-    zip_code: "",
-    phone: "",
-    contact_email: invite.new_agent_email ?? "",
-  });
-  const [showSsn, setShowSsn] = useState(false);
-  const saveFn = useServerFn(saveOnboardingPersonal);
-  const save = useMutation({
-    mutationFn: () => saveFn({ data: { token, ...form } }),
-    onSuccess: () => { toast.success("Saved"); onDone(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  return (
-    <Card className="p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Your Personal Information</h2>
-      <p className="text-sm text-muted-foreground">Used to complete contracting packets and locate your license records.</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div><Label>First name *</Label><Input value={form.first_name} onChange={(e) => set("first_name", e.target.value)} /></div>
-        <div><Label>Last name *</Label><Input value={form.last_name} onChange={(e) => set("last_name", e.target.value)} /></div>
-        <div className="min-w-0"><Label>Date of birth *</Label><Input type="date" value={form.date_of_birth} onChange={(e) => set("date_of_birth", e.target.value)} /></div>
-        <div>
-          <Label className="flex items-center gap-1"><Lock className="h-3 w-3" /> SSN *</Label>
-          <div className="flex gap-1">
-            <Input type={showSsn ? "text" : "password"} value={form.ssn} maxLength={9}
-              onChange={(e) => set("ssn", e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="123456789" />
-            <Button type="button" size="icon" variant="outline" onClick={() => setShowSsn(s => !s)}>
-              {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-        <div className="col-span-2"><Label>Street address *</Label>
-          <AddressAutocomplete
-            value={form.street_address}
-            onChange={(v) => set("street_address", v)}
-            onSelect={(p) => {
-              set("street_address", p.street);
-              set("city", p.city);
-              set("state", p.state);
-              set("zip_code", p.zip);
-            }}
-          />
-        </div>
-        <div><Label>City *</Label><Input value={form.city} onChange={(e) => set("city", e.target.value)} /></div>
-        <div><Label>State *</Label><Input value={form.state} onChange={(e) => set("state", e.target.value)} maxLength={2} placeholder="TX" /></div>
-        <div><Label>ZIP *</Label><Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} /></div>
-        <div><Label>NPN (optional)</Label><Input value={form.npn_number} onChange={(e) => set("npn_number", e.target.value)} /></div>
-        <div><Label>Phone *</Label><Input value={form.phone} onChange={(e) => set("phone", e.target.value)} /></div>
-        <div className="col-span-2"><Label>Email *</Label><Input type="email" value={form.contact_email} onChange={(e) => set("contact_email", e.target.value)} /></div>
-      </div>
-      <div className="flex justify-end">
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving..." : "Next →"}</Button>
-      </div>
-    </Card>
-  );
-}
-
-function Step2Carriers({ token, carriers, onDone }: { token: string; carriers: any[]; onDone: () => void }) {
-  const [choices, setChoices] = useState(() => carriers.map((c) => ({ carrier_id: c.carrier_id, carrier_name: c.carrier_name, include: true, release_needed: !!c.release_needed })));
-  const saveFn = useServerFn(saveOnboardingCarriers);
-
-  if (carriers.length === 0) {
-    return (
-      <Card className="p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Carrier Selection</h2>
-        <p className="text-sm text-muted-foreground">
-          No carriers were pre-assigned to this invite. Your upline will assign your carrier
-          commission levels after you've joined the team.
-        </p>
-        <div className="flex justify-end">
-          <Button onClick={onDone}>Continue →</Button>
-        </div>
-      </Card>
-    );
-  }
-  const save = useMutation({
-    mutationFn: () => saveFn({ data: { token, choices: choices.map(({ carrier_id, include, release_needed }) => ({ carrier_id, include, release_needed })) } }),
-    onSuccess: () => { toast.success("Saved"); onDone(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-  return (
-    <Card className="p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Choose Your Carriers</h2>
-      <p className="text-sm text-muted-foreground">Your upline pre-selected these carriers. Pick which ones to include in your contracting.</p>
-      <div className="space-y-2">
-        {choices.map((ch, i) => (
-          <div key={ch.carrier_id} className="border rounded-lg p-3 space-y-2">
-            <div className="font-medium">{ch.carrier_name}</div>
-            <div className="flex gap-2">
-              <Button size="sm" variant={ch.include ? "default" : "outline"} onClick={() => setChoices((s) => s.map((x, idx) => idx === i ? { ...x, include: true } : x))}>Yes</Button>
-              <Button size="sm" variant={!ch.include ? "default" : "outline"} onClick={() => setChoices((s) => s.map((x, idx) => idx === i ? { ...x, include: false } : x))}>Skip</Button>
-            </div>
-            {ch.include && (
-              <div className="text-sm flex items-center gap-3">
-                <span className="text-muted-foreground">Release needed?</span>
-                <Button size="sm" variant={ch.release_needed ? "default" : "outline"} onClick={() => setChoices((s) => s.map((x, idx) => idx === i ? { ...x, release_needed: true } : x))}>Yes</Button>
-                <Button size="sm" variant={!ch.release_needed ? "default" : "outline"} onClick={() => setChoices((s) => s.map((x, idx) => idx === i ? { ...x, release_needed: false } : x))}>No</Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex justify-end">
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving..." : "Next →"}</Button>
-      </div>
-    </Card>
-  );
-}
-
-function Step3Agreement({ token, onDone }: { token: string; onDone: () => void }) {
-  const [name, setName] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const signFn = useServerFn(signOnboardingAgreement);
-  const sign = useMutation({
-    mutationFn: () => signFn({ data: { token, signature_name: name } }),
-    onSuccess: () => { toast.success("Agreement signed"); onDone(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  const join = useMutation({
+    mutationFn: () => linkFn({ data: { token } }),
+    onSuccess: () => onDone(),
+    onError: (e: any) => toast.error(e?.message ?? "Could not join the team"),
   });
 
   return (
-    <Card className="p-6 space-y-4">
-      <h2 className="text-lg font-semibold">Producer Agreement</h2>
-      <div className="border rounded-md p-4 max-h-64 overflow-auto text-sm text-muted-foreground bg-muted/30">
-        <p className="font-medium mb-2">Agent Cloud Producer Agreement</p>
-        <p>By signing this agreement, you authorize Agent Cloud and your upline to submit your contracting applications to the carriers you have selected. You confirm that all information you provide is accurate, and you agree to comply with all applicable carrier and regulatory requirements.</p>
-        <p className="mt-2">You acknowledge that commission levels are assigned by your upline and may be subject to change upon written agreement, and that all commissions are paid by the carrier in accordance with the carrier's commission schedule.</p>
-      </div>
-      <div>
-        <Label>Type your full legal name to sign</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
-      </div>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1" />
-        <span>I have read and agree to the Producer Agreement and authorize submission of my contracting applications.</span>
-      </label>
-      <Button disabled={!agreed || name.trim().length < 2 || sign.isPending} onClick={() => sign.mutate()} className="w-full">
-        {sign.isPending ? "Submitting..." : "Submit & Continue →"}
+    <Card className="space-y-4 p-6">
+      <p className="text-sm text-muted-foreground">
+        You're already signed in to Agent Cloud. Joining adds you to this team.
+      </p>
+      <Button className="w-full" disabled={join.isPending} onClick={() => join.mutate()}>
+        {join.isPending ? "Joining…" : "Join the team →"}
       </Button>
     </Card>
   );
 }
 
-function Step4Confirmation({ invite }: { invite: any }) {
+function Welcome({ uplineName }: { uplineName: string }) {
   return (
-    <Card className="p-8 text-center space-y-4">
-      <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/10 grid place-items-center">
+    <Card className="space-y-4 p-8 text-center">
+      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/10">
         <CheckCircle2 className="h-8 w-8 text-emerald-600" />
       </div>
-      <h2 className="text-2xl font-bold">You're in!</h2>
+      <h2 className="text-2xl font-bold">You're in</h2>
       <p className="text-muted-foreground">
-        You've been added to <strong>{invite.upline_name?.trim() || "your upline"}'s</strong> team.
-        Your contracting applications are being processed.
+        You've joined <strong>{uplineName}'s</strong> team. Your dashboard shows the next step
+        towards being ready to sell — one at a time, and it saves as you go.
       </p>
-      <div className="text-sm space-y-2 text-left max-w-xs mx-auto">
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" /> Account created
-        </div>
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" /> Personal info saved
-        </div>
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" /> Carriers selected
-        </div>
-        <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 className="h-4 w-4 shrink-0" /> Agreement signed
-        </div>
-      </div>
-      <Button asChild className="mt-2"><a href="/">Go to Dashboard →</a></Button>
+      {/* A full page load rather than a client navigation: the session was just
+          created, and the app shell needs to boot with it. */}
+      <Button asChild className="mt-2"><a href="/dashboard">Go to my dashboard →</a></Button>
     </Card>
   );
 }
