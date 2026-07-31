@@ -20,13 +20,54 @@ import {
   SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
   SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
-import { Star } from "lucide-react";
+import { Star, X } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
 import { arrangeFavorites, audienceFor, navFor, ACCOUNT_PAGES, type Page } from "@/lib/navigation";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean; id?: string };
 
 const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon, id: p.id });
+
+/**
+ * Remove a starred page from the sidebar, from the sidebar.
+ *
+ * Unstarring used to mean navigating to the page and clicking the star again,
+ * which is backwards: you notice you do not want something there while looking
+ * at it in the list, not while using it.
+ *
+ * Hidden until hover or keyboard focus so eight favourites do not become eight
+ * delete buttons, but reachable by tab either way — a control that only exists
+ * on hover does not exist on a touchscreen or to a keyboard.
+ */
+function UnstarButton({
+  pageId, label, onUnstar,
+}: {
+  pageId: string;
+  label: string;
+  onUnstar: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        // The row is a link; without this the click navigates as it removes.
+        e.preventDefault();
+        e.stopPropagation();
+        onUnstar(pageId);
+      }}
+      aria-label={`Unstar ${label}`}
+      title={`Remove ${label} from your starred pages`}
+      className={cn(
+        "absolute right-1 top-1/2 -translate-y-1/2 rounded p-1",
+        "text-sidebar-foreground/40 transition-opacity hover:text-sidebar-foreground",
+        "opacity-0 group-hover/fav:opacity-100 focus-visible:opacity-100",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+      )}
+    >
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -53,10 +94,11 @@ export function AppSidebar() {
 
   // Starred pages. Ones belonging to a hub already in this sidebar nest under
   // it; the rest collect in a Starred group below.
-  const { pageIds } = useFavorites();
+  const { pageIds, toggle } = useFavorites();
+  const unstar = (id: string) => toggle(id, false);
   const sidebarIds = new Set(navGroups.flatMap((g) => g.items.map((p) => p.id)));
   const favorites = arrangeFavorites(pageIds, sidebarIds, audience, perms);
-  const looseFavorites = favorites.loose.map(asNavItem);
+
 
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
     try {
@@ -135,13 +177,14 @@ export function AppSidebar() {
           {expanded && (
             <SidebarMenuSub>
               {starred.map((p) => (
-                <SidebarMenuSubItem key={p.path}>
+                <SidebarMenuSubItem key={p.path} className="group/fav relative">
                   <SidebarMenuSubButton asChild isActive={path === p.path || path.startsWith(p.path + "/")}>
-                    <Link to={p.path}>
+                    <Link to={p.path} className="pr-7">
                       <Star className="h-3 w-3 fill-primary/70 text-primary/70" />
                       <span>{p.label}</span>
                     </Link>
                   </SidebarMenuSubButton>
+                  <UnstarButton pageId={p.id} label={p.label} onUnstar={unstar} />
                 </SidebarMenuSubItem>
               ))}
             </SidebarMenuSub>
@@ -239,14 +282,36 @@ export function AppSidebar() {
         ))}
 
         {/* Starred pages with no hub in this sidebar to sit under. */}
-        {looseFavorites.length > 0 && (
+        {favorites.loose.length > 0 && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               {!sidebarCollapsed && <SidebarGroupLabel>Starred</SidebarGroupLabel>}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {looseFavorites.filter((it) => canSeeNavItem(it.url, access)).map(renderItem)}
+                  {favorites.loose
+                    .filter((p) => canSeeNavItem(p.path, access))
+                    .map((p) => (
+                      <SidebarMenuItem key={p.path} className="group/fav relative">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={path === p.path || path.startsWith(p.path + "/")}
+                          tooltip={p.label}
+                          className={cn(
+                            "data-[active=true]:bg-primary/12 data-[active=true]:text-foreground data-[active=true]:font-semibold",
+                            "[&[data-active=true]_svg]:text-primary transition-colors",
+                          )}
+                        >
+                          <Link to={p.path} className="pr-7">
+                            <p.icon className="h-4 w-4" />
+                            <span>{p.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {!sidebarCollapsed && (
+                          <UnstarButton pageId={p.id} label={p.label} onUnstar={unstar} />
+                        )}
+                      </SidebarMenuItem>
+                    ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
