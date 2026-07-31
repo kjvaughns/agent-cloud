@@ -18,9 +18,12 @@ import { AgencyNav, isAgencyHubPath } from "@/components/agency/nav";
  * sidebar sees the page; an owner opening it from the Agency rail sees it with
  * the rail still there, and can carry on cycling through.
  *
- * The heading belongs to the overview alone. Every other page in the hub has
- * its own, and stacking "Agency Admin" above "Team Command Center" on each one
- * would be a label repeated rather than a place explained.
+ * The heading stays on every page, the way Contracting Operations does. It
+ * names the hub, not the page — every page in here has its own title beneath
+ * it (Team Command Center, Challenges & Trophies, Invite Links), so the two
+ * read as place and then page rather than as the same label twice. Dropping it
+ * after the overview also made the two hubs behave differently, which is worse
+ * than one extra line.
  */
 export function AgencyFrame({ children }: { children: React.ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
@@ -33,20 +36,16 @@ export function AgencyFrame({ children }: { children: React.ReactNode }) {
 
   if (!inHub || !hasHub) return <>{children}</>;
 
-  const isOverview = path === "/agency" || path === "/agency/";
-
   return (
     <PageShell>
       <div className="space-y-4">
-        {isOverview && (
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Agency Admin</h1>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-              Your people — who is here, who is joining, how they are doing, and who is at risk of
-              leaving. Configuration lives in Settings, contracting in Contracting Operations.
-            </p>
-          </div>
-        )}
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Agency Admin</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+            Your people — who is here, who is joining, how they are doing, and who is at risk of
+            leaving. Configuration lives in Settings, contracting in Contracting Operations.
+          </p>
+        </div>
 
         <div className="lg:grid lg:grid-cols-[188px_minmax(0,1fr)] lg:gap-6">
           <AgencyNav />
