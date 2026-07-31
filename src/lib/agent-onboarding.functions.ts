@@ -53,7 +53,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const [{ data: me }, { data: agent }] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, organization_id").eq("id", userId).maybeSingle(),
       supabaseAdmin.from("profiles")
-        .select("id, first_name, last_name, organization_id, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code, upline_id")
+        .select("id, first_name, last_name, organization_id, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code, upline_id, needs_transfer_request, drivers_license_number")
         .eq("id", agentId).maybeSingle(),
     ]);
 
@@ -70,6 +70,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const [
       { data: producer }, { data: licences }, { data: docs },
       { data: requests }, { data: ready }, { data: contractRecords },
+      { data: banking }, { data: background },
     ] = await Promise.all([
       supabaseAdmin.from("producer_profiles")
         .select("legal_first_name, legal_last_name, resident_state")
@@ -88,6 +89,12 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       // had not started contracting.
       supabaseAdmin.from("contract_requests")
         .select("id, status").eq("agent_id", agentId),
+      // The four the dashboard banner used to chase separately, plus the
+      // carrier release. Folded in here so removing that banner loses nothing.
+      supabaseAdmin.from("producer_banking")
+        .select("agent_id, account_last4").eq("agent_id", agentId).maybeSingle(),
+      supabaseAdmin.from("background_questions")
+        .select("id").eq("agent_id", agentId),
     ]);
 
     const name = `${agent.first_name ?? ""} ${agent.last_name ?? ""}`.trim() || "This agent";
@@ -134,6 +141,16 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
 
     const readyToSell = (ready ?? []).some((r: any) => r.status === "ready");
 
+    // The items the dashboard banner used to chase. A document counts as
+    // present once uploaded here rather than approved: unlike E&O, nothing
+    // downstream gates on somebody having reviewed them.
+    const hasDoc = (type: string) => allDocs.some((d: any) => d.doc_type === type);
+    const amlDone = hasDoc("aml_certificate");
+    const licenceIdDone = hasDoc("drivers_license") || Boolean(agent.drivers_license_number);
+    const bankingDone = Boolean(banking?.account_last4);
+    const backgroundDone = (background ?? []).length > 0;
+    const needsTransfer = Boolean(agent.needs_transfer_request);
+
     // ── The list ────────────────────────────────────────────────────────────
 
     const steps: OnboardingStep[] = [
@@ -173,6 +190,38 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         cta: eoUploaded ? "Review the document" : "Upload it",
       },
       {
+        key: "aml",
+        title: "Upload the AML certificate",
+        why: "Anti-money-laundering training. Annuity carriers will not appoint without it.",
+        done: amlDone,
+        href: "/account/producer-profile",
+        cta: "Upload it",
+      },
+      {
+        key: "identification",
+        title: "Add a driver's licence",
+        why: "Carriers use it to verify identity on the application.",
+        done: licenceIdDone,
+        href: "/account/producer-profile",
+        cta: "Upload it",
+      },
+      {
+        key: "background",
+        title: "Answer the background questions",
+        why: "The producer disclosure. Every carrier packet includes it, and an unanswered one holds up the whole submission.",
+        done: backgroundDone,
+        href: "/account/producer-profile",
+        cta: "Answer them",
+      },
+      {
+        key: "banking",
+        title: "Add bank details",
+        why: "Where commission gets paid. Nothing is blocked without it, but the first payment is.",
+        done: bankingDone,
+        href: "/account/producer-profile",
+        cta: "Add them",
+      },
+      {
         key: "contracting",
         title: contractingStarted ? "Finish the carrier requests" : "Request a carrier contract",
         why: needsAgent
@@ -195,6 +244,20 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         cta: "See where they can write",
       },
     ];
+
+    // A carrier release only applies to somebody moving from another upline,
+    // so it is not a step everyone has. When it does apply it goes near the
+    // front: the carrier will not process the contracting behind it.
+    if (needsTransfer) {
+      steps.splice(2, 0, {
+        key: "transfer",
+        title: "Submit the carrier release",
+        why: "Their previous upline has to release them before these carriers will contract them. Everything after this waits on it.",
+        done: false,
+        href: "/contracting/transfers",
+        cta: "Complete the release",
+      });
+    }
 
     const complete = steps.filter((s) => s.done).length;
     // The one thing to do next: the first open step that is not simply waiting
