@@ -909,6 +909,54 @@ const StatusSchema = z.object({
   decline_reason: z.string().max(1000).nullable().optional(),
 });
 
+/**
+ * Write the contract this request produced into the contract record.
+ *
+ * The two tables are one system in two layers: contracting_requests is the
+ * work, contract_requests is the resulting contract — the row the agent's
+ * Contracts page, the commission levels and every import already read.
+ * contract_record_id was built to join them and nothing ever set it.
+ *
+ * Never throws. An approval that succeeded must not be reported as failed
+ * because its bookkeeping did; the request status is the source of truth and a
+ * missing record can be reconciled, whereas a rolled-back approval cannot.
+ */
+async function syncContractRecord(request: any, status: string, now: string) {
+  try {
+    const { data: orgCarrier } = await supabaseAdmin
+      .from("org_carriers").select("carrier_id").eq("id", request.org_carrier_id).maybeSingle();
+    if (!orgCarrier?.carrier_id) return;
+
+    const patch: Record<string, unknown> = {
+      agent_id: request.agent_id,
+      carrier_id: orgCarrier.carrier_id,
+      organization_id: request.organization_id,
+      // A writing number means the carrier has appointed them; approval alone
+      // means the paperwork cleared internally.
+      status: status === "writing_number_issued" ? "active" : "processing",
+    };
+    if (status === "writing_number_issued") {
+      patch.activated_at = now;
+      patch.effective_date = request.desired_effective_date ?? null;
+    }
+
+    const { data: record } = await supabaseAdmin
+      .from("contract_requests")
+      .upsert(patch, { onConflict: "agent_id,carrier_id" })
+      .select("id")
+      .maybeSingle();
+
+    if (record?.id && !request.contract_record_id) {
+      await supabaseAdmin
+        .from("contracting_requests")
+        .update({ contract_record_id: record.id })
+        .eq("id", request.id);
+    }
+  } catch (e) {
+    console.error("[contracting] contract record sync failed", e);
+  }
+}
+
 export const updateRequestStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StatusSchema.parse(d))
@@ -953,6 +1001,16 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("contracting_requests").update(patch).eq("id", data.id).eq("organization_id", orgId);
     if (error) throw new Error(error.message);
+
+    // Finishing the work produces a contract. contract_requests is where a
+    // contract record lives — it is what the agent's own Contracts page, the
+    // commission engine and every import read — and contract_record_id exists
+    // to point at it. Nothing used to write either, so a request could be
+    // approved here and the agent would still show as uncontracted everywhere
+    // else.
+    if (["approved", "writing_number_issued"].includes(data.status)) {
+      await syncContractRecord(before, data.status, now);
+    }
 
     // The trigger records the bare transition; this adds the human context.
     if (data.agent_visible_message || data.internal_message || data.next_action) {

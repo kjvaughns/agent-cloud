@@ -35,7 +35,7 @@ export const getAgencyPeopleOverview = createServerFn({ method: "GET" })
 
     const [
       { data: profiles }, { data: licences }, { data: docs }, { data: requests },
-      { data: invites }, { data: retention }, { data: challenges },
+      { data: contractRecords }, { data: invites }, { data: retention }, { data: challenges },
     ] = await Promise.all([
       ids.length
         ? supabaseAdmin.from("profiles")
@@ -51,6 +51,11 @@ export const getAgencyPeopleOverview = createServerFn({ method: "GET" })
         : Promise.resolve({ data: [] }),
       ids.length
         ? supabaseAdmin.from("contracting_requests").select("agent_id, status").in("agent_id", ids)
+        : Promise.resolve({ data: [] }),
+      // Contract records too, so this count agrees with the onboarding
+      // checklist about who is contracted.
+      ids.length
+        ? supabaseAdmin.from("contract_requests").select("agent_id, status").in("agent_id", ids)
         : Promise.resolve({ data: [] }),
       supabaseAdmin.from("invitation_links")
         .select("id, status").eq("organization_id", orgId)
@@ -75,6 +80,9 @@ export const getAgencyPeopleOverview = createServerFn({ method: "GET" })
       (!d.expiration_date || d.expiration_date >= today));
     const contracted = has(requests, (r: any) =>
       ["approved", "writing_number_issued"].includes(r.status));
+    for (const r of (contractRecords ?? []) as any[]) {
+      if (r.status === "active") contracted.add(r.agent_id);
+    }
 
     let ready = 0;
     let notReady = 0;

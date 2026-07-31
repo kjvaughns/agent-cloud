@@ -16,6 +16,99 @@ const SURELC_SECTIONS = [
   "carrier_questions",
 ] as const;
 
+/**
+ * Wire an invite's pre-assigned carriers into both halves of contracting.
+ *
+ * They are not two competing systems, which is how they looked: contract_requests
+ * is the contract *record* — writing number, effective date, commission level,
+ * and every historical contract that came in through an import. contracting_requests
+ * is the *work* of obtaining one — the queue, the assignment, the readiness
+ * check, the approvals. It even carries contract_record_id pointing at the
+ * record it produces.
+ *
+ * Nothing ever set that column, and the invite only wrote the record half. So
+ * an agent joined with carriers assigned, and the readiness checklist — which
+ * reads the workflow half — reported they had not started contracting at all.
+ *
+ * This writes both and links them. A carrier the agency has not set up yet
+ * gets the record but no workflow row, because there is nothing to queue it
+ * against; the record is still there for when they do.
+ */
+async function assignInviteCarriers(opts: {
+  client: any;
+  agentId: string;
+  organizationId: string | null;
+  createdBy: string;
+  assignments: any[];
+}) {
+  const { client, agentId, organizationId, createdBy, assignments } = opts;
+
+  for (const a of assignments) {
+    if (!a.carrier_id) continue;
+
+    const { data: record } = await client
+      .from("contract_requests")
+      .upsert({
+        agent_id: agentId,
+        carrier_id: a.carrier_id,
+        organization_id: organizationId,
+        status: "assigned" as any,
+        requested_at: new Date().toISOString(),
+        notes: a.release_needed ? "Release needed from previous upline" : "Assigned via invite link",
+      }, { onConflict: "agent_id,carrier_id" })
+      .select("id")
+      .maybeSingle();
+
+    if (a.level_pct != null) {
+      await client.from("agent_commission_levels").upsert({
+        agent_id: agentId,
+        carrier_id: a.carrier_id,
+        assigned_pct: a.level_pct,
+        commission_level: a.level_name ?? `${a.level_pct}%`,
+        assigned_by: createdBy,
+        assigned_at: new Date().toISOString(),
+      }, { onConflict: "agent_id,carrier_id" });
+    }
+
+    if (!organizationId) continue;
+
+    // The workflow half needs the agency's own carrier row, not the global
+    // carrier. If the agency has not added this carrier to Contracting
+    // Operations there is nothing to queue against yet.
+    const { data: orgCarrier } = await client
+      .from("org_carriers")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("carrier_id", a.carrier_id)
+      .maybeSingle();
+    if (!orgCarrier) continue;
+
+    // A partial unique index already forbids two open requests for the same
+    // agent and carrier, so check rather than let the insert fail.
+    const { data: existing } = await client
+      .from("contracting_requests")
+      .select("id")
+      .eq("agent_id", agentId)
+      .eq("org_carrier_id", orgCarrier.id)
+      .not("status", "in", "(approved,writing_number_issued,declined,cancelled,closed)")
+      .maybeSingle();
+    if (existing) continue;
+
+    await client.from("contracting_requests").insert({
+      organization_id: organizationId,
+      agent_id: agentId,
+      org_carrier_id: orgCarrier.id,
+      created_by: createdBy,
+      direct_upline_id: createdBy,
+      status: "draft",
+      is_transfer: Boolean(a.release_needed),
+      contract_type: a.release_needed ? "transfer" : "new_contract",
+      contract_record_id: record?.id ?? null,
+      notes: "Pre-assigned on the invite link",
+    });
+  }
+}
+
 // ============ PUBLIC (token-based) ============
 
 export const getInviteByToken = createServerFn({ method: "POST" })
@@ -160,28 +253,15 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }).eq("token", data.token);
     }
 
-    // Create assigned contracts for each carrier in the invite's carrier_assignments
+    // Contract records and the contracting work to obtain them, linked.
     const assignments: any[] = (inv.carrier_assignments as any[]) ?? [];
-    for (const a of assignments) {
-      if (!a.carrier_id) continue;
-      await supabaseAdmin.from("contract_requests").upsert({
-        agent_id: newUserId,
-        carrier_id: a.carrier_id,
-        status: "assigned" as any,
-        requested_at: new Date().toISOString(),
-        notes: `Assigned via invite link`,
-      }, { onConflict: "agent_id,carrier_id" });
-      if (a.level_pct != null) {
-        await supabaseAdmin.from("agent_commission_levels").upsert({
-          agent_id: newUserId,
-          carrier_id: a.carrier_id,
-          assigned_pct: a.level_pct,
-          commission_level: a.level_name ?? `${a.level_pct}%`,
-          assigned_by: inv.created_by,
-          assigned_at: new Date().toISOString(),
-        }, { onConflict: "agent_id,carrier_id" });
-      }
-    }
+    await assignInviteCarriers({
+      client: supabaseAdmin,
+      agentId: newUserId,
+      organizationId: inv.organization_id ?? null,
+      createdBy: inv.created_by,
+      assignments,
+    });
 
     // Flag transfer workflow if any assigned carriers need release
     const releaseNeeded = assignments.filter((a: any) => a.release_needed && a.carrier_id);
@@ -257,28 +337,17 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
 
     // Set upline if not already set
     await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
-    // Wire pre-assigned carriers → contract_requests + commission levels
+    // Same as a fresh signup: the contract records and the contracting work to
+    // obtain them, linked to each other.
     const assignments: any[] = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments : [];
-    for (const a of assignments) {
-      if (!a.carrier_id) continue;
-      await supabase.from("contract_requests").upsert({
-        agent_id: userId,
-        carrier_id: a.carrier_id,
-        status: "assigned" as any,
-        notes: a.release_needed ? "Release needed from previous upline" : null,
-        requested_at: new Date().toISOString(),
-      }, { onConflict: "agent_id,carrier_id" });
-      if (a.level_pct != null) {
-        await supabase.from("agent_commission_levels").upsert({
-          agent_id: userId,
-          carrier_id: a.carrier_id,
-          assigned_pct: a.level_pct,
-          commission_level: a.level_name ?? `${a.level_pct}%`,
-          assigned_by: inv.created_by,
-          assigned_at: new Date().toISOString(),
-        }, { onConflict: "agent_id,carrier_id" });
-      }
-    }
+    await assignInviteCarriers({
+      client: supabaseAdmin,
+      agentId: userId,
+      organizationId: inv.organization_id ?? null,
+      createdBy: inv.created_by,
+      assignments,
+    });
+
     return { ok: true, invite: inv };
   });
 
