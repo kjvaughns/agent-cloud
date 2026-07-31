@@ -176,10 +176,12 @@ function InvitePage() {
               </button>
             )}
 
+            {/* Full width like Agency Owner above it — a half-width card alone
+                at the end of the grid left dead space beside it. */}
             <button
               type="button"
               onClick={() => setInvitedRole("staff")}
-              className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${invitedRole === "staff" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              className={`rounded-lg border p-3 text-left transition-all space-y-0.5 col-span-2 ${invitedRole === "staff" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
             >
               <div className="font-medium text-sm flex items-center gap-1.5">
                 <ClipboardList className="h-4 w-4" /> Staff
@@ -366,7 +368,8 @@ function LinksTable({ rows }: { rows: any[] }) {
       <TableHeader><TableRow>
         <TableHead>Link Name</TableHead>
         <TableHead>Carriers</TableHead>
-        <TableHead>Created</TableHead>
+        <TableHead>Joined</TableHead>
+        <TableHead>Status</TableHead>
         <TableHead className="text-right">Actions</TableHead>
       </TableRow></TableHeader>
       <TableBody>
@@ -404,7 +407,28 @@ function LinksTable({ rows }: { rows: any[] }) {
                   </Popover>
                 )}
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm tnum">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+              {/* How many people joined through this link, not whether one
+                  person did. A shareable link has many acceptances. */}
+              <TableCell className="tnum text-sm">
+                {r.accepted_count > 0 ? (
+                  <span className="font-semibold text-foreground">{r.accepted_count}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell className="text-sm">
+                {r.expired ? (
+                  <span className="rounded bg-destructive/15 px-2 py-0.5 text-xs text-destructive">Expired</span>
+                ) : r.days_left != null && r.days_left <= 7 ? (
+                  // Says it before it happens, rather than leaving the agent to
+                  // discover it on a dead link.
+                  <span className="rounded bg-warning/15 px-2 py-0.5 text-xs text-warning">
+                    {r.days_left}d left
+                  </span>
+                ) : (
+                  <span className="rounded bg-success/15 px-2 py-0.5 text-xs text-success">Active</span>
+                )}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex gap-1 justify-end">
                   <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copied!"); }}>
