@@ -69,7 +69,10 @@ export function canSeeNavItem(url: string, access: MyAccess | undefined): boolea
     "/settings/agency": canManage,
     "/settings/automations": canManage,
     "/settings/emails": canManage,
+    "/settings/white-label": canManage,
     "/white-label": canManage,
+    "/settings/support": canManage,
+    "/settings/integrations": canManage,
     "/phone": isStaff ? false : true,
   };
   return url in rules ? rules[url] : true;

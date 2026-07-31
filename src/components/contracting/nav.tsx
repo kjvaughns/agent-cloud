@@ -27,6 +27,10 @@ export const CONTRACTING_GROUPS: NavGroup[] = [
       { label: "Contract Requests", to: "/contracting-ops/requests" },
       { label: "Staff Queue", to: "/contracting-ops/queue" },
       { label: "Hierarchy Changes", to: "/contracting-ops/hierarchy-changes" },
+      // Carrier reports arriving for Nova to sort. It was only reachable from
+      // a card inside Settings, which is not where anybody would look for
+      // incoming paperwork.
+      { label: "Document Intake", to: "/intake" },
     ],
   },
   {
