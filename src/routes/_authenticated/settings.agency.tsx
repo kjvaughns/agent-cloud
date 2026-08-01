@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/require-session";
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,14 +18,13 @@ export const Route = createFileRoute("/_authenticated/settings/agency")({
   ssr: false,
   head: () => ({ meta: [{ title: "Agency Settings — Agent Cloud" }] }),
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" as any });
+    const session = await requireSession();
     // limit(1), not maybeSingle(): maybeSingle errors when more than one row
     // matches, and an owner holds several of these roles at once.
     const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.session.user.id)
+      .eq("user_id", session.user.id)
       .in("role", ["super_admin", "agency_owner", "admin"] as any)
       .limit(1);
     if (!roleRows?.length) throw redirect({ to: "/dashboard" as any });

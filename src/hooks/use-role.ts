@@ -14,7 +14,11 @@ export function useRole() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(async ({ data }) => {
+    // getSession, not getUser: this only needs the id, and getUser is a network
+    // round trip on every mount that leaves somebody looking role-less — no
+    // sidebar, no permissions — whenever it fails or is slow.
+    supabase.auth.getSession().then(async ({ data: sessionData }) => {
+      const data = { user: sessionData.session?.user ?? null };
       if (cancelled) return;
       if (!data.user) { setLoading(false); return; }
       if (_cachedUserId === data.user.id && _cachedRole !== null) {
@@ -39,9 +43,17 @@ export function useRole() {
     return () => { cancelled = true; };
   }, []);
 
-  supabase.auth.onAuthStateChange((event) => {
-    if (event === "SIGNED_OUT") { _cachedRole = null; _cachedUserId = null; }
-  });
+  // Registered in an effect and unsubscribed on unmount. This used to sit in
+  // the render body, so every render of the sidebar or the top bar — which is
+  // every navigation — added another listener that nothing ever removed. They
+  // accumulated for the life of the tab, and each one is invoked on every
+  // token refresh while the auth client holds its lock.
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") { _cachedRole = null; _cachedUserId = null; }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const isSuperAdmin  = role === "super_admin";
   const isAgencyOwner = role === "agency_owner" || role === "super_admin";

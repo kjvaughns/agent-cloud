@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
-import { supabase } from "@/integrations/supabase/client";
+import { requireSession } from "@/lib/require-session";
 import { installUsagelisteners, trackPageView } from "@/lib/usage";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -54,14 +54,12 @@ export const Route = createFileRoute("/_authenticated")({
   // Session lives in localStorage; SSR has nothing useful to render for
   // authenticated pages, so skip it entirely and ship the client shell faster.
   ssr: false,
+  // Every authenticated page passes through here on every navigation, so this
+  // is the guard that decides whether the app feels signed in. It gives a
+  // stale session one chance to refresh before sending anybody to the login
+  // screen — see requireSession.
   beforeLoad: async ({ location }) => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      throw redirect({
-        to: "/login",
-        search: { redirect: location.href },
-      });
-    }
+    await requireSession(location.href);
   },
   component: AuthenticatedLayout,
   errorComponent: AuthErrorComponent,

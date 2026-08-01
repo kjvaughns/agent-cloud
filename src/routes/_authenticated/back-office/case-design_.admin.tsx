@@ -14,13 +14,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { requireSession } from "@/lib/require-session";
 
 export const Route = createFileRoute("/_authenticated/back-office/case-design_/admin")({
   head: () => ({ meta: [{ title: "Case Design Admin — Agent Cloud" }] }),
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id).eq("role", "admin").maybeSingle();
+    // requireSession rather than getUser: getUser is a network round trip on
+    // every visit, and a slow or failed one used to read as "signed out".
+    const session = await requireSession();
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id).eq("role", "admin").maybeSingle();
     if (!roles) throw redirect({ to: "/back-office/case-design" });
   },
   component: AdminPage,
