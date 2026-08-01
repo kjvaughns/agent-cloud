@@ -1,16 +1,18 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scopeSchema } from "@/lib/scope";
+import { resolveScopeAgentIds } from "@/lib/scope.functions";
 
 type Ctx = { supabase: any; userId: string };
 
 /**
  * Tasks.
  *
- * Everything reads through the RLS-bound client, so the tasks policy decides
- * visibility: your own tasks, tasks you created, your downline's tasks, and —
- * for an agency owner — the whole org. No service-role escalation is needed
- * anywhere in this module.
+ * Everything reads through the RLS-bound client, so the tasks policy bounds
+ * what is reachable at all: your own tasks, tasks you created, your downline's
+ * tasks, and — for an agency owner — the whole org. Scope then narrows within
+ * that. No service-role escalation is needed anywhere in this module.
  */
 
 export type Task = {
@@ -48,7 +50,10 @@ export const listTasks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      scope: z.enum(["mine", "assigned_by_me", "team"]).default("mine"),
+      scope: scopeSchema.default("mine"),
+      // Not a scope. "Who does this task belong to" and "how wide am I
+      // looking" are separate questions, and they were the same control.
+      assignedByMe: z.boolean().default(false),
       status: z.enum(["all", "open", "in_progress", "done", "cancelled"]).default("all"),
       related_type: z.enum(RELATED).optional(),
       related_id: z.string().uuid().optional(),
@@ -59,10 +64,17 @@ export const listTasks = createServerFn({ method: "POST" })
 
     let q = supabase.from("tasks").select(SELECT).limit(500);
 
-    if (data.scope === "mine") q = q.eq("assigned_to", userId);
-    if (data.scope === "assigned_by_me") q = q.eq("created_by", userId).neq("assigned_to", userId);
-    // "team" applies no extra filter — RLS already bounds it to what the
-    // caller may see.
+    // Narrow explicitly rather than dropping the filter and letting RLS
+    // decide. Those are not the same thing: for an org owner "no filter"
+    // silently means the whole agency, so a Team view built that way shows
+    // agency numbers under a Team label with nothing to say so.
+    if (data.scope === "mine") {
+      q = q.eq("assigned_to", userId);
+    } else {
+      q = q.in("assigned_to", await resolveScopeAgentIds(supabase, data.scope));
+    }
+
+    if (data.assignedByMe) q = q.eq("created_by", userId).neq("assigned_to", userId);
 
     if (data.status !== "all") q = q.eq("status", data.status);
     if (data.related_type) q = q.eq("related_type", data.related_type);

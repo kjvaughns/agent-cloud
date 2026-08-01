@@ -3,6 +3,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { ScopeToggle } from "@/components/scope-toggle";
+import { useScope } from "@/hooks/use-scope";
+import { SCOPES, type Scope } from "@/lib/scope";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +27,9 @@ import {
 } from "@/lib/retention.functions";
 
 export const Route = createFileRoute("/_authenticated/retention")({
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+  }),
   head: () => ({ meta: [{ title: "Retention — Agent Cloud" }] }),
   component: RetentionPage,
 });
@@ -57,6 +63,7 @@ function daysSince(iso: string) {
 function RetentionPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<StatusFilter>("live");
+  const { scope, ready: scopeReady } = useScope();
   const [resolving, setResolving] = useState<RetentionCase | null>(null);
 
   const listFn = useServerFn(listRetentionCases);
@@ -65,10 +72,15 @@ function RetentionPage() {
   const updateFn = useServerFn(updateRetentionCase);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["retention", filter],
-    queryFn: () => listFn({ data: { status: filter } }),
+    enabled: scopeReady,
+    queryKey: ["retention", filter, scope],
+    queryFn: () => listFn({ data: { status: filter, scope } }),
   });
-  const { data: stats } = useQuery({ queryKey: ["retention", "stats"], queryFn: () => statsFn() });
+  const { data: stats } = useQuery({
+    enabled: scopeReady,
+    queryKey: ["retention", "stats", scope],
+    queryFn: () => statsFn({ data: { scope } }),
+  });
 
   const persistFn = useServerFn(getPersistency);
   const { data: book } = useQuery({ queryKey: ["retention", "persistency"], queryFn: () => persistFn() });
@@ -99,12 +111,15 @@ function RetentionPage() {
           title="Retention"
           subtitle="Policies at risk, who is working them, and how they ended"
           actions={
+            <div className="flex items-center gap-2">
+            <ScopeToggle />
             <Button size="sm" variant="outline" onClick={() => sync.mutate()} disabled={sync.isPending}>
               {sync.isPending
                 ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
                 : <RefreshCw className="h-3.5 w-3.5 mr-1" />}
               Refresh queue
             </Button>
+            </div>
           }
         />
 
