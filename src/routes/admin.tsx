@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/require-session";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,12 +15,11 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 export const Route = createFileRoute("/admin")({
   ssr: false,
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" });
+    const session = await requireSession();
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.session.user.id)
+      .eq("user_id", session.user.id)
       .in("role", ["super_admin", "agency_owner", "admin", "manager"])
       .maybeSingle();
     if (!roleRow) throw redirect({ to: "/dashboard" });

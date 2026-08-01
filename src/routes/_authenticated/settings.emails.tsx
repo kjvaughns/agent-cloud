@@ -1,3 +1,4 @@
+import { requireSession } from "@/lib/require-session";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -31,12 +32,11 @@ export const Route = createFileRoute("/_authenticated/settings/emails")({
     ],
   }),
   beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" as any });
+    const session = await requireSession();
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", data.session.user.id)
+      .eq("user_id", session.user.id)
       .in("role", ["super_admin", "admin", "agency_owner"] as any)
       .maybeSingle();
     if (!roleRow) throw redirect({ to: "/dashboard" as any });
