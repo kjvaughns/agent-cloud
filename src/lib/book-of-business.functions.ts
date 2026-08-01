@@ -1,9 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scopeSchema } from "@/lib/scope";
 
 const ScopeSchema = z.object({
-  scope: z.enum(["hierarchy", "mine", "agent"]),
+  scope: scopeSchema,
+  // A narrowing filter, not a scope. Authorisation is structural: the SQL
+  // intersects it with the scope set, so an id outside your reach matches
+  // nothing rather than needing its own check.
   agentId: z.string().uuid().optional(),
 });
 

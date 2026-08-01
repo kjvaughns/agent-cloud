@@ -15,7 +15,7 @@ type Ctx = { supabase: any; userId: string };
  * page it opens must not disagree.
  *
  *   pipeline    your own leads               (clients.agent_id = you)
- *   book        you and your downline        (get_book_of_business, hierarchy)
+ *   book        the widest view you have     (get_book_of_business, agency)
  *   retention   whatever RLS lets you see    (writing agent, assignee, owner,
  *                                             or manager over the downline)
  *
@@ -52,7 +52,11 @@ export const getClientsOverview = createServerFn({ method: "GET" })
         .from("clients")
         .select("stage, temperature, last_opened_at, created_at")
         .eq("agent_id", userId),
-      supabase.rpc("get_book_of_business", { _scope: "hierarchy" }),
+      // Widest view this person has: the SQL degrades agency to team, and team
+      // to just-them, so this is the same set the Book of Business page opens
+      // on. The two must agree — a count here that the page it links to
+      // contradicts is worse than no count.
+      supabase.rpc("get_book_of_business", { _scope: "agency" }),
       supabase.from("retention_cases").select("status, premium_at_risk"),
     ]);
 
