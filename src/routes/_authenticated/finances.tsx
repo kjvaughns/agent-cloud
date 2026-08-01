@@ -3,6 +3,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { ScopeToggle } from "@/components/scope-toggle";
+import { useScope } from "@/hooks/use-scope";
+import { SCOPES, type Scope } from "@/lib/scope";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Finances — Agent Cloud" },
@@ -79,12 +85,17 @@ function monthKey(d: Date) {
 
 function FinancesPage() {
   const fn = useServerFn(getFinancesData);
+  const { scope, ready: scopeReady } = useScope();
   const { data, isLoading } = useQuery({
-    queryKey: ["finances"],
-    queryFn: () => fn(),
+    enabled: scopeReady,
+    queryKey: ["finances", scope],
+    queryFn: () => fn({ data: { scope } }),
   });
 
+  // Always the caller's own rows, at every scope. See the note on
+  // getFinancesData: widening these would double-count every override.
   const rows: Row[] = data?.rows ?? [];
+  const team = data?.team ?? null;
 
   const [section, setSection] = useState<string>("overview");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -219,7 +230,43 @@ function FinancesPage() {
   return (
     <PageShell>
       <div className="col">
-        <HeroBand title="Finances" subtitle="Commissions, forecasts & payouts" />
+        <HeroBand
+          title="Finances"
+          subtitle="Commissions, forecasts & payouts"
+          actions={<ScopeToggle />}
+        />
+
+        {/* Deliberately beside the personal figures rather than folded into
+            them. Your override on a downline policy and their advance on the
+            same policy are both real; adding them together is not. */}
+        {team && team.length > 0 && (
+          <Panel title={scope === "agency" ? "What the agency earned" : "What your team earned"}>
+            <p className="text-xs text-muted-foreground">
+              Separate from your own figures above — your overrides on their business are already
+              counted there.
+            </p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <th className="pb-2 font-medium">Agent</th>
+                    <th className="pb-2 text-right font-medium">Paid</th>
+                    <th className="pb-2 text-right font-medium">Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {team.map((t) => (
+                    <tr key={t.agent_id} className="border-t border-border-soft">
+                      <td className="py-2">{t.name}</td>
+                      <td className="tnum py-2 text-right">{fmtCurrency(t.paid)}</td>
+                      <td className="tnum py-2 text-right text-muted-foreground">{fmtCurrency(t.pending)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
 
         {/* Reconciliation was a separate nav item; it belongs with the money. */}
         <Tabs value={section} onValueChange={setSection} className="w-full">
