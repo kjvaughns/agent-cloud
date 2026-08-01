@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useRole } from "@/hooks/use-role";
-import { useMyAccess, canSeeNavItem } from "@/hooks/use-my-access";
+import { useMyAccess, useNavContext } from "@/hooks/use-my-access";
 import { useOrganization } from "@/hooks/use-organization";
 import { BrandLogo } from "@/components/brand-logo";
 import {
@@ -23,7 +23,7 @@ import {
 import { Star, X } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
-  arrangeFavorites, audienceFor, hubForPath, hubGroupsFor, isHub, navFor,
+  arrangeFavorites, hubForPath, hubGroupsFor, isHub, navFor,
   ACCOUNT_PAGES, type Page,
 } from "@/lib/navigation";
 
@@ -80,17 +80,12 @@ export function AppSidebar() {
   const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
-  // The sidebar is composed for this person rather than filtered from one
-  // shared menu. A solo agent gets a five-item product, not the agency product
-  // with twenty-six things missing.
-  const audience = audienceFor({
-    role: access?.role ?? null,
-    isSolo: Boolean(access?.isSolo),
-    isOwner: Boolean(access?.isOwner),
-    canManage: Boolean((access as any)?.canManageRoles),
-  });
-  const perms = (access?.permissions ?? {}) as Record<string, unknown>;
-  const navGroups = navFor(audience, perms);
+  // One gate, in the registry. Everything a page needs to be visible —
+  // audience, agency unlock, permissions — is decided in one place, so a
+  // second filter can no longer remove an item after the group holding it has
+  // already been kept.
+  const nav = useNavContext();
+  const navGroups = navFor(nav);
   const groups = navGroups
     .map((g, i) => ({ label: g.label || (i === 0 ? "" : "More"), items: g.items.map(asNavItem) }));
   const accountItems = ACCOUNT_PAGES.map(asNavItem);
@@ -100,7 +95,7 @@ export function AppSidebar() {
   const { pageIds, toggle } = useFavorites();
   const unstar = (id: string) => toggle(id, false);
   const sidebarIds = new Set(navGroups.flatMap((g) => g.items.map((p) => p.id)));
-  const favorites = arrangeFavorites(pageIds, sidebarIds, audience, perms);
+  const favorites = arrangeFavorites(pageIds, sidebarIds, nav);
   const currentHub = hubForPath(path);
 
 
@@ -141,18 +136,14 @@ export function AppSidebar() {
 
   const renderItem = (it: NavItem) => {
     const active = !it.external && (path === it.url || (it.url !== "/contracting" && path.startsWith(it.url + "/")));
-    const starred = (it.id ? favorites.under[it.id] ?? [] : [])
-      .filter((p) => canSeeNavItem(p.path, access));
+    const starred = it.id ? favorites.under[it.id] ?? [] : [];
 
     // A hub's own pages, listed under it rather than in a second rail beside
     // the page. Groups are kept — they are what makes fourteen contracting
     // destinations readable instead of a list to scan.
-    // Same per-URL gate the top-level rows go through. Without it a hub is a
-    // way around the rules table — Document Intake sitting inside Contracting
-    // would show to any staff member, not only an admin one.
-    const groups = (it.id && isHub(it.id) ? hubGroupsFor(it.id, audience, perms) : [])
-      .map((g) => ({ ...g, items: g.items.filter((p) => canSeeNavItem(p.path, access)) }))
-      .filter((g) => g.items.length > 0);
+    // hubGroupsFor applies the same gates as navFor and drops groups it
+    // empties, so there is nothing left to filter afterwards.
+    const groups = it.id && isHub(it.id) ? hubGroupsFor(it.id, nav) : [];
     const children: { label: string; items: Page[] }[] = groups.length
       ? (starred.length ? [...groups, { label: "Starred", items: starred }] : groups)
       : (starred.length ? [{ label: "", items: starred }] : []);
@@ -313,7 +304,7 @@ export function AppSidebar() {
             )}
             {(!collapsedGroups[g.label] || sidebarCollapsed) && (
               <SidebarGroupContent>
-                <SidebarMenu>{g.items.filter((it) => it.external || canSeeNavItem(it.url, access)).map(renderItem)}</SidebarMenu>
+                <SidebarMenu>{g.items.map(renderItem)}</SidebarMenu>
               </SidebarGroupContent>
             )}
           </SidebarGroup>
@@ -328,7 +319,6 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {favorites.loose
-                    .filter((p) => canSeeNavItem(p.path, access))
                     .map((p) => (
                       <SidebarMenuItem key={p.path} className="group/fav relative">
                         <SidebarMenuButton
@@ -361,7 +351,7 @@ export function AppSidebar() {
         <SidebarGroup>
           {!sidebarCollapsed && <SidebarGroupLabel>Account</SidebarGroupLabel>}
           <SidebarGroupContent>
-            <SidebarMenu>{accountItems.filter((it) => canSeeNavItem(it.url, access)).map(renderItem)}</SidebarMenu>
+            <SidebarMenu>{accountItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 

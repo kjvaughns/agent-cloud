@@ -92,6 +92,7 @@ import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/fu
 import { Route as ApiPublicDemoRequestRouteImport } from './routes/api/public/demo-request'
 import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
+import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedSettingsWhiteLabelRouteImport } from './routes/_authenticated/settings.white-label'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated/settings.usage'
@@ -113,9 +114,11 @@ import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes
 import { Route as AuthenticatedNovaSettingsRouteImport } from './routes/_authenticated/nova/settings'
 import { Route as AuthenticatedNovaActivityRouteImport } from './routes/_authenticated/nova/activity'
 import { Route as AuthenticatedFinancesReconciliationRouteImport } from './routes/_authenticated/finances_.reconciliation'
+import { Route as AuthenticatedContractingWritingNumbersRouteImport } from './routes/_authenticated/contracting/writing-numbers'
 import { Route as AuthenticatedContractingTransfersRouteImport } from './routes/_authenticated/contracting/transfers'
 import { Route as AuthenticatedContractingInviteRouteImport } from './routes/_authenticated/contracting/invite'
 import { Route as AuthenticatedContractingCompGridsManageRouteImport } from './routes/_authenticated/contracting.comp-grids-manage'
+import { Route as AuthenticatedContractingCommissionLevelsRouteImport } from './routes/_authenticated/contracting/commission-levels'
 import { Route as AuthenticatedContractingCommissionGridsRouteImport } from './routes/_authenticated/contracting/commission-grids'
 import { Route as AuthenticatedContractingCarriersRouteImport } from './routes/_authenticated/contracting/carriers'
 import { Route as AuthenticatedContractingAnnuityTrainingRouteImport } from './routes/_authenticated/contracting/annuity-training'
@@ -586,6 +589,12 @@ const AgentAgentSlugTemplateSlugRoute =
     path: '/agent/$agentSlug/$templateSlug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedToolsQuoterRoute =
+  AuthenticatedToolsQuoterRouteImport.update({
+    id: '/tools/quoter',
+    path: '/tools/quoter',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   id: '/tools/leads',
   path: '/tools/leads',
@@ -711,6 +720,12 @@ const AuthenticatedFinancesReconciliationRoute =
     path: '/finances/reconciliation',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedContractingWritingNumbersRoute =
+  AuthenticatedContractingWritingNumbersRouteImport.update({
+    id: '/writing-numbers',
+    path: '/writing-numbers',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
 const AuthenticatedContractingTransfersRoute =
   AuthenticatedContractingTransfersRouteImport.update({
     id: '/transfers',
@@ -727,6 +742,12 @@ const AuthenticatedContractingCompGridsManageRoute =
   AuthenticatedContractingCompGridsManageRouteImport.update({
     id: '/comp-grids-manage',
     path: '/comp-grids-manage',
+    getParentRoute: () => AuthenticatedContractingRoute,
+  } as any)
+const AuthenticatedContractingCommissionLevelsRoute =
+  AuthenticatedContractingCommissionLevelsRouteImport.update({
+    id: '/commission-levels',
+    path: '/commission-levels',
     getParentRoute: () => AuthenticatedContractingRoute,
   } as any)
 const AuthenticatedContractingCommissionGridsRoute =
@@ -1075,9 +1096,11 @@ export interface FileRoutesByFullPath {
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/commission-levels': typeof AuthenticatedContractingCommissionLevelsRoute
   '/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/contracting/writing-numbers': typeof AuthenticatedContractingWritingNumbersRoute
   '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
@@ -1099,6 +1122,7 @@ export interface FileRoutesByFullPath {
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
@@ -1220,9 +1244,11 @@ export interface FileRoutesByTo {
   '/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/contracting/commission-levels': typeof AuthenticatedContractingCommissionLevelsRoute
   '/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/contracting/writing-numbers': typeof AuthenticatedContractingWritingNumbersRoute
   '/finances/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
@@ -1244,6 +1270,7 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
@@ -1372,9 +1399,11 @@ export interface FileRoutesById {
   '/_authenticated/contracting/annuity-training': typeof AuthenticatedContractingAnnuityTrainingRoute
   '/_authenticated/contracting/carriers': typeof AuthenticatedContractingCarriersRoute
   '/_authenticated/contracting/commission-grids': typeof AuthenticatedContractingCommissionGridsRoute
+  '/_authenticated/contracting/commission-levels': typeof AuthenticatedContractingCommissionLevelsRoute
   '/_authenticated/contracting/comp-grids-manage': typeof AuthenticatedContractingCompGridsManageRoute
   '/_authenticated/contracting/invite': typeof AuthenticatedContractingInviteRoute
   '/_authenticated/contracting/transfers': typeof AuthenticatedContractingTransfersRoute
+  '/_authenticated/contracting/writing-numbers': typeof AuthenticatedContractingWritingNumbersRoute
   '/_authenticated/finances_/reconciliation': typeof AuthenticatedFinancesReconciliationRoute
   '/_authenticated/nova/activity': typeof AuthenticatedNovaActivityRoute
   '/_authenticated/nova/settings': typeof AuthenticatedNovaSettingsRoute
@@ -1396,6 +1425,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
+  '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
@@ -1524,9 +1554,11 @@ export interface FileRouteTypes {
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
+    | '/contracting/commission-levels'
     | '/contracting/comp-grids-manage'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/contracting/writing-numbers'
     | '/finances/reconciliation'
     | '/nova/activity'
     | '/nova/settings'
@@ -1548,6 +1580,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/settings/white-label'
     | '/tools/leads'
+    | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
     | '/api/public/demo-request'
@@ -1669,9 +1702,11 @@ export interface FileRouteTypes {
     | '/contracting/annuity-training'
     | '/contracting/carriers'
     | '/contracting/commission-grids'
+    | '/contracting/commission-levels'
     | '/contracting/comp-grids-manage'
     | '/contracting/invite'
     | '/contracting/transfers'
+    | '/contracting/writing-numbers'
     | '/finances/reconciliation'
     | '/nova/activity'
     | '/nova/settings'
@@ -1693,6 +1728,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/settings/white-label'
     | '/tools/leads'
+    | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
     | '/api/public/demo-request'
@@ -1820,9 +1856,11 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting/annuity-training'
     | '/_authenticated/contracting/carriers'
     | '/_authenticated/contracting/commission-grids'
+    | '/_authenticated/contracting/commission-levels'
     | '/_authenticated/contracting/comp-grids-manage'
     | '/_authenticated/contracting/invite'
     | '/_authenticated/contracting/transfers'
+    | '/_authenticated/contracting/writing-numbers'
     | '/_authenticated/finances_/reconciliation'
     | '/_authenticated/nova/activity'
     | '/_authenticated/nova/settings'
@@ -1844,6 +1882,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/usage'
     | '/_authenticated/settings/white-label'
     | '/_authenticated/tools/leads'
+    | '/_authenticated/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/branding'
     | '/api/public/demo-request'
@@ -2498,6 +2537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentAgentSlugTemplateSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/tools/quoter': {
+      id: '/_authenticated/tools/quoter'
+      path: '/tools/quoter'
+      fullPath: '/tools/quoter'
+      preLoaderRoute: typeof AuthenticatedToolsQuoterRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/tools/leads': {
       id: '/_authenticated/tools/leads'
       path: '/tools/leads'
@@ -2645,6 +2691,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinancesReconciliationRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting/writing-numbers': {
+      id: '/_authenticated/contracting/writing-numbers'
+      path: '/writing-numbers'
+      fullPath: '/contracting/writing-numbers'
+      preLoaderRoute: typeof AuthenticatedContractingWritingNumbersRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
     '/_authenticated/contracting/transfers': {
       id: '/_authenticated/contracting/transfers'
       path: '/transfers'
@@ -2664,6 +2717,13 @@ declare module '@tanstack/react-router' {
       path: '/comp-grids-manage'
       fullPath: '/contracting/comp-grids-manage'
       preLoaderRoute: typeof AuthenticatedContractingCompGridsManageRouteImport
+      parentRoute: typeof AuthenticatedContractingRoute
+    }
+    '/_authenticated/contracting/commission-levels': {
+      id: '/_authenticated/contracting/commission-levels'
+      path: '/commission-levels'
+      fullPath: '/contracting/commission-levels'
+      preLoaderRoute: typeof AuthenticatedContractingCommissionLevelsRouteImport
       parentRoute: typeof AuthenticatedContractingRoute
     }
     '/_authenticated/contracting/commission-grids': {
@@ -3000,9 +3060,11 @@ interface AuthenticatedContractingRouteChildren {
   AuthenticatedContractingAnnuityTrainingRoute: typeof AuthenticatedContractingAnnuityTrainingRoute
   AuthenticatedContractingCarriersRoute: typeof AuthenticatedContractingCarriersRoute
   AuthenticatedContractingCommissionGridsRoute: typeof AuthenticatedContractingCommissionGridsRoute
+  AuthenticatedContractingCommissionLevelsRoute: typeof AuthenticatedContractingCommissionLevelsRoute
   AuthenticatedContractingCompGridsManageRoute: typeof AuthenticatedContractingCompGridsManageRoute
   AuthenticatedContractingInviteRoute: typeof AuthenticatedContractingInviteRoute
   AuthenticatedContractingTransfersRoute: typeof AuthenticatedContractingTransfersRoute
+  AuthenticatedContractingWritingNumbersRoute: typeof AuthenticatedContractingWritingNumbersRoute
   AuthenticatedContractingIndexRoute: typeof AuthenticatedContractingIndexRoute
 }
 
@@ -3014,11 +3076,15 @@ const AuthenticatedContractingRouteChildren: AuthenticatedContractingRouteChildr
       AuthenticatedContractingCarriersRoute,
     AuthenticatedContractingCommissionGridsRoute:
       AuthenticatedContractingCommissionGridsRoute,
+    AuthenticatedContractingCommissionLevelsRoute:
+      AuthenticatedContractingCommissionLevelsRoute,
     AuthenticatedContractingCompGridsManageRoute:
       AuthenticatedContractingCompGridsManageRoute,
     AuthenticatedContractingInviteRoute: AuthenticatedContractingInviteRoute,
     AuthenticatedContractingTransfersRoute:
       AuthenticatedContractingTransfersRoute,
+    AuthenticatedContractingWritingNumbersRoute:
+      AuthenticatedContractingWritingNumbersRoute,
     AuthenticatedContractingIndexRoute: AuthenticatedContractingIndexRoute,
   }
 
@@ -3222,6 +3288,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedAgencyUsageRoute: typeof AuthenticatedAgencyUsageRoute
   AuthenticatedFinancesReconciliationRoute: typeof AuthenticatedFinancesReconciliationRoute
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
+  AuthenticatedToolsQuoterRoute: typeof AuthenticatedToolsQuoterRoute
   AuthenticatedAgencyIndexRoute: typeof AuthenticatedAgencyIndexRoute
 }
 
@@ -3271,6 +3338,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedFinancesReconciliationRoute:
     AuthenticatedFinancesReconciliationRoute,
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
+  AuthenticatedToolsQuoterRoute: AuthenticatedToolsQuoterRoute,
   AuthenticatedAgencyIndexRoute: AuthenticatedAgencyIndexRoute,
 }
 

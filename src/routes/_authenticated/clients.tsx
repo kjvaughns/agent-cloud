@@ -6,8 +6,8 @@ import { PageShell, Panel } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { useMyAccess } from "@/hooks/use-my-access";
-import { audienceFor, pageById } from "@/lib/navigation";
+import { useNavContext } from "@/hooks/use-my-access";
+import { reachableFor } from "@/lib/navigation";
 import { getClientsOverview, type ClientsOverview } from "@/lib/clients-overview.functions";
 import { money, number } from "@/lib/format";
 
@@ -123,17 +123,11 @@ function ClientsOverviewPage() {
     queryFn: () => fn(),
   });
 
-  // Retention is not everybody's page, and an empty queue looks the same as no
-  // access to one, so the block is decided by role rather than by the numbers.
-  const { access } = useMyAccess();
-  const audience = audienceFor({
-    role: access?.role ?? null,
-    isSolo: Boolean(access?.isSolo),
-    isOwner: Boolean(access?.isOwner),
-    canManage: Boolean((access as any)?.canManageRoles),
-  });
-  const retentionPage = pageById("retention");
-  const canSeeRetention = !retentionPage?.audience || retentionPage.audience.includes(audience);
+  // Retention is not everybody's page, and an empty queue looks the same from
+  // here as no access to one — so the block is decided by the same gate the
+  // sidebar uses, never by whether the numbers came back zero.
+  const nav = useNavContext();
+  const canSeeRetention = reachableFor(nav).some((p) => p.id === "retention");
   const blocks = BLOCKS.filter((b) => b.id !== "retention" || canSeeRetention);
 
   return (
@@ -189,7 +183,7 @@ function ClientsOverviewPage() {
         )}
 
         <p className="text-[11px] text-text-dim">
-          Production numbers over time live in Reports. Commissions live in Money.
+          Production numbers over time live in Reports. Commissions live under Contracting.
         </p>
       </div>
     </PageShell>

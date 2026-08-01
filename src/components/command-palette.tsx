@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { globalSearch, type SearchHit } from "@/lib/search.functions";
-import { useMyAccess } from "@/hooks/use-my-access";
+import { useNavContext } from "@/hooks/use-my-access";
 import { audienceFor, reachableFor } from "@/lib/navigation";
 import {
   CommandDialog, CommandInput, CommandList, CommandEmpty,
@@ -76,16 +76,7 @@ export function CommandPalette() {
   // Every page this person may open — including the ones their sidebar
   // deliberately leaves out. This is what makes a five-item sidebar safe
   // rather than restrictive.
-  const { access } = useMyAccess();
-  const pages = reachableFor(
-    audienceFor({
-      role: access?.role ?? null,
-      isSolo: Boolean(access?.isSolo),
-      isOwner: Boolean(access?.isOwner),
-      canManage: Boolean((access as any)?.canManageRoles),
-    }),
-    (access?.permissions ?? {}) as Record<string, unknown>,
-  );
+  const pages = reachableFor(useNavContext());
   const areas = [...new Set(pages.map((p) => p.area))];
 
   const go = (url: string) => {
