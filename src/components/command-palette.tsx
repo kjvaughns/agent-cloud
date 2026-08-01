@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { globalSearch, type SearchHit } from "@/lib/search.functions";
 import { useNavContext } from "@/hooks/use-my-access";
-import { audienceFor, reachableFor } from "@/lib/navigation";
+import { reachableFor } from "@/lib/navigation";
 import {
   CommandDialog, CommandInput, CommandList, CommandEmpty,
   CommandGroup, CommandItem,
