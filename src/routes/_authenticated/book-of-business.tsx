@@ -14,11 +14,13 @@ import { money, number } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import {
   listBookOfBusiness,
-  listDownlineAgents,
   listCarriersForFilter,
 } from "@/lib/book-of-business.functions";
 import { PolicyDetailSheet } from "@/components/book-of-business/policy-detail-sheet";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
+import { useScope } from "@/hooks/use-scope";
+import { SCOPES, type Scope } from "@/lib/scope";
 import { StatTile } from "@/components/ui/stat-tile";
 
 export const Route = createFileRoute("/_authenticated/book-of-business")({
@@ -28,15 +30,17 @@ export const Route = createFileRoute("/_authenticated/book-of-business")({
       { name: "description", content: "All placed policies across your hierarchy with filtering, sorting, and export." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>): { policy?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { policy?: string; scope?: Scope } => ({
     // Deep link from global search: opens that policy's detail sheet.
     policy: typeof s.policy === "string" ? s.policy : undefined,
+    // Left un-clamped on purpose: validateSearch is synchronous and runs
+    // before we know what this person may open. useScope narrows it.
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
   }),
   component: BookPage,
 });
 
 type Source = "agent" | "carrier";
-type Scope = "hierarchy" | "mine" | "agent";
 type SortKey =
   | "client_last_name" | "agent_last_name" | "carrier_name" | "product"
   | "policy_number" | "status" | "monthly_premium" | "annual_premium"
@@ -45,7 +49,7 @@ type SortKey =
 function BookPage() {
   const hydrated = useHydrated();
   const [source, setSource] = useState<Source>("agent");
-  const [scope, setScope] = useState<Scope>("hierarchy");
+  const { scope, ready: scopeReady } = useScope();
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [carrierFilter, setCarrierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -59,14 +63,11 @@ function BookPage() {
   useEffect(() => { if (policyParam) setOpenRowId(policyParam); }, [policyParam]);
 
   const listQ = useQuery({
-    enabled: hydrated && source === "agent",
+    // Held until capabilities arrive: firing at the default scope and then
+    // again at the real one would fetch the wrong rows first and flash.
+    enabled: hydrated && scopeReady && source === "agent",
     queryKey: ["bob", "list", scope, selectedAgentId ?? "_"],
     queryFn: () => listBookOfBusiness({ data: { scope, agentId: selectedAgentId } }),
-  });
-  const agentsQ = useQuery({
-    enabled: hydrated,
-    queryKey: ["bob", "downline"],
-    queryFn: () => listDownlineAgents(),
   });
   const carriersQ = useQuery({
     enabled: hydrated,
@@ -116,7 +117,7 @@ function BookPage() {
     return map;
   }, [allRows]);
 
-  const showAgentCol = scope === "hierarchy";
+  const showAgentCol = scope !== "mine";
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = filtered.slice(page * pageSize, page * pageSize + pageSize);
   const openRow = openRowId ? filtered.find((r: any) => r.id === openRowId) ?? null : null;
@@ -175,6 +176,7 @@ function BookPage() {
           subtitle="View all your deals and track your team's production."
           actions={
             <>
+              <ScopeToggle />
               {canCarrierSync && (
                 <Button asChild>
                   <Link to="/carrier-sync"><RefreshCw className="h-4 w-4 mr-1.5" /> Sync from Carrier</Link>
@@ -210,30 +212,10 @@ function BookPage() {
               </SelectContent>
             </Select>
 
-            <Select
-              value={scope === "agent" ? `agent:${selectedAgentId ?? ""}` : scope}
-              onValueChange={(v) => {
-                if (v === "hierarchy") { setScope("hierarchy"); setSelectedAgentId(undefined); }
-                else if (v === "mine") { setScope("mine"); setSelectedAgentId(undefined); }
-                else if (v.startsWith("agent:")) { setScope("agent"); setSelectedAgentId(v.slice(6)); }
-                setPage(0);
-              }}
-            >
-              <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="hierarchy">Entire Hierarchy</SelectItem>
-                <SelectItem value="mine">My Policies Only</SelectItem>
-                {(agentsQ.data ?? []).map((a) => (
-                  <SelectItem key={a.id} value={`agent:${a.id}`}>
-                    {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Agent"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button variant="outline" size="sm" onClick={() => { setScope("mine"); setSelectedAgentId(undefined); setPage(0); }}>
-              View My Policies
-            </Button>
+            {/* How wide, and which one person — two questions, two controls.
+                They used to share one select, which is why "one agent" was a
+                scope value that behaved unlike the other two. */}
+            <ScopeAgentFilter value={selectedAgentId} onChange={(id) => { setSelectedAgentId(id); setPage(0); }} />
 
             <div className="flex-1" />
 

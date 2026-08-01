@@ -1,5 +1,5 @@
 import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -22,6 +22,9 @@ import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
 import { PageShell, HeroBand } from "@/components/page-shell";
+import { ScopeToggle } from "@/components/scope-toggle";
+import { useScope } from "@/hooks/use-scope";
+import { SCOPES, type Scope } from "@/lib/scope";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
@@ -38,13 +41,9 @@ const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
   cold: { cls: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900", Icon: Snowflake, label: "Cold" },
 };
 
-const pipelineQO = queryOptions({
-  queryKey: ["pipeline", "list"],
-  queryFn: () => listPipelineClients(),
-});
-
 export const Route = createFileRoute("/_authenticated/pipeline")({
-  validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline"; client?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline"; client?: string; scope?: Scope } => ({
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
     tab: s.tab === "sold" ? "sold" as const : "pipeline" as const,
     // Deep link from global search: opens that client's detail drawer.
     client: typeof s.client === "string" ? s.client : undefined,
@@ -87,7 +86,14 @@ function PipelineSkeleton() {
 function PipelinePage() {
   const qc = useQueryClient();
   const hydrated = useHydrated();
-  const { data: clients = [], isLoading } = useQuery({ ...pipelineQO, enabled: hydrated });
+  const { scope, ready: scopeReady } = useScope();
+  // Keyed by scope. A module-level constant key here would hand somebody the
+  // previous scope's rows for a beat every time they switch.
+  const { data: clients = [], isLoading } = useQuery({
+    queryKey: ["pipeline", "list", scope],
+    queryFn: () => listPipelineClients({ data: { scope } }),
+    enabled: hydrated && scopeReady,
+  });
   const [query, setQuery] = useState("");
   const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
@@ -103,13 +109,17 @@ function PipelinePage() {
   const stageMutation = useMutation({
     mutationFn: ({ id, stage }: { id: string; stage: Stage }) => updateFn({ data: { id, patch: { stage } } }),
     onMutate: async ({ id, stage }) => {
-      await qc.cancelQueries({ queryKey: ["pipeline", "list"] });
-      const prev = qc.getQueryData<any[]>(["pipeline", "list"]);
-      qc.setQueryData<any[]>(["pipeline", "list"], (old) => old?.map((c) => c.id === id ? { ...c, stage } : c) ?? []);
-      return { prev };
+      // The scoped key, not the prefix. getQueryData and setQueryData match
+      // exactly, so writing to ["pipeline","list"] would quietly update
+      // nothing and the card would snap back until the refetch landed.
+      const key = ["pipeline", "list", scope];
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<any[]>(key);
+      qc.setQueryData<any[]>(key, (old) => old?.map((c) => c.id === id ? { ...c, stage } : c) ?? []);
+      return { prev, key };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["pipeline", "list"], ctx.prev);
+      if (ctx?.prev) qc.setQueryData(ctx.key, ctx.prev);
       toast.error("Failed to move client");
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["pipeline", "list"] }),
@@ -140,7 +150,12 @@ function PipelinePage() {
   const showSkeleton = !hydrated || isLoading;
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  // Dragging a card writes. The write policies grant that on your own rows
+  // only, so outside your own board the drop would be accepted by the UI and
+  // silently discarded by the database — a success toast and no change.
+  const canDrag = scope === "mine";
   const onDragEnd = (e: DragEndEvent) => {
+    if (!canDrag) return;
     const id = String(e.active.id);
     const stage = e.over?.id as Stage | undefined;
     if (!stage) return;
@@ -176,6 +191,7 @@ function PipelinePage() {
           subtitle="Track every lead from first touch to sold."
           actions={
             <>
+              <ScopeToggle />
               {tabControls}
               <div className="relative w-full sm:w-56">
                 <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -208,7 +224,7 @@ function PipelinePage() {
                     return (
                       <KanbanColumn key={col.key} stage={col.key} label={col.label} tint={col.tint} header={col.header} count={cards.length}>
                         {cards.map((c: any) => (
-                          <LeadCard key={c.id} client={c} onClick={() => setOpenId(c.id)} />
+                          <LeadCard key={c.id} client={c} draggable={canDrag} onClick={() => setOpenId(c.id)} />
                         ))}
                       </KanbanColumn>
                     );
@@ -265,9 +281,9 @@ function KanbanColumn({ stage, label, tint, header, count, children }: { stage: 
   );
 }
 
-function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
+function LeadCard({ client, draggable = true, onClick }: { client: any; draggable?: boolean; onClick: () => void }) {
   const nav = useNavigate();
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id, disabled: !draggable });
   const t = tempPill[(client.temperature ?? "cold") as Temp];
   const pol = client.latest_policy;
   const location = [client.city, client.state].filter(Boolean).join(", ");
@@ -301,6 +317,11 @@ function LeadCard({ client, onClick }: { client: any; onClick: () => void }) {
           <div className="font-bold text-sm leading-tight truncate">
             {client.first_name} {client.last_name}
           </div>
+          {/* Only set outside your own board, where whose lead it is stops
+              being obvious. */}
+          {client.agent_name && (
+            <div className="truncate text-[11px] text-muted-foreground">{client.agent_name}</div>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className={cn("inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", t.cls)}>
               <t.Icon className="h-2.5 w-2.5" /> {t.label}

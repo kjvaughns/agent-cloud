@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
-  ArrowRight, BookOpen, Target, Trophy, UserPlus, Users,
+  ArrowRight, BookOpen, Trophy, UserPlus, Users,
 } from "lucide-react";
 import { Panel } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,9 +44,13 @@ type Metrics = {
   invites: number; retention: number; challenges: number;
 };
 
-// Retention moved to the Clients hub — a policy about to lapse is a client
-// problem, not a people-management one. The count still comes back from the
-// overview query; this hub just stopped being one of the places showing it.
+// Two things left this hub and are not coming back as tiles. Retention is a
+// client problem, not a people-management one, and lives under Clients.
+// Leaderboard and Challenges are what an agent *gains* by being in an agency,
+// so they sit under Home where every agent will actually find them — this
+// page is only ever seen by the handful of people who administer the place.
+// Both counts still come back from the overview query; this hub simply
+// stopped being one of the places showing them.
 
 const TILES: Tile[] = [
   {
@@ -70,14 +74,9 @@ const TILES: Tile[] = [
       : `${n} ${n === 1 ? "invite" : "invites"} not accepted yet`,
   },
   {
-    title: "Leaderboard", to: "/leaderboard", icon: Trophy,
+    title: "Ready to sell", to: "/contracting-ops/ready-to-sell", icon: Trophy,
     value: (m) => m.ready,
     caption: (n) => `${n} ${n === 1 ? "agent" : "agents"} cleared to write`,
-  },
-  {
-    title: "Challenges", to: "/challenges", icon: Target,
-    value: (m) => m.challenges,
-    caption: (n) => n === 0 ? "Nothing running" : `${n} running now`,
   },
 ];
 
@@ -91,7 +90,7 @@ function AgencyOverviewPage() {
   if (isLoading) {
     return (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+        {TILES.map((t) => <Skeleton key={t.to} className="h-28 rounded-xl" />)}
       </div>
     );
   }
@@ -157,9 +156,8 @@ function AgencyOverviewPage() {
       </Panel>
 
       <p className="text-[11px] text-text-dim">
-        Agency settings, automations and emails live in Settings. Contracting lives in Contracting
-        Operations. Your pipeline, book and retention queue live in Clients. Production numbers
-        live in Reports.
+        Your own pipeline, book and retention queue live in Clients. Production numbers live in
+        Reports. Leaderboards and challenges are under Home, where your agents see them too.
       </p>
     </div>
   );

@@ -29,18 +29,22 @@ import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Tr
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ScopeToggle } from "@/components/scope-toggle";
+import { useScope, useScopeCapabilities } from "@/hooks/use-scope";
+import { SCOPES, type Scope } from "@/lib/scope";
 
 export const Route = createFileRoute("/_authenticated/contracting/")({
-  validateSearch: (s: Record<string, unknown>): { tab?: "my" | "downline" | "comp-grids" | "transfer-requests" | "inbox" } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: "my" | "downline" | "comp-grids" | "transfer-requests" | "inbox"; scope?: Scope } => ({
     tab: ["my", "downline", "comp-grids", "transfer-requests", "inbox"].includes(String(s.tab)) ? (s.tab as any) : undefined,
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
   }),
   component: ContractingHome,
   head: () => ({ meta: [{ title: "Contracts | Agent Cloud" }] }),
 });
 
-const myContractsQuery = queryOptions({
-  queryKey: ["contracting","myContracts"],
-  queryFn: () => listMyContracts(),
+const myContractsQuery = (scope: Scope) => queryOptions({
+  queryKey: ["contracting", "myContracts", scope],
+  queryFn: () => listMyContracts({ data: { scope } }),
 });
 const carriersQuery = queryOptions({
   queryKey: ["contracting","carriers"],
@@ -48,6 +52,10 @@ const carriersQuery = queryOptions({
 });
 
 function ContractingHome() {
+  // The matrix is agents by carriers. For somebody with nobody under them it
+  // is an empty grid with a promising name, so it only appears once there is
+  // a team to put in it.
+  const hasTeam = useScopeCapabilities().caps.downlineCount > 0;
   const { tab: initialTab = "my" } = Route.useSearch();
   const [tab, setTab] = useState<string>(initialTab);
   const [transferPrefill, setTransferPrefill] = useState<string | null>(null);
@@ -68,14 +76,14 @@ function ContractingHome() {
         />
         <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v !== "transfer-requests") setTransferPrefill(null); }}>
           <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="my">My Contracts</TabsTrigger>
-            <TabsTrigger value="downline">Downline Contracts</TabsTrigger>
+            <TabsTrigger value="my">Contracts</TabsTrigger>
+            {hasTeam && <TabsTrigger value="downline">Team matrix</TabsTrigger>}
             <TabsTrigger value="comp-grids">Comp Grids</TabsTrigger>
             <TabsTrigger value="transfer-requests">Transfer Requests</TabsTrigger>
             <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
           </TabsList>
           <TabsContent value="my" className="mt-4"><MyContractsTab onViewGrid={() => setTab("comp-grids")} onRequestTransfer={openTransferFor} /></TabsContent>
-          <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>
+          {hasTeam && <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>}
           <TabsContent value="comp-grids" className="mt-4"><CompGridsContent /></TabsContent>
           <TabsContent value="transfer-requests" className="mt-4">
             <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
@@ -126,7 +134,8 @@ function AddWritingNumberInline({ contractId, onActivated }: { contractId: strin
 // ---------------- My Contracts ----------------
 function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => void; onRequestTransfer: (carrierId: string) => void }) {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery(myContractsQuery);
+  const { scope, ready: scopeReady } = useScope();
+  const { data, isLoading } = useQuery({ ...myContractsQuery(scope), enabled: scopeReady });
   const deleteFn = useServerFn(deleteContractRequest);
   const [filter, setFilter] = useState<ContractStatus | "all">("all");
   const [requestLevelFor, setRequestLevelFor] = useState<any | null>(null);
@@ -201,6 +210,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
         title={undefined}
         actions={
           <>
+            <ScopeToggle />
             {sureLcAvailable && (
               <Button size="sm" variant="outline" onClick={openInSureLc}>
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open in SureLC

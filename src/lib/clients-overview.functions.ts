@@ -15,7 +15,7 @@ type Ctx = { supabase: any; userId: string };
  * page it opens must not disagree.
  *
  *   pipeline    your own leads               (clients.agent_id = you)
- *   book        you and your downline        (get_book_of_business, hierarchy)
+ *   book        the widest view you have     (get_book_of_business, hierarchy)
  *   retention   whatever RLS lets you see    (writing agent, assignee, owner,
  *                                             or manager over the downline)
  *
@@ -52,6 +52,14 @@ export const getClientsOverview = createServerFn({ method: "GET" })
         .from("clients")
         .select("stage, temperature, last_opened_at, created_at")
         .eq("agent_id", userId),
+      // Deliberately the legacy alias rather than "agency".
+      //
+      // Both the old function and the new one understand "hierarchy", and both
+      // resolve it the same way — the whole agency for an admin, self and
+      // downline for everybody else. "agency" is only understood by the new
+      // one, so passing it would make this tile read zero on any workspace
+      // where the scope-layer migration has not been applied yet. A wrong
+      // number is worse than an old one.
       supabase.rpc("get_book_of_business", { _scope: "hierarchy" }),
       supabase.from("retention_cases").select("status, premium_at_risk"),
     ]);

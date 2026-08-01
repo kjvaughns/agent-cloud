@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
+import { scopeSchema } from "@/lib/scope";
+import { resolveScopeAgentIds } from "@/lib/scope.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -9,15 +11,32 @@ const stageEnum = z.enum(["new", "callback", "almost_there", "sold"]);
 const temperatureEnum = z.enum(["hot", "warm", "cold"]);
 
 // ---------- List ----------
-export const listPipelineClients = createServerFn({ method: "GET" })
+
+/** An agency's whole client list is not a thing anyone reads to the bottom of. */
+const AGENCY_ROW_CAP = 2000;
+
+export const listPipelineClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ scope: scopeSchema.default("mine") }).parse(d ?? {})
+  )
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+
+    // Who counts as "me" for this request. Everything below narrows to this
+    // set, including the beneficiary lookup — miss that one and a downline
+    // client silently loses its beneficiary label, which is a wrong answer
+    // rather than a missing one.
+    const agentIds = data.scope === "mine"
+      ? [userId]
+      : await resolveScopeAgentIds(supabase, data.scope);
+
     const { data: clients, error } = await supabase
       .from("clients")
       .select("id,first_name,last_name,phone,phone_type,email,date_of_birth,street_address,city,state,zip_code,stage,temperature,score_pct,last_opened_at,created_at,agent_id")
-      .eq("agent_id", userId)
-      .order("created_at", { ascending: false });
+      .in("agent_id", agentIds)
+      .order("created_at", { ascending: false })
+      .limit(AGENCY_ROW_CAP);
     if (error) throw new Error(error.message);
 
     // Find beneficiary back-refs: which of these clients are beneficiaries of other clients?
@@ -28,7 +47,7 @@ export const listPipelineClients = createServerFn({ method: "GET" })
       const { data: benefRows } = await supabase
         .from("beneficiaries")
         .select("first_name,last_name,client_id,clients!inner(first_name,last_name,agent_id)")
-        .eq("clients.agent_id", userId);
+        .in("clients.agent_id", agentIds);
       for (const c of clients ?? []) {
         const hit = (benefRows ?? []).find(
           (b: any) =>
@@ -53,10 +72,26 @@ export const listPipelineClients = createServerFn({ method: "GET" })
       }
     }
 
+    // Whose lead it is, but only when that could be somebody else. A board of
+    // cards with no owner on them is unreadable the moment it stops being
+    // one person's board.
+    const nameById = new Map<string, string>();
+    if (data.scope !== "mine") {
+      const owners = Array.from(new Set((clients ?? []).map((c: any) => c.agent_id).filter(Boolean)));
+      if (owners.length) {
+        const { data: people } = await supabase
+          .from("profiles").select("id, first_name, last_name").in("id", owners);
+        for (const p of people ?? []) {
+          nameById.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim());
+        }
+      }
+    }
+
     return (clients ?? []).map((c: any) => ({
       ...c,
       beneficiary_of: benefMap.get(c.id) ?? null,
       latest_policy: policyMap.get(c.id) ?? null,
+      agent_name: nameById.get(c.agent_id) ?? null,
     }));
   });
 

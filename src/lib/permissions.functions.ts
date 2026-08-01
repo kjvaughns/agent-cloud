@@ -155,6 +155,19 @@ export type MyAccess = {
   role: string | null;
   /** May manage roles and permissions for their own organization. */
   canManageRoles: boolean;
+  /** Their workspace is an agency rather than a solo book. */
+  inAgency: boolean;
+  /**
+   * …and they administer it, so the Agency section appears for them.
+   *
+   * Derived here rather than re-assembled in the UI, so the sidebar that
+   * offers the section and the server that backs it cannot disagree.
+   *
+   * Deliberately not gated on subscription_status: nothing else in the app
+   * locks a lapsed workspace out, and making navigation the first thing to do
+   * so would be a pricing decision arriving as a layout change.
+   */
+  canSeeAgency: boolean;
   isSolo: boolean;
   isOwner: boolean;
   orgId: string | null;
@@ -208,9 +221,13 @@ export const getMyAccess = createServerFn({ method: "GET" })
       ? (await resolveCanManagePermissions(userId, org.id)) !== null
       : false;
 
+    const inAgency = Boolean(org) && org?.plan_type !== "solo";
+
     return {
       role: pick,
       canManageRoles,
+      inAgency,
+      canSeeAgency: inAgency && (org?.owner_id === userId || canManageRoles),
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       orgId: org?.id ?? null,

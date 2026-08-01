@@ -23,18 +23,17 @@ import {
   listTasks, createTask, updateTask, deleteTask, type Task,
 } from "@/lib/tasks.functions";
 import { listOrgMembers } from "@/lib/permissions.functions";
+import { ScopeToggle } from "@/components/scope-toggle";
+import { useScope } from "@/hooks/use-scope";
+import { SCOPES, emptyScopeMessage, type Scope } from "@/lib/scope";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({ meta: [{ title: "Tasks — Agent Cloud" }] }),
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+    scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+  }),
   component: TasksPage,
 });
-
-type Scope = "mine" | "assigned_by_me" | "team";
-const SCOPES: { value: Scope; label: string }[] = [
-  { value: "mine", label: "My Tasks" },
-  { value: "assigned_by_me", label: "Assigned by Me" },
-  { value: "team", label: "Team" },
-];
 
 const PRIORITY_TONE: Record<string, string> = {
   urgent: "text-destructive",
@@ -56,7 +55,9 @@ function dueLabel(due: string | null) {
 
 function TasksPage() {
   const qc = useQueryClient();
-  const [scope, setScope] = useState<Scope>("mine");
+  const { scope, ready: scopeReady, caps } = useScope();
+  // Separate from scope: this asks whose task it is, not how wide to look.
+  const [assignedByMe, setAssignedByMe] = useState(false);
   const [showDone, setShowDone] = useState(false);
 
   const listFn = useServerFn(listTasks);
@@ -64,8 +65,9 @@ function TasksPage() {
   const deleteFn = useServerFn(deleteTask);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tasks", scope, showDone],
-    queryFn: () => listFn({ data: { scope, status: showDone ? "all" : "open" } }),
+    enabled: scopeReady,
+    queryKey: ["tasks", scope, assignedByMe, showDone],
+    queryFn: () => listFn({ data: { scope, assignedByMe, status: showDone ? "all" : "open" } }),
   });
 
   const tasks = (data?.tasks ?? []) as Task[];
@@ -103,21 +105,12 @@ function TasksPage() {
         </div>
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex gap-1.5 flex-wrap">
-            {SCOPES.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setScope(s.value)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-                  scope === s.value
-                    ? "bg-gold-glow text-gold-bright border-primary/40"
-                    : "bg-surface-2 text-muted-foreground border-border hover:text-foreground",
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            <ScopeToggle />
+            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+              <Checkbox checked={assignedByMe} onCheckedChange={(v) => setAssignedByMe(!!v)} />
+              Assigned by me
+            </label>
           </div>
           <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
             <Checkbox checked={showDone} onCheckedChange={(v) => setShowDone(!!v)} />
@@ -132,11 +125,9 @@ function TasksPage() {
             <div className="py-12 text-center space-y-2">
               <div className="font-medium">Nothing here yet.</div>
               <p className="text-sm text-muted-foreground">
-                {scope === "mine"
-                  ? "Tasks assigned to you will appear here."
-                  : scope === "assigned_by_me"
+                {assignedByMe
                   ? "Tasks you assign to other people will appear here."
-                  : "Tasks across your team will appear here."}
+                  : emptyScopeMessage(scope, caps, "tasks")}
               </p>
             </div>
           </Panel>

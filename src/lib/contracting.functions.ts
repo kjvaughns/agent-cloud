@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scopeSchema } from "@/lib/scope";
+import { resolveScopeAgentIds } from "@/lib/scope.functions";
 
 // ---------- helpers ----------
 type Ctx = { supabase: any; userId: string };
@@ -83,17 +85,33 @@ export const requestCommissionLevel = createServerFn({ method: "POST" })
   });
 
 // ---------- my contracts ----------
-export const listMyContracts = createServerFn({ method: "GET" })
+export const listMyContracts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ scope: scopeSchema.default("mine") }).parse(d ?? {}))
+  .handler(async ({ data: input, context }) => {
     const { supabase, userId } = context as Ctx;
+    const agentIds = input.scope === "mine"
+      ? [userId]
+      : await resolveScopeAgentIds(supabase, input.scope);
     const { data, error } = await supabase
       .from("contract_requests")
-      .select("id,carrier_id,status,writing_number,commission_level,effective_date,products,requested_at,submitted_at,activated_at,issue_description,notes,carriers(name,agent_portal_url,is_annuity_carrier)")
-      .eq("agent_id", userId)
+      .select("id,agent_id,carrier_id,status,writing_number,commission_level,effective_date,products,requested_at,submitted_at,activated_at,issue_description,notes,carriers(name,agent_portal_url,is_annuity_carrier)")
+      .in("agent_id", agentIds)
       .order("requested_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return { rows: data ?? [] };
+
+    // Whose contract it is, but only where that could be somebody else.
+    let names = new Map<string, string>();
+    if (input.scope !== "mine") {
+      const owners = Array.from(new Set((data ?? []).map((r: any) => r.agent_id).filter(Boolean)));
+      if (owners.length) {
+        const { data: people } = await supabase
+          .from("profiles").select("id, first_name, last_name").in("id", owners);
+        names = new Map((people ?? []).map((p: any) =>
+          [p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()]));
+      }
+    }
+    return { rows: (data ?? []).map((r: any) => ({ ...r, agent_name: names.get(r.agent_id) ?? null })) };
   });
 
 export const createContractRequest = createServerFn({ method: "POST" })
@@ -164,10 +182,14 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
 
+    // Was .eq("upline_id", userId) — direct reports only. A manager two
+    // levels above an agent saw nothing, which is not what "downline" means
+    // anywhere else in the app.
+    const teamIds = (await resolveScopeAgentIds(supabase, "team")).filter((id) => id !== userId);
     const { data: agents, error: aErr } = await supabase
       .from("profiles")
       .select("id,first_name,last_name,email")
-      .eq("upline_id", userId)
+      .in("id", teamIds.length ? teamIds : ["00000000-0000-0000-0000-000000000000"])
       .order("first_name", { ascending: true });
     if (aErr) throw new Error(aErr.message);
 
@@ -240,8 +262,12 @@ export const listWorkInbox = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
 
+    // Same one-level bug as the matrix above: work from an agent two levels
+    // down never reached the person responsible for it.
+    const teamIds = (await resolveScopeAgentIds(supabase, "team")).filter((id) => id !== userId);
     const { data: agents } = await supabase
-      .from("profiles").select("id,first_name,last_name").eq("upline_id", userId);
+      .from("profiles").select("id,first_name,last_name")
+      .in("id", teamIds.length ? teamIds : ["00000000-0000-0000-0000-000000000000"]);
     const downlineIds = (agents ?? []).map((a: any) => a.id);
     const nameOf = (id: string) => {
       const a = (agents ?? []).find((x: any) => x.id === id);

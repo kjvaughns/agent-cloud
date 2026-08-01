@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scopeSchema, type Scope } from "@/lib/scope";
+import { resolveScopeAgentIds } from "@/lib/scope.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -34,18 +36,38 @@ export type RetentionCase = {
 const SELECT =
   "id, policy_id, agent_id, assigned_to, risk_reason, risk_score, status, outcome_note, premium_at_risk, opened_at, contacted_at, resolved_at";
 
+/**
+ * Restrict a retention query to the agents a scope covers.
+ *
+ * Explicitly, rather than dropping the filter and letting the RLS policy
+ * decide — for an org owner "no filter" quietly means the whole agency, which
+ * would make their Team view and their Agency view the same rows under
+ * different labels.
+ */
+async function narrowByScope(supabase: any, q: any, userId: string, scope: Scope) {
+  if (scope === "mine") return q.eq("agent_id", userId);
+  return q.in("agent_id", await resolveScopeAgentIds(supabase, scope));
+}
+
 export const listRetentionCases = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       status: z.enum(["all", "live", "open", "working", "saved", "lost", "no_action"]).default("live"),
       assigned: z.enum(["all", "me", "unassigned"]).default("all"),
+      scope: scopeSchema.default("mine"),
     }).parse(d ?? {})
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
     let q = supabase.from("retention_cases").select(SELECT).limit(300);
+
+    // Narrowed on agent_id — who wrote the policy — and never on assigned_to.
+    // The page already has its own assigned filter; if scope narrowed on the
+    // same column the two controls would mean the same thing in one
+    // combination and different things in another.
+    q = await narrowByScope(supabase, q, userId, data.scope);
 
     if (data.status === "live") q = q.in("status", ["open", "working"]);
     else if (data.status !== "all") q = q.eq("status", data.status);
@@ -91,13 +113,19 @@ export const listRetentionCases = createServerFn({ method: "POST" })
     };
   });
 
-export const getRetentionStats = createServerFn({ method: "GET" })
+export const getRetentionStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase } = context as Ctx;
-    const { data: rows, error } = await supabase
-      .from("retention_cases")
-      .select("status, premium_at_risk, resolved_at");
+  .inputValidator((d: unknown) => z.object({ scope: scopeSchema.default("mine") }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    // Same scope as the list below it, or the tiles describe a different set
+    // of cases than the rows they sit above.
+    const { data: rows, error } = await narrowByScope(
+      supabase,
+      supabase.from("retention_cases").select("status, premium_at_risk, resolved_at"),
+      userId,
+      data.scope,
+    );
     if (error) return { live: 0, atRisk: 0, saved: 0, lost: 0, saveRate: null as number | null };
 
     const all = rows ?? [];

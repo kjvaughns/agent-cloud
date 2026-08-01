@@ -1,0 +1,62 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  NO_SCOPE_CAPABILITIES, scopeSchema, type Scope, type ScopeCapabilities,
+} from "@/lib/scope";
+
+type Ctx = { supabase: any; userId: string };
+
+/**
+ * The server half of the scope layer.
+ *
+ * Two things live here: what a person may look at, and which agent ids a given
+ * scope covers. Both defer to SQL — `my_scopes()` and `scope_agent_ids()` —
+ * because the answer depends on the upline chain and on organisation
+ * membership, and re-deriving either in TypeScript is how the two drift apart.
+ */
+
+export const getScopeCapabilities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ScopeCapabilities> => {
+    const { supabase } = context as Ctx;
+    const { data, error } = await supabase.rpc("my_scopes");
+    // A failure here must not hand somebody a wider view than they have. The
+    // narrow answer is the safe one, and it degrades to "no toggle at all".
+    if (error || !data) return NO_SCOPE_CAPABILITIES;
+    return {
+      downlineCount: Number((data as any).downline_count ?? 0),
+      canAgency: Boolean((data as any).can_agency),
+      canEditTeamRecords: Boolean((data as any).can_edit_team_records),
+    };
+  });
+
+/**
+ * The agent ids a scope covers, for the caller.
+ *
+ * Every scoped query narrows with this rather than dropping its filter and
+ * letting row-level security decide. Those two are not the same thing: for an
+ * org owner, "no filter" silently means the whole agency, so a Team view built
+ * that way shows agency numbers under a Team label with nothing to indicate it.
+ * Asking explicitly is what keeps the two apart.
+ *
+ * Authorization lives inside the SQL function, so a scope the caller may not
+ * open narrows to one they may rather than erroring.
+ */
+export async function resolveScopeAgentIds(supabase: any, scope: Scope): Promise<string[]> {
+  const { data, error } = await supabase.rpc("scope_agent_ids", { _scope: scope });
+  if (error) throw new Error(error.message);
+  // The RPC returns a set of uuids, which arrives as either bare strings or
+  // single-key rows depending on the client version.
+  return (data ?? []).map((row: any) => (typeof row === "string" ? row : row.scope_agent_ids ?? row.id));
+}
+
+/** People to choose from within a scope — the agent picker's source. */
+export const listScopeAgents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => scopeSchema.parse((d as any)?.scope ?? "team"))
+  .handler(async ({ data: scope, context }) => {
+    const { supabase } = context as Ctx;
+    const { data, error } = await supabase.rpc("get_scope_agents", { _scope: scope });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as { id: string; first_name: string | null; last_name: string | null }[];
+  });
