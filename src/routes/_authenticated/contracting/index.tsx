@@ -6,6 +6,7 @@ import {
   listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
   listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
+  resolveCommissionLevelRequest,
 } from "@/lib/contracting.functions";
 import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses } from "@/lib/surelc.functions";
 import { Card } from "@/components/ui/card";
@@ -745,6 +746,64 @@ function DownlineCellDialog({ cell, onClose, onUpdated }:
 }
 
 // ---------------- Inbox ----------------
+/**
+ * What the Review button does.
+ *
+ * It used to be `<Button size="sm" variant="outline">Review</Button>` — no
+ * handler, no link. Every row in this inbox ended at a control that did
+ * nothing, which is a good way to conclude the whole workflow was never built.
+ *
+ * Each kind goes somewhere it can actually be dealt with. A commission level
+ * request is answered here, because there is no other screen for it.
+ */
+function InboxAction({ item }: { item: any }) {
+  const qc = useQueryClient();
+  const resolveFn = useServerFn(resolveCommissionLevelRequest);
+  const [busy, setBusy] = useState(false);
+
+  async function decide(decision: "approved" | "declined") {
+    setBusy(true);
+    try {
+      await resolveFn({ data: { id: item.id, decision } });
+      qc.invalidateQueries({ queryKey: ["contracting", "inbox"] });
+      toast.success(decision === "approved" ? "Marked approved" : "Declined");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Couldn't answer that request");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (item.kind === "commission_request") {
+    return (
+      <div className="flex shrink-0 gap-2">
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => decide("declined")}>
+          Decline
+        </Button>
+        <Button size="sm" variant="outline" disabled={busy} onClick={() => decide("approved")}>
+          Approve
+        </Button>
+      </div>
+    );
+  }
+
+  if (item.kind === "transfer") {
+    return (
+      <Button size="sm" variant="outline" asChild>
+        <Link to="/contracting" search={{ tab: "transfer-requests" } as any}>Review</Link>
+      </Button>
+    );
+  }
+
+  // A contract awaiting review is worked in Contracting Ops, where the status
+  // workflow, the packet and the readiness blockers are.
+  return (
+    <Button size="sm" variant="outline" asChild>
+      <Link to="/contracting-ops/requests">Review</Link>
+    </Button>
+  );
+}
+
 function InboxTab() {
   const { data, isLoading } = useQuery({ queryKey: ["contracting","inbox"], queryFn: () => listWorkInbox() });
   if (isLoading) return <Skeleton className="h-32" />;
@@ -765,7 +824,7 @@ function InboxTab() {
               <div className="text-xs text-muted-foreground">{it.description}</div>
             </div>
             <Badge variant={it.priority === "high" ? "destructive" : "secondary"} className="capitalize">{it.priority}</Badge>
-            <Button size="sm" variant="outline">Review</Button>
+            <InboxAction item={it} />
           </div>
         ))}
       </div>

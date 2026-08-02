@@ -1040,49 +1040,6 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const assignRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ id: z.string().uuid(), assigned_to: z.string().uuid().nullable() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { userId } = context as Ctx;
-    const access = await resolveAccess(userId);
-    const orgId = requireOrg(access);
-    if (!access.canAssign) deny("You don't have permission to assign contracting work.");
-
-    if (data.assigned_to) await assertSameOrg(userId, data.assigned_to);
-
-    const { data: before } = await supabaseAdmin
-      .from("contracting_requests").select("assigned_to, agent_id, status").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
-    if (!before) throw new OrgAccessError("That request is not available to you");
-
-    const { error } = await supabaseAdmin.from("contracting_requests").update({
-      assigned_to: data.assigned_to,
-      assigned_at: data.assigned_to ? new Date().toISOString() : null,
-      assigned_by: data.assigned_to ? userId : null,
-      // Claiming unassigned work moves it out of the ready pile without a
-      // second click.
-      status: data.assigned_to && before.status === "ready_to_submit" ? "assigned" : before.status,
-    }).eq("id", data.id).eq("organization_id", orgId);
-    if (error) throw new Error(error.message);
-
-    await recordAudit({
-      organizationId: orgId, actorId: userId, action: "request.assigned",
-      recordType: "contracting_requests", recordId: data.id, subjectAgentId: before.agent_id,
-      previous: { assigned_to: before.assigned_to }, next: { assigned_to: data.assigned_to },
-    });
-
-    if (data.assigned_to && data.assigned_to !== userId) {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: data.assigned_to,
-        title: "Contracting request assigned to you",
-        description: "A carrier contracting request is waiting in your queue.",
-        type: "contracting",
-      });
-    }
-    return { ok: true };
-  });
-
 /** Agent-facing notification. Internal transitions stay internal. */
 async function notifyAgent(
   agentId: string, orgId: string, status: string, message: string | null, reference: string | null,

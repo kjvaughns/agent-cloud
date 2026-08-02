@@ -12,8 +12,10 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 import {
-  CONTRACT_TYPE_LABELS, METHOD_LABELS, type ContractType, type ContractingMethod,
+  CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
+  type ContractType, type ContractingMethod,
 } from "@/lib/contracting-ops/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { agentBlock, fullBlock, hierarchyBlock } from "@/lib/contracting-ops/packet";
 import {
   DOC_STATUS_LABEL, DocStatusIcon, ReadinessBar, StatusBadge,
@@ -400,6 +402,41 @@ function RequestDetailPage() {
                 >
                   <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Request missing information
                 </Button>
+
+                {/* The other fourteen.
+
+                    Three buttons covered three transitions out of seventeen,
+                    so a carrier decision — approved, declined, and the
+                    writing number that ends the whole thing — had nowhere to
+                    be recorded. The server has accepted all seventeen since
+                    the workflow was built, with its own permission and
+                    readiness gates; only the buttons were missing. */}
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Set status
+                  </label>
+                  <Select
+                    value=""
+                    onValueChange={(v) => setStatus.mutate({ status: v as any })}
+                    disabled={setStatus.isPending}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Choose a status…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REQUEST_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s} className="text-xs">
+                          {REQUEST_STATUS_META[s].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    Ready to submit and Submitted are gated on readiness; the
+                    carrier decisions need contracting rights. The server says
+                    so plainly if a move isn't allowed.
+                  </p>
+                </div>
               </div>
 
               {!ready && (

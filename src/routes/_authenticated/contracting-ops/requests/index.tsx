@@ -54,8 +54,8 @@ function RequestsTabs() {
       <TabsList>
         <TabsTrigger value="requests">Requests</TabsTrigger>
         <TabsTrigger value="numbers">Writing numbers</TabsTrigger>
-        <TabsTrigger value="hierarchies">Hierarchies</TabsTrigger>
-        <TabsTrigger value="changes">Hierarchy changes</TabsTrigger>
+        <TabsTrigger value="hierarchies">Current hierarchy</TabsTrigger>
+        <TabsTrigger value="changes">Change requests</TabsTrigger>
       </TabsList>
       <TabsContent value="requests"><RequestsPage /></TabsContent>
       <TabsContent value="numbers"><WritingNumbersPage /></TabsContent>
