@@ -29,7 +29,11 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "bg-emerald-500/15 text-emerald-600",
 };
 
-const STATUS_TABS = ["open", "in_progress", "resolved", "all"];
+// `in_progress` was here and nothing has ever written it — every writer in
+// the app uses open | pending | resolved | closed. Filtering on a status that
+// cannot exist meant the tab was permanently empty, and "Closed" had no tab
+// at all despite being where finished tickets end up.
+const STATUS_TABS = ["open", "pending", "resolved", "closed", "all"];
 
 function AdminSupport() {
   const [tickets, setTickets] = useState<any[]>([]);
@@ -172,6 +176,11 @@ function AdminSupport() {
                 <p className="text-sm font-medium truncate flex-1 mr-2">{t.subject}</p>
                 <Badge className={cn("text-[10px] shrink-0", PRIORITY_COLORS[t.priority])}>{t.priority}</Badge>
               </div>
+              {t.escalated_at && (
+                <Badge variant="outline" className="text-[10px] mb-1">
+                  Escalated by the agency
+                </Badge>
+              )}
               <p className="text-xs text-muted-foreground">{t.profiles?.first_name} {t.profiles?.last_name}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{formatDistanceToNow(new Date(t.created_at), { addSuffix: true })}</p>
             </button>
@@ -243,7 +252,7 @@ function AdminSupport() {
                   <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="resolved">Resolved</SelectItem>
                     <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>

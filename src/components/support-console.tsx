@@ -10,11 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Send, Loader2, LifeBuoy } from "lucide-react";
+import { ArrowLeft, Send, Loader2, LifeBuoy, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   listAgencyTickets, getTicketThread, replyToTicket, setTicketStatus, assignTicket,
+  escalateTicket,
 } from "@/lib/support.functions";
 import { listOrgMembers } from "@/lib/permissions.functions";
 
@@ -26,8 +27,12 @@ import { listOrgMembers } from "@/lib/permissions.functions";
  * them. Agents could raise tickets that no one in the agency could see.
  *
  * Visibility is decided by support_tickets' own RLS: your own tickets,
- * tickets assigned to you, and for an owner, the whole org. There is no
- * cross-agency view.
+ * tickets assigned to you, and — for anyone the agency has put on ticket
+ * duty — the whole org. There is no cross-agency view.
+ *
+ * What a queue-runner could not do until now is escalate. Some questions are
+ * not the agency's to answer — a billing charge, a bug, a platform outage —
+ * and the only options were to answer wrongly or to leave the ticket open.
  */
 
 const STATUS: { value: string; label: string }[] = [
@@ -138,6 +143,11 @@ function TicketQueue({ onOpen }: { onOpen: (id: string) => void }) {
                       {!t.assigned_to && (
                         <Badge variant="outline" className="text-[10px]">Unassigned</Badge>
                       )}
+                      {t.scope === "platform" && (
+                        <Badge variant="outline" className="text-[10px] border-primary/40 text-gold-bright">
+                          {t.escalated_at ? "Escalated" : "Agent Cloud"}
+                        </Badge>
+                      )}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                       {t.ticket_number && <span className="tnum">#{t.ticket_number}</span>}
@@ -163,6 +173,7 @@ function TicketThread({ id, onBack }: { id: string; onBack: () => void }) {
   const replyFn = useServerFn(replyToTicket);
   const statusFn = useServerFn(setTicketStatus);
   const assignFn = useServerFn(assignTicket);
+  const escalateFn = useServerFn(escalateTicket);
   const membersFn = useServerFn(listOrgMembers);
 
   const { data, isLoading } = useQuery({
@@ -176,6 +187,8 @@ function TicketThread({ id, onBack }: { id: string; onBack: () => void }) {
   });
 
   const [body, setBody] = useState("");
+  const [escalating, setEscalating] = useState(false);
+  const [note, setNote] = useState("");
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["support", "thread", id] });
     qc.invalidateQueries({ queryKey: ["support", "queue"] });
@@ -198,6 +211,17 @@ function TicketThread({ id, onBack }: { id: string; onBack: () => void }) {
       assignFn({ data: { ticket_id: id, assignee_id: who === "__none__" ? null : who } }),
     onSuccess: () => { toast.success("Assigned"); invalidate(); },
     onError: (e: any) => toast.error(e?.message ?? "Couldn't assign"),
+  });
+
+  const escalate = useMutation({
+    mutationFn: (note: string) => escalateFn({ data: { ticket_id: id, note: note || undefined } }),
+    onSuccess: (r: any) => {
+      toast.success(r?.alreadyEscalated ? "Already with Agent Cloud" : "Sent to Agent Cloud support");
+      setEscalating(false);
+      setNote("");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't escalate"),
   });
 
   if (isLoading) return <Skeleton className="h-[420px]" />;
@@ -259,6 +283,40 @@ function TicketThread({ id, onBack }: { id: string; onBack: () => void }) {
             {ticket.description}
           </p>
         )}
+
+        {/* Escalation. Only offered where it means something: a ticket
+            already on the platform desk has nowhere further to go. */}
+        <div className="mt-4 border-t border-border-soft pt-4">
+          {ticket?.scope === "platform" ? (
+            <p className="text-xs text-muted-foreground">
+              {ticket?.escalated_at
+                ? `With Agent Cloud support since ${new Date(ticket.escalated_at).toLocaleDateString()}. You can still reply here — the thread is shared.`
+                : "This ticket is with Agent Cloud support."}
+            </p>
+          ) : escalating ? (
+            <div className="space-y-2">
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="What do you need Agent Cloud to look at? (optional)"
+                className="min-h-[70px]"
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => escalate.mutate(note)} disabled={escalate.isPending}>
+                  {escalate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send to Agent Cloud"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEscalating(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEscalating(true)}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" /> Escalate to Agent Cloud
+            </button>
+          )}
+        </div>
       </Panel>
 
       <Panel title="Conversation">

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LifeBuoy, Mail, MessageSquare, Phone, Search, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
+import { LifeBuoy, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
 import { AiHelpSearch } from "@/components/ai/ai-help-search";
@@ -36,18 +36,28 @@ export const Route = createFileRoute("/_authenticated/account/help")({
   component: HelpPage,
 });
 
-const TOPICS = [
-  { title: "Getting Started", desc: "Set up your account and complete onboarding", count: 8 },
-  { title: "Pipeline & CRM", desc: "Managing leads, stages, and the client drawer", count: 12 },
-  { title: "Posting Deals", desc: "Submit policies and track commissions", count: 6 },
-  { title: "Contracting", desc: "Carrier requests, transfers, commission grids", count: 10 },
-  { title: "Phone & SMS", desc: "Twilio setup, wallet, and dial lists", count: 7 },
-  { title: "Nova AI", desc: "Policy recovery, follow-ups, and birthday outreach", count: 5 },
-];
+/**
+ * What Ask AI is actually reading, linked so you can read it yourself.
+ *
+ * This replaces six topic cards that announced article counts ("12 articles")
+ * for a knowledge base that does not exist — there is no article table
+ * anywhere in the schema — and could not be clicked. Every entry below is a
+ * route that renders content today.
+ */
+const SOURCES = [
+  { title: "New agent guide", desc: "Licensing, contracting, first policy", to: "/resources/new-agent-guide" },
+  { title: "Agent handbook", desc: "How the agency runs and what's expected", to: "/resources/agent-handbook" },
+  { title: "Scripts", desc: "Openers, objections, closes", to: "/resources/scripts" },
+  { title: "Academy", desc: "Courses and training", to: "/resources/agent-academy" },
+  { title: "State licensing", desc: "Requirements state by state", to: "/resources/state-licenses" },
+] as const;
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-primary/10 text-primary",
-  in_progress: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  // `pending`, not `in_progress` — the latter was the only status listed here
+  // that nothing in the app has ever written, so a ticket the agency had
+  // picked up rendered with no colour at all.
+  pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   resolved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   closed: "bg-muted text-muted-foreground",
 };
@@ -61,15 +71,18 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 function HelpPage() {
   const { tab } = Route.useSearch();
+  // Controlled so "Still stuck? → Submit a ticket" can move you there. An
+  // uncontrolled Tabs has no way to be told.
+  const [active, setTab] = useState<Tab>(tab ?? "kb");
   return (
     <PageShell>
       <div className="max-w-5xl mx-auto space-y-6">
       <HeroBand
         title={<span className="flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> Help Center</span>}
-        subtitle="Search the knowledge base, read the FAQ, or open a support ticket."
+        subtitle="Ask a question, read the FAQ, or open a support ticket."
       />
 
-      <Tabs defaultValue={tab ?? "kb"}>
+      <Tabs value={active} onValueChange={(v) => setTab(v as Tab)}>
         <TabsList>
           <TabsTrigger value="kb">Knowledge Base</TabsTrigger>
           <TabsTrigger value="faq">FAQ</TabsTrigger>
@@ -79,35 +92,34 @@ function HelpPage() {
 
         <TabsContent value="kb" className="mt-4 space-y-4">
           <AiHelpSearch />
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9 h-11" placeholder="Search articles…" />
+
+          <div>
+            <div className="text-sm font-semibold mb-2">Or read it yourself</div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {SOURCES.map((s) => (
+                <Link key={s.to} to={s.to}>
+                  <Panel className="h-full hover:border-primary/40 transition">
+                    <div className="font-semibold">{s.title}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{s.desc}</div>
+                  </Panel>
+                </Link>
+              ))}
+            </div>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {TOPICS.map((t) => (
-              <Panel key={t.title} className="hover:border-border-soft transition cursor-pointer">
-                <div className="font-semibold">{t.title}</div>
-                <div className="text-sm text-muted-foreground mt-1">{t.desc}</div>
-                <div className="text-xs text-muted-foreground mt-3">{t.count} articles</div>
-              </Panel>
-            ))}
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-4">
-            {[
-              { icon: MessageSquare, title: "Live Chat", desc: "Mon–Fri, 8a–6p CT", cta: "Start Chat" },
-              { icon: Mail, title: "Email", desc: "support@agentcloud.com", cta: "Email Us" },
-              { icon: Phone, title: "Phone", desc: "(800) 555-CLOUD", cta: "Call Support" },
-            ].map((c) => (
-              <Panel key={c.title} className="text-center items-center gap-2">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 grid place-items-center text-primary mx-auto"><c.icon className="h-5 w-5" /></div>
-                <div className="font-semibold">{c.title}</div>
-                <div className="text-sm text-muted-foreground">{c.desc}</div>
-                <Button variant="outline" size="sm" className="w-full">{c.cta}</Button>
-              </Panel>
-            ))}
-          </div>
+          {/* The three cards that were here offered Live Chat, an email
+              address and a phone number, none of which exist. The button that
+              routes a question to a person who will answer it is the ticket
+              form, so that is what this points at. */}
+          <Panel className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="font-semibold">Still stuck?</div>
+              <div className="text-sm text-muted-foreground">
+                Open a ticket and your agency will pick it up. They can pass it to Agent Cloud if it's ours.
+              </div>
+            </div>
+            <Button variant="outline" onClick={() => setTab("ticket")}>Submit a ticket</Button>
+          </Panel>
         </TabsContent>
 
         {/* FAQ was its own sidebar entry; it belongs with the other
@@ -271,6 +283,9 @@ function TicketCard({ ticket, isOpen, onToggle, threadFn }: { ticket: any; isOpe
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className={`text-xs ${STATUS_COLORS[ticket.status] ?? ""}`}>{ticket.status.replace("_", " ")}</Badge>
               <Badge variant="outline" className={`text-xs ${PRIORITY_COLORS[ticket.priority] ?? ""}`}>{ticket.priority}</Badge>
+              {ticket.escalated_at && (
+                <Badge variant="outline" className="text-xs">With Agent Cloud</Badge>
+              )}
               <span className="text-xs text-muted-foreground">{ticket.category}</span>
               <span className="text-xs text-muted-foreground">{new Date(ticket.created_at).toLocaleDateString()}</span>
             </div>

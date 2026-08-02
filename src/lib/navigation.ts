@@ -51,7 +51,14 @@ export type Unlock =
    * they have no clients, no book and no commissions, so these pages can only
    * show them zero and ask them to wait.
    */
-  | "activated";
+  | "activated"
+  /**
+   * Somebody whose job includes answering tickets. Not the same set as
+   * "administers the agency": a client-services staffer or a manager the
+   * owner has ticked "respond to support tickets" for works the queue
+   * without touching billing or white label.
+   */
+  | "ticket-responder";
 
 export type Page = {
   id: string;
@@ -203,7 +210,7 @@ export const PAGES: Page[] = [
   { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "ticket-responder" },
   { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
@@ -252,6 +259,12 @@ export type NavContext = {
   downlineCount: number;
   /** Invited, not yet activated, no first sale. */
   isPending: boolean;
+  /**
+   * They answer tickets for the agency. Mirrors the database's
+   * can_work_tickets() so the row that offers the desk and the policy that
+   * lets them act on it agree.
+   */
+  canWorkTickets: boolean;
   perms: Record<string, unknown>;
 };
 
@@ -277,6 +290,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-member") gates.push(ctx.inAgency);
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
+  if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
   if (p.unlock === "activated") gates.push(!ctx.isPending);
   if (p.permission) gates.push(Boolean(ctx.perms[p.permission]));
   if (gates.length > 0 && !gates.some(Boolean)) return false;

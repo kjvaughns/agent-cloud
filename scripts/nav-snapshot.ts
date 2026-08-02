@@ -14,48 +14,81 @@
  * one in the same change as a navigation rewrite is two changes.
  */
 
-import { navFor, hubGroupsFor, isHub, type NavContext } from "../src/lib/navigation";
+import {
+  navFor, hubGroupsFor, isHub, ACCOUNT_PAGES, type NavContext,
+} from "../src/lib/navigation";
 
 type Persona = { name: string; ctx: NavContext };
 
+/**
+ * One place that knows the shape of a context, so adding a gate means adding
+ * a default here rather than editing every persona and hoping none was
+ * missed — which would silently give the new gate a `false` it never chose.
+ */
+function ctx(over: Partial<NavContext>): NavContext {
+  const base: NavContext = {
+    audience: "core",
+    inAgency: false,
+    canSeeAgency: false,
+    downlineCount: 0,
+    isPending: false,
+    canWorkTickets: false,
+    perms: {},
+  };
+  // The two derived flags follow their inputs unless a persona says otherwise,
+  // matching how useNavContext computes them from the same permissions.
+  const merged = { ...base, ...over };
+  if (over.canWorkTickets === undefined) {
+    merged.canWorkTickets =
+      merged.canSeeAgency ||
+      Boolean(merged.perms.mgr_respond_tickets) ||
+      Boolean(merged.perms.staff_view_all_tickets) ||
+      Boolean(merged.perms.staff_respond_tickets) ||
+      Boolean(merged.perms.admin_view_agency_tickets);
+  }
+  return merged;
+}
+
 const PERSONAS: Persona[] = [
-  {
-    name: "Solo agent (own workspace, solo plan)",
-    ctx: { audience: "core", inAgency: false, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
-  },
-  {
-    name: "Agent inside an agency, nobody under them",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
-  },
-  {
-    name: "Pending agent (invited, no sale yet)",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: true, perms: {} },
-  },
-  {
-    name: "Agent with a downline",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 3, isPending: false, perms: {} },
-  },
+  { name: "Solo agent (own workspace, solo plan)", ctx: ctx({}) },
+  { name: "Agent inside an agency, nobody under them", ctx: ctx({ inAgency: true }) },
+  { name: "Pending agent (invited, no sale yet)", ctx: ctx({ inAgency: true, isPending: true }) },
+  { name: "Agent with a downline", ctx: ctx({ inAgency: true, downlineCount: 3 }) },
   {
     name: "Manager (default permissions)",
-    ctx: {
-      audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 8,
-      isPending: false, perms: { mgr_view_team_analytics: true, mgr_manage_onboarding: true },
-    },
+    ctx: ctx({
+      inAgency: true, downlineCount: 8,
+      perms: { mgr_view_team_analytics: true, mgr_manage_onboarding: true },
+    }),
   },
   {
-    name: "Agency owner",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: true, downlineCount: 0, isPending: false, perms: {} },
+    name: "Manager who answers tickets",
+    ctx: ctx({
+      inAgency: true, downlineCount: 4,
+      perms: { mgr_view_team_analytics: true, mgr_respond_tickets: true },
+    }),
   },
+  { name: "Agency owner", ctx: ctx({ inAgency: true, canSeeAgency: true }) },
+  { name: "Staff (no permissions granted)", ctx: ctx({ audience: "staff", inAgency: true }) },
   {
-    name: "Staff (no permissions granted)",
-    ctx: { audience: "staff", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
+    name: "Staff (client services preset)",
+    ctx: ctx({
+      audience: "staff", inAgency: true,
+      perms: {
+        staff_view_clients: true, staff_edit_clients: true, staff_delete_clients: true,
+        staff_view_policies: true, staff_view_all_tickets: true, staff_respond_tickets: true,
+      },
+    }),
   },
   {
     name: "Staff (admin preset)",
-    ctx: {
-      audience: "staff", inAgency: true, canSeeAgency: true, downlineCount: 0,
-      isPending: false, perms: { staff_is_admin: true, admin_manage_staff_configs: true, staff_nova_pro_enabled: true, staff_view_contracts: true },
-    },
+    ctx: ctx({
+      audience: "staff", inAgency: true, canSeeAgency: true,
+      perms: {
+        staff_is_admin: true, admin_manage_staff_configs: true,
+        staff_nova_pro_enabled: true, staff_view_contracts: true,
+      },
+    }),
   },
 ];
 
@@ -86,6 +119,25 @@ for (const { name, ctx } of PERSONAS) {
           for (const s of sub.items) console.log(`      · ${s.label}  →  ${s.path}`);
         }
       }
+    }
+  }
+
+  // The footer. Left out of the first version of this script, and Settings is
+  // where every agency-configuration destination lives — including the
+  // support desk, which is the one row a client-services staffer needs and
+  // the one place the main list would never have shown it.
+  console.log("  ── footer");
+  for (const item of ACCOUNT_PAGES) {
+    console.log(`  ${item.label}  →  ${item.path}`);
+    if (!isHub(item.id)) continue;
+    for (const sub of hubGroupsFor(item.id, ctx)) {
+      if (sub.items.length === 0) {
+        console.log(`      !! EMPTY HUB GROUP "${sub.label}"`);
+        emptyGroups += 1;
+        continue;
+      }
+      if (sub.label) console.log(`      ${sub.label.toUpperCase()}`);
+      for (const s of sub.items) console.log(`      · ${s.label}  →  ${s.path}`);
     }
   }
 }
