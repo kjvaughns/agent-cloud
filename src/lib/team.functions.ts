@@ -139,13 +139,34 @@ export const getAgentDetail = createServerFn({ method: "GET" })
     };
   });
 
-export const deactivateAgent = createServerFn({ method: "POST" })
+// `deactivateAgent` was here. Its only caller was `AgentDetailDrawer` in
+// team.tsx, which is defined and never rendered — team.tsx renders
+// `AgentProfileDrawer` instead. It wrote `status: 'terminated'` directly with
+// no row-count check and no membership sync, so it was a second, worse path to
+// the same thing. Deleted rather than fixed; `setAgentStatus` is the one path.
+
+/**
+ * Whether the caller still has access to their agency.
+ *
+ * The security boundary is the database — `my_org_ids()` reads
+ * `organization_memberships`, and `set_agent_status` archives the membership.
+ * This exists so a revoked agent is *told* rather than shown a working-looking
+ * app full of empty tables.
+ *
+ * Deliberately not in `auth-middleware.ts`: that file is generated, and a check
+ * placed there would be silently lost the next time it is regenerated.
+ */
+export const getAccessState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { agentId: string }) => z.object({ agentId: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("profiles").update({ status: "terminated" }).eq("id", data.agentId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const { data } = await supabase
+      .from("profiles").select("status").eq("id", userId).maybeSingle();
+    const status = String(data?.status ?? "active");
+    return {
+      revoked: status === "inactive" || status === "terminated",
+      status,
+    };
   });
 
 export const checkIsAdmin = createServerFn({ method: "GET" })
@@ -185,24 +206,74 @@ export const setAgentHidden = createServerFn({ method: "POST" })
     z.object({ agentId: z.string().uuid(), hidden: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    // .select("id") for the same reason as everywhere else: an RLS-filtered
+    // update matches nothing, is not an error, and used to report success.
+    const { data: touched, error } = await context.supabase
       .from("profiles")
       .update({ is_hidden: data.hidden })
-      .eq("id", data.agentId);
+      .eq("id", data.agentId)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!touched?.length) {
+      throw new Error("You don't have permission to change that agent.");
+    }
     return { ok: true };
   });
 
-export const setAgentTerminated = createServerFn({ method: "POST" })
+/**
+ * The single write path for an agent's access.
+ *
+ * Replaces `setAgentTerminated`, which wrote `profiles.status` on the RLS
+ * client and stopped there. Three things were wrong with that:
+ *
+ *   It never touched `organization_memberships`, which is what `my_org_ids()`
+ *   reads — so termination revoked nothing at all.
+ *
+ *   It had no row-count check, and `profiles_org_manage` only admits the org
+ *   owner while the drawer's `isAdmin` also admits managers. A manager clicking
+ *   "Mark Terminated" got a success toast and zero rows changed.
+ *
+ *   Reinstating set `status: 'active'` unconditionally, which would promote an
+ *   `imported` placeholder into a full agent.
+ *
+ * `set_agent_status` does both stores in one transaction, refuses to revoke the
+ * agency owner (the org policies are conjunctive, so revoking an owner locks
+ * them out of their own agency), and returns a row count.
+ */
+export const setAgentStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { agentId: string; terminated: boolean }) =>
-    z.object({ agentId: z.string().uuid(), terminated: z.boolean() }).parse(input),
+  .inputValidator((input: { agentId: string; status: "active" | "inactive" | "terminated" }) =>
+    z.object({
+      agentId: z.string().uuid(),
+      status: z.enum(["active", "inactive", "terminated"]),
+    }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const update = data.terminated
-      ? { status: "terminated", terminated_at: new Date().toISOString() }
-      : { status: "active", terminated_at: null };
-    const { error } = await context.supabase.from("profiles").update(update).eq("id", data.agentId);
+    // Cast: the generated DB types predate this RPC. Same pattern as the other
+    // contracting-ops modules, which cast until types are regenerated.
+    const { data: count, error } = await (context.supabase as any).rpc("set_agent_status", {
+      _agent: data.agentId,
+      _status: data.status,
+    });
+
+    // 42883 / PGRST202: the migration has not been applied yet. Migrations here
+    // are applied by hand, so code always ships first. Fall back to the old
+    // direct write — which is exactly today's behaviour, no worse — rather than
+    // failing the call outright.
+    if (error && (error.code === "42883" || error.code === "PGRST202")) {
+      const patch = data.status === "terminated"
+        ? { status: "terminated", terminated_at: new Date().toISOString() }
+        : { status: data.status, terminated_at: null };
+      const { data: touched, error: fallbackErr } = await context.supabase
+        .from("profiles").update(patch).eq("id", data.agentId).select("id");
+      if (fallbackErr) throw new Error(fallbackErr.message);
+      if (!touched?.length) {
+        throw new Error("Only the agency owner can change an agent's status.");
+      }
+      return { ok: true, revoked: false as const };
+    }
+
     if (error) throw new Error(error.message);
-    return { ok: true };
+    if (!count) throw new Error("That agent is no longer in your agency.");
+    return { ok: true, revoked: data.status !== "active" };
   });

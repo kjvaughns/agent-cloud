@@ -22,8 +22,23 @@ export class OrgAccessError extends Error {
   }
 }
 
-/** Orgs the user actively belongs to. Falls back to profiles.organization_id
- *  for installs where the membership backfill has not run yet. */
+/** Statuses that mean "this person no longer has access to the organization". */
+const REVOKED = new Set(["inactive", "terminated"]);
+
+/**
+ * Orgs the user actively belongs to.
+ *
+ * The `profiles.organization_id` fallback exists for installs where the
+ * membership backfill has not run. It is also, unguarded, an active bypass of
+ * the revocation this module is supposed to enforce: revoking somebody sets
+ * their membership to `suspended`/`archived`, which makes the membership query
+ * return **zero rows** — which is precisely the condition that fires the
+ * fallback. Every `supabaseAdmin` path would hand the org straight back.
+ *
+ * So the fallback is kept, and conditioned on the profile not being revoked.
+ * Removing it outright would break installs mid-backfill; conditioning it is
+ * correct in both windows.
+ */
 export async function getMyOrgIds(userId: string): Promise<string[]> {
   const { data: memberships } = await supabaseAdmin
     .from("organization_memberships")
@@ -36,10 +51,12 @@ export async function getMyOrgIds(userId: string): Promise<string[]> {
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("organization_id")
+    .select("organization_id, status")
     .eq("id", userId)
     .maybeSingle();
-  return profile?.organization_id ? [profile.organization_id] : [];
+  if (!profile?.organization_id) return [];
+  if (REVOKED.has(String(profile.status))) return [];
+  return [profile.organization_id];
 }
 
 /** The user's primary org, or null. */
@@ -88,12 +105,16 @@ export async function assertSameOrg(userId: string, targetProfileId: string): Pr
 
   const theirIds = (theirs ?? []).map((m: any) => m.organization_id);
   if (theirIds.length === 0) {
+    // Same conditional fallback as getMyOrgIds — a revoked target must not be
+    // reachable just because their membership row is no longer active.
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("organization_id")
+      .select("organization_id, status")
       .eq("id", targetProfileId)
       .maybeSingle();
-    if (profile?.organization_id) theirIds.push(profile.organization_id);
+    if (profile?.organization_id && !REVOKED.has(String(profile.status))) {
+      theirIds.push(profile.organization_id);
+    }
   }
 
   if (!theirIds.some((id: string) => mine.includes(id))) throw new OrgAccessError();
@@ -117,17 +138,26 @@ export async function assertMemberOfOrg(memberId: string, orgId: string): Promis
     .maybeSingle();
   if (membership) return;
 
-  // Fallback for installs where the membership backfill has not run yet.
+  // Fallback for installs where the membership backfill has not run yet, with
+  // the same revocation condition as above.
   const { data: profile } = await supabaseAdmin
     .from("profiles")
-    .select("id")
+    .select("id, status")
     .eq("id", memberId)
     .eq("organization_id", orgId)
     .maybeSingle();
-  if (!profile) throw new OrgAccessError("That member is not in this organization");
+  if (!profile || REVOKED.has(String(profile.status))) {
+    throw new OrgAccessError("That member is not in this organization");
+  }
 }
 
-/** Narrows a list of profile ids to those inside the caller's org(s). */
+/**
+ * Narrows a list of profile ids to those inside the caller's org(s).
+ *
+ * This one never consulted memberships at all — it narrowed purely on
+ * `profiles.organization_id`, which a revoked agent keeps. Revoked profiles are
+ * excluded explicitly rather than by relying on the membership table.
+ */
 export async function filterToMyOrg(userId: string, profileIds: string[]): Promise<string[]> {
   if (profileIds.length === 0) return [];
   const mine = await getMyOrgIds(userId);
@@ -135,8 +165,10 @@ export async function filterToMyOrg(userId: string, profileIds: string[]): Promi
 
   const { data } = await supabaseAdmin
     .from("profiles")
-    .select("id")
+    .select("id, status")
     .in("id", profileIds)
     .in("organization_id", mine);
-  return (data ?? []).map((p: any) => p.id);
+  return (data ?? [])
+    .filter((p: any) => !REVOKED.has(String(p.status)))
+    .map((p: any) => p.id);
 }
