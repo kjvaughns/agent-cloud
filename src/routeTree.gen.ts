@@ -110,6 +110,7 @@ import { Route as AuthenticatedSettingsAgencyRouteImport } from './routes/_authe
 import { Route as AuthenticatedResourcesStateLicensesRouteImport } from './routes/_authenticated/resources/state-licenses'
 import { Route as AuthenticatedResourcesScriptsRouteImport } from './routes/_authenticated/resources/scripts'
 import { Route as AuthenticatedResourcesNewAgentGuideRouteImport } from './routes/_authenticated/resources/new-agent-guide'
+import { Route as AuthenticatedResourcesEditRouteImport } from './routes/_authenticated/resources/edit'
 import { Route as AuthenticatedResourcesAgentHandbookRouteImport } from './routes/_authenticated/resources/agent-handbook'
 import { Route as AuthenticatedResourcesAgentAcademyRouteImport } from './routes/_authenticated/resources/agent-academy'
 import { Route as AuthenticatedNovaSettingsRouteImport } from './routes/_authenticated/nova/settings'
@@ -697,6 +698,12 @@ const AuthenticatedResourcesNewAgentGuideRoute =
     path: '/new-agent-guide',
     getParentRoute: () => AuthenticatedResourcesRoute,
   } as any)
+const AuthenticatedResourcesEditRoute =
+  AuthenticatedResourcesEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => AuthenticatedResourcesRoute,
+  } as any)
 const AuthenticatedResourcesAgentHandbookRoute =
   AuthenticatedResourcesAgentHandbookRouteImport.update({
     id: '/agent-handbook',
@@ -1113,6 +1120,7 @@ export interface FileRoutesByFullPath {
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/resources/edit': typeof AuthenticatedResourcesEditRoute
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
@@ -1262,6 +1270,7 @@ export interface FileRoutesByTo {
   '/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/resources/edit': typeof AuthenticatedResourcesEditRoute
   '/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
@@ -1418,6 +1427,7 @@ export interface FileRoutesById {
   '/_authenticated/nova/settings': typeof AuthenticatedNovaSettingsRoute
   '/_authenticated/resources/agent-academy': typeof AuthenticatedResourcesAgentAcademyRoute
   '/_authenticated/resources/agent-handbook': typeof AuthenticatedResourcesAgentHandbookRoute
+  '/_authenticated/resources/edit': typeof AuthenticatedResourcesEditRoute
   '/_authenticated/resources/new-agent-guide': typeof AuthenticatedResourcesNewAgentGuideRoute
   '/_authenticated/resources/scripts': typeof AuthenticatedResourcesScriptsRoute
   '/_authenticated/resources/state-licenses': typeof AuthenticatedResourcesStateLicensesRoute
@@ -1574,6 +1584,7 @@ export interface FileRouteTypes {
     | '/nova/settings'
     | '/resources/agent-academy'
     | '/resources/agent-handbook'
+    | '/resources/edit'
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
@@ -1723,6 +1734,7 @@ export interface FileRouteTypes {
     | '/nova/settings'
     | '/resources/agent-academy'
     | '/resources/agent-handbook'
+    | '/resources/edit'
     | '/resources/new-agent-guide'
     | '/resources/scripts'
     | '/resources/state-licenses'
@@ -1878,6 +1890,7 @@ export interface FileRouteTypes {
     | '/_authenticated/nova/settings'
     | '/_authenticated/resources/agent-academy'
     | '/_authenticated/resources/agent-handbook'
+    | '/_authenticated/resources/edit'
     | '/_authenticated/resources/new-agent-guide'
     | '/_authenticated/resources/scripts'
     | '/_authenticated/resources/state-licenses'
@@ -2676,6 +2689,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedResourcesNewAgentGuideRouteImport
       parentRoute: typeof AuthenticatedResourcesRoute
     }
+    '/_authenticated/resources/edit': {
+      id: '/_authenticated/resources/edit'
+      path: '/edit'
+      fullPath: '/resources/edit'
+      preLoaderRoute: typeof AuthenticatedResourcesEditRouteImport
+      parentRoute: typeof AuthenticatedResourcesRoute
+    }
     '/_authenticated/resources/agent-handbook': {
       id: '/_authenticated/resources/agent-handbook'
       path: '/agent-handbook'
@@ -3204,6 +3224,7 @@ const AuthenticatedNovaRouteWithChildren =
 interface AuthenticatedResourcesRouteChildren {
   AuthenticatedResourcesAgentAcademyRoute: typeof AuthenticatedResourcesAgentAcademyRoute
   AuthenticatedResourcesAgentHandbookRoute: typeof AuthenticatedResourcesAgentHandbookRoute
+  AuthenticatedResourcesEditRoute: typeof AuthenticatedResourcesEditRoute
   AuthenticatedResourcesNewAgentGuideRoute: typeof AuthenticatedResourcesNewAgentGuideRoute
   AuthenticatedResourcesScriptsRoute: typeof AuthenticatedResourcesScriptsRoute
   AuthenticatedResourcesStateLicensesRoute: typeof AuthenticatedResourcesStateLicensesRoute
@@ -3215,6 +3236,7 @@ const AuthenticatedResourcesRouteChildren: AuthenticatedResourcesRouteChildren =
       AuthenticatedResourcesAgentAcademyRoute,
     AuthenticatedResourcesAgentHandbookRoute:
       AuthenticatedResourcesAgentHandbookRoute,
+    AuthenticatedResourcesEditRoute: AuthenticatedResourcesEditRoute,
     AuthenticatedResourcesNewAgentGuideRoute:
       AuthenticatedResourcesNewAgentGuideRoute,
     AuthenticatedResourcesScriptsRoute: AuthenticatedResourcesScriptsRoute,

@@ -6,12 +6,13 @@ export const getOnboardingStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [profile, docs, contracts, phone, wallet, policies] = await Promise.all([
+    // Phone and Wallet were two of these eight steps. Neither surface exists
+    // any more, so an agent could never have completed them — a checklist
+    // permanently stuck at six of eight is worse than a shorter one.
+    const [profile, docs, contracts, policies] = await Promise.all([
       supabase.from("profiles").select("npn_number,date_of_birth,street_address").eq("id", userId).maybeSingle(),
       supabase.from("producer_documents").select("doc_type").eq("agent_id", userId),
       supabase.from("contract_requests").select("status").eq("agent_id", userId),
-      supabase.from("agent_phone_settings").select("phone_number").eq("agent_id", userId).maybeSingle(),
-      supabase.from("wallet").select("balance_cents").eq("agent_id", userId).maybeSingle(),
       supabase.from("policies").select("id", { count: "exact", head: true }).eq("agent_id", userId),
     ]);
     const docTypes = new Set((docs.data ?? []).map((d) => d.doc_type));
@@ -21,12 +22,11 @@ export const getOnboardingStatus = createServerFn({ method: "GET" })
       aml: docTypes.has("aml_certificate"),
       banking: docTypes.has("banking"),
       contract: (contracts.data ?? []).some((c) => c.status === "active"),
-      phone: !!phone.data?.phone_number,
-      wallet: (wallet.data?.balance_cents ?? 0) > 0,
       deal: (policies.count ?? 0) > 0,
     };
+    const total = Object.keys(steps).length;
     const completed = Object.values(steps).filter(Boolean).length;
-    return { steps, completed, total: 8, pct: Math.round((completed / 8) * 100) };
+    return { steps, completed, total, pct: Math.round((completed / total) * 100) };
   });
 
 /**

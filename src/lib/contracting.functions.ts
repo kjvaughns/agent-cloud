@@ -671,6 +671,18 @@ export const addCarrier = createServerFn({ method: "POST" })
       .from("user_roles").select("role").eq("user_id", userId)
       .in("role", ["super_admin", "agency_owner", "admin"]).limit(1);
     if (!roleRow?.length) throw new Error("Only agency owners and admins can add carriers");
+
+    const { data: profile } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    if (!profile?.organization_id) throw new Error("You are not in an agency.");
+
+    // Private to this agency, not added to the shared catalogue.
+    //
+    // This used to insert a plain `carriers` row with no `is_private` and no
+    // owner — a carrier one agency invented appearing in the directory of
+    // every other agency on the platform. RLS `carriers_private_write`
+    // requires is_private, so depending on which legacy policy is still live
+    // it either failed for the owner or leaked. Both answers were wrong.
     const { error } = await (supabase as any).from("carriers").insert({
       name: data.name,
       phone: data.phone || null,
@@ -682,6 +694,9 @@ export const addCarrier = createServerFn({ method: "POST" })
       agent_portal_url: data.agent_portal_url || null,
       training_url: data.training_url || null,
       active: true,
+      is_private: true,
+      owner_organization_id: profile.organization_id,
+      created_by: userId,
     });
     if (error) throw new Error(error.message);
     return { ok: true };

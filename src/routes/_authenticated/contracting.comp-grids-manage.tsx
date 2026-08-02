@@ -5,12 +5,13 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CompGridMatrix, toMatrix, fromMatrix, type MatrixState } from "@/components/contracting/comp-grid-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Upload, Plus, Trash2, Loader2, Sparkles, Check } from "lucide-react";
+import { Upload, Trash2, Loader2, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -27,12 +28,6 @@ export const Route = createFileRoute("/_authenticated/contracting/comp-grids-man
   },
 });
 
-const BLANK: GridRow = {
-  product_name: "", level_name: "", year_1_pct: 0,
-  years_2_5_pct: null, years_6_plus_pct: null,
-  age_group_min: null, age_group_max: null,
-};
-
 /**
  * Rendered as the Grids tab of Contracting → Compensation. `embedded` drops
  * the page chrome so it does not nest a second shell inside that page.
@@ -43,7 +38,10 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
   const { data, isLoading } = useQuery({ queryKey: ["comp-grids"], queryFn: () => listFn() });
 
   const [carrierId, setCarrierId] = useState("");
-  const [rows, setRows] = useState<GridRow[]>([{ ...BLANK }]);
+  const [rows, setRows] = useState<GridRow[]>([]);
+  // The matrix is what a person edits; `rows` is what the server stores. Kept
+  // in step here rather than pivoting on every keystroke inside the table.
+  const [matrix, setMatrix] = useState<MatrixState>(() => toMatrix([]));
   const [uploadId, setUploadId] = useState<string | null>(null);
   const [source, setSource] = useState<"manual" | "ai_extracted">("manual");
   const [reading, setReading] = useState(false);
@@ -74,6 +72,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
         toast.error("Couldn't read any rows from that file");
       } else {
         setRows(out.rows);
+        setMatrix(toMatrix(out.rows));
         setUploadId(out.upload_id);
         setSource("ai_extracted");
         setNotes(out.notes ?? null);
@@ -101,7 +100,8 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
     }),
     onSuccess: (r: any) => {
       toast.success(`Saved ${r.count} rows`);
-      setRows([{ ...BLANK }]);
+      setRows([]);
+      setMatrix(toMatrix([]));
       setUploadId(null);
       setSource("manual");
       setNotes(null);
@@ -115,9 +115,6 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
     onSuccess: () => { toast.success("Your grid was removed"); qc.invalidateQueries({ queryKey: ["comp-grids"] }); },
     onError: (e: any) => toast.error(e?.message ?? "Couldn't remove it"),
   });
-
-  const setRow = (i: number, patch: Partial<GridRow>) =>
-    setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
 
   const valid = carrierId && rows.some((r) => r.product_name.trim() && r.level_name.trim());
 
@@ -189,41 +186,12 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface-2">
-                    <tr>
-                      {["Product", "Level", "Yr 1 %", "Yr 2–5 %", "Yr 6+ %", ""].map((h) => (
-                        <th key={h} className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={i} className="border-t border-border-soft">
-                        <td className="p-1"><Input className="h-8 text-xs" value={r.product_name} onChange={(e) => setRow(i, { product_name: e.target.value })} placeholder="Final Expense" /></td>
-                        <td className="p-1"><Input className="h-8 text-xs" value={r.level_name} onChange={(e) => setRow(i, { level_name: e.target.value })} placeholder="GA" /></td>
-                        <td className="p-1"><Input className="h-8 text-xs tnum" type="number" value={r.year_1_pct} onChange={(e) => setRow(i, { year_1_pct: Number(e.target.value) })} /></td>
-                        <td className="p-1"><Input className="h-8 text-xs tnum" type="number" value={r.years_2_5_pct ?? ""} onChange={(e) => setRow(i, { years_2_5_pct: e.target.value === "" ? null : Number(e.target.value) })} /></td>
-                        <td className="p-1"><Input className="h-8 text-xs tnum" type="number" value={r.years_6_plus_pct ?? ""} onChange={(e) => setRow(i, { years_6_plus_pct: e.target.value === "" ? null : Number(e.target.value) })} /></td>
-                        <td className="p-1">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => setRows((rs) => rs.filter((_, idx) => idx !== i))}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <CompGridMatrix
+                value={matrix}
+                onChange={(next) => { setMatrix(next); setRows(fromMatrix(next)); }}
+              />
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setRows((rs) => [...rs, { ...BLANK }])}>
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Add row
-                </Button>
                 <Button size="sm" onClick={() => save.mutate()} disabled={!valid || save.isPending}>
                   {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Check className="mr-1 h-3.5 w-3.5" /> Save grid</>}
                 </Button>

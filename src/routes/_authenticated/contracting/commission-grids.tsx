@@ -6,9 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { PageShell, HeroBand } from "@/components/page-shell";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { useNavContext } from "@/hooks/use-my-access";
+import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
 
 
 /**
@@ -28,14 +32,31 @@ export const Route = createFileRoute("/_authenticated/contracting/commission-gri
 });
 
 function CompGridsPage() {
+  const { canSeeAgency } = useNavContext();
+  const [editing, setEditing] = useState(false);
+
   return (
     <PageShell>
       <div className="flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Comp Grids"
-          subtitle="What each carrier and product pays at your level."
+          subtitle={editing
+            ? "Your agency's own rates. Editing a carrier replaces the platform default for your agency only."
+            : "What each carrier and product pays at your level."}
+          actions={
+            // The editor existed but lived at /contracting-ops/compensation
+            // behind a tab, which is not where anyone looks for "the comp
+            // grids". Same component, reachable from the page it edits.
+            canSeeAgency ? (
+              <Button variant="outline" size="sm" onClick={() => setEditing((v) => !v)}>
+                {editing
+                  ? <>View my rates</>
+                  : <><Pencil className="mr-1.5 h-3.5 w-3.5" /> Manage grids</>}
+              </Button>
+            ) : undefined
+          }
         />
-        <CompGridsContent />
+        {editing ? <ManageGridsPage embedded /> : <CompGridsContent />}
       </div>
     </PageShell>
   );

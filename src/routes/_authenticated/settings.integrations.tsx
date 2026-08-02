@@ -1,8 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { DiscordSettings } from "@/components/discord-settings";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// Same as Support Desk: tab-only until now, so it had no address.
+// A tab of Agency settings now.
 export const Route = createFileRoute("/_authenticated/settings/integrations")({
-  head: () => ({ meta: [{ title: "Integrations — Agent Cloud" }] }),
-  component: DiscordSettings,
+  beforeLoad: () => { throw redirect({ to: "/settings/agency", search: { tab: "integrations" } as any }); },
 });

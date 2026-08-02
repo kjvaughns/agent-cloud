@@ -595,7 +595,7 @@ function PolicyPanel() {
             <TableBody>{d.at_risk.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>{p.client_name}</TableCell><TableCell>{p.carrier}</TableCell><TableCell className="tnum">{fmtCurrency(p.monthly_premium)}/mo</TableCell>
-                <TableCell><Button size="sm" variant="outline" asChild><a href={`/phone?client=${p.client_id}`}>Follow Up</a></Button></TableCell>
+                <TableCell><Button size="sm" variant="outline" asChild><a href={`/pipeline?client=${p.client_id}`}>Follow Up</a></Button></TableCell>
               </TableRow>
             ))}</TableBody>
           </Table>

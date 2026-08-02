@@ -12,11 +12,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, HeroBand } from "@/components/page-shell";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { EmailsPage } from "@/components/settings/emails-panel";
+import { AutomationsPage } from "@/components/settings/automations-panel";
+import { DiscordSettings } from "@/components/discord-settings";
 
 export const Route = createFileRoute("/_authenticated/settings/agency")({
   ssr: false,
   head: () => ({ meta: [{ title: "Agency Settings — Agent Cloud" }] }),
+  // ?tab= so the palette and the old /settings/emails bookmark can land on
+  // the right one rather than dumping you on General.
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => {
+    const t = s.tab;
+    return TABS.includes(t as Tab) ? { tab: t as Tab } : {};
+  },
   beforeLoad: async () => {
     const session = await requireSession();
     // limit(1), not maybeSingle(): maybeSingle errors when more than one row
@@ -29,10 +39,10 @@ export const Route = createFileRoute("/_authenticated/settings/agency")({
       .limit(1);
     if (!roleRows?.length) throw redirect({ to: "/dashboard" as any });
   },
-  component: OrganizationSettings,
+  component: AgencySettingsPage,
 });
 
-function OrganizationSettings() {
+function GeneralTab() {
   const { org } = useOrganization();
   const qc = useQueryClient();
   const updateFn = useServerFn(updateOrganization);
@@ -100,15 +110,11 @@ function OrganizationSettings() {
   }
 
   return (
-    <PageShell>
     <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Agency Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Your agency name and tagline appear in the sidebar and on every email your
-          agency sends.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        Your agency name and tagline appear in the sidebar and on every email your
+        agency sends.
+      </p>
 
       <Card>
         <CardContent className="p-6 space-y-5">
@@ -229,6 +235,43 @@ function OrganizationSettings() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+const TABS = ["general", "emails", "automations", "integrations"] as const;
+type Tab = (typeof TABS)[number];
+
+/**
+ * Everything about how the agency itself runs.
+ *
+ * Emails, Automations and Integrations were three sidebar rows of their own,
+ * which made Settings nine deep and buried the two things people actually
+ * open. They are the same subject as the name and logo above them — how this
+ * workspace behaves — so they are tabs of it now.
+ */
+function AgencySettingsPage() {
+  const { tab } = Route.useSearch();
+  const [active, setActive] = useState<Tab>(tab ?? "general");
+
+  return (
+    <PageShell>
+      <div className="space-y-[var(--gap)]">
+        <HeroBand title="Agency settings" subtitle="How your workspace looks, sends, and connects" />
+
+        <Tabs value={active} onValueChange={(v) => setActive(v as Tab)}>
+          <TabsList>
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="emails">Emails</TabsTrigger>
+            <TabsTrigger value="automations">Automations</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="general" className="mt-4"><GeneralTab /></TabsContent>
+          <TabsContent value="emails" className="mt-4"><EmailsPage /></TabsContent>
+          <TabsContent value="automations" className="mt-4"><AutomationsPage /></TabsContent>
+          <TabsContent value="integrations" className="mt-4"><DiscordSettings /></TabsContent>
+        </Tabs>
+      </div>
     </PageShell>
   );
 }

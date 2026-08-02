@@ -611,7 +611,7 @@ function DashboardRail({ atRisk }: { atRisk: any[] }) {
                   <div className="text-xs font-semibold truncate">Policy {r.policy_number ?? "—"} · {r.client}</div>
                   <div className="text-[10.5px] text-muted-foreground">{r.days} days unpaid · {money(r.monthly_premium)}/mo</div>
                 </div>
-                <a href="/phone" className="text-[10.5px] font-semibold text-primary whitespace-nowrap">Call →</a>
+                <a href="/retention" className="text-[10.5px] font-semibold text-primary whitespace-nowrap">Work it →</a>
               </div>
             ))}
           </div>

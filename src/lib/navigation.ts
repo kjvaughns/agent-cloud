@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity, BarChart3, BookOpen, Bot, Building2, Calculator, Calendar, ClipboardList,
+  BarChart3, BookOpen, Bot, Building2, Calculator, Calendar, ClipboardList,
   Contact, FilePlus, FileSignature, Heart, IdCard, KanbanSquare, LayoutDashboard,
-  LifeBuoy, ListTodo, Mail, Megaphone, Newspaper, Percent, Phone, Settings,
+  LifeBuoy, ListTodo, Mail, Megaphone, Newspaper, Percent, Settings,
   ShieldCheck, Palette, Sparkles, Target, Trophy, UploadCloud, UserPlus, Users, Wallet,
   Wrench,
 } from "lucide-react";
@@ -148,7 +148,6 @@ export const PAGES: Page[] = [
   { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Tools", parent: "tools" },
   { id: "quoter", label: "Quoter", path: "https://www.insurancetoolkits.com", icon: Calculator, area: "Tools", parent: "tools", external: true },
   { id: "marketing", label: "Marketing", path: "/back-office/client-marketing", icon: Megaphone, area: "Tools", parent: "tools" },
-  { id: "phone", label: "Phone", path: "/phone", icon: Phone, area: "Tools", parent: "tools", audience: ["core"] },
 
   // Reachable by search. The Resources page's own tabs are how you get to
   // these day to day.
@@ -177,25 +176,40 @@ export const PAGES: Page[] = [
 
   { id: "agency-overview", label: "Agency overview", path: "/agency", icon: Building2, area: "Agency", parent: "agency", unlock: "agency-admin" },
   { id: "team", label: "Team management", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", parent: "agency", unlock: "agency-admin" },
+  // Getting agents ready is a tab inside Team management now — it was a
+  // roster with a progress bar sitting one section away from the roster.
+  // Kept in the registry so search still finds it; it lands on the tab.
+  { id: "onboarding", label: "Getting agents ready", path: "/team?tab=onboarding", icon: UserPlus, area: "Agency", unlock: "agency-admin" },
   { id: "recruiting", label: "Recruiting", path: "/back-office/recruiting-funnels", icon: Target, area: "Agency", parent: "agency", unlock: "agency-admin", permission: "mgr_access_recruiting" },
-  { id: "contracting-ops", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Agency", parent: "agency", unlock: "agency-admin", audience: ["core"] },
   { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Agency", parent: "agency", unlock: "agency-admin", staffPermission: "staff_is_admin" },
+
+  // Contracting Ops — the agency's back office, filed with the rest of
+  // contracting rather than with the people pages.
+  { id: "contracting-ops", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", parent: "my-contracts", unlock: "agency-admin", audience: ["core"] },
 
   // Everyone can invite. An invited agent gets an account and a dashboard;
   // what they can do with it is a separate question from who may send the link.
   { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "agency-member" },
 
   // ── Back office — staff's own product ────────────────────────────────────
+  // These serve two audiences from one set of entries: staff, for whom they
+  // are the whole product, and an agency admin reaching them through
+  // Contracting. Both gates are ORed, so `staff_is_admin` no longer has to be
+  // true for an owner who has never had a role_permissions row written —
+  // which is every owner, and which is why Requests and Documents were
+  // invisible to the person who runs the agency.
+  // Staff's own front page, and deliberately still gate-free for them: an
+  // agency-admin unlock here would OR to false for a plain staffer and take
+  // away the first thing they open.
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Back office", audience: ["staff"] },
-  { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Back office", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Back office", parent: "contracting-ops" },
-  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "contracting-ops" },
-  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Back office", parent: "contracting-ops" },
-  { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Back office", parent: "contracting-ops" },
-  { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Back office", parent: "contracting-ops" },
-  { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Back office", parent: "contracting-ops" },
+  { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
 
   // Updates
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
@@ -212,16 +226,20 @@ export const PAGES: Page[] = [
 
   { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "agency-automations", label: "Automations", path: "/settings/automations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "ticket-responder" },
-  // "Edit resources", not "Resources": Tools already has a Resources entry
-  // that agents read, and two rows with the same word in one sidebar is a
-  // coin toss for whoever is looking for one of them.
-  { id: "agency-resources", label: "Edit resources", path: "/settings/resources", icon: BookOpen, area: "Settings", parent: "settings", unlock: "resource-editor" },
-  { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  // Tabs of Agency settings now, not rows of their own. Kept in the registry
+  // so the palette still finds them by name and lands on the right tab.
+  { id: "agency-automations", label: "Automations", path: "/settings/agency?tab=automations", icon: Bot, area: "Settings", unlock: "agency-admin" },
+  { id: "agency-emails", label: "Emails", path: "/settings/agency?tab=emails", icon: Mail, area: "Settings", unlock: "agency-admin" },
+  { id: "integrations", label: "Integrations", path: "/settings/agency?tab=integrations", icon: Bot, area: "Settings", unlock: "agency-admin" },
+  // White label is a plan, not a setting — it lives with the other things you
+  // pay for.
+  { id: "white-label", label: "White label", path: "/settings/billing?tab=white-label", icon: Palette, area: "Settings", unlock: "agency-admin" },
+  // The support desk answers tickets, so it sits with the tickets — a tab in
+  // Help rather than a row in Settings two sections away from them.
+  { id: "support-desk", label: "Support desk", path: "/account/help?tab=desk", icon: LifeBuoy, area: "Settings", unlock: "ticket-responder" },
+  // Editing the handbook belongs with reading it. A button in the Resources
+  // header, for the people who may.
+  { id: "agency-resources", label: "Edit resources", path: "/resources/edit", icon: BookOpen, area: "Tools", unlock: "resource-editor" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
   { id: "landing", label: "Landing Page", path: "/account/my-landing-page", icon: Contact, area: "Account" },
@@ -359,24 +377,47 @@ const HUBS: Record<string, HubGroup[]> = {
   clients: [
     { label: "", ids: ["pipeline", "calendar", "book", "retention"] },
   ],
+  // Agency is people. Getting agents ready became a tab inside Team
+  // management, where the roster it talks about already is.
   agency: [
     { label: "", ids: ["leaderboard", "my-agents"] },
-    { label: "Run the agency", ids: ["agency-overview", "team", "onboarding", "recruiting", "contracting-ops", "intake"] },
+    { label: "Run the agency", ids: ["agency-overview", "team", "recruiting", "intake"] },
   ],
+
+  // Contracting is one place now.
+  //
+  // Contracting Ops was filed under Agency, which put the agency's contracting
+  // back office two sections away from the agent's own contracts. Worse, it is
+  // itself a hub, and app-sidebar only expands hubs at the top level — so as a
+  // child of Agency its twelve pages rendered as a single dead-end row and
+  // were reachable only from tiles on its own overview.
+  //
+  // Flattened into a second group here instead. Same pages, in the section
+  // whose name they share, and visible.
   "my-contracts": [
     { label: "", ids: ["contracts-list", "carriers", "comp-grids", "invite"] },
+    {
+      label: "Run contracting",
+      ids: [
+        "contracting-ops", "requests", "hierarchy-changes",
+        "ready", "documents",
+        "carriers-setup", "comp", "writing-numbers", "hierarchies",
+      ],
+    },
   ],
+
   tools: [
-    { label: "", ids: ["resources", "quoter", "marketing", "phone"] },
+    { label: "", ids: ["resources", "quoter", "marketing"] },
   ],
+
+  // Was nine rows, nearly all of them a page that belonged inside something
+  // else. Emails, Automations and Integrations are tabs of Agency settings;
+  // White label is the upgrade it always was, inside Billing; the support desk
+  // sits in Help beside the tickets it answers; Edit resources lives with the
+  // resources it edits. What people use is gone.
   settings: [
     { label: "", ids: ["notif-settings", "security", "nova-pro", "billing"] },
-    { label: "Your agency", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label", "integrations", "support-desk", "agency-resources", "agency-usage"] },
-  ],
-  "contracting-ops": [
-    { label: "Work", ids: ["requests", "queue", "hierarchy-changes", "intake"] },
-    { label: "Producers", ids: ["ready", "licensing", "documents"] },
-    { label: "Carriers & pay", ids: ["carriers-setup", "comp", "writing-numbers", "hierarchies"] },
+    { label: "Your agency", ids: ["agency-settings", "agency-roles"] },
   ],
 };
 
