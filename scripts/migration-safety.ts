@@ -27,6 +27,12 @@
  *     established that.
  *   - A select built by string concatenation rather than written inline.
  *   - Anything reached through a database function rather than from here.
+ *   - Only tables, columns and functions are tracked. A pending migration that
+ *     widens a CHECK constraint or adds an RLS policy is invisible here, and
+ *     writing a newly-permitted value before it is applied fails at runtime
+ *     with 23514 or 42501. `src/lib/writing-numbers.ts` is the current case:
+ *     it treats both codes as "not yet applied" and falls back rather than
+ *     surfacing an error. A clean run is not evidence that it does.
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";

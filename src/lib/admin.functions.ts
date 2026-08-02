@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { detectDuplicate } from "@/lib/import-helpers";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { loadWritingNumbers, recordWritingNumber, writingNumberKey } from "@/lib/writing-numbers";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -747,7 +748,17 @@ export const adminListAgentCompLevels = createServerFn({ method: "POST" })
       .eq("agent_id", data.agent_id)
       .order("assigned_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return levels ?? [];
+
+    // The number shown here now comes from the authoritative table, so this
+    // editor and the agent's own Contracts page can no longer disagree — which
+    // they routinely did, since this column was the only one this screen wrote
+    // and the Contracts page never read it.
+    const numbers = await loadWritingNumbers(supabase, [data.agent_id]);
+    return (levels ?? []).map((l: any) => ({
+      ...l,
+      writing_number:
+        numbers.get(writingNumberKey(data.agent_id, l.carrier_id)) ?? l.writing_number ?? null,
+    }));
   });
 
 export const adminSetCompLevel = createServerFn({ method: "POST" })
@@ -767,11 +778,29 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
       carrier_id: data.carrier_id,
       assigned_pct: data.assigned_pct,
       commission_level: data.commission_level ?? `${data.assigned_pct}%`,
+      // Still written: see the note on the dual write in @/lib/writing-numbers.
+      // This column was the third store for a writing number and the only one
+      // this editor ever touched, so a number set here was invisible to the
+      // agent's own Contracts page and to the ops table alike.
       writing_number: data.writing_number ?? null,
       assigned_by: userId,
       assigned_at: new Date().toISOString(),
     }, { onConflict: "agent_id,carrier_id" });
     if (error) throw new Error(error.message);
+
+    if (data.writing_number) {
+      const { data: agent } = await supabase
+        .from("profiles").select("organization_id").eq("id", data.agent_id).maybeSingle();
+      await recordWritingNumber(supabase, {
+        agentId: data.agent_id,
+        orgId: agent?.organization_id ?? null,
+        carrierId: data.carrier_id,
+        writingNumber: data.writing_number,
+        // An admin recording a number on somebody else's behalf.
+        source: "manual_entry",
+      });
+    }
+
     try {
       await supabase.from("admin_audit_log").insert({
         admin_id: userId,
