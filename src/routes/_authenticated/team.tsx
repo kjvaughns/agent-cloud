@@ -29,6 +29,7 @@ import {
   type TeamAgent,
 } from "@/lib/team.functions";
 import { adminMoveAgent } from "@/lib/admin.functions";
+import { OnboardingPage } from "@/components/onboarding/onboarding-panel";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { AgencyTeamPage } from "./settings.roles";
@@ -53,8 +54,12 @@ export const Route = createFileRoute("/_authenticated/team")({
   // ?agent= opens that person's drawer directly. Search results for an agent
   // used to land here on an unfiltered roster, which is a dead end dressed up
   // as a result — you searched for a name and got a list to search again.
-  validateSearch: (s: Record<string, unknown>): { agent?: string } =>
-    typeof s.agent === "string" && s.agent ? { agent: s.agent } : {},
+  // ?tab= so the palette entry for "Getting agents ready" and the old
+  // /onboarding bookmark land on that tab rather than on Overview.
+  validateSearch: (s: Record<string, unknown>): { agent?: string; tab?: string } => ({
+    ...(typeof s.agent === "string" && s.agent ? { agent: s.agent } : {}),
+    ...(typeof s.tab === "string" && s.tab ? { tab: s.tab } : {}),
+  }),
   pendingComponent: TeamPending,
   loader: async ({ context }) => {
     try {
@@ -112,7 +117,7 @@ function TeamPage() {
   );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
-  const { agent: agentParam } = Route.useSearch();
+  const { agent: agentParam, tab } = Route.useSearch();
   const [openAgent, setOpenAgent] = useState<string | null>(agentParam ?? null);
 
   // Following a second search result while the drawer is already open should
@@ -161,10 +166,14 @@ function TeamPage() {
           </div>
         </Panel>
       ) : (
-        <Tabs defaultValue={downline.length === 0 ? "roles" : "overview"}>
+        <Tabs defaultValue={tab ?? (downline.length === 0 ? "roles" : "overview")}>
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="roster">Roster</TabsTrigger>
+            {/* "Getting agents ready" was its own page, one section away from
+                the roster it is about. Same people, same question — how far
+                along is everyone — so it is a tab here. */}
+            {canManageRoles && <TabsTrigger value="onboarding">Getting Ready</TabsTrigger>}
             <TabsTrigger value="org">Organization</TabsTrigger>
             {canManageRoles && <TabsTrigger value="roles">Roles &amp; Permissions</TabsTrigger>}
           </TabsList>
@@ -195,6 +204,12 @@ function TeamPage() {
             <DepthChart />
             <RosterTable downline={downlineForRoster} onOpen={setOpenAgent} />
           </TabsContent>
+
+          {canManageRoles && (
+            <TabsContent value="onboarding" className="mt-4">
+              <OnboardingPage />
+            </TabsContent>
+          )}
 
           <TabsContent value="org" className="mt-4">
             <OrgChart downline={downline} onOpen={setOpenAgent} />

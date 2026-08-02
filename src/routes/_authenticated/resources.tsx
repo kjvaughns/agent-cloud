@@ -1,6 +1,8 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { BookOpen, ScrollText, GraduationCap, IdCard, Compass } from "lucide-react";
+import { BookOpen, ScrollText, GraduationCap, IdCard, Compass, Pencil } from "lucide-react";
 import { PageShell, HeroBand } from "@/components/page-shell";
+import { Button } from "@/components/ui/button";
+import { useNavContext } from "@/hooks/use-my-access";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/resources")({
@@ -26,6 +28,9 @@ const TABS = [
  */
 function ResourcesLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { canEditResources } = useNavContext();
+  // On the editor itself the button would point at the page you are on.
+  const editing = path.startsWith("/resources/edit");
 
   return (
     <PageShell>
@@ -33,6 +38,18 @@ function ResourcesLayout() {
         <HeroBand
           title="Resources"
           subtitle="Everything you need to sell, stay licensed, and get better at the job"
+          actions={
+            // Shown to whoever maintains this content: the agency owner, plus
+            // anyone granted "Manage resources" on the Roles page. Everyone
+            // else never learns the button exists.
+            canEditResources && !editing ? (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/resources/edit">
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit resources
+                </Link>
+              </Button>
+            ) : undefined
+          }
         />
 
         <nav

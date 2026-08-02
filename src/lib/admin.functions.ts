@@ -19,6 +19,30 @@ async function requireAdmin(supabase: any, userId: string) {
   if (!data?.length) throw new Error("Forbidden: admin role required");
 }
 
+/**
+ * The platform, not an agency.
+ *
+ * `admin` and `agency_owner` are agency-level roles in this schema —
+ * is_org_admin() grants on both — so requireAdmin above is "runs *an*
+ * agency", not "runs Agent Cloud". Anything touching rows every tenant reads
+ * (the shared carrier catalogue, the default commission grids) has to ask the
+ * narrower question, or one agency edits what all of them see.
+ */
+async function requirePlatformAdmin(supabase: any, userId: string) {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "super_admin")
+    .limit(1);
+  if (!data?.length) {
+    throw new Error(
+      "This edits the shared catalogue every agency reads, so it's restricted to Agent Cloud staff. " +
+      "To add a carrier for your own agency, use Contracting → Carrier Setup.",
+    );
+  }
+}
+
 async function requireManagerOrAdmin(supabase: any, userId: string) {
   const { data } = await supabase
     .from("user_roles")
@@ -139,7 +163,7 @@ export const adminUpsertCommissionRow = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    await requireAdmin(supabase, userId);
+    await requirePlatformAdmin(supabase, userId);
     if (data.id) {
       const { id, ...patch } = data;
       await supabase.from("commission_grids").update(patch).eq("id", id);
@@ -191,7 +215,7 @@ export const adminCreateCarrier = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    await requireAdmin(supabase, userId);
+    await requirePlatformAdmin(supabase, userId);
     const { error } = await (supabase as any).from("carriers").insert(data);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -213,7 +237,7 @@ export const adminUpdateCarrier = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    await requireAdmin(supabase, userId);
+    await requirePlatformAdmin(supabase, userId);
     const { id, ...patch } = data;
     const { error } = await (supabase as any).from("carriers").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
@@ -1039,12 +1063,21 @@ export const saveExtractedGrid = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    await requireAdmin(supabase, userId);
+    await requirePlatformAdmin(supabase, userId);
 
+    // Scoped to the platform's own rows.
+    //
+    // This delete used to filter on carrier_id alone. requireAdmin admits
+    // agency_owner and /admin admits agency owners, so one owner pressing
+    // "AI Upload" for a carrier wiped the shared defaults *and* every other
+    // agency's grids for it — silently, since the insert that followed only
+    // restored their own. `comp-grid.functions.ts:224` scopes the same delete
+    // correctly; this one never did.
     const { error: delErr } = await supabase
       .from("commission_grids")
       .delete()
-      .eq("carrier_id", data.carrier_id);
+      .eq("carrier_id", data.carrier_id)
+      .is("organization_id", null);
     if (delErr) throw new Error(delErr.message);
 
     const insertRows = data.rows.map((r) => ({

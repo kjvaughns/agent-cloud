@@ -19,12 +19,10 @@ const STEPS: { key: keyof Steps; title: string; desc: string; href: string; cta:
   { key: "aml", title: "Upload Your AML Certificate", desc: "Complete free AML training and upload your certificate.", href: "/account/producer-profile", cta: "Complete AML Training" },
   { key: "banking", title: "Upload Banking Information", desc: "Add your bank account info for commission direct deposit.", href: "/account/producer-profile", cta: "Add Banking Info" },
   { key: "contract", title: "Get Your First Carrier Contract", desc: "Request a contract with your first carrier to start writing business.", href: "/contracting/carriers", cta: "Request Contract" },
-  { key: "phone", title: "Add Your Phone Number", desc: "Set up your business phone number to call and text clients.", href: "/phone", cta: "Set Up Phone" },
-  { key: "wallet", title: "Fund Your Wallet", desc: "Add funds to your wallet to enable SMS, calls, and AI features.", href: "/finances", cta: "Add Funds" },
   { key: "deal", title: "Post Your First Deal", desc: "Post your first policy to start tracking your book of business.", href: "/post-deal", cta: "Post a Deal" },
 ];
 
-type Steps = { profile: boolean; eo: boolean; aml: boolean; banking: boolean; contract: boolean; phone: boolean; wallet: boolean; deal: boolean };
+type Steps = { profile: boolean; eo: boolean; aml: boolean; banking: boolean; contract: boolean; deal: boolean };
 
 function Page() {
   const fn = useServerFn(getOnboardingStatus);
@@ -37,7 +35,7 @@ function Page() {
         <Panel>
           <div className="flex items-center justify-between mb-2">
             <div className="font-semibold">Your Setup Progress</div>
-            <div className="text-sm text-text-dim tnum">{data?.completed ?? 0} of 8 steps complete ({data?.pct ?? 0}%)</div>
+            <div className="text-sm text-text-dim tnum">{data?.completed ?? 0} of {data?.total ?? STEPS.length} steps complete ({data?.pct ?? 0}%)</div>
           </div>
           <Progress value={data?.pct ?? 0} />
         </Panel>

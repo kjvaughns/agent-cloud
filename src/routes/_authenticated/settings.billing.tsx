@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { CreditCard, Users, Sparkles, Crown, ExternalLink, Plus, Minus } from "lucide-react";
+import { WhiteLabelPage } from "@/components/settings/white-label-panel";
 import { toast } from "sonner";
 import { money } from "@/lib/format";
 import { PRICING } from "@/lib/billing/pricing";
@@ -22,6 +23,10 @@ import { Check, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings/billing")({
   head: () => ({ meta: [{ title: "Billing — Agent Cloud" }] }),
+  // ?tab=white-label so the upsell panel below, and the old
+  // /settings/white-label bookmark, both open the application in place.
+  validateSearch: (s: Record<string, unknown>): { tab?: "white-label" } =>
+    s.tab === "white-label" ? { tab: "white-label" } : {},
   component: BillingPage,
 });
 
@@ -32,6 +37,38 @@ const STATUS_BADGE: Record<string, { v: any; label: string }> = {
   cancelled: { v: "destructive", label: "Cancelled" },
   inactive: { v: "outline", label: "Inactive" },
 };
+
+/**
+ * The white-label upgrade, and the application behind it.
+ *
+ * Collapsed to a pitch until somebody wants it, because most owners never
+ * will and a 350-line application form is a lot of page to scroll past.
+ * ?tab=white-label opens it directly, which is where the old
+ * /settings/white-label route now points.
+ */
+function WhiteLabelSection() {
+  const { tab } = Route.useSearch();
+  const [open, setOpen] = useState(tab === "white-label");
+
+  if (open) return <WhiteLabelPage />;
+
+  return (
+    <Panel title="White-Label">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-gold-glow grid place-items-center text-gold-bright shrink-0"><Crown className="h-5 w-5" /></div>
+        <div className="flex-1">
+          <p className="text-sm text-muted-foreground">
+            Your brand everywhere: custom logo and colors, your own subdomain, branded emails and login, white-label support.
+            <span className="tnum"> {money(999)}</span> one-time setup + <span className="tnum">{money(499)}/mo</span>. Requires an active Agency Plan.
+          </p>
+          <Button className="mt-3" variant="outline" onClick={() => setOpen(true)}>
+            Apply for White-Label →
+          </Button>
+        </div>
+      </div>
+    </Panel>
+  );
+}
 
 /** Role-aware billing: one route, different content per role. */
 export function BillingPage() {
@@ -299,23 +336,10 @@ function OwnerBilling() {
         {/* Nova seat management */}
         <NovaSeatsPanel configured={d.configured} onPurchase={(qty) => go.mutate({ product: "nova_seats", quantity: qty })} purchasing={go.isPending} />
 
-        {/* White-label upsell */}
-        {d.org.plan_type !== "white_label" && (
-          <Panel title="White-Label">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gold-glow grid place-items-center text-gold-bright shrink-0"><Crown className="h-5 w-5" /></div>
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">
-                  Your brand everywhere: custom logo and colors, your own subdomain, branded emails and login, white-label support.
-                  <span className="tnum"> {money(999)}</span> one-time setup + <span className="tnum">{money(499)}/mo</span>. Requires an active Agency Plan.
-                </p>
-                <Button asChild className="mt-3" variant="outline">
-                  <Link to="/settings/white-label">Apply for White-Label →</Link>
-                </Button>
-              </div>
-            </div>
-          </Panel>
-        )}
+        {/* White label is a plan, not a setting — it was a sidebar row under
+            Settings while the thing it costs money for lived here. The
+            application opens in place now. */}
+        {d.org.plan_type !== "white_label" && <WhiteLabelSection />}
       </div>
     </PageShell>
   );

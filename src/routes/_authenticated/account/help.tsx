@@ -14,10 +14,15 @@ import { LifeBuoy, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { submitTicket, listMyTickets, getTicketThread } from "@/lib/support.functions";
 import { AiHelpSearch } from "@/components/ai/ai-help-search";
+import { SupportConsole } from "@/components/support-console";
+import { useNavContext } from "@/hooks/use-my-access";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { FaqPanel } from "@/components/account/faq-panel";
 
-const TABS = ["kb", "faq", "ticket", "my-tickets"] as const;
+// `desk` is the agency's side of the same tickets. It was its own page under
+// Settings, two sections away from the queue it answers and from the form
+// that fills it.
+const TABS = ["kb", "faq", "ticket", "my-tickets", "desk"] as const;
 type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_authenticated/account/help")({
@@ -71,6 +76,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 function HelpPage() {
   const { tab } = Route.useSearch();
+  const { canWorkTickets } = useNavContext();
   // Controlled so "Still stuck? → Submit a ticket" can move you there. An
   // uncontrolled Tabs has no way to be told.
   const [active, setTab] = useState<Tab>(tab ?? "kb");
@@ -88,6 +94,7 @@ function HelpPage() {
           <TabsTrigger value="faq">FAQ</TabsTrigger>
           <TabsTrigger value="ticket">Submit Ticket</TabsTrigger>
           <TabsTrigger value="my-tickets">My Tickets</TabsTrigger>
+          {canWorkTickets && <TabsTrigger value="desk">Support Desk</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="kb" className="mt-4 space-y-4">
@@ -135,6 +142,15 @@ function HelpPage() {
         <TabsContent value="my-tickets" className="mt-4">
           <MyTicketsList />
         </TabsContent>
+
+        {/* The agency's queue. Rendered only for people who work it — and
+            support_tickets' own RLS is what actually decides, so this is a
+            layout choice rather than the boundary. */}
+        {canWorkTickets && (
+          <TabsContent value="desk" className="mt-4">
+            <SupportConsole />
+          </TabsContent>
+        )}
       </Tabs>
       </div>
     </PageShell>

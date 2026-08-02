@@ -1,7 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// Agency configuration lives under Settings now; /agency is for the people
-// side of running an agency. The old path stays for bookmarks.
+// "What people use" is gone.
 export const Route = createFileRoute("/_authenticated/agency/usage")({
-  beforeLoad: () => { throw redirect({ to: "/settings/usage" }); },
+  beforeLoad: () => { throw redirect({ to: "/settings/agency" }); },
 });
