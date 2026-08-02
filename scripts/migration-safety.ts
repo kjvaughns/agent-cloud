@@ -219,6 +219,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/team.functions.ts:set_agent_status":
+    "setAgentStatus catches 42883/PGRST202 and falls back to the direct profiles update, which is exactly today's behaviour",
   "src/lib/ai-assistant.functions.ts:nova_conversations":
     "listNova* return `data ?? []`; askAiAssistant leaves conversationId null and answers without memory",
   "src/lib/ai-assistant.functions.ts:nova_messages":

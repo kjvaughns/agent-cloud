@@ -34,7 +34,7 @@ import {
   Eye,
   BadgeAlert,
 } from "lucide-react";
-import { getAgentDetail, setAgentHidden, setAgentTerminated } from "@/lib/team.functions";
+import { getAgentDetail, setAgentHidden, setAgentStatus } from "@/lib/team.functions";
 
 type Props = { agentId: string | null; onClose: () => void; isAdmin: boolean };
 
@@ -82,12 +82,96 @@ function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
+type AccessStatus = "active" | "inactive" | "terminated";
+
+/**
+ * Three-way access control.
+ *
+ * Was a single "Mark Terminated" / "Reinstate" toggle whose dialog said the
+ * agent "will no longer appear on default rosters" — which was the whole of
+ * what it did. It now revokes access to the agency's data, so the copy says so.
+ *
+ * Inactive and Terminated both revoke; they differ in whether it is meant to be
+ * temporary, and Terminated stamps a date and hides them from rosters.
+ */
+function StatusControl({
+  status, onSet, busy,
+}: { status: string; onSet: (s: AccessStatus) => void; busy: boolean }) {
+  const [pending, setPending] = useState<AccessStatus | null>(null);
+  const revoked = status === "terminated" || status === "inactive";
+
+  const COPY: Record<AccessStatus, { title: string; body: string; cta: string }> = {
+    active: {
+      title: "Restore this agent's access?",
+      body: "They will be able to sign in again and see this agency's data.",
+      cta: "Restore access",
+    },
+    inactive: {
+      title: "Suspend this agent's access?",
+      body:
+        "They will be signed out of this agency's data immediately and cannot sign back in, " +
+        "but they stay on the roster and their production, contracts and clients are untouched. " +
+        "Use this when you expect them back.",
+      cta: "Suspend access",
+    },
+    terminated: {
+      title: "Revoke this agent's access?",
+      body:
+        "They will be signed out of this agency's data immediately and cannot sign back in. " +
+        "Their production, contracts and client records are preserved and stay attributed to " +
+        "them. You will still need to notify carriers to terminate their appointments separately.",
+      cta: "Revoke access",
+    },
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-1">
+        {(["active", "inactive", "terminated"] as const)
+          .filter((s) => s !== status)
+          .map((s) => (
+            <Button
+              key={s}
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              className={s === "active" ? "text-muted-foreground" : "text-destructive"}
+              onClick={() => setPending(s)}
+            >
+              {s === "active" ? (revoked ? "Restore" : "Set Active") : s === "inactive" ? "Suspend" : "Terminate"}
+            </Button>
+          ))}
+      </div>
+
+      <AlertDialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pending ? COPY[pending].title : ""}</AlertDialogTitle>
+            <AlertDialogDescription>{pending ? COPY[pending].body : ""}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pending) onSet(pending);
+                setPending(null);
+              }}
+            >
+              {pending ? COPY[pending].cta : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
 export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const detailFn = useServerFn(getAgentDetail);
   const hideFn = useServerFn(setAgentHidden);
-  const termFn = useServerFn(setAgentTerminated);
+  const statusFn = useServerFn(setAgentStatus);
 
   const { data, isLoading } = useQuery({
     queryKey: ["team", "agent", agentId],
@@ -104,9 +188,19 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
   const term = useMutation({
-    mutationFn: (terminated: boolean) => termFn({ data: { agentId: agentId!, terminated } }),
-    onSuccess: () => {
-      toast.success("Updated status");
+    mutationFn: (next: "active" | "inactive" | "terminated") =>
+      statusFn({ data: { agentId: agentId!, status: next } }),
+    onSuccess: (_r, next) => {
+      // Say what actually happened. "Updated status" was accurate when this
+      // only hid them from a roster; it is not accurate now that it revokes
+      // access to the agency's data.
+      toast.success(
+        next === "active"
+          ? "Access restored"
+          : next === "inactive"
+          ? "Access suspended"
+          : "Access revoked",
+      );
       qc.invalidateQueries({ queryKey: ["team"] });
       onClose();
     },
@@ -267,32 +361,7 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
                   {isHidden ? <Eye className="h-4 w-4 mr-1.5" /> : <EyeOff className="h-4 w-4 mr-1.5" />}
                   {isHidden ? "Unhide from Team Page" : "Hide from Team Page"}
                 </Button>
-                {isAdmin && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="text-destructive">
-                        {status === "terminated" ? "Reinstate" : "Mark Terminated"}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {status === "terminated" ? "Reinstate this agent?" : "Terminate this agent?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Production records remain attributed to the agent. They will{" "}
-                          {status === "terminated" ? "appear again on rosters." : "no longer appear on default rosters."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => term.mutate(status !== "terminated")}>
-                          Confirm
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
+                {isAdmin && <StatusControl status={status} onSet={(s) => term.mutate(s)} busy={term.isPending} />}
               </div>
             </div>
           </>
