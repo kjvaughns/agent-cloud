@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import {
   getTeamDownline,
+  getTeamRoster,
+  type RosterAgent,
   getTeamKpis,
   getTeamAlerts,
   sendAgentReminder,
@@ -35,10 +37,20 @@ import { AgencyTeamPage } from "@/components/agency-team-page";
 import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";
+import {
+  STAGE_LABELS,
+  type ComplianceLevel,
+  type LifecycleStage,
+  type RiskFlag,
+} from "@/lib/team-roster";
 
 const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
 const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
 const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => getTeamAlerts() });
+// The roster needs two things the downline RPC does not carry — compliance and
+// days since last sale — so it has its own query rather than making every
+// consumer of the downline pay for them.
+const rosterQO = queryOptions({ queryKey: ["team", "roster"], queryFn: () => getTeamRoster() });
 
 function TeamPending() {
   return (
@@ -101,6 +113,88 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
 
+const STAGE_TONE: Record<LifecycleStage, string> = {
+  active: "bg-green-500/15 text-green-600 border-green-500/30",
+  at_risk: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  contracted: "bg-primary/15 text-primary border-primary/30",
+  licensed: "bg-sky-500/15 text-sky-600 border-sky-500/30",
+  onboarding: "bg-muted text-muted-foreground border-border",
+  inactive: "bg-muted text-muted-foreground border-border",
+  terminated: "bg-red-500/15 text-red-600 border-red-500/30",
+};
+
+/**
+ * The stage, and the reason when there is one.
+ *
+ * "At risk" on its own is a dead end — it tells you to go and find out why,
+ * which is the work the roster is supposed to save. The first reason is shown
+ * inline and the rest are on hover, because one line per agent is what makes
+ * the list scannable.
+ */
+function StageBadge({ stage, flags }: { stage: LifecycleStage; flags: RiskFlag[] }) {
+  const badge = (
+    <Badge variant="outline" className={cn("whitespace-nowrap", STAGE_TONE[stage])}>
+      {STAGE_LABELS[stage]}
+    </Badge>
+  );
+  if (flags.length === 0) return badge;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="inline-flex flex-col items-start gap-0.5">
+            {badge}
+            <span className="max-w-[190px] truncate text-[11px] text-muted-foreground">
+              {flags[0].reason}
+              {flags.length > 1 ? ` +${flags.length - 1}` : ""}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-xs">
+          <ul className="space-y-0.5 text-xs">
+            {flags.map((f) => (
+              <li key={f.key} className={f.severity === "critical" ? "text-destructive" : ""}>
+                {f.reason}
+              </li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * Licences and E&O at a glance.
+ *
+ * `unknown` is deliberately its own colour rather than folded into green. An
+ * agent with no licence record is not compliant — nobody has told us — and
+ * showing that as a pass is the mistake this dot exists to prevent.
+ */
+function ComplianceDot({ level }: { level: ComplianceLevel }) {
+  const meta: Record<ComplianceLevel, { cls: string; label: string }> = {
+    ok: { cls: "bg-green-500", label: "Licences and E&O current" },
+    warn: { cls: "bg-amber-500", label: "Something expires soon, or E&O is missing" },
+    bad: { cls: "bg-red-500", label: "Expired, or no active licence" },
+    unknown: { cls: "bg-muted-foreground/40", label: "Nothing on file yet" },
+  };
+  const m = meta[level];
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn("inline-block h-2.5 w-2.5 rounded-full", m.cls)}
+            aria-label={m.label}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top"><span className="text-xs">{m.label}</span></TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 const isAdminQO = queryOptions({ queryKey: ["me", "isAdmin"], queryFn: () => checkIsAdmin() });
 
 function TeamPage() {
@@ -110,9 +204,10 @@ function TeamPage() {
     () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated" && a.status !== "imported"),
     [downlineAll],
   );
+  const { data: roster } = useQuery(rosterQO);
   const downlineForRoster = useMemo(
-    () => downlineAll.filter((a) => !(a as any).is_hidden),
-    [downlineAll],
+    () => ((roster?.rows ?? []) as RosterAgent[]).filter((a) => !(a as any).is_hidden),
+    [roster],
   );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
@@ -409,10 +504,12 @@ function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (
 }
 
 // ============ Roster Table ============
-function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
+function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (id: string) => void }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all_except_imported");
   const [depth, setDepth] = useState("all");
+  const [stage, setStage] = useState<"all" | LifecycleStage>("all");
+  const [sort, setSort] = useState<"name" | "stale" | "production" | "compliance">("name");
   const [page, setPage] = useState(0);
   const perPage = 25;
 
@@ -424,18 +521,68 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
     if (status === "all_except_imported" && (a.status === "imported" || a.status === "terminated")) return false;
     if (status !== "all" && status !== "all_except_imported" && a.status !== status) return false;
     if (depth !== "all" && a.depth_level !== Number(depth)) return false;
+    if (stage !== "all" && a.stage !== stage) return false;
     return true;
-  }), [downline, search, status, depth]);
+  }), [downline, search, status, depth, stage]);
 
-  const pageRows = filtered.slice(page * perPage, (page + 1) * perPage);
-  const pages = Math.max(1, Math.ceil(filtered.length / perPage));
+  // At-risk first regardless of the chosen sort. A flag you have to scroll to
+  // find is the same dead end as no flag at all.
+  const COMPLIANCE_ORDER: Record<string, number> = { bad: 0, warn: 1, unknown: 2, ok: 3 };
+  const sorted = useMemo(() => {
+    const worst = (a: RosterAgent) => (a.flags.some((f) => f.severity === "critical") ? 0 : a.flags.length ? 1 : 2);
+    return [...filtered].sort((a, b) => {
+      const w = worst(a) - worst(b);
+      if (w !== 0) return w;
+      if (sort === "stale") return (b.days_since_sale ?? -1) - (a.days_since_sale ?? -1);
+      if (sort === "production") return Number(b.premium_total) - Number(a.premium_total);
+      if (sort === "compliance") return COMPLIANCE_ORDER[a.compliance] - COMPLIANCE_ORDER[b.compliance];
+      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+    });
+  }, [filtered, sort]);
+
+  const pageRows = sorted.slice(page * perPage, (page + 1) * perPage);
+  const pages = Math.max(1, Math.ceil(sorted.length / perPage));
   const depths = Array.from(new Set(downline.map((a) => a.depth_level))).sort((a, b) => a - b);
 
   return (
     <Panel>
       <div className="space-y-3">
+        {/* Stage chips. Counts on the chip so you can see there are four
+            at-risk agents without selecting the filter to find out. */}
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "at_risk", "onboarding", "licensed", "contracted", "active", "inactive", "terminated"] as const).map((sKey) => {
+            const n = sKey === "all" ? downline.length : downline.filter((a) => a.stage === sKey).length;
+            if (n === 0 && sKey !== "all") return null;
+            return (
+              <button
+                key={sKey}
+                type="button"
+                onClick={() => { setStage(sKey); setPage(0); }}
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  stage === sKey
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {sKey === "all" ? "All" : STAGE_LABELS[sKey]}
+                <span className="tnum ml-1 opacity-70">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex gap-2 flex-wrap">
           <Input placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="max-w-xs" />
+          <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Sort: Name</SelectItem>
+              <SelectItem value="stale">Sort: Days since last sale</SelectItem>
+              <SelectItem value="production">Sort: Production</SelectItem>
+              <SelectItem value="compliance">Sort: Compliance</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -461,13 +608,13 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
             <TableHeader>
               <TableRow>
                 <TableHead>Agent</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead className="text-center">Compliance</TableHead>
                 <TableHead>Upline</TableHead>
-                <TableHead>Depth</TableHead>
                 <TableHead>Carriers</TableHead>
                 <TableHead>Policies</TableHead>
                 <TableHead>Production</TableHead>
-                <TableHead>Last Active</TableHead>
+                <TableHead>Last sale</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -487,18 +634,22 @@ function RosterTable({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id:
                       </div>
                     </button>
                   </TableCell>
-                  <TableCell><StatusBadge status={a.status} /></TableCell>
+                  <TableCell><StageBadge stage={a.stage} flags={a.flags} /></TableCell>
+                  <TableCell className="text-center"><ComplianceDot level={a.compliance} /></TableCell>
                   <TableCell className="text-sm">
                     {upline
                       ? <span>{upline.first_name} {upline.last_name}</span>
                       : <span className="text-muted-foreground text-xs">{a.upline_id ? "—" : "Root"}</span>
                     }
                   </TableCell>
-                  <TableCell className="tnum">L{a.depth_level}</TableCell>
-                  <TableCell className="tnum">{a.contracts_count} active</TableCell>
+                  <TableCell className="tnum">{a.active_carriers}</TableCell>
                   <TableCell className="tnum">{a.policies_count}</TableCell>
                   <TableCell className="tnum">{fmtCurrency(Number(a.premium_total))}</TableCell>
-                  <TableCell className="tnum">{timeAgo(a.last_active_at)}</TableCell>
+                  <TableCell className="tnum">
+                    {a.days_since_sale == null
+                      ? <span className="text-muted-foreground text-xs">Never</span>
+                      : `${a.days_since_sale}d ago`}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => onOpen(a.id)}><Eye className="h-4 w-4" /></Button>
                     {a.email && (
