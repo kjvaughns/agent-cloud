@@ -414,8 +414,16 @@ export const deleteInvitationLink = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const { error } = await supabase.from("invitation_links").delete().eq("id", data.id).eq("created_by", userId);
+    // Scoped to the creator, so a link somebody else made matches nothing —
+    // and a delete that matches nothing is not an error. Without the count,
+    // this reported success and the link stayed live, which for an invitation
+    // link is the difference between revoked and not.
+    const { data: removed, error } = await supabase
+      .from("invitation_links").delete().eq("id", data.id).eq("created_by", userId).select("id");
     if (error) throw new Error(error.message);
+    if (!removed?.length) {
+      throw new Error("That invite link couldn't be revoked — it was created by someone else.");
+    }
     return { ok: true };
   });
 
@@ -569,11 +577,19 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
     if (row.agent_id !== userId) {
       // An upline or admin removing somebody else's request is legitimate; only
       // an unrelated agent is not.
-      const [{ data: isDownline }, { data: isAdmin }] = await Promise.all([
+      // `agency_owner` belongs here alongside `admin`. RLS lets the owner of
+      // the organization remove the row — `is_org_owner(organization_id)` — so
+      // leaving them out of this check refuses a delete the database would
+      // have allowed, which reads as a bug to the one person who most expects
+      // it to work.
+      const [{ data: isDownline }, { data: isAdmin }, { data: isOwner }] = await Promise.all([
         (supabase as any).rpc("is_in_downline", { _upline: userId, _target: row.agent_id }),
         (supabase as any).rpc("has_role", { _user_id: userId, _role: "admin" }),
+        (supabase as any).rpc("has_role", { _user_id: userId, _role: "agency_owner" }),
       ]);
-      if (!isDownline && !isAdmin) throw new Error("This contract request isn't yours to remove.");
+      if (!isDownline && !isAdmin && !isOwner) {
+        throw new Error("This contract request isn't yours to remove.");
+      }
     }
 
     // "Contact your admin" was the old advice, which is no help to the person
@@ -585,8 +601,22 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
         "so an appointment that is real cannot be deleted by one misclick.",
       );
     }
-    const { error } = await supabase.from("contract_requests").delete().eq("id", data.id);
+    // `.select()` so we can tell a delete apart from a delete that did nothing.
+    //
+    // The checks above run in TypeScript; the row is removed under RLS. When a
+    // policy disagrees with them the delete matches zero rows and returns no
+    // error at all — so this would report "Contract request removed", the list
+    // would refetch unchanged, and the contract would still be there. An
+    // upline or admin removing somebody else's request is exactly the case
+    // where those two can disagree.
+    const { data: removed, error } = await supabase
+      .from("contract_requests").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!removed?.length) {
+      throw new Error(
+        "That contract couldn't be removed — your account doesn't have permission to delete this one.",
+      );
+    }
     return { ok: true };
   });
 
