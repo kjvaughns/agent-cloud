@@ -18,7 +18,7 @@ import {
   listMyGrids, extractGridFromImage, saveGrid, deleteMyGrid, type GridRow,
 } from "@/lib/comp-grid.functions";
 import { addCarrier } from "@/lib/contracting.functions";
-import { fileToImageDataUrl } from "@/lib/file-to-image";
+import { extractDocument, truncationNotice } from "@/lib/document-extract";
 
 /** Sentinel for the "add a carrier" row in the carrier Select. */
 const NEW_CARRIER = "__new__";
@@ -84,11 +84,15 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
     setReading(true);
     setNotes(null);
     try {
-      // PDFs are rasterized in the browser; the model reads a page image.
-      const image = await fileToImageDataUrl(file);
+      // Every page, not just the first. A rate card that runs to three pages
+      // used to be read from page one and then saved with a mode that clears
+      // the carrier — so the products on the pages nobody read disappeared.
+      const doc = await extractDocument(file, { prefer: "image", maxPages: 8 });
+      const notice = truncationNotice(doc);
+      if (notice) toast.warning(notice);
       const out: any = await extractFn({
         data: {
-          image,
+          images: doc.images,
           file_name: file.name,
           carrier_id: carrierId || null,
           carrier_name: carriers.find((c: any) => c.id === carrierId)?.name ?? null,

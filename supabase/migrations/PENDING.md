@@ -19,6 +19,7 @@ Delete a line once the migration is applied.
 - `20260802180000_import-personal-scope.sql`
 - `20260802181000_import-proposals.sql`
 - `20260802182000_imports-bucket.sql`
+- `20260802190000_commission-grids-org-unique.sql`
 
 Order matters at the tail. `import-proposals` references `document_intake`,
 and its policies assume the personal-scope fallback `import-personal-scope`

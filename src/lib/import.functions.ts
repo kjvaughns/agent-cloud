@@ -4,7 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
 import { IMPORT_KINDS, KIND_TARGET, KIND_LABEL, type ImportKind } from "@/lib/import-router";
 import { buildMatchIndex, classifyClient, policyExists, rowKey } from "@/lib/import-match";
-import { saveClientFullRecord } from "@/lib/import-helpers";
+import { saveClientFullRecord, resolveCarrierId } from "@/lib/import-helpers";
+import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -347,6 +348,17 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
     const proposals: any[] = [];
     let exact = 0, fuzzy = 0, inFile = 0;
 
+    // A grid is dozens of rows naming the same one or two carriers. Look each
+    // name up once.
+    const carrierCache = new Map<string, string | null>();
+    async function carrierFor(name: string | null | undefined): Promise<string | null> {
+      const key = (name ?? "").trim().toLowerCase();
+      if (carrierCache.has(key)) return carrierCache.get(key) ?? null;
+      const id = await resolveCarrierId(supabase, name);
+      carrierCache.set(key, id);
+      return id;
+    }
+
     for (const raw of data.rows) {
       if (proposals.length >= room) break;
 
@@ -368,6 +380,20 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
       let confidence: number | null = null;
       let decision = "pending";
       let operation = "insert";
+
+      // A grid row is worthless without a carrier we can name. Resolve it here
+      // rather than at apply time so an unresolvable one is visible while
+      // somebody is still looking at the review screen, and so `resolveCarrierId`
+      // — which returns null rather than guessing between similar names — gets
+      // to be the thing that decides.
+      if (target.table === "commission_grids" && !row.carrier_id) {
+        row.carrier_id = await carrierFor(row.carrier_name);
+        if (!row.carrier_id) {
+          match_reason = `We don't have a carrier matching "${row.carrier_name ?? "(none given)"}".`;
+          match_kind = "fuzzy";
+          fuzzy++;
+        }
+      }
 
       if (index) {
         const v = classifyClient(index, row);
@@ -563,7 +589,71 @@ export const applyProposals = createServerFn({ method: "POST" })
     let applied = 0;
     let failed = 0;
 
-    for (const p of rows) {
+    // Grid rows apply together, not one at a time. `saveGrid` in merge mode
+    // clears the products it is about to write, so applying row by row would
+    // have each row wipe the one before it — the second level of a product
+    // would delete the first. One call per carrier, carrying every approved
+    // row for it.
+    const gridRows = rows.filter((p) => p.target_table === "commission_grids");
+    if (gridRows.length) {
+      const byCarrier = new Map<string, any[]>();
+      for (const p of gridRows) {
+        const cid = p.payload?.carrier_id;
+        if (!cid) continue;
+        const bucket = byCarrier.get(cid);
+        if (bucket) bucket.push(p);
+        else byCarrier.set(cid, [p]);
+      }
+
+      const orgId = await requireOrgId(supabase, userId);
+
+      for (const [carrierId, group] of byCarrier) {
+        try {
+          await writeGridRows(supabase, userId, orgId, {
+            carrier_id: carrierId,
+            rows: group.map((p) => ({
+              product_name: p.payload.product_name,
+              level_name: p.payload.level_name,
+              year_1_pct: Number(p.payload.year_1_pct) || 0,
+              years_2_5_pct: p.payload.years_2_5_pct ?? null,
+              years_6_plus_pct: p.payload.years_6_plus_pct ?? null,
+              age_group_min: p.payload.age_group_min ?? null,
+              age_group_max: p.payload.age_group_max ?? null,
+            })),
+            source: "ai_extracted",
+            // Merge, never replace. A document is rarely the whole grid, and
+            // replacing on a partial extraction deletes every product it did
+            // not happen to mention.
+            mode: "merge",
+          });
+          const stamp = new Date().toISOString();
+          await supabase.from("import_proposals")
+            .update({ applied_at: stamp, apply_error: null, updated_at: stamp })
+            .in("id", group.map((p) => p.id));
+          applied += group.length;
+        } catch (e: any) {
+          await supabase.from("import_proposals")
+            .update({ apply_error: String(e?.message ?? "Couldn't save that grid"), updated_at: new Date().toISOString() })
+            .in("id", group.map((p) => p.id));
+          failed += group.length;
+        }
+      }
+
+      // Anything with no carrier resolved cannot be written at all. Fail it
+      // loudly rather than leaving it approved-but-never-applied forever.
+      const orphans = gridRows.filter((p) => !p.payload?.carrier_id);
+      if (orphans.length) {
+        await supabase.from("import_proposals")
+          .update({
+            apply_error: "No carrier matched this row — add the carrier first, then import again.",
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", orphans.map((p) => p.id));
+        failed += orphans.length;
+      }
+    }
+
+    for (const p of rows.filter((r) => r.target_table !== "commission_grids")) {
       try {
         // Recomputed, not replayed. A proposal is client-influenced — someone
         // can edit a field before approving it — so the row we are about to
