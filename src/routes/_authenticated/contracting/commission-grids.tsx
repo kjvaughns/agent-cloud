@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { listMyCarrierLevels, getCommissionGrid } from "@/lib/contracting.functions";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { X, RotateCcw } from "lucide-react";
+import { listMyCarrierLevels, getCommissionGrid, clearMyCommissionLevels } from "@/lib/contracting.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -77,13 +80,46 @@ function levelIsMe(
 }
 
 export function CompGridsContent() {
+  const qc = useQueryClient();
+  const { canSeeAgency } = useNavContext();
+  const clearFn = useServerFn(clearMyCommissionLevels);
   const { data, isLoading } = useQuery({
     queryKey: ["contracting", "myLevels"],
     queryFn: () => listMyCarrierLevels(),
   });
 
+  const clear = useMutation({
+    mutationFn: (carrier_id?: string) => clearFn({ data: carrier_id ? { carrier_id } : {} }),
+    onSuccess: (r: any) => {
+      toast.success(r?.cleared ? `Cleared ${r.cleared} level${r.cleared === 1 ? "" : "s"}` : "Nothing to clear");
+      qc.invalidateQueries({ queryKey: ["contracting", "myLevels"] });
+      qc.invalidateQueries({ queryKey: ["comp-grids"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't clear that"),
+  });
+
+  const mine = (data?.rows ?? []).filter((r: any) => r.commission_level).length;
+
   return (
     <div className="flex flex-col gap-[var(--gap)]">
+
+      {canSeeAgency && mine > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius)] border border-border bg-surface-2 px-3 py-2">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            You have a level on <span className="tnum font-medium text-foreground">{mine}</span>{" "}
+            carrier{mine === 1 ? "" : "s"}. A level is matched to a comp grid by its exact text,
+            so clearing one and setting it again is the fix when a grid and a contract disagree.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={clear.isPending}
+            onClick={() => clear.mutate(undefined)}
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Clear all mine
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <Skeleton className="h-40" />
@@ -109,9 +145,29 @@ export function CompGridsContent() {
                       )}
                     </div>
                     {r.commission_level ? (
-                      <Badge className="bg-amber-500 text-white shrink-0">
-                        Your Level: {r.commission_level} ({Number(r.assigned_pct)}%)
-                      </Badge>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <Badge className="bg-amber-500 text-white">
+                          Your Level: {r.commission_level} ({Number(r.assigned_pct)}%)
+                        </Badge>
+                        {canSeeAgency && (
+                          // Assigning a level has always been an upsert, so a
+                          // level set once — or imported wrongly — could only
+                          // be overwritten, never removed.
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Clear my level for ${r.carriers?.name ?? "this carrier"}`}
+                            title="Clear my level for this carrier"
+                            className="rounded p-1 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); clear.mutate(r.carrier_id); }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); clear.mutate(r.carrier_id); }
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-xs text-muted-foreground shrink-0">
                         {Number(r.assigned_pct)}%
