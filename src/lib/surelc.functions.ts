@@ -198,10 +198,15 @@ export const syncSureLcStatuses = createServerFn({ method: "POST" })
           .eq("id", contract.carrier_id)
           .maybeSingle();
 
+        // `description`, not `body`. The notifications table has no `body`
+        // column and never has, so PostgREST rejected the row with PGRST204
+        // every time. supabase-js returns that in `{ error }` rather than
+        // rejecting, and the result is discarded here, so it surfaced nowhere
+        // — an agent was never told their contract had been approved.
         await supabase.from("notifications").insert({
           user_id: userId,
           title:   `Contract Approved — ${(carrier as any)?.name ?? "Carrier"}`,
-          body:    status.writingNumber
+          description: status.writingNumber
             ? `Your contract has been approved. Writing number: ${status.writingNumber}`
             : "Your contract has been approved by the carrier.",
           type:    "contracting",

@@ -508,10 +508,11 @@ export const addCarriersToInvite = createServerFn({ method: "POST" })
     // Notify linked agent (if exists) via in-app
     if (inv.linked_agent_id) {
       const names = data.assignments.map((a) => a.carrier_name).join(", ");
+      const many = data.assignments.length > 1;
       await supabase.from("notifications").insert({
         user_id: inv.linked_agent_id,
-        title: "New carrier added to your contracting",
-        description: `${names} has been added to your contracting application.`,
+        title: many ? "New carriers added to your contracting" : "New carrier added to your contracting",
+        description: `${names} ${many ? "have" : "has"} been added to your contracting application.`,
         type: "contracting",
       });
 
