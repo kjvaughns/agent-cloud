@@ -64,7 +64,7 @@ function MyLandingPage() {
   }, [data]);
 
   const slug = data?.profile?.agent_slug ?? "my-agent";
-  const pageUrl = typeof window !== "undefined" ? `${window.location.origin}/agent/${slug}` : `/agent/${slug}`;
+  const pageUrl = typeof window !== "undefined" ? `${window.location.origin}/myagent/${slug}` : `/myagent/${slug}`;
 
   const saveMutation = useMutation({
     mutationFn: () => saveLandingPageFn({

@@ -21,39 +21,36 @@ type Persona = { name: string; ctx: NavContext };
 const PERSONAS: Persona[] = [
   {
     name: "Solo agent (own workspace, solo plan)",
-    ctx: { audience: "core", inAgency: false, canSeeAgency: false, perms: {} },
+    ctx: { audience: "core", inAgency: false, canSeeAgency: false, downlineCount: 0, perms: {} },
   },
   {
-    name: "Agent inside an agency",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, perms: {} },
+    name: "Agent inside an agency, nobody under them",
+    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, perms: {} },
+  },
+  {
+    name: "Agent with a downline",
+    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 3, perms: {} },
   },
   {
     name: "Manager (default permissions)",
     ctx: {
-      audience: "core", inAgency: true, canSeeAgency: false,
+      audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 8,
       perms: { mgr_view_team_analytics: true, mgr_manage_onboarding: true },
     },
   },
   {
     name: "Agency owner",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: true, perms: {} },
+    ctx: { audience: "core", inAgency: true, canSeeAgency: true, downlineCount: 0, perms: {} },
   },
   {
     name: "Staff (no permissions granted)",
-    ctx: { audience: "staff", inAgency: true, canSeeAgency: false, perms: {} },
-  },
-  {
-    name: "Staff (contracting preset)",
-    ctx: {
-      audience: "staff", inAgency: true, canSeeAgency: false,
-      perms: { staff_view_contracts: true, staff_view_clients: true, staff_view_policies: true },
-    },
+    ctx: { audience: "staff", inAgency: true, canSeeAgency: false, downlineCount: 0, perms: {} },
   },
   {
     name: "Staff (admin preset)",
     ctx: {
-      audience: "staff", inAgency: true, canSeeAgency: true,
-      perms: { staff_is_admin: true, admin_manage_staff_configs: true, staff_nova_pro_enabled: true },
+      audience: "staff", inAgency: true, canSeeAgency: true, downlineCount: 0,
+      perms: { staff_is_admin: true, admin_manage_staff_configs: true, staff_nova_pro_enabled: true, staff_view_contracts: true },
     },
   },
 ];

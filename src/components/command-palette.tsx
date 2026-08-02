@@ -81,6 +81,12 @@ export function CommandPalette() {
 
   const go = (url: string) => {
     setOpen(false);
+    // Some destinations leave the app. Routing one of those through the
+    // router gives a 404 rather than the site it names.
+    if (/^https?:\/\//.test(url)) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
     navigate({ to: url as string });
   };
 

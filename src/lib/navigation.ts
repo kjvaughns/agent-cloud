@@ -38,12 +38,14 @@ import {
 /** Who a page is for. A page with no audience listed is for everyone. */
 export type Audience = "core" | "staff";
 
-/** What has to be true of the workspace before a page appears at all. */
+/** What has to be true before a page appears at all. */
 export type Unlock =
   /** Anyone in an agency — i.e. the plan is not solo. */
   | "agency-member"
   /** Someone who administers the agency: the owner, or an admin. */
-  | "agency-admin";
+  | "agency-admin"
+  /** Somebody has people under them. A team page with no team is a dead end. */
+  | "has-downline";
 
 export type Page = {
   id: string;
@@ -63,6 +65,8 @@ export type Page = {
   permission?: string;
   /** A gate that applies only to back-office staff, checked against role_permissions. */
   staffPermission?: string;
+  /** Leaves the app. Rendered as an anchor, not a router link. */
+  external?: boolean;
   /**
    * The hub this page hangs under. Used for nesting in the sidebar and when
    * somebody stars it, so a favourite sits beneath its section rather than
@@ -74,15 +78,17 @@ export type Page = {
 // ── The registry ────────────────────────────────────────────────────────────
 
 export const PAGES: Page[] = [
-  // Home — where the day starts.
+  // Home — where the day starts. Deliberately childless: a dashboard is a
+  // destination, not a section, and hanging four pages off it made opening the
+  // app feel like a decision.
   { id: "dashboard", label: "Home", path: "/dashboard", icon: LayoutDashboard, area: "Home" },
-  { id: "notifications", label: "Notifications", path: "/notifications", icon: Megaphone, area: "Home", parent: "dashboard" },
-  { id: "tasks", label: "Tasks", path: "/tasks", icon: ListTodo, area: "Home", parent: "dashboard" },
-  // Filed under Home, not Agency: these are what an agent gains by being in an
-  // agency, and the Agency section is only for the people who administer one.
-  // Put here they reach everybody in the agency, which was the point of them.
-  { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Home", parent: "dashboard", unlock: "agency-member" },
-  { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Home", parent: "dashboard", unlock: "agency-member" },
+
+  // Reachable by search, absent from every sidebar. Notifications has the bell
+  // in the top bar; the dashboard already surfaces overdue tasks and where you
+  // stand. Nothing here is deleted — these simply stopped earning a row.
+  { id: "notifications", label: "Notifications", path: "/notifications", icon: Megaphone, area: "Home" },
+  { id: "tasks", label: "Tasks", path: "/tasks", icon: ListTodo, area: "Home" },
+  { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Home", unlock: "agency-member" },
 
   // Clients — everyone you are working, sold, or about to lose.
   { id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Clients", staffPermission: "staff_view_clients" },
@@ -92,60 +98,70 @@ export const PAGES: Page[] = [
   { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
 
   // Contracting — becoming and staying appointed, and what it pays.
+  // Contracting — becoming and staying appointed.
+  //
+  // Writing numbers and commission levels are not pages here. They are columns
+  // on a contract, and listMyContracts already returns both, so the Contracts
+  // tab is the one place a contract's number and level live.
   { id: "my-contracts", label: "Contracting", path: "/contracting", icon: FileSignature, area: "Contracting", staffPermission: "staff_view_contracts" },
-  { id: "my-writing-numbers", label: "Writing Numbers", path: "/contracting/writing-numbers", icon: IdCard, area: "Contracting", parent: "my-contracts" },
+  { id: "contracts-list", label: "My Contracts", path: "/contracting", icon: FileSignature, area: "Contracting", parent: "my-contracts", staffPermission: "staff_view_contracts" },
   { id: "carriers", label: "Carrier Directory", path: "/contracting/carriers", icon: Building2, area: "Contracting", parent: "my-contracts" },
-  { id: "my-comp-levels", label: "Commission Levels", path: "/contracting/commission-levels", icon: Percent, area: "Contracting", parent: "my-contracts" },
-  // Filed here rather than on its own: as an agent, your money is carrier
-  // money — advances, overrides and renewals, all attached to a contract.
-  { id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Contracting", parent: "my-contracts", staffPermission: "staff_view_commissions" },
+  { id: "comp-grids", label: "Comp Grids", path: "/contracting/commission-grids", icon: Percent, area: "Contracting", parent: "my-contracts" },
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Contracting", staffPermission: "staff_post_policies" },
+
+  // Money is its own answer to its own question, not a footnote to a contract.
+  { id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Finances", staffPermission: "staff_view_commissions" },
 
   // Reports — one page. How wide it looks is the scope toggle's job, not a
   // permission's, which is why the old manager gate is gone.
   { id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reports", staffPermission: "staff_view_analytics" },
 
-  // Resources — everything to learn and improve.
-  { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Resources" },
-  { id: "licensing", label: "State Licenses", path: "/licensing", icon: FileSignature, area: "Resources", parent: "resources" },
-  { id: "scripts", label: "Scripts", path: "/resources/scripts", icon: BookOpen, area: "Resources", parent: "resources" },
-  { id: "academy", label: "Academy", path: "/resources/agent-academy", icon: BookOpen, area: "Resources", parent: "resources" },
-  { id: "handbook", label: "Handbook", path: "/resources/agent-handbook", icon: BookOpen, area: "Resources", parent: "resources" },
-
   // Tools — the utility drawer.
-  { id: "tools", label: "Tools", path: "/tools/quoter", icon: Wrench, area: "Tools" },
-  { id: "quoter", label: "Quoter", path: "/tools/quoter", icon: Calculator, area: "Tools", parent: "tools" },
+  //
+  // Resources is one entry, not a section. Its page already carries a tab bar
+  // for the guide, the handbook, scripts, licensing and the academy, so
+  // nesting those again in the sidebar was the same list said twice.
+  { id: "tools", label: "Tools", path: "/resources/new-agent-guide", icon: Wrench, area: "Tools" },
+  { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Tools", parent: "tools" },
+  { id: "quoter", label: "Quoter", path: "https://www.insurancetoolkits.com", icon: Calculator, area: "Tools", parent: "tools", external: true },
   { id: "marketing", label: "Marketing", path: "/back-office/client-marketing", icon: Megaphone, area: "Tools", parent: "tools" },
   { id: "phone", label: "Phone", path: "/phone", icon: Phone, area: "Tools", parent: "tools", audience: ["core"] },
+
+  // Reachable by search. The Resources page's own tabs are how you get to
+  // these day to day.
+  { id: "licensing", label: "State Licenses", path: "/licensing", icon: FileSignature, area: "Tools" },
+  { id: "scripts", label: "Scripts", path: "/resources/scripts", icon: BookOpen, area: "Tools" },
+  { id: "academy", label: "Academy", path: "/resources/agent-academy", icon: BookOpen, area: "Tools" },
+  { id: "handbook", label: "Handbook", path: "/resources/agent-handbook", icon: BookOpen, area: "Tools" },
 
   { id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova", staffPermission: "staff_nova_pro_enabled" },
 
   // ── Agency ───────────────────────────────────────────────────────────────
-  // Appears when the workspace is an agency and you administer it. Everything
-  // agency-related lives here, which is why Billing and the workspace
-  // configuration moved out of Settings.
-  { id: "agency", label: "Agency", path: "/agency", icon: Building2, area: "Agency", unlock: "agency-admin" },
+  //
+  // For an agent this is two questions: where do I stand, and who is under me.
+  // It was sixteen destinations, nearly all of them workspace configuration,
+  // and only visible to the people who administer one — so the leaderboard,
+  // the one thing an agent gains by joining an agency, never reached them.
+  //
+  // Configuration went back to Settings. Agency is people.
+  { id: "agency", label: "Agency", path: "/leaderboard", icon: Building2, area: "Agency", unlock: "agency-member" },
 
-  { id: "team", label: "Team", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  // Reachable by an agency admin OR a manager given onboarding rights — the
-  // one place where two different people arrive by two different routes.
-  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Agency", parent: "agency", unlock: "agency-admin", permission: "mgr_manage_onboarding" },
+  { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", parent: "agency", unlock: "agency-member", audience: ["core"] },
+  // The team command centre, which is the existing Team page. Gated on
+  // actually having somebody under you: most agents do not, and a roster of
+  // nobody is a page that can only disappoint.
+  { id: "my-agents", label: "My Agents", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "has-downline", audience: ["core"] },
+
+  { id: "agency-overview", label: "Agency overview", path: "/agency", icon: Building2, area: "Agency", parent: "agency", unlock: "agency-admin" },
+  { id: "team", label: "Team management", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "agency-admin" },
   { id: "onboarding", label: "Getting agents ready", path: "/onboarding", icon: UserPlus, area: "Agency", parent: "agency", unlock: "agency-admin" },
   { id: "recruiting", label: "Recruiting", path: "/back-office/recruiting-funnels", icon: Target, area: "Agency", parent: "agency", unlock: "agency-admin", permission: "mgr_access_recruiting" },
-
   { id: "contracting-ops", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Agency", parent: "agency", unlock: "agency-admin", audience: ["core"] },
   { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Agency", parent: "agency", unlock: "agency-admin", staffPermission: "staff_is_admin" },
 
-  { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "agency-automations", label: "Automations", path: "/settings/automations", icon: Bot, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Agency", parent: "agency", unlock: "agency-admin" },
-
-  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Agency", parent: "agency" },
-  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Agency", parent: "agency", unlock: "agency-admin" },
+  // Everyone can invite. An invited agent gets an account and a dashboard;
+  // what they can do with it is a separate question from who may send the link.
+  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "agency-member" },
 
   // ── Back office — staff's own product ────────────────────────────────────
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Back office", audience: ["staff"] },
@@ -162,16 +178,26 @@ export const PAGES: Page[] = [
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
 
-  // ── Personal ─────────────────────────────────────────────────────────────
-  // Settings is yours alone now. Anything that configures the workspace is in
-  // Agency, above.
+  // ── Settings ─────────────────────────────────────────────────────────────
+  // Yours, plus the workspace's if you run it. Agency is people; Settings is
+  // setup — which is the line that makes both of them short.
   { id: "settings", label: "Settings", path: "/settings", icon: Settings, area: "Settings" },
   { id: "notif-settings", label: "Notification settings", path: "/settings/notifications", icon: Megaphone, area: "Settings", parent: "settings" },
   { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
   { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings", staffPermission: "staff_nova_pro_enabled" },
+  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
+
+  { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "agency-automations", label: "Automations", path: "/settings/automations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "agency-emails", label: "Emails", path: "/settings/emails", icon: Mail, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "agency-admin" },
+  { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
-  { id: "landing", label: "My Landing Page", path: "/account/my-landing-page", icon: Contact, area: "Account" },
+  { id: "landing", label: "Landing Page", path: "/account/my-landing-page", icon: Contact, area: "Account" },
 ];
 
 const BY_ID = new Map(PAGES.map((p) => [p.id, p]));
@@ -193,8 +219,8 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
     {
       label: "",
       ids: [
-        "dashboard", "clients", "my-contracts", "reports",
-        "resources", "tools", "nova", "agency",
+        "dashboard", "clients", "agency", "my-contracts",
+        "reports", "finances", "tools", "nova",
       ],
     },
   ],
@@ -212,6 +238,8 @@ export type NavContext = {
   inAgency: boolean;
   /** …and they administer it. */
   canSeeAgency: boolean;
+  /** How many people are under them. Drives the has-downline gate. */
+  downlineCount: number;
   perms: Record<string, unknown>;
 };
 
@@ -236,18 +264,29 @@ function allowed(p: Page, ctx: NavContext): boolean {
   const gates: boolean[] = [];
   if (p.unlock === "agency-member") gates.push(ctx.inAgency);
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
+  if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
   if (p.permission) gates.push(Boolean(ctx.perms[p.permission]));
   if (gates.length > 0 && !gates.some(Boolean)) return false;
 
   return true;
 }
 
-/** The sidebar: a short list, in the order this person works. */
+/**
+ * The sidebar: a short list, in the order this person works.
+ *
+ * A section with nothing in it is not a section. Agency, for a back-office
+ * staffer who administers nothing, has no leaderboard and no downline — so it
+ * disappears rather than sitting there as a heading onto a page they cannot
+ * use. Only hubs are subject to this; an ordinary entry stands on its own.
+ */
 export function navFor(ctx: NavContext): NavGroup[] {
   return PRODUCTS[ctx.audience]
     .map((g) => ({
       label: g.label,
-      items: g.ids.map(page).filter((p) => allowed(p, ctx)),
+      items: g.ids
+        .map(page)
+        .filter((p) => allowed(p, ctx))
+        .filter((p) => !isHub(p.id) || hubGroupsFor(p.id, ctx).length > 0),
     }))
     .filter((g) => g.items.length > 0);
 }
@@ -262,7 +301,7 @@ export function reachableFor(ctx: NavContext): Page[] {
 }
 
 /** The handful of things worth a shortcut on any screen. */
-export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
+export const ACCOUNT_PAGES = ["settings", "profile", "landing", "help"].map(page);
 
 // ── Hubs ────────────────────────────────────────────────────────────────────
 
@@ -276,34 +315,28 @@ export const ACCOUNT_PAGES = ["settings", "profile", "help"].map(page);
 export type HubGroup = { label: string; ids: string[] };
 
 const HUBS: Record<string, HubGroup[]> = {
-  dashboard: [
-    { label: "", ids: ["notifications", "tasks", "leaderboard", "challenges"] },
-  ],
+  // Home has none, on purpose. See the registry note above it.
   clients: [
     { label: "", ids: ["pipeline", "calendar", "book", "retention"] },
   ],
-  "my-contracts": [
-    { label: "", ids: ["my-writing-numbers", "carriers", "my-comp-levels", "finances"] },
+  agency: [
+    { label: "", ids: ["leaderboard", "my-agents"] },
+    { label: "Run the agency", ids: ["agency-overview", "team", "onboarding", "recruiting", "contracting-ops", "intake"] },
   ],
-  resources: [
-    { label: "", ids: ["licensing", "scripts", "academy", "handbook"] },
+  "my-contracts": [
+    { label: "", ids: ["contracts-list", "carriers", "comp-grids", "invite"] },
   ],
   tools: [
-    { label: "", ids: ["quoter", "marketing", "phone"] },
+    { label: "", ids: ["resources", "quoter", "marketing", "phone"] },
   ],
-  agency: [
-    { label: "Your people", ids: ["team", "invite", "onboarding", "recruiting"] },
-    { label: "Operations", ids: ["contracting-ops", "intake"] },
-    { label: "Setup", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label", "integrations"] },
-    { label: "Money & support", ids: ["billing", "support-desk", "agency-usage"] },
+  settings: [
+    { label: "", ids: ["notif-settings", "security", "nova-pro", "billing"] },
+    { label: "Your agency", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label", "integrations", "support-desk", "agency-usage"] },
   ],
   "contracting-ops": [
     { label: "Work", ids: ["requests", "queue", "hierarchy-changes", "intake"] },
     { label: "Producers", ids: ["ready", "licensing", "documents"] },
     { label: "Carriers & pay", ids: ["carriers-setup", "comp", "writing-numbers", "hierarchies"] },
-  ],
-  settings: [
-    { label: "", ids: ["notif-settings", "security", "nova-pro"] },
   ],
 };
 

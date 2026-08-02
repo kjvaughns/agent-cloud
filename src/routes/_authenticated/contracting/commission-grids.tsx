@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listMyCarrierLevels, getCommissionGrid } from "@/lib/contracting.functions";
@@ -8,14 +8,38 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { PageShell, HeroBand } from "@/components/page-shell";
 
 
-// Comp Grids now lives inside Contracts (tab). Old links redirect.
+/**
+ * What your level actually pays, per carrier and product.
+ *
+ * This used to redirect into a tab on Contracts while still exporting the
+ * component that tab rendered — so the page existed, had a URL, and refused to
+ * open at it. It renders now, and Contracts keeps the tab: same component,
+ * two doors, which is what a thing you consult while posting a deal wants.
+ */
 export const Route = createFileRoute("/_authenticated/contracting/commission-grids")({
-  beforeLoad: () => {
-    throw redirect({ to: "/contracting", search: { tab: "comp-grids" } as any });
-  },
+  component: CompGridsPage,
+  head: () => ({ meta: [
+    { title: "Comp Grids — Agent Cloud" },
+    { name: "description", content: "What each carrier pays at your commission level." },
+  ]}),
 });
+
+function CompGridsPage() {
+  return (
+    <PageShell>
+      <div className="flex flex-col gap-[var(--gap)]">
+        <HeroBand
+          title="Comp Grids"
+          subtitle="What each carrier and product pays at your level."
+        />
+        <CompGridsContent />
+      </div>
+    </PageShell>
+  );
+}
 
 function levelIsMe(
   levelName: string,

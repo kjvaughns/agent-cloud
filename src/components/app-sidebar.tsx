@@ -20,7 +20,7 @@ import {
   SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
   SidebarSeparator, useSidebar,
 } from "@/components/ui/sidebar";
-import { Star, X } from "lucide-react";
+import { Star, X, ExternalLink } from "lucide-react";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
   arrangeFavorites, hubForPath, hubGroupsFor, isHub, navFor,
@@ -29,7 +29,7 @@ import {
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }>; external?: boolean; id?: string };
 
-const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon, id: p.id });
+const asNavItem = (p: Page): NavItem => ({ title: p.label, url: p.path, icon: p.icon, id: p.id, external: p.external });
 
 /**
  * Remove a starred page from the sidebar, from the sidebar.
@@ -200,15 +200,26 @@ export function AppSidebar() {
                     const isStarred = pageIds.includes(p.id);
                     return (
                       <SidebarMenuSubItem key={p.path} className="group/fav relative">
-                        <SidebarMenuSubButton asChild isActive={path === p.path || path.startsWith(p.path + "/")}>
-                          <Link to={p.path} className="pr-7">
-                            {/* Starred pages are marked in place rather than
-                                repeated in a second list below. */}
-                            {isStarred
-                              ? <Star className="h-3 w-3 shrink-0 fill-primary/70 text-primary/70" />
-                              : <span className="h-3 w-3 shrink-0" />}
-                            <span className="truncate">{p.label}</span>
-                          </Link>
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={!p.external && (path === p.path || path.startsWith(p.path + "/"))}
+                        >
+                          {/* Starred pages are marked in place rather than
+                              repeated in a second list below. */}
+                          {p.external ? (
+                            <a href={p.path} target="_blank" rel="noopener noreferrer" className="pr-7">
+                              <span className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{p.label}</span>
+                              <ExternalLink className="h-3 w-3 shrink-0 text-sidebar-foreground/40" />
+                            </a>
+                          ) : (
+                            <Link to={p.path} className="pr-7">
+                              {isStarred
+                                ? <Star className="h-3 w-3 shrink-0 fill-primary/70 text-primary/70" />
+                                : <span className="h-3 w-3 shrink-0" />}
+                              <span className="truncate">{p.label}</span>
+                            </Link>
+                          )}
                         </SidebarMenuSubButton>
                         {isStarred && <UnstarButton pageId={p.id} label={p.label} onUnstar={unstar} />}
                       </SidebarMenuSubItem>
