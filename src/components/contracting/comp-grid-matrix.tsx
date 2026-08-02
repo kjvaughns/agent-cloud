@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import type { GridRow } from "@/lib/comp-grid.functions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Wand2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 /**
@@ -115,6 +116,95 @@ export function fromMatrix(m: MatrixState): GridRow[] {
   return out;
 }
 
+/**
+ * Fill the gaps from a row that is already complete.
+ *
+ * Carrier grids ladder: within a product the rate climbs level by level, and
+ * every product climbs in nearly the same proportion. On a real Transamerica
+ * grid the ratios to each product's top level came out at 0.76 / 0.82 / 0.91
+ * for one product and 0.77 / 0.82 / 0.87 for the next — close enough that the
+ * shape of one finished row predicts the rest.
+ *
+ * So: take the most complete row as the template, express it as ratios of its
+ * own highest level, and apply those ratios to whatever each other product has
+ * at that same highest level. A product with nothing at the top level is left
+ * alone — there is nothing to scale from, and inventing an anchor would be
+ * inventing the number.
+ *
+ * Deliberately arithmetic rather than a model. The relationship *is* a ratio,
+ * so a model would be slower, cost money, and occasionally disagree with the
+ * carrier's own maths.
+ *
+ * It is an estimate, not a derivation, and the error is worth knowing:
+ * checked against a real Transamerica grid, one product came back within 0.4
+ * points of the carrier's own numbers and another was out by nearly 4,
+ * because its ladder is shallower than the template's. So filled cells are
+ * marked in the table until they are touched, and nothing is written until
+ * Save.
+ */
+export function fillFromTemplate(
+  m: MatrixState,
+  band: BandKey,
+): { next: MatrixState; filled: number; templateProduct: string | null; keys: string[] } {
+  const valueAt = (p: string, l: string) => {
+    const c = m.cells.get(keyOf(p, l));
+    const v = c?.[band];
+    return typeof v === "number" ? v : null;
+  };
+
+  const levels = m.levels.filter((l) => l.trim());
+  const products = m.products.filter((p) => p.trim());
+  if (levels.length < 2 || products.length < 2) {
+    return { next: m, filled: 0, templateProduct: null, keys: [] };
+  }
+
+  // The template is the row with the most rates filled in; ties go to the
+  // first, which is the one somebody just typed.
+  let template: string | null = null;
+  let best = 0;
+  for (const p of products) {
+    const n = levels.filter((l) => valueAt(p, l) != null).length;
+    if (n > best) { best = n; template = p; }
+  }
+  if (!template || best < 2) return { next: m, filled: 0, templateProduct: null, keys: [] };
+
+  // The main level: where the template row pays most.
+  let anchor: string | null = null;
+  let anchorValue = -Infinity;
+  for (const l of levels) {
+    const v = valueAt(template, l);
+    if (v != null && v > anchorValue) { anchorValue = v; anchor = l; }
+  }
+  if (!anchor || anchorValue <= 0) return { next: m, filled: 0, templateProduct: null, keys: [] };
+
+  const ratio = new Map<string, number>();
+  for (const l of levels) {
+    const v = valueAt(template, l);
+    if (v != null) ratio.set(l, v / anchorValue);
+  }
+
+  const cells = new Map(m.cells);
+  const keys: string[] = [];
+  let filled = 0;
+  for (const p of products) {
+    if (p === template) continue;
+    const own = valueAt(p, anchor);
+    if (own == null) continue; // No anchor of its own — nothing to scale.
+    for (const l of levels) {
+      if (l === anchor || valueAt(p, l) != null) continue; // Never overwrite.
+      const r = ratio.get(l);
+      if (r == null) continue;
+      const k = keyOf(p, l);
+      const existing = cells.get(k) ?? { year_1_pct: 0, years_2_5_pct: null, years_6_plus_pct: null };
+      cells.set(k, { ...existing, [band]: Math.round(own * r * 10) / 10 });
+      keys.push(k);
+      filled++;
+    }
+  }
+
+  return { next: { ...m, cells }, filled, templateProduct: template, keys };
+}
+
 export function CompGridMatrix({
   value,
   onChange,
@@ -135,6 +225,9 @@ export function CompGridMatrix({
   assignedLevels?: string[];
 }) {
   const [band, setBand] = useState<BandKey>("year_1_pct");
+  // Cells the fill guessed. Cleared per-cell the moment somebody edits one,
+  // because at that point it is their number, not an estimate.
+  const [estimated, setEstimated] = useState<Set<string>>(new Set());
 
   // Case- and space-insensitive, because "GA " and "ga" are somebody's typo
   // rather than somebody's intent. The database comparison is stricter than
@@ -145,6 +238,9 @@ export function CompGridMatrix({
   const unmatched = value.levels
     .map((l) => l.trim())
     .filter((l) => l && !known.has(norm(l)));
+
+  // Only offer the fill when it would actually do something.
+  const canFill = useMemo(() => fillFromTemplate(value, band).filled > 0, [value, band]);
 
   const filled = useMemo(
     () => value.products.reduce(
@@ -167,6 +263,10 @@ export function CompGridMatrix({
       if (Number.isNaN(n)) return;
       cells.set(k, { ...existing, [band]: n });
     }
+    setEstimated((prev) => {
+      if (!prev.has(k)) return prev;
+      const next = new Set(prev); next.delete(k); return next;
+    });
     onChange({ ...value, cells });
   }
 
@@ -292,7 +392,12 @@ export function CompGridMatrix({
                           onChange={(e) => setCell(product, level, e.target.value)}
                           inputMode="decimal"
                           placeholder="—"
-                          className="h-8 pr-5 text-right text-xs tnum"
+                          title={estimated.has(keyOf(product, level)) ? "Estimated — check this" : undefined}
+                          className={cn(
+                            "h-8 pr-5 text-right text-xs tnum",
+                            estimated.has(keyOf(product, level)) &&
+                              "border-warning/60 bg-warning/[0.07] text-warning-foreground",
+                          )}
                         />
                         <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-text-dim">
                           %
@@ -308,12 +413,30 @@ export function CompGridMatrix({
         </table>
       </div>
 
-      <Button
-        type="button" size="sm" variant="outline"
-        onClick={() => onChange({ ...value, products: [...value.products, ""] })}
-      >
-        <Plus className="mr-1 h-4 w-4" /> Add product
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button" size="sm" variant="outline"
+          onClick={() => onChange({ ...value, products: [...value.products, ""] })}
+        >
+          <Plus className="mr-1 h-4 w-4" /> Add product
+        </Button>
+
+        <Button
+          type="button" size="sm" variant="outline"
+          disabled={!canFill}
+          onClick={() => {
+            const { next, filled, templateProduct, keys } = fillFromTemplate(value, band);
+            if (!filled) { toast.info("Nothing to fill — every product already has its rates."); return; }
+            setEstimated((prev) => new Set([...prev, ...keys]));
+            onChange(next);
+            toast.success(
+              `Estimated ${filled} rate${filled === 1 ? "" : "s"} from ${templateProduct}. Highlighted below — check them before saving.`,
+            );
+          }}
+        >
+          <Wand2 className="mr-1 h-4 w-4" /> Fill the rest
+        </Button>
+      </div>
 
       {unmatched.length > 0 && assignedLevels.length > 0 && (
         <div className="rounded-[var(--radius)] border border-warning/40 bg-warning/[0.07] p-3">

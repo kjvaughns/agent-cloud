@@ -23,6 +23,24 @@ import { fileToImageDataUrl } from "@/lib/file-to-image";
 /** Sentinel for the "add a carrier" row in the carrier Select. */
 const NEW_CARRIER = "__new__";
 
+/**
+ * The page chrome, at module scope on purpose.
+ *
+ * This used to be declared inside ManageGridsPage. A component defined during
+ * render gets a new function identity every render, so React treats it as a
+ * different component type, unmounts the whole subtree and mounts a fresh
+ * one — which threw away the focused input on every keystroke. Typing a rate
+ * put the caret out of the box after one digit.
+ */
+function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
+  if (embedded) return <div className="flex flex-col gap-[var(--gap)]">{children}</div>;
+  return (
+    <PageShell>
+      <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">{children}</div>
+    </PageShell>
+  );
+}
+
 export const Route = createFileRoute("/_authenticated/contracting/comp-grids-manage")({
   // Comp grids moved into Contracting Operations, beside the comp levels they
   // describe. Redirect rather than delete: this path is bookmarked and
@@ -166,13 +184,8 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
 
   const valid = carrierId && rows.some((r) => r.product_name.trim() && r.level_name.trim());
 
-  const Wrap = ({ children }: { children: React.ReactNode }) =>
-    embedded
-      ? <div className="flex flex-col gap-[var(--gap)]">{children}</div>
-      : <PageShell><div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">{children}</div></PageShell>;
-
   return (
-    <Wrap>
+    <Wrap embedded={embedded}>
         {!embedded && (
           <HeroBand
             title="Commission Grids"
