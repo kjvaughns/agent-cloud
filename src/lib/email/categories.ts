@@ -8,6 +8,13 @@
  *
  * `transactional` is the one exempt category: account security and
  * billing-failure mail always sends and carries no unsubscribe link.
+ *
+ * `client_messaging` is the odd one out in the other direction: it is the only
+ * category whose recipient is a client rather than somebody with a login. The
+ * individual opt-out layer (`may_notify`) takes a profile id and so does not
+ * apply — consent for those recipients is the agency's switch above plus
+ * address-level suppression and the unsubscribe link every one of them
+ * carries.
  */
 
 export const EMAIL_CATEGORIES = [
@@ -17,6 +24,7 @@ export const EMAIL_CATEGORIES = [
   "contract_updates",
   "team_activity",
   "announcements",
+  "client_messaging",
   "billing",
   "transactional",
 ] as const;
@@ -33,6 +41,7 @@ export const CATEGORY_LABELS: Record<EmailCategory, string> = {
   contract_updates: "Contracting updates",
   team_activity: "Team activity",
   announcements: "Announcements",
+  client_messaging: "Messages to clients",
   billing: "Billing & subscription",
   transactional: "Account & security (always on)",
 };
