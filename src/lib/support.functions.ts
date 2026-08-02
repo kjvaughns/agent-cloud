@@ -47,7 +47,7 @@ export const listMyTickets = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data, error } = await supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, created_at, updated_at")
+      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, created_at, updated_at")
       .eq("agent_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -65,7 +65,7 @@ export const getTicketThread = createServerFn({ method: "POST" })
     // lock the assignee out of the thread they were routed.
     const { data: ticket, error: ticketErr } = await supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, description, agent_id, assigned_to, created_at")
+      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, description, agent_id, assigned_to, created_at")
       .eq("id", data.ticket_id)
       .single();
 
@@ -85,9 +85,29 @@ export const getTicketThread = createServerFn({ method: "POST" })
 // ── Agency-side queue ────────────────────────────────────────────────────────
 //
 // Everything below reads through the RLS-bound client, so support_tickets'
-// own policy (phase-2 migration) decides what is visible: your own tickets,
-// tickets assigned to you, and — for an agency owner — your org's tickets.
-// There is no cross-agency view.
+// own policy decides what is visible: your own tickets, tickets assigned to
+// you, your org's tickets if you may work them, and — for a platform
+// operator — anything escalated to the platform desk. There is no
+// cross-agency view of un-escalated tickets.
+
+/**
+ * Did that write actually land?
+ *
+ * When a row-level `using` clause filters an UPDATE's target out, Postgres
+ * does not raise — the statement succeeds having touched nothing. Through
+ * PostgREST that arrives as `{ error: null, data: [] }`, which every caller
+ * here read as success and reported as one. Asking for the ids back turns the
+ * silence into something a person can see.
+ *
+ * This is not belt-and-braces for the policy fix below it: RLS can legitimately
+ * hide a row from someone whose permissions changed mid-session, and "nothing
+ * happened" should never render as a green tick.
+ */
+function assertTouched(rows: unknown[] | null, what: string): void {
+  if (!rows || rows.length === 0) {
+    throw new Error(`You don't have permission to ${what} on this ticket.`);
+  }
+}
 
 export const listAgencyTickets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -95,6 +115,7 @@ export const listAgencyTickets = createServerFn({ method: "POST" })
     z.object({
       status: z.enum(["all", "open", "pending", "resolved", "closed"]).default("all"),
       assigned: z.enum(["all", "me", "unassigned"]).default("all"),
+      scope: z.enum(["all", "agency", "platform"]).default("all"),
     }).parse(d ?? {})
   )
   .handler(async ({ data, context }) => {
@@ -103,13 +124,14 @@ export const listAgencyTickets = createServerFn({ method: "POST" })
 
     let q = supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, agent_id, assigned_to, created_at, updated_at, first_response_at, resolved_at")
+      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, agent_id, assigned_to, created_at, updated_at, first_response_at, resolved_at")
       .order("created_at", { ascending: false })
       .limit(200);
 
     if (data.status !== "all") q = q.eq("status", data.status);
     if (data.assigned === "me") q = q.eq("assigned_to", userId);
     if (data.assigned === "unassigned") q = q.is("assigned_to", null);
+    if (data.scope !== "all") q = q.eq("scope", data.scope);
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -156,11 +178,13 @@ export const assignTicket = createServerFn({ method: "POST" })
       if (!who) throw new Error("That person is not in your organization");
     }
 
-    const { error } = await supabase
+    const { data: touched, error } = await supabase
       .from("support_tickets")
       .update({ assigned_to: data.assignee_id, updated_at: new Date().toISOString() })
-      .eq("id", data.ticket_id);
+      .eq("id", data.ticket_id)
+      .select("id");
     if (error) throw new Error(error.message);
+    assertTouched(touched, "change the assignee");
     return { ok: true };
   });
 
@@ -186,6 +210,10 @@ export const replyToTicket = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     // Stamp first response time once, for future SLA reporting.
+    //
+    // Not asserted: the reply itself is the deliverable and it is already in
+    // the thread by this point. If the caller may write the message but not
+    // the parent row, failing here would claim the reply never sent.
     const { data: ticket } = await supabase
       .from("support_tickets").select("first_response_at").eq("id", data.ticket_id).maybeSingle();
     const patch: any = { updated_at: new Date().toISOString() };
@@ -211,7 +239,75 @@ export const setTicketStatus = createServerFn({ method: "POST" })
     if (data.status === "resolved" || data.status === "closed") {
       patch.resolved_at = new Date().toISOString();
     }
-    const { error } = await supabase.from("support_tickets").update(patch).eq("id", data.ticket_id);
+    const { data: touched, error } = await supabase
+      .from("support_tickets").update(patch).eq("id", data.ticket_id).select("id");
     if (error) throw new Error(error.message);
+    assertTouched(touched, "change the status");
     return { ok: true };
+  });
+
+/**
+ * Hand a ticket to the platform desk.
+ *
+ * The agency keeps the thread — `organization_id` is untouched — so this is
+ * "we need help with this" rather than "this is no longer ours". A ticket
+ * already on the platform desk is left alone instead of being escalated
+ * twice, which would overwrite who first asked and when.
+ */
+export const escalateTicket = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      ticket_id: z.string().uuid(),
+      note: z.string().trim().max(2000).optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase: _sb, userId } = context;
+    const supabase = _sb as any;
+
+    const { data: ticket } = await supabase
+      .from("support_tickets")
+      .select("scope, organization_id")
+      .eq("id", data.ticket_id)
+      .maybeSingle();
+    if (!ticket) throw new Error("Ticket not found or access denied.");
+    if (ticket.scope === "platform") return { ok: true, alreadyEscalated: true };
+
+    // Row-level security would let the reporter through here — it is their
+    // ticket, so the write clause passes — and that is the wrong answer.
+    // Escalating is the agency saying "this one isn't ours", not an agent
+    // routing around their agency. Asked of the database rather than
+    // reimplemented, so the rule has one definition.
+    const { data: mayWork } = await supabase
+      .rpc("can_work_tickets", { _org: ticket.organization_id });
+    if (!mayWork) {
+      throw new Error("Only your agency's support team can escalate a ticket.");
+    }
+
+    const { data: touched, error } = await supabase
+      .from("support_tickets")
+      .update({
+        scope: "platform",
+        escalated_at: new Date().toISOString(),
+        escalated_by: userId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.ticket_id)
+      .select("id");
+    if (error) throw new Error(error.message);
+    assertTouched(touched, "escalate");
+
+    // The reason goes into the thread rather than a column of its own: the
+    // person who picks this up reads the conversation, not the schema.
+    await supabase.from("support_ticket_messages").insert({
+      ticket_id: data.ticket_id,
+      sender_id: userId,
+      sender_role: "support",
+      body: data.note?.trim()
+        ? `Escalated to Agent Cloud support.\n\n${data.note.trim()}`
+        : "Escalated to Agent Cloud support.",
+    });
+
+    return { ok: true, alreadyEscalated: false };
   });

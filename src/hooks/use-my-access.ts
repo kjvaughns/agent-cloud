@@ -34,12 +34,21 @@ export function useNavContext(): NavContext {
   // Already cached for the session by the scope toggle, so asking here costs
   // nothing. It is what decides whether My Agents is worth a row.
   const { caps } = useScopeCapabilities();
+  const perms = (access?.permissions ?? {}) as Record<string, unknown>;
   return {
     audience: audienceFor({ role: access?.role ?? null }),
     inAgency: Boolean(access?.inAgency),
     canSeeAgency: Boolean(access?.canSeeAgency),
     downlineCount: caps.downlineCount,
     isPending: Boolean(access?.isPending),
-    perms: (access?.permissions ?? {}) as Record<string, unknown>,
+    // The same four keys can_work_tickets() checks in the database, plus the
+    // administrator path it folds in via is_org_admin().
+    canWorkTickets:
+      Boolean(access?.canSeeAgency) ||
+      Boolean(perms.mgr_respond_tickets) ||
+      Boolean(perms.staff_view_all_tickets) ||
+      Boolean(perms.staff_respond_tickets) ||
+      Boolean(perms.admin_view_agency_tickets),
+    perms,
   };
 }
