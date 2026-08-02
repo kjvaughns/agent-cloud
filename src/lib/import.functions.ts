@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
 import { IMPORT_KINDS, KIND_TARGET, KIND_LABEL, type ImportKind } from "@/lib/import-router";
 import { buildMatchIndex, classifyClient, policyExists, rowKey } from "@/lib/import-match";
-import { saveClientFullRecord, resolveCarrierId } from "@/lib/import-helpers";
+import { saveClientFullRecord, resolveCarrierId, upsertPendingAgent } from "@/lib/import-helpers";
 import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
 import { runContractingImport } from "@/lib/contracting-import.functions";
 
@@ -371,6 +371,28 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
      * that here would mean two answers to the same question, and the one
      * downstream is the one that decides.
      */
+    /**
+     * Emails already spoken for — a real account, or a pending record from a
+     * previous import. Loaded once rather than queried per row, for the same
+     * reason the client matcher is: a roster is a list, and a query per name
+     * is a query too many.
+     */
+    const takenEmails = new Set<string>();
+    if (target.table === "pending_agents") {
+      const emails = data.rows
+        .map((r) => String((r as any).email ?? "").trim().toLowerCase())
+        .filter(Boolean);
+      if (emails.length) {
+        const [{ data: profs }, { data: pend }] = await Promise.all([
+          supabase.from("profiles").select("email").in("email", emails),
+          supabase.from("pending_agents").select("email").in("email", emails),
+        ]);
+        for (const p of [...(profs ?? []), ...(pend ?? [])]) {
+          if (p.email) takenEmails.add(String(p.email).trim().toLowerCase());
+        }
+      }
+    }
+
     const contractKind = CONTRACTING_TABLES[target.table];
     const dryRun: Map<number, any> = new Map();
     if (contractKind) {
@@ -436,6 +458,19 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
           match_kind = "fuzzy";
           match_reason = verdict.message ?? null;
           fuzzy++;
+        }
+      }
+
+      if (target.table === "pending_agents") {
+        const email = String(row.email ?? "").trim().toLowerCase();
+        if (takenEmails.has(email)) {
+          // Either they already have an account — in which case they are not
+          // pending anything — or a previous import already recorded them.
+          match_kind = "exact";
+          match_reason = "Already on your team, or already imported";
+          operation = "skip";
+          decision = "skipped";
+          exact++;
         }
       }
 
@@ -721,6 +756,12 @@ export const applyProposals = createServerFn({ method: "POST" })
             match: { existing_client_id: p.match_id ?? null },
           });
           ref = res.clientId;
+        } else if (p.target_table === "pending_agents") {
+          // The uploader is the upline. Importing "my roster" means these
+          // people sit under the person importing them; anything else would be
+          // a guess about a hierarchy from a spreadsheet column.
+          const res = await upsertPendingAgent(supabase, userId, userId, p.payload);
+          if (res.status === "skipped") throw new Error(res.reason ?? "Nothing to do for this row");
         } else if (CONTRACTING_TABLES[p.target_table]) {
           // Straight through to the contracting importer, which owns the
           // permission check, the agent and carrier resolution, and the rule

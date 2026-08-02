@@ -25,6 +25,7 @@ import { resolveKind, guessFromHeaders, guessFromNote, headerRowOf, allHeaderRow
 import {
   clientsFromCsv, clientsFromDocument,
   contractingRowsFromCsv, contractingRowsFromDocument,
+  rosterFromCsv, rosterFromDocument,
 } from "../src/lib/import-extract-rows";
 
 const clients = [
@@ -223,6 +224,30 @@ check("quoted comma safe", [cq[0].carrier_name, cq[0].writing_number], ["Smith, 
 check("finds rows on a later sheet",
   contractingRowsFromDocument(
     "=== Sheet: Cover ===\nx,y\n1,2\n\n=== Sheet: Numbers ===\nCarrier,Writing Number\nGTL,W-3", "writing_numbers").length, 1);
+
+
+// ── Agent roster ───────────────────────────────────────────────────────
+console.log("");
+
+const ros = rosterFromCsv(["Agent Name,Email,Depth,Status,Date Joined",
+  "Dana Okafor,DANA@x.com,3,Active,2025-06-01",
+  "Luis Ruiz,luis@x.com,2,Pending,2025-07-14"].join("\n"));
+check("two roster rows", ros.length, 2);
+check("email lowercased", ros[0].email, "dana@x.com");
+check("full name split", [ros[0].first_name, ros[0].last_name], ["Dana","Okafor"]);
+check("depth carried", ros[0].depth, "3");
+
+// Explicit first/last columns win over a full-name column.
+const ros2 = rosterFromCsv("First Name,Last Name,Email\nAna,Ruiz,ana@x.com");
+check("explicit name columns", [ros2[0].first_name, ros2[0].last_name], ["Ana","Ruiz"]);
+
+// A roster with no email column is unusable — pending_agents is keyed on it.
+check("no email column → nothing", rosterFromCsv("Agent Name,Depth\nDana,3").length, 0);
+// Rows without a usable email are dropped rather than proposed.
+check("rows without email dropped", rosterFromCsv("Agent Name,Email\nX,\nY,y@x.com").length, 1);
+check("non-email value dropped", rosterFromCsv("Agent Name,Email\nX,notanemail").length, 0);
+check("finds roster on a later sheet",
+  rosterFromDocument("=== Sheet: Cover ===\na,b\n1,2\n\n=== Sheet: Team ===\nAgent Name,Email\nZed,z@x.com").length, 1);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
