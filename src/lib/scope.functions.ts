@@ -45,9 +45,39 @@ export const getScopeCapabilities = createServerFn({ method: "GET" })
 export async function resolveScopeAgentIds(supabase: any, scope: Scope): Promise<string[]> {
   const { data, error } = await supabase.rpc("scope_agent_ids", { _scope: scope });
   if (error) throw new Error(error.message);
-  // The RPC returns a set of uuids, which arrives as either bare strings or
-  // single-key rows depending on the client version.
-  return (data ?? []).map((row: any) => (typeof row === "string" ? row : row.scope_agent_ids ?? row.id));
+  return unwrapAgentIds(data);
+}
+
+/**
+ * The same set, for surfaces that manage a downline rather than read scoped
+ * data.
+ *
+ * The difference is which way each one must fail. A scoped *read* has to
+ * throw: silently returning nothing would show a Team view as empty, and
+ * silently widening would leak. A management surface has neither problem —
+ * there is no scope label to be wrong about — and it wants the answer the
+ * rest of the app is already giving.
+ *
+ * That matters most while `scope_agent_ids` does not exist yet, between a
+ * deploy and its migration. In that window getScopeCapabilities returns
+ * NO_SCOPE_CAPABILITIES, so every sidebar, toggle and page in the app reports
+ * a downline of zero. A page that threw instead would be the only thing
+ * disagreeing — and it would disagree by breaking.
+ */
+export async function resolveScopeAgentIdsOrNone(supabase: any, scope: Scope): Promise<string[]> {
+  const { data, error } = await supabase.rpc("scope_agent_ids", { _scope: scope });
+  if (error) return [];
+  return unwrapAgentIds(data);
+}
+
+/**
+ * The RPC returns a set of uuids, which arrives as either bare strings or
+ * single-key rows depending on the client version.
+ */
+function unwrapAgentIds(data: unknown): string[] {
+  return ((data ?? []) as any[]).map((row: any) =>
+    typeof row === "string" ? row : row.scope_agent_ids ?? row.id,
+  );
 }
 
 /** People to choose from within a scope — the agent picker's source. */
