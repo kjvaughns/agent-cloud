@@ -33,9 +33,10 @@ function ctx(over: Partial<NavContext>): NavContext {
     downlineCount: 0,
     isPending: false,
     canWorkTickets: false,
+    canEditResources: false,
     perms: {},
   };
-  // The two derived flags follow their inputs unless a persona says otherwise,
+  // The derived flags follow their inputs unless a persona says otherwise,
   // matching how useNavContext computes them from the same permissions.
   const merged = { ...base, ...over };
   if (over.canWorkTickets === undefined) {
@@ -45,6 +46,12 @@ function ctx(over: Partial<NavContext>): NavContext {
       Boolean(merged.perms.staff_view_all_tickets) ||
       Boolean(merged.perms.staff_respond_tickets) ||
       Boolean(merged.perms.admin_view_agency_tickets);
+  }
+  if (over.canEditResources === undefined) {
+    merged.canEditResources =
+      merged.canSeeAgency ||
+      Boolean(merged.perms.mgr_manage_resources) ||
+      Boolean(merged.perms.staff_manage_resources);
   }
   return merged;
 }
@@ -66,6 +73,13 @@ const PERSONAS: Persona[] = [
     ctx: ctx({
       inAgency: true, downlineCount: 4,
       perms: { mgr_view_team_analytics: true, mgr_respond_tickets: true },
+    }),
+  },
+  {
+    name: "Manager who maintains the content",
+    ctx: ctx({
+      inAgency: true, downlineCount: 2,
+      perms: { mgr_view_team_analytics: true, mgr_manage_resources: true },
     }),
   },
   { name: "Agency owner", ctx: ctx({ inAgency: true, canSeeAgency: true }) },
