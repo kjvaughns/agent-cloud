@@ -65,9 +65,16 @@ export const deleteNovaConversation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { error } = await supabase
-      .from("nova_conversations").delete().eq("id", data.conversationId);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the conversation stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
+      .from("nova_conversations").delete().eq("id", data.conversationId).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That conversation is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });
 

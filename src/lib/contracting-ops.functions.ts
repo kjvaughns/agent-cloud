@@ -409,9 +409,15 @@ export const deleteCarrierRequirement = createServerFn({ method: "POST" })
       .from("carrier_requirements").select("*").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
     if (!before) throw new OrgAccessError("That requirement is not in your directory");
 
-    const { error } = await supabaseAdmin
-      .from("carrier_requirements").delete().eq("id", data.id).eq("organization_id", orgId);
+    // The `before` read above already refuses a requirement outside this org,
+    // so this cannot silently match nothing today. Asserted anyway: the audit
+    // write below attests to a deletion, and that attestation should rest on
+    // the delete itself rather than on a check several lines away that a later
+    // edit could move.
+    const { data: gone, error } = await supabaseAdmin
+      .from("carrier_requirements").delete().eq("id", data.id).eq("organization_id", orgId).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) throw new OrgAccessError("That requirement is not in your directory");
 
     await recordAudit({
       organizationId: orgId, actorId: userId, action: "carrier_requirement.changed",

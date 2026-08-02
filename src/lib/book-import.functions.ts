@@ -154,11 +154,16 @@ export const removeBookImportKey = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
     const { supabase, userId } = context as any;
-    await supabase
+    // The result was discarded entirely, so a failure to remove a stored API
+    // key reported success — the one outcome a user needs to be able to trust.
+    // No row-count assertion: removing a key that was never saved is the state
+    // the caller asked for, not a failure.
+    const { error } = await supabase
       .from("agent_integrations")
       .delete()
       .eq("agent_id", userId)
       .eq("platform", "bookImport");
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 

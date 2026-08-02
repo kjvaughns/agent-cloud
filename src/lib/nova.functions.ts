@@ -140,11 +140,19 @@ export const deleteAutomation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const { error } = await supabase
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the automation stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
       .from("nova_automations")
       .delete()
       .eq("id", data.id)
-      .eq("agent_id", userId);
+      .eq("agent_id", userId)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That automation is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });

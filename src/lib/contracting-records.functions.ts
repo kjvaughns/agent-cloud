@@ -189,9 +189,13 @@ export const deleteWritingNumber = createServerFn({ method: "POST" })
       .from("writing_numbers").select("*").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
     if (!before) throw new OrgAccessError("That writing number is not available to you");
 
-    const { error } = await supabaseAdmin
-      .from("writing_numbers").delete().eq("id", data.id).eq("organization_id", orgId);
+    // As above in contracting-ops: guarded by the `before` read, asserted anyway
+    // so the audit entry that follows rests on the delete rather than on a check
+    // a later edit could move.
+    const { data: gone, error } = await supabaseAdmin
+      .from("writing_numbers").delete().eq("id", data.id).eq("organization_id", orgId).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) throw new OrgAccessError("That writing number is not available to you");
 
     await recordAudit({
       organizationId: orgId, actorId: userId, action: "writing_number.deleted",
