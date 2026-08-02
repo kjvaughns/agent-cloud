@@ -15,5 +15,6 @@ Delete a line once the migration is applied.
 
 - `20260802160000_rename-import-credential-columns.sql`
 - `20260802170000_debrand-seeded-resource-content.sql`
+- `20260802175000_org-membership-repair.sql`
 
 The eight queued earlier on 2 Aug 2026 are all applied.

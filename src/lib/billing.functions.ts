@@ -491,6 +491,24 @@ export const initSoloWorkspace = createServerFn({ method: "POST" })
       { user_id: userId, role: "agency_owner" },
       { onConflict: "user_id,role", ignoreDuplicates: true },
     );
+
+    // The membership row, without which this account does not exist as far as
+    // the database is concerned. `my_org_ids()` reads this table and every
+    // org-scoped RLS policy is built on `my_org_ids()` — setting
+    // `profiles.organization_id` alone leaves the workspace owner unable to
+    // pass the first branch of any of them. Nothing wrote this row until now,
+    // so every solo signup since multi-tenancy landed has been in that state.
+    await supabaseAdmin.from("organization_memberships").upsert(
+      {
+        organization_id: org.id,
+        profile_id: userId,
+        role: "agency_owner",
+        status: "active",
+        is_primary: true,
+      },
+      { onConflict: "organization_id,profile_id", ignoreDuplicates: true },
+    );
+
     return { ok: true, existing: false };
   });
 
