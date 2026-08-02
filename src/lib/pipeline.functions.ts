@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildMatchIndex, classifyClient, rowKey } from "@/lib/import-match";
 import { z } from "zod";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { scopeSchema } from "@/lib/scope";
@@ -182,17 +183,47 @@ export const importClients = createServerFn({ method: "POST" })
   .inputValidator((d) => importSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const payload = data.rows.map((r) => ({
-      ...r,
-      email: r.email || null,
-      date_of_birth: r.date_of_birth || null,
-      stage: r.stage ?? "new",
-      temperature: r.temperature ?? "cold",
-      agent_id: userId,
-    }));
+
+    // This used to be a bare insert with no duplicate check of any kind — the
+    // only protection was `clients_agent_phone_unique`, and because the whole
+    // payload went in one statement, a single collision failed the entire
+    // import with a Postgres error rather than skipping one row. Re-importing
+    // the same CSV either blew up or, where phones were blank, quietly
+    // doubled the book.
+    const index = await buildMatchIndex(supabase, [userId]);
+
+    const seen = new Set<string>();
+    const payload: any[] = [];
+    let skipped = 0;
+
+    for (const r of data.rows) {
+      // Within the file first: a CSV exported twice and concatenated is a
+      // common shape, and neither copy is in the database yet.
+      const key = rowKey("clients", r);
+      if (seen.has(key)) { skipped++; continue; }
+      seen.add(key);
+
+      // Only exact matches are skipped — a shared phone, email, or name plus
+      // date of birth. Anything less certain is imported, because this screen
+      // has nowhere to ask and silently dropping somebody's client is worse
+      // than a duplicate they can merge.
+      if (classifyClient(index, r).verdict === "exact") { skipped++; continue; }
+
+      payload.push({
+        ...r,
+        email: r.email || null,
+        date_of_birth: r.date_of_birth || null,
+        stage: r.stage ?? "new",
+        temperature: r.temperature ?? "cold",
+        agent_id: userId,
+      });
+    }
+
+    if (!payload.length) return { count: 0, skipped };
+
     const { error, data: ins } = await supabase.from("clients").insert(payload).select("id");
     if (error) throw new Error(error.message);
-    return { count: ins?.length ?? 0 };
+    return { count: ins?.length ?? 0, skipped };
   });
 
 // ---------- Detail ----------

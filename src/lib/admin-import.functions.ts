@@ -660,9 +660,16 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           : new Date().toISOString();
 
         if (p.policy_number) {
+          // Scoped to the agent this policy is being filed under. Without the
+          // filter this asks "does any agency anywhere already have this
+          // number?" — and carriers reuse numbering across agencies, so one
+          // tenant's book silently suppresses another's import. Every other
+          // policy-duplicate check in the codebase is agent-scoped; this one
+          // was not.
           const { data: existing } = await supabase
             .from("policies")
             .select("id")
+            .eq("agent_id", targetAgent)
             .eq("policy_number", p.policy_number)
             .limit(1)
             .maybeSingle();
