@@ -1,67 +1,33 @@
 /**
- * Turn an uploaded file into something a vision model can read.
+ * Compatibility wrappers over `document-extract.ts`.
  *
- * Images pass through as a data URI. PDFs are rasterized in the browser using
- * the PDF.js build that ships with pdfjs-dist, so no server-side rendering or
- * external conversion service is needed — and the file never leaves the page
- * except as the image we choose to send.
+ * These two functions were the whole of this module. Their callers — the comp
+ * grid uploader and the NIPR scanner — want exactly what they always wanted: a
+ * single page image, or the raw text of a file. `document-extract` does more,
+ * and Import needs the more; these keep the existing behaviour byte-for-byte
+ * rather than making every caller opt into it.
  *
- * Only the first page is rendered. A commission grid is almost always one
- * page, and sending a whole statement would blow the token budget for no gain.
+ * New code should call `extractDocument` directly.
  */
 
-const MAX_EDGE = 2000; // Enough to read grid digits, small enough to send.
+import { extractDocument } from "./document-extract";
 
+/**
+ * The first page of a PDF, or an image as-is, as a data URI.
+ *
+ * Still one page on purpose. `saveGrid` replaces every row it holds for a
+ * carrier, so handing it a partial extraction is how products disappear — the
+ * grid path gets multi-page support together with the merge mode that makes it
+ * safe, not before.
+ */
 export async function fileToImageDataUrl(file: File): Promise<string> {
-  if (file.type.startsWith("image/")) return readAsDataUrl(file);
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-    return pdfFirstPageToDataUrl(file);
-  }
-  throw new Error("Upload a PDF or an image.");
+  const doc = await extractDocument(file, { maxPages: 1, prefer: "image" });
+  const url = doc.images[0];
+  if (!url) throw new Error("Upload a PDF or an image.");
+  return url;
 }
 
-/** Plain text for CSVs and text files, used by document intake. */
+/** Plain text for CSVs and text files. */
 export async function fileToText(file: File): Promise<string> {
   return file.text();
-}
-
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("Couldn't read that file"));
-    r.readAsDataURL(file);
-  });
-}
-
-async function pdfFirstPageToDataUrl(file: File): Promise<string> {
-  const pdfjs: any = await import("pdfjs-dist");
-
-  // The worker is bundled rather than fetched from a CDN — the app's CSP does
-  // not allow external script origins.
-  const workerSrc = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
-
-  const buf = await file.arrayBuffer();
-  const doc = await pdfjs.getDocument({ data: buf }).promise;
-  const page = await doc.getPage(1);
-
-  const base = page.getViewport({ scale: 1 });
-  const scale = Math.min(MAX_EDGE / Math.max(base.width, base.height), 3);
-  const viewport = page.getViewport({ scale: Math.max(1, scale) });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width);
-  canvas.height = Math.floor(viewport.height);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Couldn't render that PDF");
-
-  // White background: a transparent canvas renders black text on black once
-  // flattened to JPEG.
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
-
-  return canvas.toDataURL("image/jpeg", 0.85);
 }

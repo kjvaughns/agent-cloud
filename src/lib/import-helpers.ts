@@ -3,6 +3,39 @@ export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "").slice(-10);
 }
 
+/**
+ * Find the carrier a policy names, or admit we could not.
+ *
+ * This used to match on the first word of the carrier name: "American
+ * Amicable" was looked up as `%American%`. Against a catalogue holding
+ * "American Home Life" and not "American Amicable", that is a single match —
+ * so the policy was filed under the wrong carrier, silently, and every
+ * commission calculated from it was wrong.
+ *
+ * Returning null is the right answer when we are not sure. An unresolved
+ * carrier is a visible gap someone can fix; a confidently wrong one is not.
+ */
+export async function resolveCarrierId(
+  supabase: any,
+  carrierName: string | null | undefined,
+): Promise<string | null> {
+  const raw = (carrierName ?? "").trim();
+  if (!raw) return null;
+
+  // Exact, ignoring case. `ilike` without wildcards is an equality test.
+  const { data: exact } = await supabase
+    .from("carriers").select("id").ilike("name", raw).limit(2);
+  if ((exact ?? []).length === 1) return exact[0].id;
+
+  // The whole name as a substring — catches "GTL" inside "GTL (Guarantee
+  // Trust Life)" — but only when it picks out exactly one carrier.
+  const { data: partial } = await supabase
+    .from("carriers").select("id").ilike("name", `%${raw}%`).limit(5);
+  if ((partial ?? []).length === 1) return partial[0].id;
+
+  return null;
+}
+
 /** 3-layer duplicate detection against an agent's existing clients */
 export async function detectDuplicate(
   supabase: any,
@@ -236,17 +269,35 @@ export interface FullClientRecord {
 export async function saveClientFullRecord(
   supabase: any,
   agentId: string,
-  c: FullClientRecord
+  c: FullClientRecord,
+  opts?: {
+    /**
+     * A match already decided by the caller. Import passes this: it has run
+     * the whole file through `import-match.ts` and, where the answer was
+     * ambiguous, asked a human. Re-running `detectDuplicate` here would throw
+     * that decision away and substitute a worse one — its name-only layer
+     * reports a match at 50% confidence, and the merge below then folds two
+     * different people who happen to share a name into a single client.
+     *
+     * `{ existing_client_id: null }` means "decided: this is new".
+     */
+    match?: { existing_client_id: string | null } | null;
+  },
 ): Promise<{ clientId: string; isNew: boolean }> {
   const phone = c.phone ? normalizePhone(c.phone) : null;
 
   // ── Duplicate check ────────────────────────────────────────────────
-  const dupMatch = await detectDuplicate(supabase, agentId, {
-    phone: phone ?? undefined,
-    first_name: c.first_name,
-    last_name: c.last_name,
-    dob: c.date_of_birth ?? undefined,
-  });
+  const dupMatch =
+    opts?.match !== undefined
+      ? opts.match?.existing_client_id
+        ? { existing_client_id: opts.match.existing_client_id }
+        : null
+      : await detectDuplicate(supabase, agentId, {
+          phone: phone ?? undefined,
+          first_name: c.first_name,
+          last_name: c.last_name,
+          dob: c.date_of_birth ?? undefined,
+        });
 
   let clientId: string;
   let isNew = false;
@@ -353,18 +404,7 @@ export async function saveClientFullRecord(
       if (existingPol) continue;
     }
 
-    let carrierId: string | null = null;
-    if (pol.carrier_name) {
-      const firstWord = pol.carrier_name.trim().split(/\s+/)[0];
-      if (firstWord) {
-        const { data: carrier } = await supabase
-          .from("carriers")
-          .select("id")
-          .ilike("name", `%${firstWord}%`)
-          .maybeSingle();
-        carrierId = carrier?.id ?? null;
-      }
-    }
+    const carrierId = await resolveCarrierId(supabase, pol.carrier_name);
 
     const monthly = Number(pol.monthly_premium ?? 0) || 0;
     const annual =

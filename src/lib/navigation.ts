@@ -145,6 +145,9 @@ export const PAGES: Page[] = [
   // for the guide, the handbook, scripts, licensing and the academy, so
   // nesting those again in the sidebar was the same list said twice.
   { id: "tools", label: "Tools", path: "/resources/new-agent-guide", icon: Wrench, area: "Tools" },
+  // No gate. Bringing your own book across is the first thing a new agent
+  // wants to do and the last thing that should be behind a permission.
+  { id: "import", label: "Import", path: "/import", icon: UploadCloud, area: "Tools", parent: "tools" },
   { id: "resources", label: "Resources", path: "/resources/new-agent-guide", icon: BookOpen, area: "Tools", parent: "tools" },
   { id: "quoter", label: "Quoter", path: "https://www.insurancetoolkits.com", icon: Calculator, area: "Tools", parent: "tools", external: true },
   { id: "marketing", label: "Marketing", path: "/back-office/client-marketing", icon: Megaphone, area: "Tools", parent: "tools" },
@@ -181,7 +184,11 @@ export const PAGES: Page[] = [
   // Kept in the registry so search still finds it; it lands on the tab.
   { id: "onboarding", label: "Getting agents ready", path: "/team?tab=onboarding", icon: UserPlus, area: "Agency", unlock: "agency-admin" },
   { id: "recruiting", label: "Recruiting", path: "/back-office/recruiting-funnels", icon: Target, area: "Agency", parent: "agency", unlock: "agency-admin", permission: "mgr_access_recruiting" },
-  { id: "intake", label: "Document Intake", path: "/intake", icon: UploadCloud, area: "Agency", parent: "agency", unlock: "agency-admin", staffPermission: "staff_is_admin" },
+  // Document Intake was an agency-admin triage inbox that could classify a
+  // carrier report and nothing else. It is Import now: a tool everybody has,
+  // that reads a document and proposes what to do with it. Kept in the
+  // registry so the old name still finds the new page.
+  { id: "intake", label: "Document Intake", path: "/import", icon: UploadCloud, area: "Tools" },
 
   // Contracting Ops — the agency's back office, filed with the rest of
   // contracting rather than with the people pages.
@@ -266,8 +273,12 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
   ],
 
   // Queues, not scoreboards.
+  // Staff get Tools too. They were the only audience without it, which meant
+  // the people who process carrier documents all day could not see Import in
+  // their sidebar — reachable by search, which is the kind of hiding this
+  // file's header warns about.
   staff: [
-    { label: "", ids: ["queue", "requests", "licensing", "documents", "tasks", "nova", "agency"] },
+    { label: "", ids: ["queue", "requests", "licensing", "documents", "tasks", "tools", "nova", "agency"] },
   ],
 };
 
@@ -376,7 +387,7 @@ const HUBS: Record<string, HubGroup[]> = {
   // management, where the roster it talks about already is.
   agency: [
     { label: "", ids: ["leaderboard", "my-agents"] },
-    { label: "Run the agency", ids: ["agency-overview", "team", "recruiting", "intake"] },
+    { label: "Run the agency", ids: ["agency-overview", "team", "recruiting"] },
   ],
 
   // Contracting is one place now.
@@ -401,7 +412,7 @@ const HUBS: Record<string, HubGroup[]> = {
   ],
 
   tools: [
-    { label: "", ids: ["resources", "quoter", "marketing"] },
+    { label: "", ids: ["import", "resources", "quoter", "marketing"] },
   ],
 
   // Was nine rows, nearly all of them a page that belonged inside something

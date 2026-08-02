@@ -62,6 +62,7 @@ import { Route as AuthenticatedNewsFeedRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedLicensingRouteImport } from './routes/_authenticated/licensing'
 import { Route as AuthenticatedLeaderboardRouteImport } from './routes/_authenticated/leaderboard'
 import { Route as AuthenticatedIntakeRouteImport } from './routes/_authenticated/intake'
+import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContractingOpsRouteImport } from './routes/_authenticated/contracting-ops'
@@ -428,6 +429,11 @@ const AuthenticatedLeaderboardRoute =
 const AuthenticatedIntakeRoute = AuthenticatedIntakeRouteImport.update({
   id: '/intake',
   path: '/intake',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
@@ -1038,6 +1044,7 @@ export interface FileRoutesByFullPath {
   '/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/import': typeof AuthenticatedImportRoute
   '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/licensing': typeof AuthenticatedLicensingRoute
@@ -1190,6 +1197,7 @@ export interface FileRoutesByTo {
   '/clients': typeof AuthenticatedClientsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/finances': typeof AuthenticatedFinancesRoute
+  '/import': typeof AuthenticatedImportRoute
   '/intake': typeof AuthenticatedIntakeRoute
   '/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/licensing': typeof AuthenticatedLicensingRoute
@@ -1345,6 +1353,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting-ops': typeof AuthenticatedContractingOpsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/finances': typeof AuthenticatedFinancesRoute
+  '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/intake': typeof AuthenticatedIntakeRoute
   '/_authenticated/leaderboard': typeof AuthenticatedLeaderboardRoute
   '/_authenticated/licensing': typeof AuthenticatedLicensingRoute
@@ -1502,6 +1511,7 @@ export interface FileRouteTypes {
     | '/contracting-ops'
     | '/dashboard'
     | '/finances'
+    | '/import'
     | '/intake'
     | '/leaderboard'
     | '/licensing'
@@ -1654,6 +1664,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/dashboard'
     | '/finances'
+    | '/import'
     | '/intake'
     | '/leaderboard'
     | '/licensing'
@@ -1808,6 +1819,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting-ops'
     | '/_authenticated/dashboard'
     | '/_authenticated/finances'
+    | '/_authenticated/import'
     | '/_authenticated/intake'
     | '/_authenticated/leaderboard'
     | '/_authenticated/licensing'
@@ -2351,6 +2363,13 @@ declare module '@tanstack/react-router' {
       path: '/intake'
       fullPath: '/intake'
       preLoaderRoute: typeof AuthenticatedIntakeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/import': {
+      id: '/_authenticated/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof AuthenticatedImportRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/finances': {
@@ -3304,6 +3323,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedContractingOpsRoute: typeof AuthenticatedContractingOpsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
+  AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedIntakeRoute: typeof AuthenticatedIntakeRoute
   AuthenticatedLeaderboardRoute: typeof AuthenticatedLeaderboardRoute
   AuthenticatedLicensingRoute: typeof AuthenticatedLicensingRoute
@@ -3351,6 +3371,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedContractingOpsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
+  AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedIntakeRoute: AuthenticatedIntakeRoute,
   AuthenticatedLeaderboardRoute: AuthenticatedLeaderboardRoute,
   AuthenticatedLicensingRoute: AuthenticatedLicensingRoute,
