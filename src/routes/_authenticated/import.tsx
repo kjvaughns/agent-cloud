@@ -20,7 +20,7 @@ import {
 import { extractGrid } from "@/lib/comp-grid.functions";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
-import { clientsFromDocument, contractingRowsFromDocument } from "@/lib/import-extract-rows";
+import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } from "@/lib/import-extract-rows";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -200,10 +200,12 @@ function ImportPage() {
       rows = doc.text
         ? contractingRowsFromDocument(doc.text, kind === "state_licenses" ? "licenses" : "writing_numbers")
         : [];
+    } else if (kind === "agent_roster") {
+      rows = doc.text ? rosterFromDocument(doc.text) : [];
     } else {
-      // The agent roster is classified and listed; its reconcile path lands
-      // with its own slice. It restructures a downline, so it is the one that
-      // most wants the approval queue proven first.
+      // Commission statements and policy status reports are classified and
+      // listed; they route to `createStatement` and `applyCarrierSync`, both of
+      // which already have their own screens.
       return;
     }
 

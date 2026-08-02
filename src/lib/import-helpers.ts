@@ -3,6 +3,73 @@ export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "").slice(-10);
 }
 
+export type RosterRow = {
+  email: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  location?: string | null;
+  status_label?: string | null;
+  depth?: string | null;
+  contracts_label?: string | null;
+  joined_date?: string | null;
+  last_active_label?: string | null;
+};
+
+/**
+ * Put one roster member into `pending_agents`, or report why not.
+ *
+ * Somebody who already has an account is not pending anything, so an existing
+ * profile with that email is a skip rather than a write — otherwise importing
+ * a roster would create a shadow record beside a real agent and the team page
+ * would list them twice.
+ *
+ * Shared between the admin multi-sheet import and Import, so the "already has
+ * an account" rule has one definition rather than two that drift.
+ */
+export async function upsertPendingAgent(
+  supabase: any,
+  userId: string,
+  uplineId: string,
+  row: RosterRow,
+  source = "import",
+): Promise<{ status: "created" | "skipped"; reason?: string }> {
+  const email = (row.email ?? "").trim().toLowerCase();
+  if (!email) return { status: "skipped", reason: "No email on this row" };
+
+  const { data: existing } = await supabase
+    .from("profiles").select("id").ilike("email", email).maybeSingle();
+  if (existing) return { status: "skipped", reason: "Already has an Agent Cloud account" };
+
+  const { error } = await supabase.from("pending_agents").upsert(
+    {
+      email,
+      first_name: row.first_name ?? null,
+      last_name: row.last_name ?? null,
+      location: row.location ?? null,
+      status_label: row.status_label ?? null,
+      depth: row.depth ?? null,
+      contracts_label: row.contracts_label ?? null,
+      upline_id: uplineId,
+      joined_date: row.joined_date ?? null,
+      last_active_label: row.last_active_label ?? null,
+      source,
+      created_by: userId,
+    },
+    { onConflict: "email" },
+  );
+  if (error) throw new Error(error.message);
+
+  await supabase.from("notifications").insert({
+    user_id: userId,
+    type: "missing_team_member",
+    title: "Team member not on Agent Cloud",
+    description: `${[row.first_name, row.last_name].filter(Boolean).join(" ") || email} (${email}) was on the roster you imported but has no account yet. Consider sending them an invite.`,
+    read: false,
+  });
+
+  return { status: "created" };
+}
+
 /**
  * Find the carrier a policy names, or admit we could not.
  *

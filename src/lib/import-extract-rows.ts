@@ -295,3 +295,72 @@ export function contractingRowsFromDocument(
   const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
   return blocks.flatMap((b) => contractingRowsFromCsv(b, kind));
 }
+
+// ── Agent roster ─────────────────────────────────────────────────────────────
+
+const ROSTER_FIELDS: Record<string, string[]> = {
+  email: ["email", "email address", "agent email", "e mail"],
+  first_name: ["first name", "firstname", "first"],
+  last_name: ["last name", "lastname", "last", "surname"],
+  location: ["location", "city", "state", "market"],
+  status_label: ["status", "agent status"],
+  depth: ["depth", "level", "tier", "generation"],
+  contracts_label: ["contracts", "carriers", "appointments"],
+  joined_date: ["date joined", "joined", "join date", "hire date", "start date"],
+  last_active_label: ["last active", "last login", "last seen"],
+};
+
+const ROSTER_FULL_NAME = ["agent name", "name", "full name", "agent"];
+
+/**
+ * Roster rows, keyed on email.
+ *
+ * Email is required rather than merely useful: `pending_agents` is keyed on it,
+ * an invitation is sent to it, and a roster row without one cannot become an
+ * account. Dropping those rows here is better than proposing records that can
+ * never be actioned.
+ */
+export function rosterFromCsv(block: string): Record<string, any>[] {
+  const lines = block.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  const delim = lines[0].includes("\t") ? "\t" : ",";
+  const headers = splitCsvLine(lines[0], delim).map(normHeader);
+
+  const cols: Record<string, number> = {};
+  for (const [field, spellings] of Object.entries(ROSTER_FIELDS)) {
+    const i = headers.findIndex((h) => spellings.includes(h));
+    if (i >= 0) cols[field] = i;
+  }
+  const fullNameCol = headers.findIndex((h) => ROSTER_FULL_NAME.includes(h));
+
+  if (cols.email === undefined) return [];
+
+  const out: Record<string, any>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i], delim);
+    const email = (cells[cols.email] ?? "").trim();
+    if (!email || !email.includes("@")) continue;
+
+    const rec: Record<string, any> = { email: email.toLowerCase() };
+    for (const [field, idx] of Object.entries(cols)) {
+      if (field === "email") continue;
+      rec[field] = cells[idx]?.trim() || null;
+    }
+
+    if (!rec.first_name && !rec.last_name && fullNameCol >= 0) {
+      const whole = (cells[fullNameCol] ?? "").trim();
+      const parts = whole.split(/\s+/);
+      rec.first_name = parts.shift() || null;
+      rec.last_name = parts.join(" ") || null;
+    }
+
+    out.push(rec);
+  }
+  return out;
+}
+
+export function rosterFromDocument(text: string): Record<string, any>[] {
+  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
+  return blocks.flatMap((b) => rosterFromCsv(b));
+}

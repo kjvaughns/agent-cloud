@@ -8,6 +8,7 @@ import {
   mapPolicyStatus,
   normalizePhone,
   saveClientFullRecord,
+  upsertPendingAgent,
 } from "@/lib/import-helpers";
 
 type Ctx = { supabase: any; userId: string };
@@ -509,44 +510,10 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       // 1. Upsert pending_agents
       for (const r of roster) {
         if (!r.email) continue;
-        // Skip if a real profile already exists with this email
-        const { data: existing } = await supabase
-          .from("profiles")
-          .select("id")
-          .ilike("email", r.email)
-          .maybeSingle();
-        if (existing) continue;
-
-        const { error: upErr } = await supabase
-          .from("pending_agents")
-          .upsert(
-            {
-              email: r.email,
-              first_name: r.first_name,
-              last_name: r.last_name,
-              location: r.location,
-              status_label: r.status_label,
-              depth: r.depth,
-              contracts_label: r.contracts_label,
-              upline_id: targetAgent,
-              joined_date: r.joined_date,
-              last_active_label: r.last_active_label,
-              source: "agentlink_import",
-              created_by: userId,
-            },
-            { onConflict: "email" },
-          );
-        if (!upErr) {
-          pendingAgentsImported++;
-          // Notify the importing admin that this roster member isn't on Agent Cloud yet
-          await supabase.from("notifications").insert({
-            user_id: userId,
-            type: "missing_team_member",
-            title: "Team member not on Agent Cloud",
-            description: `${r.first_name} ${r.last_name} (${r.email}) was in your the roster but has no account yet. Consider sending them an invite.`,
-            read: false,
-          });
-        }
+        const res = await upsertPendingAgent(
+          supabase, userId, targetAgent, r, "agentlink_import",
+        );
+        if (res.status === "created") pendingAgentsImported++;
       }
 
       // 2. Clients — track id by label for note attachment
