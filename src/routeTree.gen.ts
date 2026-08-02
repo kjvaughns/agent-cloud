@@ -99,6 +99,7 @@ import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsSupportRouteImport } from './routes/_authenticated/settings.support'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
+import { Route as AuthenticatedSettingsResourcesRouteImport } from './routes/_authenticated/settings.resources'
 import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
@@ -630,6 +631,12 @@ const AuthenticatedSettingsRolesRoute =
     path: '/roles',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsResourcesRoute =
+  AuthenticatedSettingsResourcesRouteImport.update({
+    id: '/resources',
+    path: '/resources',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsNovaProRoute =
   AuthenticatedSettingsNovaProRouteImport.update({
     id: '/nova-pro',
@@ -1116,6 +1123,7 @@ export interface FileRoutesByFullPath {
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
@@ -1264,6 +1272,7 @@ export interface FileRoutesByTo {
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
@@ -1419,6 +1428,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
+  '/_authenticated/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/settings/support': typeof AuthenticatedSettingsSupportRoute
@@ -1574,6 +1584,7 @@ export interface FileRouteTypes {
     | '/settings/integrations'
     | '/settings/notifications'
     | '/settings/nova-pro'
+    | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
     | '/settings/support'
@@ -1722,6 +1733,7 @@ export interface FileRouteTypes {
     | '/settings/integrations'
     | '/settings/notifications'
     | '/settings/nova-pro'
+    | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
     | '/settings/support'
@@ -1876,6 +1888,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/nova-pro'
+    | '/_authenticated/settings/resources'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/security'
     | '/_authenticated/settings/support'
@@ -2586,6 +2599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRolesRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/resources': {
+      id: '/_authenticated/settings/resources'
+      path: '/resources'
+      fullPath: '/settings/resources'
+      preLoaderRoute: typeof AuthenticatedSettingsResourcesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/nova-pro': {
       id: '/_authenticated/settings/nova-pro'
       path: '/nova-pro'
@@ -3215,6 +3235,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
+  AuthenticatedSettingsResourcesRoute: typeof AuthenticatedSettingsResourcesRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedSettingsSupportRoute: typeof AuthenticatedSettingsSupportRoute
@@ -3233,6 +3254,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
+  AuthenticatedSettingsResourcesRoute: AuthenticatedSettingsResourcesRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedSettingsSupportRoute: AuthenticatedSettingsSupportRoute,

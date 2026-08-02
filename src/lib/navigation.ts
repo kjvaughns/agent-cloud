@@ -58,7 +58,13 @@ export type Unlock =
    * owner has ticked "respond to support tickets" for works the queue
    * without touching billing or white label.
    */
-  | "ticket-responder";
+  | "ticket-responder"
+  /**
+   * Somebody who maintains what the agency's agents read — the handbook,
+   * the scripts, the academy. Same reasoning as ticket-responder: content
+   * duty is a job, not an administrative rank.
+   */
+  | "resource-editor";
 
 export type Page = {
   id: string;
@@ -211,6 +217,10 @@ export const PAGES: Page[] = [
   { id: "white-label", label: "White label", path: "/settings/white-label", icon: Palette, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "integrations", label: "Integrations", path: "/settings/integrations", icon: Bot, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "support-desk", label: "Support desk", path: "/settings/support", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "ticket-responder" },
+  // "Edit resources", not "Resources": Tools already has a Resources entry
+  // that agents read, and two rows with the same word in one sidebar is a
+  // coin toss for whoever is looking for one of them.
+  { id: "agency-resources", label: "Edit resources", path: "/settings/resources", icon: BookOpen, area: "Settings", parent: "settings", unlock: "resource-editor" },
   { id: "agency-usage", label: "What people use", path: "/settings/usage", icon: Activity, area: "Settings", parent: "settings", unlock: "agency-admin" },
   { id: "profile", label: "Producer Profile", path: "/account/producer-profile", icon: IdCard, area: "Account" },
   { id: "help", label: "Help", path: "/account/help", icon: LifeBuoy, area: "Account" },
@@ -265,6 +275,8 @@ export type NavContext = {
    * lets them act on it agree.
    */
   canWorkTickets: boolean;
+  /** They maintain the agency's handbook, scripts and courses. Mirrors can_manage_resources(). */
+  canEditResources: boolean;
   perms: Record<string, unknown>;
 };
 
@@ -291,6 +303,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
   if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
+  if (p.unlock === "resource-editor") gates.push(ctx.canEditResources);
   if (p.unlock === "activated") gates.push(!ctx.isPending);
   if (p.permission) gates.push(Boolean(ctx.perms[p.permission]));
   if (gates.length > 0 && !gates.some(Boolean)) return false;
@@ -358,7 +371,7 @@ const HUBS: Record<string, HubGroup[]> = {
   ],
   settings: [
     { label: "", ids: ["notif-settings", "security", "nova-pro", "billing"] },
-    { label: "Your agency", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label", "integrations", "support-desk", "agency-usage"] },
+    { label: "Your agency", ids: ["agency-settings", "agency-roles", "agency-automations", "agency-emails", "white-label", "integrations", "support-desk", "agency-resources", "agency-usage"] },
   ],
   "contracting-ops": [
     { label: "Work", ids: ["requests", "queue", "hierarchy-changes", "intake"] },

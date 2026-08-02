@@ -29,13 +29,31 @@ export const getOnboardingStatus = createServerFn({ method: "GET" })
     return { steps, completed, total: 8, pct: Math.round((completed / 8) * 100) };
   });
 
+/**
+ * Defaults plus overrides, resolved to one of each.
+ *
+ * Row-level security returns the platform's defaults *and* the agency's own
+ * rows, which is right — the reader cannot know which the agency has
+ * replaced. When they have taken a copy, `forked_from` points at the default
+ * it came from, and showing both would mean two "Compensation" sections in
+ * the handbook, one of them stale.
+ *
+ * An agency that has changed nothing is unaffected: no forks, nothing hidden.
+ */
+function resolveOverrides<T extends Record<string, any>>(rows: T[]): T[] {
+  const replaced = new Set(
+    rows.filter((r) => r.organization_id && r.forked_from).map((r) => r.forked_from),
+  );
+  return rows.filter((r) => !(r.organization_id == null && replaced.has(r.id)));
+}
+
 export const getHandbookSections = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("handbook_sections").select("*").order("sort_order");
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return resolveOverrides(data ?? []);
   });
 
 export const getScripts = createServerFn({ method: "GET" })
@@ -44,7 +62,7 @@ export const getScripts = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("scripts").select("*").order("sort_order");
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return resolveOverrides(data ?? []);
   });
 
 export const getCourses = createServerFn({ method: "GET" })
@@ -53,7 +71,9 @@ export const getCourses = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("academy_courses").select("*").eq("published", true).order("sort_order");
     if (error) throw new Error(error.message);
-    return data ?? [];
+    // Filtered on published *before* resolving, so an agency that unpublishes
+    // its copy falls back to the platform default rather than to nothing.
+    return resolveOverrides(data ?? []);
   });
 
 export const getStatesReference = createServerFn({ method: "GET" })

@@ -49,6 +49,11 @@ export function useNavContext(): NavContext {
       Boolean(perms.staff_view_all_tickets) ||
       Boolean(perms.staff_respond_tickets) ||
       Boolean(perms.admin_view_agency_tickets),
+    // Mirrors can_manage_resources() in the database.
+    canEditResources:
+      Boolean(access?.canSeeAgency) ||
+      Boolean(perms.mgr_manage_resources) ||
+      Boolean(perms.staff_manage_resources),
     perms,
   };
 }
