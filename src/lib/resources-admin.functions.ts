@@ -60,28 +60,35 @@ export const listManagedResources = createServerFn({ method: "GET" })
 
     // Row-level security already limits this to the platform's defaults plus
     // this agency's own, so there is no organisation filter to forget here.
+    //
+    // `*` rather than a column list because `organization_id` and
+    // `forked_from` arrive with this feature's own migration, and code
+    // reaches production before a migration is applied. PostgREST fails the
+    // whole select when it is asked for a column that does not exist yet.
     const [handbook, scripts, courses] = await Promise.all([
-      supabase.from("handbook_sections")
-        .select("id, title, slug, content_html, sort_order, organization_id, forked_from, updated_at")
-        .order("sort_order"),
-      supabase.from("scripts")
-        .select("id, title, category, short_description, content_markdown, sort_order, organization_id, forked_from")
-        .order("sort_order"),
-      supabase.from("academy_courses")
-        .select("id, title, slug, category, description, module_count, published, sort_order, organization_id, forked_from")
-        .order("sort_order"),
+      supabase.from("handbook_sections").select("*").order("sort_order"),
+      supabase.from("scripts").select("*").order("sort_order"),
+      supabase.from("academy_courses").select("*").order("sort_order"),
     ]);
 
     let orgId: string | null = null;
     try { orgId = await myOrgId(supabase, userId); } catch { /* solo: defaults only */ }
 
-    const canManage = orgId
-      ? Boolean((await supabase.rpc("can_manage_resources", { _org: orgId })).data)
-      : false;
+    // A missing function and a denied permission are different answers and
+    // the page says different things about them. Collapsing both to "you
+    // can't" would send an owner to look for a permission they already have.
+    let canManage = false;
+    let pendingSetup = false;
+    if (orgId) {
+      const { data: ok, error } = await supabase.rpc("can_manage_resources", { _org: orgId });
+      if (error) pendingSetup = true;
+      else canManage = Boolean(ok);
+    }
 
     return {
       orgId,
       canManage,
+      pendingSetup,
       handbook: resolve((handbook.data ?? []) as any[]),
       scripts: resolve((scripts.data ?? []) as any[]),
       courses: resolve((courses.data ?? []) as any[]),
