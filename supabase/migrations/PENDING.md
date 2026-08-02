@@ -13,17 +13,15 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-- `20260802160000_rename-import-credential-columns.sql`
-- `20260802170000_debrand-seeded-resource-content.sql`
-- `20260802175000_org-membership-repair.sql`
-- `20260802180000_import-personal-scope.sql`
-- `20260802181000_import-proposals.sql`
-- `20260802182000_imports-bucket.sql`
 - `20260802190000_commission-grids-org-unique.sql`
 
-Order matters at the tail. `import-proposals` references `document_intake`,
-and its policies assume the personal-scope fallback `import-personal-scope`
-adds; both assume the membership rows `org-membership-repair` creates. Apply
-the four in the order listed.
+Everything else queued on 2 Aug 2026 is applied, bundled into
+`20260802193054_e04946cb-f497-4d04-a0ba-a573587e18e8.sql`. That bundle improves
+on what it replaces in two places worth knowing: `sync_profile_primary_org` now
+writes only when the value actually changes, because a no-op rewrite still
+fires the cross-org hierarchy check and some existing accounts already violate
+it; and the org-owner membership backfill computes `is_primary` rather than
+assuming it.
 
-The eight queued earlier on 2 Aug 2026 are all applied.
+The one still listed above was written after that bundle was assembled, so it
+was not part of it.

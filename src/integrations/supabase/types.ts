@@ -3808,6 +3808,7 @@ export type Database = {
           summary: string | null
           updated_at: string
           uploaded_by: string | null
+          user_note: string | null
         }
         Insert: {
           batch_id: string
@@ -3831,6 +3832,7 @@ export type Database = {
           summary?: string | null
           updated_at?: string
           uploaded_by?: string | null
+          user_note?: string | null
         }
         Update: {
           batch_id?: string
@@ -3854,6 +3856,7 @@ export type Database = {
           summary?: string | null
           updated_at?: string
           uploaded_by?: string | null
+          user_note?: string | null
         }
         Relationships: [
           {
@@ -4313,6 +4316,107 @@ export type Database = {
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_proposals: {
+        Row: {
+          applied_at: string | null
+          applied_record_id: string | null
+          apply_error: string | null
+          batch_id: string
+          confidence: number | null
+          created_at: string
+          created_by: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision: string
+          document_id: string
+          id: string
+          match_id: string | null
+          match_kind: string | null
+          match_reason: string | null
+          operation: string
+          organization_id: string | null
+          payload: Json
+          scope: string
+          target_table: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_record_id?: string | null
+          apply_error?: string | null
+          batch_id: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          document_id: string
+          id?: string
+          match_id?: string | null
+          match_kind?: string | null
+          match_reason?: string | null
+          operation?: string
+          organization_id?: string | null
+          payload: Json
+          scope?: string
+          target_table: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_record_id?: string | null
+          apply_error?: string | null
+          batch_id?: string
+          confidence?: number | null
+          created_at?: string
+          created_by?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          document_id?: string
+          id?: string
+          match_id?: string | null
+          match_kind?: string | null
+          match_reason?: string | null
+          operation?: string
+          organization_id?: string | null
+          payload?: Json
+          scope?: string
+          target_table?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_proposals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_proposals_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_proposals_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_proposals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -7142,31 +7246,31 @@ export type Database = {
       scrape_requests: {
         Row: {
           admin_notes: string | null
-          agentlink_password_encrypted: string | null
-          agentlink_username: string
           completed_at: string | null
           id: string
           requesting_agent_id: string
+          source_password_encrypted: string | null
+          source_username: string
           status: string
           submitted_at: string
         }
         Insert: {
           admin_notes?: string | null
-          agentlink_password_encrypted?: string | null
-          agentlink_username: string
           completed_at?: string | null
           id?: string
           requesting_agent_id: string
+          source_password_encrypted?: string | null
+          source_username: string
           status?: string
           submitted_at?: string
         }
         Update: {
           admin_notes?: string | null
-          agentlink_password_encrypted?: string | null
-          agentlink_username?: string
           completed_at?: string | null
           id?: string
           requesting_agent_id?: string
+          source_password_encrypted?: string | null
+          source_username?: string
           status?: string
           submitted_at?: string
         }
