@@ -197,9 +197,17 @@ export const deleteTemplate = createServerFn({ method: "POST" })
 
     const table = data.kind === "spreadsheet"
       ? "contracting_spreadsheet_templates" : "contracting_email_templates";
-    const { error } = await supabaseAdmin.from(table)
-      .delete().eq("id", data.id).eq("organization_id", orgId);
+    // .select("id") for the same reason as everywhere else, but this one had a
+    // second consequence: the audit write below recorded `{ deleted: true }`
+    // whether or not a row was removed. A template belonging to another agency,
+    // or an id that no longer exists, produced a clean success *and* an audit
+    // entry attesting to a deletion that never happened.
+    const { data: gone, error } = await supabaseAdmin.from(table)
+      .delete().eq("id", data.id).eq("organization_id", orgId).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new OrgAccessError("That template is not in your agency's directory.");
+    }
 
     await recordAudit({
       organizationId: orgId, actorId: userId, action: "carrier.updated",

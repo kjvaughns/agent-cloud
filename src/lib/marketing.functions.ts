@@ -88,7 +88,15 @@ export const deleteLandingPage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("landing_pages").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the landing page stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await context.supabase
+      .from("landing_pages").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That landing page is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });

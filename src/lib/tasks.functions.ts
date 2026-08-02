@@ -208,7 +208,15 @@ export const deleteTask = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { error } = await supabase.from("tasks").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the task stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
+      .from("tasks").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That task is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });

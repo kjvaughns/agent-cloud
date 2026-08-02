@@ -1198,6 +1198,9 @@ function BeneficiariesTab({ detail }: { detail: any }) {
   const delMut = useMutation({
     mutationFn: (id: string) => delFn({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }),
+    // Without this the server's refusal is swallowed and the row simply stays,
+    // which is the same silent failure the server change exists to end.
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't delete that beneficiary"),
   });
 
   return (
@@ -1299,9 +1302,11 @@ function BeneficiariesInline({ detail }: { detail: any }) {
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
-                onClick={() => delFn({ data: { id: b.id } }).then(() =>
-                  qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] })
-                )}
+                // A bare .then() with no .catch(): a rejection here was an
+                // unhandled promise rejection and the user saw nothing at all.
+                onClick={() => delFn({ data: { id: b.id } })
+                  .then(() => qc.invalidateQueries({ queryKey: ["pipeline", "detail", detail.client.id] }))
+                  .catch((e: any) => toast.error(e?.message ?? "Couldn't delete that beneficiary"))}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -1505,6 +1510,7 @@ function ClientCareTab({ detail }: { detail: any }) {
   const delLifeMut = useMutation({
     mutationFn: (id: string) => delLifeFn({ data: { id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "detail", c.id] }),
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't delete that life event"),
   });
 
   const filtered = (detail.contact_history ?? []).filter((h: any) => {

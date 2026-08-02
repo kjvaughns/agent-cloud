@@ -329,8 +329,16 @@ export const deleteBeneficiary = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { error } = await supabase.from("beneficiaries").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the beneficiary stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
+      .from("beneficiaries").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That beneficiary is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });
 
@@ -360,8 +368,16 @@ export const deleteLifeEvent = createServerFn({ method: "POST" })
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { error } = await supabase.from("life_events").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the life event stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
+      .from("life_events").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That life event is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });
 

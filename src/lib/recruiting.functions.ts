@@ -78,8 +78,16 @@ export const deleteFunnel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("recruiting_funnels").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the funnel stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await context.supabase
+      .from("recruiting_funnels").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That funnel is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });
 
@@ -182,8 +190,16 @@ export const deleteProspect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("recruiting_prospects").delete().eq("id", data.id);
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the prospect stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await context.supabase
+      .from("recruiting_prospects").delete().eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That prospect is no longer there, or it is not yours to delete.");
+    }
     return { ok: true };
   });
 
