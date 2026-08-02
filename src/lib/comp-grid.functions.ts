@@ -45,12 +45,22 @@ export const listMyGrids = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase } = context as Ctx;
 
-    const [{ data: grids }, { data: carriers }] = await Promise.all([
+    const [{ data: grids }, { data: carriers }, { data: assigned }] = await Promise.all([
       supabase
         .from("commission_grids")
         .select("id, carrier_id, organization_id, product_name, level_name, year_1_pct, years_2_5_pct, years_6_plus_pct, age_group_min, age_group_max, source, effective_date")
         .limit(5000),
       supabase.from("carriers").select("id, name").order("name"),
+      // The levels agents are actually on. The calculator matches a grid's
+      // level_name against this column as an exact string — no parsing, no
+      // normalising — and a miss returns no row, so the agent is paid
+      // nothing rather than paid wrongly. That failure is invisible at the
+      // point it is caused, which is here, so the editor gets to warn.
+      supabase
+        .from("agent_commission_levels")
+        .select("commission_level")
+        .not("commission_level", "is", null)
+        .limit(5000),
     ]);
 
     const nameById = new Map<string, string>((carriers ?? []).map((c: any) => [c.id, c.name]));
@@ -72,7 +82,16 @@ export const listMyGrids = createServerFn({ method: "GET" })
       if (g.organization_id) entry.owned = true;
     }
 
+    const assignedLevels = [
+      ...new Set(
+        ((assigned ?? []) as any[])
+          .map((r) => String(r.commission_level ?? "").trim())
+          .filter(Boolean),
+      ),
+    ].sort();
+
     return {
+      assignedLevels,
       carriers: (carriers ?? []) as { id: string; name: string }[],
       grids: Array.from(byCarrier.values()).sort((a, b) => a.carrier_name.localeCompare(b.carrier_name)),
     };

@@ -60,6 +60,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
 
   const carriers = (data as any)?.carriers ?? [];
   const grids = (data as any)?.grids ?? [];
+  const assignedLevels = (data as any)?.assignedLevels ?? [];
 
   async function onFile(file: File) {
     setReading(true);
@@ -271,6 +272,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
               <CompGridMatrix
                 value={matrix}
                 onChange={(next) => { setMatrix(next); setRows(fromMatrix(next)); }}
+                assignedLevels={assignedLevels}
               />
 
               <div className="mt-3 flex flex-wrap gap-2">
