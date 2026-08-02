@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContractStatusBadge, CONTRACT_STATUSES, statusDot, type ContractStatus } from "@/components/contracting/contract-status-badge";
-import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2, RefreshCw, Send } from "lucide-react";
+import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2, RefreshCw, Send, Loader2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -286,6 +286,16 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
               </AccordionTrigger>
               <AccordionContent className="px-4 pb-4">
                 <div className="space-y-3">
+                  {/* Correct a status.
+
+                      A contract could reach "active" without being active —
+                      adding a carrier you already hold writes it directly,
+                      and the AgentLink import provisions them that way — and
+                      once it was active My Contracts offered nothing at all:
+                      no status control, and the delete button was hidden on
+                      exactly that status. Active was a one-way door. */}
+                  <ContractStatusControl contractId={c.id} current={c.status} />
+
                   {c.status === "issue" && c.issue_description && (
                     <Alert variant="default" className="border-warning/30 bg-warning/15">
                       <AlertTriangle className="h-4 w-4 text-warning" />
@@ -766,4 +776,52 @@ function InboxTab() {
 function fmtDate(s?: string | null) {
   if (!s) return "—";
   return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+/**
+ * Set a contract's status from My Contracts.
+ *
+ * The same server function the downline matrix already used — an agent could
+ * fix somebody else's contract from the matrix while being unable to fix
+ * their own from the page that shows it.
+ */
+function ContractStatusControl({ contractId, current }: { contractId: string; current: ContractStatus }) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateContractStatus);
+  const [value, setValue] = useState<ContractStatus>(current);
+
+  const save = useMutation({
+    mutationFn: (next: ContractStatus) => updateFn({ data: { id: contractId, status: next } }),
+    onSuccess: (_r, next) => {
+      toast.success(`Marked ${next}`);
+      qc.invalidateQueries({ queryKey: ["contracting"] });
+    },
+    onError: (e: any, _next, _ctx) => {
+      setValue(current); // Put the control back to the truth.
+      toast.error(e?.message ?? "Couldn't change the status");
+    },
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
+      <span className="text-xs text-muted-foreground">Status</span>
+      <Select
+        value={value}
+        onValueChange={(v) => { setValue(v as ContractStatus); save.mutate(v as ContractStatus); }}
+      >
+        <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {CONTRACT_STATUSES.map((st) => (
+            <SelectItem key={st} value={st} className="capitalize">{st}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+      {current === "active" && (
+        <span className="text-[11px] text-muted-foreground">
+          Change this off active to remove the contract.
+        </span>
+      )}
+    </div>
+  );
 }

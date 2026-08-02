@@ -169,10 +169,19 @@ export const updateContractStatus = createServerFn({ method: "POST" })
     const update: any = { status: data.status };
     if (data.status === "submitted") update.submitted_at = new Date().toISOString();
     if (data.status === "active") update.activated_at = new Date().toISOString();
+    // Moving off active clears the activation stamp, or the contract keeps
+    // claiming a date it was never active from.
+    if (data.status !== "active") update.activated_at = null;
     if (data.writing_number !== undefined) update.writing_number = data.writing_number;
     if (data.issue_description !== undefined) update.issue_description = data.issue_description;
-    const { error } = await supabase.from("contract_requests").update(update).eq("id", data.id);
+
+    // .select() so a row row-level security hides reports as a refusal rather
+    // than as success — an update that matches nothing is not an error in
+    // Postgres, and this one used to return { ok: true } either way.
+    const { data: touched, error } = await supabase
+      .from("contract_requests").update(update).eq("id", data.id).select("id");
     if (error) throw new Error(error.message);
+    if (!touched?.length) throw new Error("You don't have permission to change that contract.");
     return { ok: true };
   });
 
@@ -557,7 +566,15 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
     const { data: row } = await supabase.from("contract_requests")
       .select("agent_id, status").eq("id", data.id).single();
     if (!row || row.agent_id !== userId) throw new Error("Not found");
-    if (row.status === "active") throw new Error("Cannot delete an active contract. Contact your admin.");
+    // "Contact your admin" was the old advice, which is no help to the person
+    // who *is* the admin — and there was no admin path to this either. Say
+    // what actually works instead.
+    if (row.status === "active") {
+      throw new Error(
+        "This contract is marked active. Change its status first, then remove it — " +
+        "so an appointment that is real cannot be deleted by one misclick.",
+      );
+    }
     const { error } = await supabase.from("contract_requests").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
