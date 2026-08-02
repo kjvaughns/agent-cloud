@@ -1,5 +1,6 @@
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
+import { queueEmail } from "@/lib/email/send.server";
 
 const supabaseAdmin = _admin as any;
 
@@ -10,18 +11,54 @@ const supabaseAdmin = _admin as any;
  * scheduled org-wide sweep execute exactly the same code. Three rules govern
  * every send, and none of them are optional:
  *
- *  1. Consent. An automation only fires if the organization has enabled
- *     automated messaging AND the recipient has not opted out. Absent
- *     configuration means "do not send" — never "send by default".
- *  2. Idempotency. Every send is written to automation_runs under a unique
- *     (automation, subject, occurrence, channel) key. Running twice produces
- *     one message, not two.
- *  3. Honesty about channels. SMS has no provider connected, so SMS
- *     automations are recorded as 'blocked' with a reason rather than
- *     silently dropped or falsely reported as sent.
+ *  1. Consent. Owned entirely by the mailer, which checks the agency switch,
+ *     the per-category switch, address-level suppression, and attaches the
+ *     unsubscribe token. This module used to pre-check consent itself, against
+ *     the wrong three columns — internal notification flags standing in for
+ *     outbound marketing consent. Two gates that disagree is worse than one.
+ *  2. Idempotency. Every send claims a row in automation_runs under a unique
+ *     (automation, subject, occurrence, channel) key BEFORE the message goes
+ *     out. Running twice produces one message, not two.
+ *  3. Honesty. A run is only marked 'sent' once the mailer has accepted it.
+ *     Anything refused records the mailer's own reason. Until now this module
+ *     rendered the message, wrote 'sent', and never called the mailer at all —
+ *     so every birthday and anniversary it believed it had delivered was
+ *     composed and thrown away.
  */
 
 const SMS_UNAVAILABLE = "SMS is not available — no telephony provider is connected.";
+
+/**
+ * A refusal from the mailer is not the same as a breakage.
+ *
+ * Consent, suppression and an unset environment are the system working — they
+ * belong under 'blocked', where somebody reading the ledger understands there
+ * is a switch to flip. Only an actual malfunction is a failure.
+ */
+function refusalStatusFor(reason: string): "blocked" | "failed" {
+  const malfunctions = ["enqueue_failed", "log_write_failed", "unexpected_error", "template_not_registered"];
+  return malfunctions.includes(reason) ? "failed" : "blocked";
+}
+
+/** The mailer's reasons are identifiers. This is the sentence for a person. */
+function explain(reason: string): string {
+  switch (reason) {
+    case "org_emails_disabled":
+      return "Your agency has email turned off (Settings → Agency settings → Email).";
+    case "org_category_off":
+      return "Messages to clients are switched off for your agency (Settings → Agency settings → Email).";
+    case "address_suppressed":
+      return "One or more recipients previously unsubscribed or bounced.";
+    case "non_production_environment":
+      return "Email does not send outside production.";
+    case "emails_disabled":
+      return "Email is disabled platform-wide.";
+    case "duplicate_event":
+      return "Already sent for this occurrence.";
+    default:
+      return `Email was not sent (${reason}).`;
+  }
+}
 
 export type SendSummary = {
   considered: number;
@@ -138,22 +175,79 @@ async function findCandidates(automation: any): Promise<Candidate[]> {
     }
   }
 
+  if (automation.trigger_type === "custom_date") {
+    // Accepted by the form and by the CHECK constraint since the day the table
+    // was written, and never handled here — so anybody who built one watched
+    // it sit at "never run" forever.
+    //
+    // A custom date means one date. It fires on the day, to every client with
+    // an address, and the year in the occurrence key means a date that comes
+    // round again next year fires again rather than being deduped away.
+    if (!automation.custom_date) return out;
+    const when = new Date(automation.custom_date + "T00:00:00Z");
+    if (when.getUTCMonth() + 1 !== t.month || when.getUTCDate() !== t.day) return out;
+
+    const { data: clients } = await supabaseAdmin
+      .from("clients")
+      .select("id, first_name, last_name, email")
+      .eq("agent_id", automation.agent_id)
+      .not("email", "is", null)
+      .limit(2000);
+
+    for (const c of clients ?? []) {
+      out.push({
+        automation,
+        subjectType: "client",
+        subjectId: c.id,
+        occurrenceKey: `custom-${automation.custom_date}-${t.year}`,
+        recipientEmail: c.email ?? null,
+        vars: { first_name: c.first_name ?? "", last_name: c.last_name ?? "" },
+      });
+    }
+  }
+
   // beneficiary_checkin intentionally unhandled: it needs a review cadence
   // the schema does not record yet. Better to run nothing than to invent one.
   return out;
 }
 
-/** Has this agency opted into outbound automated mail at all? */
-async function orgAllowsMail(orgId: string | null): Promise<boolean> {
-  if (!orgId) return false;
-  const { data: settings } = await supabaseAdmin
-    .from("organization_settings")
-    .select("notify_new_agent, notify_new_ticket, notify_contract_request")
-    .eq("organization_id", orgId)
-    .maybeSingle();
-  return Boolean(
-    settings?.notify_new_agent || settings?.notify_new_ticket || settings?.notify_contract_request,
-  );
+/**
+ * What the client sees in their inbox.
+ *
+ * The automation carries a body, not a subject — so one is derived from what
+ * the automation is for. "Birthday emails", the name the agent gave it, is a
+ * label for them and would be a strange thing to receive.
+ */
+function subjectFor(automation: any, vars: Record<string, string>): string {
+  const name = vars.first_name?.trim();
+  switch (automation.trigger_type) {
+    case "birthday":
+      return name ? `Happy birthday, ${name}!` : "Happy birthday!";
+    case "policy_anniversary":
+      return vars.years
+        ? `${vars.years} ${vars.years === "1" ? "year" : "years"} of coverage`
+        : "Your policy anniversary";
+    case "lapse_follow_up":
+      return "About your policy";
+    default:
+      return automation.name || "A note from your agent";
+  }
+}
+
+/** The signature. A client has a relationship with their agent, not with us. */
+async function agentIdentity(agentId: string, orgId: string | null) {
+  const [{ data: profile }, { data: org }] = await Promise.all([
+    supabaseAdmin.from("profiles").select("first_name, last_name, email, phone").eq("id", agentId).maybeSingle(),
+    orgId
+      ? supabaseAdmin.from("organizations").select("name").eq("id", orgId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  return {
+    agentName: `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim() || undefined,
+    agentEmail: profile?.email ?? undefined,
+    agentPhone: profile?.phone ?? undefined,
+    agencyName: org?.name ?? undefined,
+  };
 }
 
 /**
@@ -166,7 +260,6 @@ export async function runAutomationsForAgent(
   opts: { dryRun?: boolean; orgId?: string | null } = {},
 ): Promise<SendSummary> {
   const orgId = opts.orgId !== undefined ? opts.orgId : await getMyPrimaryOrgId(agentId);
-  const orgAllows = await orgAllowsMail(orgId ?? null);
 
   const { data: automations } = await supabaseAdmin
     .from("nova_automations")
@@ -176,8 +269,11 @@ export async function runAutomationsForAgent(
 
   const summary = { considered: 0, sent: 0, blocked: 0, skipped: 0, failed: 0 };
   const blockedReasons = new Set<string>();
+  if (!automations?.length) return { ...summary, blockedReasons: [] };
 
-  for (const a of automations ?? []) {
+  const identity = await agentIdentity(agentId, orgId ?? null);
+
+  for (const a of automations) {
     const candidates = await findCandidates(a);
     summary.considered += candidates.length;
 
@@ -185,57 +281,86 @@ export async function runAutomationsForAgent(
       const channels: ("email" | "sms")[] = a.channel === "both" ? ["email", "sms"] : [a.channel];
 
       for (const channel of channels) {
-        let status: string = "queued";
-        let reason: string | null = null;
-
+        // Decided before any work: these need no send attempt.
+        let refusal: { status: "blocked" | "skipped"; reason: string } | null = null;
         if (channel === "sms") {
-          status = "blocked";
-          reason = SMS_UNAVAILABLE;
+          refusal = { status: "blocked", reason: SMS_UNAVAILABLE };
           blockedReasons.add(SMS_UNAVAILABLE);
-        } else if (!orgAllows) {
-          status = "blocked";
-          reason =
-            "Your agency has not enabled automated messaging (Admin Settings → Automated Notifications).";
-          blockedReasons.add(reason);
         } else if (!c.recipientEmail) {
-          status = "skipped";
-          reason = "No email address on file";
+          refusal = { status: "skipped", reason: "No email address on file" };
         }
 
         if (opts.dryRun) {
-          if (status === "blocked") summary.blocked++;
-          else if (status === "skipped") summary.skipped++;
+          if (refusal?.status === "blocked") summary.blocked++;
+          else if (refusal?.status === "skipped") summary.skipped++;
           else summary.sent++;
           continue;
         }
 
         const rendered = render(a.message_template, c.vars);
 
-        // The unique index makes this the idempotency check: a duplicate
-        // insert is the signal that this occurrence already ran.
-        const { error } = await supabaseAdmin.from("automation_runs").insert({
+        // Claim the occurrence BEFORE sending. The unique index makes this the
+        // idempotency check, and doing it first is what stops two overlapping
+        // runs from both deciding to send. A duplicate insert means somebody
+        // else already has this one.
+        const { error: claimError } = await supabaseAdmin.from("automation_runs").insert({
           automation_id: a.id,
           agent_id: a.agent_id,
           subject_type: c.subjectType,
           subject_id: c.subjectId,
           occurrence_key: c.occurrenceKey,
           channel,
-          status: status === "queued" ? "sent" : status,
-          reason,
+          status: refusal ? refusal.status : "queued",
+          reason: refusal?.reason ?? null,
           rendered_message: rendered,
-          sent_at: status === "queued" ? new Date().toISOString() : null,
         });
 
-        if (error) {
+        if (claimError) {
           // 23505 = already ran for this occurrence. Expected, not a failure.
-          if (error.code === "23505") summary.skipped++;
+          if (claimError.code === "23505") summary.skipped++;
           else summary.failed++;
           continue;
         }
 
-        if (status === "blocked") summary.blocked++;
-        else if (status === "skipped") summary.skipped++;
-        else summary.sent++;
+        if (refusal) {
+          if (refusal.status === "blocked") summary.blocked++;
+          else summary.skipped++;
+          continue;
+        }
+
+        // The mailer owns consent: the agency switch, the category switch,
+        // address suppression, and the unsubscribe token. Whatever it decides
+        // is what the ledger records — this module no longer guesses.
+        const result = await queueEmail({
+          template: "client_message",
+          to: c.recipientEmail,
+          orgId: orgId ?? null,
+          category: "client_messaging",
+          key: `nova-automation:${a.id}:${c.subjectId}:${c.occurrenceKey}:${channel}`,
+          data: {
+            ...identity,
+            subject: subjectFor(a, c.vars),
+            body: rendered,
+          },
+        });
+
+        const finished = result.sent
+          ? { status: "sent", reason: null, sent_at: new Date().toISOString() }
+          : { status: refusalStatusFor(result.reason), reason: result.reason, sent_at: null };
+
+        if (!result.sent) blockedReasons.add(explain(result.reason));
+
+        await supabaseAdmin
+          .from("automation_runs")
+          .update(finished)
+          .eq("automation_id", a.id)
+          .eq("subject_id", c.subjectId)
+          .eq("occurrence_key", c.occurrenceKey)
+          .eq("channel", channel);
+
+        if (finished.status === "sent") summary.sent++;
+        else if (finished.status === "failed") summary.failed++;
+        else summary.blocked++;
       }
     }
 

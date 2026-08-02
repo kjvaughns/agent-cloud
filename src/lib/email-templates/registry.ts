@@ -39,6 +39,7 @@ import { template as retentionCaseAssigned } from './retention-case-assigned'
 import { template as newLead } from './new-lead'
 import { template as demoRequest } from './demo-request'
 import { template as dailyDigest } from './daily-digest'
+import { template as clientMessage } from './client-message'
 
 const AUTH_PREVIEW = {
   token: '123456',
@@ -119,6 +120,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
 
   // Rollup
   'daily-digest': dailyDigest,
+  client_message: clientMessage,
 }
 
 export type TemplateName = keyof typeof TEMPLATES
