@@ -6,6 +6,7 @@ import { IMPORT_KINDS, KIND_TARGET, KIND_LABEL, type ImportKind } from "@/lib/im
 import { buildMatchIndex, classifyClient, policyExists, rowKey } from "@/lib/import-match";
 import { saveClientFullRecord, resolveCarrierId } from "@/lib/import-helpers";
 import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
+import { runContractingImport } from "@/lib/contracting-import.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -92,6 +93,19 @@ const SETUP_PENDING =
 function isMissingTable(e: any): boolean {
   return e?.code === "42P01" || /relation .* does not exist/i.test(String(e?.message ?? ""));
 }
+
+/**
+ * Proposal target table → the kind `runContractingImport` understands.
+ *
+ * An explicit map rather than passing the table name through, so
+ * `scripts/migration-safety.ts` can still see which tables this file touches —
+ * it cannot follow `.from(variable)`.
+ */
+const CONTRACTING_TABLES: Record<string, "writing_numbers" | "licenses" | "carriers"> = {
+  writing_numbers: "writing_numbers",
+  state_licenses: "licenses",
+  carriers: "carriers",
+};
 
 /** Rows we will hold for one document. Past this we are not reviewing, we are hoping. */
 const MAX_PROPOSALS_PER_DOC = 5000;
@@ -348,6 +362,24 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
     const proposals: any[] = [];
     let exact = 0, fuzzy = 0, inFile = 0;
 
+    /**
+     * For contracting records, the dry run *is* the reconciliation.
+     *
+     * `runContractingImport` already resolves agents by NPN or email, carriers
+     * against the agency's own directory, and reports per row whether it would
+     * create, skip or fail — with a sentence saying why. Re-deriving any of
+     * that here would mean two answers to the same question, and the one
+     * downstream is the one that decides.
+     */
+    const contractKind = CONTRACTING_TABLES[target.table];
+    const dryRun: Map<number, any> = new Map();
+    if (contractKind) {
+      const out: any = await runContractingImport(
+        userId, contractKind, data.rows as Record<string, string>[], false,
+      );
+      for (const r of out?.results ?? []) dryRun.set(r.row, r);
+    }
+
     // A grid is dozens of rows naming the same one or two carriers. Look each
     // name up once.
     const carrierCache = new Map<string, string | null>();
@@ -359,7 +391,8 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
       return id;
     }
 
-    for (const raw of data.rows) {
+    for (let rowIdx = 0; rowIdx < data.rows.length; rowIdx++) {
+      const raw = data.rows[rowIdx];
       if (proposals.length >= room) break;
 
       const parsed = data.kind === "book_of_business" ? ClientRow.safeParse(raw) : null;
@@ -386,6 +419,26 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
       // somebody is still looking at the review screen, and so `resolveCarrierId`
       // — which returns null rather than guessing between similar names — gets
       // to be the thing that decides.
+      if (contractKind) {
+        // `runContractingImport` numbers its results from 1, in input order.
+        const verdict = dryRun.get(rowIdx + 1);
+        if (verdict?.status === "skip") {
+          // Already in the directory, or a repeat of an earlier row. Counted,
+          // not shown — the same treatment an exact client duplicate gets.
+          match_kind = "exact";
+          match_reason = verdict.message ?? null;
+          operation = "skip";
+          decision = "skipped";
+          exact++;
+        } else if (verdict?.status === "error") {
+          // An unresolvable agent or a carrier that is not in the directory.
+          // These need a person, and the message already says which.
+          match_kind = "fuzzy";
+          match_reason = verdict.message ?? null;
+          fuzzy++;
+        }
+      }
+
       if (target.table === "commission_grids" && !row.carrier_id) {
         row.carrier_id = await carrierFor(row.carrier_name);
         if (!row.carrier_id) {
@@ -668,6 +721,17 @@ export const applyProposals = createServerFn({ method: "POST" })
             match: { existing_client_id: p.match_id ?? null },
           });
           ref = res.clientId;
+        } else if (CONTRACTING_TABLES[p.target_table]) {
+          // Straight through to the contracting importer, which owns the
+          // permission check, the agent and carrier resolution, and the rule
+          // that a row failing at the database is reported rather than taking
+          // the batch with it. One row per call is not the cheapest shape, but
+          // it keeps a failure attributable to the proposal that caused it.
+          const out: any = await runContractingImport(
+            userId, CONTRACTING_TABLES[p.target_table], [p.payload], true,
+          );
+          const bad = (out?.results ?? []).find((r: any) => r.status === "error");
+          if (bad) throw new Error(bad.message ?? "That row could not be imported.");
         } else {
           throw new Error(`Applying ${p.target_table} isn't wired up yet.`);
         }

@@ -133,11 +133,26 @@ const ImportSchema = z.object({
   commit: z.boolean().default(false),
 });
 
-export const importContractingRecords = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => ImportSchema.parse(d))
-  .handler(async ({ data, context }) => {
-    const { userId } = context as Ctx;
+/**
+ * The import itself, as a plain function.
+ *
+ * Extracted so Import can share it rather than grow a second answer to
+ * "how is a writing number written". Calling the server function from another
+ * server function would mean hoping its middleware still has a request to
+ * read; a second implementation would mean two sets of validation rules
+ * drifting apart. Neither is worth it for a mechanical lift.
+ *
+ * Behaviour is unchanged: dry run unless `commit`, per-row results either way,
+ * and a row that fails at the database is reported rather than taking the
+ * batch down.
+ */
+export async function runContractingImport(
+  userId: string,
+  kind: ImportKind,
+  rows: Record<string, string>[],
+  commit: boolean,
+) {
+    const data = { kind, rows, commit };
     const orgId = await requireImportRights(userId, data.kind);
     const { byNpn, byEmail, carrierByName } = await buildLookups(orgId);
 
@@ -303,4 +318,12 @@ export const importContractingRecords = createServerFn({ method: "POST" })
       summary: { ...summary, written, error: results.filter((r) => r.status === "error").length },
       results,
     };
+}
+
+export const importContractingRecords = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ImportSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    return runContractingImport(userId, data.kind, data.rows, data.commit);
   });
