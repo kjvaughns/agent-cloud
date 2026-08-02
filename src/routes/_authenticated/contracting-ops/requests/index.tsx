@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WritingNumbersPage } from "@/components/contracting/writing-numbers-panel";
 import { HierarchiesPage } from "@/components/contracting/hierarchies-panel";
 import { HierarchyChangesPage } from "@/components/contracting/hierarchy-changes-panel";
 import { useMemo, useState } from "react";
@@ -26,7 +27,7 @@ import {
 import { AgePill, EmptyState, OwnerChip, StatusBadge } from "@/components/contracting/shared";
 import { cn } from "@/lib/utils";
 
-const TABS = ["requests", "hierarchies", "changes"] as const;
+const TABS = ["requests", "numbers", "hierarchies", "changes"] as const;
 type Tab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/requests/")({
@@ -41,9 +42,10 @@ type Scope = "open" | "all" | "mine" | "unassigned";
 /**
  * Contract requests, and the hierarchy they sit in.
  *
- * Carrier hierarchies and hierarchy changes were two sidebar entries of their
- * own, both describing where a request sits and who it routes through — which
- * is the same question a request is already asking. One destination.
+ * Carrier hierarchies, hierarchy changes and writing numbers were all sidebar
+ * entries of their own, and all of them describe where a request sits, who it
+ * routes through, and what came back — which is what a request already is.
+ * One destination.
  */
 function RequestsTabs() {
   const { tab } = Route.useSearch();
@@ -51,10 +53,12 @@ function RequestsTabs() {
     <Tabs defaultValue={tab ?? "requests"} className="space-y-4">
       <TabsList>
         <TabsTrigger value="requests">Requests</TabsTrigger>
+        <TabsTrigger value="numbers">Writing numbers</TabsTrigger>
         <TabsTrigger value="hierarchies">Hierarchies</TabsTrigger>
         <TabsTrigger value="changes">Hierarchy changes</TabsTrigger>
       </TabsList>
       <TabsContent value="requests"><RequestsPage /></TabsContent>
+      <TabsContent value="numbers"><WritingNumbersPage /></TabsContent>
       <TabsContent value="hierarchies"><HierarchiesPage /></TabsContent>
       <TabsContent value="changes"><HierarchyChangesPage /></TabsContent>
     </Tabs>
