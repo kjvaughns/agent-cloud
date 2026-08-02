@@ -703,3 +703,36 @@ export const addCarrier = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, id: made?.id as string | undefined };
   });
+
+/**
+ * Clear the commission levels assigned to *you*.
+ *
+ * There has never been a way to remove one. `adminAssignAgentLevel` upserts,
+ * `bulkUpsertLicenses` upserts, the AgentLink import upserts — so a level set
+ * once, or imported wrongly, stayed set forever and the only recourse was to
+ * overwrite it with something else equally wrong.
+ *
+ * Deliberately self-only: `agent_id` is taken from the session and never from
+ * the caller, so this cannot touch another agent's pay grade no matter who
+ * runs it. Clearing somebody else's is an admin action and belongs with the
+ * rest of them, not on a page an agent reads.
+ *
+ * `carrier_id` omitted clears every carrier — the "start again" case.
+ */
+export const clearMyCommissionLevels = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ carrier_id: z.string().uuid().optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    let q = (supabase as any)
+      .from("agent_commission_levels")
+      .delete()
+      .eq("agent_id", userId);
+    if (data.carrier_id) q = q.eq("carrier_id", data.carrier_id);
+
+    const { data: gone, error } = await q.select("id");
+    if (error) throw new Error(error.message);
+    return { cleared: (gone ?? []).length };
+  });
