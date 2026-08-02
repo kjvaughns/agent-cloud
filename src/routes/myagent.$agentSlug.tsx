@@ -32,22 +32,12 @@ type AgentPage = {
 };
 
 export const Route = createFileRoute("/myagent/$agentSlug")({
-  loader: async ({ params, location }) => {
-    // Absolute, because the loader also runs on the server where a relative
-    // URL has no origin to resolve against.
-    const origin =
-      typeof window === "undefined"
-        ? process.env.PUBLIC_SITE_URL ?? `https://${process.env.VERCEL_URL ?? "localhost:3000"}`
-        : window.location.origin;
-    void location;
-
-    const res = await fetch(
-      `${origin}/api/public/page-data?type=agent&slug=${encodeURIComponent(params.agentSlug)}`,
-    );
-    const json = res.ok ? await res.json() : { data: null };
-    if (!json?.data) throw notFound();
-    return json.data as AgentPage;
+  loader: async ({ params }) => {
+    const data = await getPublicAgentPage({ data: { slug: params.agentSlug } });
+    if (!data) throw notFound();
+    return data as AgentPage;
   },
+
 
   head: ({ loaderData }) => {
     const d = loaderData as AgentPage | undefined;
