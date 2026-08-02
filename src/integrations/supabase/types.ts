@@ -21,14 +21,18 @@ export type Database = {
           description: string | null
           duration_minutes: number | null
           featured: boolean | null
+          forked_from: string | null
           id: string
           instructor_name: string | null
           module_count: number | null
+          organization_id: string | null
           published: boolean | null
           slug: string
           sort_order: number | null
           thumbnail_url: string | null
           title: string
+          updated_at: string
+          updated_by: string | null
           url: string | null
         }
         Insert: {
@@ -37,14 +41,18 @@ export type Database = {
           description?: string | null
           duration_minutes?: number | null
           featured?: boolean | null
+          forked_from?: string | null
           id?: string
           instructor_name?: string | null
           module_count?: number | null
+          organization_id?: string | null
           published?: boolean | null
           slug: string
           sort_order?: number | null
           thumbnail_url?: string | null
           title: string
+          updated_at?: string
+          updated_by?: string | null
           url?: string | null
         }
         Update: {
@@ -53,17 +61,43 @@ export type Database = {
           description?: string | null
           duration_minutes?: number | null
           featured?: boolean | null
+          forked_from?: string | null
           id?: string
           instructor_name?: string | null
           module_count?: number | null
+          organization_id?: string | null
           published?: boolean | null
           slug?: string
           sort_order?: number | null
           thumbnail_url?: string | null
           title?: string
+          updated_at?: string
+          updated_by?: string | null
           url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "academy_courses_forked_from_fkey"
+            columns: ["forked_from"]
+            isOneToOne: false
+            referencedRelation: "academy_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_courses_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_courses_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       academy_modules: {
         Row: {
@@ -4010,29 +4044,60 @@ export type Database = {
       handbook_sections: {
         Row: {
           content_html: string | null
+          forked_from: string | null
           id: string
+          organization_id: string | null
           slug: string
           sort_order: number
           title: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           content_html?: string | null
+          forked_from?: string | null
           id?: string
+          organization_id?: string | null
           slug: string
           sort_order?: number
           title: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           content_html?: string | null
+          forked_from?: string | null
           id?: string
+          organization_id?: string | null
           slug?: string
           sort_order?: number
           title?: string
           updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "handbook_sections_forked_from_fkey"
+            columns: ["forked_from"]
+            isOneToOne: false
+            referencedRelation: "handbook_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_sections_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handbook_sections_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hierarchy_change_approvals: {
         Row: {
@@ -7122,11 +7187,15 @@ export type Database = {
           content_html: string | null
           content_markdown: string | null
           created_at: string
+          forked_from: string | null
           id: string
           long_description: string | null
+          organization_id: string | null
           short_description: string | null
           sort_order: number | null
           title: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           accent_color?: string | null
@@ -7134,11 +7203,15 @@ export type Database = {
           content_html?: string | null
           content_markdown?: string | null
           created_at?: string
+          forked_from?: string | null
           id?: string
           long_description?: string | null
+          organization_id?: string | null
           short_description?: string | null
           sort_order?: number | null
           title: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           accent_color?: string | null
@@ -7146,13 +7219,39 @@ export type Database = {
           content_html?: string | null
           content_markdown?: string | null
           created_at?: string
+          forked_from?: string | null
           id?: string
           long_description?: string | null
+          organization_id?: string | null
           short_description?: string | null
           sort_order?: number | null
           title?: string
+          updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "scripts_forked_from_fkey"
+            columns: ["forked_from"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scripts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scripts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sms_conversations: {
         Row: {
@@ -8489,6 +8588,7 @@ export type Database = {
       can_manage_contracting: { Args: { _org: string }; Returns: boolean }
       can_manage_hierarchy: { Args: { _org: string }; Returns: boolean }
       can_manage_licenses: { Args: { _org: string }; Returns: boolean }
+      can_manage_resources: { Args: { _org: string }; Returns: boolean }
       can_submit_contracts: { Args: { _org: string }; Returns: boolean }
       can_view_agency_comp: { Args: { _org: string }; Returns: boolean }
       can_view_contracting: { Args: { _org: string }; Returns: boolean }
