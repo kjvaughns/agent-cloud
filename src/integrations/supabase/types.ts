@@ -8459,6 +8459,14 @@ export type Database = {
       get_policy_analytics: { Args: never; Returns: Json }
       get_quality_metrics: { Args: never; Returns: Json }
       get_recruiting_funnel: { Args: never; Returns: Json }
+      get_scope_agents: {
+        Args: { _scope: string }
+        Returns: {
+          first_name: string
+          id: string
+          last_name: string
+        }[]
+      }
       get_team_alerts: { Args: never; Returns: Json }
       get_team_downline: {
         Args: never
@@ -8532,6 +8540,7 @@ export type Database = {
         Returns: number
       }
       my_org_ids: { Args: never; Returns: string[] }
+      my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
       prune_rate_limits: { Args: never; Returns: undefined }
       prune_usage_events: { Args: never; Returns: number }
@@ -8552,6 +8561,7 @@ export type Database = {
         }[]
       }
       same_org: { Args: { _profile: string }; Returns: boolean }
+      scope_agent_ids: { Args: { _scope: string }; Returns: string[] }
       seed_agent_challenges: { Args: { _agent: string }; Returns: undefined }
       send_team_reminder: { Args: { _target: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
