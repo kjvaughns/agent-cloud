@@ -437,8 +437,8 @@ export const adminDeleteAnnouncement = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ─── AgentLink XLS Import ─────────────────────────────────────────────────────
-export const adminImportAgentLinkXLS = createServerFn({ method: "POST" })
+// ─── Spreadsheet Import ─────────────────────────────────────────────────────
+export const adminImportBookXLS = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
@@ -671,7 +671,7 @@ export const adminImportAgentLinkXLS = createServerFn({ method: "POST" })
         client_id: clientId,
         agent_id: data.target_agent_id,
         contact_type: note.noteType === "medical" ? "medical_note" : "note",
-        note: `[AgentLink Import — ${note.date}] ${note.content}`,
+        note: `[Book Import — ${note.date}] ${note.content}`,
         is_auto: false,
         created_at: note.date ? new Date(note.date).toISOString() : new Date().toISOString(),
       });
@@ -705,7 +705,7 @@ export const adminListScrapeRequests = createServerFn({ method: "GET" })
     await requireManagerOrAdmin(supabase, userId);
     const { data } = await supabase
       .from("scrape_requests")
-      .select("id, agentlink_username, status, admin_notes, submitted_at, completed_at, requesting_agent_id, profiles!requesting_agent_id(first_name, last_name, email, phone)")
+      .select("*, profiles!requesting_agent_id(first_name, last_name, email, phone)")
       .order("submitted_at", { ascending: false });
     return { requests: data ?? [] };
   });

@@ -126,6 +126,14 @@ function parse(sql: string): Objects {
     for (const col of stmt[2].matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)/gi)) {
       columns.add(`${table}.${col[1].toLowerCase()}`);
     }
+    // A rename introduces the new name just as surely as an ADD does. The
+    // first version of this script only looked for `add column`, so a rename
+    // sailed straight past it — found by shipping one.
+    for (const m of stmt[2].matchAll(
+      /rename\s+column\s+([a-z_][a-z0-9_]*)\s+to\s+([a-z_][a-z0-9_]*)/gi,
+    )) {
+      columns.add(`${table}.${m[2].toLowerCase()}`);
+    }
   }
 
   return {

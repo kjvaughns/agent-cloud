@@ -97,7 +97,7 @@ Supabase — Postgres (84 tables) · Auth · Storage · RLS · RPCs
           pgmq email queue + pg_cron
   ▼
 External: Stripe (checkout/portal/webhooks) · Lovable AI gateway (all AI calls)
-          SureLC SSO · AgentLink scrape · telephony (NOT CONNECTED)
+          SureLC SSO · a previous agency platform scrape · telephony (NOT CONNECTED)
 ```
 
 **Two database clients, and the distinction is the whole security model:**

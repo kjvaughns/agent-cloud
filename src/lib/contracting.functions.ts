@@ -725,7 +725,7 @@ export const addCarrier = createServerFn({ method: "POST" })
  * Clear the commission levels assigned to *you*.
  *
  * There has never been a way to remove one. `adminAssignAgentLevel` upserts,
- * `bulkUpsertLicenses` upserts, the AgentLink import upserts — so a level set
+ * `bulkUpsertLicenses` upserts, the book import upserts — so a level set
  * once, or imported wrongly, stayed set forever and the only recourse was to
  * overwrite it with something else equally wrong.
  *

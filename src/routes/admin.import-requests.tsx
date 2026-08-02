@@ -90,12 +90,12 @@ function ImportRequestsPage() {
             <Download className="h-6 w-6" /> Import Requests
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Agents who requested a full AgentLink credential import. Review and complete each request manually.
+            Agents who requested a full credential import. Review and complete each request manually.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
           <a href={AL_URL} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open AgentLink
+            <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open BookImport
           </a>
         </Button>
       </div>
@@ -139,13 +139,13 @@ function ImportRequestsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm font-mono text-muted-foreground">
-                    {req.agentlink_username}
+                    {req.source_username ?? req.agentlink_username}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-mono text-muted-foreground">
                         {revealed.has(req.id)
-                          ? decodePassword(req.agentlink_password_encrypted)
+                          ? decodePassword(req.source_password_encrypted ?? req.agentlink_password_encrypted)
                           : "••••••••"}
                       </span>
                       <button

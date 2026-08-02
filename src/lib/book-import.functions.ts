@@ -16,13 +16,13 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
     .from("agent_integrations")
     .select("api_key")
     .eq("agent_id", userId)
-    .eq("platform", "agentlink")
+    .eq("platform", "bookImport")
     .maybeSingle();
 
   if (keyErr) throw new Error(`DB error fetching API key: ${keyErr.message}`);
   if (!keyRow?.api_key) {
     throw new Error(
-      "NO_KEY: No AgentLink API key saved. Add your key in Producer Profile → Integrations."
+      "NO_KEY: No API key saved. Add your key in Producer Profile → Integrations."
     );
   }
 
@@ -33,17 +33,17 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
       headers: { "x-api-key": keyRow.api_key, Accept: "application/json" },
     });
   } catch (e: any) {
-    throw new Error(`NETWORK: Could not reach AgentLink — ${e.message}`);
+    throw new Error(`NETWORK: Could not reach the import API — ${e.message}`);
   }
 
   if (res.status === 401)
     throw new Error(
-      "AUTH: API key is invalid or expired. Generate a new one in AgentLink → Producer Profile → Integrations."
+      "AUTH: API key is invalid or expired. Generate a new one in your previous platform, under Producer Profile → Integrations."
     );
   if (res.status === 403)
     throw new Error("FORBIDDEN: Your API key doesn't have permission for this endpoint.");
   if (res.status === 404)
-    throw new Error(`NOT_FOUND: AgentLink endpoint ${path} not found. The API may have changed.`);
+    throw new Error(`NOT_FOUND: Import endpoint ${path} not found. The API may have changed.`);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`API_ERROR ${res.status}: ${body.slice(0, 300)}`);
@@ -59,7 +59,50 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
 }
 
 // ─── Save API Key ─────────────────────────────────────────────────────────────
-export const saveAgentLinkKey = createServerFn({ method: "POST" })
+/**
+ * The credential columns, under whichever name the database currently has.
+ *
+ * `20260802160000` renames them, and code reaches production before a
+ * migration is applied — naming only the new ones would break every import
+ * request submitted in that window, and naming only the old ones breaks after
+ * it. Writing both is safe in exactly one direction: PostgREST rejects an
+ * insert naming a column that does not exist, so this picks rather than
+ * merges, and the caller retries against the other name.
+ */
+function credentialColumns(username: string, obfuscated: string) {
+  return { source_username: username, source_password_encrypted: obfuscated };
+}
+
+/** The pre-rename spelling, for the retry. */
+function legacyCredentialColumns(username: string, obfuscated: string) {
+  return { agentlink_username: username, agentlink_password_encrypted: obfuscated };
+}
+
+/**
+ * Insert under the new column names, and fall back to the old ones.
+ *
+ * 42703 is "column does not exist" — the only error this retry should ever
+ * swallow. Anything else is a real failure and is returned as-is.
+ */
+async function insertScrapeRequest(
+  supabase: any, userId: string, username: string, obfuscated: string,
+) {
+  const attempt = (cols: Record<string, string>) =>
+    supabase
+      .from("scrape_requests")
+      .insert({ requesting_agent_id: userId, ...cols, status: "pending" })
+      .select("id")
+      .single();
+
+  const first = await attempt(credentialColumns(username, obfuscated));
+  if (!first.error) return first;
+  const missingColumn =
+    first.error.code === "42703" || /column .* does not exist/i.test(first.error.message ?? "");
+  if (!missingColumn) return first;
+  return attempt(legacyCredentialColumns(username, obfuscated));
+}
+
+export const saveBookImportKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ api_key: z.string().min(10, "API key must be at least 10 characters") }).parse(d)
@@ -69,7 +112,7 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
     const { error } = await supabase.from("agent_integrations").upsert(
       {
         agent_id: userId,
-        platform: "agentlink",
+        platform: "bookImport",
         api_key: data.api_key.trim(),
         connected_at: new Date().toISOString(),
         sync_status: "idle",
@@ -82,7 +125,7 @@ export const saveAgentLinkKey = createServerFn({ method: "POST" })
   });
 
 // ─── Get Key Status ───────────────────────────────────────────────────────────
-export const getAgentLinkKeyStatus = createServerFn({ method: "GET" })
+export const getBookImportKeyStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context as any;
@@ -90,7 +133,7 @@ export const getAgentLinkKeyStatus = createServerFn({ method: "GET" })
       .from("agent_integrations")
       .select("api_key, last_synced_at, sync_status, last_error")
       .eq("agent_id", userId)
-      .eq("platform", "agentlink")
+      .eq("platform", "bookImport")
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return { connected: false };
@@ -106,7 +149,7 @@ export const getAgentLinkKeyStatus = createServerFn({ method: "GET" })
   });
 
 // ─── Remove Key ───────────────────────────────────────────────────────────────
-export const removeAgentLinkKey = createServerFn({ method: "POST" })
+export const removeBookImportKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
@@ -115,12 +158,12 @@ export const removeAgentLinkKey = createServerFn({ method: "POST" })
       .from("agent_integrations")
       .delete()
       .eq("agent_id", userId)
-      .eq("platform", "agentlink");
+      .eq("platform", "bookImport");
     return { ok: true };
   });
 
 // ─── Test Connection ──────────────────────────────────────────────────────────
-export const testAgentLinkKey = createServerFn({ method: "POST" })
+export const testBookImportKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
@@ -137,7 +180,7 @@ export const testAgentLinkKey = createServerFn({ method: "POST" })
   });
 
 // ─── Main Import ──────────────────────────────────────────────────────────────
-export const importFromAgentLink = createServerFn({ method: "POST" })
+export const importBook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
@@ -315,7 +358,7 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
             client_id: clientId,
             agent_id: userId,
             contact_type: "note",
-            note: `[Imported from AgentLink] ${body}`,
+            note: `[Imported from a previous platform] ${body}`,
             created_at: note.created_at ?? note.createdAt ?? new Date().toISOString(),
           });
           note_count++;
@@ -340,7 +383,7 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
           last_error: null,
         })
         .eq("agent_id", userId)
-        .eq("platform", "agentlink");
+        .eq("platform", "bookImport");
 
       return {
         job_id: jobId,
@@ -361,7 +404,7 @@ export const importFromAgentLink = createServerFn({ method: "POST" })
         .from("agent_integrations")
         .update({ sync_status: "error", last_error: err.message })
         .eq("agent_id", userId)
-        .eq("platform", "agentlink");
+        .eq("platform", "bookImport");
       throw err;
     }
   });
@@ -461,7 +504,7 @@ export const getPendingDuplicates = createServerFn({ method: "POST" })
   });
 
 // ─── Test Connection (new name) ───────────────────────────────────────────────
-export const testAgentLinkConnection = createServerFn({ method: "POST" })
+export const testImportConnection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
@@ -478,7 +521,7 @@ export const testAgentLinkConnection = createServerFn({ method: "POST" })
   });
 
 // ─── Basic Import (phone-only dup check, policies + carrier auto-detection) ───
-export const basicImportFromAgentLink = createServerFn({ method: "POST" })
+export const basicImportFromBookImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
@@ -550,7 +593,7 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
       .from("agent_integrations")
       .update({ last_synced_at: new Date().toISOString(), sync_status: "idle", last_error: null })
       .eq("agent_id", userId)
-      .eq("platform", "agentlink");
+      .eq("platform", "bookImport");
 
     // Auto-detect carriers from all agent policies
     const { data: agentPolicies } = await supabase
@@ -575,7 +618,7 @@ export const basicImportFromAgentLink = createServerFn({ method: "POST" })
           carrier_id: carrierId,
           status: "assigned",
           source: "auto_detected_import",
-          notes: "Auto-detected from AgentLink import. Add your writing number to activate.",
+          notes: "Auto-detected from the book import. Add your writing number to activate.",
           requested_at: new Date().toISOString(),
         });
         carriersDetected++;
@@ -591,8 +634,8 @@ export const submitFullImportRequest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        agentlink_username: z.string().email("Must be a valid email"),
-        agentlink_password: z.string().min(1),
+        source_username: z.string().email("Must be a valid email"),
+        source_password: z.string().min(1),
         notes: z.string().optional(),
       })
       .parse(d)
@@ -600,18 +643,11 @@ export const submitFullImportRequest = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    const obfuscated = Buffer.from(data.agentlink_password).toString("base64");
+    const obfuscated = Buffer.from(data.source_password).toString("base64");
 
-    const { data: req, error } = await supabase
-      .from("scrape_requests")
-      .insert({
-        requesting_agent_id: userId,
-        agentlink_username: data.agentlink_username,
-        agentlink_password_encrypted: obfuscated,
-        status: "pending",
-      })
-      .select("id")
-      .single();
+    const { data: req, error } = await insertScrapeRequest(
+      supabase, userId, data.source_username, obfuscated,
+    );
     if (error) throw new Error(error.message);
 
     const { data: admins } = await supabase
@@ -624,7 +660,7 @@ export const submitFullImportRequest = createServerFn({ method: "POST" })
         user_id: admin.user_id,
         type: "scrape_request",
         title: "New Full Import Request",
-        body: "An agent has submitted a full AgentLink import request. Review in Admin → Import Requests.",
+        body: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
         link: "/admin/import-requests",
         read: false,
       });
@@ -639,8 +675,8 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        agentlink_username: z.string().email("Must be a valid email"),
-        agentlink_password: z.string().min(1),
+        source_username: z.string().email("Must be a valid email"),
+        source_password: z.string().min(1),
         notes: z.string().optional(),
       })
       .parse(d)
@@ -648,18 +684,11 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    const obfuscated = Buffer.from(data.agentlink_password).toString("base64");
+    const obfuscated = Buffer.from(data.source_password).toString("base64");
 
-    const { data: req, error } = await supabase
-      .from("scrape_requests")
-      .insert({
-        requesting_agent_id: userId,
-        agentlink_username: data.agentlink_username,
-        agentlink_password_encrypted: obfuscated,
-        status: "pending",
-      })
-      .select("id")
-      .single();
+    const { data: req, error } = await insertScrapeRequest(
+      supabase, userId, data.source_username, obfuscated,
+    );
     if (error) throw new Error(error.message);
 
     const { data: admins } = await supabase
@@ -672,7 +701,7 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
         user_id: admin.user_id,
         type: "scrape_request",
         title: "New Full Import Request",
-        body: "An agent has submitted a full AgentLink import request. Review in Admin → Import Requests.",
+        body: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
         link: "/admin/import-requests",
         read: false,
       });

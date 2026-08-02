@@ -16,14 +16,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { parseAgentLinkXLS } from "@/lib/agentlink-xls-parser";
-import type { ParsedExport } from "@/lib/agentlink-xls-parser";
-import { adminListAllAgents, adminImportAgentLinkXLS } from "@/lib/admin.functions";
+import { parseBookXLS } from "@/lib/book-import-xls-parser";
+import type { ParsedExport } from "@/lib/book-import-xls-parser";
+import { adminListAllAgents, adminImportBookXLS } from "@/lib/admin.functions";
 import { PageShell } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/csv-import")({
-  head: () => ({ meta: [{ title: "AgentLink Import — Admin" }] }),
-  component: AdminAgentLinkImport,
+  head: () => ({ meta: [{ title: "Book Import — Admin" }] }),
+  component: AdminBookImport,
 });
 
 type Phase = "upload" | "preview" | "options" | "importing" | "done" | "error";
@@ -108,7 +108,7 @@ function UploadZone({ onFile }: { onFile: (f: File) => void }) {
       />
       <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
       <p className="text-base font-medium">Click to upload or drag & drop</p>
-      <p className="text-sm text-muted-foreground mt-1">AgentLink .xlsx export · 5-sheet format</p>
+      <p className="text-sm text-muted-foreground mt-1">The .xlsx export · 5-sheet format</p>
       <p className="text-xs text-muted-foreground mt-3">
         Sheets: Summary · Team Roster · Book of Business · All Clients · Client Notes
       </p>
@@ -298,9 +298,9 @@ function PreviewPanel({
 
 // ── Main page component ────────────────────────────────────────────────────────
 
-function AdminAgentLinkImport() {
+function AdminBookImport() {
   const agentsFn = useServerFn(adminListAllAgents);
-  const importFn = useServerFn(adminImportAgentLinkXLS);
+  const importFn = useServerFn(adminImportBookXLS);
 
   const { data: agentsData } = useQuery({
     queryKey: ["admin-all-agents"],
@@ -352,7 +352,7 @@ function AdminAgentLinkImport() {
 
   const handleFile = async (f: File) => {
     try {
-      const data = await parseAgentLinkXLS(f);
+      const data = await parseBookXLS(f);
       setParsed(data);
       setPhase("preview");
     } catch (e: any) {
@@ -368,10 +368,10 @@ function AdminAgentLinkImport() {
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Upload className="h-6 w-6" /> AgentLink XLS Import
+          <Upload className="h-6 w-6" /> Spreadsheet Import
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload an exported AgentLink .xlsx file to import a full agent book of business.
+          Upload an exported The .xlsx file to import a full agent book of business.
         </p>
       </div>
 

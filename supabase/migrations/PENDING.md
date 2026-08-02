@@ -13,7 +13,7 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-_Nothing pending. The eight queued on 2 Aug 2026 — contracting-ops-requests,
-ensure-assigned-contract-status, scope-layer, analytics-authorization,
-pending-agents, nova-conversations, help-desk and agency-resources — are all
-applied._
+- `20260802160000_rename-import-credential-columns.sql`
+- `20260802170000_debrand-seeded-resource-content.sql`
+
+The eight queued earlier on 2 Aug 2026 are all applied.

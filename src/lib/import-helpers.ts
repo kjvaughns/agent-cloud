@@ -144,7 +144,7 @@ export async function detectDuplicatePolicy(
   return data?.id ?? null;
 }
 
-/** Map AgentLink/generic stage strings to pipeline_stage enum */
+/** Map Source stage strings to pipeline_stage enum */
 export function mapStage(raw?: string): string {
   if (!raw) return "new";
   const r = raw.toLowerCase();
@@ -154,7 +154,7 @@ export function mapStage(raw?: string): string {
   return "new";
 }
 
-/** Map AgentLink temperature strings or numeric scores to temperature enum */
+/** Map Source temperature strings or numeric scores to temperature enum */
 export function mapTemperature(raw?: string | number): string {
   if (raw === undefined || raw === null || raw === "") return "cold";
   const r = String(raw).toLowerCase();
@@ -163,7 +163,7 @@ export function mapTemperature(raw?: string | number): string {
   return "cold";
 }
 
-/** Map AgentLink policy status strings to internal policy status values */
+/** Map Source policy status strings to internal policy status values */
 export function mapPolicyStatus(raw?: string): string {
   if (!raw) return "active";
   const r = raw.toLowerCase();

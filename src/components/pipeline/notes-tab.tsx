@@ -25,6 +25,17 @@ const CHIP_BASE = "px-2.5 py-1 rounded-full border text-[11px] font-medium trans
 const CHIP_INACTIVE = "bg-card text-muted-foreground hover:bg-muted";
 
 /** Try to parse the body into a structured value for the given category. */
+/**
+ * The marker an imported note carries.
+ *
+ * Notes imported before the rename are stored with the old wording, and the
+ * text lives in the row rather than in a column, so both spellings have to be
+ * recognised for as long as those notes exist — which is forever. Renaming
+ * only the writer would have left every previously imported note showing its
+ * own marker as if it were part of what somebody typed.
+ */
+const IMPORT_PREFIX = /^\[Imported from (?:AgentLink|a previous platform)\]\s*/;
+
 function parseStructured(category: Category, body: string): Record<string, unknown> | null {
   const text = body.replace(/<[^>]+>/g, " ").trim(); // strip HTML
   if (!text) return null;
@@ -76,11 +87,11 @@ function categoriesOf(entry: any): Set<Category> {
 
 function isImported(entry: any): boolean {
   return entry?.contact_type === "imported_note"
-    || (typeof entry?.note === "string" && entry.note.startsWith("[Imported from AgentLink]"));
+    || (typeof entry?.note === "string" && IMPORT_PREFIX.test(entry.note));
 }
 
 function stripImportPrefix(note: string): string {
-  return (note ?? "").replace(/^\[Imported from AgentLink\]\s*/, "");
+  return (note ?? "").replace(IMPORT_PREFIX, "");
 }
 
 
@@ -239,7 +250,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
         <div className="text-xs font-semibold flex flex-wrap items-center gap-1">
           {isImported(entry) && (
             <span className="px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide bg-primary/15 text-primary border-primary/30">
-              AgentLink Import
+              Book Import
             </span>
           )}
           {Array.from(cats).map((c) => (
