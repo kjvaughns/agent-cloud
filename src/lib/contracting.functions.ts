@@ -310,7 +310,11 @@ export const listWorkInbox = createServerFn({ method: "GET" })
       return a ? `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim() : "Agent";
     };
 
-    const items: { id: string; agent: string; description: string; priority: "high"|"normal"; kind: string }[] = [];
+    const items: {
+      id: string; agent: string; description: string;
+      priority: "high" | "normal"; kind: string;
+      agent_id?: string; carrier_id?: string;
+    }[] = [];
 
     if (downlineIds.length) {
       const { data: pending } = await supabase
@@ -343,12 +347,16 @@ export const listWorkInbox = createServerFn({ method: "GET" })
     if (downlineIds.length) {
       const { data: commReqs } = await supabase
         .from("commission_level_requests")
-        .select("id,agent_id,message,carriers(name)")
+        .select("id,agent_id,carrier_id,message,carriers(name)")
         .in("agent_id", downlineIds)
         .eq("status", "pending");
       (commReqs ?? []).forEach((r: any) => items.push({
         id: r.id,
         agent: nameOf(r.agent_id),
+        // Carried so the inbox can send you somewhere useful. A row that only
+        // knows how to describe itself can only ever be read.
+        agent_id: r.agent_id,
+        carrier_id: r.carrier_id,
         description: `Commission level request — ${r.carriers?.name ?? "carrier"}${r.message ? `: ${r.message}` : ""}`,
         priority: "normal",
         kind: "commission_request",
@@ -356,6 +364,65 @@ export const listWorkInbox = createServerFn({ method: "GET" })
     }
 
     return { items };
+  });
+
+/**
+ * Answer a commission level request.
+ *
+ * There was no way to. The table shipped with two policies — the agent's own
+ * row, and a read for their direct upline — so a request could be raised and
+ * seen and never resolved by anybody except the agent who raised it, which is
+ * not a decision they should be making about their own commission. Every
+ * request ever made was still sitting in somebody's Work Inbox.
+ *
+ * Approving does not set the level. Setting a level is the matrix's job and it
+ * needs a carrier, a percentage and a name that matches a comp grid exactly —
+ * far more than this request carries. This closes the question; the assign
+ * dialog answers it.
+ */
+export const resolveCommissionLevelRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      decision: z.enum(["approved", "declined"]),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    const { data: updated, error } = await supabase
+      .from("commission_level_requests")
+      .update({
+        status: data.decision,
+        resolved_at: new Date().toISOString(),
+        resolved_by: userId,
+      })
+      .eq("id", data.id)
+      .eq("status", "pending")
+      .select("id");
+
+    // `resolved_at`/`resolved_by` arrive with 20260802201000. Before it lands,
+    // write the status alone rather than failing the whole action.
+    if (error?.code === "42703") {
+      const { data: retry, error: retryErr } = await supabase
+        .from("commission_level_requests")
+        .update({ status: data.decision })
+        .eq("id", data.id).eq("status", "pending").select("id");
+      if (retryErr) throw new Error(retryErr.message);
+      if (!retry?.length) throw new Error("That request has already been answered.");
+      return { ok: true };
+    }
+    if (error) throw new Error(error.message);
+
+    // Nothing updated means either somebody answered it first, or RLS refused —
+    // the update policy arrives with the same migration.
+    if (!updated?.length) {
+      throw new Error(
+        "That request couldn't be answered — it may already have been resolved, or your account may not have permission.",
+      );
+    }
+    return { ok: true };
   });
 
 // ---------- transfers ----------
