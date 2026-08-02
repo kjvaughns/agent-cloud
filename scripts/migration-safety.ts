@@ -236,6 +236,10 @@ const REVIEWED: Record<string, string> = {
     "escalateTicket checks for the scope column first and refuses with a sentence",
   "src/lib/resources-admin.functions.ts:can_manage_resources":
     "an error sets pendingSetup, and the page says the workspace is still updating",
+  "src/lib/import.functions.ts:import_proposals":
+    "isMissingTable turns 42P01 into pendingSetup on every read and SETUP_PENDING on every write; the Import page shows a waiting-on-setup panel instead of a stack trace",
+  "src/lib/import.functions.ts:document_intake.user_note":
+    "createImportBatch retries the insert without the column on 42703, and listImports selects * so a missing column cannot fail the whole query",
 };
 
 // ── Run ─────────────────────────────────────────────────────────────────────
