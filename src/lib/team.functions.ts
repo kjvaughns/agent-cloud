@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  complianceLevel, daysSince, lifecycleStage, riskFlags,
+  type AgentFacts, type ComplianceLevel, type LifecycleStage, type RiskFlag,
+} from "@/lib/team-roster";
 
 export type TeamAgent = {
   id: string;
@@ -86,6 +90,135 @@ export const getTeamDownline = createServerFn({ method: "GET" })
     return (rpcData ?? []) as TeamAgent[];
   });
 
+
+export type RosterAgent = TeamAgent & {
+  stage: LifecycleStage;
+  compliance: ComplianceLevel;
+  flags: RiskFlag[];
+  active_carriers: number;
+  days_since_sale: number | null;
+};
+
+/**
+ * The roster, with the two things the RPC does not carry.
+ *
+ * `get_team_downline` already returns contracts_count, policies_count,
+ * premium_total, completion_pct and missing[] — most of what a useful row needs
+ * was on the wire all along, and nothing rendered it. What is missing is
+ * compliance (licence and E&O expiry) and when they last submitted.
+ *
+ * Gathered as one batched query per signal over all agents at once. Deliberately
+ * NOT `getAgentOnboarding` in a loop: that is one round trip per agent and eight
+ * queries inside each, which on a fifty-agent roster is four hundred queries to
+ * paint a list.
+ */
+export const getTeamRoster = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { fullCompany?: boolean } | undefined) =>
+    z.object({ fullCompany: z.boolean().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+
+    const rpc = data.fullCompany
+      ? supabase.rpc("get_team_downline_for", { p_root_id: userId })
+      : supabase.rpc("get_team_downline");
+    const { data: rows, error } = await rpc;
+    if (error) throw new Error(error.message);
+
+    const agents = (rows ?? []) as TeamAgent[];
+    const ids = agents.map((a) => a.id);
+    if (ids.length === 0) return { rows: [] as RosterAgent[] };
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [licences, docs, policies, contracts] = await Promise.all([
+      supabase.from("state_licenses")
+        .select("agent_id, expires_date, status").in("agent_id", ids),
+      // Both spellings. `eo` predates `eo_certificate` and the vocabulary
+      // migration deliberately left it alone, so a reader that checks only one
+      // reports every legacy agent as having no E&O at all.
+      supabase.from("producer_documents")
+        .select("agent_id, doc_type, expiration_date")
+        .in("agent_id", ids).in("doc_type", ["eo", "eo_certificate"]),
+      supabase.from("policies")
+        .select("agent_id, posted_at").in("agent_id", ids)
+        .order("posted_at", { ascending: false }),
+      supabase.from("contract_requests")
+        .select("agent_id, status, activated_at, requested_at").in("agent_id", ids),
+    ]);
+
+    const nextLicence = new Map<string, string>();
+    const liveLicences = new Map<string, number>();
+    for (const l of (licences.data ?? []) as any[]) {
+      if (l.status === "expired" || l.status === "lapsed") continue;
+      if (l.expires_date && l.expires_date < today) continue;
+      liveLicences.set(l.agent_id, (liveLicences.get(l.agent_id) ?? 0) + 1);
+      if (!l.expires_date) continue;
+      const held = nextLicence.get(l.agent_id);
+      // Soonest expiry, because that is the one that will bite first.
+      if (!held || l.expires_date < held) nextLicence.set(l.agent_id, l.expires_date);
+    }
+
+    const eoExpiry = new Map<string, string>();
+    const eoPresent = new Set<string>();
+    for (const d of (docs.data ?? []) as any[]) {
+      eoPresent.add(d.agent_id);
+      if (!d.expiration_date) continue;
+      const held = eoExpiry.get(d.agent_id);
+      // Furthest out, because a renewed certificate supersedes the old one and
+      // the old row is usually still sitting there.
+      if (!held || d.expiration_date > held) eoExpiry.set(d.agent_id, d.expiration_date);
+    }
+
+    const lastSale = new Map<string, string>();
+    for (const p of (policies.data ?? []) as any[]) {
+      if (!p.posted_at) continue;
+      if (!lastSale.has(p.agent_id)) lastSale.set(p.agent_id, p.posted_at);
+    }
+
+    const activeCarriers = new Map<string, number>();
+    const firstContracted = new Map<string, string>();
+    for (const c of (contracts.data ?? []) as any[]) {
+      if (c.status !== "active") continue;
+      activeCarriers.set(c.agent_id, (activeCarriers.get(c.agent_id) ?? 0) + 1);
+      const when = c.activated_at ?? c.requested_at;
+      if (!when) continue;
+      const held = firstContracted.get(c.agent_id);
+      if (!held || when < held) firstContracted.set(c.agent_id, when);
+    }
+
+    const now = Date.now();
+    return {
+      rows: agents.map((a): RosterAgent => {
+        const facts: AgentFacts = {
+          status: a.status,
+          liveLicences: liveLicences.get(a.id) ?? 0,
+          nextLicenceExpiry: nextLicence.get(a.id) ?? null,
+          eoExpiry: eoExpiry.get(a.id) ?? null,
+          eoPresent: eoPresent.has(a.id),
+          activeCarriers: activeCarriers.get(a.id) ?? 0,
+          policiesCount: Number(a.policies_count ?? 0),
+          lastSaleAt: lastSale.get(a.id) ?? null,
+          firstContractedAt: firstContracted.get(a.id) ?? null,
+          // Persistency is a per-agent computation over the whole book and is
+          // not worth 50 extra round trips to paint a list. The Risk tab on the
+          // agent page is where it belongs; this leaves the flag unfired rather
+          // than guessing at it.
+          persistencyPct: null,
+        };
+        const flags = riskFlags(facts, now);
+        return {
+          ...a,
+          stage: lifecycleStage(facts, flags),
+          compliance: complianceLevel(facts, now),
+          flags,
+          active_carriers: facts.activeCarriers,
+          days_since_sale: daysSince(facts.lastSaleAt, now),
+        };
+      }),
+    };
+  });
 
 export const getTeamKpis = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
