@@ -6157,6 +6157,7 @@ export type Database = {
           drivers_license_state: string | null
           email: string | null
           first_name: string | null
+          first_sale_at: string | null
           gender: string | null
           google_oauth_connected: boolean
           id: string
@@ -6209,6 +6210,7 @@ export type Database = {
           drivers_license_state?: string | null
           email?: string | null
           first_name?: string | null
+          first_sale_at?: string | null
           gender?: string | null
           google_oauth_connected?: boolean
           id: string
@@ -6261,6 +6263,7 @@ export type Database = {
           drivers_license_state?: string | null
           email?: string | null
           first_name?: string | null
+          first_sale_at?: string | null
           gender?: string | null
           google_oauth_connected?: boolean
           id?: string
