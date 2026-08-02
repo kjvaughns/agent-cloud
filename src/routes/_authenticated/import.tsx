@@ -17,7 +17,7 @@ import {
   listImports, getImportSummary, listProposals, decideProposals, applyProposals,
   dismissImport, type ImportDoc, type Proposal,
 } from "@/lib/import.functions";
-import { extractGridFromImage } from "@/lib/comp-grid.functions";
+import { extractGrid } from "@/lib/comp-grid.functions";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
 import { clientsFromDocument, contractingRowsFromDocument } from "@/lib/import-extract-rows";
@@ -63,7 +63,7 @@ function ImportPage() {
   const reconcileFn = useServerFn(reconcileImportRows);
   const listFn = useServerFn(listImports);
   const dismissFn = useServerFn(dismissImport);
-  const extractGridFn = useServerFn(extractGridFromImage);
+  const extractGridFn = useServerFn(extractGrid);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],

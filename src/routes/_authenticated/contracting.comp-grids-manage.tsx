@@ -15,7 +15,7 @@ import { Upload, Trash2, Loader2, Sparkles, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  listMyGrids, extractGridFromImage, saveGrid, deleteMyGrid, type GridRow,
+  listMyGrids, extractGrid, saveGrid, deleteMyGrid, type GridRow,
 } from "@/lib/comp-grid.functions";
 import { addCarrier } from "@/lib/contracting.functions";
 import { extractDocument, truncationNotice } from "@/lib/document-extract";
@@ -71,7 +71,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
   const [reading, setReading] = useState(false);
   const [notes, setNotes] = useState<string | null>(null);
 
-  const extractFn = useServerFn(extractGridFromImage);
+  const extractFn = useServerFn(extractGrid);
   const saveFn = useServerFn(saveGrid);
   const delFn = useServerFn(deleteMyGrid);
   const addCarrierFn = useServerFn(addCarrier);
@@ -93,6 +93,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
       const out: any = await extractFn({
         data: {
           images: doc.images,
+          text: doc.text || null,
           file_name: file.name,
           carrier_id: carrierId || null,
           carrier_name: carriers.find((c: any) => c.id === carrierId)?.name ?? null,
@@ -260,11 +261,11 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
                     ? <Loader2 className="h-5 w-5 animate-spin text-primary" />
                     : <Upload className="h-5 w-5 text-muted-foreground" />}
                   <span className="text-xs text-muted-foreground">
-                    {reading ? "Reading the grid…" : "PDF, photo or screenshot"}
+                    {reading ? "Reading the grid…" : "PDF, photo, screenshot or spreadsheet"}
                   </span>
                   <input
                     type="file"
-                    accept="application/pdf,image/*"
+                    accept="application/pdf,image/*,.csv,.xlsx,.xls"
                     className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.currentTarget.value = ""; }}
                   />

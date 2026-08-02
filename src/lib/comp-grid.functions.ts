@@ -126,7 +126,7 @@ Rules:
 - confidence reflects how legible the document was. Be honest — a blurry photo
   should score low.`;
 
-export const extractGridFromImage = createServerFn({ method: "POST" })
+export const extractGrid = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
@@ -141,10 +141,16 @@ export const extractGridFromImage = createServerFn({ method: "POST" })
        * mention. The pages the extraction never saw disappeared.
        */
       images: z.array(z.string().min(32).max(12_000_000)).max(8).nullable().optional(),
+      /**
+       * Spreadsheet or CSV contents, when the grid arrived as a table rather
+       * than a picture of one. Rate cards come both ways, and a workbook sent
+       * as an image is not readable at all.
+       */
+      text: z.string().max(200_000).nullable().optional(),
       file_name: z.string().max(255),
       carrier_id: z.string().uuid().nullable().optional(),
       carrier_name: z.string().max(120).nullable().optional(),
-    }).refine((v) => Boolean(v.image) || (v.images?.length ?? 0) > 0, {
+    }).refine((v) => Boolean(v.image) || (v.images?.length ?? 0) > 0 || Boolean(v.text), {
       message: "Nothing readable in that file",
     }).parse(d)
   )
@@ -181,6 +187,7 @@ export const extractGridFromImage = createServerFn({ method: "POST" })
                   ? `Extract the commission grid from this ${pages.length}-page document. Products continue across pages; return every one you find.`
                   : "Extract the commission grid from this document.",
               },
+              ...(data.text ? [{ type: "text" as const, text: data.text.slice(0, 150_000) }] : []),
               ...pages.map((url) => ({ type: "image_url" as const, image_url: { url } })),
             ],
           },
