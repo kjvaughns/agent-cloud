@@ -22,7 +22,7 @@ async function requireAdminOrManager(supabase: any, userId: string) {
   if (!data) throw new Error("Forbidden: admin or manager role required");
 }
 
-// ─── AgentLink multi-sheet detection & parser ────────────────────────────────
+// ─── Multi-sheet detection & parser ────────────────────────────────
 
 const AL_SHEET_NAMES = ["Team Roster", "Book of Business", "All Clients", "Client Notes"];
 
@@ -82,7 +82,7 @@ type ParsedNote = {
   content: string;
 };
 
-type AgentLinkExport = {
+type BookExport = {
   roster: ParsedRoster[];
   clients: ParsedClient[];
   policies: ParsedPolicy[];
@@ -168,7 +168,7 @@ function findHeaderRow(rows: any[][], required: string[]): number {
   return 0;
 }
 
-async function parseAgentLinkExport(file_base64: string): Promise<AgentLinkExport | null> {
+async function parseBookExport(file_base64: string): Promise<BookExport | null> {
   const XLSX = await import("xlsx");
   const buf = Buffer.from(file_base64, "base64");
   let wb;
@@ -280,7 +280,7 @@ async function parseAgentLinkExport(file_base64: string): Promise<AgentLinkExpor
 // ─── AI fallback (single-sheet / unknown formats) ────────────────────────────
 
 const EXTRACTION_SYSTEM_PROMPT = `You are a data extraction assistant for a life-insurance CRM migration tool.
-You will be given an export from AgentLink (agentlink.insuracloud.ai) — could be a spreadsheet text dump, CSV, PDF, or screenshot.
+You will be given an export from an agency management platform — could be a spreadsheet text dump, CSV, PDF, or screenshot.
 
 Extract every client/contact you can find and return STRICT JSON only — no prose, no markdown fences.
 
@@ -428,13 +428,13 @@ export const createAdminImportJob = createServerFn({ method: "POST" })
     if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`);
 
     try {
-      // Try deterministic AgentLink multi-sheet parser first
+      // Try deterministic Multi-sheet parser first
       let extracted: any;
-      const al = await parseAgentLinkExport(data.file_base64).catch(() => null);
+      const al = await parseBookExport(data.file_base64).catch(() => null);
       if (al) {
         extracted = {
           format: "agentlink_multisheet",
-          source_description: "AgentLink multi-sheet export (Summary, Team Roster, Book of Business, All Clients, Client Notes)",
+          source_description: "multi-sheet export (Summary, Team Roster, Book of Business, All Clients, Client Notes)",
           counts: {
             roster: al.roster.length,
             clients: al.clients.length,
@@ -543,7 +543,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             user_id: userId,
             type: "missing_team_member",
             title: "Team member not on Agent Cloud",
-            description: `${r.first_name} ${r.last_name} (${r.email}) was in your AgentLink roster but has no account yet. Consider sending them an invite.`,
+            description: `${r.first_name} ${r.last_name} (${r.email}) was in your the roster but has no account yet. Consider sending them an invite.`,
             read: false,
           });
         }
@@ -870,7 +870,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
     await supabase.from("notifications").insert({
       user_id: targetAgent,
       type: "import_complete",
-      title: "Your AgentLink book has been imported",
+      title: "Your book has been imported",
       description: `${clientsImported} clients, ${policiesImported} policies, ${notesImported} notes added to your account.${
         pendingAgentsImported ? ` ${pendingAgentsImported} downline agents pre-seeded.` : ""
       }`,
@@ -964,7 +964,7 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
 
     const ex = job.extracted_json ?? {};
     if (ex.format !== "agentlink_multisheet") {
-      throw new Error("Replay only supports AgentLink multi-sheet jobs");
+      throw new Error("Replay only supports multi-sheet jobs");
     }
 
     const targetAgent = job.target_agent_id as string;

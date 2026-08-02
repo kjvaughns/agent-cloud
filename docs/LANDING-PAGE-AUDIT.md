@@ -40,7 +40,7 @@ Consequence: **the primary conversion action must change** from "join waitlist" 
 | 4 | **"Nova reads your pipeline, your policies, your carrier grids, and your calendar — then does the work"** | `:517` | Overstates autonomy. Nova drafts and summarises; the automation worker (Phase 6) sends email only, gated on org consent. "Does the work" implies autonomous action. |
 | 5 | **"Draft the SMS"** (Nova) | `:517` | SMS cannot be sent. Drafting one is real; the sentence implies delivery. |
 | 6 | **"Automations … on autopilot"** / birthday cards, anniversary touches | `:420`, `:522-523` | Now **partly true** after Phase 6 — the worker runs and is idempotent. But it sends **email only**, and only when the agency has enabled automated messaging. Needs qualifying, not deleting. |
-| 7 | **"One-click carrier contracting with SureLC + AgentLink"** | `:485` | SureLC SSO exists (`surelc.functions.ts`), AgentLink import exists. "One-click contracting" overstates both. |
+| 7 | **"One-click carrier contracting with SureLC + a previous agency platform"** | `:485` | SureLC SSO exists (`surelc.functions.ts`), a previous agency platform import exists. "One-click contracting" overstates both. |
 | 8 | **"White-label agency branding on every screen"** | `:504` | Was false at audit time; **now true** after Phase 6 (accent tokens, custom domain, logo). Keep, but scope it to the White Label plan. |
 | 9 | **"Voicemail drops"**, **"Quote and case-design recommendations"** | `:418`, `:524` | Case design exists (`back-office.functions.ts`). Voicemail drops do not. |
 
@@ -473,5 +473,5 @@ Steps 1 and 2 are the launch-blocking ones.
 1. **Stripe keys before launch?** Decides `Start Free` vs `Request a Demo` as the primary CTA. Everything in F depends on this.
 2. **Is White Label pricing approved for public display?** §5 says keep it configurable and do not publish unapproved pricing.
 3. **Do real testimonials or reference agencies exist?** If not, section 16 renders nothing — which is correct, not a gap.
-4. **Integration status** — I can label SureLC and AgentLink from the code, but *Available vs Beta* is a business judgment about reliability, not a code fact.
+4. **Integration status** — I can label SureLC and a previous agency platform from the code, but *Available vs Beta* is a business judgment about reliability, not a code fact.
 5. **Legal pages** — privacy, terms, cookie policy do not exist. Needed before a public launch that collects leads.

@@ -290,7 +290,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
 
                       A contract could reach "active" without being active —
                       adding a carrier you already hold writes it directly,
-                      and the AgentLink import provisions them that way — and
+                      and the book import provisions them that way — and
                       once it was active My Contracts offered nothing at all:
                       no status control, and the delete button was hidden on
                       exactly that status. Active was a one-way door. */}

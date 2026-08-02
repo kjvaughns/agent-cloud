@@ -17,7 +17,7 @@ export const Route = createFileRoute("/admin/migration")({
 });
 
 const STEPS = [
-  "Connect AgentLink",
+  "Connect your previous platform",
   "Review Imported Agents",
   "Configure Commission Templates",
   "Send Invites",
@@ -67,14 +67,14 @@ function AdminMigration() {
   const [inviteResults, setInviteResults] = useState<any[]>([]);
 
   async function importAgents() {
-    if (!apiKey.trim()) { toast.error("Enter your AgentLink API key first"); return; }
+    if (!apiKey.trim()) { toast.error("Enter your API key first"); return; }
     setImporting(true);
     try {
       const res = await fetch("https://agentlink.insuracloud.ai/api/v1/team-analytics", {
         headers: { "x-api-key": apiKey.trim(), "Accept": "application/json" },
       });
-      if (res.status === 401) throw new Error("Invalid API key. Generate one at AgentLink → Profile → Integrations.");
-      if (!res.ok) throw new Error(`AgentLink returned ${res.status}`);
+      if (res.status === 401) throw new Error("Invalid API key. Generate one in your previous platform, under Profile → Integrations.");
+      if (!res.ok) throw new Error(`The import API returned ${res.status}`);
       const data = await res.json();
       const rawAgents = Array.isArray(data) ? data : (data.agents ?? data.team ?? data.data ?? []);
       const mapped: ImportedAgent[] = rawAgents
@@ -87,10 +87,10 @@ function AdminMigration() {
           policies_count: a.policies_count ?? a.totalPolicies ?? 0,
           selected:      true,
         }));
-      if (mapped.length === 0) throw new Error("No agents found in AgentLink team roster");
+      if (mapped.length === 0) throw new Error("No agents found in the team roster");
       setAgents(mapped);
       setStep(1);
-      toast.success(`Found ${mapped.length} agents in your AgentLink team`);
+      toast.success(`Found ${mapped.length} agents in your the team roster`);
     } catch (e: any) {
       toast.error(e.message ?? "Import failed");
     } finally {
@@ -123,21 +123,21 @@ function AdminMigration() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Team Migration Wizard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Import your existing team from AgentLink and onboard them to Agent Cloud</p>
+        <p className="text-sm text-muted-foreground mt-1">Import your existing team from your previous platform and onboard them to Agent Cloud</p>
       </div>
 
       <div className="overflow-x-auto pb-2">
         <StepIndicator current={step} />
       </div>
 
-      {/* Step 0: Connect AgentLink */}
+      {/* Step 0: Connect your previous platform */}
       {step === 0 && (
         <Card className="max-w-lg">
-          <CardHeader><CardTitle className="text-base">Step 1 — Connect AgentLink</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Step 1 — Connect your previous platform</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">Enter your AgentLink API key to import your full book of business and team hierarchy.</p>
+            <p className="text-sm text-muted-foreground">Enter your API key to import your full book of business and team hierarchy.</p>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">AgentLink API Key</label>
+              <label className="text-xs text-muted-foreground mb-1 block">API Key</label>
               <Input
                 type="password"
                 placeholder="al_live_..."

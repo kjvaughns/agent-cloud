@@ -19,7 +19,7 @@ import { phone as fmtPhone, money } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
 import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
-import { AgentLinkImportDialog } from "@/components/pipeline/agentlink-import-dialog";
+import { BookImportDialog } from "@/components/pipeline/book-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
 import { PageShell, HeroBand } from "@/components/page-shell";
 import { ScopeToggle } from "@/components/scope-toggle";
@@ -103,7 +103,7 @@ function PipelinePage() {
   useEffect(() => { if (clientParam) setOpenId(clientParam); }, [clientParam]);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [agentLinkOpen, setAgentLinkOpen] = useState(false);
+  const [bookImportOpen, setBookImportOpen] = useState(false);
 
   const updateFn = useServerFn(updateClient);
   const stageMutation = useMutation({
@@ -197,8 +197,8 @@ function PipelinePage() {
                 <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or phone..." className="pl-9 h-9" />
               </div>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setAgentLinkOpen(true)}>
-                <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">AgentLink</span>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setBookImportOpen(true)}>
+                <Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import book</span>
               </Button>
               <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
                 <Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import</span>
@@ -252,7 +252,7 @@ function PipelinePage() {
       <ClientDetailDrawer clientId={openId} onClose={() => setOpenId(null)} />
       <AddClientDialog open={addOpen} onOpenChange={setAddOpen} />
       <ImportClientsDialog open={importOpen} onOpenChange={setImportOpen} />
-      <AgentLinkImportDialog open={agentLinkOpen} onOpenChange={setAgentLinkOpen} />
+      <BookImportDialog open={bookImportOpen} onOpenChange={setBookImportOpen} />
     </PageShell>
   );
 }

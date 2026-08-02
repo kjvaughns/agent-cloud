@@ -155,7 +155,7 @@ export function AIImportDialog({
         {phase === "pick" && (
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Upload any file exported from AgentLink (XLS, CSV, PDF, or screenshot). AI will extract clients,
+              Upload any file exported from Spreadsheet (XLS, CSV, PDF, or screenshot). AI will extract clients,
               policies, and notes and let you preview before saving to <b>{targetAgent.name}</b>'s account.
             </p>
             <DropZone file={file} onFile={setFile} />

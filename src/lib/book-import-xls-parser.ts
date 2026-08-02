@@ -68,7 +68,7 @@ export interface ClientRecord {
 
 export interface ClientNote {
   clientName: string;
-  agentlinkClientId: string;
+  bookImportClientId: string;
   date: string;
   author: string;
   noteType: string;
@@ -97,7 +97,7 @@ function mapStage(raw: string): string {
   return "new";
 }
 
-export async function parseAgentLinkXLS(file: File): Promise<ParsedExport> {
+export async function parseBookXLS(file: File): Promise<ParsedExport> {
   const buffer = await file.arrayBuffer();
   const wb = XLSX.read(buffer, { type: "array", cellDates: true });
   const errors: string[] = [];
@@ -256,7 +256,7 @@ export async function parseAgentLinkXLS(file: File): Promise<ParsedExport> {
       if (!clientName) continue;
       result.clientNotes.push({
         clientName,
-        agentlinkClientId: String(r[1] ?? "").trim(),
+        bookImportClientId: String(r[1] ?? "").trim(),
         date: String(r[2] ?? "").trim(),
         author: String(r[3] ?? "").trim(),
         noteType: String(r[4] ?? "general").trim(),

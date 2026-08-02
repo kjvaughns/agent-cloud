@@ -13,17 +13,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
-  getAgentLinkKeyStatus,
-  saveAgentLinkKey,
-  removeAgentLinkKey,
-  testAgentLinkConnection,
-  basicImportFromAgentLink,
+  getBookImportKeyStatus,
+  saveBookImportKey,
+  removeBookImportKey,
+  testImportConnection,
+  basicImportFromBookImport,
   submitFullImportRequest,
-} from "@/lib/agentlink.functions";
+} from "@/lib/book-import.functions";
 
 type Phase = "loading" | "no_key" | "has_key" | "basic_running" | "basic_done" | "full_form" | "full_sent" | "error";
 
-export function AgentLinkImportDialog({
+export function BookImportDialog({
   open,
   onOpenChange,
 }: {
@@ -45,14 +45,14 @@ export function AgentLinkImportDialog({
   const [showFullPass, setShowFullPass] = useState(false);
 
   // Status query — fires when dialog opens
-  const statusFn = useServerFn(getAgentLinkKeyStatus);
+  const statusFn = useServerFn(getBookImportKeyStatus);
   const {
     data: status,
     isLoading: statusLoading,
     isError: statusError,
     refetch: refetchStatus,
   } = useQuery({
-    queryKey: ["agentlink-status"],
+    queryKey: ["book-import-status"],
     queryFn: () => statusFn(),
     enabled: open,
     staleTime: 0,
@@ -83,10 +83,10 @@ export function AgentLinkImportDialog({
     return () => clearTimeout(t);
   }, [open]);
 
-  const saveFn = useServerFn(saveAgentLinkKey);
-  const removeFn = useServerFn(removeAgentLinkKey);
-  const testFn = useServerFn(testAgentLinkConnection);
-  const importFn = useServerFn(basicImportFromAgentLink);
+  const saveFn = useServerFn(saveBookImportKey);
+  const removeFn = useServerFn(removeBookImportKey);
+  const testFn = useServerFn(testImportConnection);
+  const importFn = useServerFn(basicImportFromBookImport);
   const fullImportFn = useServerFn(submitFullImportRequest);
 
   const saveMut = useMutation({
@@ -129,8 +129,8 @@ export function AgentLinkImportDialog({
 
   const fullImportMut = useMutation({
     mutationFn: () => fullImportFn({ data: {
-      agentlink_username: fullUser.trim(),
-      agentlink_password: fullPass,
+      source_username: fullUser.trim(),
+      source_password: fullPass,
       notes: fullNotes.trim() || undefined,
     }}),
     onSuccess: () => setPhase("full_sent"),
@@ -155,14 +155,14 @@ export function AgentLinkImportDialog({
         {phase === "no_key" && (
           <>
             <DialogHeader>
-              <DialogTitle>Connect AgentLink</DialogTitle>
+              <DialogTitle>Connect your previous platform</DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Paste your AgentLink API key to import your book of business.
+                Paste your API key to import your book of business.
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                Generate your key in AgentLink → Profile → Integrations → API Access
+                Generate your key in your previous platform, under Profile → Integrations → API Access
               </div>
               <div className="space-y-1">
                 <Label>API Key</Label>
@@ -212,7 +212,7 @@ export function AgentLinkImportDialog({
         {phase === "has_key" && (
           <>
             <DialogHeader>
-              <DialogTitle>AgentLink Connected</DialogTitle>
+              <DialogTitle>Connected</DialogTitle>
             </DialogHeader>
             <div className="py-2 space-y-4">
               <div className="flex items-center gap-3 p-3 rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
@@ -322,12 +322,12 @@ export function AgentLinkImportDialog({
             <DialogHeader>
               <DialogTitle>Request Full Import</DialogTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Our team will securely log into AgentLink and import your full book of business, including complete policy history.
+                Our team will securely log into your previous platform and import your full book of business, including complete policy history.
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1">
-                <Label>AgentLink Email</Label>
+                <Label>Email</Label>
                 <Input
                   type="email"
                   value={fullUser}
@@ -336,13 +336,13 @@ export function AgentLinkImportDialog({
                 />
               </div>
               <div className="space-y-1">
-                <Label>AgentLink Password</Label>
+                <Label>Password</Label>
                 <div className="relative">
                   <Input
                     type={showFullPass ? "text" : "password"}
                     value={fullPass}
                     onChange={(e) => setFullPass(e.target.value)}
-                    placeholder="Your AgentLink password"
+                    placeholder="Your password on that platform"
                     className="pr-10"
                   />
                   <button

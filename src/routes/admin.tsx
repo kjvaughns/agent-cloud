@@ -42,7 +42,7 @@ const adminNav = [
   { title: "Settings",         url: "/admin/settings",     icon: Settings },
   { title: "Migration",        url: "/admin/migration",    icon: GitMerge },
   { title: "DB Migrations",    url: "/admin/migrations",   icon: Database },
-  { title: "AgentLink Import", url: "/admin/csv-import",   icon: Upload },
+  { title: "Book Import", url: "/admin/csv-import",   icon: Upload },
   { title: "Import Requests",  url: "/admin/import-requests", icon: Download },
 ];
 
