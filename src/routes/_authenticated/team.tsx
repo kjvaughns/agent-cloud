@@ -32,7 +32,7 @@ import { adminMoveAgent } from "@/lib/admin.functions";
 import { OnboardingPage } from "@/components/onboarding/onboarding-panel";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { AgencyTeamPage } from "./settings.roles";
+import { AgencyTeamPage } from "@/components/agency-team-page";
 import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";
