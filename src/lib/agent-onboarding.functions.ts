@@ -38,6 +38,24 @@ export type OnboardingStep = {
   waiting?: boolean;
   href: string;
   cta: string;
+  /**
+   * Who can actually do this step.
+   *
+   * `agent` means only they can: bank details, the background disclosure, their
+   * own legal name and date of birth. An agency owner must not attest to those
+   * on somebody else's behalf, and the CTA becomes "Remind agent" rather than
+   * pretending otherwise.
+   *
+   * `owner` means the agency legitimately does it — an E&O certificate or an
+   * AML certificate is a document the agency collects and holds, and chasing
+   * the agent for a PDF that is already in the owner's inbox is the workflow
+   * this screen exists to remove.
+   *
+   * Declared on the step rather than inferred in the UI, because the UI has no
+   * way to know which is which and guessing would put an owner's name on an
+   * agent's disclosure.
+   */
+  actor: "agent" | "owner";
 };
 
 const REQUIRED_DOC_TYPES = ["eo", "eo_certificate"];
@@ -156,6 +174,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const steps: OnboardingStep[] = [
       {
         key: "join",
+        actor: "owner",
         title: `${firstName} accepts the invite`,
         why: "Nothing else can start until they have an account.",
         done: joined,
@@ -165,6 +184,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "identity",
+        actor: "agent",
         title: "Fill in the details carriers ask for",
         why: "Legal name, NPN, date of birth and address. Every carrier packet needs these, and a missing one stops all of them at once.",
         done: identityDone,
@@ -173,6 +193,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "licence",
+        actor: "owner",
         title: "Add a state licence",
         why: "They cannot be appointed anywhere without one.",
         done: licenceDone,
@@ -181,6 +202,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "documents",
+        actor: "owner",
         title: eoUploaded && !eoApproved ? "Approve the E&O certificate" : "Upload the E&O certificate",
         why: eoUploaded && !eoApproved
           ? "It is uploaded but not reviewed yet, so it does not count toward contracting."
@@ -191,6 +213,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "aml",
+        actor: "owner",
         title: "Upload the AML certificate",
         why: "Anti-money-laundering training. Annuity carriers will not appoint without it.",
         done: amlDone,
@@ -199,6 +222,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "identification",
+        actor: "owner",
         title: "Add a driver's licence",
         why: "Carriers use it to verify identity on the application.",
         done: licenceIdDone,
@@ -207,6 +231,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "background",
+        actor: "agent",
         title: "Answer the background questions",
         why: "The producer disclosure. Every carrier packet includes it, and an unanswered one holds up the whole submission.",
         done: backgroundDone,
@@ -215,6 +240,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "banking",
+        actor: "agent",
         title: "Add bank details",
         why: "Where commission gets paid. Nothing is blocked without it, but the first payment is.",
         done: bankingDone,
@@ -223,6 +249,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "contracting",
+        actor: "owner",
         title: contractingStarted ? "Finish the carrier requests" : "Request a carrier contract",
         why: needsAgent
           ? "A carrier sent something back, or is waiting on information only they can supply."
@@ -237,6 +264,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       },
       {
         key: "ready",
+        actor: "owner",
         title: "Ready to sell",
         why: "Licensed, appointed and cleared to write in at least one state.",
         done: readyToSell || contractingLive,
@@ -251,6 +279,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     if (needsTransfer) {
       steps.splice(2, 0, {
         key: "transfer",
+        actor: "owner",
         title: "Submit the carrier release",
         why: "Their previous upline has to release them before these carriers will contract them. Everything after this waits on it.",
         done: false,

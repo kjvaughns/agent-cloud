@@ -655,6 +655,69 @@ export const listProducerDocuments = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Record a document on an agent's behalf.
+ *
+ * An agency legitimately holds an agent's E&O certificate, AML certificate or
+ * ID — they arrive by email long before the agent thinks to upload them, and
+ * making the owner chase a PDF already sitting in their inbox is the busywork
+ * the Getting Ready screen exists to remove.
+ *
+ * Deliberately restricted to those three. Banking details and the background
+ * disclosure are the agent's own attestation and are not in this list at any
+ * permission level — an owner filing a background disclosure under somebody
+ * else's name is not a convenience, it is a forged record. Those steps say
+ * "Remind agent" instead.
+ */
+export const uploadDocumentForAgent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    agent_id: z.string().uuid(),
+    doc_type: z.enum(["eo_certificate", "aml_certificate", "government_id", "pdb_report"]),
+    storage_path: z.string().trim().min(1).max(500),
+    file_name: z.string().trim().min(1).max(200),
+    expiration_date: z.string().max(10).nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await requireCapability(
+      userId, ["contracting_manage_licenses", "contracting_manage_carriers"],
+      "You don't have permission to file documents for another agent.",
+    );
+    // The target has to be in the caller's agency, not merely a valid uuid.
+    await assertSameOrg(userId, data.agent_id);
+
+    const { data: saved, error } = await supabaseAdmin
+      .from("producer_documents")
+      .insert({
+        agent_id: data.agent_id,
+        organization_id: orgId,
+        doc_type: data.doc_type,
+        file_url: data.storage_path,
+        storage_path: data.storage_path,
+        file_name: data.file_name,
+        expiration_date: data.expiration_date ?? null,
+        // Filed by staff who have it in hand, which is a stronger claim than an
+        // agent self-uploading — but not a review. It still goes through the
+        // queue.
+        review_status: "uploaded",
+        uploaded_by: userId,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!saved?.id) throw new Error("The document could not be filed.");
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "document.uploaded_for_agent",
+      recordType: "producer_documents", recordId: saved.id,
+      subjectAgentId: data.agent_id,
+      next: { doc_type: data.doc_type, file_name: data.file_name },
+    });
+
+    return { ok: true, id: saved.id as string };
+  });
+
 export const reviewDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({
