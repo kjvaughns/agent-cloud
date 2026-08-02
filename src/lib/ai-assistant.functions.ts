@@ -13,6 +13,13 @@ type Ctx = { supabase: any; userId: string };
  * leaving the page, and she can see the agent's own book rather than
  * answering from general knowledge about life insurance.
  *
+ * Memory is best-effort on purpose. `nova_conversations` and `nova_messages`
+ * arrive with a migration, and code is deployed before migrations are
+ * applied — so every write here tolerates the tables not being there yet and
+ * falls back to what Nova was before: a real conversation that does not
+ * outlive the page. Answering is the feature; remembering is an improvement
+ * to it, and an improvement must not be able to take the feature down.
+ *
  * How much history goes to the model is capped. A conversation that ran all
  * afternoon should not send an afternoon of tokens on every message, and the
  * last twenty turns is more than enough to hold a thread.
@@ -86,22 +93,28 @@ export const askAiAssistant = createServerFn({ method: "POST" })
       if (!existing) conversationId = null;
     }
     if (!conversationId) {
-      const { data: created, error } = await supabase
+      const { data: created } = await supabase
         .from("nova_conversations")
         .insert({ agent_id: userId, title: titleFrom(data.message) })
         .select("id")
         .maybeSingle();
-      if (error || !created) throw new Error(error?.message ?? "Could not start a conversation");
-      conversationId = created.id;
+      // Deliberately not fatal. These two tables arrive with a migration, and
+      // code reaches production before a migration is applied — throwing here
+      // took Nova's chat out entirely for that window, when the thing she is
+      // actually for still works fine without a place to remember it. No
+      // memory is a worse Nova; no Nova is a broken one.
+      conversationId = created?.id ?? null;
     }
 
     const [{ data: prior }, novaContext] = await Promise.all([
-      supabase
-        .from("nova_messages")
-        .select("role, content")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: false })
-        .limit(HISTORY_TURNS),
+      conversationId
+        ? supabase
+            .from("nova_messages")
+            .select("role, content")
+            .eq("conversation_id", conversationId)
+            .order("created_at", { ascending: false })
+            .limit(HISTORY_TURNS)
+        : Promise.resolve({ data: [] }),
       buildNovaContext({ supabase, userId }),
     ]);
 
@@ -110,9 +123,11 @@ export const askAiAssistant = createServerFn({ method: "POST" })
     // The question is recorded before the model is called. If the call fails,
     // what they asked is still there when they come back — losing somebody's
     // words because a gateway had a bad minute is its own small betrayal.
-    await supabase.from("nova_messages").insert({
-      conversation_id: conversationId, role: "user", content: data.message,
-    });
+    if (conversationId) {
+      await supabase.from("nova_messages").insert({
+        conversation_id: conversationId, role: "user", content: data.message,
+      });
+    }
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -139,7 +154,7 @@ export const askAiAssistant = createServerFn({ method: "POST" })
     const j = await res.json();
     const reply: string = j?.choices?.[0]?.message?.content ?? "";
 
-    if (reply) {
+    if (reply && conversationId) {
       await supabase.from("nova_messages").insert({
         conversation_id: conversationId, role: "assistant", content: reply,
       });
