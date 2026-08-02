@@ -9,6 +9,7 @@ import {
   resolveCommissionLevelRequest,
 } from "@/lib/contracting.functions";
 import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses } from "@/lib/surelc.functions";
+import { listCompLevels } from "@/lib/contracting-records.functions";
 import { Card } from "@/components/ui/card";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -621,7 +622,7 @@ function DownlineTab() {
     queryKey: ["contracting","downlineMatrix"],
     queryFn: () => listDownlineMatrix(),
   });
-  const [cell, setCell] = useState<{ agent: any; carrier: any; existing?: any } | null>(null);
+  const [cell, setCell] = useState<{ agent: any; carrier: any; existing?: any; level?: any } | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [carrierFilter, setCarrierFilter] = useState<string>("all");
 
@@ -631,6 +632,11 @@ function DownlineTab() {
   const carriers = data?.carriers ?? [];
   const map = new Map<string, any>();
   (data?.requests ?? []).forEach((r: any) => map.set(`${r.agent_id}:${r.carrier_id}`, r));
+  // Levels live in `agent_commission_levels`, which is what the assign dialog
+  // writes. The cell used to read `contract_requests.commission_level`, a
+  // numeric column nothing fills in — so an assigned level never showed.
+  const levelMap = new Map<string, any>();
+  ((data as any)?.levels ?? []).forEach((l: any) => levelMap.set(`${l.agent_id}:${l.carrier_id}`, l));
 
   if (agents.length === 0) {
     return <Panel className="p-10 text-center text-sm text-muted-foreground">No downline agents yet. Invite agents from the Agent Network page.</Panel>;
@@ -677,10 +683,16 @@ function DownlineTab() {
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
                 {visibleCarriers.map((c: any) => {
                   const existing = map.get(`${a.id}:${c.id}`);
-                  const pct = existing?.commission_level != null ? `${Number(existing.commission_level)}%` : null;
+                  const level = levelMap.get(`${a.id}:${c.id}`);
+                  // The level name is what the commission calculator matches
+                  // against a grid, so show that when there is one; the
+                  // percentage alone cannot tell you whether it will pay.
+                  const pct = level?.commission_level
+                    ? String(level.commission_level)
+                    : level?.assigned_pct != null ? `${Number(level.assigned_pct)}%` : null;
                   return (
                     <td key={c.id} className="px-2 py-2 text-center">
-                      <button onClick={() => setCell({ agent: a, carrier: c, existing })}
+                      <button onClick={() => setCell({ agent: a, carrier: c, existing, level })}
                         className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 hover:ring-2 hover:ring-primary/30 tnum text-xs font-semibold"
                         title={existing ? existing.status : "Not contracted — click to assign"}
                       >
@@ -720,6 +732,28 @@ function DownlineCellDialog({ cell, onClose, onUpdated }:
   const updateFn = useServerFn(updateContractStatus);
   const [levelPct, setLevelPct] = useState<string>("80");
   const [levelName, setLevelName] = useState<string>("");
+
+  /**
+   * The levels this agency has actually defined for this carrier.
+   *
+   * The Level-code box was free text and defaulted to empty, so
+   * `commission_level` landed null on nearly every assignment. That matters
+   * more than it looks: the commission calculator matches a grid's
+   * `level_name` against this value as an **exact string** — no parsing, no
+   * normalising — so a null or a typo means no grid row matches and the agent
+   * is paid nothing rather than paid wrongly. It is the same mechanism behind
+   * a Transamerica grid written in RK8–RK20 while the agents hold "100%".
+   *
+   * Picking from `carrier_comp_levels` is the only place these two comp
+   * systems have ever met.
+   */
+  const { data: compLevelData } = useQuery({
+    queryKey: ["contracting", "compLevels"],
+    queryFn: () => listCompLevels(),
+  });
+  const carrierLevels = (((compLevelData as any)?.rows ?? []) as any[]).filter(
+    (l) => l.org_carriers?.carriers?.name === cell.carrier.name && l.status === "active",
+  );
   const [status, setStatus] = useState<ContractStatus>(cell.existing?.status ?? "requested");
   const [wn, setWn] = useState<string>(cell.existing?.writing_number ?? "");
   const [issue, setIssue] = useState<string>("");
@@ -758,8 +792,41 @@ function DownlineCellDialog({ cell, onClose, onUpdated }:
               <p className="text-xs text-muted-foreground mt-1">Must be at or below your assigned level for this carrier.</p>
             </div>
             <div>
-              <Label>Level code (optional)</Label>
-              <Input value={levelName} onChange={(e) => setLevelName(e.target.value)} className="mt-1" placeholder="L15" />
+              <Label>Level</Label>
+              {carrierLevels.length > 0 ? (
+                <>
+                  <Select
+                    value={levelName}
+                    onValueChange={(v) => {
+                      setLevelName(v);
+                      const picked = carrierLevels.find((l) => l.level_name === v);
+                      if (picked?.commission_pct != null) setLevelPct(String(picked.commission_pct));
+                    }}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Choose a level…" /></SelectTrigger>
+                    <SelectContent>
+                      {carrierLevels.map((l) => (
+                        <SelectItem key={l.id} value={l.level_name}>
+                          {l.level_name}{l.commission_pct != null ? ` — ${Number(l.commission_pct)}%` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    From this agency's levels for {cell.carrier.name}. The name has to
+                    match your comp grid exactly or the calculator finds no rate.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Input value={levelName} onChange={(e) => setLevelName(e.target.value)} className="mt-1" placeholder="L15" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No levels defined for {cell.carrier.name} yet — set them up under
+                    Carriers &amp; Comp and they'll appear here. Typed names must match
+                    your comp grid exactly.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         ) : (

@@ -242,7 +242,23 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
       requests = cr ?? [];
     }
 
-    return { agents: agents ?? [], carriers: carriers ?? [], requests };
+    // The levels the assign dialog actually writes.
+    //
+    // The matrix cell used to read `contract_requests.commission_level` — a
+    // numeric column nothing in the app has ever written — while the dialog
+    // wrote `agent_commission_levels`. So you assigned a level, the save
+    // succeeded, and the cell still showed a dot. Two tables, one of them
+    // never filled in, and the screen was reading the empty one.
+    let levels: any[] = [];
+    if (agentIds.length) {
+      const { data: lv } = await supabase
+        .from("agent_commission_levels")
+        .select("agent_id,carrier_id,commission_level,assigned_pct")
+        .in("agent_id", agentIds);
+      levels = lv ?? [];
+    }
+
+    return { agents: agents ?? [], carriers, requests, levels };
   });
 
 export const assignDownlineContract = createServerFn({ method: "POST" })
