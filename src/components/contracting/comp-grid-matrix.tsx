@@ -48,8 +48,29 @@ export type MatrixState = {
   cells: Map<string, { year_1_pct: number; years_2_5_pct: number | null; years_6_plus_pct: number | null }>;
 };
 
+/**
+ * What an empty grid starts as.
+ *
+ * Not an empty matrix. A table with no columns and no rows has nowhere to
+ * type — the first version of this shipped that way and the only way in was
+ * to find a plus icon in a table header, which is not a thing anyone should
+ * have to find. Three levels and three products, blank and ready.
+ *
+ * The level names are the agent's contract level, and they have to match
+ * `agent_commission_levels.commission_level` exactly for Finances to pay on
+ * them — so the placeholders show the form people actually use.
+ */
+export function starterMatrix(): MatrixState {
+  return {
+    products: ["", "", ""],
+    levels: ["100%", "90%", "80%"],
+    cells: new Map(),
+  };
+}
+
 /** Flat rows in. Preserves the order each product and level first appears. */
 export function toMatrix(rows: GridRow[]): MatrixState {
+  if (rows.length === 0) return starterMatrix();
   const products: string[] = [];
   const levels: string[] = [];
   const cells = new Map<string, any>();
@@ -206,13 +227,13 @@ export function CompGridMatrix({
                   </div>
                 </th>
               ))}
-              <th className="p-1.5 w-10">
+              <th className="p-1.5 w-[120px]">
                 <Button
                   type="button" size="sm" variant="ghost"
+                  className="w-full text-xs"
                   onClick={() => onChange({ ...value, levels: [...value.levels, ""] })}
-                  aria-label="Add a level"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Level
                 </Button>
               </th>
             </tr>
@@ -272,12 +293,19 @@ export function CompGridMatrix({
         <Plus className="mr-1 h-4 w-4" /> Add product
       </Button>
 
-      {band !== "year_1_pct" && (
-        <p className="text-[11px] text-muted-foreground">
-          Renewal rates. A blank cell means this carrier pays no renewal at that level —
-          leave it empty rather than entering 0.
-        </p>
-      )}
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        {band === "year_1_pct" ? (
+          <>
+            Column headings are contract levels and must match the level on the agent's
+            contract exactly — that string is how Finances knows what to pay them.
+          </>
+        ) : (
+          <>
+            Renewal rates. A blank cell means this carrier pays no renewal at that level —
+            leave it empty rather than entering 0.
+          </>
+        )}
+      </p>
     </div>
   );
 }

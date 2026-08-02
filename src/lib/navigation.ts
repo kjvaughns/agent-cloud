@@ -204,12 +204,8 @@ export const PAGES: Page[] = [
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Back office", audience: ["staff"] },
   { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "ready", label: "Ready to Sell", path: "/contracting-ops/ready-to-sell", icon: IdCard, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
-  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
-  { id: "comp", label: "Compensation", path: "/contracting-ops/compensation", icon: Percent, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "carriers-setup", label: "Carriers & Comp", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
   { id: "writing-numbers", label: "Writing Numbers", path: "/contracting-ops/writing-numbers", icon: IdCard, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
-  { id: "hierarchies", label: "Hierarchies", path: "/contracting-ops/hierarchies", icon: Users, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
-  { id: "hierarchy-changes", label: "Hierarchy Changes", path: "/contracting-ops/hierarchy-changes", icon: Users, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
 
   // Updates
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
@@ -399,9 +395,8 @@ const HUBS: Record<string, HubGroup[]> = {
     {
       label: "Run contracting",
       ids: [
-        "contracting-ops", "requests", "hierarchy-changes",
-        "ready", "documents",
-        "carriers-setup", "comp", "writing-numbers", "hierarchies",
+        "contracting-ops", "requests", "documents",
+        "carriers-setup", "writing-numbers",
       ],
     },
   ],
