@@ -4348,6 +4348,48 @@ export type Database = {
           },
         ]
       }
+      invite_acceptances: {
+        Row: {
+          accepted_at: string
+          created_at: string
+          id: string
+          invitation_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          invitation_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string
+          created_at?: string
+          id?: string
+          invitation_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_acceptances_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "invitation_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_acceptances_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landing_pages: {
         Row: {
           agent_id: string
@@ -8469,6 +8511,13 @@ export type Database = {
       is_org_admin: { Args: { _org: string }; Returns: boolean }
       is_org_owner: { Args: { _org: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      list_applied_migrations: {
+        Args: never
+        Returns: {
+          name: string
+          version: string
+        }[]
+      }
       may_notify: {
         Args: { _category: string; _profile: string }
         Returns: boolean
@@ -8522,6 +8571,7 @@ export type Database = {
         | "admin"
       challenge_type: "daily" | "weekly" | "monthly" | "quarterly"
       contract_status:
+        | "assigned"
         | "requested"
         | "submitted"
         | "processing"
@@ -8711,6 +8761,7 @@ export const Constants = {
       ],
       challenge_type: ["daily", "weekly", "monthly", "quarterly"],
       contract_status: [
+        "assigned",
         "requested",
         "submitted",
         "processing",
