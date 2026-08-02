@@ -77,6 +77,19 @@ function ResourcesPage() {
     );
   }
 
+  if (data?.pendingSetup) {
+    return (
+      <PageShell>
+        <Panel>
+          <p className="text-sm text-muted-foreground">
+            This page is waiting on a workspace update. Nothing is wrong with your account — the
+            database changes it needs haven't been applied yet.
+          </p>
+        </Panel>
+      </PageShell>
+    );
+  }
+
   if (!data?.canManage) {
     return (
       <PageShell>

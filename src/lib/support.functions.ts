@@ -47,7 +47,10 @@ export const listMyTickets = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data, error } = await supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, created_at, updated_at")
+      // `*` rather than a column list on purpose — see the note above
+      // listAgencyTickets. Naming `scope` breaks this query outright until
+      // the migration lands.
+      .select("*")
       .eq("agent_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
@@ -65,7 +68,7 @@ export const getTicketThread = createServerFn({ method: "POST" })
     // lock the assignee out of the thread they were routed.
     const { data: ticket, error: ticketErr } = await supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, description, agent_id, assigned_to, created_at")
+      .select("*")
       .eq("id", data.ticket_id)
       .single();
 
@@ -109,6 +112,23 @@ function assertTouched(rows: unknown[] | null, what: string): void {
   }
 }
 
+/**
+ * Why these reads select `*` rather than naming their columns.
+ *
+ * `scope` and `escalated_at` arrive with a migration, and code ships to
+ * production before a migration is applied. PostgREST answers a select naming
+ * a column that does not exist with `42703 column ... does not exist` — the
+ * whole query fails, not just the missing field — and these handlers throw on
+ * error. Naming them took out the My Tickets tab, the ticket thread and this
+ * console for the entire window between deploying and migrating.
+ *
+ * `*` returns whatever the table has. Before the migration the new fields are
+ * simply absent, the badges that read them do not render, and everything that
+ * worked before still works. After it, they appear with no second deploy.
+ *
+ * The general rule this is an instance of: a read may not name a column its
+ * own migration adds, because the two do not land together.
+ */
 export const listAgencyTickets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -124,7 +144,7 @@ export const listAgencyTickets = createServerFn({ method: "POST" })
 
     let q = supabase
       .from("support_tickets")
-      .select("id, ticket_number, subject, category, priority, status, scope, escalated_at, agent_id, assigned_to, created_at, updated_at, first_response_at, resolved_at")
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(200);
 
@@ -267,11 +287,15 @@ export const escalateTicket = createServerFn({ method: "POST" })
     const supabase = _sb as any;
 
     const { data: ticket } = await supabase
-      .from("support_tickets")
-      .select("scope, organization_id")
-      .eq("id", data.ticket_id)
-      .maybeSingle();
+      .from("support_tickets").select("*").eq("id", data.ticket_id).maybeSingle();
     if (!ticket) throw new Error("Ticket not found or access denied.");
+
+    // Before the migration there is no scope column and no can_work_tickets(),
+    // so there is no platform desk to escalate to. Saying so is better than
+    // an "column does not exist" in a toast.
+    if (!("scope" in ticket)) {
+      throw new Error("Escalation isn't available yet — your workspace is still being updated.");
+    }
     if (ticket.scope === "platform") return { ok: true, alreadyEscalated: true };
 
     // Row-level security would let the reporter through here — it is their
