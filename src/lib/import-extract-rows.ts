@@ -198,3 +198,100 @@ export function clientsFromDocument(text: string): ExtractedClient[] {
   const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
   return blocks.flatMap((b) => clientsFromCsv(b));
 }
+
+// ── Contracting records ──────────────────────────────────────────────────────
+
+/**
+ * Column spellings for the three contracting imports.
+ *
+ * The keys are the ones `runContractingImport` reads —
+ * `contracting-import.functions.ts` already defines that vocabulary in
+ * `IMPORT_COLUMNS`, and its resolution rules (NPN or email to an agent,
+ * carrier name to an org_carrier) are the reason this maps to those names
+ * rather than inventing a second set.
+ */
+const CONTRACTING_FIELDS: Record<string, Record<string, string[]>> = {
+  writing_numbers: {
+    agent_npn: ["agent npn", "npn", "producer npn"],
+    agent_email: ["agent email", "email", "agent e mail"],
+    carrier_name: ["carrier name", "carrier", "company"],
+    writing_number: ["writing number", "writing no", "writing", "agent number", "producer number"],
+    number_type: ["number type", "type"],
+    state_code: ["state", "state code", "st"],
+    product_line: ["product line", "product"],
+    effective_date: ["effective date", "effective", "appointed date"],
+    status: ["status"],
+    upline_writing_number: ["upline writing number", "upline number", "upline"],
+  },
+  licenses: {
+    agent_npn: ["agent npn", "npn", "producer npn"],
+    agent_email: ["agent email", "email", "agent e mail"],
+    state_code: ["state", "state code", "st"],
+    license_number: ["license number", "licence number", "license no", "license"],
+    loa: ["loa", "lines of authority", "line of authority"],
+    is_resident: ["resident", "is resident", "residency"],
+    issued_date: ["issued date", "issued", "effective date"],
+    expires_date: ["expires date", "expiration date", "expires", "expiry"],
+    status: ["status"],
+  },
+  carriers: {
+    carrier_name: ["carrier name", "carrier", "company"],
+    contracting_email: ["contracting email"],
+    contracting_portal_url: ["portal url", "contracting portal url", "portal"],
+    surelc_url: ["surelc url", "surelc"],
+    support_email: ["support email"],
+    turnaround_days: ["turnaround days", "turnaround"],
+  },
+};
+
+/**
+ * Map a CSV block onto the column names the contracting importer reads.
+ *
+ * Everything stays a string. `runContractingImport` does its own parsing,
+ * normalising and validation, and doing any of it twice is how two callers end
+ * up disagreeing about what a valid row is.
+ */
+export function contractingRowsFromCsv(
+  block: string,
+  kind: "writing_numbers" | "licenses" | "carriers",
+): Record<string, string>[] {
+  const lines = block.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+
+  const delim = lines[0].includes("\t") ? "\t" : ",";
+  const headers = splitCsvLine(lines[0], delim).map(normHeader);
+  const spec = CONTRACTING_FIELDS[kind];
+
+  const cols: Record<string, number> = {};
+  for (const [field, spellings] of Object.entries(spec)) {
+    const i = headers.findIndex((h) => spellings.includes(h));
+    if (i >= 0) cols[field] = i;
+  }
+
+  // Without the column that identifies the record there is nothing to import,
+  // and a row of blanks is worse than no row.
+  const required = kind === "carriers" ? "carrier_name"
+    : kind === "licenses" ? "state_code"
+    : "writing_number";
+  if (cols[required] === undefined) return [];
+
+  const out: Record<string, string>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i], delim);
+    if (!cells.some((c) => c)) continue;
+
+    const rec: Record<string, string> = {};
+    for (const [field, idx] of Object.entries(cols)) rec[field] = cells[idx] ?? "";
+    if (!rec[required]?.trim()) continue;
+    out.push(rec);
+  }
+  return out;
+}
+
+export function contractingRowsFromDocument(
+  text: string,
+  kind: "writing_numbers" | "licenses" | "carriers",
+): Record<string, string>[] {
+  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
+  return blocks.flatMap((b) => contractingRowsFromCsv(b, kind));
+}

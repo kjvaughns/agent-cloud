@@ -20,7 +20,7 @@ import {
 import { extractGridFromImage } from "@/lib/comp-grid.functions";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
-import { clientsFromDocument } from "@/lib/import-extract-rows";
+import { clientsFromDocument, contractingRowsFromDocument } from "@/lib/import-extract-rows";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -194,9 +194,16 @@ function ImportPage() {
       if (!pages.length) return;
       const out: any = await extractGridFn({ data: { images: pages, file_name: file.name } });
       rows = (out?.rows ?? []).map((r: any) => ({ ...r, carrier_name: out.carrier_name ?? null }));
+    } else if (kind === "writing_numbers" || kind === "state_licenses") {
+      // Straight to the contracting importer's own column vocabulary. It does
+      // the resolution and the validation; mapping is all that is needed here.
+      rows = doc.text
+        ? contractingRowsFromDocument(doc.text, kind === "state_licenses" ? "licenses" : "writing_numbers")
+        : [];
     } else {
-      // Writing numbers, licences and the roster are classified and listed;
-      // their reconcile paths land with their own slices.
+      // The agent roster is classified and listed; its reconcile path lands
+      // with its own slice. It restructures a downline, so it is the one that
+      // most wants the approval queue proven first.
       return;
     }
 

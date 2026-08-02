@@ -22,7 +22,10 @@
 
 import { buildMatchIndex, classifyClient, rowKey, normalizeEmail, normalizePhone10, normName } from "../src/lib/import-match";
 import { resolveKind, guessFromHeaders, guessFromNote, headerRowOf, allHeaderRows } from "../src/lib/import-router";
-import { clientsFromCsv, clientsFromDocument } from "../src/lib/import-extract-rows";
+import {
+  clientsFromCsv, clientsFromDocument,
+  contractingRowsFromCsv, contractingRowsFromDocument,
+} from "../src/lib/import-extract-rows";
 
 const clients = [
   { id: "c1", agent_id: "a", first_name: "John",  last_name: "Smith", phone: "(555) 201-3344", email: "j.smith+book@gmail.com", date_of_birth: "1960-04-02" },
@@ -181,6 +184,45 @@ check("finds the book on sheet two", clientsFromDocument(multi).length, 1);
 
 // Ambiguous month>12 rejected rather than guessed.
 check("impossible month → null", clientsFromCsv("First Name,DOB\nX,13/05/1990")[0].date_of_birth, null);
+
+
+// ── Contracting record mapping ─────────────────────────────────────────
+console.log("");
+
+const cwn = contractingRowsFromCsv(
+  ["Agent NPN,Carrier Name,Writing Number,Type,State,Effective Date",
+   "12345678,Mutual of Omaha,MOO-991,Individual,TX,2026-01-05"].join("\n"), "writing_numbers");
+check("writing numbers: one row", cwn.length, 1);
+check("maps to importer column names", Object.keys(cwn[0]).sort(),
+  ["agent_npn","carrier_name","effective_date","number_type","state_code","writing_number"]);
+check("values carried as strings", cwn[0].writing_number, "MOO-991");
+
+const clic = contractingRowsFromCsv(
+  ["Agent Email,State,License Number,LOA,Resident,Expires",
+   "a@x.com,TX,TX-55,Life,Yes,2027-03-01"].join("\n"), "licenses");
+check("licenses: mapped", [clic[0].state_code, clic[0].loa, clic[0].is_resident], ["TX","Life","Yes"]);
+
+const car = contractingRowsFromCsv(
+  ["Carrier Name,Contracting Email,Turnaround","Foresters,c@f.com,5"].join("\n"), "carriers");
+check("carriers: mapped", [car[0].carrier_name, car[0].turnaround_days], ["Foresters","5"]);
+
+// A sheet lacking the identifying column yields nothing rather than blank rows.
+check("no writing-number column → nothing",
+  contractingRowsFromCsv("Agent NPN,State\n123,TX", "writing_numbers").length, 0);
+
+// Rows missing the required value are dropped.
+check("blank required value dropped",
+  contractingRowsFromCsv(["Carrier Name,Writing Number","GTL,","GTL,W-1"].join("\n"), "writing_numbers").length, 1);
+
+// Quoted comma inside a carrier name must not shift columns.
+const cq = contractingRowsFromCsv(
+  ['Carrier Name,Writing Number','"Smith, Jones & Co",W-9'].join("\n"), "writing_numbers");
+check("quoted comma safe", [cq[0].carrier_name, cq[0].writing_number], ["Smith, Jones & Co","W-9"]);
+
+// Multi-sheet.
+check("finds rows on a later sheet",
+  contractingRowsFromDocument(
+    "=== Sheet: Cover ===\nx,y\n1,2\n\n=== Sheet: Numbers ===\nCarrier,Writing Number\nGTL,W-3", "writing_numbers").length, 1);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
