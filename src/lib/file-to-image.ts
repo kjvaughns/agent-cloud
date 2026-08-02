@@ -15,10 +15,10 @@ import { extractDocument } from "./document-extract";
 /**
  * The first page of a PDF, or an image as-is, as a data URI.
  *
- * Still one page on purpose. `saveGrid` replaces every row it holds for a
- * carrier, so handing it a partial extraction is how products disappear — the
- * grid path gets multi-page support together with the merge mode that makes it
- * safe, not before.
+ * One page, because that is what a caller asking for "an image" means. Nothing
+ * in the app still relies on this to read a whole document — the grid uploader
+ * moved to `extractDocument`, which reads every page — so if you are reaching
+ * for this to summarise a file, reach for that instead.
  */
 export async function fileToImageDataUrl(file: File): Promise<string> {
   const doc = await extractDocument(file, { maxPages: 1, prefer: "image" });

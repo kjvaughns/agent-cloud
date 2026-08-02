@@ -17,7 +17,8 @@ import {
   listImports, getImportSummary, listProposals, decideProposals, applyProposals,
   dismissImport, type ImportDoc, type Proposal,
 } from "@/lib/import.functions";
-import { extractDocument, truncationNotice } from "@/lib/document-extract";
+import { extractGridFromImage } from "@/lib/comp-grid.functions";
+import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
 import { clientsFromDocument } from "@/lib/import-extract-rows";
 
@@ -62,6 +63,7 @@ function ImportPage() {
   const reconcileFn = useServerFn(reconcileImportRows);
   const listFn = useServerFn(listImports);
   const dismissFn = useServerFn(dismissImport);
+  const extractGridFn = useServerFn(extractGridFromImage);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
@@ -147,7 +149,7 @@ function ImportPage() {
           summary: guess.reason,
         },
       });
-      await proposeRows(id, guess.kind, doc.text);
+      await proposeRows(id, guess.kind, doc, file);
       return;
     }
 
@@ -174,16 +176,32 @@ function ImportPage() {
    * than starting over. Each chunk is matched against the existing book on the
    * server, which is where the duplicate decisions get made.
    */
-  async function proposeRows(id: string, kind: ImportKind, text: string) {
-    if (!KIND_TARGET[kind] || !text) return;
+  async function proposeRows(id: string, kind: ImportKind, doc: ExtractedDoc, file: File) {
+    if (!KIND_TARGET[kind]) return;
 
-    // Only the book-of-business extractor exists so far. The other kinds are
-    // classified and listed; their reconcile paths land with their own slices.
-    if (kind !== "book_of_business") return;
+    let rows: Record<string, any>[] = [];
 
-    const rows = clientsFromDocument(text);
+    if (kind === "book_of_business") {
+      rows = doc.text ? clientsFromDocument(doc.text) : [];
+    } else if (kind === "commission_grid") {
+      // A rate table's meaning is in its layout — which column a number sits
+      // under is the level it pays. The text layer gives the numbers in
+      // reading order with the columns gone, so grids go to the model as
+      // pictures even when the PDF has perfectly good text.
+      const pages = doc.images.length
+        ? doc.images
+        : (await extractDocument(file, { prefer: "image", maxPages: 8 })).images;
+      if (!pages.length) return;
+      const out: any = await extractGridFn({ data: { images: pages, file_name: file.name } });
+      rows = (out?.rows ?? []).map((r: any) => ({ ...r, carrier_name: out.carrier_name ?? null }));
+    } else {
+      // Writing numbers, licences and the roster are classified and listed;
+      // their reconcile paths land with their own slices.
+      return;
+    }
+
     if (!rows.length) {
-      toast.warning("We recognised the file but couldn't find any client rows in it.");
+      toast.warning(`We recognised ${file.name} but couldn't read any rows out of it.`);
       return;
     }
 

@@ -18,7 +18,8 @@
  * The note is treated as a strong prior, never as an override. If someone says
  * "comp grid" and the columns say book of business, we ask instead of picking.
  * That asymmetry is deliberate: a book of business misrouted to the grid path
- * reaches `saveGrid`, which deletes every row it holds for the carrier.
+ * reaches `saveGrid`, and even in `merge` mode that clears every level on file
+ * for whatever it decides the "products" are.
  */
 
 export const IMPORT_KINDS = [
