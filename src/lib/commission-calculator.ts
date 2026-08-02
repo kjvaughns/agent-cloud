@@ -1,4 +1,22 @@
-import { createServerFn } from "@tanstack/react-start";
+/**
+ * Turning a placed policy into a payment schedule.
+ *
+ * Three things this deliberately will not do:
+ *
+ *  1. Invent a commission rate. An agent with no assigned level for a carrier
+ *     used to be given 70%, silently, and a full schedule built on it. Now the
+ *     policy is queued for backfill and no money is written until somebody
+ *     assigns the real level.
+ *  2. Guess which grid row applies. The renewal lookup used to match on
+ *     carrier and product alone, against a table unique on carrier, product,
+ *     level and age band — so any carrier with more than one level returned
+ *     several rows, maybeSingle() errored, the error was discarded, and every
+ *     renewal was silently dropped. It matches the agent's own level now.
+ *  3. Move a payment date. Advance percentages come from the comp level you
+ *     configured; the months they land in stay fixed, because carrier draft
+ *     calendars are not in this schema and inventing them would be the same
+ *     mistake in a new place.
+ */
 
 type CommissionInput = {
   policyId: string;
@@ -19,6 +37,65 @@ function addMonths(date: Date, months: number): Date {
 
 function ds(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+async function resolveOrgId(supabase: any, agentId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles").select("organization_id").eq("id", agentId).maybeSingle();
+  return data?.organization_id ?? null;
+}
+
+/**
+ * How much of year one is advanced, and over how many months the rest pays.
+ *
+ * Comes from the comp level the agency configured in Compensation → Levels —
+ * advance_pct and advance_months have been editable there since that page was
+ * written and read by nothing, so every schedule in the system was built on a
+ * hard-coded 75/25 regardless of what anybody set.
+ *
+ * Falls back to the old constants when there is no matching level, which is
+ * also what happens if row-level security keeps this agent out of the ops
+ * tables: the same numbers as before rather than an error at post-deal time.
+ */
+async function advanceTerms(
+  supabase: any,
+  opts: {
+    orgId: string | null;
+    carrierId: string;
+    levelName: string | null;
+    fallbackPct: number;
+    fallbackMonths: number;
+  },
+): Promise<{ advancePct: number; advanceMonths: number }> {
+  const fallback = { advancePct: opts.fallbackPct, advanceMonths: opts.fallbackMonths };
+  if (!opts.orgId || !opts.levelName) return fallback;
+
+  const { data: orgCarrier } = await supabase
+    .from("org_carriers")
+    .select("id")
+    .eq("organization_id", opts.orgId)
+    .eq("carrier_id", opts.carrierId)
+    .maybeSingle();
+  if (!orgCarrier?.id) return fallback;
+
+  const { data: level } = await supabase
+    .from("carrier_comp_levels")
+    .select("advance_pct, advance_months")
+    .eq("org_carrier_id", orgCarrier.id)
+    .eq("level_name", opts.levelName)
+    .maybeSingle();
+  if (!level) return fallback;
+
+  let pct = level.advance_pct == null ? opts.fallbackPct : Number(level.advance_pct);
+  if (pct > 1) pct = pct / 100;
+  // A nonsensical configuration should not produce a nonsensical schedule.
+  if (!(pct > 0) || pct > 1) pct = opts.fallbackPct;
+
+  const months = Number(level.advance_months ?? 0);
+  return {
+    advancePct: pct,
+    advanceMonths: months > 0 ? months : opts.fallbackMonths,
+  };
 }
 
 export async function calculateAndInsertAllCommissions(
@@ -58,8 +135,32 @@ export async function calculateAndInsertAllCommissions(
     .eq("carrier_id", carrierId)
     .maybeSingle();
 
-  let levelPct = levelRow ? Number(levelRow.assigned_pct) : 70;
+  // No assigned level means we do not know what this agent earns, and a
+  // schedule built on a number nobody chose is worse than no schedule. Queue
+  // the policy so the backfill picks it up once the level exists, and write
+  // nothing in the meantime.
+  if (!levelRow || levelRow.assigned_pct == null) {
+    await supabase
+      .from("commission_backfill_queue")
+      .insert({ policy_id: policyId })
+      .then(() => {}, () => {});
+    console.warn(
+      "[commissions] no assigned level — queued for backfill",
+      { policyId, agentId, carrierId },
+    );
+    return;
+  }
+
+  let levelPct = Number(levelRow.assigned_pct);
   if (levelPct > 1) levelPct = levelPct / 100;
+  const myLevelName: string | null = levelRow.commission_level ?? null;
+
+  const orgId = await resolveOrgId(supabase, agentId);
+  const terms = await advanceTerms(supabase, {
+    orgId, carrierId, levelName: myLevelName,
+    fallbackPct: isGtl ? 0.5 : 0.75,
+    fallbackMonths: gtlCapMonths,
+  });
 
   const yr1Total = annualPremium * levelPct;
 
@@ -67,7 +168,7 @@ export async function calculateAndInsertAllCommissions(
 
   // Writing agent rows
   if (isGtl) {
-    const advance = Math.min(yr1Total * 0.5, gtlCapAmount);
+    const advance = Math.min(yr1Total * terms.advancePct, gtlCapAmount);
     const balance = yr1Total - advance;
     rows.push({
       policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
@@ -75,24 +176,25 @@ export async function calculateAndInsertAllCommissions(
       carrier: carrierName, product, is_gtl: true, commission_pct: levelPct * 100,
       client_name: clientName, status: "pending",
     });
-    for (let i = 7; i <= 6 + gtlCapMonths; i++) {
+    const gtlMonths = terms.advanceMonths || gtlCapMonths;
+    for (let i = 7; i <= 6 + gtlMonths; i++) {
       rows.push({
         policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
         payment_date: ds(addMonths(effDate, i)), payment_type: "trail",
-        amount: Number((balance / gtlCapMonths).toFixed(2)),
+        amount: Number((balance / gtlMonths).toFixed(2)),
         carrier: carrierName, product, is_gtl: true, commission_pct: levelPct * 100,
         client_name: clientName, status: "pending",
       });
     }
   } else {
-    const advance = yr1Total * 0.75;
+    const advance = yr1Total * terms.advancePct;
     rows.push({
       policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
       payment_date: ds(effDate), payment_type: "advance", amount: Number(advance.toFixed(2)),
       carrier: carrierName, product, is_gtl: false, commission_pct: levelPct * 100,
       client_name: clientName, status: "pending",
     });
-    const trailPer = Number(((yr1Total * 0.25) / 3).toFixed(2));
+    const trailPer = Number(((yr1Total * (1 - terms.advancePct)) / 3).toFixed(2));
     for (const offset of [9, 10, 11]) {
       rows.push({
         policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
@@ -103,14 +205,47 @@ export async function calculateAndInsertAllCommissions(
     }
   }
 
-  // Renewal rows from commission_grids (years 2-5 and 6+)
-  const { data: gridRow } = await supabase
+  // Renewal rows from commission_grids (years 2-5 and 6+).
+  //
+  // The grid is unique on (carrier, product, level, age band). This used to
+  // match on carrier and product alone and call maybeSingle(), so any carrier
+  // with more than one level returned several rows, maybeSingle() errored, the
+  // error went unread — only `data` was destructured — and every renewal was
+  // dropped without a trace. Renewals only ever worked for carriers that
+  // happened to have exactly one grid row.
+  //
+  // Now: the agent's own level, this agency's grid ahead of the shared
+  // default, and one row taken deliberately rather than by accident.
+  let gridQuery = supabase
     .from("commission_grids")
-    .select("years_2_5_pct, years_6_plus_pct")
+    .select("years_2_5_pct, years_6_plus_pct, level_name, organization_id, age_group_min")
     .eq("carrier_id", carrierId)
-    .eq("product_name", product)
-    .not("level_name", "is", null)
-    .maybeSingle();
+    .eq("product_name", product);
+
+  if (myLevelName) gridQuery = gridQuery.eq("level_name", myLevelName);
+  if (orgId) gridQuery = gridQuery.or(`organization_id.eq.${orgId},organization_id.is.null`);
+
+  const { data: gridRows, error: gridError } = await gridQuery
+    // An agency's own grid beats the shared default.
+    .order("organization_id", { nullsFirst: false })
+    // Age-banded rows need the client's age, which this function is not given.
+    // The band-less row is the honest choice; ordering makes that a decision
+    // rather than whatever the planner happened to return first.
+    .order("age_group_min", { nullsFirst: true })
+    .limit(1);
+
+  if (gridError) {
+    console.warn("[commissions] renewal grid lookup failed", {
+      policyId, carrierId, product, level: myLevelName, error: gridError.message,
+    });
+  }
+
+  const gridRow = gridRows?.[0] ?? null;
+  if (!gridRow) {
+    console.warn("[commissions] no renewal grid row — advance and trail only", {
+      policyId, carrierId, product, level: myLevelName,
+    });
+  }
 
   const yr25pct = gridRow ? Number(gridRow.years_2_5_pct ?? 0) / 100 : 0;
   const yr6pct = gridRow ? Number(gridRow.years_6_plus_pct ?? 0) / 100 : 0;
