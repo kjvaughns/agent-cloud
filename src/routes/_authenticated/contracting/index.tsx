@@ -915,6 +915,20 @@ function InboxAction({ item }: { item: any }) {
     );
   }
 
+  // The operational workflow item goes straight to its own record, not to the
+  // list. That page already carries the packet, the hierarchy, the documents,
+  // the status history and the full 17-status control — reusing it beats
+  // reimplementing a thinner copy of it in a slide-over.
+  if (item.kind === "contracting_request") {
+    return (
+      <Button size="sm" variant="outline" asChild>
+        <Link to="/contracting-ops/requests/$requestId" params={{ requestId: item.id }}>
+          Review
+        </Link>
+      </Button>
+    );
+  }
+
   // A contract awaiting review is worked in Contracting Ops, where the status
   // workflow, the packet and the readiness blockers are.
   return (
@@ -938,10 +952,54 @@ function InboxTab() {
     <Panel pad={false}>
       <div className="divide-y divide-border">
         {items.map((it: any) => (
-          <div key={`${it.kind}-${it.id}`} className="flex items-center gap-3 p-4">
-            <div className="flex-1">
+          <div key={`${it.kind}-${it.id}`} className="flex items-start gap-3 p-4">
+            <div className="min-w-0 flex-1">
               <div className="font-medium text-sm">{it.agent}</div>
               <div className="text-xs text-muted-foreground">{it.description}</div>
+              {/* Workflow items carry how close the packet is and what is
+                  missing. "Review this" without "40% ready, no E&O
+                  certificate" is the dead end this whole tab had before. */}
+              {typeof it.readiness_pct === "number" && (
+                <div className="mt-2 max-w-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          it.readiness_pct >= 90 ? "bg-success"
+                            : it.readiness_pct >= 60 ? "bg-warning" : "bg-destructive",
+                        )}
+                        style={{ width: `${Math.max(0, Math.min(100, it.readiness_pct))}%` }}
+                      />
+                    </div>
+                    <span className="tnum shrink-0 text-[11px] text-muted-foreground">
+                      {it.readiness_pct}% ready
+                    </span>
+                  </div>
+                  {(it.blockers ?? []).length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {(it.blockers ?? []).slice(0, 4).map((b: string) => (
+                        <span
+                          key={b}
+                          className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {b}
+                        </span>
+                      ))}
+                      {(it.blockers ?? []).length > 4 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          +{(it.blockers ?? []).length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {typeof it.days_in_status === "number" && it.days_in_status >= 3 && (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {it.days_in_status} days at this status
+                </div>
+              )}
             </div>
             <Badge variant={it.priority === "high" ? "destructive" : "secondary"} className="capitalize">{it.priority}</Badge>
             <InboxAction item={it} />
