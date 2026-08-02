@@ -98,14 +98,20 @@ const BACKGROUND_QUESTIONS = [
   { id: "military_discharge", text: "Have you ever been discharged from the military under other than honorable conditions?" },
 ];
 
+// The names here are the ones the contracting review queue understands —
+// `DOCUMENT_REQUIREMENTS` in `@/lib/contracting-ops/types`. They used to be a
+// second, private vocabulary: `background_check` and `other` are not keys in
+// that dictionary, so a reviewer saw them as raw strings, and `pdb_report` was
+// missing entirely — the queue lists it first and there was no way to upload it.
 const DOC_CATEGORIES = [
+  { type: "pdb_report", label: "PDB Report", note: "Producer Database report from NIPR" },
   { type: "government_id", label: "Government ID", note: "Driver's License or Passport" },
   { type: "eo_certificate", label: "E&O Certificate", note: "" },
   { type: "aml_certificate", label: "AML Certificate", note: "" },
   { type: "voided_check", label: "Voided Check", note: "For direct deposit setup" },
-  { type: "background_check", label: "Background Check Authorization", note: "" },
+  { type: "background_questionnaire", label: "Background Questionnaire", note: "" },
   { type: "w9", label: "W-9", note: "" },
-  { type: "other", label: "Other", note: "" },
+  { type: "other_document", label: "Other", note: "" },
 ] as const;
 
 function ProducerProfilePage() {
