@@ -13,16 +13,5 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-- `20260802160000_rename-import-credential-columns.sql`
-- `20260802170000_debrand-seeded-resource-content.sql`
-- `20260802175000_org-membership-repair.sql`
-- `20260802180000_import-personal-scope.sql`
-- `20260802181000_import-proposals.sql`
-- `20260802182000_imports-bucket.sql`
 
-Order matters at the tail. `import-proposals` references `document_intake`,
-and its policies assume the personal-scope fallback `import-personal-scope`
-adds; both assume the membership rows `org-membership-repair` creates. Apply
-the four in the order listed.
-
-The eight queued earlier on 2 Aug 2026 are all applied.
+_Nothing pending._ Everything queued on 2 Aug 2026 is applied.
