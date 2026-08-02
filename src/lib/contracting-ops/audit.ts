@@ -25,6 +25,10 @@ export type AuditAction =
   | "request.created" | "request.status_changed" | "request.assigned"
   | "request.submitted" | "request.approved" | "request.declined"
   | "document.uploaded" | "document.reviewed" | "document.downloaded"
+  // Distinct from `document.uploaded`: staff filing a document they hold on an
+  // agent's behalf is a different act from the agent uploading their own, and
+  // the trail should be able to tell them apart.
+  | "document.uploaded_for_agent"
   | "pdb.reviewed" | "license.edited"
   | "hierarchy.changed" | "hierarchy_change.requested" | "hierarchy_change.decided"
   | "comp.changed"

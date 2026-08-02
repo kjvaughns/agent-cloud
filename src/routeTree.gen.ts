@@ -164,6 +164,7 @@ import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/p
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
+import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -1017,6 +1018,12 @@ const AuthenticatedBackOfficeCaseDesignAdminRoute =
     path: '/case-design/admin',
     getParentRoute: () => AuthenticatedBackOfficeRoute,
   } as any)
+const AuthenticatedAgencyAgentsAgentIdRoute =
+  AuthenticatedAgencyAgentsAgentIdRouteImport.update({
+    id: '/agency/agents/$agentId',
+    path: '/agency/agents/$agentId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1163,6 +1170,7 @@ export interface FileRoutesByFullPath {
   '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1314,6 +1322,7 @@ export interface FileRoutesByTo {
   '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1472,6 +1481,7 @@ export interface FileRoutesById {
   '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1630,6 +1640,7 @@ export interface FileRouteTypes {
     | '/contracting-ops/'
     | '/contracting/'
     | '/settings/'
+    | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
@@ -1781,6 +1792,7 @@ export interface FileRouteTypes {
     | '/contracting-ops'
     | '/contracting'
     | '/settings'
+    | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
@@ -1938,6 +1950,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contracting-ops/'
     | '/_authenticated/contracting/'
     | '/_authenticated/settings/'
+    | '/_authenticated/agency/agents/$agentId'
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
     | '/api/public/hooks/fetch-news'
@@ -3079,6 +3092,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBackOfficeCaseDesignAdminRouteImport
       parentRoute: typeof AuthenticatedBackOfficeRoute
     }
+    '/_authenticated/agency/agents/$agentId': {
+      id: '/_authenticated/agency/agents/$agentId'
+      path: '/agency/agents/$agentId'
+      fullPath: '/agency/agents/$agentId'
+      preLoaderRoute: typeof AuthenticatedAgencyAgentsAgentIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -3354,6 +3374,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedToolsLeadsRoute: typeof AuthenticatedToolsLeadsRoute
   AuthenticatedToolsQuoterRoute: typeof AuthenticatedToolsQuoterRoute
   AuthenticatedAgencyIndexRoute: typeof AuthenticatedAgencyIndexRoute
+  AuthenticatedAgencyAgentsAgentIdRoute: typeof AuthenticatedAgencyAgentsAgentIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -3405,6 +3426,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedToolsLeadsRoute: AuthenticatedToolsLeadsRoute,
   AuthenticatedToolsQuoterRoute: AuthenticatedToolsQuoterRoute,
   AuthenticatedAgencyIndexRoute: AuthenticatedAgencyIndexRoute,
+  AuthenticatedAgencyAgentsAgentIdRoute: AuthenticatedAgencyAgentsAgentIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
