@@ -205,6 +205,30 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
   }, [rows]);
   const filtered = filter === "all" ? rows : rows.filter((r: any) => r.status === filter);
 
+  /**
+   * In Team or Agency scope, contracts belong to people.
+   *
+   * Sorted flat by date, a team's contracts read as one long list where the
+   * same carrier appears again and again — which looks like duplicates rather
+   * than like several agents each contracted with Transamerica. Grouping under
+   * the agent's name is what makes the repetition mean something.
+   *
+   * One group with a null key in `mine` scope, so the render path stays single.
+   */
+  const groups = useMemo(() => {
+    if (scope === "mine") return [{ agent: null as string | null, rows: filtered }];
+    const byAgent = new Map<string, any[]>();
+    for (const r of filtered) {
+      const key = r.agent_name || "Unassigned";
+      const bucket = byAgent.get(key);
+      if (bucket) bucket.push(r);
+      else byAgent.set(key, [r]);
+    }
+    return Array.from(byAgent.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([agent, rows]) => ({ agent, rows }));
+  }, [filtered, scope]);
+
   return (
     <div className="space-y-4">
       <HeroBand
@@ -253,14 +277,35 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
           No contracts yet. Click "+ Add Carrier" to add your first active carrier contract.
         </Panel>
       ) : (
-        <Accordion type="single" collapsible className="space-y-2">
-          {filtered.map((c: any) => (
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <div key={g.agent ?? "mine"} className="space-y-2">
+              {g.agent && (
+                <div className="flex items-baseline gap-2 px-1">
+                  <h3 className="text-sm font-semibold text-foreground">{g.agent}</h3>
+                  <span className="tnum text-xs text-muted-foreground">
+                    {g.rows.length} contract{g.rows.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              )}
+              <Accordion type="single" collapsible className="space-y-2">
+          {g.rows.map((c: any) => (
             <Card key={c.id}><AccordionItem value={c.id} className="border-0">
               <AccordionTrigger className="px-4 hover:no-underline">
                 <div className="flex items-center gap-3 flex-1">
                   <div className="flex-1 text-left">
                     <div className="font-semibold">{c.carriers?.name ?? "Carrier"}</div>
-                    <div className="text-xs text-muted-foreground">Requested: {fmtDate(c.requested_at)}</div>
+                    {/* Whose contract this is.
+                        The server has always returned `agent_name` for Team and
+                        Agency scope and this header never rendered it — so two
+                        agents contracted with Transamerica showed as two
+                        identical "Transamerica" rows, which reads as a
+                        duplicate rather than as two different people. The
+                        scoping was right the whole time; the label was
+                        missing. */}
+                    <div className="text-xs text-muted-foreground">
+                      {c.agent_name ? `${c.agent_name} · ` : ""}Requested: {fmtDate(c.requested_at)}
+                    </div>
                   </div>
                   <ContractStatusBadge status={c.status} />
                   {c.status !== "active" && (
@@ -270,7 +315,12 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
                       className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        if (!confirm(`Remove ${c.carriers?.name ?? "this carrier"} from your contracts?`)) return;
+                        // Names the owner in Team and Agency scope. "Remove
+                        // Transamerica from your contracts?" is a fine question
+                        // about your own contract and a dangerous one about
+                        // somebody else's.
+                        const whose = c.agent_name ? `${c.agent_name}'s` : "your";
+                        if (!confirm(`Remove ${c.carriers?.name ?? "this carrier"} from ${whose} contracts?`)) return;
                         try {
                           await deleteFn({ data: { id: c.id } });
                           qc.invalidateQueries({ queryKey: ["contracting", "myContracts"] });
@@ -381,7 +431,10 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
               </AccordionContent>
             </AccordionItem></Card>
           ))}
-        </Accordion>
+              </Accordion>
+            </div>
+          ))}
+        </div>
       )}
       {requestLevelFor && (
         <RequestLevelDialog
