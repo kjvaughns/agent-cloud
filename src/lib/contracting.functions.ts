@@ -564,8 +564,18 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const { data: row } = await supabase.from("contract_requests")
-      .select("agent_id, status").eq("id", data.id).single();
-    if (!row || row.agent_id !== userId) throw new Error("Not found");
+      .select("agent_id, status").eq("id", data.id).maybeSingle();
+    if (!row) throw new Error("That contract request no longer exists.");
+    if (row.agent_id !== userId) {
+      // An upline or admin removing somebody else's request is legitimate; only
+      // an unrelated agent is not.
+      const [{ data: isDownline }, { data: isAdmin }] = await Promise.all([
+        (supabase as any).rpc("is_in_downline", { _upline: userId, _target: row.agent_id }),
+        (supabase as any).rpc("has_role", { _user_id: userId, _role: "admin" }),
+      ]);
+      if (!isDownline && !isAdmin) throw new Error("This contract request isn't yours to remove.");
+    }
+
     // "Contact your admin" was the old advice, which is no help to the person
     // who *is* the admin — and there was no admin path to this either. Say
     // what actually works instead.
