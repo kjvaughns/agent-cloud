@@ -386,6 +386,13 @@ export const listWorkInbox = createServerFn({ method: "GET" })
       id: string; agent: string; description: string;
       priority: "high" | "normal"; kind: string;
       agent_id?: string; carrier_id?: string;
+      /** Workflow items only: how close the packet is to submittable. */
+      readiness_pct?: number;
+      /** Workflow items only: what is missing, as labels. */
+      blockers?: string[];
+      /** Workflow items only: how long it has sat at this status. */
+      days_in_status?: number;
+      status?: string;
     }[] = [];
 
     if (downlineIds.length) {
@@ -433,6 +440,67 @@ export const listWorkInbox = createServerFn({ method: "GET" })
         priority: "normal",
         kind: "commission_request",
       }));
+    }
+
+    // The fourth source: the operational workflow.
+    //
+    // `contracting_requests` is the unit of work — 17 statuses, a readiness
+    // score, an assignee, an audit trail — and nothing surfaced it as something
+    // waiting on you. The suggestion was to repoint this whole function at it
+    // instead, which would have silently dropped the transfers and
+    // commission-level requests above; those have their own tabs but nothing
+    // else tells you they are waiting.
+    //
+    // So it is added, not substituted. `readiness_pct` and the blocker labels
+    // ride along, because "review this" without "it is 40% ready and missing
+    // an E&O certificate" is the same dead end the Review button was.
+    if (downlineIds.length) {
+      const { data: workflow } = await supabase
+        .from("contracting_requests")
+        .select(`
+          id, agent_id, status, readiness_pct, readiness_blockers, priority,
+          updated_at, created_at,
+          org_carriers ( carriers ( name ) )
+        `)
+        .in("agent_id", downlineIds)
+        .not("status", "in", '("approved","writing_number_issued","declined","cancelled","closed")');
+
+      const now = Date.now();
+      (workflow ?? []).forEach((w: any) => {
+        // `updated_at`, not a status-change stamp — `contracting_requests`
+        // has no `status_changed_at`, and selecting one that does not exist
+        // fails the whole query with 42703, which would have made this entire
+        // source vanish from the inbox without a word. The exact per-status
+        // dwell time lives in `contracting_status_history`; joining it per row
+        // is not worth it for an age hint, and `updated_at` moves on every
+        // status change anyway.
+        const since = w.updated_at ?? w.created_at;
+        const days = since
+          ? Math.floor((now - new Date(since).getTime()) / 86_400_000)
+          : undefined;
+        // Stored as jsonb; readers elsewhere accept either shape, so normalise
+        // to labels here rather than making the UI guess.
+        const raw = Array.isArray(w.readiness_blockers) ? w.readiness_blockers : [];
+        const blockers = raw
+          .map((b: any) => (typeof b === "string" ? b : b?.label ?? b?.key))
+          .filter(Boolean) as string[];
+
+        items.push({
+          id: w.id,
+          agent: nameOf(w.agent_id),
+          agent_id: w.agent_id,
+          description: `Contracting — ${w.org_carriers?.carriers?.name ?? "carrier"}`,
+          // A request that has sat two weeks is not "normal" any more,
+          // whatever it was filed as.
+          priority: w.priority === "urgent" || w.priority === "high" || (days ?? 0) >= 14
+            ? "high" : "normal",
+          kind: "contracting_request",
+          status: w.status,
+          readiness_pct: typeof w.readiness_pct === "number" ? w.readiness_pct : undefined,
+          blockers,
+          days_in_status: days,
+        });
+      });
     }
 
     return { items };
