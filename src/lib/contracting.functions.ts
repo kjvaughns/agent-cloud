@@ -206,9 +206,31 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
       .order("first_name", { ascending: true });
     if (aErr) throw new Error(aErr.message);
 
-    const { data: carriers, error: cErr } = await supabase
-      .from("carriers").select("id,name,is_annuity_carrier").eq("active", true).order("name");
+    // The agency's carriers, not the platform's.
+    //
+    // This read the global `carriers` table, so every agency's matrix carried a
+    // column for every carrier on the platform — seventeen of them — including
+    // ones they had never contracted with and never would. A matrix is meant to
+    // show gaps worth closing; a column per carrier in existence shows noise.
+    //
+    // `org_carriers` is the per-agency layer and has been since
+    // `20260730160000_contracting-ops-carriers.sql`. Note the filter is
+    // `status`, not `active` — org_carriers has no boolean, it has
+    // ('active','paused','not_contracted','terminated'), and a paused carrier
+    // should stop appearing as an assignment target.
+    //
+    // Depends on `20260802200000_backfill-org-carrier-links.sql`. Without it,
+    // carriers in use but never linked simply vanish from the matrix.
+    const { data: orgCarriers, error: cErr } = await supabase
+      .from("org_carriers")
+      .select("carrier_id, carriers(id,name,is_annuity_carrier)")
+      .eq("status", "active");
     if (cErr) throw new Error(cErr.message);
+
+    const carriers = (orgCarriers ?? [])
+      .map((oc: any) => oc.carriers)
+      .filter((c: any) => c && c.id)
+      .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
 
     const agentIds = (agents ?? []).map((a: any) => a.id);
     let requests: any[] = [];
@@ -733,32 +755,79 @@ export const addCarrier = createServerFn({ method: "POST" })
       .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
     if (!profile?.organization_id) throw new Error("You are not in an agency.");
 
-    // Private to this agency, not added to the shared catalogue.
+    const orgId = profile.organization_id;
+
+    // Reuse the catalogue entry when there is one.
     //
-    // This used to insert a plain `carriers` row with no `is_private` and no
-    // owner — a carrier one agency invented appearing in the directory of
-    // every other agency on the platform. RLS `carriers_private_write`
-    // requires is_private, so depending on which legacy policy is still live
-    // it either failed for the owner or leaked. Both answers were wrong.
+    // "Add a carrier" from an agency's point of view means "put this carrier on
+    // my list", not "invent a carrier nobody has heard of". Creating a second
+    // private Transamerica beside the catalogue's would give this agency its own
+    // carrier id — and every grid, contract and commission keyed to the wrong
+    // one, invisibly, forever.
+    const { data: existing } = await (supabase as any)
+      .from("carriers").select("id").ilike("name", data.name).limit(2);
+
+    let carrierId: string | undefined = (existing ?? []).length === 1 ? existing[0].id : undefined;
+
+    if (!carrierId) {
+      // Private to this agency, not added to the shared catalogue.
+      //
+      // This used to insert a plain `carriers` row with no `is_private` and no
+      // owner — a carrier one agency invented appearing in the directory of
+      // every other agency on the platform. RLS `carriers_private_write`
+      // requires is_private, so depending on which legacy policy is still live
+      // it either failed for the owner or leaked. Both answers were wrong.
+      const { data: made, error } = await (supabase as any).from("carriers").insert({
+        name: data.name,
+        phone: data.phone || null,
+        hours: data.hours || null,
+        pay_frequency: data.pay_frequency ?? null,
+        advance_cap: data.advance_cap || null,
+        ideal_client: data.ideal_client || null,
+        website: data.website || null,
+        agent_portal_url: data.agent_portal_url || null,
+        training_url: data.training_url || null,
+        active: true,
+        is_private: true,
+        owner_organization_id: orgId,
+        created_by: userId,
+      }).select("id").maybeSingle();
+      if (error) throw new Error(error.message);
+      carrierId = made?.id as string | undefined;
+    }
+
+    if (!carrierId) throw new Error("Couldn't add that carrier.");
+
+    // The link row, which this function never wrote.
+    //
+    // `org_carriers` is what says a carrier belongs to this agency — comp
+    // levels, requirements and contracting method all hang off it, and the
+    // team matrix filters on it. Without this row the carrier existed but
+    // belonged to nobody: absent from Carriers & Comp, unable to hold a comp
+    // level, and offered right back to you under "carriers you could add".
+    const { error: linkErr } = await (supabase as any).from("org_carriers").insert({
+      organization_id: orgId,
+      carrier_id: carrierId,
+      status: "active",
+      created_by: userId,
+      updated_by: userId,
+    });
+    // Already on the agency's list is the outcome we wanted, reached by
+    // somebody else first.
+    //
+    // Anything else is worth a sentence rather than a Postgres string. The
+    // role check above admits the same set as `is_org_admin`, which is what the
+    // `org_carriers` write policy uses, so a refusal here means the account's
+    // profile is not on the organization it thinks it is.
+    if (linkErr && linkErr.code !== "23505") {
+      throw new Error(
+        `Added ${data.name}, but couldn't put it on your agency's list: ${linkErr.message}`,
+      );
+    }
+
     // Returns the id so a caller can select what it just created rather than
     // making somebody find the name they only just typed.
-    const { data: made, error } = await (supabase as any).from("carriers").insert({
-      name: data.name,
-      phone: data.phone || null,
-      hours: data.hours || null,
-      pay_frequency: data.pay_frequency ?? null,
-      advance_cap: data.advance_cap || null,
-      ideal_client: data.ideal_client || null,
-      website: data.website || null,
-      agent_portal_url: data.agent_portal_url || null,
-      training_url: data.training_url || null,
-      active: true,
-      is_private: true,
-      owner_organization_id: profile.organization_id,
-      created_by: userId,
-    }).select("id").maybeSingle();
-    if (error) throw new Error(error.message);
-    return { ok: true, id: made?.id as string | undefined };
+    return { ok: true, id: carrierId };
   });
 
 /**
