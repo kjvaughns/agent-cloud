@@ -6,7 +6,6 @@ import {
   adminListCommissionGrid,
   adminUpsertCommissionRow,
   adminListAllAgents,
-  aiExtractCompGrid,
   saveExtractedGrid,
 } from "@/lib/admin.functions";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
@@ -21,6 +20,8 @@ import { Loader2, Plus, ChevronDown, ChevronRight, Brain, Upload, CheckCircle2 }
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { extractGrid } from "@/lib/comp-grid.functions";
+import { extractDocument, truncationNotice } from "@/lib/document-extract";
 
 export const Route = createFileRoute("/admin/commissions")({
   component: AdminCommissions,
@@ -267,15 +268,6 @@ function AdminCommissions() {
   );
 }
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res((reader.result as string).split(",")[1]);
-    reader.onerror = rej;
-    reader.readAsDataURL(file);
-  });
-}
-
 function AdminCompGridsTab({
   carriers,
   onSaved,
@@ -290,7 +282,7 @@ function AdminCompGridsTab({
   const [err, setErr] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const extractFn = useServerFn(aiExtractCompGrid);
+  const extractFn = useServerFn(extractGrid);
   const saveFn = useServerFn(saveExtractedGrid);
 
   const carrierName = carriers.find((c) => c.id === carrierId)?.name ?? "";
@@ -312,10 +304,24 @@ function AdminCompGridsTab({
     setPhase("extracting");
     setErr(null);
     try {
-      const base64 = await fileToBase64(file);
-      const result = await extractFn({
-        data: { carrier_id: carrierId, carrier_name: carrierName, file_base64: base64, file_mime: file.type || "application/octet-stream" },
+      // Through the shared extractor. The admin-only copy this replaces ran an
+      // older model, re-implemented the gateway's rate-limit handling, and had
+      // no per-row validation — so one unreadable row discarded the whole
+      // extraction. It also could not read a spreadsheet: an .xlsx went to the
+      // model as an image and came back as nothing.
+      const doc = await extractDocument(file, { prefer: "image", maxPages: 8 });
+      const notice = truncationNotice(doc);
+      if (notice) toast.warning(notice);
+      const result: any = await extractFn({
+        data: {
+          carrier_id: carrierId,
+          carrier_name: carrierName,
+          images: doc.images,
+          text: doc.text || null,
+          file_name: file.name,
+        },
       });
+      if (!result.rows?.length) throw new Error("Couldn't read any commission rows from that file");
       setExtracted(result);
       setPhase("review");
     } catch (e: any) {
@@ -328,7 +334,22 @@ function AdminCompGridsTab({
     if (!extracted) return;
     setPhase("saving");
     try {
-      await saveFn({ data: { carrier_id: carrierId, rows: extracted.rows } });
+      // The shared extractor returns null for a renewal band the grid does not
+      // show; this save wants a number and its Zod default does not apply to an
+      // explicit null. A grid with no renewals means those years pay nothing,
+      // so zero is the right reading rather than a lossy one.
+      await saveFn({
+        data: {
+          carrier_id: carrierId,
+          rows: extracted.rows.map((r: any) => ({
+            product_name: r.product_name,
+            level_name: r.level_name,
+            year_1_pct: r.year_1_pct,
+            years_2_5_pct: r.years_2_5_pct ?? 0,
+            years_6_plus_pct: r.years_6_plus_pct ?? 0,
+          })),
+        },
+      });
       toast.success(`Saved ${extracted.rows.length} rows for ${carrierName}`);
       setPhase("done");
       onSaved();
