@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
-import { resolveScopeAgentIds } from "@/lib/scope.functions";
+import { resolveScopeAgentIds, resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 
 // ---------- helpers ----------
 type Ctx = { supabase: any; userId: string };
@@ -185,7 +185,11 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
     // Was .eq("upline_id", userId) — direct reports only. A manager two
     // levels above an agent saw nothing, which is not what "downline" means
     // anywhere else in the app.
-    const teamIds = (await resolveScopeAgentIds(supabase, "team")).filter((id) => id !== userId);
+    //
+    // ...OrNone rather than the throwing variant: this view has no scope
+    // label to be wrong about, so an empty matrix is a worse answer but not
+    // an incorrect one, while a throw takes the tab out entirely.
+    const teamIds = (await resolveScopeAgentIdsOrNone(supabase, "team")).filter((id) => id !== userId);
     const { data: agents, error: aErr } = await supabase
       .from("profiles")
       .select("id,first_name,last_name,email")
@@ -263,8 +267,9 @@ export const listWorkInbox = createServerFn({ method: "GET" })
     const { supabase, userId } = context as Ctx;
 
     // Same one-level bug as the matrix above: work from an agent two levels
-    // down never reached the person responsible for it.
-    const teamIds = (await resolveScopeAgentIds(supabase, "team")).filter((id) => id !== userId);
+    // down never reached the person responsible for it. Same reasoning on
+    // ...OrNone, too.
+    const teamIds = (await resolveScopeAgentIdsOrNone(supabase, "team")).filter((id) => id !== userId);
     const { data: agents } = await supabase
       .from("profiles").select("id,first_name,last_name")
       .in("id", teamIds.length ? teamIds : ["00000000-0000-0000-0000-000000000000"]);
