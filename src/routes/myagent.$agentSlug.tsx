@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Mail, Phone, ShieldCheck, MapPin, Check } from "lucide-react";
+import { getPublicAgentPage } from "@/lib/public-agent-page.functions";
+
 
 /**
  * An agent's public page.
