@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Send, Mic, FileText, TrendingUp, Target, Lightbulb, Loader2, Sparkles,
-  Settings, Zap, Activity,
+  Settings, Zap, Activity, Plus,
 } from "lucide-react";
-import { askAiAssistant } from "@/lib/ai-assistant.functions";
+import { askAiAssistant, listNovaConversations, getNovaConversation } from "@/lib/ai-assistant.functions";
 import { cn } from "@/lib/utils";
 import { NovaAutomationsPanel } from "@/components/nova/automations-panel";
 import { NovaActivityPanel } from "@/components/nova/activity-panel";
@@ -29,24 +30,52 @@ const QUICK_CHIPS: { icon: React.ComponentType<{ className?: string }>; label: s
 
 type Message = { role: "user" | "assistant"; text: string };
 
+const GREETING: Message = {
+  role: "assistant",
+  text: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
+};
+
 function NovaAIPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "Hi, I'm Nova — your AI co-pilot. I draft, summarize, coach objections, and build scripts. What do you need?" },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState("assistant");
+  // Null means this is a new thread; the server mints the id on first reply.
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const askFn = useServerFn(askAiAssistant);
+  const listFn = useServerFn(listNovaConversations);
+  const openFn = useServerFn(getNovaConversation);
+  const qc = useQueryClient();
+
+  const { data: conversations } = useQuery({
+    queryKey: ["nova", "conversations"],
+    queryFn: () => listFn(),
+  });
+
+  const openConversation = async (id: string) => {
+    const history = await openFn({ data: { conversationId: id } });
+    setConversationId(id);
+    setMessages([
+      GREETING,
+      ...history.map((m) => ({ role: m.role, text: m.content })),
+    ]);
+  };
+
+  const newConversation = () => {
+    setConversationId(null);
+    setMessages([GREETING]);
+  };
 
   const sendMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const history = messages
-        .filter((m) => m.role !== "assistant" || messages.indexOf(m) > 0)
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
-      return askFn({ data: { messages: [...history, { role: "user", content: text }] } });
-    },
+    // History lives on the server now, so only the new message travels. The
+    // client used to replay the entire transcript on every turn, which meant
+    // the conversation was only as long as the page had been open.
+    mutationFn: (text: string) =>
+      askFn({ data: { message: text, conversationId: conversationId ?? undefined } }),
     onSuccess: (res, text) => {
+      setConversationId(res.conversationId);
       setMessages((m) => [...m, { role: "user", text }, { role: "assistant", text: res.reply }]);
+      qc.invalidateQueries({ queryKey: ["nova", "conversations"] });
     },
     onError: (e: Error, text) => {
       setMessages((m) => [
@@ -112,15 +141,38 @@ function NovaAIPage() {
             <span className="text-sm font-medium">Nova</span>
             <span className="text-xs text-muted-foreground">online</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
-            onClick={() => setTab("automations")}
-          >
-            <Settings className="h-3.5 w-3.5" />
-            <span className="text-xs">Automations</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            {(conversations?.length ?? 0) > 0 && (
+              <Select value={conversationId ?? "new"} onValueChange={(v) => (v === "new" ? newConversation() : openConversation(v))}>
+                <SelectTrigger className="h-8 w-[190px] text-xs"><SelectValue placeholder="Past conversations" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New conversation</SelectItem>
+                  {conversations!.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={newConversation}
+              title="Start a new conversation"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="text-xs">New</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setTab("automations")}
+            >
+              <Settings className="h-3.5 w-3.5" />
+              <span className="text-xs">Automations</span>
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}
