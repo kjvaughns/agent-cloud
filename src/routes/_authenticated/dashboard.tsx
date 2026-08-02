@@ -22,6 +22,7 @@ import { WorkQueue } from "@/components/work-queue";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/page-shell";
+import { PendingAgentNotice } from "@/components/pending-agent-notice";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { MyOnboarding } from "@/components/onboarding/my-onboarding";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -181,6 +182,9 @@ function Dashboard() {
           against four of six — and named different next actions, which is
           worse than merely repeating each other. Its items are steps in the
           checklist below now. */}
+      {/* First, for somebody who has just accepted an invite: why half the
+          app is not here yet, and the two things that end that. */}
+      <div className="mb-[var(--gap)] empty:mb-0"><PendingAgentNotice /></div>
       {/* Renders only for an agency owner with unfinished setup. */}
       <div className="mb-[var(--gap)] empty:mb-0"><SetupChecklist /></div>
       {/* And only for an agent who is not yet ready to sell. A new agent's

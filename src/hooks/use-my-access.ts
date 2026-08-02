@@ -39,6 +39,7 @@ export function useNavContext(): NavContext {
     inAgency: Boolean(access?.inAgency),
     canSeeAgency: Boolean(access?.canSeeAgency),
     downlineCount: caps.downlineCount,
+    isPending: Boolean(access?.isPending),
     perms: (access?.permissions ?? {}) as Record<string, unknown>,
   };
 }

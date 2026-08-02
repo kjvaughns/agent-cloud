@@ -154,14 +154,13 @@ function RootComponent() {
 
       // Auth callbacks run while the client owns its session lock. Defer any
       // further client calls so signInWithPassword can resolve immediately.
+      //
+      // This used to also flip an `imported` profile to `active` — a
+      // browser-side write that turned somebody into a billable seat purely by
+      // signing in. Whether an account is active is the agency's decision or
+      // the consequence of a sale; it is not something a page load settles.
       window.setTimeout(async () => {
         try {
-          const { data: profile } = await supabase
-            .from("profiles").select("status").eq("id", session.user.id).maybeSingle();
-          if ((profile as any)?.status === "imported") {
-            await supabase.from("profiles").update({ status: "active" }).eq("id", session.user.id);
-          }
-
           const provider = (session.user.app_metadata as any)?.provider;
           if (provider === "google") {
             await supabase.from("profiles").update({ google_oauth_connected: true }).eq("id", session.user.id);

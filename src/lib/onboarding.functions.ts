@@ -207,7 +207,11 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       npn_number: data.npn_number || null,
       first_name: data.first_name,
       last_name: data.last_name,
-      status: "active",
+      // Pending, not active. Choosing a password is not the same as being an
+      // agent — a licence, an appointment and a first sale still sit between
+      // the two. The agency owner can activate them at any point, and posting
+      // a first policy does it automatically.
+      status: "pending",
     }).eq("id", newUserId);
 
     // Assign role from invite
