@@ -48,8 +48,29 @@ export type MatrixState = {
   cells: Map<string, { year_1_pct: number; years_2_5_pct: number | null; years_6_plus_pct: number | null }>;
 };
 
+/**
+ * What an empty grid starts as.
+ *
+ * Not an empty matrix. A table with no columns and no rows has nowhere to
+ * type — the first version of this shipped that way and the only way in was
+ * to find a plus icon in a table header, which is not a thing anyone should
+ * have to find. Three levels and three products, blank and ready.
+ *
+ * The level names are the agent's contract level, and they have to match
+ * `agent_commission_levels.commission_level` exactly for Finances to pay on
+ * them — so the placeholders show the form people actually use.
+ */
+export function starterMatrix(): MatrixState {
+  return {
+    products: ["", "", ""],
+    levels: ["100%", "90%", "80%"],
+    cells: new Map(),
+  };
+}
+
 /** Flat rows in. Preserves the order each product and level first appears. */
 export function toMatrix(rows: GridRow[]): MatrixState {
+  if (rows.length === 0) return starterMatrix();
   const products: string[] = [];
   const levels: string[] = [];
   const cells = new Map<string, any>();
@@ -97,11 +118,33 @@ export function fromMatrix(m: MatrixState): GridRow[] {
 export function CompGridMatrix({
   value,
   onChange,
+  assignedLevels = [],
 }: {
   value: MatrixState;
   onChange: (next: MatrixState) => void;
+  /**
+   * The level strings agents in this agency are actually contracted at.
+   *
+   * A column heading that matches none of them produces a grid the
+   * calculator can never find: it joins `commission_grids.level_name` to
+   * `agent_commission_levels.commission_level` as an exact string, and a miss
+   * returns no row at all — so the agent is paid nothing, silently, months
+   * later, and nothing points back here. Warning is the whole point of
+   * knowing this.
+   */
+  assignedLevels?: string[];
 }) {
   const [band, setBand] = useState<BandKey>("year_1_pct");
+
+  // Case- and space-insensitive, because "GA " and "ga" are somebody's typo
+  // rather than somebody's intent. The database comparison is stricter than
+  // this, so anything flagged here is definitely wrong; something unflagged
+  // could still differ by case, which is why the hint names the exact string.
+  const norm = (s: string) => s.trim().toLowerCase();
+  const known = new Map(assignedLevels.map((l) => [norm(l), l]));
+  const unmatched = value.levels
+    .map((l) => l.trim())
+    .filter((l) => l && !known.has(norm(l)));
 
   const filled = useMemo(
     () => value.products.reduce(
@@ -206,13 +249,13 @@ export function CompGridMatrix({
                   </div>
                 </th>
               ))}
-              <th className="p-1.5 w-10">
+              <th className="p-1.5 w-[120px]">
                 <Button
                   type="button" size="sm" variant="ghost"
+                  className="w-full text-xs"
                   onClick={() => onChange({ ...value, levels: [...value.levels, ""] })}
-                  aria-label="Add a level"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Level
                 </Button>
               </th>
             </tr>
@@ -272,12 +315,34 @@ export function CompGridMatrix({
         <Plus className="mr-1 h-4 w-4" /> Add product
       </Button>
 
-      {band !== "year_1_pct" && (
-        <p className="text-[11px] text-muted-foreground">
-          Renewal rates. A blank cell means this carrier pays no renewal at that level —
-          leave it empty rather than entering 0.
-        </p>
+      {unmatched.length > 0 && assignedLevels.length > 0 && (
+        <div className="rounded-[var(--radius)] border border-warning/40 bg-warning/[0.07] p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {unmatched.length === 1
+              ? `No agent is contracted at "${unmatched[0]}".`
+              : `No agent is contracted at ${unmatched.map((l) => `"${l}"`).join(", ")}.`}
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+            These rates will save, but nothing will pay on them — a level is matched to a
+            contract by its exact text. Levels in use here:{" "}
+            <span className="font-medium text-foreground">{assignedLevels.join(", ")}</span>.
+          </p>
+        </div>
       )}
+
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        {band === "year_1_pct" ? (
+          <>
+            Column headings are contract levels and must match the level on the agent's
+            contract exactly — that string is how Finances knows what to pay them.
+          </>
+        ) : (
+          <>
+            Renewal rates. A blank cell means this carrier pays no renewal at that level —
+            leave it empty rather than entering 0.
+          </>
+        )}
+      </p>
     </div>
   );
 }

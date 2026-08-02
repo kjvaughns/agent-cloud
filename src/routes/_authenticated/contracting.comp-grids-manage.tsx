@@ -11,13 +11,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Upload, Trash2, Loader2, Sparkles, Check } from "lucide-react";
+import { Upload, Trash2, Loader2, Sparkles, Check, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   listMyGrids, extractGridFromImage, saveGrid, deleteMyGrid, type GridRow,
 } from "@/lib/comp-grid.functions";
+import { addCarrier } from "@/lib/contracting.functions";
 import { fileToImageDataUrl } from "@/lib/file-to-image";
+
+/** Sentinel for the "add a carrier" row in the carrier Select. */
+const NEW_CARRIER = "__new__";
 
 export const Route = createFileRoute("/_authenticated/contracting/comp-grids-manage")({
   // Comp grids moved into Contracting Operations, beside the comp levels they
@@ -38,6 +42,8 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
   const { data, isLoading } = useQuery({ queryKey: ["comp-grids"], queryFn: () => listFn() });
 
   const [carrierId, setCarrierId] = useState("");
+  const [addingCarrier, setAddingCarrier] = useState(false);
+  const [newCarrierName, setNewCarrierName] = useState("");
   const [rows, setRows] = useState<GridRow[]>([]);
   // The matrix is what a person edits; `rows` is what the server stores. Kept
   // in step here rather than pivoting on every keystroke inside the table.
@@ -50,9 +56,11 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
   const extractFn = useServerFn(extractGridFromImage);
   const saveFn = useServerFn(saveGrid);
   const delFn = useServerFn(deleteMyGrid);
+  const addCarrierFn = useServerFn(addCarrier);
 
   const carriers = (data as any)?.carriers ?? [];
   const grids = (data as any)?.grids ?? [];
+  const assignedLevels = (data as any)?.assignedLevels ?? [];
 
   async function onFile(file: File) {
     setReading(true);
@@ -110,6 +118,46 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
     onError: (e: any) => toast.error(e?.message ?? "Couldn't save the grid"),
   });
 
+  /**
+   * Open an existing grid in the editor.
+   *
+   * A shared default loads exactly the same way; saving it writes a row with
+   * this agency's organization_id, so the copy happens on save rather than on
+   * click and nothing another agency reads is touched.
+   */
+  function loadGrid(g: any) {
+    setCarrierId(g.carrier_id);
+    const rows: GridRow[] = (g.rows ?? []).map((r: any) => ({
+      product_name: r.product_name,
+      level_name: r.level_name,
+      year_1_pct: r.year_1_pct ?? 0,
+      years_2_5_pct: r.years_2_5_pct,
+      years_6_plus_pct: r.years_6_plus_pct,
+      age_group_min: r.age_group_min ?? null,
+      age_group_max: r.age_group_max ?? null,
+    }));
+    setRows(rows);
+    setMatrix(toMatrix(rows));
+    setSource("manual");
+    setUploadId(null);
+    setNotes(g.owned ? null : "This is the shared default. Saving creates your agency's own version of it.");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const addCarrierMut = useMutation({
+    mutationFn: (name: string) => addCarrierFn({ data: { name } }),
+    onSuccess: async (r: any) => {
+      toast.success("Carrier added");
+      setAddingCarrier(false);
+      setNewCarrierName("");
+      await qc.invalidateQueries({ queryKey: ["comp-grids"] });
+      // Select it, so the next thing you do is build its grid rather than
+      // hunt for the name you just typed.
+      if (r?.id) setCarrierId(r.id);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't add that carrier"),
+  });
+
   const remove = useMutation({
     mutationFn: (cid: string) => delFn({ data: { carrier_id: cid } }),
     onSuccess: () => { toast.success("Your grid was removed"); qc.invalidateQueries({ queryKey: ["comp-grids"] }); },
@@ -137,12 +185,47 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Carrier</label>
-                <Select value={carrierId} onValueChange={setCarrierId}>
+                <Select
+                  value={carrierId}
+                  onValueChange={(v) => (v === NEW_CARRIER ? setAddingCarrier(true) : setCarrierId(v))}
+                >
                   <SelectTrigger><SelectValue placeholder="Select carrier…" /></SelectTrigger>
                   <SelectContent>
                     {carriers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    {/* The catalogue does not have every carrier, and an
+                        agency writing one that isn't listed had nowhere to
+                        put its grid. */}
+                    <SelectItem value={NEW_CARRIER}>+ Add a carrier…</SelectItem>
                   </SelectContent>
                 </Select>
+
+                {addingCarrier && (
+                  <div className="mt-2 space-y-2 rounded-lg border border-primary/30 bg-surface-2 p-2.5">
+                    <Input
+                      value={newCarrierName}
+                      onChange={(e) => setNewCarrierName(e.target.value)}
+                      placeholder="Carrier name"
+                      className="h-8 text-xs"
+                      autoFocus
+                    />
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Added for your agency only — it will not appear in anyone else's carrier list.
+                    </p>
+                    <div className="flex gap-1.5">
+                      <Button
+                        size="sm" className="h-7 text-xs"
+                        disabled={!newCarrierName.trim() || addCarrierMut.isPending}
+                        onClick={() => addCarrierMut.mutate(newCarrierName.trim())}
+                      >
+                        {addCarrierMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs"
+                        onClick={() => { setAddingCarrier(false); setNewCarrierName(""); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -189,6 +272,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
               <CompGridMatrix
                 value={matrix}
                 onChange={(next) => { setMatrix(next); setRows(fromMatrix(next)); }}
+                assignedLevels={assignedLevels}
               />
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -209,19 +293,37 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
             <ul className="divide-y divide-border-soft -my-1">
               {grids.map((g: any) => (
                 <li key={g.carrier_id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="text-sm font-medium">{g.carrier_name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground tnum">{g.rows.length} rows</span>
-                  </div>
+                  {/* Clicking loads it into the editor above. This list used
+                      to be read-only, so a carrier that already had a grid
+                      was the one carrier you could not change — which is
+                      backwards, since those are the ones worth changing. */}
+                  <button
+                    type="button"
+                    onClick={() => loadGrid(g)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="text-sm font-medium hover:underline">{g.carrier_name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground tnum">
+                      {g.rows.length} rate{g.rows.length === 1 ? "" : "s"}
+                    </span>
+                  </button>
                   <div className="flex items-center gap-2">
                     <Badge variant={g.owned ? "gold" : "secondary"} className="text-[10px]">
                       {g.owned ? "Your agency" : "Shared default"}
                     </Badge>
-                    {g.owned && (
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => loadGrid(g)}>
+                      <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                    </Button>
+                    {g.owned ? (
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive"
                         onClick={() => remove.mutate(g.carrier_id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
+                    ) : (
+                      // A shared default belongs to the platform. Deleting it
+                      // would take it from every other agency, so editing
+                      // takes a copy instead — which is what saving does.
+                      <span className="w-7" aria-hidden />
                     )}
                   </div>
                 </li>

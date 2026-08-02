@@ -683,7 +683,9 @@ export const addCarrier = createServerFn({ method: "POST" })
     // every other agency on the platform. RLS `carriers_private_write`
     // requires is_private, so depending on which legacy policy is still live
     // it either failed for the owner or leaked. Both answers were wrong.
-    const { error } = await (supabase as any).from("carriers").insert({
+    // Returns the id so a caller can select what it just created rather than
+    // making somebody find the name they only just typed.
+    const { data: made, error } = await (supabase as any).from("carriers").insert({
       name: data.name,
       phone: data.phone || null,
       hours: data.hours || null,
@@ -697,7 +699,7 @@ export const addCarrier = createServerFn({ method: "POST" })
       is_private: true,
       owner_organization_id: profile.organization_id,
       created_by: userId,
-    });
+    }).select("id").maybeSingle();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, id: made?.id as string | undefined };
   });

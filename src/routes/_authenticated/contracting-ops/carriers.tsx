@@ -17,14 +17,48 @@ import {
 } from "@/lib/contracting-ops.functions";
 import { METHOD_LABELS, type ContractingMethod } from "@/lib/contracting-ops/types";
 import { EmptyState } from "@/components/contracting/shared";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LevelsPanel } from "@/components/contracting/levels-panel";
+import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
 import { cn } from "@/lib/utils";
 
+const TABS = ["carriers", "levels", "grids"] as const;
+type Tab = (typeof TABS)[number];
+
 export const Route = createFileRoute("/_authenticated/contracting-ops/carriers")({
-  component: CarrierDirectoryPage,
-  head: () => ({ meta: [{ title: "Carrier Setup | Agent Cloud" }] }),
+  component: CarriersPage,
+  head: () => ({ meta: [{ title: "Carriers | Agent Cloud" }] }),
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } =>
+    TABS.includes(s.tab as Tab) ? { tab: s.tab as Tab } : {},
 });
 
-function CarrierDirectoryPage() {
+/**
+ * One page for carriers and what they pay.
+ *
+ * "Compensation" was a separate sidebar entry holding the levels and grids
+ * for the carriers set up here — so adding a carrier and telling the app what
+ * it pays were two destinations, and neither name said which held what.
+ * Setting a carrier up and building its grid is one job.
+ */
+function CarriersPage() {
+  const { tab } = Route.useSearch();
+  const [active, setActive] = useState<Tab>(tab ?? "carriers");
+
+  return (
+    <Tabs value={active} onValueChange={(v) => setActive(v as Tab)} className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="carriers">Carriers</TabsTrigger>
+        <TabsTrigger value="levels">Levels</TabsTrigger>
+        <TabsTrigger value="grids">Comp grids</TabsTrigger>
+      </TabsList>
+      <TabsContent value="carriers"><CarrierDirectoryPage onBuildGrid={() => setActive("grids")} /></TabsContent>
+      <TabsContent value="levels"><LevelsPanel /></TabsContent>
+      <TabsContent value="grids"><ManageGridsPage embedded /></TabsContent>
+    </Tabs>
+  );
+}
+
+function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listOrgCarriers);
   const availableFn = useServerFn(listAvailableCarriers);

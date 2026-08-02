@@ -1,4 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HierarchiesPage } from "@/components/contracting/hierarchies-panel";
+import { HierarchyChangesPage } from "@/components/contracting/hierarchy-changes-panel";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus, Search } from "lucide-react";
@@ -23,12 +26,40 @@ import {
 import { AgePill, EmptyState, OwnerChip, StatusBadge } from "@/components/contracting/shared";
 import { cn } from "@/lib/utils";
 
+const TABS = ["requests", "hierarchies", "changes"] as const;
+type Tab = (typeof TABS)[number];
+
 export const Route = createFileRoute("/_authenticated/contracting-ops/requests/")({
-  component: RequestsPage,
+  component: RequestsTabs,
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab } =>
+    TABS.includes(s.tab as Tab) ? { tab: s.tab as Tab } : {},
   head: () => ({ meta: [{ title: "Contract Requests | Agent Cloud" }] }),
 });
 
 type Scope = "open" | "all" | "mine" | "unassigned";
+
+/**
+ * Contract requests, and the hierarchy they sit in.
+ *
+ * Carrier hierarchies and hierarchy changes were two sidebar entries of their
+ * own, both describing where a request sits and who it routes through — which
+ * is the same question a request is already asking. One destination.
+ */
+function RequestsTabs() {
+  const { tab } = Route.useSearch();
+  return (
+    <Tabs defaultValue={tab ?? "requests"} className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="requests">Requests</TabsTrigger>
+        <TabsTrigger value="hierarchies">Hierarchies</TabsTrigger>
+        <TabsTrigger value="changes">Hierarchy changes</TabsTrigger>
+      </TabsList>
+      <TabsContent value="requests"><RequestsPage /></TabsContent>
+      <TabsContent value="hierarchies"><HierarchiesPage /></TabsContent>
+      <TabsContent value="changes"><HierarchyChangesPage /></TabsContent>
+    </Tabs>
+  );
+}
 
 function RequestsPage() {
   const qc = useQueryClient();

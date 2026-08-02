@@ -13,14 +13,7 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-- `20260730162000_contracting-ops-requests.sql`
-- `20260731140000_ensure-assigned-contract-status.sql`
-- `20260801120000_scope-layer.sql`
-- `20260801121000_analytics-authorization.sql`
-- `20260802120000_pending-agents.sql`
-- `20260802130000_nova-conversations.sql`
-- `20260802140000_help-desk.sql`
-- `20260802150000_agency-resources.sql`
-
-Order matters at the tail: `agency-resources` reads the permission columns
-`help-desk` adds.
+_Nothing pending. The eight queued on 2 Aug 2026 — contracting-ops-requests,
+ensure-assigned-contract-status, scope-layer, analytics-authorization,
+pending-agents, nova-conversations, help-desk and agency-resources — are all
+applied._
