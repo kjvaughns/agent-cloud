@@ -180,9 +180,10 @@ export function resolveField(
 
 /** Which of the readiness states a blocking requirement maps to. */
 function stateForBlocker(key: string, kind: "field" | "document"): ReadinessState {
-  if (kind === "document") {
-    return key === "pdb_report" ? "missing_documents" : "missing_documents";
-  }
+  // Every missing document is the same readiness state. This was written as a
+  // ternary on `pdb_report` with the same value in both branches — an
+  // unfinished thought, not a distinction the caller can act on.
+  if (kind === "document") return "missing_documents";
   if (key === "active_resident_license" || key === "resident_license_number") return "missing_license";
   if (key.startsWith("upline_") || key.startsWith("agency_")) return "missing_hierarchy";
   if (key === "existing_writing_number") return "missing_writing_number";

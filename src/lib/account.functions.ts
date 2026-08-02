@@ -79,7 +79,17 @@ export const revealSsn = createServerFn({ method: "POST" })
   });
 
 const DocInput = z.object({
-  doc_type: z.enum(["eo_certificate", "banking", "drivers_license", "aml_certificate", "government_id", "voided_check", "background_check", "w9", "other"]),
+  // These names are the ops queue's vocabulary — `DOCUMENT_REQUIREMENTS` in
+  // `@/lib/contracting-ops/types`. Producer Profile used to write
+  // `background_check` and `other`, which are not keys in that dictionary, so
+  // the review queue rendered them as raw strings; and it had no `pdb_report`
+  // at all, meaning an agent could not upload the document the queue lists
+  // first. Two vocabularies for one column, and the reviewer's was the one
+  // nobody could write to.
+  doc_type: z.enum([
+    "pdb_report", "eo_certificate", "banking", "drivers_license", "aml_certificate",
+    "government_id", "voided_check", "background_questionnaire", "w9", "other_document",
+  ]),
   file_path: z.string().trim().min(1).max(500).optional().nullable(),
   file_name: z.string().trim().min(1).max(200).optional().nullable(),
   start_date: z.string().optional().nullable(),
