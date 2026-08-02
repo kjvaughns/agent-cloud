@@ -21,36 +21,40 @@ type Persona = { name: string; ctx: NavContext };
 const PERSONAS: Persona[] = [
   {
     name: "Solo agent (own workspace, solo plan)",
-    ctx: { audience: "core", inAgency: false, canSeeAgency: false, downlineCount: 0, perms: {} },
+    ctx: { audience: "core", inAgency: false, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
   },
   {
     name: "Agent inside an agency, nobody under them",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, perms: {} },
+    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
+  },
+  {
+    name: "Pending agent (invited, no sale yet)",
+    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: true, perms: {} },
   },
   {
     name: "Agent with a downline",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 3, perms: {} },
+    ctx: { audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 3, isPending: false, perms: {} },
   },
   {
     name: "Manager (default permissions)",
     ctx: {
       audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 8,
-      perms: { mgr_view_team_analytics: true, mgr_manage_onboarding: true },
+      isPending: false, perms: { mgr_view_team_analytics: true, mgr_manage_onboarding: true },
     },
   },
   {
     name: "Agency owner",
-    ctx: { audience: "core", inAgency: true, canSeeAgency: true, downlineCount: 0, perms: {} },
+    ctx: { audience: "core", inAgency: true, canSeeAgency: true, downlineCount: 0, isPending: false, perms: {} },
   },
   {
     name: "Staff (no permissions granted)",
-    ctx: { audience: "staff", inAgency: true, canSeeAgency: false, downlineCount: 0, perms: {} },
+    ctx: { audience: "staff", inAgency: true, canSeeAgency: false, downlineCount: 0, isPending: false, perms: {} },
   },
   {
     name: "Staff (admin preset)",
     ctx: {
       audience: "staff", inAgency: true, canSeeAgency: true, downlineCount: 0,
-      perms: { staff_is_admin: true, admin_manage_staff_configs: true, staff_nova_pro_enabled: true, staff_view_contracts: true },
+      isPending: false, perms: { staff_is_admin: true, admin_manage_staff_configs: true, staff_nova_pro_enabled: true, staff_view_contracts: true },
     },
   },
 ];

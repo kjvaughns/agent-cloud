@@ -168,6 +168,12 @@ export type MyAccess = {
    * so would be a pricing decision arriving as a layout change.
    */
   canSeeAgency: boolean;
+  /**
+   * Has an account but is not yet a selling agent — invited, not activated,
+   * no first sale. They get everything that leads to selling and none of the
+   * selling itself.
+   */
+  isPending: boolean;
   isSolo: boolean;
   isOwner: boolean;
   orgId: string | null;
@@ -223,11 +229,18 @@ export const getMyAccess = createServerFn({ method: "GET" })
 
     const inAgency = Boolean(org) && org?.plan_type !== "solo";
 
+    const { data: me } = await supabaseAdmin
+      .from("profiles").select("status").eq("id", userId).maybeSingle();
+
     return {
       role: pick,
       canManageRoles,
       inAgency,
       canSeeAgency: inAgency && (org?.owner_id === userId || canManageRoles),
+      // An org owner is never pending — they are the one who does the
+      // activating, and locking them out of their own workspace on the day
+      // they sign up would be absurd.
+      isPending: me?.status === "pending" && org?.owner_id !== userId,
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       orgId: org?.id ?? null,

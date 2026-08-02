@@ -28,9 +28,16 @@ export const NOVA_LIMITS = {
   automations: { included: 200, overage: 0.1, label: "Automation executions" },
 } as const;
 
-/** Statuses that grant workspace access → billable seats. Access = billable. */
-export const BILLABLE_PROFILE_STATUSES = ["pending", "onboarding", "licensing", "contracting", "ready_to_sell", "active"];
-export const NON_BILLABLE_PROFILE_STATUSES = ["invited", "imported", "inactive", "terminated"];
+/**
+ * Which statuses cost a seat.
+ *
+ * You pay for producers, not for people who signed up. `pending` moved to the
+ * free side: an invited agent who has not been activated and has not sold yet
+ * has an account and an onboarding checklist, not the selling half of the
+ * product, so charging for them would be charging for a recruit.
+ */
+export const BILLABLE_PROFILE_STATUSES = ["onboarding", "licensing", "contracting", "ready_to_sell", "active"];
+export const NON_BILLABLE_PROFILE_STATUSES = ["pending", "invited", "imported", "inactive", "terminated"];
 
 // ── Runtime pricing (plans table, with these constants as the fallback) ──────
 

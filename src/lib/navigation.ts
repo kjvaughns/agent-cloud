@@ -45,7 +45,13 @@ export type Unlock =
   /** Someone who administers the agency: the owner, or an admin. */
   | "agency-admin"
   /** Somebody has people under them. A team page with no team is a dead end. */
-  | "has-downline";
+  | "has-downline"
+  /**
+   * A selling surface. Hidden while somebody is still becoming an agent —
+   * they have no clients, no book and no commissions, so these pages can only
+   * show them zero and ask them to wait.
+   */
+  | "activated";
 
 export type Page = {
   id: string;
@@ -91,13 +97,17 @@ export const PAGES: Page[] = [
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Home", unlock: "agency-member" },
 
   // Clients — everyone you are working, sold, or about to lose.
-  { id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Clients", staffPermission: "staff_view_clients" },
-  { id: "pipeline", label: "Pipeline", path: "/pipeline", icon: KanbanSquare, area: "Clients", parent: "clients", staffPermission: "staff_view_clients" },
-  { id: "calendar", label: "Calendar", path: "/calendar", icon: Calendar, area: "Clients", parent: "clients" },
-  { id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
-  { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
+  { unlock: "activated", id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Clients", staffPermission: "staff_view_clients" },
+  { unlock: "activated", id: "pipeline", label: "Pipeline", path: "/pipeline", icon: KanbanSquare, area: "Clients", parent: "clients", staffPermission: "staff_view_clients" },
+  { unlock: "activated", id: "calendar", label: "Calendar", path: "/calendar", icon: Calendar, area: "Clients", parent: "clients" },
+  { unlock: "activated", id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
+  { unlock: "activated", id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
 
   // Contracting — becoming and staying appointed, and what it pays.
+  // Post a Deal is deliberately NOT gated on being activated: posting the
+  // first policy is one of the two things that ends the pending state, so
+  // locking it would make that route impossible to walk.
+
   // Contracting — becoming and staying appointed.
   //
   // Writing numbers and commission levels are not pages here. They are columns
@@ -110,11 +120,11 @@ export const PAGES: Page[] = [
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Contracting", staffPermission: "staff_post_policies" },
 
   // Money is its own answer to its own question, not a footnote to a contract.
-  { id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Finances", staffPermission: "staff_view_commissions" },
+  { unlock: "activated", id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Finances", staffPermission: "staff_view_commissions" },
 
   // Reports — one page. How wide it looks is the scope toggle's job, not a
   // permission's, which is why the old manager gate is gone.
-  { id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reports", staffPermission: "staff_view_analytics" },
+  { unlock: "activated", id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reports", staffPermission: "staff_view_analytics" },
 
   // Tools — the utility drawer.
   //
@@ -134,7 +144,7 @@ export const PAGES: Page[] = [
   { id: "academy", label: "Academy", path: "/resources/agent-academy", icon: BookOpen, area: "Tools" },
   { id: "handbook", label: "Handbook", path: "/resources/agent-handbook", icon: BookOpen, area: "Tools" },
 
-  { id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova", staffPermission: "staff_nova_pro_enabled" },
+  { unlock: "activated", id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova", staffPermission: "staff_nova_pro_enabled" },
 
   // ── Agency ───────────────────────────────────────────────────────────────
   //
@@ -240,6 +250,8 @@ export type NavContext = {
   canSeeAgency: boolean;
   /** How many people are under them. Drives the has-downline gate. */
   downlineCount: number;
+  /** Invited, not yet activated, no first sale. */
+  isPending: boolean;
   perms: Record<string, unknown>;
 };
 
@@ -265,6 +277,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-member") gates.push(ctx.inAgency);
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
+  if (p.unlock === "activated") gates.push(!ctx.isPending);
   if (p.permission) gates.push(Boolean(ctx.perms[p.permission]));
   if (gates.length > 0 && !gates.some(Boolean)) return false;
 
