@@ -907,6 +907,11 @@ const StatusSchema = z.object({
   due_date: z.string().max(10).nullable().optional(),
   confirmation_reference: z.string().max(120).nullable().optional(),
   decline_reason: z.string().max(1000).nullable().optional(),
+  // `writing_number_issued` is the one status that names a fact the request
+  // cannot otherwise carry. Without this field the workflow could reach its
+  // final state and the number the carrier issued was recorded nowhere — the
+  // step the whole queue exists to produce had no way to produce it.
+  writing_number: z.string().trim().max(64).nullable().optional(),
 });
 
 /**
@@ -921,7 +926,9 @@ const StatusSchema = z.object({
  * because its bookkeeping did; the request status is the source of truth and a
  * missing record can be reconciled, whereas a rolled-back approval cannot.
  */
-async function syncContractRecord(request: any, status: string, now: string) {
+async function syncContractRecord(
+  request: any, status: string, now: string, writingNumber?: string | null,
+) {
   try {
     const { data: orgCarrier } = await supabaseAdmin
       .from("org_carriers").select("carrier_id").eq("id", request.org_carrier_id).maybeSingle();
@@ -938,6 +945,31 @@ async function syncContractRecord(request: any, status: string, now: string) {
     if (status === "writing_number_issued") {
       patch.activated_at = now;
       patch.effective_date = request.desired_effective_date ?? null;
+
+      const number = writingNumber?.trim();
+      if (number) {
+        // The authoritative store. `source: 'request_outcome'` is the strongest
+        // provenance the workflow can produce — this number came out of the
+        // carrier's own decision, not somebody typing it in.
+        const { error: wnErr } = await supabaseAdmin.from("writing_numbers").insert({
+          organization_id: request.organization_id,
+          agent_id: request.agent_id,
+          org_carrier_id: request.org_carrier_id,
+          writing_number: number,
+          number_type: "individual",
+          scope: "national",
+          status: "active",
+          source: "request_outcome",
+          request_id: request.id,
+        });
+        // 23505: already recorded, which is the end state we wanted.
+        if (wnErr && wnErr.code !== "23505") {
+          console.error("[contracting] writing number not recorded", wnErr);
+        }
+        // Still written: see the note on the dual write in
+        // @/lib/writing-numbers. Removed once 20260802220000 is applied.
+        patch.writing_number = number;
+      }
     }
 
     const { data: record } = await supabaseAdmin
@@ -1009,7 +1041,7 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     // approved here and the agent would still show as uncontracted everywhere
     // else.
     if (["approved", "writing_number_issued"].includes(data.status)) {
-      await syncContractRecord(before, data.status, now);
+      await syncContractRecord(before, data.status, now, data.writing_number);
     }
 
     // The trigger records the bare transition; this adds the human context.

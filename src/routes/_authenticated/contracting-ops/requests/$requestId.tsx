@@ -75,6 +75,11 @@ function RequestDetailPage() {
   const emailFn = useServerFn(generateEmail);
   const sheetFn = useServerFn(generateSpreadsheetRow);
   const [draftEmail, setDraftEmail] = useState<any | null>(null);
+  // `writing_number_issued` is the only status that carries a fact with it.
+  // Selecting it opens this rather than moving straight to the final state,
+  // because a request that reached "writing number issued" without the number
+  // is the exact dead end this workflow had before.
+  const [issuingNumber, setIssuingNumber] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["contracting-ops", "request", requestId],
@@ -417,7 +422,11 @@ function RequestDetailPage() {
                   </label>
                   <Select
                     value=""
-                    onValueChange={(v) => setStatus.mutate({ status: v as any })}
+                    onValueChange={(v) =>
+                      v === "writing_number_issued"
+                        ? setIssuingNumber("")
+                        : setStatus.mutate({ status: v as any })
+                    }
                     disabled={setStatus.isPending}
                   >
                     <SelectTrigger className="h-8 text-xs">
@@ -436,6 +445,53 @@ function RequestDetailPage() {
                     carrier decisions need contracting rights. The server says
                     so plainly if a move isn't allowed.
                   </p>
+
+                  {issuingNumber !== null && (
+                    <div className="mt-2 rounded-md border border-border bg-surface-2 p-2">
+                      <label
+                        htmlFor="wn-issued"
+                        className="mb-1 block text-xs font-medium text-foreground"
+                      >
+                        Writing number the carrier issued
+                      </label>
+                      <input
+                        id="wn-issued"
+                        autoFocus
+                        value={issuingNumber}
+                        onChange={(e) => setIssuingNumber(e.target.value)}
+                        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                        placeholder="e.g. 4471902"
+                      />
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                        Recorded against the agent and this carrier, and shown
+                        on their Contracts page and in the team matrix.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={!issuingNumber.trim() || setStatus.isPending}
+                          onClick={() => {
+                            setStatus.mutate({
+                              status: "writing_number_issued",
+                              writing_number: issuingNumber.trim(),
+                            } as any);
+                            setIssuingNumber(null);
+                          }}
+                        >
+                          Record and close
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setIssuingNumber(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

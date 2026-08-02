@@ -17,6 +17,7 @@ Delete a line once the migration is applied.
 - `20260802200000_backfill-org-carrier-links.sql`
 - `20260802201000_resolve-commission-level-requests.sql`
 - `20260802210000_fix-deal-notification-text.sql`
+- `20260802220000_writing-numbers-authoritative.sql`
 
 Everything else queued on 2 Aug 2026 is applied, bundled into
 `20260802193054_e04946cb-f497-4d04-a0ba-a573587e18e8.sql`. That bundle improves

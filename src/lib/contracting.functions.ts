@@ -3,9 +3,17 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds, resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
+import { loadWritingNumbers, recordWritingNumber, writingNumberKey } from "@/lib/writing-numbers";
 
 // ---------- helpers ----------
 type Ctx = { supabase: any; userId: string };
+
+/** The org a write should be attributed to. Null for a personal account. */
+async function getOrgId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  return data?.organization_id ?? null;
+}
 
 async function getMyLevelPct(supabase: any, userId: string, carrierId: string): Promise<number | null> {
   const { data } = await supabase
@@ -55,6 +63,7 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
     const { error } = await supabase.from("contract_requests").upsert({
       agent_id: userId,
       carrier_id: data.carrier_id,
+      // Still written: see the note on the dual write in @/lib/writing-numbers.
       writing_number: data.writing_number ?? null,
       loa: data.loa,
       status: "active",
@@ -62,6 +71,16 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
       activated_at: new Date().toISOString(),
     }, { onConflict: "agent_id,carrier_id" });
     if (error) throw new Error(error.message);
+
+    if (data.writing_number) {
+      await recordWritingNumber(supabase, {
+        agentId: userId,
+        orgId: await getOrgId(supabase, userId),
+        carrierId: data.carrier_id,
+        writingNumber: data.writing_number,
+        source: "self_reported",
+      });
+    }
     return { ok: true };
   });
 
@@ -111,7 +130,19 @@ export const listMyContracts = createServerFn({ method: "POST" })
           [p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()]));
       }
     }
-    return { rows: (data ?? []).map((r: any) => ({ ...r, agent_name: names.get(r.agent_id) ?? null })) };
+    // The number comes from `writing_numbers` now, falling back to the column
+    // on this row when there is no record yet — either because the backfill
+    // has not run or because the pair could not be mapped to an org carrier.
+    const numbers = await loadWritingNumbers(supabase, agentIds);
+
+    return {
+      rows: (data ?? []).map((r: any) => ({
+        ...r,
+        writing_number:
+          numbers.get(writingNumberKey(r.agent_id, r.carrier_id)) ?? r.writing_number ?? null,
+        agent_name: names.get(r.agent_id) ?? null,
+      })),
+    };
   });
 
 export const createContractRequest = createServerFn({ method: "POST" })
@@ -165,7 +196,7 @@ export const updateContractStatus = createServerFn({ method: "POST" })
     issue_description: z.string().max(1000).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context as Ctx;
+    const { supabase, userId } = context as Ctx;
     const update: any = { status: data.status };
     if (data.status === "submitted") update.submitted_at = new Date().toISOString();
     if (data.status === "active") update.activated_at = new Date().toISOString();
@@ -179,9 +210,25 @@ export const updateContractStatus = createServerFn({ method: "POST" })
     // than as success — an update that matches nothing is not an error in
     // Postgres, and this one used to return { ok: true } either way.
     const { data: touched, error } = await supabase
-      .from("contract_requests").update(update).eq("id", data.id).select("id");
+      .from("contract_requests").update(update).eq("id", data.id).select("id,agent_id,carrier_id");
     if (error) throw new Error(error.message);
     if (!touched?.length) throw new Error("You don't have permission to change that contract.");
+
+    // Only after the update is known to have landed — recording a number
+    // against a contract the caller could not change would be worse than not
+    // recording it at all.
+    if (data.writing_number) {
+      const row = touched[0] as any;
+      await recordWritingNumber(supabase, {
+        agentId: row.agent_id,
+        orgId: await getOrgId(supabase, row.agent_id),
+        carrierId: row.carrier_id,
+        writingNumber: data.writing_number,
+        // Staff setting a number on somebody else's contract is a different
+        // claim from an agent stating their own.
+        source: row.agent_id === userId ? "self_reported" : "manual_entry",
+      });
+    }
     return { ok: true };
   });
 
@@ -257,6 +304,15 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
         .in("agent_id", agentIds);
       levels = lv ?? [];
     }
+
+    // Same substitution as My Contracts: the cell shows the authoritative
+    // number, falling back to the legacy column on the request row.
+    const numbers = await loadWritingNumbers(supabase, agentIds);
+    requests = requests.map((r: any) => ({
+      ...r,
+      writing_number:
+        numbers.get(writingNumberKey(r.agent_id, r.carrier_id)) ?? r.writing_number ?? null,
+    }));
 
     return { agents: agents ?? [], carriers, requests, levels };
   });
@@ -657,7 +713,7 @@ export const activateContract = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     const { data: contract } = await supabase
       .from("contract_requests")
-      .select("id, status")
+      .select("id, status, carrier_id")
       .eq("id", data.contract_id)
       .eq("agent_id", userId)
       .single();
@@ -665,9 +721,18 @@ export const activateContract = createServerFn({ method: "POST" })
     if (contract.status !== "assigned") throw new Error("Only assigned contracts can be activated this way");
     const { error } = await supabase
       .from("contract_requests")
+      // Still written: see the note on the dual write in @/lib/writing-numbers.
       .update({ writing_number: data.writing_number, status: "active", activated_at: new Date().toISOString() })
       .eq("id", data.contract_id);
     if (error) throw new Error(error.message);
+
+    await recordWritingNumber(supabase, {
+      agentId: userId,
+      orgId: await getOrgId(supabase, userId),
+      carrierId: contract.carrier_id,
+      writingNumber: data.writing_number,
+      source: "self_reported",
+    });
     return { ok: true };
   });
 

@@ -33,6 +33,12 @@ alter table public.commission_level_requests
 
 drop policy if exists "upline_read" on public.commission_level_requests;
 
+-- These two are dropped first as well. Migrations here are applied by hand, so
+-- a run that fails partway has to be safe to repeat — and `create policy` has
+-- no `if not exists` form, so without this the second attempt aborts the file.
+drop policy if exists commission_level_requests_read on public.commission_level_requests;
+drop policy if exists commission_level_requests_decide on public.commission_level_requests;
+
 create policy commission_level_requests_read on public.commission_level_requests
   for select to authenticated
   using (
