@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { getMyAccess, type MyAccess } from "@/lib/permissions.functions";
 import { audienceFor, type NavContext } from "@/lib/navigation";
+import { useScopeCapabilities } from "@/hooks/use-scope";
 
 /** Role + configurable permissions for the signed-in user (drives nav + billing UI). */
 export function useMyAccess(): { access: MyAccess | undefined; loading: boolean } {
@@ -30,10 +31,14 @@ export function useMyAccess(): { access: MyAccess | undefined; loading: boolean 
  */
 export function useNavContext(): NavContext {
   const { access } = useMyAccess();
+  // Already cached for the session by the scope toggle, so asking here costs
+  // nothing. It is what decides whether My Agents is worth a row.
+  const { caps } = useScopeCapabilities();
   return {
     audience: audienceFor({ role: access?.role ?? null }),
     inAgency: Boolean(access?.inAgency),
     canSeeAgency: Boolean(access?.canSeeAgency),
+    downlineCount: caps.downlineCount,
     perms: (access?.permissions ?? {}) as Record<string, unknown>,
   };
 }
