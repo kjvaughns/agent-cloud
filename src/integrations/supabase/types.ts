@@ -6913,7 +6913,9 @@ export type Database = {
           mgr_edit_agent_profiles: boolean | null
           mgr_edit_client_records: boolean | null
           mgr_manage_onboarding: boolean | null
+          mgr_manage_resources: boolean | null
           mgr_post_deals_for_agents: boolean | null
+          mgr_respond_tickets: boolean | null
           mgr_submit_carrier_requests: boolean | null
           mgr_view_agent_commissions: boolean | null
           mgr_view_all_agents: boolean | null
@@ -6927,6 +6929,7 @@ export type Database = {
           staff_edit_policies: boolean | null
           staff_edit_recruiting: boolean | null
           staff_is_admin: boolean | null
+          staff_manage_resources: boolean | null
           staff_move_recruiting_stages: boolean | null
           staff_nova_pro_enabled: boolean | null
           staff_post_policies: boolean | null
@@ -6966,7 +6969,9 @@ export type Database = {
           mgr_edit_agent_profiles?: boolean | null
           mgr_edit_client_records?: boolean | null
           mgr_manage_onboarding?: boolean | null
+          mgr_manage_resources?: boolean | null
           mgr_post_deals_for_agents?: boolean | null
+          mgr_respond_tickets?: boolean | null
           mgr_submit_carrier_requests?: boolean | null
           mgr_view_agent_commissions?: boolean | null
           mgr_view_all_agents?: boolean | null
@@ -6980,6 +6985,7 @@ export type Database = {
           staff_edit_policies?: boolean | null
           staff_edit_recruiting?: boolean | null
           staff_is_admin?: boolean | null
+          staff_manage_resources?: boolean | null
           staff_move_recruiting_stages?: boolean | null
           staff_nova_pro_enabled?: boolean | null
           staff_post_policies?: boolean | null
@@ -7019,7 +7025,9 @@ export type Database = {
           mgr_edit_agent_profiles?: boolean | null
           mgr_edit_client_records?: boolean | null
           mgr_manage_onboarding?: boolean | null
+          mgr_manage_resources?: boolean | null
           mgr_post_deals_for_agents?: boolean | null
+          mgr_respond_tickets?: boolean | null
           mgr_submit_carrier_requests?: boolean | null
           mgr_view_agent_commissions?: boolean | null
           mgr_view_all_agents?: boolean | null
@@ -7033,6 +7041,7 @@ export type Database = {
           staff_edit_policies?: boolean | null
           staff_edit_recruiting?: boolean | null
           staff_is_admin?: boolean | null
+          staff_manage_resources?: boolean | null
           staff_move_recruiting_stages?: boolean | null
           staff_nova_pro_enabled?: boolean | null
           staff_post_policies?: boolean | null
@@ -7552,11 +7561,14 @@ export type Database = {
           category: string
           created_at: string | null
           description: string
+          escalated_at: string | null
+          escalated_by: string | null
           first_response_at: string | null
           id: string
           organization_id: string | null
           priority: string
           resolved_at: string | null
+          scope: string
           status: string
           subject: string
           ticket_number: number
@@ -7568,11 +7580,14 @@ export type Database = {
           category: string
           created_at?: string | null
           description: string
+          escalated_at?: string | null
+          escalated_by?: string | null
           first_response_at?: string | null
           id?: string
           organization_id?: string | null
           priority?: string
           resolved_at?: string | null
+          scope?: string
           status?: string
           subject: string
           ticket_number?: number
@@ -7584,11 +7599,14 @@ export type Database = {
           category?: string
           created_at?: string | null
           description?: string
+          escalated_at?: string | null
+          escalated_by?: string | null
           first_response_at?: string | null
           id?: string
           organization_id?: string | null
           priority?: string
           resolved_at?: string | null
+          scope?: string
           status?: string
           subject?: string
           ticket_number?: number
@@ -7598,6 +7616,13 @@ export type Database = {
           {
             foreignKeyName: "support_tickets_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_escalated_by_fkey"
+            columns: ["escalated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -8469,6 +8494,7 @@ export type Database = {
       can_view_contracting: { Args: { _org: string }; Returns: boolean }
       can_view_contracting_audit: { Args: { _org: string }; Returns: boolean }
       can_view_sensitive_docs: { Args: { _org: string }; Returns: boolean }
+      can_work_tickets: { Args: { _org: string }; Returns: boolean }
       check_rate_limit: {
         Args: { _key: string; _max: number; _window_seconds: number }
         Returns: boolean
@@ -8596,6 +8622,7 @@ export type Database = {
       is_org_admin: { Args: { _org: string }; Returns: boolean }
       is_org_owner: { Args: { _org: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
+      is_platform_operator: { Args: never; Returns: boolean }
       list_applied_migrations: {
         Args: never
         Returns: {
