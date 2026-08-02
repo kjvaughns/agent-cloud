@@ -799,13 +799,19 @@ export const submitTransferSheet = createServerFn({ method: "POST" })
     }
 
     if (profile?.upline_id) {
-      const agentName = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+      // Falls back to "An agent" rather than rendering "Transfer Request
+      // from " with nothing after it, which is what a blank profile produced.
+      const agentName =
+        `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "An agent";
+      // `description`, not `body`/`link` — neither column exists on
+      // `notifications`, so PostgREST rejected the row with PGRST204 and the
+      // discarded result meant nothing surfaced. The upline was never told a
+      // release request was waiting.
       await supabase.from("notifications").insert({
         user_id: profile.upline_id,
         title:   `Transfer Request from ${agentName}`,
-        body:    `${agentName} has submitted a carrier release request for ${data.rows.length} carrier${data.rows.length !== 1 ? "s" : ""}. Review in Transfer Requests.`,
+        description: `${agentName} has submitted a carrier release request for ${data.rows.length} carrier${data.rows.length !== 1 ? "s" : ""}. Review in Transfer Requests.`,
         type:    "contracting",
-        link:    "/admin/agents",
         read:    false,
       }).catch(() => {});
     }

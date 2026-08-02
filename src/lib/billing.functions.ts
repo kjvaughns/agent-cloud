@@ -615,7 +615,7 @@ export async function trackNovaUsage(
       await supabaseAdmin.from("notifications").insert({
         user_id: userId,
         title: pct === 1 ? "Nova Pro limit reached" : "Nova Pro usage at 80%",
-        description: `You've used ${Math.round((after / limit) * 100)}% of your monthly ${(NOVA_LIMITS as any)[limitKey]?.label?.toLowerCase() ?? metric}. ${pct === 1 ? "Overage rates now apply." : ""}`,
+        description: `You've used ${Math.round((after / limit) * 100)}% of your monthly ${(NOVA_LIMITS as any)[limitKey]?.label?.toLowerCase() ?? metric}.${pct === 1 ? " Overage rates now apply." : ""}`,
         type: "billing",
       });
     }

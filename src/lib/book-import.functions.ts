@@ -656,14 +656,20 @@ export const submitFullImportRequest = createServerFn({ method: "POST" })
       .in("role", ["admin", "manager"]);
 
     for (const admin of admins ?? []) {
-      await supabase.from("notifications").insert({
+      // `description`, not `body`/`link` — neither column exists on
+      // `notifications`, so PostgREST rejected the row with PGRST204 every
+      // time. The result was never read, so nothing surfaced and no admin was
+      // ever told an import was waiting.
+      const { error: notifyErr } = await supabase.from("notifications").insert({
         user_id: admin.user_id,
         type: "scrape_request",
         title: "New Full Import Request",
-        body: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
-        link: "/admin/import-requests",
+        description: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
         read: false,
       });
+      // Not fatal: the request itself is already saved, and failing the whole
+      // call because one admin could not be notified would be worse.
+      if (notifyErr) console.error("[book-import] admin notify failed", notifyErr);
     }
 
     return { request_id: req.id, ok: true };
@@ -697,14 +703,20 @@ export const submitScrapeRequest = createServerFn({ method: "POST" })
       .in("role", ["admin", "manager"]);
 
     for (const admin of admins ?? []) {
-      await supabase.from("notifications").insert({
+      // `description`, not `body`/`link` — neither column exists on
+      // `notifications`, so PostgREST rejected the row with PGRST204 every
+      // time. The result was never read, so nothing surfaced and no admin was
+      // ever told an import was waiting.
+      const { error: notifyErr } = await supabase.from("notifications").insert({
         user_id: admin.user_id,
         type: "scrape_request",
         title: "New Full Import Request",
-        body: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
-        link: "/admin/import-requests",
+        description: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
         read: false,
       });
+      // Not fatal: the request itself is already saved, and failing the whole
+      // call because one admin could not be notified would be worse.
+      if (notifyErr) console.error("[book-import] admin notify failed", notifyErr);
     }
 
     return { request_id: req.id, ok: true };

@@ -4,7 +4,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
 import { recordAudit } from "@/lib/contracting-ops/audit";
-import { REQUEST_STATUS_META, type RequestStatus, type ReadyToSellStatus } from "@/lib/contracting-ops/types";
+import {
+  HIERARCHY_CHANGE_LABELS,
+  REQUEST_STATUS_META,
+  type HierarchyChangeType,
+  type RequestStatus,
+  type ReadyToSellStatus,
+} from "@/lib/contracting-ops/types";
 
 const supabaseAdmin = _admin as any;
 type Ctx = { supabase: any; userId: string };
@@ -193,7 +199,7 @@ export const createHierarchyChange = createServerFn({ method: "POST" })
       await supabaseAdmin.from("notifications").insert({
         user_id: notify,
         title: "Hierarchy change needs your review",
-        description: `${data.change_type.replace(/_/g, " ")} — ${created.reference}`,
+        description: `${HIERARCHY_CHANGE_LABELS[data.change_type as HierarchyChangeType] ?? data.change_type} — ${created.reference}`,
         type: "contracting",
       });
     }
