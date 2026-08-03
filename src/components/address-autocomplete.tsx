@@ -35,9 +35,11 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
           sessionRef.current = new places.AutocompleteSessionToken();
           setReady(true);
         })
-        .catch(() => {
-          /* fallback to plain input */
+        .catch((e) => {
+          // Degrade to a plain text input, but make the cause visible.
+          console.error("[address-autocomplete] Google Places unavailable:", e);
         });
+
       return () => {
         cancelled = true;
       };
