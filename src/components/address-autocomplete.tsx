@@ -35,9 +35,11 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
           sessionRef.current = new places.AutocompleteSessionToken();
           setReady(true);
         })
-        .catch(() => {
-          /* fallback to plain input */
+        .catch((e) => {
+          // Degrade to a plain text input, but make the cause visible.
+          console.error("[address-autocomplete] Google Places unavailable:", e);
         });
+
       return () => {
         cancelled = true;
       };
@@ -75,7 +77,11 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
           setSuggestions(list);
           setOpen(list.length > 0);
         })
-        .catch(() => setSuggestions([]));
+        .catch((e: unknown) => {
+          console.error("[address-autocomplete] suggestion fetch failed:", e);
+          setSuggestions([]);
+        });
+
     }, [ready]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -86,6 +86,7 @@ import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
 import { Route as ApiPublicPlansRouteImport } from './routes/api/public/plans'
 import { Route as ApiPublicPageDataRouteImport } from './routes/api/public/page-data'
+import { Route as ApiPublicMapsKeyRouteImport } from './routes/api/public/maps-key'
 import { Route as ApiPublicLeadSubmitRouteImport } from './routes/api/public/lead-submit'
 import { Route as ApiPublicLandingLeadRouteImport } from './routes/api/public/landing-lead'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
@@ -560,6 +561,11 @@ const ApiPublicPlansRoute = ApiPublicPlansRouteImport.update({
 const ApiPublicPageDataRoute = ApiPublicPageDataRouteImport.update({
   id: '/api/public/page-data',
   path: '/api/public/page-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMapsKeyRoute = ApiPublicMapsKeyRouteImport.update({
+  id: '/api/public/maps-key',
+  path: '/api/public/maps-key',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicLeadSubmitRoute = ApiPublicLeadSubmitRouteImport.update({
@@ -1160,6 +1166,7 @@ export interface FileRoutesByFullPath {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/maps-key': typeof ApiPublicMapsKeyRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
@@ -1312,6 +1319,7 @@ export interface FileRoutesByTo {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/maps-key': typeof ApiPublicMapsKeyRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
@@ -1471,6 +1479,7 @@ export interface FileRoutesById {
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
   '/api/public/landing-lead': typeof ApiPublicLandingLeadRoute
   '/api/public/lead-submit': typeof ApiPublicLeadSubmitRoute
+  '/api/public/maps-key': typeof ApiPublicMapsKeyRoute
   '/api/public/page-data': typeof ApiPublicPageDataRoute
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
@@ -1630,6 +1639,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/maps-key'
     | '/api/public/page-data'
     | '/api/public/plans'
     | '/api/public/waitlist-count'
@@ -1782,6 +1792,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/maps-key'
     | '/api/public/page-data'
     | '/api/public/plans'
     | '/api/public/waitlist-count'
@@ -1940,6 +1951,7 @@ export interface FileRouteTypes {
     | '/api/public/funnel-view'
     | '/api/public/landing-lead'
     | '/api/public/lead-submit'
+    | '/api/public/maps-key'
     | '/api/public/page-data'
     | '/api/public/plans'
     | '/api/public/waitlist-count'
@@ -1990,6 +2002,7 @@ export interface RootRouteChildren {
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
   ApiPublicLandingLeadRoute: typeof ApiPublicLandingLeadRoute
   ApiPublicLeadSubmitRoute: typeof ApiPublicLeadSubmitRoute
+  ApiPublicMapsKeyRoute: typeof ApiPublicMapsKeyRoute
   ApiPublicPageDataRoute: typeof ApiPublicPageDataRoute
   ApiPublicPlansRoute: typeof ApiPublicPlansRoute
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
@@ -2544,6 +2557,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/page-data'
       fullPath: '/api/public/page-data'
       preLoaderRoute: typeof ApiPublicPageDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/maps-key': {
+      id: '/api/public/maps-key'
+      path: '/api/public/maps-key'
+      fullPath: '/api/public/maps-key'
+      preLoaderRoute: typeof ApiPublicMapsKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/lead-submit': {
@@ -3502,6 +3522,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,
   ApiPublicLandingLeadRoute: ApiPublicLandingLeadRoute,
   ApiPublicLeadSubmitRoute: ApiPublicLeadSubmitRoute,
+  ApiPublicMapsKeyRoute: ApiPublicMapsKeyRoute,
   ApiPublicPageDataRoute: ApiPublicPageDataRoute,
   ApiPublicPlansRoute: ApiPublicPlansRoute,
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
@@ -3519,13 +3540,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
