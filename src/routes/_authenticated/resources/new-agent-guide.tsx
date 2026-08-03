@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { PageShell, Panel } from "@/components/page-shell";
 import { cn } from "@/lib/utils";
 import { Check, ArrowRight, BookOpen, ScrollText, GraduationCap } from "lucide-react";
+import { useNavContext } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/resources/new-agent-guide")({
   head: () => ({ meta: [{ title: "New Agent Guide — Agent Cloud" }] }),
@@ -24,7 +25,148 @@ const STEPS: { key: keyof Steps; title: string; desc: string; href: string; cta:
 
 type Steps = { profile: boolean; eo: boolean; aml: boolean; banking: boolean; contract: boolean; deal: boolean };
 
+/**
+ * The same six steps, from the other side of the desk.
+ *
+ * Back-office staff opening Resources were handed an agent's new-hire
+ * checklist — complete your producer profile, get your first carrier contract,
+ * post your first deal — which described somebody else's job in the second
+ * person. It also cannot be completed: `getOnboardingStatus` derives every
+ * step from policies and contract requests belonging to the person asking, and
+ * a coordinator has neither, so the bar sits at 0% forever.
+ *
+ * What a contracting coordinator actually needs on their first day is where
+ * things are and what the rules are, so these are destinations and references
+ * rather than steps with a progress bar over them.
+ */
+const STAFF_SECTIONS: {
+  title: string;
+  items: { title: string; desc: string; href?: string; cta?: string; external?: string }[];
+}[] = [
+  {
+    title: "Where the work is",
+    items: [
+      {
+        title: "Today's Work",
+        desc: "The queue: what is overdue, unassigned, not in good order, or ready to submit.",
+        href: "/contracting-ops/queue", cta: "Open the queue",
+      },
+      {
+        title: "Contract Requests",
+        desc: "Every request and its packet, plus writing numbers, hierarchy and change requests.",
+        href: "/contracting-ops/requests", cta: "Open requests",
+      },
+      {
+        title: "Licensing & PDB",
+        desc: "Expirations, PDB review cadence and what each agent has on file. Filter by expiring, expired or missing report.",
+        href: "/contracting-ops/licensing", cta: "Open licensing",
+      },
+    ],
+  },
+  {
+    title: "Set the agency up",
+    items: [
+      {
+        title: "Carrier submission methods",
+        desc: "How each carrier takes paperwork — SureLC, a portal, an invitation link, email or a spreadsheet. More than one per carrier is normal: SureLC for a new contract, email for a hierarchy change.",
+        href: "/contracting-ops/carriers", cta: "Open carriers",
+      },
+      {
+        title: "Carrier requirements",
+        desc: "What each carrier needs before a submission is in good order. These drive the readiness bar on every request, so a missing requirement here is a NIGO later.",
+        href: "/contracting-ops/carriers", cta: "Edit a carrier",
+      },
+      {
+        title: "Submission templates",
+        desc: "The email wording and spreadsheet columns each carrier expects, so a batch is not rejected over one blank column.",
+        href: "/contracting-ops/templates", cta: "Open templates",
+      },
+      {
+        title: "Contracting settings",
+        desc: "Agency defaults: how often a fresh PDB report is required, the licence expiry warning window, request priorities and due dates.",
+        href: "/contracting-ops/settings", cta: "Open settings",
+      },
+    ],
+  },
+  {
+    title: "Worth knowing",
+    items: [
+      {
+        title: "Licensing data here is manually verified",
+        desc: "Agent Cloud is not connected to NIPR. Everything in Licensing comes from PDB reports your team uploads and reviews — nothing is live or automatically synced, and the page says so wherever it shows a date.",
+      },
+      {
+        title: "Onboarding a new agent",
+        desc: "Producer profile and NPN, E&O and AML certificates, banking, background disclosures, then a contracting request per carrier. What is outstanding for any one agent is on their record; what is outstanding across everybody is the Getting agents ready tab.",
+        href: "/team", cta: "Getting agents ready",
+      },
+      {
+        title: "Reading a comp grid",
+        desc: "A carrier's comp levels are the ladder; a grid is what each level pays by product and issue age. A writing number is issued against a level, so changing the level is a contracting request, not an edit.",
+        href: "/contracting-ops/carriers", cta: "Comp levels and grids",
+      },
+      {
+        title: "NIPR and the national database",
+        desc: "The producer database is the source of truth for licences and appointments. Look a producer up by NPN, download the report, then upload it here so the review and the next-review date are recorded.",
+        external: "https://nipr.com",
+      },
+    ],
+  },
+];
+
 function Page() {
+  const { audience } = useNavContext();
+  return audience === "staff" ? <StaffGuide /> : <AgentGuide />;
+}
+
+function StaffGuide() {
+  return (
+    <PageShell>
+      <div className="max-w-4xl space-y-6">
+        <Panel>
+          <div className="font-semibold">Running contracting for this agency</div>
+          <p className="mt-1 text-sm text-text-dim">
+            Where each part of the job lives, and the handful of rules worth knowing before you start
+            on somebody's paperwork.
+          </p>
+        </Panel>
+
+        {STAFF_SECTIONS.map((section) => (
+          <div key={section.title} className="space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              {section.title}
+            </h2>
+            {section.items.map((item) => (
+              <div
+                key={item.title}
+                className="flex items-start gap-4 rounded-[var(--radius)] border border-border bg-card p-pad transition-colors hover:bg-surface-2"
+              >
+                <div className="flex-1">
+                  <div className="font-semibold">{item.title}</div>
+                  <div className="mt-1 text-sm text-text-dim">{item.desc}</div>
+                </div>
+                {item.href && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={item.href}>{item.cta} <ArrowRight className="ml-1 h-4 w-4" /></Link>
+                  </Button>
+                )}
+                {item.external && (
+                  <Button asChild variant="outline" size="sm">
+                    <a href={item.external} target="_blank" rel="noreferrer">
+                      Open <ArrowRight className="ml-1 h-4 w-4" />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </PageShell>
+  );
+}
+
+function AgentGuide() {
   const fn = useServerFn(getOnboardingStatus);
   const { data, isLoading } = useQuery({ queryKey: ["onboarding-status"], queryFn: () => fn() });
 

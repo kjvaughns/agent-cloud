@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+// Reused rather than redeclared: two vocabularies for "who is this for" drift.
+import type { Audience } from "@/lib/navigation";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -12,15 +14,30 @@ type Ctx = { supabase: any; userId: string };
  * not opted out — see public.may_notify.
  */
 
+/**
+ * `audience` limits a category to the people it can happen to.
+ *
+ * "Policies at risk" and "Commissions" describe events in a book of business,
+ * and back-office staff do not have one — offering them the switch implies
+ * they might, which is exactly the confusion about their own role that the
+ * rest of this change is undoing. Omitting `audience` means everybody, which
+ * is most of them.
+ *
+ * The stored columns are unchanged: a preference nobody is shown keeps
+ * whatever value it has, so granting somebody a producer role later restores
+ * their old setting rather than a default.
+ */
 export const NOTIFICATION_CATEGORIES = [
   { key: "notify_task_assigned",     label: "Tasks assigned to me",      description: "When someone assigns you a task" },
-  { key: "notify_policy_at_risk",    label: "Policies at risk",          description: "When one of your policies goes lapse-pending or NSF" },
-  { key: "notify_commission_posted", label: "Commissions",               description: "When a commission is scheduled or paid" },
+  { key: "notify_policy_at_risk",    label: "Policies at risk",          description: "When one of your policies goes lapse-pending or NSF", audience: ["core"] },
+  { key: "notify_commission_posted", label: "Commissions",               description: "When a commission is scheduled or paid", audience: ["core"] },
   { key: "notify_contract_updates",  label: "Contracting updates",       description: "Carrier appointments, level changes, transfers" },
-  { key: "notify_team_activity",     label: "Team activity",             description: "Production and milestones across your downline" },
+  { key: "notify_team_activity",     label: "Team activity",             description: "Production and milestones across your downline", audience: ["core"] },
   { key: "notify_announcements",     label: "Announcements",             description: "Agency-wide posts" },
   { key: "notify_billing",           label: "Billing",                   description: "Payment issues and subscription changes" },
-] as const;
+] as const satisfies readonly {
+  key: string; label: string; description: string; readonly audience?: readonly Audience[];
+}[];
 
 export type NotificationPrefs = {
   email_enabled: boolean;

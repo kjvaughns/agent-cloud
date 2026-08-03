@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { trackNovaUsage } from "@/lib/billing.functions";
-import { buildNovaContext, novaSystemPrompt } from "@/lib/nova-context.server";
+import { buildNovaTurn, novaSystemPrompt } from "@/lib/nova-context.server";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -113,7 +113,7 @@ export const askAiAssistant = createServerFn({ method: "POST" })
       conversationId = created?.id ?? null;
     }
 
-    const [{ data: prior }, novaContext] = await Promise.all([
+    const [{ data: prior }, nova] = await Promise.all([
       conversationId
         ? supabase
             .from("nova_messages")
@@ -122,7 +122,11 @@ export const askAiAssistant = createServerFn({ method: "POST" })
             .order("created_at", { ascending: false })
             .limit(HISTORY_TURNS)
         : Promise.resolve({ data: [] }),
-      buildNovaContext({ supabase, userId }),
+      // Persona and picture have to describe the same person, so one call
+      // returns both. A coordinator handed the agency's queue under a prompt
+      // saying "you are talking to one agent about their own business" is
+      // worse than either half alone.
+      buildNovaTurn({ supabase, userId }),
     ]);
 
     const history = ((prior ?? []) as NovaMessage[]).reverse();
@@ -142,7 +146,7 @@ export const askAiAssistant = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: novaSystemPrompt(novaContext) },
+          { role: "system", content: novaSystemPrompt(nova.context, nova.audience) },
           ...history.map((m) => ({ role: m.role, content: m.content })),
           { role: "user", content: data.message },
         ],

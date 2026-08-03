@@ -14,28 +14,58 @@ import { askAiAssistant, listNovaConversations, getNovaConversation } from "@/li
 import { cn } from "@/lib/utils";
 import { NovaAutomationsPanel } from "@/components/nova/automations-panel";
 import { NovaActivityPanel } from "@/components/nova/activity-panel";
+import { useNavContext } from "@/hooks/use-my-access";
+import type { Audience } from "@/lib/navigation";
 
 export const Route = createFileRoute("/_authenticated/ai-assistant")({
   component: NovaAIPage,
 });
 
-const QUICK_CHIPS: { icon: React.ComponentType<{ className?: string }>; label: string; prompt: string }[] = [
-  { icon: FileText, label: "Call summary", prompt: "Summarize a recent call or notes" },
-  { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
-  { icon: TrendingUp, label: "Pipeline triage", prompt: "Which deals should I chase today?" },
-  { icon: Lightbulb, label: "Script builder", prompt: "Build a custom final expense script for 65+ homeowners" },
-  { icon: FileText, label: "Follow-up email", prompt: "Draft a follow-up email for a hot IUL lead" },
-  { icon: Target, label: "30-day plan", prompt: "Generate a 30-day prospecting plan" },
-];
+type Chip = { icon: React.ComponentType<{ className?: string }>; label: string; prompt: string };
+
+/**
+ * What Nova offers to do, by who is asking.
+ *
+ * The agent set is unchanged. The staff set exists because a contracting
+ * coordinator opening Nova was offered an objection coach, a prospecting plan
+ * and a final expense script — six suggestions, none of them their job — and
+ * greeted with "I can see your pipeline, your book and what's at risk", all
+ * three of which are empty for somebody who does not sell.
+ *
+ * The server decides what Nova can actually see; this decides what she offers
+ * first. Both read the same role, so they cannot disagree about who is here.
+ */
+const QUICK_CHIPS: Record<Audience, Chip[]> = {
+  core: [
+    { icon: FileText, label: "Call summary", prompt: "Summarize a recent call or notes" },
+    { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
+    { icon: TrendingUp, label: "Pipeline triage", prompt: "Which deals should I chase today?" },
+    { icon: Lightbulb, label: "Script builder", prompt: "Build a custom final expense script for 65+ homeowners" },
+    { icon: FileText, label: "Follow-up email", prompt: "Draft a follow-up email for a hot IUL lead" },
+    { icon: Target, label: "30-day plan", prompt: "Generate a 30-day prospecting plan" },
+  ],
+  staff: [
+    { icon: Target, label: "What's overdue", prompt: "What contracting requests are overdue, and what is each one waiting on?" },
+    { icon: TrendingUp, label: "Work next", prompt: "What should I work next in the contracting queue?" },
+    { icon: FileText, label: "Licences expiring", prompt: "Which licences expire in the next 45 days, and for which agents?" },
+    { icon: Lightbulb, label: "Not ready to sell", prompt: "Which agents are not ready to sell, and what is missing for each?" },
+    { icon: FileText, label: "Chase a carrier", prompt: "Draft an email chasing a carrier on an outstanding contracting request." },
+    { icon: Target, label: "PDB reports", prompt: "Which agents are missing a PDB report or have one that is out of date?" },
+  ],
+};
+
+const GREETINGS: Record<Audience, string> = {
+  core: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
+  staff: "Hi, I'm Nova. I can see your contracting queue, licence expirations and PDB status — ask me what's overdue, what to work next, or for help drafting a note to a carrier.",
+};
 
 type Message = { role: "user" | "assistant"; text: string };
 
-const GREETING: Message = {
-  role: "assistant",
-  text: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
-};
-
 function NovaAIPage() {
+  const { audience } = useNavContext();
+  const chips = QUICK_CHIPS[audience];
+  const GREETING: Message = { role: "assistant", text: GREETINGS[audience] };
+
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState("assistant");
@@ -119,7 +149,9 @@ function NovaAIPage() {
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Your sales co-pilot for objections, scripts, and pipeline strategy.
+            {audience === "staff"
+              ? "Your back-office co-pilot for the contracting queue, licensing and carrier chasing."
+              : "Your sales co-pilot for objections, scripts, and pipeline strategy."}
           </p>
         </div>
       </div>
@@ -219,7 +251,7 @@ function NovaAIPage() {
         {/* Composer */}
         <div className="border-t border-border/70 bg-surface-2/20 p-3 md:p-4 space-y-3">
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-            {QUICK_CHIPS.map((c) => (
+            {chips.map((c) => (
               <button
                 key={c.label}
                 onClick={() => send(c.prompt)}

@@ -1,5 +1,4 @@
-import { requireSession } from "@/lib/require-session";
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -12,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
-import { PageShell, HeroBand } from "@/components/page-shell";
+import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useMyAccess } from "@/hooks/use-my-access";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmailsPage } from "@/components/settings/emails-panel";
 import { AutomationsPage } from "@/components/settings/automations-panel";
@@ -27,20 +28,57 @@ export const Route = createFileRoute("/_authenticated/settings/agency")({
     const t = s.tab;
     return TABS.includes(t as Tab) ? { tab: t as Tab } : {};
   },
-  beforeLoad: async () => {
-    const session = await requireSession();
-    // limit(1), not maybeSingle(): maybeSingle errors when more than one row
-    // matches, and an owner holds several of these roles at once.
-    const { data: roleRows } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .in("role", ["super_admin", "agency_owner", "admin"] as any)
-      .limit(1);
-    if (!roleRows?.length) throw redirect({ to: "/dashboard" as any });
-  },
-  component: AgencySettingsPage,
+  // The guard moved into the component. It used to live here and check
+  // `user_roles` alone, which was wrong twice over: it ignored
+  // `organizations.owner_id`, so an owner whose org row predates their account
+  // was locked out of their own agency's settings; and it ignored the
+  // admin-staff path `resolveCanManagePermissions` honours, so somebody who
+  // could administer /settings/roles was bounced from here. Worse, it bounced
+  // them to the Dashboard with no explanation — a page they did not ask for,
+  // saying nothing about the one they did.
+  component: AgencySettingsRoute,
 });
+
+/**
+ * May this person configure the agency, and if not, why not.
+ *
+ * `canSeeAgency` is the same signal the sidebar uses to decide whether to
+ * offer this row at all (`getMyAccess`, permissions.functions.ts), so the link
+ * and the page now agree. Reaching this by URL without it gets a sentence
+ * rather than a redirect.
+ */
+function AgencySettingsRoute() {
+  const { access, loading } = useMyAccess();
+
+  if (loading) {
+    return (
+      <PageShell>
+        <Skeleton className="h-64 rounded-xl" />
+      </PageShell>
+    );
+  }
+
+  if (!access?.canSeeAgency) {
+    return (
+      <PageShell>
+        <div className="mx-auto max-w-xl">
+          <Panel title="Agency settings are limited to administrators">
+            <p className="text-sm text-muted-foreground">
+              Your account can't change this agency's name, branding, automations or integrations.
+              The agency owner, or an admin they've granted access to, can — ask them, or ask to be
+              granted admin access on the Roles page.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3">
+              <Link to="/settings">Back to settings</Link>
+            </Button>
+          </Panel>
+        </div>
+      </PageShell>
+    );
+  }
+
+  return <AgencySettingsPage />;
+}
 
 function GeneralTab() {
   const { org } = useOrganization();

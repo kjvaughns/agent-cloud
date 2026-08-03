@@ -27,16 +27,18 @@ export function NovaRail({
   const askFn = useServerFn(askAiAssistant);
 
   const ask = useMutation({
+    // `askAiAssistant` moved its history to the server and now validates
+    // `{ message, conversationId? }`. This rail was never migrated and kept
+    // posting the old `{ messages: [...] }` shape, so every question from the
+    // dashboard failed Zod validation before reaching the model. The context
+    // line rides along in the message rather than as a turn of its own, since
+    // a one-shot rail has no thread for it to belong to.
     mutationFn: (question: string) =>
       askFn({
-        data: {
-          messages: [
-            ...(context ? [{ role: "user" as const, content: `Context: ${context}` }] : []),
-            { role: "user" as const, content: question },
-          ],
-        },
+        data: { message: context ? `Context: ${context}\n\n${question}` : question },
       }),
     onSuccess: (res: any) => setAnswer(res?.reply ?? ""),
+    onError: (e: any) => setAnswer(`Sorry, I hit an error: ${e?.message ?? "unknown"}`),
   });
 
   const submit = () => {

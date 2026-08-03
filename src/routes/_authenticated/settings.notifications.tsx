@@ -11,6 +11,7 @@ import {
   getNotificationPrefs, updateNotificationPrefs,
   NOTIFICATION_CATEGORIES, type NotificationPrefs,
 } from "@/lib/notification-prefs.functions";
+import { useNavContext } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/settings/notifications")({
   head: () => ({ meta: [{ title: "Notifications — Agent Cloud" }] }),
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/settings/notifications")({
 
 export function NotificationSettings() {
   const qc = useQueryClient();
+  const { audience } = useNavContext();
   const getFn = useServerFn(getNotificationPrefs);
   const saveFn = useServerFn(updateNotificationPrefs);
 
@@ -88,7 +90,11 @@ export function NotificationSettings() {
             off there, nothing sends regardless of what you choose here.
           </p>
           <div className="space-y-4">
-            {NOTIFICATION_CATEGORIES.map((c) => (
+            {NOTIFICATION_CATEGORIES
+              // A switch for something that cannot happen to you is not a
+              // choice, it is a suggestion that you might be someone else.
+              .filter((c) => !("audience" in c) || (c.audience as readonly string[]).includes(audience))
+              .map((c) => (
               <Row
                 key={c.key}
                 title={c.label}
