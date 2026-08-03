@@ -2,32 +2,20 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export const getOnboardingStatus = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    // Phone and Wallet were two of these eight steps. Neither surface exists
-    // any more, so an agent could never have completed them — a checklist
-    // permanently stuck at six of eight is worse than a shorter one.
-    const [profile, docs, contracts, policies] = await Promise.all([
-      supabase.from("profiles").select("npn_number,date_of_birth,street_address").eq("id", userId).maybeSingle(),
-      supabase.from("producer_documents").select("doc_type").eq("agent_id", userId),
-      supabase.from("contract_requests").select("status").eq("agent_id", userId),
-      supabase.from("policies").select("id", { count: "exact", head: true }).eq("agent_id", userId),
-    ]);
-    const docTypes = new Set((docs.data ?? []).map((d) => d.doc_type));
-    const steps = {
-      profile: !!(profile.data?.npn_number && profile.data?.date_of_birth && profile.data?.street_address),
-      eo: docTypes.has("eo_certificate"),
-      aml: docTypes.has("aml_certificate"),
-      banking: docTypes.has("banking"),
-      contract: (contracts.data ?? []).some((c) => c.status === "active"),
-      deal: (policies.count ?? 0) > 0,
-    };
-    const total = Object.keys(steps).length;
-    const completed = Object.values(steps).filter(Boolean).length;
-    return { steps, completed, total, pct: Math.round((completed / total) * 100) };
-  });
+// `getOnboardingStatus` was here: a second six-step definition of onboarding,
+// read only by the New Agent Guide, while the dashboard showed ten from
+// `getAgentOnboarding`. Different counts and different membership describing
+// the same person, with no way to reconcile them.
+//
+// `getAgentOnboarding` is authoritative now — it derives every step from real
+// data rather than a stored flag, and it absorbed the one step this had that it
+// lacked (posting the first policy). Deleted rather than left in place, because
+// a second definition nobody reads is a second definition somebody will
+// eventually read again.
+//
+// It also checked `doc_type === "eo_certificate"` alone, which misses the older
+// `eo` spelling the vocabulary migration deliberately kept — so agents with a
+// legacy E&O certificate were told they had none.
 
 /**
  * Defaults plus overrides, resolved to one of each.

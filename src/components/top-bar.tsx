@@ -42,9 +42,35 @@ export function TopBar() {
   const items = notifications ?? [];
   const unreadCount = items.filter((n: any) => !n.read).length;
 
-  const firstName = (user?.user_metadata?.full_name || user?.email || "").toString().split(/[ @]/)[0];
-  const initials = (user?.user_metadata?.full_name || user?.email || "AC")
-    .toString().split(" ").map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
+  /**
+   * The name, from whichever key the signup path happened to write.
+   *
+   * This read `full_name || email` and nothing else, which is correct for
+   * exactly one of the three ways an account gets created:
+   *
+   *   signup_.agent.tsx:69          full_name, first_name, last_name   ✓
+   *   onboarding.functions.ts:178   first_name, last_name              ✗
+   *   admin.functions.ts:346        first_name, last_name              ✗
+   *
+   * So it worked for anyone who signed up directly and fell through to the
+   * email local-part for every agent who joined by invite or import — which is
+   * the path the product is built around. "Good morning, kjvaughns13" is an app
+   * telling you it does not know who you are, on the first screen you see.
+   *
+   * `first_name` is already there in both cases, so this needs no backfill.
+   */
+  const meta = user?.user_metadata ?? {};
+  const displayName = (meta.full_name || meta.first_name || user?.email || "").toString();
+  const firstName = displayName.split(/[ @]/)[0];
+  const initials = (
+    meta.full_name
+      ? String(meta.full_name)
+      : meta.first_name
+        // Two initials when both halves are known, rather than the first two
+        // letters of a first name.
+        ? `${meta.first_name} ${meta.last_name ?? ""}`.trim()
+        : user?.email || "AC"
+  ).split(/[ @]/).filter(Boolean).map((s: string) => s[0]).slice(0, 2).join("").toUpperCase();
 
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 

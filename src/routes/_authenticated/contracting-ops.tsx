@@ -1,10 +1,68 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { Compass } from "lucide-react";
 import { PageShell, Panel } from "@/components/page-shell";
+import { supabase } from "@/integrations/supabase/client";
+import { requireSession } from "@/lib/require-session";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops")({
   component: ContractingOpsLayout,
   notFoundComponent: ContractingOpsDirectory,
+  /**
+   * Staff only.
+   *
+   * Every page under this layout was reachable by typing the URL. The
+   * navigation registry hides the entry behind `unlock: "agency-admin"`, and
+   * `/licensing` picks between the staff view and the agent view with a
+   * client-side branch — but neither is a guard. A hidden link is not a closed
+   * door, and a bookmark, a shared URL or a deep link from the work inbox all
+   * bypassed both.
+   *
+   * Same shape as `settings.agency.tsx`: `limit(1)` rather than
+   * `maybeSingle()`, because an owner legitimately holds several of these roles
+   * at once and `maybeSingle()` errors on more than one row.
+   *
+   * This is the outer layer. The server functions underneath do their own
+   * checks and are the real boundary — this only stops the page rendering at
+   * all, which is what makes a stale bookmark land somewhere sensible instead
+   * of on a staff console.
+   */
+  beforeLoad: async () => {
+    const session = await requireSession();
+    const [{ data: roleRows }, { data: perms }] = await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .in("role", ["super_admin", "agency_owner", "admin", "manager"] as any)
+        .limit(1),
+      supabase
+        .from("role_permissions")
+        .select("staff_is_admin, staff_view_contracts, contracting_manage_licenses, contracting_manage_carriers, contracting_view_sensitive_docs")
+        .eq("profile_id", session.user.id)
+        .limit(1),
+    ]);
+
+    // Contracting staff are not admins and hold no user_roles row — they are
+    // granted through role_permissions, so checking roles alone would lock out
+    // exactly the people whose job this is.
+    //
+    // `staff_view_contracts` belongs in this list. The four `contracting_*`
+    // flags are set by a SQL backfill, while the contracting_specialist preset
+    // in STAFF_PRESETS grants `staff_view_contracts` and none of them — so a
+    // specialist configured through the UI was bounced from the workspace the
+    // sidebar had just offered them. Same gap, in the guard rather than the nav.
+    const p = (perms ?? [])[0] as Record<string, boolean> | undefined;
+    const isStaff = Boolean(
+      p && (p.staff_is_admin || p.staff_view_contracts || p.contracting_manage_licenses ||
+            p.contracting_manage_carriers || p.contracting_view_sensitive_docs),
+    );
+
+    if (!roleRows?.length && !isStaff) {
+      // /licensing, not /dashboard: somebody who lands here almost always
+      // wanted their own licences, and that page renders for everyone.
+      throw redirect({ to: "/licensing" as any });
+    }
+  },
   head: () => ({ meta: [{ title: "Contracting Operations | Agent Cloud" }] }),
 });
 

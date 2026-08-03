@@ -34,12 +34,12 @@ function check(name: string, got: unknown, want: unknown) {
   else { fail++; console.log(`FAIL  ${name}\n        got  ${JSON.stringify(got)}\n        want ${JSON.stringify(want)}`); }
 }
 
-const STEPS = readFileSync(join(ROOT, "src/lib/agent-onboarding.functions.ts"), "utf8");
+const STEPS_SRC = readFileSync(join(ROOT, "src/lib/agent-onboarding.functions.ts"), "utf8");
 const UI = readFileSync(join(ROOT, "src/components/onboarding/get-ready.tsx"), "utf8");
 
 // Every step literal carries an actor.
-const keys = [...STEPS.matchAll(/^\s+key: "([a-z_]+)",$/gm)].map((m) => m[1]);
-const actors = [...STEPS.matchAll(/^\s+actor: "(agent|owner)",$/gm)].map((m) => m[1]);
+const keys = [...STEPS_SRC.matchAll(/^\s+key: "([a-z_]+)",$/gm)].map((m) => m[1]);
+const actors = [...STEPS_SRC.matchAll(/^\s+actor: "(agent|owner)",$/gm)].map((m) => m[1]);
 
 check("onboarding steps were found at all", keys.length > 0, true);
 check("every step declares who may act", actors.length, keys.length);
@@ -82,6 +82,44 @@ if (enumLine) {
     check(`upload-on-behalf refuses ${forbidden}`, allowed.includes(forbidden), false);
   }
 }
+
+// ── One list, not three ─────────────────────────────────────────────────
+//
+// The dashboard showed "1 of 10" from `getAgentOnboarding` while the New Agent
+// Guide showed 6 from its own `STEPS` and its own `getOnboardingStatus`, and
+// `listOnboardingProgress` hardcoded a total of 6 while listing one of its
+// entries twice. Three definitions of "onboarding", disagreeing on count *and*
+// on membership.
+//
+// These assert the collapse holds. A second list is easy to add back by
+// accident — it looks like a small local constant at the time.
+
+console.log("");
+
+// The step this list absorbed from the Guide. Without it the Guide would have
+// lost a step in the merge.
+check("the authoritative list covers posting the first policy",
+  keys.includes("first_deal"), true);
+
+// The Guide renders the authoritative list rather than its own.
+const GUIDE = readFileSync(join(ROOT, "src/routes/_authenticated/resources/new-agent-guide.tsx"), "utf8");
+check("the guide reads getAgentOnboarding", /getAgentOnboarding/.test(GUIDE), true);
+check("the guide has no private step list",
+  /const STEPS(:|\s*=)/.test(GUIDE), false);
+check("the guide renders the server's steps",
+  /steps\.map\(/.test(GUIDE), true);
+
+// The retired duplicate stays retired.
+const RESOURCES = readFileSync(join(ROOT, "src/lib/resources.functions.ts"), "utf8");
+check("getOnboardingStatus is gone",
+  /export const getOnboardingStatus/.test(RESOURCES), false);
+
+// The roll-up counts each fact once and derives its own total.
+const progress = STEPS_SRC.slice(STEPS_SRC.indexOf("export const listOnboardingProgress"));
+check("the roll-up derives its total rather than hardcoding it",
+  /total,\n/.test(progress) && !/total: 6/.test(progress), true);
+check("the roll-up counts each fact once",
+  /\[p\.status === "active", identity, hasLicence, hasEo, live\]/.test(progress), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

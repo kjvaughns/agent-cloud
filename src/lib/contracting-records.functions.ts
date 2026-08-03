@@ -8,6 +8,7 @@ import {
   evaluateReadiness,
   type Requirement, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
+import { visibleLicensingAgents } from "@/lib/licensing-visibility";
 
 const supabaseAdmin = _admin as any;
 type Ctx = { supabase: any; userId: string };
@@ -426,15 +427,33 @@ export const listLicensingRecords = createServerFn({ method: "GET" })
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) return { agents: [], reviews: [], settings: null };
 
+    // Who may see the agency roster at all.
+    //
+    // This function had no capability check — the only gate was "are you in an
+    // org", so every agent in the agency could call it. It reads `profiles`
+    // through the service-role client, so row-level security never sees the
+    // query and cannot save it.
+    //
+    // Not `requireCapability`, which throws: an ordinary agent opening
+    // /licensing is a legitimate thing to do, they just get their own record
+    // rather than everybody's. Staff get the roster.
+    const access = await resolveAccess(userId);
+    const canSeeRoster =
+      access.isOrgAdmin ||
+      Boolean((access.perms as any).contracting_manage_licenses) ||
+      Boolean((access.perms as any).contracting_view_sensitive_docs);
+
     const { data: settings } = await supabaseAdmin
       .from("org_contracting_settings").select("pdb_refresh_days, license_expiry_warning_days")
       .eq("organization_id", orgId).maybeSingle();
     const refreshDays = settings?.pdb_refresh_days ?? 90;
     const warnDays = settings?.license_expiry_warning_days ?? 45;
 
-    const { data: members } = await supabaseAdmin
-      .from("organization_memberships").select("profile_id")
-      .eq("organization_id", orgId).eq("status", "active");
+    const { data: members } = canSeeRoster
+      ? await supabaseAdmin
+          .from("organization_memberships").select("profile_id")
+          .eq("organization_id", orgId).eq("status", "active")
+      : { data: [{ profile_id: userId }] };
     const ids = (members ?? []).map((m: any) => m.profile_id);
     if (!ids.length) return { agents: [], reviews: [], settings: { refreshDays, warnDays } };
 
@@ -468,9 +487,11 @@ export const listLicensingRecords = createServerFn({ method: "GET" })
     return {
       settings: { refreshDays, warnDays },
       reviews: reviews ?? [],
-      agents: (profiles ?? [])
-        // Only agents the caller can actually see licensing for.
-        .filter((p: any) => visible.size === 0 || visible.has(p.id) || true)
+      // Only agents the caller can actually see licensing for. This previously
+      // read `visible.size === 0 || visible.has(p.id) || true` inline — two
+      // defects in one expression, neither testable where it sat. See
+      // `@/lib/licensing-visibility`.
+      agents: visibleLicensingAgents((profiles ?? []) as any[], visible, userId)
         .map((p: any) => {
           const lic = licByAgent.get(p.id) ?? [];
           const review = reviewByAgent.get(p.id) ?? null;

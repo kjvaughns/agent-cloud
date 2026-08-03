@@ -88,7 +88,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const [
       { data: producer }, { data: licences }, { data: docs },
       { data: requests }, { data: ready }, { data: contractRecords },
-      { data: banking }, { data: background },
+      { data: banking }, { data: background }, { count: policyCount },
     ] = await Promise.all([
       supabaseAdmin.from("producer_profiles")
         .select("legal_first_name, legal_last_name, resident_state")
@@ -113,6 +113,9 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         .select("agent_id, account_last4").eq("agent_id", agentId).maybeSingle(),
       supabaseAdmin.from("background_questions")
         .select("id").eq("agent_id", agentId),
+      // For the first-deal step. head + exact so this costs a count, not rows.
+      supabaseAdmin.from("policies")
+        .select("id", { count: "exact", head: true }).eq("agent_id", agentId),
     ]);
 
     const name = `${agent.first_name ?? ""} ${agent.last_name ?? ""}`.trim() || "This agent";
@@ -168,6 +171,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const bankingDone = Boolean(banking?.account_last4);
     const backgroundDone = (background ?? []).length > 0;
     const needsTransfer = Boolean(agent.needs_transfer_request);
+    const firstDealDone = (policyCount ?? 0) > 0;
 
     // ── The list ────────────────────────────────────────────────────────────
 
@@ -270,6 +274,24 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         done: readyToSell || contractingLive,
         href: "/contracting-ops/ready-to-sell",
         cta: "See where they can write",
+      },
+      {
+        // The one step the New Agent Guide had that this list did not.
+        //
+        // Ready to Sell is the end of *onboarding* — appointed and cleared to
+        // write. Actually writing something is the step after, and it was
+        // tracked separately in `getOnboardingStatus`, which is how this list
+        // and the Guide ended up disagreeing on membership as well as on count.
+        // Adding it here makes this list a superset, so the Guide can render
+        // from it without losing anything.
+        key: "first_deal",
+        actor: "agent",
+        title: "Post the first policy",
+        why: "Nothing is blocked without it, but the book, the commission forecast and the leaderboard all start here.",
+        done: firstDealDone,
+        waiting: !contractingLive,
+        href: "/post-deal",
+        cta: "Post a deal",
       },
     ];
 
@@ -378,16 +400,27 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
         p.npn_number && p.date_of_birth && p.ssn_last4 &&
         p.street_address && p.city && p.state && p.zip_code);
 
-      const done = [p.status === "active", identity, hasLicence, hasEo, live, live]
-        .filter(Boolean).length;
+      // `live` appeared twice in this array while `total` was hardcoded to 6,
+      // so a contracted agent counted their contract as two completed steps and
+      // could reach 6 of 6 having done four things. Both halves of that are
+      // fixed by deriving the total from the list rather than asserting it.
+      //
+      // This is a roll-up across a whole roster, so it deliberately does NOT
+      // call getAgentOnboarding per agent — that is eight queries each, which
+      // on a fifty-agent roster is four hundred round trips to draw a progress
+      // bar. It checks a subset of the same facts, batched. The subset is named
+      // here so the divergence is visible rather than accidental.
+      const checks = [p.status === "active", identity, hasLicence, hasEo, live];
+      const done = checks.filter(Boolean).length;
+      const total = checks.length;
 
       return {
         agent_id: p.id,
         name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed agent",
         complete: done,
-        total: 6,
-        pct: Math.round((done / 6) * 100),
-        finished: done === 6,
+        total,
+        pct: Math.round((done / total) * 100),
+        finished: done === total,
       };
     });
 

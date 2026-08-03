@@ -26,11 +26,17 @@ type Chip = { icon: React.ComponentType<{ className?: string }>; label: string; 
 /**
  * What Nova offers to do, by who is asking.
  *
- * The agent set is unchanged. The staff set exists because a contracting
- * coordinator opening Nova was offered an objection coach, a prospecting plan
- * and a final expense script — six suggestions, none of them their job — and
- * greeted with "I can see your pipeline, your book and what's at risk", all
- * three of which are empty for somebody who does not sell.
+ * Two independent questions, and the answer needs both. *What is this person's
+ * job* — a contracting coordinator was offered an objection coach, a
+ * prospecting plan and a final expense script, none of which are their work.
+ * And *do they have a book yet* — an agent on their first day was told "I can
+ * see your pipeline, your book and what's at risk" about records that do not
+ * exist, which is the same failure as a dashboard of zeros.
+ *
+ * So: staff get the queue prompts, an agent with no book gets the starter
+ * prompts, and everybody else gets the original six. Staff are checked first —
+ * a coordinator is not "getting started as an agent", they have no book and
+ * never will, so the starter set is as wrong for them as the pipeline set.
  *
  * The server decides what Nova can actually see; this decides what she offers
  * first. Both read the same role, so they cannot disagree about who is here.
@@ -59,14 +65,39 @@ const GREETINGS: Record<Audience, string> = {
   staff: "Hi, I'm Nova. I can see your contracting queue, licence expirations and PDB status — ask me what's overdue, what to work next, or for help drafting a note to a carrier.",
 };
 
+const STARTER_CHIPS: Chip[] = [
+  { icon: Target, label: "30-day plan", prompt: "Generate a 30-day plan for my first month as a life insurance agent" },
+  { icon: Lightbulb, label: "First script", prompt: "Build me a simple final expense phone script I can use on my first calls" },
+  { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
+  { icon: TrendingUp, label: "Where to start", prompt: "I have no clients yet. Where do I find my first ten prospects?" },
+  { icon: FileText, label: "What is an FE sale", prompt: "Walk me through what a final expense sale looks like start to finish" },
+];
+
 type Message = { role: "user" | "assistant"; text: string };
 
-function NovaAIPage() {
-  const { audience } = useNavContext();
-  const chips = QUICK_CHIPS[audience];
-  const GREETING: Message = { role: "assistant", text: GREETINGS[audience] };
+const STARTER_GREETING_TEXT =
+  "Hi, I'm Nova. You're just getting started, so there's no book for me to read yet — but I can help you build a script, plan your first month, or work through an objection before you hit the phones.";
 
-  const [messages, setMessages] = useState<Message[]>([GREETING]);
+function NovaAIPage() {
+  // `isPending` already means "has not posted a policy yet" — it is what gates
+  // Clients, Book and Finances in the nav. No new query for this.
+  const { audience, isPending: noBookYet } = useNavContext();
+  // Staff are never "starting out": they have no book because they do not sell,
+  // not because they have not sold yet.
+  const starter = audience === "core" && noBookYet;
+
+  const chips = audience === "staff"
+    ? QUICK_CHIPS.staff
+    : starter ? STARTER_CHIPS : QUICK_CHIPS.core;
+
+  const greeting: Message = {
+    role: "assistant",
+    text: audience === "staff"
+      ? GREETINGS.staff
+      : starter ? STARTER_GREETING_TEXT : GREETINGS.core,
+  };
+
+  const [messages, setMessages] = useState<Message[]>([greeting]);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState("assistant");
   // Null means this is a new thread; the server mints the id on first reply.
@@ -82,18 +113,29 @@ function NovaAIPage() {
     queryFn: () => listFn(),
   });
 
+  // useNavContext resolves after first paint, so the initial state above can be
+  // the wrong greeting for a moment. Swap it only while the thread is still
+  // just the greeting — never once somebody has started talking.
+  useEffect(() => {
+    setMessages((m) =>
+      m.length === 1 && m[0].role === "assistant" && m[0].text !== greeting.text
+        ? [greeting]
+        : m,
+    );
+  }, [greeting]);
+
   const openConversation = async (id: string) => {
     const history = await openFn({ data: { conversationId: id } });
     setConversationId(id);
     setMessages([
-      GREETING,
+      greeting,
       ...history.map((m) => ({ role: m.role, text: m.content })),
     ]);
   };
 
   const newConversation = () => {
     setConversationId(null);
-    setMessages([GREETING]);
+    setMessages([greeting]);
   };
 
   const sendMutation = useMutation({

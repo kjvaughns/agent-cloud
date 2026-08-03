@@ -236,10 +236,43 @@ export const getAIInsights = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
+    /**
+     * Who is reading this.
+     *
+     * The prompt said "Reference specific agent names from the data" and had no
+     * notion of the reader, so the model wrote manager-voiced cards about
+     * whoever appeared in the numbers. The data is correctly caller-scoped —
+     * the leaderboard RPC is an `auth.uid()`-rooted recursive downline CTE — so
+     * for an agent with no downline it resolves to exactly one row: themselves.
+     *
+     * The result was a solo agent opening Reports and being told, in the third
+     * person, "Agent Performance Stagnation: John Doe — recorded 0 policies,
+     * flat performance trend, coaching session recommended."
+     *
+     * That was never a data leak. It was the model addressing the reader as
+     * somebody else's problem.
+     */
+    const { data: me } = await supabase
+      .from("profiles").select("first_name, last_name").eq("id", userId).maybeSingle();
+    const myName = `${me?.first_name ?? ""} ${me?.last_name ?? ""}`.trim();
+
+    // Everyone but the reader who appears in the numbers. Empty for a solo
+    // agent, which is what makes the second-person instruction unambiguous.
+    const others = ((leaderboard.data as any)?.rows ?? [])
+      .filter((r: any) => r?.id && r.id !== userId).length;
+
+    const audience = [
+      myName ? `You are writing for ${myName}, who is reading this about their own book.` : "",
+      others === 0
+        ? "They have no downline — every figure in the data is theirs. Address them directly as \"you\" and never in the third person, never by name, and never as somebody to be managed or coached by a third party."
+        : `They lead a team of ${others}. Use "you" for their own figures and names only for the people beneath them.`,
+      "Never recommend that a coaching session be arranged for the reader; suggest what they should do next instead.",
+    ].filter(Boolean).join(" ");
+
     const systemPrompt =
       data.tab === "coach"
-        ? "You are an AI sales coach for a life insurance agency. Generate 4-6 specific, data-driven coaching cards with concrete recommendations and ROI estimates. Be direct and actionable."
-        : "You are an analytics insight engine for a life insurance agency. Generate 3-5 insight cards covering needs_attention, learn_from, and risk_alert categories. Reference specific agent names from the data.";
+        ? `You are an AI sales coach for a life insurance agency. Generate 4-6 specific, data-driven coaching cards with concrete recommendations and ROI estimates. Be direct and actionable. ${audience}`
+        : `You are an analytics insight engine for a life insurance agency. Generate 3-5 insight cards covering needs_attention, learn_from, and risk_alert categories. ${audience}`;
 
     const tool = {
       type: "function",
