@@ -407,18 +407,53 @@ export const updateMemberPermissions = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * The presets, from the one place that defines them.
+ *
+ * This was a hand-copied list — `["admin","recruiter","contracting_specialist",
+ * "client_services"]` — while `STAFF_PRESETS` above and the chips in
+ * agency-team-page.tsx both carried six. Reports & Support and Support Desk
+ * were therefore offered in the UI and rejected by the validator, with the
+ * enum error shown to the operator verbatim. Derived, so a seventh preset
+ * cannot be added without this accepting it.
+ */
+const PRESET_IDS = Object.keys(STAFF_PRESETS) as [string, ...string[]];
+
 export const applyStaffPreset = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       member_id: z.string().uuid(),
       organization_id: z.string().uuid(),
-      preset: z.enum(["admin", "recruiter", "contracting_specialist", "client_services"]),
+      preset: z.enum(PRESET_IDS),
     }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
+
+    // A staff preset describes a staff member. Applying one to somebody who is
+    // not yet staff used to write the permissions and leave the role alone —
+    // so they held a full contracting-specialist permission set while
+    // `audienceFor` still resolved them to the agent product, and none of it
+    // showed up. A manager is not silently demoted: that is a decision for
+    // whoever is configuring them, not a side effect of clicking a chip.
+    const { data: memberRoles } = await supabaseAdmin
+      .from("user_roles").select("id, role").eq("user_id", data.member_id)
+      .in("role", ["manager", "staff", "agent"]);
+    const held = (memberRoles ?? []).map((r: any) => String(r.role));
+
+    if (held.includes("manager")) {
+      throw new Error("This member is a manager. Change their role to Staff before applying a staff preset.");
+    }
+    if (!held.includes("staff")) {
+      for (const r of memberRoles ?? []) {
+        await supabaseAdmin.from("user_roles").delete().eq("id", r.id);
+      }
+      await supabaseAdmin.from("user_roles").insert({ user_id: data.member_id, role: "staff" });
+      await audit(data.organization_id, userId, "role_changed", data.member_id,
+        { roles: held }, { role: "staff", via: "staff_preset" });
+    }
 
     const full = { ...zeroPerms(), ...STAFF_PRESETS[data.preset] };
     const { data: prev } = await supabaseAdmin
@@ -461,6 +496,26 @@ export const setMemberRole = createServerFn({ method: "POST" })
       await supabaseAdmin.from("user_roles").delete().eq("id", r.id);
     }
     await supabaseAdmin.from("user_roles").insert({ user_id: data.member_id, role: data.role });
+
+    // Coming back down to agent clears what the higher role granted.
+    //
+    // It used to leave `role_permissions` exactly as it was, so demoting
+    // somebody unassigned the role and none of its access: the row still said
+    // staff_view_contracts, staff_is_admin and the rest, the switches were
+    // merely hidden because the dialog stops rendering them for an agent, and
+    // re-promoting them months later silently restored every grant they used
+    // to have. The row survives — it is what the audit trail points at — but
+    // every flag in it goes false.
+    if (data.role === "agent") {
+      const { data: existing } = await supabaseAdmin
+        .from("role_permissions").select("id")
+        .eq("profile_id", data.member_id).eq("organization_id", data.organization_id).maybeSingle();
+      if (existing) {
+        await supabaseAdmin.from("role_permissions")
+          .update({ ...zeroPerms(), staff_preset: null, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      }
+    }
 
     // Manager defaults on first promotion.
     if (data.role === "manager") {
