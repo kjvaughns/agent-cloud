@@ -223,13 +223,49 @@ export type AcademyModule = {
   id: string;
   course_id: string;
   title: string;
+  section: string | null;
+  kind: string | null;
   content_html: string | null;
   video_url: string | null;
-  resource_urls: string[] | null;
+  resource_urls: any;
+  quiz: any;
+  duration_minutes: number | null;
   sort_order: number | null;
   completed: boolean;
   completed_at: string | null;
+  quiz_score: number | null;
 };
+
+/**
+ * A draft lesson is not part of the course.
+ *
+ * Filtered in TypeScript rather than in the query, because `is_published`
+ * arrives with `20260803020000` and PostgREST fails a whole select that names
+ * a column the table does not have. A row without the column reads as
+ * `undefined`, which is deliberately not `false` — everything that exists
+ * today stays visible.
+ */
+function isLive(m: any): boolean {
+  return m.is_published !== false;
+}
+
+/**
+ * Lessons in a stable order.
+ *
+ * Every lesson that exists today has `sort_order` 0, and there is no
+ * uniqueness on it, so ordering by that column alone leaves the tie to the
+ * planner — the same course can come back in a different order on two reads,
+ * which reads as lessons shuffling themselves. Broken here rather than in SQL
+ * because `created_at` arrives with `20260803020000` and PostgREST rejects an
+ * `order` naming a column the table does not have yet, which would take out the
+ * whole page instead of just the tie-break.
+ */
+function inOrder<T extends Record<string, any>>(rows: T[]): T[] {
+  return [...rows].sort((a, b) =>
+    (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+    String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) ||
+    String(a.id).localeCompare(String(b.id)));
+}
 
 /** Per-course completion for the course list. */
 export const getAcademyProgress = createServerFn({ method: "GET" })
@@ -237,13 +273,22 @@ export const getAcademyProgress = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context as { supabase: any; userId: string };
 
-    const [{ data: modules }, { data: progress }] = await Promise.all([
-      supabase.from("academy_modules").select("id, course_id"),
-      supabase.from("course_progress").select("course_id, module_id, completed").eq("agent_id", userId),
-    ]);
+    // Two attempts rather than `select("*")`: the wide select would pull every
+    // lesson body on the platform to count them.
+    let modules: any[] | null = null;
+    const withFlag = await supabase.from("academy_modules").select("id, course_id, is_published");
+    if (withFlag.error?.code === "42703") {
+      const { data } = await supabase.from("academy_modules").select("id, course_id");
+      modules = data ?? [];
+    } else {
+      modules = withFlag.data ?? [];
+    }
+
+    const { data: progress } = await supabase
+      .from("course_progress").select("course_id, module_id, completed").eq("agent_id", userId);
 
     const total = new Map<string, number>();
-    for (const m of modules ?? []) {
+    for (const m of (modules ?? []).filter(isLive)) {
       total.set(m.course_id, (total.get(m.course_id) ?? 0) + 1);
     }
 
@@ -273,21 +318,23 @@ export const getCourseDetail = createServerFn({ method: "POST" })
 
     const [{ data: course }, { data: modules }, { data: progress }] = await Promise.all([
       supabase.from("academy_courses").select("*").eq("id", data.course_id).maybeSingle(),
-      supabase.from("academy_modules").select("*").eq("course_id", data.course_id).order("sort_order"),
-      supabase.from("course_progress").select("module_id, completed, completed_at")
+      supabase.from("academy_modules").select("*").eq("course_id", data.course_id)
+        .order("sort_order"),
+      supabase.from("course_progress").select("module_id, completed, completed_at, quiz_score")
         .eq("agent_id", userId).eq("course_id", data.course_id),
     ]);
 
     if (!course) throw new Error("Course not found");
 
-    const doneBy = new Map<string, { completed: boolean; completed_at: string | null }>(
-      (progress ?? []).map((p: any) => [p.module_id, { completed: p.completed, completed_at: p.completed_at }]),
+    const doneBy = new Map<string, any>(
+      (progress ?? []).map((p: any) => [p.module_id, p]),
     );
 
-    const withProgress: AcademyModule[] = (modules ?? []).map((m: any) => ({
+    const withProgress: AcademyModule[] = inOrder((modules ?? []).filter(isLive)).map((m: any) => ({
       ...m,
       completed: Boolean(doneBy.get(m.id)?.completed),
       completed_at: doneBy.get(m.id)?.completed_at ?? null,
+      quiz_score: doneBy.get(m.id)?.quiz_score ?? null,
     }));
 
     const done = withProgress.filter((m) => m.completed).length;
@@ -310,27 +357,37 @@ export const setModuleComplete = createServerFn({ method: "POST" })
       course_id: z.string().uuid(),
       module_id: z.string().uuid(),
       completed: z.boolean(),
+      /** Whole percent, from `gradeQuiz`. Absent leaves whatever is stored. */
+      quiz_score: z.number().int().min(0).max(100).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as { supabase: any; userId: string };
 
-    // course_progress has no unique constraint on (agent, module), so an
-    // upsert cannot be relied on — find the row first.
-    const { data: existing } = await supabase
-      .from("course_progress")
-      .select("id")
-      .eq("agent_id", userId)
-      .eq("module_id", data.module_id)
-      .maybeSingle();
-
-    const patch = {
+    const patch: Record<string, unknown> = {
       agent_id: userId,
       course_id: data.course_id,
       module_id: data.module_id,
       completed: data.completed,
       completed_at: data.completed ? new Date().toISOString() : null,
     };
+    if (data.quiz_score !== undefined) patch.quiz_score = data.quiz_score;
+
+    // `20260803020000` adds the unique constraint on (agent_id, module_id),
+    // which is what makes this one statement instead of a read followed by a
+    // write — two quick clicks used to race that read and insert twice.
+    const up = await supabase
+      .from("course_progress").upsert(patch, { onConflict: "agent_id,module_id" });
+    if (!up.error) return { ok: true };
+
+    // 42P10: no unique constraint matching the ON CONFLICT specification. The
+    // migration is not applied here yet, so fall back to the racy path — being
+    // occasionally wrong beats refusing to record anything.
+    if (up.error.code !== "42P10") throw new Error(up.error.message);
+
+    const { data: existing } = await supabase
+      .from("course_progress").select("id")
+      .eq("agent_id", userId).eq("module_id", data.module_id).maybeSingle();
 
     const { error } = existing
       ? await supabase.from("course_progress").update(patch).eq("id", existing.id)
