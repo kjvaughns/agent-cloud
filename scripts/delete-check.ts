@@ -64,8 +64,15 @@ const ALLOWED: Record<string, string> = {
     "replaces a carrier's grid wholesale before reinserting",
   "comp-grid.functions.ts:carrier_comp_levels":
     "replaces a carrier's levels wholesale before reinserting",
-  "resources-admin.functions.ts:academy_lessons":
-    "cascade cleanup beneath a module that was itself asserted",
+  // There is no `academy_lessons` table and there never was — the entry that
+  // used to sit here excused a delete against `academy_modules`, which is in
+  // fact asserted like everything else. A named exemption for a table that does
+  // not exist excuses nothing and hides that fact.
+  "resources-admin.functions.ts:<table>":
+    "rollback inside forkInto: undoes the copy this call just made when its "
+    + "lessons fail to copy. The row is one nobody has seen and the failure is "
+    + "already being thrown; a second error about the cleanup would replace the "
+    + "one that matters",
 };
 
 let pass = 0;
