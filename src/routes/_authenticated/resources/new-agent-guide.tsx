@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useQuery } from "@tanstack/react-query";
-import { getOnboardingStatus } from "@/lib/resources.functions";
+import { getAgentOnboarding, type OnboardingStep } from "@/lib/agent-onboarding.functions";
+import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PageShell, Panel } from "@/components/page-shell";
@@ -13,20 +14,30 @@ export const Route = createFileRoute("/_authenticated/resources/new-agent-guide"
   component: Page,
 });
 
-const STEPS: { key: keyof Steps; title: string; desc: string; href: string; cta: string }[] = [
-  { key: "profile", title: "Complete Your Producer Profile", desc: "Add your NPN, date of birth, address, and personal information.", href: "/account/producer-profile", cta: "Go to Producer Profile" },
-  { key: "eo", title: "Upload Your E&O Insurance", desc: "Upload your Errors & Omissions certificate. Required before contracting.", href: "/account/producer-profile", cta: "Upload E&O Certificate" },
-  { key: "aml", title: "Upload Your AML Certificate", desc: "Complete free AML training and upload your certificate.", href: "/account/producer-profile", cta: "Complete AML Training" },
-  { key: "banking", title: "Upload Banking Information", desc: "Add your bank account info for commission direct deposit.", href: "/account/producer-profile", cta: "Add Banking Info" },
-  { key: "contract", title: "Get Your First Carrier Contract", desc: "Request a contract with your first carrier to start writing business.", href: "/contracting/carriers", cta: "Request Contract" },
-  { key: "deal", title: "Post Your First Deal", desc: "Post your first policy to start tracking your book of business.", href: "/post-deal", cta: "Post a Deal" },
-];
-
-type Steps = { profile: boolean; eo: boolean; aml: boolean; banking: boolean; contract: boolean; deal: boolean };
-
+/**
+ * The guide renders the same list the dashboard does.
+ *
+ * It used to carry its own six steps and its own `getOnboardingStatus`, while
+ * the dashboard showed ten from `getAgentOnboarding` — different counts *and*
+ * different membership, so "1 of 10" here and "6 steps" there described the
+ * same person with no way to reconcile them. A third copy in
+ * `listOnboardingProgress` hardcoded a total of six and listed one of its
+ * entries twice.
+ *
+ * `getAgentOnboarding` is authoritative now. It is the only one that derives
+ * every step from real data rather than a stored flag, and it gained the one
+ * step this page had that it lacked — posting the first policy — so nothing was
+ * lost in the merge.
+ */
 function Page() {
-  const fn = useServerFn(getOnboardingStatus);
-  const { data, isLoading } = useQuery({ queryKey: ["onboarding-status"], queryFn: () => fn() });
+  const { user } = useAuth();
+  const fn = useServerFn(getAgentOnboarding);
+  const { data, isLoading } = useQuery({
+    queryKey: ["agent-onboarding", user?.id],
+    queryFn: () => fn({ data: { agent_id: user!.id } }),
+    enabled: Boolean(user?.id),
+  });
+  const steps = (data?.steps ?? []) as OnboardingStep[];
 
   return (
     <PageShell>
@@ -35,14 +46,14 @@ function Page() {
         <Panel>
           <div className="flex items-center justify-between mb-2">
             <div className="font-semibold">Your Setup Progress</div>
-            <div className="text-sm text-text-dim tnum">{data?.completed ?? 0} of {data?.total ?? STEPS.length} steps complete ({data?.pct ?? 0}%)</div>
+            <div className="text-sm text-text-dim tnum">{data?.complete ?? 0} of {data?.total ?? 0} steps complete ({data?.pct ?? 0}%)</div>
           </div>
           <Progress value={data?.pct ?? 0} />
         </Panel>
 
         <div className="space-y-3">
-          {STEPS.map((step, i) => {
-            const done = data?.steps?.[step.key] ?? false;
+          {steps.map((step, i) => {
+            const done = step.done;
             return (
               <div
                 key={step.key}
@@ -56,7 +67,7 @@ function Page() {
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold">Step {i + 1}: {step.title}</div>
-                  <div className="text-sm text-text-dim mt-1">{step.desc}</div>
+                  <div className="text-sm text-text-dim mt-1">{step.why}</div>
                 </div>
                 <Button asChild variant={done ? "outline" : "default"} size="sm">
                   <Link to={step.href}>{step.cta} <ArrowRight className="h-4 w-4 ml-1" /></Link>
