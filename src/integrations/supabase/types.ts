@@ -2103,6 +2103,8 @@ export type Database = {
           created_at: string | null
           id: string
           message: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           status: string | null
         }
         Insert: {
@@ -2111,6 +2113,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           message?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: string | null
         }
         Update: {
@@ -2119,6 +2123,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           message?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           status?: string | null
         }
         Relationships: [
@@ -2134,6 +2140,13 @@ export type Database = {
             columns: ["carrier_id"]
             isOneToOne: false
             referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_level_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -8686,6 +8699,7 @@ export type Database = {
     }
     Functions: {
       agent_completion: { Args: { _agent: string }; Returns: Json }
+      caller_is_active: { Args: never; Returns: boolean }
       can_approve_contracts: { Args: { _org: string }; Returns: boolean }
       can_assign_contracting_staff: { Args: { _org: string }; Returns: boolean }
       can_manage_comp_levels: { Args: { _org: string }; Returns: boolean }
@@ -8872,6 +8886,10 @@ export type Database = {
       scope_agent_ids: { Args: { _scope: string }; Returns: string[] }
       seed_agent_challenges: { Args: { _agent: string }; Returns: undefined }
       send_team_reminder: { Args: { _target: string }; Returns: Json }
+      set_agent_status: {
+        Args: { _agent: string; _status: string }
+        Returns: number
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       ssn_reveal: { Args: never; Returns: string }
