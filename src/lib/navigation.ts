@@ -313,7 +313,7 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
   // Clients and Reports join for the presets that grant them: a client-services
   // staffer had no Clients row at all, and Reports was reachable only by search.
   staff: [
-    { label: "", ids: ["contracting-ops", "tasks", "clients", "reports", "tools", "nova", "agency"] },
+    { label: "", ids: ["dashboard", "contracting-ops", "tasks", "clients", "reports", "tools", "nova", "agency"] },
   ],
 };
 

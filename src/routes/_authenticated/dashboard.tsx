@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -34,6 +34,7 @@ import { NovaRail } from "@/components/nova-rail";
 import { useTheme } from "@/hooks/use-theme";
 import { useMyAccess } from "@/hooks/use-my-access";
 import { audienceFor } from "@/lib/navigation";
+import { StaffDashboard } from "@/components/staff-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
@@ -43,20 +44,20 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 /**
  * Who this dashboard is for.
  *
- * Everything below — the production goal, the leaderboard, the commission
- * tiles, "get ready to sell" — answers questions a producer has about their own
- * book. Back-office staff have no book, and `PRODUCTS.staff` in navigation.ts
- * has never listed a Home row for them; login just sent everybody here anyway,
- * so the first thing a contracting coordinator saw was an onboarding checklist
- * telling them to get their first carrier contract.
+ * Everything in `Dashboard` below — the production goal, the leaderboard, the
+ * commission tiles, "get ready to sell" — answers questions a producer has
+ * about their own book. Back-office staff have no book, so every panel reads
+ * as either zero or somebody else's job, and login sent them here anyway.
  *
- * The redirect sits in the component rather than `beforeLoad` on purpose: it
- * then covers every way in — the login form, the OAuth callback, an old
- * bookmark — from one place, and reuses the access query the app has already
- * cached instead of adding a role fetch to the router.
+ * They get their own home rather than a redirect. A redirect works, but it
+ * means /dashboard is a page staff can never see and the sidebar has no Home
+ * row for them — the app quietly has a hole where its front door should be.
+ * Two dashboards behind one route is the smaller cost.
  *
- * Same shape as `/licensing`, which sends the people who run licensing to the
- * agency roster and everybody else to their own licences.
+ * The branch sits in the component rather than `beforeLoad` on purpose: it
+ * covers every way in — the login form, the OAuth callback, an old bookmark —
+ * from one place, and reuses the access query the app has already cached
+ * instead of adding a role fetch to the router.
  */
 function DashboardRoute() {
   const { access, loading } = useMyAccess();
@@ -70,7 +71,7 @@ function DashboardRoute() {
   }
 
   if (audienceFor({ role: access?.role ?? null }) === "staff") {
-    return <Navigate to="/contracting-ops" replace />;
+    return <StaffDashboard />;
   }
 
   return <Dashboard />;
