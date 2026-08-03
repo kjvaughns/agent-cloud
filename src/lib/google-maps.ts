@@ -1,5 +1,7 @@
 // Lazy loader for the Google Maps JS API (Places library).
-// Uses the Lovable-managed Google Maps connector browser key.
+// The browser key comes from /api/public/maps-key (backed by the
+// GOOGLE_MAPS_API_AC secret). Falls back to the Lovable-managed connector
+// browser key, which only works on *.lovable.app / *.lovableproject.com.
 
 let loadPromise: Promise<any> | null = null;
 
@@ -10,6 +12,32 @@ declare global {
   }
 }
 
+async function resolveKey(): Promise<{ key: string; channel?: string }> {
+  const fallbackKey = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
+    | string
+    | undefined;
+  const fallbackChannel = import.meta.env
+    .VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
+
+  try {
+    const res = await fetch("/api/public/maps-key");
+    if (!res.ok) {
+      console.error(`[google-maps] key endpoint failed: ${res.status} ${await res.text()}`);
+    } else {
+      const body = (await res.json()) as { key?: string | null; channel?: string | null; error?: string };
+      if (body.key) return { key: body.key, channel: body.channel ?? fallbackChannel };
+      console.error(`[google-maps] ${body.error ?? "no key returned"}; using fallback key`);
+    }
+  } catch (e) {
+    console.error("[google-maps] key endpoint unreachable:", e);
+  }
+
+  if (fallbackKey) return { key: fallbackKey, channel: fallbackChannel };
+  throw new Error(
+    "Google Maps key not configured (set the GOOGLE_MAPS_API_AC secret to a referrer-restricted browser key)",
+  );
+}
+
 export function ensureMaps(): Promise<any> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Maps unavailable on server"));
@@ -17,31 +45,47 @@ export function ensureMaps(): Promise<any> {
   if (window.google?.maps) return Promise.resolve(window.google);
   if (loadPromise) return loadPromise;
 
-  const key = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
-  const channel = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
-  if (!key) return Promise.reject(new Error("Google Maps key not configured"));
+  loadPromise = (async () => {
+    const { key, channel } = await resolveKey();
 
-  loadPromise = new Promise<any>((resolve, reject) => {
-    window.__lovableMapsInit = () => {
-      if (window.google?.maps) resolve(window.google);
-      else reject(new Error("Google Maps loaded but unavailable"));
+    // Google reports key/referrer/API problems through this global, not onerror.
+    (window as any).gm_authFailure = () => {
+      console.error(
+        "[google-maps] Google rejected the browser key for this domain. " +
+          `Confirm the key allows referrer https://${window.location.host}/* and has ` +
+          "Maps JavaScript API + Places API (New) enabled.",
+      );
     };
-    const params = new URLSearchParams({
-      key,
-      loading: "async",
-      callback: "__lovableMapsInit",
-      libraries: "places",
+
+    return await new Promise<any>((resolve, reject) => {
+      window.__lovableMapsInit = () => {
+        if (window.google?.maps) resolve(window.google);
+        else reject(new Error("Google Maps loaded but unavailable"));
+      };
+      const params = new URLSearchParams({
+        key,
+        loading: "async",
+        callback: "__lovableMapsInit",
+        libraries: "places",
+      });
+      if (channel) params.set("channel", channel);
+      const s = document.createElement("script");
+      s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+      s.async = true;
+      s.defer = true;
+      s.onerror = () => reject(new Error("Failed to load Google Maps script"));
+      document.head.appendChild(s);
     });
-    if (channel) params.set("channel", channel);
-    const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    s.async = true;
-    s.defer = true;
-    s.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(s);
+  })();
+
+  loadPromise.catch(() => {
+    // allow a retry on the next mount
+    loadPromise = null;
   });
+
   return loadPromise;
 }
+
 
 export type AddressParts = {
   street: string;
