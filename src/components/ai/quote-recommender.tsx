@@ -12,6 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { getQuoteRecommendation, type QuoteRecommendation } from "@/lib/ai-features.functions";
 import { toast } from "sonner";
 
+/** Required-field marker. aria-hidden — the hint below the button is the
+ *  accessible version, and a screen reader announcing "asterisk" is noise. */
+function Req() {
+  return <span aria-hidden className="text-destructive">*</span>;
+}
+
 export function QuoteRecommender() {
   const fn = useServerFn(getQuoteRecommendation);
   const [age, setAge] = useState("");
@@ -20,6 +26,26 @@ export function QuoteRecommender() {
   const [budget, setBudget] = useState("");
   const [goal, setGoal] = useState("");
   const [result, setResult] = useState<QuoteRecommendation | null>(null);
+
+  /**
+   * What is still needed, and why the button is dead.
+   *
+   * The button was `disabled={mut.isPending || !age || !state || !goal}` with
+   * nothing marking those three as required — no asterisk, no helper text, no
+   * tooltip. Fill in some of the form, click, nothing happens, no explanation.
+   * It reads as broken rather than incomplete.
+   *
+   * `budget_monthly` was the sharper half: the server's schema requires it, but
+   * it was absent from the disable expression — so the button could enable and
+   * the request still fail validation. It is required here now, which is the
+   * honest version of what the server already believed.
+   */
+  const missing = [
+    !age && "age",
+    !state && "state",
+    !budget && "monthly budget",
+    !goal && "goal",
+  ].filter(Boolean) as string[];
 
   const mut = useMutation({
     mutationFn: () =>
@@ -45,9 +71,11 @@ export function QuoteRecommender() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid sm:grid-cols-4 gap-3">
-          <div><Label className="text-xs">Age</Label><Input value={age} onChange={(e) => setAge(e.target.value)} type="number" /></div>
-          <div><Label className="text-xs">State</Label><Input value={state} onChange={(e) => setState(e.target.value)} maxLength={2} placeholder="TX" /></div>
+          <div><Label className="text-xs">Age <Req /></Label><Input value={age} onChange={(e) => setAge(e.target.value)} type="number" /></div>
+          <div><Label className="text-xs">State <Req /></Label><Input value={state} onChange={(e) => setState(e.target.value)} maxLength={2} placeholder="TX" /></div>
           <div>
+            {/* Not required — it defaults to Standard, and the server accepts
+                that. Marking it would imply otherwise. */}
             <Label className="text-xs">Health</Label>
             <Select value={health} onValueChange={(v) => setHealth(v as any)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -60,16 +88,25 @@ export function QuoteRecommender() {
               </SelectContent>
             </Select>
           </div>
-          <div><Label className="text-xs">Budget / mo</Label><Input value={budget} onChange={(e) => setBudget(e.target.value)} type="number" placeholder="80" /></div>
+          <div><Label className="text-xs">Budget / mo <Req /></Label><Input value={budget} onChange={(e) => setBudget(e.target.value)} type="number" placeholder="80" /></div>
         </div>
         <div>
-          <Label className="text-xs">Goal / situation</Label>
+          <Label className="text-xs">Goal / situation <Req /></Label>
           <Textarea value={goal} onChange={(e) => setGoal(e.target.value)} rows={2} placeholder="e.g. Cover final expenses for grandkids, smoker, diabetes." />
         </div>
-        <Button onClick={() => mut.mutate()} disabled={mut.isPending || !age || !state || !goal}>
-          {mut.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
-          Get recommendations
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || missing.length > 0}>
+            {mut.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
+            Get recommendations
+          </Button>
+          {missing.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              Add {missing.length === 1
+                ? missing[0]
+                : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]}`} to continue.
+            </span>
+          )}
+        </div>
 
         {result && (
           <div className="space-y-3 pt-2">

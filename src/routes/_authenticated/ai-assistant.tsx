@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
+import { useNavContext } from "@/hooks/use-my-access";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Button } from "@/components/ui/button";
@@ -19,13 +20,37 @@ export const Route = createFileRoute("/_authenticated/ai-assistant")({
   component: NovaAIPage,
 });
 
-const QUICK_CHIPS: { icon: React.ComponentType<{ className?: string }>; label: string; prompt: string }[] = [
+type Chip = { icon: React.ComponentType<{ className?: string }>; label: string; prompt: string };
+
+/**
+ * Nova's opening depends on whether there is anything to open onto.
+ *
+ * The greeting asserted "I can see your pipeline, your book and what's at risk"
+ * and three of the six chips referenced records — a recent call, deals to
+ * chase, a hot IUL lead. To an agent who has not written anything yet, all of
+ * that is a confident claim about data that does not exist, on their first
+ * visit. It is the same failure as a dashboard of zeros: technically true of
+ * the schema, false about them.
+ *
+ * Split rather than filtered, because the useful prompts for somebody starting
+ * out are not a subset of the prompts for somebody running a book — they are
+ * different questions.
+ */
+const QUICK_CHIPS: Chip[] = [
   { icon: FileText, label: "Call summary", prompt: "Summarize a recent call or notes" },
   { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
   { icon: TrendingUp, label: "Pipeline triage", prompt: "Which deals should I chase today?" },
   { icon: Lightbulb, label: "Script builder", prompt: "Build a custom final expense script for 65+ homeowners" },
   { icon: FileText, label: "Follow-up email", prompt: "Draft a follow-up email for a hot IUL lead" },
   { icon: Target, label: "30-day plan", prompt: "Generate a 30-day prospecting plan" },
+];
+
+const STARTER_CHIPS: Chip[] = [
+  { icon: Target, label: "30-day plan", prompt: "Generate a 30-day plan for my first month as a life insurance agent" },
+  { icon: Lightbulb, label: "First script", prompt: "Build me a simple final expense phone script I can use on my first calls" },
+  { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
+  { icon: TrendingUp, label: "Where to start", prompt: "I have no clients yet. Where do I find my first ten prospects?" },
+  { icon: FileText, label: "What is an FE sale", prompt: "Walk me through what a final expense sale looks like start to finish" },
 ];
 
 type Message = { role: "user" | "assistant"; text: string };
@@ -35,8 +60,19 @@ const GREETING: Message = {
   text: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
 };
 
+const STARTER_GREETING: Message = {
+  role: "assistant",
+  text: "Hi, I'm Nova. You're just getting started, so there's no book for me to read yet — but I can help you build a script, plan your first month, or work through an objection before you hit the phones.",
+};
+
 function NovaAIPage() {
-  const [messages, setMessages] = useState<Message[]>([GREETING]);
+  // `isPending` already means "has not posted a policy yet" — it is what gates
+  // Clients, Book and Finances in the nav. No new query for this.
+  const { isPending: noBookYet } = useNavContext();
+  const greeting = noBookYet ? STARTER_GREETING : GREETING;
+  const chips = noBookYet ? STARTER_CHIPS : QUICK_CHIPS;
+
+  const [messages, setMessages] = useState<Message[]>([greeting]);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState("assistant");
   // Null means this is a new thread; the server mints the id on first reply.
@@ -52,18 +88,29 @@ function NovaAIPage() {
     queryFn: () => listFn(),
   });
 
+  // useNavContext resolves after first paint, so the initial state above can be
+  // the wrong greeting for a moment. Swap it only while the thread is still
+  // just the greeting — never once somebody has started talking.
+  useEffect(() => {
+    setMessages((m) =>
+      m.length === 1 && m[0].role === "assistant" && m[0].text !== greeting.text
+        ? [greeting]
+        : m,
+    );
+  }, [greeting]);
+
   const openConversation = async (id: string) => {
     const history = await openFn({ data: { conversationId: id } });
     setConversationId(id);
     setMessages([
-      GREETING,
+      greeting,
       ...history.map((m) => ({ role: m.role, text: m.content })),
     ]);
   };
 
   const newConversation = () => {
     setConversationId(null);
-    setMessages([GREETING]);
+    setMessages([greeting]);
   };
 
   const sendMutation = useMutation({
@@ -219,7 +266,7 @@ function NovaAIPage() {
         {/* Composer */}
         <div className="border-t border-border/70 bg-surface-2/20 p-3 md:p-4 space-y-3">
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
-            {QUICK_CHIPS.map((c) => (
+            {chips.map((c) => (
               <button
                 key={c.label}
                 onClick={() => send(c.prompt)}

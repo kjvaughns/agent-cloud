@@ -13,7 +13,12 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-**Nothing is pending.**
+- `20260803010000_recruiting-challenge-audience.sql`
+
+Until it is applied, `seed_agent_challenges` keeps giving every agent a
+"Recruit 3 new agents this quarter" goal. That is today's behaviour, so nothing
+breaks in the window — the challenge simply stays wrong for new agents until the
+migration lands.
 
 The seven queued on 2 Aug 2026 were applied together in
 `20260802235937_bb40a3c7-23f3-4abb-9d3b-34c755add42c.sql`. Verified by checking
