@@ -120,13 +120,27 @@ export const getTeamRoster = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    const rpc = data.fullCompany
-      ? supabase.rpc("get_team_downline_for", { p_root_id: userId })
-      : supabase.rpc("get_team_downline");
-    const { data: rows, error } = await rpc;
-    if (error) throw new Error(error.message);
+    // `get_team_downline_for` returns SETOF jsonb — raw profile rows plus a
+    // depth, with none of the aggregate columns `get_team_downline` provides.
+    // It also raises 'forbidden' for anyone who is not an admin or manager. So
+    // the full-company branch degrades: every agent reads as zero policies and
+    // zero premium, which would silently misclassify their lifecycle stage.
+    //
+    // Rather than present that as real data, the branch falls back to the
+    // caller's own downline, which is complete. Nothing in the UI passes
+    // `fullCompany` today; this keeps it honest for whenever something does.
+    const { data: rows, error } = data.fullCompany
+      ? await supabase.rpc("get_team_downline_for", { p_root_id: userId })
+      : await supabase.rpc("get_team_downline");
 
-    const agents = (rows ?? []) as TeamAgent[];
+    let source = rows;
+    if (error || (data.fullCompany && (rows ?? []).some((r: any) => r?.policies_count === undefined))) {
+      const { data: own, error: ownErr } = await supabase.rpc("get_team_downline");
+      if (ownErr) throw new Error(ownErr.message);
+      source = own;
+    }
+
+    const agents = (source ?? []) as TeamAgent[];
     const ids = agents.map((a) => a.id);
     if (ids.length === 0) return { rows: [] as RosterAgent[] };
 
