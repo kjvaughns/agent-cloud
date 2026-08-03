@@ -77,7 +77,11 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
           setSuggestions(list);
           setOpen(list.length > 0);
         })
-        .catch(() => setSuggestions([]));
+        .catch((e: unknown) => {
+          console.error("[address-autocomplete] suggestion fetch failed:", e);
+          setSuggestions([]);
+        });
+
     }, [ready]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
