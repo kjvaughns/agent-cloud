@@ -149,6 +149,47 @@ async function assertCanManagePermissions(userId: string, orgId: string) {
   );
 }
 
+/**
+ * …and may they manage *this* person.
+ *
+ * `assertCanManagePermissions` answers "may this account administer the org".
+ * It was the only check on the three mutating functions below, which meant an
+ * admin staffer — the assistant the owner ticked one box for — could demote a
+ * manager, reconfigure another admin, or edit their own permission row. Rank
+ * has to come into it.
+ *
+ * The org's own administrators (owner, `agency_owner`, `admin`) may target
+ * anyone; that is what running the agency means. Admin staff hold delegated
+ * authority and may not reach above or sideways into it, nor edit themselves —
+ * self-edit is the one that turns a single granted box into every box.
+ *
+ * This is the boundary. Hiding the button in `agency-team-page.tsx` is a
+ * courtesy to the person clicking, not a control.
+ */
+async function assertMayTargetMember(callerId: string, targetId: string, orgId: string) {
+  const rank = await assertCanManagePermissions(callerId, orgId);
+  if (rank !== "admin_staff") return rank;
+
+  if (callerId === targetId) {
+    throw new Error("You can't change your own role or permissions. Ask the agency owner.");
+  }
+
+  const [{ data: org }, { data: targetRoles }] = await Promise.all([
+    supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
+    supabaseAdmin.from("user_roles").select("role").eq("user_id", targetId),
+  ]);
+
+  const isAdministrator =
+    org?.owner_id === targetId ||
+    (targetRoles ?? []).some((r: any) =>
+      ["agency_owner", "admin", "super_admin"].includes(String(r.role)));
+
+  if (isAdministrator) {
+    throw new Error("Only the agency owner can change an administrator's role or permissions.");
+  }
+  return rank;
+}
+
 // ── My access: role + permissions + solo detection (drives nav + billing UI) ─
 
 export type MyAccess = {
@@ -257,15 +298,25 @@ export const listOrgMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { userId } = context as Ctx;
-    const { data: org } = await supabaseAdmin
+    const { data: ownedOrg } = await supabaseAdmin
       .from("organizations").select("id, owner_id").eq("owner_id", userId).maybeSingle();
-    let orgId = org?.id as string | undefined;
+    let orgId = ownedOrg?.id as string | undefined;
+    let ownerId = ownedOrg?.owner_id as string | null | undefined;
+    let callerRank: string = ownedOrg ? "owner" : "";
     if (!orgId) {
       // Admin staff path
       const { data: profile } = await supabaseAdmin.from("profiles").select("organization_id").eq("id", userId).maybeSingle();
       if (profile?.organization_id) {
-        await assertCanManagePermissions(userId, profile.organization_id);
+        callerRank = await assertCanManagePermissions(userId, profile.organization_id);
         orgId = profile.organization_id;
+        // Read the organization by id, not by owner. The lookup above filters
+        // on `owner_id = me`, so on this path it returns nothing and `owner_id`
+        // stayed null — which made `isOwner` false for *every* member below,
+        // including the actual owner. The agency owner then appeared in the
+        // roster as an ordinary agent with a Configure button beside them.
+        const { data: org } = await supabaseAdmin
+          .from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
+        ownerId = org?.owner_id ?? null;
       }
     }
     if (!orgId) throw new Error("No organization to manage");
@@ -287,12 +338,25 @@ export const listOrgMembers = createServerFn({ method: "GET" })
 
     return {
       orgId,
-      members: (members ?? []).map((m: any) => ({
-        ...m,
-        roles: roleByUser.get(m.id) ?? ["agent"],
-        permissions: permByUser.get(m.id) ?? null,
-        isOwner: m.id === (org?.owner_id ?? null),
-      })),
+      // Who is asking, and with what authority. The roster offers Configure
+      // only where `assertMayTargetMember` would accept it — the server refuses
+      // either way, and an inert button is a worse way to learn that than not
+      // being offered one.
+      callerId: userId,
+      callerRank,
+      members: (members ?? []).map((m: any) => {
+        const roles = roleByUser.get(m.id) ?? ["agent"];
+        return {
+          ...m,
+          roles,
+          permissions: permByUser.get(m.id) ?? null,
+          isOwner: Boolean(ownerId) && m.id === ownerId,
+          // An administrator by role rather than by `owner_id`. Both exist:
+          // resolveCanManagePermissions honours either, so the roster has to
+          // as well or it offers a Configure button the server will refuse.
+          isAdmin: roles.some((r: string) => ["agency_owner", "admin", "super_admin"].includes(r)),
+        };
+      }),
     };
   });
 
@@ -307,7 +371,7 @@ export const updateMemberPermissions = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PermPatchSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
 
     // Whitelist keys
@@ -353,7 +417,7 @@ export const applyStaffPreset = createServerFn({ method: "POST" })
     }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
 
     const full = { ...zeroPerms(), ...STAFF_PRESETS[data.preset] };
@@ -387,7 +451,7 @@ export const setMemberRole = createServerFn({ method: "POST" })
     }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
     const { data: prevRoles } = await supabaseAdmin
       .from("user_roles").select("id, role").eq("user_id", data.member_id)

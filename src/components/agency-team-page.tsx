@@ -128,6 +128,23 @@ const PRESETS = [
   { id: "support_desk", label: "Support Desk", hint: "Support tickets, read-only clients" },
 ] as const;
 
+/**
+ * Why a row has no Configure button, said out loud.
+ *
+ * Mirrors `assertMayTargetMember` on the server, which is what actually
+ * decides. Keeping the two in step matters less than keeping the button honest:
+ * the roster used to offer Configure on every row but the owner's, and it
+ * decided who the owner was from a value that was null whenever admin staff
+ * were the ones looking — so the owner got a Configure button too.
+ */
+function lockedReason(m: any, data: any): string | null {
+  if (m.isOwner) return "Agency owner";
+  if (data.callerRank !== "admin_staff") return null;
+  if (m.id === data.callerId) return "You";
+  if (m.isAdmin) return "Administrator";
+  return null;
+}
+
 export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}) {
   const listFn = useServerFn(listOrgMembers);
   const { data, isLoading, error } = useQuery({ queryKey: ["agency", "members"], queryFn: () => listFn(), retry: false });
@@ -157,7 +174,12 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
         <Panel pad={false}>
           <div className="divide-y divide-border-soft">
             {data.members.map((m: any) => {
-              const role = m.isOwner ? "agency_owner" : (m.roles.find((r: string) => ["manager", "staff"].includes(r)) ?? "agent");
+              const role = m.isOwner
+                ? "agency_owner"
+                : m.isAdmin
+                ? "admin"
+                : (m.roles.find((r: string) => ["manager", "staff"].includes(r)) ?? "agent");
+              const locked = lockedReason(m, data);
               return (
                 <div key={m.id} className="flex items-center gap-3 p-4 text-sm">
                   {m.isOwner ? <Crown className="h-4 w-4 text-gold-bright shrink-0" /> : <Shield className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -171,7 +193,9 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
                   {m.permissions?.staff_preset && (
                     <Badge variant="outline" className="text-[10px] capitalize">{String(m.permissions.staff_preset).replace(/_/g, " ")}</Badge>
                   )}
-                  {!m.isOwner && (
+                  {locked ? (
+                    <span className="shrink-0 text-[11px] text-text-dim">{locked}</span>
+                  ) : (
                     <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setSelected(m)}>
                       Configure
                     </Button>

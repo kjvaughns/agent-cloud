@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -32,11 +32,49 @@ import { SmoothAreaChart } from "@/components/ui/area-chart";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { NovaRail } from "@/components/nova-rail";
 import { useTheme } from "@/hooks/use-theme";
+import { useMyAccess } from "@/hooks/use-my-access";
+import { audienceFor } from "@/lib/navigation";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
-  component: Dashboard,
+  component: DashboardRoute,
 });
+
+/**
+ * Who this dashboard is for.
+ *
+ * Everything below — the production goal, the leaderboard, the commission
+ * tiles, "get ready to sell" — answers questions a producer has about their own
+ * book. Back-office staff have no book, and `PRODUCTS.staff` in navigation.ts
+ * has never listed a Home row for them; login just sent everybody here anyway,
+ * so the first thing a contracting coordinator saw was an onboarding checklist
+ * telling them to get their first carrier contract.
+ *
+ * The redirect sits in the component rather than `beforeLoad` on purpose: it
+ * then covers every way in — the login form, the OAuth callback, an old
+ * bookmark — from one place, and reuses the access query the app has already
+ * cached instead of adding a role fetch to the router.
+ *
+ * Same shape as `/licensing`, which sends the people who run licensing to the
+ * agency roster and everybody else to their own licences.
+ */
+function DashboardRoute() {
+  const { access, loading } = useMyAccess();
+
+  if (loading) {
+    return (
+      <PageShell>
+        <Skeleton className="h-64 rounded-xl" />
+      </PageShell>
+    );
+  }
+
+  if (audienceFor({ role: access?.role ?? null }) === "staff") {
+    return <Navigate to="/contracting-ops" replace />;
+  }
+
+  return <Dashboard />;
+}
 
 /**
  * Period presets. All are "to date" — week means week-to-date, quarter means
