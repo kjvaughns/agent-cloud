@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { getAgentDetail } from "@/lib/team.functions";
 import { getAgentOnboarding, type OnboardingStep } from "@/lib/agent-onboarding.functions";
+import { AgentContractingTab } from "@/components/contracting/agent-contracting-tab";
 import { cn } from "@/lib/utils";
 
 /**
@@ -227,13 +228,15 @@ function AgentView() {
           </Panel>
         </TabsContent>
 
-        <TabsContent value="contracting" className="mt-4">
-          <Panel title="Carriers and levels">
-            {contracts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No carrier appointments yet.
-              </p>
-            ) : (
+        <TabsContent value="contracting" className="mt-4 space-y-4">
+          {/* Licences, appointments, writing numbers, open requests and what
+              each carrier still needs. This tab used to be a list of carrier
+              names and commission levels, which answered the one contracting
+              question nobody was asking. */}
+          <AgentContractingTab agentId={agentId} />
+
+          {contracts.length > 0 && (
+            <Panel title="Commission levels">
               <ul className="divide-y divide-border-soft">
                 {contracts.map((c, i) => (
                   <li key={`${c.carrier_id}-${i}`} className="flex items-center justify-between gap-3 py-2 text-sm">
@@ -244,8 +247,8 @@ function AgentView() {
                   </li>
                 ))}
               </ul>
-            )}
-          </Panel>
+            </Panel>
+          )}
         </TabsContent>
       </Tabs>
     </PageShell>

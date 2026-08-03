@@ -4,6 +4,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
 import { recordAudit, diff, recordDocumentAccess } from "@/lib/contracting-ops/audit";
+import {
+  evaluateReadiness,
+  type Requirement, type ProducerFacts, type HierarchyFacts,
+} from "@/lib/contracting-ops/readiness";
 
 const supabaseAdmin = _admin as any;
 type Ctx = { supabase: any; userId: string };
@@ -760,4 +764,208 @@ export const reviewDocument = createServerFn({ method: "POST" })
       });
     }
     return { ok: true };
+  });
+
+// ── One agent, everything contracting knows about them ──────────────────────
+
+/**
+ * The page a contracting coordinator asks for by clicking somebody's name.
+ *
+ * Until now there was no such answer. Licences lived in the licensing sheet,
+ * writing numbers in a tab of Requests, appointments nowhere, and carrier
+ * document requirements only inside a request that had to exist first — so
+ * "what is outstanding for Daniel?" meant opening four screens and holding the
+ * result in your head.
+ *
+ * Reads go through the caller's own client wherever a table has an agent-scoped
+ * policy, so RLS decides what comes back: an agent sees themselves, a manager
+ * their downline, contracting staff the agency. `assertSameOrg` is the outer
+ * fence — it stops the id in the URL from being a way to probe another agency.
+ *
+ * Requirement status per carrier reuses `evaluateReadiness`, deliberately: the
+ * packet, the queue and this page must agree about what is missing, and the
+ * only way to guarantee that is for one function to decide it.
+ */
+export const getAgentContracting = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) throw new OrgAccessError("No organization on your account");
+    await assertSameOrg(userId, data.agent_id);
+
+    const agentId = data.agent_id;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const [
+      { data: profile },
+      { data: producerProfile },
+      { data: licenses },
+      { data: appointments },
+      { data: numbers },
+      { data: requests },
+      { data: documents },
+      { data: settings },
+    ] = await Promise.all([
+      supabaseAdmin.from("profiles")
+        .select("id, first_name, last_name, email, phone, npn_number, state, status")
+        .eq("id", agentId).maybeSingle(),
+      supabaseAdmin.from("producer_profiles")
+        .select("resident_state, resident_license_number, legal_first_name, legal_last_name")
+        .eq("profile_id", agentId).maybeSingle(),
+      supabase.from("state_licenses")
+        .select("id, state_code, license_number, status, expires_date, is_resident, last_verified_at, verification_source, next_review_date")
+        .eq("agent_id", agentId),
+      supabase.from("producer_appointments")
+        .select("id, carrier_name, state_code, line_of_authority, status, effective_date, termination_date, last_verified_at")
+        .eq("agent_id", agentId),
+      supabase.from("writing_numbers")
+        .select("id, writing_number, number_type, scope, state_code, product_line, status, effective_date, source, org_carriers ( id, carriers ( name ) )")
+        .eq("agent_id", agentId),
+      supabase.from("contracting_requests")
+        .select("id, reference, status, contract_type, readiness_state, readiness_pct, is_overdue, due_date, created_at, org_carrier_id, org_carriers ( id, carriers ( name ) )")
+        .eq("agent_id", agentId)
+        .order("created_at", { ascending: false }),
+      supabase.from("producer_documents")
+        .select("id, doc_type, file_name, review_status, expiration_date, created_at, updated_at, is_sensitive")
+        .eq("agent_id", agentId),
+      supabaseAdmin.from("org_contracting_settings")
+        .select("license_expiry_warning_days").eq("organization_id", orgId).maybeSingle(),
+    ]);
+
+    if (!profile) throw new Error("That agent is not in your agency, or no longer has a profile.");
+
+    const warnDays = settings?.license_expiry_warning_days ?? 45;
+    const warnBy = new Date(Date.now() + warnDays * 86_400_000).toISOString().slice(0, 10);
+
+    // Same rule the readiness engine uses: a row left at 'active' with a date
+    // in the past is stale data, not a licence.
+    const activeLicenseStates = (licenses ?? [])
+      .filter((l: any) => ["active", "pending"].includes(l.status) && (!l.expires_date || l.expires_date >= today))
+      .map((l: any) => l.state_code);
+
+    // Latest document per type wins; an older approved copy must not mask a
+    // newer rejected one.
+    const byType = new Map<string, any>();
+    for (const d of documents ?? []) {
+      const prev = byType.get(d.doc_type);
+      const stamp = d.updated_at ?? d.created_at;
+      if (!prev || String(stamp) > String(prev.updated_at ?? prev.created_at)) byType.set(d.doc_type, d);
+    }
+    const documentStatus: ProducerFacts["documents"] = {};
+    for (const [type, d] of byType) {
+      const expired = d.expiration_date && d.expiration_date < today;
+      documentStatus[type] = expired ? "expired" : (d.review_status ?? "uploaded");
+    }
+
+    const producer: ProducerFacts = {
+      npn: profile.npn_number ?? null,
+      legal_name: [producerProfile?.legal_first_name ?? profile.first_name,
+                   producerProfile?.legal_last_name ?? profile.last_name].filter(Boolean).join(" ").trim() || null,
+      email: profile.email ?? null,
+      phone: profile.phone ?? null,
+      // Not fetched here. Requirements that turn on it read as outstanding
+      // rather than silently satisfied, which is the safer of the two lies.
+      date_of_birth: null,
+      resident_state: producerProfile?.resident_state ?? profile.state ?? null,
+      resident_license_number: producerProfile?.resident_license_number ?? null,
+      address: null,
+      active_license_states: activeLicenseStates,
+      documents: documentStatus,
+    };
+
+    // Every carrier this agent has a relationship with, open or settled.
+    const carrierIds = Array.from(new Set([
+      ...(requests ?? []).map((r: any) => r.org_carrier_id),
+      ...(numbers ?? []).map((n: any) => n.org_carriers?.id).filter(Boolean),
+    ]));
+
+    const { data: requirements } = carrierIds.length
+      ? await supabaseAdmin.from("carrier_requirements")
+          .select("*").in("org_carrier_id", carrierIds).eq("active", true).order("sort_order")
+      : { data: [] as any[] };
+
+    const reqsByCarrier = new Map<string, Requirement[]>();
+    for (const r of (requirements ?? []) as Requirement[]) {
+      const key = (r as any).org_carrier_id as string;
+      if (!reqsByCarrier.has(key)) reqsByCarrier.set(key, []);
+      reqsByCarrier.get(key)!.push(r);
+    }
+
+    // Requirement status per carrier. Where there is a live request the answer
+    // is that request's context; where there is only a writing number the
+    // agent is already appointed, so the carrier's baseline is evaluated as a
+    // new contract to show what would be missing if it were re-papered.
+    const hierarchy: HierarchyFacts = {
+      upline_name: null, upline_npn: null, upline_writing_number: null,
+      upline_comp_level: null, agency_writing_number: null,
+      agency_owner_npn: null, existing_writing_number: null,
+    };
+
+    const carriers = carrierIds.map((cid) => {
+      const openRequest = (requests ?? []).find(
+        (r: any) => r.org_carrier_id === cid && !["approved", "writing_number_issued", "declined", "withdrawn", "cancelled"].includes(r.status));
+      const anyRequest = (requests ?? []).find((r: any) => r.org_carrier_id === cid);
+      const number = (numbers ?? []).find((n: any) => n.org_carriers?.id === cid);
+      const name = anyRequest?.org_carriers?.carriers?.name ?? number?.org_carriers?.carriers?.name ?? "Carrier";
+
+      const result = evaluateReadiness({
+        requirements: reqsByCarrier.get(cid) ?? [],
+        request: {
+          contract_type: openRequest?.contract_type ?? "new_contract",
+          is_transfer: openRequest?.contract_type === "transfer",
+          requested_states: activeLicenseStates,
+          product_lines: [],
+          requested_comp_level_name: null,
+          requested_advance_level: null,
+          // Without an open request there is no status to honour, and the
+          // engine's terminal short-circuits would report "approved" for a
+          // carrier whose paperwork is in fact incomplete.
+          status: openRequest?.status ?? "draft",
+        },
+        producer,
+        hierarchy,
+      });
+
+      return {
+        org_carrier_id: cid,
+        carrier_name: name,
+        request_id: openRequest?.id ?? null,
+        request_reference: openRequest?.reference ?? null,
+        request_status: openRequest?.status ?? null,
+        writing_number: number?.writing_number ?? null,
+        readiness_pct: result.pct,
+        blockers: result.blockers,
+        satisfied: result.satisfied,
+      };
+    });
+
+    return {
+      agent: {
+        id: profile.id,
+        name: `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || "Unnamed agent",
+        email: profile.email ?? null,
+        npn: profile.npn_number ?? null,
+        status: profile.status ?? null,
+        resident_state: producer.resident_state,
+      },
+      licenses: (licenses ?? []).map((l: any) => ({
+        ...l,
+        expired: Boolean(l.expires_date && l.expires_date < today),
+        expiring_soon: Boolean(l.expires_date && l.expires_date >= today && l.expires_date <= warnBy),
+      })),
+      appointments: appointments ?? [],
+      writing_numbers: (numbers ?? []).map((n: any) => ({
+        ...n, carrier_name: n.org_carriers?.carriers?.name ?? "Carrier",
+      })),
+      requests: (requests ?? []).map((r: any) => ({
+        ...r, carrier_name: r.org_carriers?.carriers?.name ?? "Carrier",
+      })),
+      documents: Array.from(byType.values()).map((d: any) => ({
+        ...d, expired: Boolean(d.expiration_date && d.expiration_date < today),
+      })),
+      carriers,
+      warnDays,
+    };
   });

@@ -20,6 +20,7 @@ Delete a line once the migration is applied.
 - `20260802220000_writing-numbers-authoritative.sql`
 - `20260802230000_producer-document-vocabulary.sql`
 - `20260802240000_agent-status-revocation.sql`
+- `20260803120000_producer-notes.sql`
 
 Everything else queued on 2 Aug 2026 is applied, bundled into
 `20260802193054_e04946cb-f497-4d04-a0ba-a573587e18e8.sql`. That bundle improves

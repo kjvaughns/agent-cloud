@@ -171,7 +171,22 @@ function RequestDetailPage() {
         <div className="space-y-4">
           <Panel
             title="Agent information"
-            action={<CopyButton label="Copy agent" text={agentBlock(packet)} />}
+            action={
+              <span className="flex items-center gap-2">
+                {/* This packet is one carrier. The record behind it is every
+                    carrier, licence and document — which is the next question
+                    an operator has when a blocker here does not explain itself. */}
+                <Link
+                  to="/agency/agents/$agentId"
+                  search={{ tab: "contracting" }}
+                  params={{ agentId: request.agent_id }}
+                  className="ac-no-print inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  Open agent record <ExternalLink className="h-3 w-3" />
+                </Link>
+                <CopyButton label="Copy agent" text={agentBlock(packet)} />
+              </span>
+            }
           >
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Full legal name" value={packet.agent.full_legal_name} />

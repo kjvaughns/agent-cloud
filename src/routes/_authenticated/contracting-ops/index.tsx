@@ -88,9 +88,11 @@ function OverviewPage() {
   const attention = [
     { label: "Overdue requests", value: m.overdue, to: "/contracting-ops/queue" },
     { label: "Not in good order", value: m.nigo, to: "/contracting-ops/requests" },
-    { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/licensing" },
-    { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/licensing" },
-    { label: "Licenses expiring soon", value: m.expiring_licenses, to: "/contracting-ops/licensing" },
+    // Each of these lands on the slice it counted. A tile that opens an
+    // unfiltered roster makes the reader redo the filtering the number did.
+    { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/licensing", search: { filter: "missing_pdb" } },
+    { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/licensing", search: { filter: "stale_pdb" } },
+    { label: "Licenses expiring soon", value: m.expiring_licenses, to: "/contracting-ops/licensing", search: { filter: "expiring" } },
     { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/hierarchy-changes" },
   ].filter((a) => a.value > 0);
 
@@ -122,6 +124,7 @@ function OverviewPage() {
               <Link
                 key={a.label}
                 to={a.to}
+                search={(a as any).search}
                 className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-2/40 px-3 py-2.5 transition-colors hover:border-primary/40"
               >
                 <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />

@@ -9,7 +9,7 @@ import {
   type Requirement, type RequestContext, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
-import { REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
+import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -340,6 +340,116 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
       recordType: "org_carriers", recordId: created.id, next: fields,
     });
     return { ok: true, id: created.id as string };
+  });
+
+// ── Submission methods ──────────────────────────────────────────────────────
+
+/**
+ * How a carrier takes submissions — the thing the carrier card has been
+ * flagging as missing since the table was created.
+ *
+ * `org_carrier_methods` shipped with a vocabulary, a write policy and a
+ * partial unique index guaranteeing one default per carrier. Nothing in the
+ * application ever wrote to it, so the card said "No submission method set"
+ * to somebody with no way to set one, and every packet fell back to the
+ * carrier's portal URL whether or not that was how the carrier wanted it.
+ *
+ * Many per carrier by design: SureLC for a new contract, email for a hierarchy
+ * change. `applies_to` says which kinds of work each one covers, and empty
+ * means all of them.
+ */
+const MethodSchema = z.object({
+  id: z.string().uuid().optional(),
+  org_carrier_id: z.string().uuid(),
+  method: z.enum(CONTRACTING_METHODS),
+  applies_to: z.array(z.string().max(50)).max(20).default([]),
+  target_url: z.string().url().max(500).nullable().optional(),
+  target_email: z.string().email().max(200).nullable().optional(),
+  instructions: z.string().max(2000).nullable().optional(),
+  is_default: z.boolean().default(false),
+  sort_order: z.number().int().min(0).max(999).default(0),
+});
+
+export const saveOrgCarrierMethod = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => MethodSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+    if (!access.canManageCarriers) deny("You don't have permission to manage carriers.");
+
+    // The carrier has to be this agency's. The RLS policy says so too; this
+    // makes the failure a sentence rather than an empty result set.
+    const { data: carrier } = await supabaseAdmin
+      .from("org_carriers").select("id").eq("id", data.org_carrier_id).eq("organization_id", orgId).maybeSingle();
+    if (!carrier) throw new OrgAccessError("That carrier is not in your directory");
+
+    const { id, ...fields } = data;
+
+    // `idx_org_carrier_methods_one_default` is a partial unique index, so a
+    // second default is a constraint violation rather than a silent demotion
+    // of the first. Clear the incumbent before writing.
+    if (fields.is_default) {
+      await supabaseAdmin
+        .from("org_carrier_methods").update({ is_default: false })
+        .eq("org_carrier_id", data.org_carrier_id).eq("organization_id", orgId)
+        .neq("id", id ?? "00000000-0000-0000-0000-000000000000");
+    }
+
+    if (id) {
+      const { data: before } = await supabaseAdmin
+        .from("org_carrier_methods").select("*").eq("id", id).eq("organization_id", orgId).maybeSingle();
+      if (!before) throw new OrgAccessError("That submission method is not in your directory");
+
+      const { error } = await supabaseAdmin
+        .from("org_carrier_methods").update({ ...fields, updated_at: new Date().toISOString() })
+        .eq("id", id).eq("organization_id", orgId);
+      if (error) throw new Error(error.message);
+
+      const d = diff(before, { ...before, ...fields });
+      await recordAudit({
+        organizationId: orgId, actorId: userId, action: "carrier_method.updated",
+        recordType: "org_carrier_methods", recordId: id, previous: d.previous, next: d.next,
+      });
+      return { ok: true, id };
+    }
+
+    const { data: created, error } = await supabaseAdmin
+      .from("org_carrier_methods")
+      .insert({ organization_id: orgId, ...fields })
+      .select("id").single();
+    if (error) throw new Error(error.message);
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "carrier_method.created",
+      recordType: "org_carrier_methods", recordId: created.id, next: fields,
+    });
+    return { ok: true, id: created.id as string };
+  });
+
+export const deleteOrgCarrierMethod = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+    if (!access.canManageCarriers) deny("You don't have permission to manage carriers.");
+
+    const { data: before } = await supabaseAdmin
+      .from("org_carrier_methods").select("*").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
+    if (!before) throw new OrgAccessError("That submission method is not in your directory");
+
+    const { error } = await supabaseAdmin
+      .from("org_carrier_methods").delete().eq("id", data.id).eq("organization_id", orgId);
+    if (error) throw new Error(error.message);
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "carrier_method.deleted",
+      recordType: "org_carrier_methods", recordId: data.id, previous: before,
+    });
+    return { ok: true };
   });
 
 // ── Requirements ────────────────────────────────────────────────────────────
