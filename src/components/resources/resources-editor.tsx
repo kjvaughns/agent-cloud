@@ -144,28 +144,10 @@ export function ResourcesPage() {
     );
   }
 
-  if (data?.pendingSetup) {
-    return (
-      <PageShell>
-        <Panel>
-          <p className="text-sm text-muted-foreground">
-            This page is waiting on a workspace update. Nothing is wrong with your account — the
-            database changes it needs haven't been applied yet.
-          </p>
-        </Panel>
-      </PageShell>
-    );
-  }
-
   if (!data?.canManage) {
     return (
       <PageShell>
-        <Panel>
-          <p className="text-sm text-muted-foreground">
-            Editing your agency's handbook, scripts and courses is available to the agency owner,
-            and to managers and staff granted “Manage resources” on the Roles page.
-          </p>
-        </Panel>
+        <NoAccess data={data} />
       </PageShell>
     );
   }
@@ -212,6 +194,72 @@ export function ResourcesPage() {
         </Tabs>
       </div>
     </PageShell>
+  );
+}
+
+/**
+ * Why you cannot edit, in the words that match the actual reason.
+ *
+ * One message used to cover every refusal: "available to the agency owner, and
+ * to managers and staff granted Manage resources on the Roles page." An agency
+ * owner saw that and reasonably concluded the product did not know who they
+ * were — and in one of these four cases it genuinely did not, because the org
+ * was never resolved. A refusal that names the wrong cause sends somebody to
+ * fix the wrong thing.
+ */
+function NoAccess({ data }: { data: any }) {
+  const reason = data?.reason ?? (data?.pendingSetup ? "pending_setup" : "denied");
+
+  if (reason === "pending_setup") {
+    return (
+      <Panel>
+        <h2 className="text-sm font-semibold">Waiting on a workspace update</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Nothing is wrong with your account — the database changes this page needs haven't been
+          applied yet.
+        </p>
+      </Panel>
+    );
+  }
+
+  if (reason === "no_org") {
+    return (
+      <Panel className="border-warning/40">
+        <h2 className="text-sm font-semibold">Your account isn't linked to an agency</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          This isn't a permission problem. Nothing connects your profile to an agency — no active
+          membership, no organisation on your profile, and no agency with you as its owner — so
+          there is no handbook, script set or course list to edit.
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          If you are the agency owner, that link is missing rather than revoked. Ask support to
+          check it; nothing you can change on the Roles page will fix it.
+        </p>
+      </Panel>
+    );
+  }
+
+  if (reason === "owner_denied") {
+    return (
+      <Panel className="border-warning/40">
+        <h2 className="text-sm font-semibold">Your agency doesn't recognise you as its owner here</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You own agency <code className="text-xs">{data?.orgId}</code>, and the same database says
+          you may not edit its resources. Those cannot both be right, so this is a fault rather than
+          a permission — worth reporting as it is written here rather than working around.
+        </p>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel>
+      <h2 className="text-sm font-semibold">You don't have access to this</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Editing your agency's handbook, scripts and courses is available to the agency owner, and
+        to managers and staff granted “Manage resources” on the Roles page.
+      </p>
+    </Panel>
   );
 }
 

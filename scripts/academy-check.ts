@@ -290,6 +290,42 @@ check("progress is written in one statement where the constraint exists",
 check("with a named fallback for databases that lack it",
   /42P10/.test(RESOURCES), true);
 
+// ── Who the editor lets in ──────────────────────────────────────────────────
+//
+// An agency owner opened this page and was told to ask for a permission on the
+// Roles page. The org was never resolved: the only source consulted was
+// `profiles.organization_id`, and an owner whose profile row predates
+// `sync_profile_primary_org` does not have it. Owning the agency is the
+// strongest claim there is and it was the one claim not being checked.
+
+console.log("");
+
+check("the org is resolved from more than one place", /async function resolveOrg/.test(ADMIN), true);
+for (const [name, marker] of [
+  ["an active membership", 'from("organization_memberships")'],
+  ["the profile's denormalised copy", 'from("profiles").select("organization_id")'],
+  ["owning the agency outright", 'from("organizations").select("id").eq("owner_id", userId)'],
+] as const) {
+  check(`${name} counts`, ADMIN.includes(marker), true);
+}
+
+// Resolution is not authorisation. `can_manage_resources` stays the only
+// authority on whether you may write.
+check("the permission question still goes to the database",
+  /rpc\("can_manage_resources"/.test(ADMIN), true);
+
+// Four refusals, four messages. One message for all of them is what sent an
+// owner to the Roles page.
+check("the refusal carries a reason", /reason: "ok" \| "no_org"/.test(ADMIN), true);
+for (const reason of ["no_org", "owner_denied", "pending_setup"]) {
+  check(`the page says something specific about ${reason}`,
+    new RegExp(`reason === "${reason}"`).test(EDITOR), true);
+}
+check("owning the agency and being refused is called a fault, not a permission",
+  /cannot both be right/.test(EDITOR), true);
+
+console.log("");
+
 // The way in.
 check("the Academy tab drills into the curriculum", /CourseBuilder/.test(EDITOR), true);
 check("a platform default is copied before it is built on",
