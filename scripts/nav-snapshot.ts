@@ -94,6 +94,20 @@ const PERSONAS: Persona[] = [
       },
     }),
   },
+  // The persona the staff audit was written from: runs carrier contracting for
+  // the agency, administers nothing. Absent from this list, the sidebar they
+  // get was never printed and nobody noticed it had no Contract Requests in it.
+  {
+    name: "Staff (contracting specialist preset)",
+    ctx: ctx({
+      audience: "staff", inAgency: true,
+      perms: {
+        staff_view_contracts: true, staff_submit_carrier_requests: true, staff_edit_contracts: true,
+        staff_view_clients: true, staff_view_policies: true,
+        staff_view_all_tickets: true, staff_respond_tickets: true,
+      },
+    }),
+  },
   {
     name: "Staff (admin preset)",
     ctx: ctx({

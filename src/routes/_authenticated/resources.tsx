@@ -17,6 +17,12 @@ const TABS = [
   { label: "Agent Academy", url: "/resources/agent-academy", icon: GraduationCap },
 ];
 
+// Same first tab, different content behind it — see new-agent-guide.tsx. The
+// label is the part that would otherwise read as somebody else's checklist.
+const TAB_LABELS_STAFF: Record<string, string> = {
+  "/resources/new-agent-guide": "Back Office Guide",
+};
+
 /**
  * Resources shell.
  *
@@ -28,7 +34,7 @@ const TABS = [
  */
 function ResourcesLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { canEditResources } = useNavContext();
+  const { canEditResources, audience } = useNavContext();
   // On the editor itself the button would point at the page you are on.
   const editing = path.startsWith("/resources/edit");
 
@@ -37,7 +43,11 @@ function ResourcesLayout() {
       <div className="max-w-[1200px] mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Resources"
-          subtitle="Everything you need to sell, stay licensed, and get better at the job"
+          subtitle={
+            audience === "staff"
+              ? "Where each part of the job lives, and what your agents are reading"
+              : "Everything you need to sell, stay licensed, and get better at the job"
+          }
           actions={
             // Shown to whoever maintains this content: the agency owner, plus
             // anyone granted "Manage resources" on the Roles page. Everyone
@@ -72,7 +82,7 @@ function ResourcesLayout() {
                 )}
               >
                 <t.icon className="h-4 w-4" />
-                {t.label}
+                {(audience === "staff" && TAB_LABELS_STAFF[t.url]) || t.label}
               </Link>
             );
           })}

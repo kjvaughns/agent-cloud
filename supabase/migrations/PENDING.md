@@ -13,9 +13,17 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-*(nothing pending)*
+- `20260803120000_producer-notes.sql`
 
-Both entries here on 3 Aug 2026 have landed. Checked by looking for each one's
+Until it is applied, `contracting-notes.functions.ts` treats `42P01` as "not
+yet": the notes panel shows the audit trail on its own, an attempted note
+throws a sentence naming the reason, and the delete is a no-op. The CHECK
+constraints in the same file close the submission-method vocabulary on
+`contracting_requests.submission_method` and `contracting_submissions.method`,
+which are free text until then — and a CHECK is one of this script's stated
+blind spots, so nothing will warn about it.
+
+The two queued on 3 Aug 2026 have landed. Checked by looking for each one's
 distinctive object rather than by matching filenames, since Lovable renames:
 
 - `20260803010000_recruiting-challenge-audience.sql` →

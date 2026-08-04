@@ -149,6 +149,47 @@ async function assertCanManagePermissions(userId: string, orgId: string) {
   );
 }
 
+/**
+ * …and may they manage *this* person.
+ *
+ * `assertCanManagePermissions` answers "may this account administer the org".
+ * It was the only check on the three mutating functions below, which meant an
+ * admin staffer — the assistant the owner ticked one box for — could demote a
+ * manager, reconfigure another admin, or edit their own permission row. Rank
+ * has to come into it.
+ *
+ * The org's own administrators (owner, `agency_owner`, `admin`) may target
+ * anyone; that is what running the agency means. Admin staff hold delegated
+ * authority and may not reach above or sideways into it, nor edit themselves —
+ * self-edit is the one that turns a single granted box into every box.
+ *
+ * This is the boundary. Hiding the button in `agency-team-page.tsx` is a
+ * courtesy to the person clicking, not a control.
+ */
+async function assertMayTargetMember(callerId: string, targetId: string, orgId: string) {
+  const rank = await assertCanManagePermissions(callerId, orgId);
+  if (rank !== "admin_staff") return rank;
+
+  if (callerId === targetId) {
+    throw new Error("You can't change your own role or permissions. Ask the agency owner.");
+  }
+
+  const [{ data: org }, { data: targetRoles }] = await Promise.all([
+    supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
+    supabaseAdmin.from("user_roles").select("role").eq("user_id", targetId),
+  ]);
+
+  const isAdministrator =
+    org?.owner_id === targetId ||
+    (targetRoles ?? []).some((r: any) =>
+      ["agency_owner", "admin", "super_admin"].includes(String(r.role)));
+
+  if (isAdministrator) {
+    throw new Error("Only the agency owner can change an administrator's role or permissions.");
+  }
+  return rank;
+}
+
 // ── My access: role + permissions + solo detection (drives nav + billing UI) ─
 
 export type MyAccess = {
@@ -257,15 +298,25 @@ export const listOrgMembers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { userId } = context as Ctx;
-    const { data: org } = await supabaseAdmin
+    const { data: ownedOrg } = await supabaseAdmin
       .from("organizations").select("id, owner_id").eq("owner_id", userId).maybeSingle();
-    let orgId = org?.id as string | undefined;
+    let orgId = ownedOrg?.id as string | undefined;
+    let ownerId = ownedOrg?.owner_id as string | null | undefined;
+    let callerRank: string = ownedOrg ? "owner" : "";
     if (!orgId) {
       // Admin staff path
       const { data: profile } = await supabaseAdmin.from("profiles").select("organization_id").eq("id", userId).maybeSingle();
       if (profile?.organization_id) {
-        await assertCanManagePermissions(userId, profile.organization_id);
+        callerRank = await assertCanManagePermissions(userId, profile.organization_id);
         orgId = profile.organization_id;
+        // Read the organization by id, not by owner. The lookup above filters
+        // on `owner_id = me`, so on this path it returns nothing and `owner_id`
+        // stayed null — which made `isOwner` false for *every* member below,
+        // including the actual owner. The agency owner then appeared in the
+        // roster as an ordinary agent with a Configure button beside them.
+        const { data: org } = await supabaseAdmin
+          .from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
+        ownerId = org?.owner_id ?? null;
       }
     }
     if (!orgId) throw new Error("No organization to manage");
@@ -287,12 +338,25 @@ export const listOrgMembers = createServerFn({ method: "GET" })
 
     return {
       orgId,
-      members: (members ?? []).map((m: any) => ({
-        ...m,
-        roles: roleByUser.get(m.id) ?? ["agent"],
-        permissions: permByUser.get(m.id) ?? null,
-        isOwner: m.id === (org?.owner_id ?? null),
-      })),
+      // Who is asking, and with what authority. The roster offers Configure
+      // only where `assertMayTargetMember` would accept it — the server refuses
+      // either way, and an inert button is a worse way to learn that than not
+      // being offered one.
+      callerId: userId,
+      callerRank,
+      members: (members ?? []).map((m: any) => {
+        const roles = roleByUser.get(m.id) ?? ["agent"];
+        return {
+          ...m,
+          roles,
+          permissions: permByUser.get(m.id) ?? null,
+          isOwner: Boolean(ownerId) && m.id === ownerId,
+          // An administrator by role rather than by `owner_id`. Both exist:
+          // resolveCanManagePermissions honours either, so the roster has to
+          // as well or it offers a Configure button the server will refuse.
+          isAdmin: roles.some((r: string) => ["agency_owner", "admin", "super_admin"].includes(r)),
+        };
+      }),
     };
   });
 
@@ -307,7 +371,7 @@ export const updateMemberPermissions = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PermPatchSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
 
     // Whitelist keys
@@ -343,18 +407,53 @@ export const updateMemberPermissions = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * The presets, from the one place that defines them.
+ *
+ * This was a hand-copied list — `["admin","recruiter","contracting_specialist",
+ * "client_services"]` — while `STAFF_PRESETS` above and the chips in
+ * agency-team-page.tsx both carried six. Reports & Support and Support Desk
+ * were therefore offered in the UI and rejected by the validator, with the
+ * enum error shown to the operator verbatim. Derived, so a seventh preset
+ * cannot be added without this accepting it.
+ */
+const PRESET_IDS = Object.keys(STAFF_PRESETS) as [string, ...string[]];
+
 export const applyStaffPreset = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
       member_id: z.string().uuid(),
       organization_id: z.string().uuid(),
-      preset: z.enum(["admin", "recruiter", "contracting_specialist", "client_services"]),
+      preset: z.enum(PRESET_IDS),
     }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
+
+    // A staff preset describes a staff member. Applying one to somebody who is
+    // not yet staff used to write the permissions and leave the role alone —
+    // so they held a full contracting-specialist permission set while
+    // `audienceFor` still resolved them to the agent product, and none of it
+    // showed up. A manager is not silently demoted: that is a decision for
+    // whoever is configuring them, not a side effect of clicking a chip.
+    const { data: memberRoles } = await supabaseAdmin
+      .from("user_roles").select("id, role").eq("user_id", data.member_id)
+      .in("role", ["manager", "staff", "agent"]);
+    const held = (memberRoles ?? []).map((r: any) => String(r.role));
+
+    if (held.includes("manager")) {
+      throw new Error("This member is a manager. Change their role to Staff before applying a staff preset.");
+    }
+    if (!held.includes("staff")) {
+      for (const r of memberRoles ?? []) {
+        await supabaseAdmin.from("user_roles").delete().eq("id", r.id);
+      }
+      await supabaseAdmin.from("user_roles").insert({ user_id: data.member_id, role: "staff" });
+      await audit(data.organization_id, userId, "role_changed", data.member_id,
+        { roles: held }, { role: "staff", via: "staff_preset" });
+    }
 
     const full = { ...zeroPerms(), ...STAFF_PRESETS[data.preset] };
     const { data: prev } = await supabaseAdmin
@@ -387,7 +486,7 @@ export const setMemberRole = createServerFn({ method: "POST" })
     }).parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
-    await assertCanManagePermissions(userId, data.organization_id);
+    await assertMayTargetMember(userId, data.member_id, data.organization_id);
     await assertMemberOfOrg(data.member_id, data.organization_id);
     const { data: prevRoles } = await supabaseAdmin
       .from("user_roles").select("id, role").eq("user_id", data.member_id)
@@ -397,6 +496,26 @@ export const setMemberRole = createServerFn({ method: "POST" })
       await supabaseAdmin.from("user_roles").delete().eq("id", r.id);
     }
     await supabaseAdmin.from("user_roles").insert({ user_id: data.member_id, role: data.role });
+
+    // Coming back down to agent clears what the higher role granted.
+    //
+    // It used to leave `role_permissions` exactly as it was, so demoting
+    // somebody unassigned the role and none of its access: the row still said
+    // staff_view_contracts, staff_is_admin and the rest, the switches were
+    // merely hidden because the dialog stops rendering them for an agent, and
+    // re-promoting them months later silently restored every grant they used
+    // to have. The row survives — it is what the audit trail points at — but
+    // every flag in it goes false.
+    if (data.role === "agent") {
+      const { data: existing } = await supabaseAdmin
+        .from("role_permissions").select("id")
+        .eq("profile_id", data.member_id).eq("organization_id", data.organization_id).maybeSingle();
+      if (existing) {
+        await supabaseAdmin.from("role_permissions")
+          .update({ ...zeroPerms(), staff_preset: null, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      }
+    }
 
     // Manager defaults on first promotion.
     if (data.role === "manager") {

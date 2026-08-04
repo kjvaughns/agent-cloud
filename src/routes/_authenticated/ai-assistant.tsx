@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
-import { useNavContext } from "@/hooks/use-my-access";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,8 @@ import { askAiAssistant, listNovaConversations, getNovaConversation } from "@/li
 import { cn } from "@/lib/utils";
 import { NovaAutomationsPanel } from "@/components/nova/automations-panel";
 import { NovaActivityPanel } from "@/components/nova/activity-panel";
+import { useNavContext } from "@/hooks/use-my-access";
+import type { Audience } from "@/lib/navigation";
 
 export const Route = createFileRoute("/_authenticated/ai-assistant")({
   component: NovaAIPage,
@@ -23,27 +24,46 @@ export const Route = createFileRoute("/_authenticated/ai-assistant")({
 type Chip = { icon: React.ComponentType<{ className?: string }>; label: string; prompt: string };
 
 /**
- * Nova's opening depends on whether there is anything to open onto.
+ * What Nova offers to do, by who is asking.
  *
- * The greeting asserted "I can see your pipeline, your book and what's at risk"
- * and three of the six chips referenced records — a recent call, deals to
- * chase, a hot IUL lead. To an agent who has not written anything yet, all of
- * that is a confident claim about data that does not exist, on their first
- * visit. It is the same failure as a dashboard of zeros: technically true of
- * the schema, false about them.
+ * Two independent questions, and the answer needs both. *What is this person's
+ * job* — a contracting coordinator was offered an objection coach, a
+ * prospecting plan and a final expense script, none of which are their work.
+ * And *do they have a book yet* — an agent on their first day was told "I can
+ * see your pipeline, your book and what's at risk" about records that do not
+ * exist, which is the same failure as a dashboard of zeros.
  *
- * Split rather than filtered, because the useful prompts for somebody starting
- * out are not a subset of the prompts for somebody running a book — they are
- * different questions.
+ * So: staff get the queue prompts, an agent with no book gets the starter
+ * prompts, and everybody else gets the original six. Staff are checked first —
+ * a coordinator is not "getting started as an agent", they have no book and
+ * never will, so the starter set is as wrong for them as the pipeline set.
+ *
+ * The server decides what Nova can actually see; this decides what she offers
+ * first. Both read the same role, so they cannot disagree about who is here.
  */
-const QUICK_CHIPS: Chip[] = [
-  { icon: FileText, label: "Call summary", prompt: "Summarize a recent call or notes" },
-  { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
-  { icon: TrendingUp, label: "Pipeline triage", prompt: "Which deals should I chase today?" },
-  { icon: Lightbulb, label: "Script builder", prompt: "Build a custom final expense script for 65+ homeowners" },
-  { icon: FileText, label: "Follow-up email", prompt: "Draft a follow-up email for a hot IUL lead" },
-  { icon: Target, label: "30-day plan", prompt: "Generate a 30-day prospecting plan" },
-];
+const QUICK_CHIPS: Record<Audience, Chip[]> = {
+  core: [
+    { icon: FileText, label: "Call summary", prompt: "Summarize a recent call or notes" },
+    { icon: Target, label: "Objection coach", prompt: "Give me a rebuttal for 'too expensive' in 5 seconds" },
+    { icon: TrendingUp, label: "Pipeline triage", prompt: "Which deals should I chase today?" },
+    { icon: Lightbulb, label: "Script builder", prompt: "Build a custom final expense script for 65+ homeowners" },
+    { icon: FileText, label: "Follow-up email", prompt: "Draft a follow-up email for a hot IUL lead" },
+    { icon: Target, label: "30-day plan", prompt: "Generate a 30-day prospecting plan" },
+  ],
+  staff: [
+    { icon: Target, label: "What's overdue", prompt: "What contracting requests are overdue, and what is each one waiting on?" },
+    { icon: TrendingUp, label: "Work next", prompt: "What should I work next in the contracting queue?" },
+    { icon: FileText, label: "Licences expiring", prompt: "Which licences expire in the next 45 days, and for which agents?" },
+    { icon: Lightbulb, label: "Not ready to sell", prompt: "Which agents are not ready to sell, and what is missing for each?" },
+    { icon: FileText, label: "Chase a carrier", prompt: "Draft an email chasing a carrier on an outstanding contracting request." },
+    { icon: Target, label: "PDB reports", prompt: "Which agents are missing a PDB report or have one that is out of date?" },
+  ],
+};
+
+const GREETINGS: Record<Audience, string> = {
+  core: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
+  staff: "Hi, I'm Nova. I can see your contracting queue, licence expirations and PDB status — ask me what's overdue, what to work next, or for help drafting a note to a carrier.",
+};
 
 const STARTER_CHIPS: Chip[] = [
   { icon: Target, label: "30-day plan", prompt: "Generate a 30-day plan for my first month as a life insurance agent" },
@@ -55,22 +75,27 @@ const STARTER_CHIPS: Chip[] = [
 
 type Message = { role: "user" | "assistant"; text: string };
 
-const GREETING: Message = {
-  role: "assistant",
-  text: "Hi, I'm Nova. I can see your pipeline, your book and what's at risk — ask me how you're doing, what to work next, or for help with a call.",
-};
-
-const STARTER_GREETING: Message = {
-  role: "assistant",
-  text: "Hi, I'm Nova. You're just getting started, so there's no book for me to read yet — but I can help you build a script, plan your first month, or work through an objection before you hit the phones.",
-};
+const STARTER_GREETING_TEXT =
+  "Hi, I'm Nova. You're just getting started, so there's no book for me to read yet — but I can help you build a script, plan your first month, or work through an objection before you hit the phones.";
 
 function NovaAIPage() {
   // `isPending` already means "has not posted a policy yet" — it is what gates
   // Clients, Book and Finances in the nav. No new query for this.
-  const { isPending: noBookYet } = useNavContext();
-  const greeting = noBookYet ? STARTER_GREETING : GREETING;
-  const chips = noBookYet ? STARTER_CHIPS : QUICK_CHIPS;
+  const { audience, isPending: noBookYet } = useNavContext();
+  // Staff are never "starting out": they have no book because they do not sell,
+  // not because they have not sold yet.
+  const starter = audience === "core" && noBookYet;
+
+  const chips = audience === "staff"
+    ? QUICK_CHIPS.staff
+    : starter ? STARTER_CHIPS : QUICK_CHIPS.core;
+
+  const greeting: Message = {
+    role: "assistant",
+    text: audience === "staff"
+      ? GREETINGS.staff
+      : starter ? STARTER_GREETING_TEXT : GREETINGS.core,
+  };
 
   const [messages, setMessages] = useState<Message[]>([greeting]);
   const [input, setInput] = useState("");
@@ -166,7 +191,9 @@ function NovaAIPage() {
             </span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            Your sales co-pilot for objections, scripts, and pipeline strategy.
+            {audience === "staff"
+              ? "Your back-office co-pilot for the contracting queue, licensing and carrier chasing."
+              : "Your sales co-pilot for objections, scripts, and pipeline strategy."}
           </p>
         </div>
       </div>

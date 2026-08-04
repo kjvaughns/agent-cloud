@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -13,6 +13,7 @@ import { Shield, Crown } from "lucide-react";
 import { toast } from "sonner";
 import {
   listOrgMembers, updateMemberPermissions, applyStaffPreset, setMemberRole,
+  MANAGER_PERMS, STAFF_PERMS, ADMIN_PERMS,
 } from "@/lib/permissions.functions";
 
 const MANAGER_GROUPS: { label: string; items: { key: string; label: string }[] }[] = [
@@ -128,10 +129,33 @@ const PRESETS = [
   { id: "support_desk", label: "Support Desk", hint: "Support tickets, read-only clients" },
 ] as const;
 
+/**
+ * Why a row has no Configure button, said out loud.
+ *
+ * Mirrors `assertMayTargetMember` on the server, which is what actually
+ * decides. Keeping the two in step matters less than keeping the button honest:
+ * the roster used to offer Configure on every row but the owner's, and it
+ * decided who the owner was from a value that was null whenever admin staff
+ * were the ones looking — so the owner got a Configure button too.
+ */
+function lockedReason(m: any, data: any): string | null {
+  if (m.isOwner) return "Agency owner";
+  if (data.callerRank !== "admin_staff") return null;
+  if (m.id === data.callerId) return "You";
+  if (m.isAdmin) return "Administrator";
+  return null;
+}
+
 export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}) {
   const listFn = useServerFn(listOrgMembers);
   const { data, isLoading, error } = useQuery({ queryKey: ["agency", "members"], queryFn: () => listFn(), retry: false });
-  const [selected, setSelected] = useState<any | null>(null);
+  // The id, not the row. Holding the row froze it: applying a preset wrote the
+  // permissions, refetched the list, and handed the dialog the same snapshot it
+  // opened with — so every switch stayed where it was and the preset looked
+  // like it had done nothing. Deriving from the query means the dialog always
+  // shows what the server just stored.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = data?.members.find((m: any) => m.id === selectedId) ?? null;
 
   if (isLoading) return <PageShell><Skeleton className="h-72" /></PageShell>;
   if (error || !data) {
@@ -157,7 +181,12 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
         <Panel pad={false}>
           <div className="divide-y divide-border-soft">
             {data.members.map((m: any) => {
-              const role = m.isOwner ? "agency_owner" : (m.roles.find((r: string) => ["manager", "staff"].includes(r)) ?? "agent");
+              const role = m.isOwner
+                ? "agency_owner"
+                : m.isAdmin
+                ? "admin"
+                : (m.roles.find((r: string) => ["manager", "staff"].includes(r)) ?? "agent");
+              const locked = lockedReason(m, data);
               return (
                 <div key={m.id} className="flex items-center gap-3 p-4 text-sm">
                   {m.isOwner ? <Crown className="h-4 w-4 text-gold-bright shrink-0" /> : <Shield className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -171,8 +200,10 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
                   {m.permissions?.staff_preset && (
                     <Badge variant="outline" className="text-[10px] capitalize">{String(m.permissions.staff_preset).replace(/_/g, " ")}</Badge>
                   )}
-                  {!m.isOwner && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setSelected(m)}>
+                  {locked ? (
+                    <span className="shrink-0 text-[11px] text-text-dim">{locked}</span>
+                  ) : (
+                    <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setSelectedId(m.id)}>
                       Configure
                     </Button>
                   )}
@@ -189,7 +220,7 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
       </div>
 
       {selected && (
-        <MemberConfigDialog member={selected} orgId={data.orgId} onClose={() => setSelected(null)} />
+        <MemberConfigDialog member={selected} orgId={data.orgId} onClose={() => setSelectedId(null)} />
       )}
     </PageShell>
   );
@@ -205,6 +236,19 @@ function MemberConfigDialog({ member, orgId, onClose }: { member: any; orgId: st
   const [role, setRole] = useState<string>(initialRole);
   const [perms, setPerms] = useState<Record<string, any>>({ ...(member.permissions ?? {}) });
 
+  // Local state exists so a switch moves under the finger rather than after a
+  // round trip. It has to give way to the server afterwards, or a preset —
+  // which rewrites every key at once — would never appear: the switches would
+  // keep showing whatever they showed when the dialog opened. The parent now
+  // re-derives `member` from the refetched list, so these fire on every write.
+  useEffect(() => {
+    setPerms({ ...(member.permissions ?? {}) });
+  }, [member.permissions]);
+
+  useEffect(() => {
+    setRole(member.roles.find((r: string) => ["manager", "staff"].includes(r)) ?? "agent");
+  }, [member.roles]);
+
   const refresh = () => qc.invalidateQueries({ queryKey: ["agency", "members"] });
 
   const changeRole = useMutation({
@@ -214,7 +258,9 @@ function MemberConfigDialog({ member, orgId, onClose }: { member: any; orgId: st
   });
 
   const toggle = useMutation({
-    mutationFn: (patch: Record<string, boolean>) =>
+    // `staff_preset` rides in the same patch as the switches, so this is not
+    // boolean-only. The server whitelists both shapes.
+    mutationFn: (patch: Record<string, boolean | string | null>) =>
       permFn({ data: { member_id: member.id, organization_id: orgId, patch } }),
     onSuccess: () => refresh(),
     onError: (e: any) => { toast.error(e?.message ?? "Couldn't save"); refresh(); },
@@ -231,9 +277,34 @@ function MemberConfigDialog({ member, orgId, onClose }: { member: any; orgId: st
     onError: (e: any) => toast.error(e?.message ?? "Couldn't apply preset"),
   });
 
+  // Every key off, and no preset. Built from the exported key lists rather
+  // than a fourth hand-written copy of them — the same drift that had the
+  // server rejecting two presets the UI offered.
+  const clearAll = useMutation({
+    mutationFn: () =>
+      permFn({
+        data: {
+          member_id: member.id,
+          organization_id: orgId,
+          patch: {
+            ...Object.fromEntries([...MANAGER_PERMS, ...STAFF_PERMS, ...ADMIN_PERMS].map((k) => [k, false])),
+            staff_preset: null,
+          },
+        },
+      }),
+    onSuccess: () => { toast.success("Permissions cleared"); refresh(); },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't clear permissions"),
+  });
+
   const flip = (key: string) => (v: boolean) => {
+    // "Custom" has to be persisted, not just shown. It was set in local state
+    // only and never sent, so the stored preset still claimed to be Recruiter
+    // after somebody had hand-edited it — and now that the dialog re-reads
+    // from the server, that local marker would be overwritten on the next
+    // refetch and the badge would vanish a moment after appearing.
+    const nowCustom = Boolean(perms.staff_preset) && perms.staff_preset !== "custom";
     setPerms((p) => ({ ...p, [key]: v, ...(p.staff_preset ? { staff_preset: "custom" } : {}) }));
-    toggle.mutate({ [key]: v });
+    toggle.mutate({ [key]: v, ...(nowCustom ? { staff_preset: "custom" } : {}) });
   };
 
   const groups = role === "manager" ? MANAGER_GROUPS : STAFF_GROUPS;
@@ -282,8 +353,26 @@ function MemberConfigDialog({ member, orgId, onClose }: { member: any; orgId: st
                     {p.label}
                   </Button>
                 ))}
-                <Badge variant="outline" className={perms.staff_preset === "custom" ? "border-primary/40 text-gold-bright" : ""}>Custom</Badge>
+                {/* Was a Badge sitting in a row of buttons, so it read as a
+                    seventh option and did nothing when clicked. It is the one
+                    thing here that was missing: a way back to nothing. */}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => clearAll.mutate()}
+                  disabled={clearAll.isPending}
+                  title="Turn every permission off and remove the preset"
+                >
+                  {clearAll.isPending ? "Clearing…" : "Clear all"}
+                </Button>
+                {perms.staff_preset === "custom" && (
+                  <Badge variant="outline" className="border-primary/40 text-gold-bright">Custom</Badge>
+                )}
               </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                A preset is a starting point — change any switch below and it becomes Custom.
+              </p>
             </div>
           )}
 

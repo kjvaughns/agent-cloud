@@ -32,11 +32,50 @@ import { SmoothAreaChart } from "@/components/ui/area-chart";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { NovaRail } from "@/components/nova-rail";
 import { useTheme } from "@/hooks/use-theme";
+import { useMyAccess } from "@/hooks/use-my-access";
+import { audienceFor } from "@/lib/navigation";
+import { StaffDashboard } from "@/components/staff-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
-  component: Dashboard,
+  component: DashboardRoute,
 });
+
+/**
+ * Who this dashboard is for.
+ *
+ * Everything in `Dashboard` below — the production goal, the leaderboard, the
+ * commission tiles, "get ready to sell" — answers questions a producer has
+ * about their own book. Back-office staff have no book, so every panel reads
+ * as either zero or somebody else's job, and login sent them here anyway.
+ *
+ * They get their own home rather than a redirect. A redirect works, but it
+ * means /dashboard is a page staff can never see and the sidebar has no Home
+ * row for them — the app quietly has a hole where its front door should be.
+ * Two dashboards behind one route is the smaller cost.
+ *
+ * The branch sits in the component rather than `beforeLoad` on purpose: it
+ * covers every way in — the login form, the OAuth callback, an old bookmark —
+ * from one place, and reuses the access query the app has already cached
+ * instead of adding a role fetch to the router.
+ */
+function DashboardRoute() {
+  const { access, loading } = useMyAccess();
+
+  if (loading) {
+    return (
+      <PageShell>
+        <Skeleton className="h-64 rounded-xl" />
+      </PageShell>
+    );
+  }
+
+  if (audienceFor({ role: access?.role ?? null }) === "staff") {
+    return <StaffDashboard />;
+  }
+
+  return <Dashboard />;
+}
 
 /**
  * Period presets. All are "to date" — week means week-to-date, quarter means

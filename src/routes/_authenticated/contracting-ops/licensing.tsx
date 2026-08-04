@@ -1,12 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Search, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Search, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/contracting/shared";
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
@@ -15,9 +17,24 @@ import { listLicensingRecords, reviewPdbReport, saveLicenseRecord } from "@/lib/
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { cn } from "@/lib/utils";
 
+const FILTERS = ["expiring", "expired", "missing_pdb", "stale_pdb"] as const;
+type Filter = (typeof FILTERS)[number];
+
+const FILTER_LABELS: Record<Filter, string> = {
+  expiring: "Expiring soon",
+  expired: "Expired",
+  missing_pdb: "No PDB report",
+  stale_pdb: "PDB out of date",
+};
+
 export const Route = createFileRoute("/_authenticated/contracting-ops/licensing")({
   component: LicensingPage,
   head: () => ({ meta: [{ title: "Licensing Records | Agent Cloud" }] }),
+  // Arriving from an overview tile should land on the slice the tile counted.
+  // "10 licences expiring soon" that opens an unfiltered roster of eight agents
+  // makes the reader do the filtering the number already did.
+  validateSearch: (s: Record<string, unknown>): { filter?: Filter } =>
+    FILTERS.includes(s.filter as Filter) ? { filter: s.filter as Filter } : {},
 });
 
 const PDB_TONE: Record<string, "success" | "warning" | "danger" | "neutral" | "info"> = {
@@ -27,6 +44,8 @@ const PDB_TONE: Record<string, "success" | "warning" | "danger" | "neutral" | "i
 
 function LicensingPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { filter } = Route.useSearch();
   const listFn = useServerFn(listLicensingRecords);
   const reviewFn = useServerFn(reviewPdbReport);
   const saveLicenseFn = useServerFn(saveLicenseRecord);
@@ -58,17 +77,56 @@ function LicensingPage() {
     onError: (e: any) => toast.error(e?.message ?? "Could not save the licence"),
   });
 
+  const matchesSearch = (name: string, npn: any, state: any) => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    return name.toLowerCase().includes(s) ||
+      String(npn ?? "").includes(s) ||
+      String(state ?? "").toLowerCase() === s;
+  };
+
   const agents = useMemo(() => {
     let out = (data?.agents ?? []) as any[];
-    if (search.trim()) {
-      const s = search.toLowerCase();
-      out = out.filter((a) =>
-        a.name.toLowerCase().includes(s) ||
-        String(a.npn ?? "").includes(s) ||
-        String(a.resident_state ?? "").toLowerCase() === s);
-    }
-    return out;
-  }, [data, search]);
+    if (filter === "missing_pdb") out = out.filter((a) => a.pdb_status === "none");
+    if (filter === "stale_pdb") out = out.filter((a) => a.pdb_stale);
+    return out.filter((a) => matchesSearch(a.name, a.npn, a.resident_state));
+  }, [data, search, filter]);
+
+  /**
+   * One row per licence, not per agent.
+   *
+   * "10 licences expiring soon" was a number with no way to act on it: the
+   * roster underneath counts agents, so the ten were spread across eight rows
+   * and none of them said which state or when. Here every row is one licence,
+   * soonest first, with the days left spelled out.
+   */
+  const expiringLicences = useMemo(() => {
+    if (filter !== "expiring" && filter !== "expired") return [];
+    const today = new Date().toISOString().slice(0, 10);
+    const warnBy = new Date(Date.now() + (data?.settings?.warnDays ?? 45) * 86_400_000)
+      .toISOString().slice(0, 10);
+
+    return ((data?.agents ?? []) as any[])
+      .filter((a) => matchesSearch(a.name, a.npn, a.resident_state))
+      .flatMap((a) =>
+        (a.licenses ?? [])
+          .filter((l: any) => {
+            if (!l.expires_date) return false;
+            return filter === "expired"
+              ? l.expires_date < today
+              : l.expires_date >= today && l.expires_date <= warnBy;
+          })
+          .map((l: any) => ({
+            ...l,
+            agent: a,
+            days: Math.round(
+              (new Date(l.expires_date + "T00:00:00").getTime() - Date.now()) / 86_400_000),
+          })))
+      .sort((a, b) => a.expires_date.localeCompare(b.expires_date));
+  }, [data, search, filter]);
+
+  const setFilter = (next: Filter | null) =>
+    navigate({ to: "/contracting-ops/licensing", search: next ? { filter: next } : {} });
 
   const columns: Column<any>[] = [
     { key: "agent", header: "Agent", className: "flex-[2]",
@@ -127,17 +185,52 @@ function LicensingPage() {
         )}
       </div>
 
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          onClick={() => setFilter(null)}
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+            !filter ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+          )}
+        >
+          Every agent
+        </button>
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(filter === f ? null : f)}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-medium",
+              filter === f ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+            )}
+          >
+            {FILTER_LABELS[f]}
+          </button>
+        ))}
+      </div>
+
       <Panel pad={false}>
-        <RecordTable
-          rows={agents}
-          columns={columns}
-          loading={isLoading}
-          onRowClick={setOpenAgent}
-          empty={{
-            title: "No licensing records yet",
-            body: "Upload a PDB report to begin tracking agent licences. Once a report is reviewed, the licences, appointments and review dates recorded from it appear here.",
-          }}
-        />
+        {filter === "expiring" || filter === "expired" ? (
+          <ExpiringLicences
+            rows={expiringLicences}
+            loading={isLoading}
+            expired={filter === "expired"}
+            onOpenAgent={setOpenAgent}
+          />
+        ) : (
+          <RecordTable
+            rows={agents}
+            columns={columns}
+            loading={isLoading}
+            onRowClick={setOpenAgent}
+            empty={{
+              title: filter ? "Nothing in this slice" : "No licensing records yet",
+              body: filter
+                ? "Try a different filter — there is licensing work on the board, just not here."
+                : "Upload a PDB report to begin tracking agent licences. Once a report is reviewed, the licences, appointments and review dates recorded from it appear here.",
+            }}
+          />
+        )}
       </Panel>
 
       <LicenseSheet
@@ -148,6 +241,80 @@ function LicensingPage() {
         reviewing={review.isPending}
       />
     </div>
+  );
+}
+
+function ExpiringLicences({
+  rows, loading, expired, onOpenAgent,
+}: {
+  rows: any[]; loading: boolean; expired: boolean; onOpenAgent: (a: any) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-2 p-4">
+        {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-4">
+        <EmptyState
+          title={expired ? "Nothing has expired" : "Nothing expiring soon"}
+          body={
+            expired
+              ? "Every licence on file is still inside its term."
+              : "No licence reaches its expiry date inside your agency's warning window."
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground lg:flex">
+        <span className="flex-[2]">Agent</span>
+        <span className="w-12">State</span>
+        <span className="flex-1">Licence number</span>
+        <span className="w-24">Expires</span>
+        <span className="w-28">{expired ? "Overdue by" : "Days left"}</span>
+      </div>
+      <ul className="divide-y divide-border-soft">
+        {rows.map((l) => (
+          <li key={l.id}>
+            <button
+              onClick={() => onOpenAgent(l.agent)}
+              className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-left transition-colors hover:bg-surface-2/40 lg:flex-nowrap"
+            >
+              <span className="min-w-0 flex-[2]">
+                <span className="block truncate text-sm font-medium text-foreground">{l.agent.name}</span>
+                <span className="tnum block truncate text-[11px] text-muted-foreground">
+                  {l.agent.npn ? `NPN ${l.agent.npn}` : "No NPN on file"}
+                </span>
+              </span>
+              <span className="w-12 shrink-0 text-sm font-semibold text-foreground">{l.state_code}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {l.license_number ?? "No number"}{l.is_resident ? " · Resident" : ""}
+              </span>
+              <span className="tnum w-24 shrink-0 text-xs text-muted-foreground">{l.expires_date}</span>
+              <span className="w-28 shrink-0">
+                <Pill tone={expired ? "danger" : l.days <= 14 ? "danger" : "warning"}>
+                  {expired
+                    ? `${Math.abs(l.days)} day${Math.abs(l.days) === 1 ? "" : "s"}`
+                    : `${l.days} day${l.days === 1 ? "" : "s"}`}
+                </Pill>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-border-soft px-4 py-2 text-[11px] text-text-dim">
+        {rows.length} licence{rows.length === 1 ? "" : "s"}, soonest first. Opening a row shows that
+        agent's full record and lets you record the renewal.
+      </p>
+    </>
   );
 }
 
@@ -177,6 +344,20 @@ function LicenseSheet({
             {agent.resident_state ? ` · Resident ${agent.resident_state}` : ""}
           </SheetDescription>
         </SheetHeader>
+
+        {/* Reviewing a PDB is the common case and stays here, one click from
+            the row. Everything else about this agent — appointments, writing
+            numbers, open requests, what each carrier still needs — is a page,
+            because it is too much to read sideways. */}
+        <Link
+          to="/agency/agents/$agentId"
+          search={{ tab: "contracting" }}
+          params={{ agentId: agent.id }}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+        >
+          Open {agent.name.split(" ")[0]}'s contracting record
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
 
         <div className="mt-5 space-y-5">
           <section>

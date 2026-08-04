@@ -20,6 +20,10 @@ const supabaseAdmin = _admin as any;
 export type AuditAction =
   | "carrier.created" | "carrier.updated" | "carrier.archived"
   | "carrier_requirement.changed"
+  // How a carrier takes submissions. Separate from `carrier.updated` because
+  // changing where paperwork is sent is the change most worth being able to
+  // find afterwards when a batch goes missing.
+  | "carrier_method.created" | "carrier_method.updated" | "carrier_method.deleted"
   | "comp_level.created" | "comp_level.updated" | "comp_level.deleted"
   | "writing_number.created" | "writing_number.updated" | "writing_number.deleted"
   | "request.created" | "request.status_changed" | "request.assigned"

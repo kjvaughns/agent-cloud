@@ -190,9 +190,21 @@ export const PAGES: Page[] = [
   // registry so the old name still finds the new page.
   { id: "intake", label: "Document Intake", path: "/import", icon: UploadCloud, area: "Tools" },
 
-  // Contracting Ops — the agency's back office, filed with the rest of
-  // contracting rather than with the people pages.
-  { id: "contracting-ops", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", parent: "my-contracts", unlock: "agency-admin", audience: ["core"] },
+  // Contracting Ops — the agency's back office. Two entries onto one page,
+  // because the two audiences reach it for different reasons and under
+  // different gates.
+  //
+  // `run-contracting` is the row an agency admin sees inside Contracting,
+  // filed with the rest of contracting rather than with the people pages.
+  // Unchanged from when it was called `contracting-ops`.
+  { id: "run-contracting", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Contracting", parent: "my-contracts", unlock: "agency-admin", audience: ["core"] },
+  // `contracting-ops` is staff's own front page and the hub the rest of the
+  // back office hangs off. Deliberately gate-free, for the same reason Today's
+  // Work was: an agency-admin unlock here ORs to false for a plain staffer and
+  // takes away the first thing they open. It costs nothing to leave open —
+  // `navFor` drops a hub whose children are all filtered out, so a staffer with
+  // no contracting permission sees only what they may actually use.
+  { id: "contracting-ops", label: "Contracting Ops", path: "/contracting-ops", icon: ClipboardList, area: "Back office", audience: ["staff"] },
 
   // Everyone can invite. An invited agent gets an account and a dashboard;
   // what they can do with it is a separate question from who may send the link.
@@ -211,7 +223,23 @@ export const PAGES: Page[] = [
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Back office", audience: ["staff"] },
   { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "carriers-setup", label: "Carriers & Comp", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin" },
+  // Staff see the carrier directory on the same permission as the requests they
+  // prepare from it — they cannot submit to a carrier they cannot look up. What
+  // they may *change* there is a separate question the page answers itself,
+  // through `canManageCarriers`.
+  { id: "carriers-setup", label: "Carriers & Comp", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+
+  // The rest of the back office. Every one of these pages already existed and
+  // was reachable only by typing its URL or finding a tile on the overview —
+  // which is how an audit concluded the platform had no writing-number registry
+  // while `/contracting-ops/requests?tab=numbers` was sitting there.
+  { id: "ops-licensing", label: "Licensing & PDB", path: "/contracting-ops/licensing", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "writing-numbers", label: "Writing numbers", path: "/contracting-ops/requests?tab=numbers", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "ops-import", label: "Import records", path: "/contracting-ops/import", icon: UploadCloud, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "contracting-templates", label: "Submission templates", path: "/contracting-ops/templates", icon: FileSignature, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  // Agency-level configuration rather than daily work, so it keeps the
+  // administrator gate and takes no staff permission.
+  { id: "contracting-settings", label: "Contracting settings", path: "/contracting-ops/settings", icon: Settings, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", permission: "staff_is_admin" },
 
   // Updates
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
@@ -277,8 +305,15 @@ const PRODUCTS: Record<Audience, { label: string; ids: string[] }[]> = {
   // the people who process carrier documents all day could not see Import in
   // their sidebar — reachable by search, which is the kind of hiding this
   // file's header warns about.
+  //
+  // Contracting Ops leads, because it is where staff work and where they now
+  // land. It was four loose rows — queue, requests, licensing, documents —
+  // that named four of the twelve pages inside it and gave no way to the rest;
+  // it is one expandable section now, with the same four at the top of it.
+  // Clients and Reports join for the presets that grant them: a client-services
+  // staffer had no Clients row at all, and Reports was reachable only by search.
   staff: [
-    { label: "", ids: ["queue", "requests", "licensing", "documents", "tasks", "tools", "nova", "agency"] },
+    { label: "", ids: ["dashboard", "contracting-ops", "tasks", "clients", "reports", "tools", "nova", "agency"] },
   ],
 };
 
@@ -316,9 +351,16 @@ export function audienceFor(opts: { role: string | null }): Audience {
 function allowed(p: Page, ctx: NavContext): boolean {
   if (p.audience && !p.audience.includes(ctx.audience)) return false;
 
-  // Staff permissions gate staff only. Applying them to everybody would hide
-  // Nova from an owner who has never had a role_permissions row written.
-  if (ctx.audience === "staff" && p.staffPermission && !ctx.perms[p.staffPermission]) return false;
+  // Staff permissions gate staff only, and for staff they are the *whole*
+  // gate. Applying them to everybody would hide Nova from an owner who has
+  // never had a role_permissions row written; ANDing them with the gates below
+  // did something worse — those gates describe how a *core* user reaches the
+  // page, so a contracting specialist, who is neither an agency admin nor
+  // `staff_is_admin`, was denied Contract Requests. Their entire job is
+  // contract requests. One question for staff: does their permission allow it.
+  if (ctx.audience === "staff" && p.staffPermission) {
+    return Boolean(ctx.perms[p.staffPermission]);
+  }
 
   // Any gate passing is enough. Most pages have one; the exceptions are the
   // ones two different kinds of person legitimately reach.
@@ -379,6 +421,17 @@ export const ACCOUNT_PAGES = ["settings", "profile", "landing", "help"].map(page
 export type HubGroup = { label: string; ids: string[] };
 
 const HUBS: Record<string, HubGroup[]> = {
+  // Declared first so `hubForPath` resolves a `/contracting-ops/...` URL to
+  // this hub rather than to my-contracts, which lists four of the same pages.
+  // See the tie-break note in hubForPath.
+  "contracting-ops": [
+    { label: "", ids: ["queue", "requests", "ops-licensing", "documents"] },
+    {
+      label: "Set up contracting",
+      ids: ["carriers-setup", "writing-numbers", "ops-import", "contracting-templates", "contracting-settings"],
+    },
+  ],
+
   // Home has none, on purpose. See the registry note above it.
   clients: [
     { label: "", ids: ["pipeline", "calendar", "book", "retention"] },
@@ -405,7 +458,7 @@ const HUBS: Record<string, HubGroup[]> = {
     {
       label: "Run contracting",
       ids: [
-        "contracting-ops", "requests", "documents",
+        "run-contracting", "requests", "documents",
         "carriers-setup",
       ],
     },
@@ -447,16 +500,28 @@ export function hubChildIds(hubId: string): Set<string> {
   return new Set((HUBS[hubId] ?? []).flatMap((g) => g.ids));
 }
 
-/** Which hub, if any, a path belongs to. Longest match wins. */
+/**
+ * Which hub, if any, a path belongs to. Longest match wins.
+ *
+ * Two hubs can legitimately list the same page — Contract Requests belongs to
+ * Contracting Ops for staff and to Contracting for everybody else — so a match
+ * on a child is a tie. It is broken by the hub's *own* path: `/contracting-ops`
+ * is a prefix of `/contracting-ops/requests` and `/contracting` is not, so the
+ * more specific section wins and the sidebar opens the one you are actually in.
+ */
 export function hubForPath(path: string): string | null {
-  let best: { id: string; len: number } | null = null;
+  const prefixes = (p: Page) => path === p.path || path.startsWith(p.path + "/");
+  let best: { id: string; len: number; own: boolean } | null = null;
   for (const hubId of Object.keys(HUBS)) {
-    const candidates = [hubId, ...hubChildIds(hubId)];
-    for (const id of candidates) {
+    const hub = BY_ID.get(hubId);
+    const own = Boolean(hub && prefixes(hub));
+    for (const id of [hubId, ...hubChildIds(hubId)]) {
       const p = BY_ID.get(id);
-      if (!p) continue;
-      const matches = path === p.path || path.startsWith(p.path + "/");
-      if (matches && (!best || p.path.length > best.len)) best = { id: hubId, len: p.path.length };
+      if (!p || !prefixes(p)) continue;
+      const better = !best
+        || p.path.length > best.len
+        || (p.path.length === best.len && own && !best.own);
+      if (better) best = { id: hubId, len: p.path.length, own };
     }
   }
   return best?.id ?? null;
