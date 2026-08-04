@@ -52,9 +52,21 @@ export function mediaPath(orgId: string | null, kind: MediaKind, filename: strin
   return `${folder}/${kind}/${rand}-${safe}`;
 }
 
-export function publicUrl(path: string): string {
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+/**
+ * A URL for a stored object.
+ *
+ * The bucket had to be created private — this workspace refuses public buckets —
+ * so a plain public URL 400s. A signed URL with a ten-year expiry is the same
+ * thing in practice: it does not expire inside a lesson, and the signature is
+ * no more guessable than the random path segment already was.
+ */
+export async function mediaUrl(path: string): Promise<string> {
+  const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, TEN_YEARS);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? "Could not build a link to that file.");
+  return data.signedUrl;
 }
+
 
 /**
  * Upload, and hand back the URL to store on the course or lesson.
