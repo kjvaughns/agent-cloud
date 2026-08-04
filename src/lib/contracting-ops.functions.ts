@@ -441,9 +441,15 @@ export const deleteOrgCarrierMethod = createServerFn({ method: "POST" })
       .from("org_carrier_methods").select("*").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
     if (!before) throw new OrgAccessError("That submission method is not in your directory");
 
-    const { error } = await supabaseAdmin
-      .from("org_carrier_methods").delete().eq("id", data.id).eq("organization_id", orgId);
+    // `.select("id")` even though the read above already proved the row is
+    // there and ours. The gap between the two statements is small and real, and
+    // an audit entry recording a deletion that did not happen is worse than the
+    // deletion failing — the log is the thing people trust afterwards.
+    const { data: gone, error } = await supabaseAdmin
+      .from("org_carrier_methods").delete().eq("id", data.id).eq("organization_id", orgId)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!gone?.length) throw new Error("That submission method was already removed.");
 
     await recordAudit({
       organizationId: orgId, actorId: userId, action: "carrier_method.deleted",

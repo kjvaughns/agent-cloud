@@ -103,31 +103,49 @@ export type Database = {
         Row: {
           content_html: string | null
           course_id: string
+          created_at: string
+          duration_minutes: number
           id: string
+          is_published: boolean
+          kind: string
           quiz: Json | null
           resource_urls: Json | null
+          section: string | null
           sort_order: number | null
           title: string
+          updated_at: string
           video_url: string | null
         }
         Insert: {
           content_html?: string | null
           course_id: string
+          created_at?: string
+          duration_minutes?: number
           id?: string
+          is_published?: boolean
+          kind?: string
           quiz?: Json | null
           resource_urls?: Json | null
+          section?: string | null
           sort_order?: number | null
           title: string
+          updated_at?: string
           video_url?: string | null
         }
         Update: {
           content_html?: string | null
           course_id?: string
+          created_at?: string
+          duration_minutes?: number
           id?: string
+          is_published?: boolean
+          kind?: string
           quiz?: Json | null
           resource_urls?: Json | null
+          section?: string | null
           sort_order?: number | null
           title?: string
+          updated_at?: string
           video_url?: string | null
         }
         Relationships: [
@@ -8707,6 +8725,7 @@ export type Database = {
       can_manage_hierarchy: { Args: { _org: string }; Returns: boolean }
       can_manage_licenses: { Args: { _org: string }; Returns: boolean }
       can_manage_resources: { Args: { _org: string }; Returns: boolean }
+      can_see_agent_progress: { Args: { _agent: string }; Returns: boolean }
       can_submit_contracts: { Args: { _org: string }; Returns: boolean }
       can_view_agency_comp: { Args: { _org: string }; Returns: boolean }
       can_view_contracting: { Args: { _org: string }; Returns: boolean }
@@ -8852,6 +8871,7 @@ export type Database = {
         Args: { _category: string; _profile: string }
         Returns: boolean
       }
+      may_write_academy_media: { Args: { _folder: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string

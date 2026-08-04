@@ -13,9 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   GraduationCap, Play, Clock, Layers, ArrowLeft, ExternalLink, Check, Trophy,
+  Video, FileText, HelpCircle, Paperclip, Code2, RotateCcw, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { RichTextPreview } from "@/components/resources/rich-text";
+import { readVideoUrl } from "@/lib/academy-media";
+import { readQuiz, gradeQuiz, type Quiz, type QuizResult } from "@/lib/academy-quiz";
 
 export const Route = createFileRoute("/_authenticated/resources/agent-academy")({
   head: () => ({ meta: [{ title: "Agent Academy — Agent Cloud" }] }),
@@ -192,7 +196,11 @@ function CourseList({ onOpen }: { onOpen: (id: string) => void }) {
 
                   <div className="mt-2 flex items-center gap-3 text-xs text-text-dim tnum">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {fmtDuration(c.duration_minutes ?? 0)}</span>
-                    <span className="flex items-center gap-1"><Layers className="h-3 w-3" /> {c.module_count ?? 0} modules</span>
+                    {/* `module_count` counts drafts too; the progress total is
+                        the number of lessons this agent can actually open. */}
+                    <span className="flex items-center gap-1">
+                      <Layers className="h-3 w-3" /> {p?.total ?? c.module_count ?? 0} lessons
+                    </span>
                   </div>
 
                   <div className="mt-auto pt-3">
@@ -243,7 +251,7 @@ function CourseDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const [openModule, setOpenModule] = useState<string | null>(null);
 
   const toggle = useMutation({
-    mutationFn: (vars: { module_id: string; completed: boolean }) =>
+    mutationFn: (vars: { module_id: string; completed: boolean; quiz_score?: number }) =>
       completeFn({ data: { course_id: id, ...vars } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["academy"] });
@@ -319,94 +327,327 @@ function CourseDetail({ id, onBack }: { id: string; onBack: () => void }) {
         <Panel>
           <div className="py-12 text-center">
             <Layers className="mx-auto mb-3 h-8 w-8 text-text-dim" />
-            <div className="font-semibold">No modules yet</div>
+            <div className="font-semibold">No lessons yet</div>
             <p className="mt-1 text-sm text-muted-foreground">
               {course?.url
                 ? "This course lives outside the platform — use the link above."
-                : "Modules for this course haven't been added yet."}
+                : "Lessons for this course haven't been added yet."}
             </p>
           </div>
         </Panel>
       ) : (
         <div className="space-y-2">
           {modules.map((m, i) => {
-            const expanded = openModule === m.id;
-            const hasBody = Boolean(m.content_html || m.video_url || (m.resource_urls ?? []).length);
+            const prev = modules[i - 1];
+            const startsSection = (m.section ?? "") !== (prev?.section ?? "") && Boolean(m.section);
             return (
-              <Panel key={m.id} pad={false} className={cn(m.completed && "border-success/30")}>
-                <div className="flex items-start gap-3 p-4">
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={m.completed}
-                    onCheckedChange={(v) => toggle.mutate({ module_id: m.id, completed: Boolean(v) })}
-                    aria-label={`Mark ${m.title} ${m.completed ? "incomplete" : "complete"}`}
-                  />
-
-                  <button
-                    onClick={() => hasBody && setOpenModule(expanded ? null : m.id)}
-                    className={cn("min-w-0 flex-1 text-left", hasBody && "cursor-pointer")}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="tnum text-[11px] text-text-dim">{String(i + 1).padStart(2, "0")}</span>
-                      <span className={cn("text-sm font-medium", m.completed && "text-muted-foreground line-through")}>
-                        {m.title}
-                      </span>
-                    </div>
-                    {hasBody && (
-                      <span className="mt-0.5 block text-[11px] text-primary">
-                        {expanded ? "Hide" : "Open module"}
-                      </span>
-                    )}
-                  </button>
-
-                  {m.video_url && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 shrink-0 text-xs"
-                      onClick={() => window.open(m.video_url, "_blank", "noopener,noreferrer")}
-                    >
-                      <Play className="mr-1 h-3 w-3" /> Watch
-                    </Button>
-                  )}
-                </div>
-
-                {expanded && (
-                  <div className="border-t border-border-soft px-4 py-4">
-                    {m.content_html && (
-                      <article
-                        className="prose prose-sm dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: m.content_html }}
-                      />
-                    )}
-                    {(m.resource_urls ?? []).length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {(m.resource_urls as string[]).map((u, k) => (
-                          <Button
-                            key={k}
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(u, "_blank", "noopener,noreferrer")}
-                          >
-                            <ExternalLink className="mr-1 h-3 w-3" /> Resource {k + 1}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                    {!m.completed && (
-                      <Button
-                        size="sm"
-                        className="mt-4"
-                        onClick={() => toggle.mutate({ module_id: m.id, completed: true })}
-                      >
-                        <Check className="mr-1 h-3.5 w-3.5" /> Mark complete
-                      </Button>
-                    )}
+              <div key={m.id}>
+                {startsSection && (
+                  <div className="px-1 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                    {m.section}
                   </div>
                 )}
-              </Panel>
+                <Lesson
+                  lesson={m}
+                  index={i}
+                  expanded={openModule === m.id}
+                  onToggle={() => setOpenModule(openModule === m.id ? null : m.id)}
+                  onComplete={(completed, quiz_score) =>
+                    toggle.mutate({ module_id: m.id, completed, quiz_score })}
+                />
+              </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── One lesson ──────────────────────────────────────────────────────────────
+
+const KIND_ICON: Record<string, typeof Video> = {
+  video: Video, text: FileText, quiz: HelpCircle, document: Paperclip, embed: Code2,
+};
+
+/** `resource_urls` was a bare `string[]` before attachments had names. */
+function readResources(raw: any): { label?: string; url: string }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: any) => (typeof r === "string" ? { url: r } : r))
+    .filter((r: any) => r && typeof r.url === "string" && r.url);
+}
+
+function Lesson({ lesson, index, expanded, onToggle, onComplete }: {
+  lesson: any;
+  index: number;
+  expanded: boolean;
+  onToggle: () => void;
+  onComplete: (completed: boolean, quizScore?: number) => void;
+}) {
+  const quiz = readQuiz(lesson.quiz);
+  const video = readVideoUrl(lesson.video_url);
+  const resources = readResources(lesson.resource_urls);
+  const Icon = KIND_ICON[lesson.kind ?? ""] ?? FileText;
+
+  const hasBody = Boolean(lesson.content_html || video || resources.length || quiz);
+
+  return (
+    <Panel pad={false} className={cn(lesson.completed && "border-success/30")}>
+      <div className="flex items-start gap-3 p-4">
+        <Checkbox
+          className="mt-0.5"
+          checked={lesson.completed}
+          // A quiz is finished by passing it, not by ticking a box next to it.
+          disabled={Boolean(quiz) && !lesson.completed}
+          onCheckedChange={(v) => onComplete(Boolean(v))}
+          aria-label={`Mark ${lesson.title} ${lesson.completed ? "incomplete" : "complete"}`}
+        />
+
+        <button
+          onClick={() => hasBody && onToggle()}
+          className={cn("min-w-0 flex-1 text-left", hasBody && "cursor-pointer")}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="tnum text-[11px] text-text-dim">{String(index + 1).padStart(2, "0")}</span>
+            <Icon className="h-3.5 w-3.5 shrink-0 text-text-dim" />
+            <span className={cn("text-sm font-medium", lesson.completed && "text-muted-foreground line-through")}>
+              {lesson.title}
+            </span>
+            {(lesson.duration_minutes ?? 0) > 0 && (
+              <span className="text-[11px] text-text-dim tnum">{lesson.duration_minutes} min</span>
+            )}
+            {quiz && lesson.quiz_score != null && (
+              <Badge variant="outline" className="text-[10px] tnum">Scored {lesson.quiz_score}%</Badge>
+            )}
+          </div>
+          {hasBody && (
+            <span className="mt-0.5 block pl-6 text-[11px] text-primary">
+              {expanded ? "Hide" : quiz ? "Take the quiz" : "Open lesson"}
+            </span>
+          )}
+        </button>
+
+        {video?.kind === "link" && (
+          <Button
+            size="sm" variant="ghost" className="h-7 shrink-0 text-xs"
+            onClick={() => window.open(video.url, "_blank", "noopener,noreferrer")}
+          >
+            <Play className="mr-1 h-3 w-3" /> Watch
+          </Button>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="space-y-4 border-t border-border-soft px-4 py-4">
+          {video?.kind === "embed" && (
+            <div className="aspect-video overflow-hidden rounded-[var(--radius)] border border-border">
+              <iframe
+                src={video.url} title={lesson.title} allowFullScreen className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+              />
+            </div>
+          )}
+          {video?.kind === "file" && (
+            <video src={video.url} controls className="w-full rounded-[var(--radius)] border border-border" />
+          )}
+
+          <RichTextPreview html={lesson.content_html} />
+
+          {resources.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {resources.map((r, k) => (
+                <Button
+                  key={k} size="sm" variant="outline"
+                  onClick={() => window.open(r.url, "_blank", "noopener,noreferrer")}
+                >
+                  <ExternalLink className="mr-1 h-3 w-3" /> {r.label || `Resource ${k + 1}`}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {quiz ? (
+            <QuizRunner
+              quiz={quiz}
+              alreadyPassed={Boolean(lesson.completed)}
+              lastScore={lesson.quiz_score ?? null}
+              onPassed={(pct) => onComplete(true, pct)}
+              onFailed={(pct) => onComplete(false, pct)}
+            />
+          ) : !lesson.completed ? (
+            <Button size="sm" onClick={() => onComplete(true)}>
+              <Check className="mr-1 h-3.5 w-3.5" /> Mark complete
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// ── Taking a quiz ───────────────────────────────────────────────────────────
+
+/**
+ * Marked in the browser.
+ *
+ * The correct answers are in the lesson body the reader already has, so there
+ * is no secret to protect by marking on the server — anybody who wanted the
+ * answers could read them out of the response. What is worth being careful
+ * about is the score, and `setModuleComplete` is where that is recorded.
+ *
+ * A failed attempt still records its score. Somebody who scored 60% twice is a
+ * different situation from somebody who has not opened the quiz, and the second
+ * is what a blank would say about both.
+ */
+function QuizRunner({ quiz, alreadyPassed, lastScore, onPassed, onFailed }: {
+  quiz: Quiz;
+  alreadyPassed: boolean;
+  lastScore: number | null;
+  onPassed: (pct: number) => void;
+  onFailed: (pct: number) => void;
+}) {
+  const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [result, setResult] = useState<QuizResult | null>(null);
+  const [attempts, setAttempts] = useState(0);
+
+  const outOfAttempts = quiz.max_attempts != null && attempts >= quiz.max_attempts;
+  const unanswered = quiz.questions.filter((q) => !(answers[q.id] ?? []).length).length;
+
+  function pick(q: (typeof quiz.questions)[number], optionId: string) {
+    if (result) return;
+    setAnswers((s) => {
+      if (q.kind === "single") return { ...s, [q.id]: [optionId] };
+      const cur = s[q.id] ?? [];
+      return {
+        ...s,
+        [q.id]: cur.includes(optionId) ? cur.filter((c) => c !== optionId) : [...cur, optionId],
+      };
+    });
+  }
+
+  function submit() {
+    const r = gradeQuiz(quiz, answers);
+    setResult(r);
+    setAttempts((a) => a + 1);
+    if (r.passed) onPassed(r.pct); else onFailed(r.pct);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground tnum">
+        <span>{quiz.questions.length} question{quiz.questions.length === 1 ? "" : "s"}</span>
+        <span>·</span>
+        <span>{quiz.pass_pct}% to pass</span>
+        {quiz.max_attempts != null && <><span>·</span><span>{quiz.max_attempts} attempts</span></>}
+        {alreadyPassed && lastScore != null && (
+          <Badge variant="outline" className="ml-auto text-[10px]">Passed with {lastScore}%</Badge>
+        )}
+      </div>
+
+      {quiz.questions.map((q, i) => {
+        const chosen = answers[q.id] ?? [];
+        const mark = result?.results.find((r) => r.question_id === q.id);
+        return (
+          <div key={q.id} className="rounded-[var(--radius)] border border-border p-3">
+            <div className="flex items-start gap-2">
+              <span className="pt-0.5 text-[11px] text-text-dim tnum">Q{i + 1}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{q.prompt}</p>
+                {q.kind === "multiple" && (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Pick every correct answer.</p>
+                )}
+
+                <div className="mt-2 space-y-1.5">
+                  {q.options.map((o) => {
+                    const picked = chosen.includes(o.id);
+                    const isRight = result ? q.correct.includes(o.id) : false;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        role="checkbox"
+                        aria-checked={picked}
+                        disabled={Boolean(result)}
+                        onClick={() => pick(q, o.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-[var(--radius)] border px-2.5 py-1.5 text-left text-sm transition-colors",
+                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+                          result
+                            ? isRight
+                              ? "border-success/50 bg-success/10"
+                              : picked ? "border-destructive/50 bg-destructive/10" : "border-border"
+                            : picked
+                              ? "border-primary/50 bg-gold-glow"
+                              : "border-border hover:border-primary/40",
+                        )}
+                      >
+                        <span className={cn(
+                          "grid h-4 w-4 shrink-0 place-items-center border",
+                          q.kind === "single" ? "rounded-full" : "rounded",
+                          picked ? "border-primary bg-primary" : "border-border",
+                        )}>
+                          {picked && <span className="h-1.5 w-1.5 rounded-full bg-background" />}
+                        </span>
+                        <span>{o.text}</span>
+                        {result && isRight && <Check className="ml-auto h-3.5 w-3.5 text-success" />}
+                        {result && picked && !isRight && <XCircle className="ml-auto h-3.5 w-3.5 text-destructive" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {result && q.explanation && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">{q.explanation}</p>
+                )}
+              </div>
+              {mark && (
+                mark.correct
+                  ? <Check className="h-4 w-4 shrink-0 text-success" />
+                  : <XCircle className="h-4 w-4 shrink-0 text-destructive" />
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {result ? (
+        <div className={cn(
+          "flex flex-wrap items-center gap-3 rounded-[var(--radius)] border p-3",
+          result.passed ? "border-success/40 bg-success/[0.06]" : "border-warning/40 bg-warning/[0.06]",
+        )}>
+          <span className="text-sm font-semibold tnum">
+            {result.correct} of {result.total} · {result.pct}%
+          </span>
+          <span className="text-sm">
+            {result.passed
+              ? "Passed — the lesson is marked complete."
+              : `You need ${quiz.pass_pct}% to pass.`}
+          </span>
+          {!result.passed && !outOfAttempts && (
+            <Button
+              size="sm" variant="outline" className="ml-auto"
+              onClick={() => { setResult(null); setAnswers({}); }}
+            >
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Try again
+            </Button>
+          )}
+          {!result.passed && outOfAttempts && (
+            <span className="ml-auto text-xs text-muted-foreground">
+              No attempts left — ask your manager to reset it.
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={submit} disabled={unanswered > 0}>
+            <Check className="mr-1 h-3.5 w-3.5" /> Submit answers
+          </Button>
+          {unanswered > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {unanswered} question{unanswered === 1 ? "" : "s"} still to answer
+            </span>
+          )}
         </div>
       )}
     </div>

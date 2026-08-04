@@ -221,6 +221,12 @@ function findHits(missing: Objects): Hit[] {
 const REVIEWED: Record<string, string> = {
   "src/lib/contracting-notes.functions.ts:producer_notes":
     "isMissingTable() catches 42P01 on all three paths: the read returns notesAvailable:false and the panel shows the audit trail alone, the insert throws a sentence naming the reason, and the delete is a no-op",
+  "src/lib/resources.functions.ts:academy_modules.is_published":
+    "getAcademyProgress asks for the column, and on 42703 re-runs the select without it. "
+    + "The wide `select(\"*\")` this script would rather see is the wrong shape here — it would "
+    + "pull every lesson body on the platform to count them. Every other read of this column "
+    + "does use `*`, and `isLive` treats a missing value as published so nothing that exists "
+    + "today disappears",
   "src/lib/team.functions.ts:set_agent_status":
     "setAgentStatus catches 42883/PGRST202 and falls back to the direct profiles update, which is exactly today's behaviour",
   "src/lib/ai-assistant.functions.ts:nova_conversations":

@@ -13,13 +13,34 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-- `20260803010000_recruiting-challenge-audience.sql`
 - `20260803120000_producer-notes.sql`
 
-Until it is applied, `seed_agent_challenges` keeps giving every agent a
-"Recruit 3 new agents this quarter" goal. That is today's behaviour, so nothing
-breaks in the window — the challenge simply stays wrong for new agents until the
-migration lands.
+Until it is applied, `contracting-notes.functions.ts` treats `42P01` as "not
+yet": the notes panel shows the audit trail on its own, an attempted note
+throws a sentence naming the reason, and the delete is a no-op. The CHECK
+constraints in the same file close the submission-method vocabulary on
+`contracting_requests.submission_method` and `contracting_submissions.method`,
+which are free text until then — and a CHECK is one of this script's stated
+blind spots, so nothing will warn about it.
+
+The two queued on 3 Aug 2026 have landed. Checked by looking for each one's
+distinctive object rather than by matching filenames, since Lovable renames:
+
+- `20260803010000_recruiting-challenge-audience.sql` →
+  `20260803025510_312d5c10`, which carries the `has_downline` gate.
+- `20260803020000_academy-course-builder.sql` → `20260804213753_c8f4f981`,
+  which carries `academy_modules_kind_check`, `sync_course_duration`,
+  `course_progress_agent_module_key`, `can_see_agent_progress` and
+  `may_write_academy_media`.
+
+**One thing was changed on the way in, and the code follows it rather than the
+other way round.** `20260803020000` created `academy-media` as a public bucket.
+This workspace refuses public buckets, so it exists as a private one and the
+`insert into storage.buckets` line is absent from the applied file. The policies
+are unchanged — writes are still gated on `can_manage_resources` for the folder
+— and `src/lib/academy-media.ts` now hands back a signed URL with a ten-year
+expiry instead of a public one. That keeps the property the public bucket was
+chosen for: a link that does not expire part-way through a lesson.
 
 The seven queued on 2 Aug 2026 were applied together in
 `20260802235937_bb40a3c7-23f3-4abb-9d3b-34c755add42c.sql`. Verified by checking

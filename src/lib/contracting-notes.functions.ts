@@ -129,9 +129,25 @@ export const deleteProducerNote = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    // The delete policy allows the author and nobody else, so this needs no
-    // check of its own: somebody else's note simply matches zero rows.
-    const { error } = await supabase.from("producer_notes").delete().eq("id", data.id);
-    if (error && !isMissingTable(error)) throw new Error(error.message);
+
+    // Through the caller's own client, so the delete policy decides — and the
+    // policy allows the author and nobody else.
+    //
+    // The row count is the point. A delete that row-level security filters out
+    // matches nothing and returns no error, so without `.select("id")` this
+    // returned `{ ok: true }` for somebody else's note: the panel removed it
+    // from the list, the note stayed in the table, and it came back on the next
+    // refetch with no explanation. The policy is doing its job; saying it
+    // succeeded is the bug.
+    const { data: gone, error } = await supabase
+      .from("producer_notes").delete().eq("id", data.id).select("id");
+
+    if (error) {
+      // The table arrives with `20260803120000`. Until then there is nothing to
+      // delete and nothing to report.
+      if (isMissingTable(error)) return { ok: true };
+      throw new Error(error.message);
+    }
+    if (!gone?.length) throw new Error("You can only delete a note you wrote.");
     return { ok: true };
   });
