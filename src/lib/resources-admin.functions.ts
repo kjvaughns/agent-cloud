@@ -98,11 +98,62 @@ function cleanHtml(html: string | null | undefined): string | null {
   return clean.trim() ? clean : null;
 }
 
-async function myOrgId(supabase: any, userId: string): Promise<string> {
-  const { data } = await supabase
+/**
+ * Which agency this is, asked three ways.
+ *
+ * This used to read `profiles.organization_id` and nothing else, and an agency
+ * owner whose profile row does not carry it — the row predates
+ * `sync_profile_primary_org`, or the sync has not fired since — got "you are
+ * not in an agency". The page then told them to ask for a permission on the
+ * Roles page, which is not a thing they can do to themselves and would not have
+ * helped if they could. Owning the agency is the strongest claim there is and
+ * it was the one claim not being checked.
+ *
+ * The three sources, in the order the rest of the product trusts them:
+ *
+ *   1. An active `organization_memberships` row. This is what
+ *      `getMyPrimaryOrgId` uses and therefore what every other server function
+ *      in this codebase means by "my org".
+ *   2. `profiles.organization_id` — the denormalised copy, kept by trigger.
+ *   3. `organizations.owner_id` — you own it. Last because it is the rarest
+ *      case, not the weakest; if this is the one that answers, the first two
+ *      are out of step with it and that is worth knowing.
+ *
+ * All three go through the caller's own client, so row-level security still
+ * decides what is visible. This resolves *which* organisation to ask about; it
+ * does not decide anything. `can_manage_resources` is still the only authority
+ * on whether you may write, and it is asked separately.
+ */
+async function resolveOrg(
+  supabase: any, userId: string,
+): Promise<{ orgId: string | null; via: "membership" | "profile" | "owner" | null }> {
+  const { data: memberships } = await supabase
+    .from("organization_memberships")
+    .select("organization_id, is_primary")
+    .eq("profile_id", userId)
+    .eq("status", "active");
+
+  const rows = (memberships ?? []).filter((m: any) => m.organization_id);
+  if (rows.length) {
+    const primary = rows.find((m: any) => m.is_primary) ?? rows[0];
+    return { orgId: primary.organization_id as string, via: "membership" };
+  }
+
+  const { data: profile } = await supabase
     .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
-  if (!data?.organization_id) throw new Error("You are not in an agency.");
-  return data.organization_id as string;
+  if (profile?.organization_id) return { orgId: profile.organization_id as string, via: "profile" };
+
+  const { data: owned } = await supabase
+    .from("organizations").select("id").eq("owner_id", userId).limit(1).maybeSingle();
+  if (owned?.id) return { orgId: owned.id as string, via: "owner" };
+
+  return { orgId: null, via: null };
+}
+
+async function myOrgId(supabase: any, userId: string): Promise<string> {
+  const { orgId } = await resolveOrg(supabase, userId);
+  if (!orgId) throw new Error("You are not in an agency.");
+  return orgId;
 }
 
 async function assertMayManage(supabase: any, orgId: string): Promise<void> {
@@ -141,22 +192,44 @@ export const listManagedResources = createServerFn({ method: "GET" })
       supabase.from("academy_courses").select("*").order("sort_order"),
     ]);
 
-    let orgId: string | null = null;
-    try { orgId = await myOrgId(supabase, userId); } catch { /* solo: defaults only */ }
+    const { orgId, via } = await resolveOrg(supabase, userId);
 
-    // A missing function and a denied permission are different answers and
-    // the page says different things about them. Collapsing both to "you
-    // can't" would send an owner to look for a permission they already have.
+    // Four different answers, and the page says something different about each.
+    //
+    // This used to be two — "the function is missing" and "you can't" — and
+    // everything else fell into "you can't", including an owner whose agency
+    // could not be resolved at all. Being told to ask for a permission you
+    // already hold, on a page that would not grant it to you anyway, is worse
+    // than being told nothing.
     let canManage = false;
     let pendingSetup = false;
+    let isOwner = false;
+
     if (orgId) {
-      const { data: ok, error } = await supabase.rpc("can_manage_resources", { _org: orgId });
+      const [{ data: ok, error }, { data: owner }] = await Promise.all([
+        supabase.rpc("can_manage_resources", { _org: orgId }),
+        supabase.rpc("is_org_owner", { _org: orgId }),
+      ]);
       if (error) pendingSetup = true;
       else canManage = Boolean(ok);
+      isOwner = Boolean(owner);
     }
+
+    const reason: "ok" | "no_org" | "pending_setup" | "owner_denied" | "denied" =
+      canManage ? "ok"
+        : pendingSetup ? "pending_setup"
+          : !orgId ? "no_org"
+            // The database says you own this agency and also says you may not
+            // edit its resources. Those cannot both be right — surface it as
+            // its own case rather than as a permission you are missing.
+            : isOwner ? "owner_denied"
+              : "denied";
 
     return {
       orgId,
+      orgVia: via,
+      isOwner,
+      reason,
       canManage,
       pendingSetup,
       handbook: resolve((handbook.data ?? []) as any[]),

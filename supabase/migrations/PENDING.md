@@ -13,38 +13,26 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-- `20260803010000_recruiting-challenge-audience.sql`
-- `20260803020000_academy-course-builder.sql`
+*(nothing pending)*
 
-Until `20260803010000` is applied, `seed_agent_challenges` keeps giving every
-agent a "Recruit 3 new agents this quarter" goal. That is today's behaviour, so
-nothing breaks in the window — the challenge simply stays wrong for new agents
-until the migration lands.
+Both entries here on 3 Aug 2026 have landed. Checked by looking for each one's
+distinctive object rather than by matching filenames, since Lovable renames:
 
-`20260803020000` is the larger of the two and the course builder ships before
-it. What each part costs while it is pending:
+- `20260803010000_recruiting-challenge-audience.sql` →
+  `20260803025510_312d5c10`, which carries the `has_downline` gate.
+- `20260803020000_academy-course-builder.sql` → `20260804213753_c8f4f981`,
+  which carries `academy_modules_kind_check`, `sync_course_duration`,
+  `course_progress_agent_module_key`, `can_see_agent_progress` and
+  `may_write_academy_media`.
 
-- **Lesson columns** (`section`, `kind`, `duration_minutes`, `is_published`,
-  `created_at`). Writes go through `writeTolerantly` in
-  `resources-admin.functions.ts`, which retries without them on `PGRST204` and
-  tells the author so — a lesson saves, without its section, type or draft
-  flag. Reads are all `select("*")`, so a missing column reads as `undefined`,
-  and `isLive` treats `undefined` as published on purpose: nothing that exists
-  today disappears.
-- **The `course_progress` unique constraint.** `setModuleComplete` upserts and
-  falls back to the old select-then-write on `42P10`. That fallback is racy —
-  two fast clicks can insert two rows — which is exactly today's behaviour.
-  This is task #12: the table was created with `CREATE TABLE IF NOT EXISTS`, so
-  whether the constraint is already there depends on where the live table came
-  from, and the migration adds it only if it is absent.
-- **`course_progress` RLS.** Until this lands, any agency admin can read and
-  write *every* agency's progress rows — `has_role(auth.uid(), 'admin')` is an
-  agency-level role, not a platform one. Nothing in the product exposes that
-  today, so it is a hole rather than a leak, but it is the reason not to sit on
-  this one.
-- **The `academy-media` bucket.** Uploads fail until it exists.
-  `uploadMedia` recognises the bucket-not-found message and says "waiting on a
-  workspace update. Paste a link for now" rather than "Bucket not found".
+**One thing was changed on the way in, and the code follows it rather than the
+other way round.** `20260803020000` created `academy-media` as a public bucket.
+This workspace refuses public buckets, so it exists as a private one and the
+`insert into storage.buckets` line is absent from the applied file. The policies
+are unchanged — writes are still gated on `can_manage_resources` for the folder
+— and `src/lib/academy-media.ts` now hands back a signed URL with a ten-year
+expiry instead of a public one. That keeps the property the public bucket was
+chosen for: a link that does not expire part-way through a lesson.
 
 The seven queued on 2 Aug 2026 were applied together in
 `20260802235937_bb40a3c7-23f3-4abb-9d3b-34c755add42c.sql`. Verified by checking
