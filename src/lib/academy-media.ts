@@ -100,7 +100,7 @@ export async function uploadMedia(
     throw new Error(error.message);
   }
 
-  return { url: publicUrl(path), path };
+  return { url: await mediaUrl(path), path };
 }
 
 /**
