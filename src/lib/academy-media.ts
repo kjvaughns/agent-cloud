@@ -3,14 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 /**
  * Uploading course artwork and video.
  *
- * The bucket is `academy-media` and it is public to read, which is the one
- * decision here worth defending. Every other bucket in this schema is private
- * and served through signed URLs, because every other bucket holds identity
- * documents, banking details or client PII. This one holds training video and
- * course thumbnails, and a signed URL that expires mid-lesson stops playback
- * part-way through — a failure the reader cannot recover from and cannot
- * explain. The path carries a random id, so a file is not reachable without
- * being handed the link.
+ * The bucket is `academy-media`. It had to be created private, because this
+ * workspace blocks public buckets, so reads go through a signed URL with a
+ * ten-year expiry rather than a public one — long enough that it never expires
+ * mid-lesson, which was the whole objection to signing these. Every other
+ * bucket in the schema is private too, but for a different reason: they hold
+ * identity documents, banking details and client PII. This one holds training
+ * video and course thumbnails, and its paths carry a random id, so a file is
+ * not reachable without being handed the link.
+
  *
  * Writes are what is actually guarded. The first path segment is the owning
  * organisation, and the storage policy asks `can_manage_resources` about it —
