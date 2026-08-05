@@ -26,6 +26,7 @@ dist-ssr
 .onb.mjs
 .nav.mjs
 .cm.mjs
+.csv.mjs
 
 # Wrangler / Cloudflare
 .wrangler/

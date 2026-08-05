@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "seed:demo": "esbuild scripts/seed-demo.ts --bundle --platform=node --format=esm --outfile=.seed.mjs && node .seed.mjs",
     "demo:provision": "esbuild scripts/provision-demo.ts --bundle --platform=node --format=esm --outfile=.provision.mjs && node .provision.mjs",
+    "check:csv": "esbuild scripts/csv-check.ts --bundle --platform=node --format=esm --outfile=.csv.mjs && node .csv.mjs",
     "check:carriers": "esbuild scripts/carrier-match-check.ts --bundle --platform=node --format=esm --outfile=.cm.mjs && node .cm.mjs",
     "check:onboarding": "esbuild scripts/onboarding-check.ts --bundle --platform=node --format=esm --external:driver.js --outfile=.onb.mjs && node .onb.mjs",
     "check:mobile": "node scripts/mobile-check.mjs",
