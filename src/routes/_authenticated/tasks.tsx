@@ -26,6 +26,8 @@ import { listOrgMembers } from "@/lib/permissions.functions";
 import { ScopeToggle } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, emptyScopeMessage, type Scope } from "@/lib/scope";
+import { EmptyState } from "@/components/empty-state";
+import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({ meta: [{ title: "Tasks — Agent Cloud" }] }),
@@ -121,16 +123,19 @@ function TasksPage() {
         {isLoading ? (
           <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
         ) : tasks.length === 0 ? (
-          <Panel>
-            <div className="py-12 text-center space-y-2">
-              <div className="font-medium">Nothing here yet.</div>
-              <p className="text-sm text-muted-foreground">
-                {assignedByMe
-                  ? "Tasks you assign to other people will appear here."
-                  : emptyScopeMessage(scope, caps, "tasks")}
-              </p>
-            </div>
-          </Panel>
+          <EmptyState
+            title={EMPTY_STATES.tasks.title}
+            body={
+              assignedByMe
+                ? "Anything you hand to somebody else shows up here with its due date and who owns it."
+                : EMPTY_STATES.tasks.body
+            }
+            ghost={ghostFor("tasks")}
+            /* The dialog owns its own trigger, so a second instance here is
+               simpler and less brittle than lifting its open state into the
+               page just to reach it from an empty screen. */
+            action={<NewTaskDialog onCreated={invalidate} />}
+          />
         ) : (
           <Panel pad={false} className="overflow-hidden">
             <ul className="divide-y divide-border-soft">

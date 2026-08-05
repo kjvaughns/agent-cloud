@@ -75,7 +75,7 @@ export const EMPTY_STATES = {
   },
 
   policies: {
-    title: "No policies on this client yet",
+    title: "Policies for this client",
     body: "Post a deal and it appears here with its commission schedule already worked out.",
     ctaLabel: "Post a deal",
     ctaRoute: "/post-deal",

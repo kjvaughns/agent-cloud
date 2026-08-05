@@ -12,6 +12,8 @@ import { getLeaderboardData, type LeaderboardAgent } from "@/lib/dashboard.funct
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useMyAccess } from "@/hooks/use-my-access";
+import { EmptyState } from "@/components/empty-state";
+import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard — Agent Cloud" }] }),
@@ -168,13 +170,12 @@ function LeaderboardPage() {
         {current.isLoading ? (
           <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
         ) : rows.length === 0 ? (
-          <Panel>
-            <div className="py-12 text-center space-y-2">
-              <div className="font-medium">No production recorded for {label}.</div>
-              <p className="text-sm text-muted-foreground">Agents who post deals will appear here.</p>
-              <Button asChild size="sm" className="mt-1"><Link to="/post-deal">Post a Deal →</Link></Button>
-            </div>
-          </Panel>
+          <EmptyState
+            title={EMPTY_STATES.leaderboard.title}
+            body={EMPTY_STATES.leaderboard.body}
+            ghost={ghostFor("leaderboard")}
+            action={<Button asChild size="sm"><Link to="/post-deal">Post a deal</Link></Button>}
+          />
         ) : (
           <Panel pad={false} className="overflow-hidden">
             <div className="max-h-[560px] overflow-y-auto relative">

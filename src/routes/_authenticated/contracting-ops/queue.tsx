@@ -11,6 +11,7 @@ import { listOrgAgents } from "@/lib/contracting-records.functions";
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { AgePill, StatusBadge } from "@/components/contracting/shared";
 import { cn } from "@/lib/utils";
+import { ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/queue")({
   component: StaffQueuePage,
@@ -164,6 +165,10 @@ function StaffQueuePage() {
           onToggle={toggle}
           onRowClick={(r) => navigate({ to: "/contracting-ops/requests/$requestId", params: { requestId: r.id } })}
           empty={{
+            // Two states, two messages: a genuinely empty queue is good news,
+            // a filtered-to-nothing one is a wrong turn.
+            kind: scope === "all" ? "first-use" : "cleared",
+            ghost: scope === "all" ? ghostFor("contracting-requests") : undefined,
             title: scope === "all" ? "The queue is clear" : "Nothing here",
             body: scope === "all"
               ? "Open contracting requests appear here with an owner, an age and a due date. Nothing is waiting right now."

@@ -27,7 +27,14 @@ export function RecordTable<T extends { id: string }>({
   rows: T[];
   columns: Column<T>[];
   loading?: boolean;
-  empty: { title: string; body: string; action?: React.ReactNode };
+  empty: {
+    title: string;
+    body: string;
+    action?: React.ReactNode;
+    /** Low-opacity sample records shown behind the copy on a first-use empty. */
+    ghost?: { cells: string[] }[];
+    kind?: "first-use" | "cleared" | "error";
+  };
   onRowClick?: (row: T) => void;
   selectable?: boolean;
   selected?: Set<string>;

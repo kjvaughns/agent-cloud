@@ -1,4 +1,4 @@
-import { createFileRoute, useHydrated, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useHydrated, useNavigate, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +16,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { SampleChip } from "@/components/sample-chip";
+import { EmptyState } from "@/components/empty-state";
+import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 import { phone as fmtPhone, money } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
@@ -217,6 +219,24 @@ function PipelinePage() {
           showSkeleton ? (
             <PipelineSkeleton />
           ) : (
+            pipelineClients.length === 0 ? (
+              /* An entirely empty board teaches once, rather than four columns
+                 each saying "no clients here yet" — which is four times the
+                 words and none of the help. */
+              <div className="p-2">
+                <EmptyState
+                  title={EMPTY_STATES.pipeline.title}
+                  body={EMPTY_STATES.pipeline.body}
+                  ghost={ghostFor("pipeline")}
+                  action={<Button size="sm" onClick={() => setAddOpen(true)}>Add your first client</Button>}
+                  secondary={
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/import">Import a list</Link>
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
             <DndContext sensors={sensors} onDragEnd={onDragEnd}>
               <div data-tour="pipeline-board" className="h-full overflow-x-auto">
                 <div className="flex gap-4 h-full min-w-max pb-2">
@@ -233,15 +253,16 @@ function PipelinePage() {
                 </div>
               </div>
             </DndContext>
+            )
           )
         ) : (
           <div className="h-full overflow-y-auto pb-4">
             {soldClients.length === 0 ? (
-              <div className="text-center text-muted-foreground py-16">
-                <CheckCircle2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No sold clients yet</p>
-                <p className="text-sm mt-1">Mark clients as sold from the pipeline or add a policy from the client drawer.</p>
-              </div>
+              <EmptyState
+                title="Your sold clients collect here"
+                body="Anything you move to Sold appears here with its policies and what they pay."
+                ghost={ghostFor("clients")}
+              />
             ) : (
               <SoldTab clients={soldClients} onOpen={(id) => setOpenId(id)} />
             )}

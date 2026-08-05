@@ -26,6 +26,7 @@ import {
   CHECKLIST, checklistFor, type ChecklistRole,
 } from "../src/lib/onboarding-checklist";
 import { TOURS, MAX_TOUR_STEPS } from "../src/lib/tours";
+import { EMPTY_STATES } from "../src/lib/empty-states";
 
 const ROOT = process.cwd();
 const SRC = join(ROOT, "src");
@@ -129,6 +130,44 @@ check(
   CHECKLIST.every((i) => !i.tourId || i.tourId in TOURS),
   CHECKLIST.filter((i) => i.tourId && !(i.tourId in TOURS)).map((i) => i.tourId).join(", "),
 );
+
+// ── 5. Empty-state copy follows its own rules ───────────────────────────────
+//
+// These are the rules the file states in prose. Prose does not enforce itself,
+// and empty-state copy is exactly the kind of thing that gets edited in a hurry
+// by whoever is fixing the page around it.
+
+console.log("\n5. Empty-state copy");
+
+// Words that turn an invitation into an apology. "yet" is on the list because
+// "No policies yet" is the shape this rule exists to prevent — it states the
+// absence and then softens it, rather than saying what the page is for.
+const APOLOGETIC = /\b(oops|sorry|unfortunately|nothing to see|no results found)\b/i;
+const sentences = (s: string) => s.split(/[.!?]+/).filter((x) => x.trim().length > 0).length;
+
+for (const [key, copy] of Object.entries(EMPTY_STATES)) {
+  check(
+    `${key}: title states an outcome, not an absence`,
+    !/^(no |nothing |none )/i.test(copy.title),
+    `"${copy.title}"`,
+  );
+  check(`${key}: body is two sentences or fewer`, sentences(copy.body) <= 2, `${sentences(copy.body)} sentences`);
+  check(`${key}: no apologetic language`, !APOLOGETIC.test(copy.title + " " + copy.body));
+  check(
+    `${key}: CTA starts with a verb`,
+    /^(add|create|import|post|start|open|invite|set|upload|request|bring|pick|send)\b/i.test(copy.ctaLabel),
+    `"${copy.ctaLabel}"`,
+  );
+  check(`${key}: has a ghost row`, copy.ghost.length > 0);
+  check(
+    `${key}: ghost rows all have the same number of cells`,
+    new Set(copy.ghost.map((r) => r.length)).size === 1,
+  );
+  check(
+    `${key}: cleared copy differs from first-use copy`,
+    copy.clearedTitle !== copy.title && copy.clearedBody !== copy.body,
+  );
+}
 
 console.log(
   `\n${passed} passed, ${failures.length} failed${failures.length ? ":" : "."}\n` +

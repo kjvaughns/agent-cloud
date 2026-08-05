@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Circle, FileWarning } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EmptyState as SharedEmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { REQUEST_STATUS_META, READINESS_LABELS, type RequestStatus } from "@/lib/contracting-ops/types";
 
@@ -105,20 +106,23 @@ export const DOC_STATUS_LABEL: Record<string, string> = {
  * because a blank table with a spinner that already finished is indistinguishable
  * from a broken page.
  */
+/**
+ * The contracting module's empty state, now a thin pass-through.
+ *
+ * Nine surfaces reach this through `RecordTable`'s `empty` prop, so making it
+ * delegate is what gives all nine ghost rows and the first-use/cleared
+ * distinction without touching nine call sites.
+ */
 export function EmptyState({
-  title, body, action,
+  title, body, action, ghost, kind,
 }: {
   title: string;
   body: string;
   action?: React.ReactNode;
+  ghost?: { cells: string[] }[];
+  kind?: "first-use" | "cleared" | "error";
 }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-surface-2/30 px-6 py-12 text-center">
-      <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">{body}</p>
-      {action && <div className="mt-4">{action}</div>}
-    </div>
-  );
+  return <SharedEmptyState kind={kind} title={title} body={body} action={action} ghost={ghost} />;
 }
 
 /** Days-open pill that turns urgent only when it actually is. */

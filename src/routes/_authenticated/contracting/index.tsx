@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import { ScopeToggle } from "@/components/scope-toggle";
 import { useScope, useScopeCapabilities } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
+import { EmptyState } from "@/components/empty-state";
+import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/contracting/")({
   validateSearch: (s: Record<string, unknown>): { tab?: "my" | "downline" | "comp-grids" | "transfer-requests" | "inbox"; scope?: Scope } => ({
@@ -274,9 +276,14 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
       {isLoading ? (
         <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16" />)}</div>
       ) : filtered.length === 0 ? (
-        <Panel className="p-10 text-center text-sm text-muted-foreground">
-          No contracts yet. Click "+ Add Carrier" to add your first active carrier contract.
-        </Panel>
+        <EmptyState
+          title={EMPTY_STATES.contracts.title}
+          body={EMPTY_STATES.contracts.body}
+          ghost={ghostFor("contracts")}
+          action={
+            <Button asChild size="sm"><Link to="/contracting/carriers">Add a carrier</Link></Button>
+          }
+        />
       ) : (
         <div className="space-y-4">
           {groups.map((g) => (

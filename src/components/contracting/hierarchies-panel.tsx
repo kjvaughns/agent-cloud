@@ -15,6 +15,7 @@ import { listCarrierHierarchies, listOrgAgents, saveCarrierHierarchy } from "@/l
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { cn } from "@/lib/utils";
+import { ghostFor } from "@/lib/empty-states";
 
 
 export function HierarchiesPage() {
@@ -159,6 +160,7 @@ export function HierarchiesPage() {
             columns={columns}
             loading={isLoading}
             empty={{
+              ghost: ghostFor("hierarchy"),
               title: "No carrier hierarchies recorded",
               body: "A carrier hierarchy is how one carrier sees your structure, which is not always your internal org chart. Recording it here is what lets a contracting packet carry the right upline, NPN and writing number.",
               action: <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add the first one</Button>,
