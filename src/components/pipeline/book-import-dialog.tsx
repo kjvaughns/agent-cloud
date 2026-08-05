@@ -19,6 +19,7 @@ import {
   testImportConnection,
   basicImportFromBookImport,
 } from "@/lib/book-import.functions";
+import { ConfirmCarriers } from "@/components/import/confirm-carriers";
 
 type Phase = "loading" | "no_key" | "has_key" | "basic_running" | "basic_done" | "error";
 
@@ -270,15 +271,15 @@ export function BookImportDialog({
                   </div>
                 ))}
               </div>
-              {(importResult.carriers_detected ?? 0) > 0 && (
-                <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm text-left space-y-1">
-                  <div className="font-semibold">
-                    ✓ {importResult.carriers_detected} carrier{importResult.carriers_detected !== 1 ? "s" : ""} detected
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Go to <strong>My Contracts</strong> to add your writing numbers for each detected carrier.
-                  </p>
-                </div>
+              {/* Detected, not added.
+                  This used to say "✓ N carriers detected" over rows the import
+                  had already written — a tick for something nobody agreed to.
+                  A contract is a legal relationship; the agent ticks their own. */}
+              {(importResult.detected_carriers?.length ?? 0) > 0 && (
+                <ConfirmCarriers
+                  carriers={importResult.detected_carriers}
+                  onDone={() => setImportResult({ ...importResult, detected_carriers: [] })}
+                />
               )}
             </div>
             <DialogFooter>
