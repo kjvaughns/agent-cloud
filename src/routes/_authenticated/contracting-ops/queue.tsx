@@ -11,6 +11,7 @@ import { listOrgAgents } from "@/lib/contracting-records.functions";
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { AgePill, StatusBadge } from "@/components/contracting/shared";
 import { cn } from "@/lib/utils";
+import { ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/queue")({
   component: StaffQueuePage,
@@ -94,7 +95,7 @@ function StaffQueuePage() {
   return (
     <div className="space-y-4">
       {staff.length > 0 && (
-        <Panel title="Workload">
+        <Panel title="Workload" data-tour="queue-filters">
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {staff.map((s) => (
               <div key={s.id ?? "unassigned"} className="rounded-lg border border-border bg-surface-2/40 p-3">
@@ -154,7 +155,7 @@ function StaffQueuePage() {
         )}
       </div>
 
-      <Panel pad={false}>
+      <Panel pad={false} data-tour="queue-list">
         <RecordTable
           rows={rows}
           columns={columns}
@@ -164,6 +165,10 @@ function StaffQueuePage() {
           onToggle={toggle}
           onRowClick={(r) => navigate({ to: "/contracting-ops/requests/$requestId", params: { requestId: r.id } })}
           empty={{
+            // Two states, two messages: a genuinely empty queue is good news,
+            // a filtered-to-nothing one is a wrong turn.
+            kind: scope === "all" ? "first-use" : "cleared",
+            ghost: scope === "all" ? ghostFor("contracting-requests") : undefined,
             title: scope === "all" ? "The queue is clear" : "Nothing here",
             body: scope === "all"
               ? "Open contracting requests appear here with an owner, an age and a due date. Nothing is waiting right now."

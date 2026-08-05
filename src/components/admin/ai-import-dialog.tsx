@@ -283,7 +283,7 @@ export function AIImportDialog({
                 {targetAgent.name} has been notified.
               </p>
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
                 { label: "Clients", value: result.clients_imported },
                 { label: "Policies", value: result.policies_imported },

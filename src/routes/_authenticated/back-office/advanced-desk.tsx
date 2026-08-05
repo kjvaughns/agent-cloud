@@ -301,7 +301,7 @@ function AccountList({ inputs, setInputs }: { inputs: RetirementInputs; setInput
             <span className="font-medium truncate">{a.name}</span>
             <button onClick={() => removeAccount(a.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
           </div>
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
             <Input className="h-7 text-xs tnum" placeholder="Balance" type="number" value={a.balance || ""} onChange={(e) => updateAccount(a.id, { balance: Number(e.target.value) || 0 })} />
             <Input className="h-7 text-xs tnum" placeholder="$/mo" type="number" value={a.monthly_contrib || ""} onChange={(e) => updateAccount(a.id, { monthly_contrib: Number(e.target.value) || 0 })} />
             <Input className="h-7 text-xs tnum" placeholder="Return %" type="number" value={a.return_pct} onChange={(e) => updateAccount(a.id, { return_pct: Number(e.target.value) || 0 })} />
@@ -537,7 +537,10 @@ function CaseTracker({ onOpen }: { onOpen: (id: string) => void }) {
       </div>
 
       <Panel pad={false}>
-        <table className="w-full text-sm">
+        {/* No wrapper at all before this: the table simply made the page
+            wider than the phone. */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
           <thead className="bg-surface-2"><tr>
             <th className="text-left p-3">Client</th><th className="text-left p-3">Created</th><th className="text-left p-3">Status</th>
             <th className="text-right p-3">Nest Egg</th><th className="text-right p-3">Success</th><th className="text-left p-3">Updated</th>
@@ -558,6 +561,7 @@ function CaseTracker({ onOpen }: { onOpen: (id: string) => void }) {
             )}
           </tbody>
         </table>
+      </div>
       </Panel>
     </div>
   );

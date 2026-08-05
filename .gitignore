@@ -23,6 +23,8 @@ dist-ssr
 .seed.mjs
 .provision.mjs
 .migsafe.mjs
+.onb.mjs
+.nav.mjs
 
 # Wrangler / Cloudflare
 .wrangler/

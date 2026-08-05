@@ -296,7 +296,7 @@ function TeamPage() {
           <TabsContent value="roster" className="space-y-6 mt-4">
             <KpiRow />
             <DepthChart />
-            <RosterTable downline={downlineForRoster} onOpen={setOpenAgent} />
+            <div data-tour="team-roster"><RosterTable downline={downlineForRoster} onOpen={setOpenAgent} /></div>
           </TabsContent>
 
           {canManageRoles && (
@@ -378,7 +378,7 @@ function TeamAlertsCard() {
   if (alerts.stuck_contracts.length > 0) items.push({ kind: "stuck", text: `${alerts.stuck_contracts.length} contract request${alerts.stuck_contracts.length === 1 ? "" : "s"} in 'Issue' status for 7+ days` });
   if (items.length === 0) return null;
   return (
-    <Panel title="Alerts">
+    <Panel title="Alerts" data-tour="team-alerts">
       <div className="space-y-2">
         {items.map((i) => (
           <div key={i.kind} className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm">

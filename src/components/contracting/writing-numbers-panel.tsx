@@ -17,6 +17,7 @@ import {
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { Column, FilterChips, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { toCsv } from "@/lib/contracting-ops/packet";
+import { ghostFor } from "@/lib/empty-states";
 
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
@@ -176,7 +177,8 @@ export function WritingNumbersPage() {
           columns={columns}
           loading={isLoading}
           empty={{
-            title: "No writing numbers yet",
+            ghost: ghostFor("writing-numbers"),
+            title: "Your carrier writing numbers live here",
             body: "Add writing numbers manually as carriers issue them, or export this list once you have some. An agent can hold several per carrier — one per state or product line where the carrier numbers them separately.",
             action: <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add the first one</Button>,
           }}

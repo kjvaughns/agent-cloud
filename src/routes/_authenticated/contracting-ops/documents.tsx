@@ -10,6 +10,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { listProducerDocuments, reviewDocument } from "@/lib/contracting-records.functions";
 import { DOCUMENT_REQUIREMENTS } from "@/lib/contracting-ops/types";
 import { Column, FilterChips, Pill, RecordTable, Stacked } from "@/components/contracting/table";
+import { ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/documents")({
   component: DocumentsPage,
@@ -129,7 +130,8 @@ function DocumentsPage() {
           columns={columns}
           loading={isLoading}
           empty={{
-            title: "No documents yet",
+            ghost: ghostFor("documents"),
+            title: "Documents waiting on review",
             body: "Documents appear here as agents upload them against carrier requirements. A document waiting on review does not satisfy a requirement — approve it first.",
           }}
         />

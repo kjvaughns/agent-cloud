@@ -137,7 +137,7 @@ export function ReportsPanel() {
       {comm.isLoading ? (
         <Skeleton className="h-24" />
       ) : (
-        <div className="grid grid-cols-3 gap-[var(--gap)]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--gap)]">
           <Panel><StatTile label="Scheduled" value={money(c?.totals.scheduled ?? 0)} /></Panel>
           <Panel><StatTile label="Paid" value={money(c?.totals.paid ?? 0)} tone="gold" /></Panel>
           <Panel><StatTile label="Pending" value={money(c?.totals.pending ?? 0)} /></Panel>

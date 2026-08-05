@@ -258,7 +258,7 @@ export function BookImportDialog({
               <DialogTitle>Import Complete</DialogTitle>
             </DialogHeader>
             <div className="py-2 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: "Imported", value: importResult.imported, cls: "text-emerald-700 dark:text-emerald-400" },
                   { label: "Skipped", value: importResult.skipped, cls: "text-muted-foreground" },

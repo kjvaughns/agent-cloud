@@ -67,7 +67,7 @@ function CarriersPage() {
         ) : filtered.length === 0 ? (
           <Panel><div className="py-10 text-center text-sm text-muted-foreground">No carriers match.</div></Panel>
         ) : (
-          <div className="grid md:grid-cols-2 gap-4">
+          <div data-tour="carrier-list" className="grid md:grid-cols-2 gap-4">
             {filtered.map((c: any) => (
               <div
                 key={c.id}
@@ -83,7 +83,7 @@ function CarriersPage() {
                     {c.is_annuity_carrier && <Badge variant="secondary" className="mt-1">Annuity</Badge>}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div data-tour="carrier-comp" className="grid grid-cols-2 gap-2 text-sm">
                   {c.website && <Row Icon={Globe} label={<a href={c.website} target="_blank" rel="noreferrer" className="hover:underline">Website</a>} />}
                   {c.phone && <Row Icon={Phone} label={<span className="tnum">{c.phone}</span>} />}
                   {c.hours && <Row Icon={Clock} label={c.hours} />}
@@ -169,7 +169,7 @@ function AddCarrierButton() {
   if (!(isAdmin || isAgencyOwner)) return null;
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>+ Add Carrier</Button>
+      <Button size="sm" data-tour="carrier-add" onClick={() => setOpen(true)}>+ Add Carrier</Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Add Carrier</DialogTitle></DialogHeader>

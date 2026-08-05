@@ -140,7 +140,15 @@ function FeatureBand({ band, flip }: { band: Band; flip: boolean }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.12);
 
   return (
-    <section className={cn("py-16 md:py-20", flip && "bg-surface-2/30")}>
+    // `overflow-x-clip` because the reveal below animates from
+    // translateX(±20px). On a phone the content box already fills the viewport
+    // minus its 16px gutters, so those 20px hang 4px past the right edge until
+    // the band scrolls into view — enough to make the whole landing page shift
+    // sideways under your thumb as you scroll past each section.
+    //
+    // Clip rather than hidden: `overflow: hidden` would make this a scroll
+    // container and break `position: sticky` for anything inside it later.
+    <section className={cn("overflow-x-clip py-16 md:py-20", flip && "bg-surface-2/30")}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div
           ref={ref}

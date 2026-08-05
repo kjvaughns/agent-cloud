@@ -1216,7 +1216,8 @@ function BeneficiariesTab({ detail }: { detail: any }) {
         <div className="text-sm text-muted-foreground">No beneficiaries added.</div>
       ) : (
         <div className="border rounded-md overflow-hidden text-sm">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px]">
             <thead className="bg-muted/40 text-xs">
               <tr><th className="text-left p-2">Name</th><th className="text-left p-2">Relationship</th><th className="text-left p-2">DOB</th><th className="text-left p-2">%</th><th></th></tr>
             </thead>
@@ -1235,6 +1236,7 @@ function BeneficiariesTab({ detail }: { detail: any }) {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
       <Dialog open={open} onOpenChange={setOpen}>

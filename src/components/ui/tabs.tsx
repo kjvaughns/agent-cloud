@@ -12,7 +12,21 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground",
+      // Scrolls rather than wraps or clips.
+      //
+      // A five-tab strip is about 420px, which does not fit a phone. Radix
+      // renders the triggers in one row regardless, so without this the strip
+      // either got cut off — hiding the last tab with no way to reach it — or
+      // pushed the whole page wider than the viewport and gave every screen a
+      // horizontal scrollbar. Twenty-one of the twenty-two tab strips in the
+      // app had one of those two problems.
+      //
+      // Scrolling beats wrapping here: a wrapped strip changes height between
+      // tabs and shoves the content below it up and down as you switch.
+      // `max-w-full` is what actually stops the overflow — `overflow-x-auto`
+      // alone does nothing on an inline-flex element that is free to grow.
+      "inline-flex h-9 max-w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground",
+      "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       className,
     )}
     {...props}
@@ -27,7 +41,10 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
+      // shrink-0 so a trigger keeps its own width inside the scrolling strip
+      // above; without it flex compresses every label to illegibility instead
+      // of letting the row scroll.
+      "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:cursor-not-allowed data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
       className,
     )}
     {...props}

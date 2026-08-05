@@ -268,6 +268,25 @@
 }
 
 /* ============================================================
+   PHONES — density tokens step down
+
+   --gap and --pad drive the padding on every PageShell and Panel in the app.
+   At 14px and 18px, a card inside a page spent 64px of a 375px screen on
+   whitespace before rendering anything — 17% of the viewport. These two
+   numbers are what makes the whole app feel cramped on a phone and the
+   cheapest thing to change.
+
+   Deliberately NOT inside `@layer components`: the `:root` block that sets
+   the defaults above is unlayered, and unlayered CSS beats layered CSS in the
+   cascade regardless of specificity or source order. Written in a layer, this
+   override would be silently ignored — which is the kind of bug you only find
+   by measuring, so it is worth the sentence.
+   ============================================================ */
+@media (max-width: 640px) {
+  :root { --gap: 10px; --pad: 12px; }
+}
+
+/* ============================================================
    Premium-OS layout helpers (ported from reference shell).
    Content area is a container; use @container breakpoints.
    ============================================================ */

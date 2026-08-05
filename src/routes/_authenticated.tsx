@@ -7,6 +7,7 @@ import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { DemoBanner } from "@/components/demo-banner";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { requireSession } from "@/lib/require-session";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -94,6 +95,9 @@ function AuthenticatedLayout() {
       </div>
       <CommandPalette />
       <WhiteLabelTheme />
+      {/* Outside <main> on purpose: it is fixed-position furniture, not page
+          content, and nesting it would put it inside the scroll container. */}
+      <OnboardingChecklist />
     </SidebarProvider>
   );
 }

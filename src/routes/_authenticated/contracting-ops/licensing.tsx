@@ -224,6 +224,7 @@ function LicensingPage() {
             loading={isLoading}
             onRowClick={setOpenAgent}
             empty={{
+              kind: filter ? "cleared" : "first-use",
               title: filter ? "Nothing in this slice" : "No licensing records yet",
               body: filter
                 ? "Try a different filter — there is licensing work on the board, just not here."

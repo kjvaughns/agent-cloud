@@ -47,6 +47,7 @@ export function Panel({
   className,
   pad = true,
   style,
+  ...rest
 }: {
   title?: React.ReactNode;
   action?: React.ReactNode;
@@ -54,11 +55,14 @@ export function Panel({
   className?: string;
   pad?: boolean;
   style?: React.CSSProperties;
-}) {
+  // Passes through the rest, which is what lets a panel carry a `data-tour`
+  // anchor or an aria attribute without every call site needing a wrapper div.
+} & Omit<React.HTMLAttributes<HTMLElement>, "title" | "style" | "className">) {
   return (
     <section
       className={cn("flex flex-col min-w-0 rounded-[var(--radius)] border border-border bg-card", className)}
       style={{ padding: pad ? "var(--pad)" : 0, ...style }}
+      {...rest}
     >
       {title && <SectionHeader label={title} action={action} />}
       {children}

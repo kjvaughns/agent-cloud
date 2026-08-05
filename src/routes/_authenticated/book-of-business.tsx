@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { SampleChip } from "@/components/sample-chip";
+import { EmptyState as SharedEmptyState } from "@/components/empty-state";
+import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import {
@@ -402,22 +404,39 @@ function Th({ children, onClick, sort, k, className }: { children: React.ReactNo
   );
 }
 
+/**
+ * Two different empties, two different messages.
+ *
+ * A filtered-to-nothing list is not a first-use screen: teaching somebody what
+ * a book of business is, when they have one and have just filtered it down to
+ * zero, reads as if the product was not paying attention.
+ */
 function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
-  return (
-    <div className="p-10 text-center">
-      {hasFilters ? (
-        <>
-          <p className="text-sm text-muted-foreground mb-3">No policies match your current filters.</p>
-          <Button variant="outline" onClick={onClear}>Clear Filters</Button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground mb-3">No policies yet. Start by posting your first deal.</p>
-          <Button asChild>
-            <Link to="/post-deal"><Plus className="h-4 w-4 mr-1.5" /> Post a Deal</Link>
-          </Button>
-        </>
-      )}
-    </div>
+  const copy = EMPTY_STATES["book-of-business"];
+  return hasFilters ? (
+    <SharedEmptyState
+      kind="cleared"
+      title={copy.clearedTitle}
+      body={copy.clearedBody}
+      className="m-4 border-none bg-transparent"
+      action={<Button variant="outline" size="sm" onClick={onClear}>Clear filters</Button>}
+    />
+  ) : (
+    <SharedEmptyState
+      title={copy.title}
+      body={copy.body}
+      ghost={ghostFor("book-of-business")}
+      className="m-4 border-none bg-transparent"
+      action={
+        <Button asChild size="sm">
+          <Link to="/post-deal"><Plus className="h-4 w-4 mr-1.5" />Post your first deal</Link>
+        </Button>
+      }
+      secondary={
+        <Button asChild size="sm" variant="outline">
+          <Link to="/import">Import a spreadsheet</Link>
+        </Button>
+      }
+    />
   );
 }
