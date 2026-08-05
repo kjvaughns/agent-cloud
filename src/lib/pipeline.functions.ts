@@ -5,6 +5,7 @@ import { z } from "zod";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds } from "@/lib/scope.functions";
+import { getMyPrimaryOrgId } from "@/lib/org-guard";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -494,13 +495,36 @@ export const upsertClientBanking = createServerFn({ method: "POST" })
   });
 
 // ---------- Carriers ----------
+/**
+ * The agency's carriers, for the client drawer's policy form.
+ *
+ * Same correction as `listCarriersForDeal`: this read the global catalog, so
+ * adding a policy from the pipeline offered every carrier in the system rather
+ * than the ones this agency contracts with. Somebody with no organization gets
+ * an empty list rather than the catalog — nothing they pick would be payable.
+ */
 export const listCarriers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase } = context as Ctx;
-    const { data, error } = await supabase.from("carriers").select("id, name").order("name");
+    const { supabase, userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) return [];
+
+    const { data, error } = await supabase
+      .from("org_carriers")
+      .select("carrier_id, product_types, carriers ( id, name, active )")
+      .eq("organization_id", orgId)
+      .eq("status", "active");
     if (error) throw new Error(error.message);
-    return data ?? [];
+
+    return (data ?? [])
+      .filter((r: any) => r.carriers?.active !== false)
+      .map((r: any) => ({
+        id: r.carrier_id as string,
+        name: (r.carriers?.name ?? "Carrier") as string,
+        product_types: (r.product_types ?? []) as string[],
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
   });
 
 // ---------- Add policy ----------

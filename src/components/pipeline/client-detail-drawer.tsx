@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
 import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -47,7 +48,6 @@ const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: stri
   sold:         { active: "bg-emerald-500 text-white border-emerald-500",                inactive: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400", label: "Sold"     },
 };
 
-const PRODUCTS = ["Final Expense", "Mortgage Protection", "Term Life", "Whole Life", "IUL", "GTL", "Annuity"];
 
 const detailQO = (id: string) => queryOptions({
   queryKey: ["pipeline", "detail", id],

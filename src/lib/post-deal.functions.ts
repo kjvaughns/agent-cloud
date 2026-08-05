@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { announceDeal } from "@/lib/discord.functions";
+import { getMyPrimaryOrgId } from "@/lib/org-guard";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -19,16 +20,47 @@ export const searchClients = createServerFn({ method: "POST" })
     return rows ?? [];
   });
 
+/**
+ * The carriers this agency actually contracts with, and what each one writes.
+ *
+ * This queried the global `carriers` catalog, so an agency with two carriers
+ * was offered thirteen — including eleven it has no relationship with. Posting
+ * a deal against one of those produces a policy nobody can be paid on, and the
+ * only thing standing in the way was a soft warning nobody reads.
+ *
+ * `org_carriers` is the agency's own list. `product_types` on it has existed
+ * since the table was created and has never been read by a dropdown; it is what
+ * narrows products to what the selected carrier actually offers.
+ *
+ * Returns the agency's carriers only. The caller groups them: ones the agent
+ * personally holds a contract with first, the rest below a divider — an agent
+ * may legitimately be writing under a just-in-time appointment, so the second
+ * group is marked rather than hidden.
+ */
 export const listCarriersForDeal = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const orgId = await getMyPrimaryOrgId(context.userId);
+    if (!orgId) return [];
+
     const { data, error } = await context.supabase
-      .from("carriers")
-      .select("id, name")
-      .eq("active", true)
-      .order("name");
+      .from("org_carriers")
+      .select("carrier_id, product_types, status, carriers ( id, name, active )")
+      .eq("organization_id", orgId)
+      .eq("status", "active");
     if (error) throw new Error(error.message);
-    return data ?? [];
+
+    return (data ?? [])
+      // A carrier retired from the shared catalog stays out even if the agency
+      // row is still active — the catalog is the authority on whether a carrier
+      // is writing business at all.
+      .filter((r: any) => r.carriers?.active !== false)
+      .map((r: any) => ({
+        id: r.carrier_id as string,
+        name: (r.carriers?.name ?? "Carrier") as string,
+        product_types: (r.product_types ?? []) as string[],
+      }))
+      .sort((a: any, b: any) => a.name.localeCompare(b.name));
   });
 
 export const getMyActiveCarrierIds = createServerFn({ method: "GET" })

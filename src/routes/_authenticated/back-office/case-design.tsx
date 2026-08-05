@@ -19,6 +19,7 @@ import { Clock, Lightbulb, CheckCircle2, ChevronRight, FileCheck2, Loader2 } fro
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
 
 export const Route = createFileRoute("/_authenticated/back-office/case-design")({
   head: () => ({ meta: [
@@ -28,7 +29,6 @@ export const Route = createFileRoute("/_authenticated/back-office/case-design")(
   component: CaseDesignPage,
 });
 
-const PRODUCTS = ["Final Expense", "Term Life", "Whole Life", "Universal Life", "IUL", "Annuity", "Other"];
 const TOBACCO = ["Never", "Quit < 1 year ago", "Quit 1-5 years ago", "Quit 5+ years ago", "Current user"];
 
 function CaseDesignPage() {
