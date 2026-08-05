@@ -478,7 +478,7 @@ export function MyLicensesView() {
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Licensed States</div><div className="text-2xl font-bold tnum">{stats.total}</div></div>
         <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expiring (90d)</div><div className="text-2xl font-bold text-amber-600 tnum">{stats.expiring}</div></div>
         <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expired</div><div className="text-2xl font-bold text-destructive tnum">{stats.expired}</div></div>

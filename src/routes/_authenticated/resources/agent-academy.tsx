@@ -92,7 +92,7 @@ function CourseList({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="flex flex-col gap-[var(--gap)]">
       {(courses as any[]).length > 0 && (
-        <div className="grid grid-cols-3 gap-[var(--gap)]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--gap)]">
           <Panel><StatTile label="Courses Started" value={String(totals.started)} /></Panel>
           <Panel><StatTile label="Completed" value={String(totals.finished)} tone={totals.finished ? "gold" : undefined} /></Panel>
           <Panel><StatTile label="Modules Done" value={String(totals.modules)} /></Panel>

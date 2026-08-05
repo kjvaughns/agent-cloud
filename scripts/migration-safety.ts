@@ -224,6 +224,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/onboarding-checklist.functions.ts:user_onboarding_state":
+    "all three sites tolerate 42P01: the read is a maybeSingle() whose result is consumed as `stateRes.data?.x ?? default`, so a missing table reads as \"nothing dismissed\" — which is the correct starting state anyway — and the upsert catches its own error and warns. Step completion is never stored here, so nothing about the checklist's accuracy depends on this table existing; only the dismissals fail to stick",
   "src/components/demo-banner.tsx:organizations.is_demo":
     "its own narrow query, deliberately not a field on useOrganization: on 42703 the banner renders nothing, which is correct for every deployment that has no demo org",
   "src/routes/api/public/hooks/demo-reset.ts:demo_reset_log":

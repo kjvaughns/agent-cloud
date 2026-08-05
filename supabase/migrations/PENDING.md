@@ -20,6 +20,7 @@ Delete a line once the migration is applied.
 - `20260805130000_sample-data-flag.sql`
 - `20260805140000_demo-org.sql`
 - `20260805150000_book-of-business-sample-flag.sql`
+- `20260806100000_user-onboarding-state.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -55,6 +56,13 @@ function whose return type changed. It depends on `20260805130000`, so apply
 them in order. One caller reads the rows by name as `any[]`, so the extra
 column is additive; until it lands, the Sample chip on the Book of Business
 simply does not render.
+
+`20260806100000` adds `user_onboarding_state`, which the role-based onboarding
+checklist writes dismissals and completed tours to. Until it applies the
+checklist still renders and still derives every step from real data — only the
+choices do not stick, so a dismissed step comes back on the next load. The
+write catches its own error and logs rather than throwing, because losing a
+dismissal is a far smaller problem than a click that fails.
 
 `20260805100000` clears the stored third-party passwords in `scrape_requests`.
 Anyone who submitted one should treat it as disclosed and change it on the

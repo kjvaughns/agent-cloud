@@ -98,7 +98,7 @@ function TasksPage() {
           actions={<NewTaskDialog onCreated={invalidate} />}
         />
 
-        <div className="grid grid-cols-3 gap-[var(--gap)]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--gap)]">
           <Panel><StatTile label="Open" value={String(open.length)} /></Panel>
           <Panel><StatTile label="Due Today" value={String(dueToday)} tone={dueToday > 0 ? "gold" : undefined} /></Panel>
           <Panel><StatTile label="Overdue" value={String(overdue)} tone={overdue > 0 ? "red" : undefined} /></Panel>

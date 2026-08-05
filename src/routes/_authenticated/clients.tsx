@@ -163,7 +163,7 @@ function ClientsOverviewPage() {
                   {empty ? (
                     <p className="mt-4 text-sm text-muted-foreground">{empty}</p>
                   ) : (
-                    <div className="mt-4 grid grid-cols-3 gap-3">
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {b.stats(data).map((s) => (
                         <StatTile
                           key={s.label}

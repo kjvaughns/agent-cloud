@@ -214,7 +214,10 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
 
   return (
     <Sheet open={!!agentId} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-[440px] sm:w-[440px] p-0 overflow-y-auto">
+      {/* Was a flat w-[440px], which hung 65px off the side of a 375px phone
+          and gave every page behind it a horizontal scrollbar. Full width
+          below sm, 440px above. */}
+      <SheetContent className="w-full sm:w-[440px] sm:max-w-[440px] p-0 overflow-y-auto">
         {isLoading || !p ? (
           <div className="p-6 space-y-3">
             <Skeleton className="h-24 w-full" />

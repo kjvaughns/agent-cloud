@@ -94,7 +94,7 @@ function StaffQueuePage() {
   return (
     <div className="space-y-4">
       {staff.length > 0 && (
-        <Panel title="Workload">
+        <Panel title="Workload" data-tour="queue-filters">
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {staff.map((s) => (
               <div key={s.id ?? "unassigned"} className="rounded-lg border border-border bg-surface-2/40 p-3">
@@ -154,7 +154,7 @@ function StaffQueuePage() {
         )}
       </div>
 
-      <Panel pad={false}>
+      <Panel pad={false} data-tour="queue-list">
         <RecordTable
           rows={rows}
           columns={columns}

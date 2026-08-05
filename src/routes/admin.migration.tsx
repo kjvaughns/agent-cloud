@@ -167,7 +167,8 @@ function AdminMigration() {
             </Button>
           </div>
           <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-4 py-3 w-10" />
@@ -192,6 +193,7 @@ function AdminMigration() {
                 ))}
               </tbody>
             </table>
+          </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setStep(0)}>Back</Button>

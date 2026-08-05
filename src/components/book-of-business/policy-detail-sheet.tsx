@@ -147,7 +147,7 @@ export function PolicyDetailSheet({
                 {commQ.isLoading ? (
                   <Skeleton className="h-12 w-full" />
                 ) : commQ.data ? (
-                  <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                     <Stat label="Total scheduled" value={money(commQ.data.total, { maximumFractionDigits: 2 })} />
                     <Stat label="Paid to date" value={money(commQ.data.paid, { maximumFractionDigits: 2 })} />
                     <Stat label="Entries" value={String(commQ.data.count)} />

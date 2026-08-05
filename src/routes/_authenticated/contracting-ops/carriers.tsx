@@ -175,7 +175,7 @@ function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
                 )}
               </div>
 
-              <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-border-soft pt-3">
+              <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-border-soft pt-3">
                 {[
                   ["Requirements", c.requirement_count],
                   ["Comp levels", c.comp_level_count],

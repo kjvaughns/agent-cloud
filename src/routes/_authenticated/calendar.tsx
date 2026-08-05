@@ -212,14 +212,18 @@ function MonthView({
 
   return (
     <Panel pad={false} className="overflow-hidden">
+      {/* A month grid is seven columns whatever the screen, so the only
+          lever on a phone is how much each cell spends on itself. Three-letter
+          day names do not fit in a 53px column; one letter does. */}
       <div className="grid grid-cols-7 border-b border-border-soft bg-surface-2">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="px-3 py-2 text-xs font-semibold text-muted-foreground">
-            {d}
+          <div key={d} className="px-1 py-2 text-center text-xs font-semibold text-muted-foreground sm:px-3 sm:text-left">
+            <span className="sm:hidden">{d[0]}</span>
+            <span className="hidden sm:inline">{d}</span>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)]">
+      <div className="grid grid-cols-7 auto-rows-[minmax(72px,auto)] sm:auto-rows-[minmax(120px,auto)]">
         {days.map((d) => {
           const list = byDay.get(d.iso) ?? [];
           return (
@@ -227,7 +231,7 @@ function MonthView({
               key={d.iso}
               onClick={() => onDayClick(d.date)}
               className={cn(
-                "border-r border-b border-border-soft p-2 last:border-r-0 cursor-pointer hover:bg-surface-2 transition-colors",
+                "border-r border-b border-border-soft p-1 sm:p-2 last:border-r-0 cursor-pointer hover:bg-surface-2 transition-colors",
                 !d.inMonth && "bg-surface-2/40 text-text-dim",
                 d.isPast && d.inMonth && "opacity-80",
               )}
@@ -613,7 +617,7 @@ function CreateEventModal({
               </>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-3 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div className="col-span-1 min-w-0">
               <Label>Date *</Label>
               <Input
@@ -758,7 +762,7 @@ function EventDetailDrawer({
 function SkeletonGrid() {
   return (
     <Panel pad={false} className="overflow-hidden">
-      <div className="grid grid-cols-7 auto-rows-[minmax(120px,auto)]">
+      <div className="grid grid-cols-7 auto-rows-[minmax(72px,auto)] sm:auto-rows-[minmax(120px,auto)]">
         {Array.from({ length: 35 }).map((_, i) => (
           <div key={i} className="border-r border-b border-border-soft p-2 last:border-r-0">
             <div className="h-3 w-6 bg-surface-2 rounded animate-pulse mb-2" />

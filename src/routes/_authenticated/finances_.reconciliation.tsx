@@ -129,7 +129,11 @@ function StatementList({ onOpen, embedded = false }: { onOpen: (id: string) => v
           </Panel>
         ) : (
           <Panel pad={false} className="overflow-hidden">
-            <table className="w-full text-sm">
+            {/* The Panel clips to its rounded corners, which also clipped the
+                table's right-hand columns off on a phone with no way to reach
+                them. This inner scroller restores them. */}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface-2">
                 <tr>
                   {["Carrier", "Statement Date", "Period", "Stated", "Parsed", "Status"].map((h, i) => (
@@ -166,6 +170,7 @@ function StatementList({ onOpen, embedded = false }: { onOpen: (id: string) => v
                 ))}
               </tbody>
             </table>
+          </div>
           </Panel>
         )}
     </Shell>

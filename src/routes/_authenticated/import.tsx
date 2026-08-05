@@ -238,7 +238,7 @@ function ImportPage() {
         subtitle="Drop in anything — a book of business, a comp grid, a carrier report. It gets read, matched against what you already have, and shown to you before anything is saved."
       />
 
-      <div className="flex gap-1 border-b border-border">
+      <div data-tour="import-review" className="flex gap-1 border-b border-border">
         <TabButton active={tab === "import"} onClick={() => setTab("import")}>Import</TabButton>
         {nav.canSeeAgency && (
           <TabButton active={tab === "approvals"} onClick={() => setTab("approvals")}>
@@ -272,7 +272,7 @@ function ImportPage() {
           </div>
 
           <Panel>
-            <div className="space-y-3">
+            <div data-tour="import-drop" className="space-y-3">
               <label className="block text-sm font-medium">
                 What are you uploading? <span className="text-muted-foreground">(optional)</span>
               </label>

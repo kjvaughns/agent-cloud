@@ -72,7 +72,7 @@ function TicketQueue({ onOpen }: { onOpen: (id: string) => void }) {
 
   return (
     <div className="flex flex-col gap-[var(--gap)]">
-      <div className="grid grid-cols-3 gap-[var(--gap)]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--gap)]">
         <Panel><StatTile label="Showing" value={String(tickets.length)} /></Panel>
         <Panel><StatTile label="Open" value={String(open)} tone={open ? "gold" : undefined} /></Panel>
         <Panel><StatTile label="Unassigned" value={String(unassigned)} tone={unassigned ? "red" : undefined} /></Panel>

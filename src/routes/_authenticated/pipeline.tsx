@@ -204,7 +204,7 @@ function PipelinePage() {
               <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => setImportOpen(true)}>
                 <Upload className="h-3.5 w-3.5" /><span className="hidden sm:inline">Import</span>
               </Button>
-              <Button size="sm" className="h-9 gap-1.5" onClick={() => setAddOpen(true)}>
+              <Button data-tour="pipeline-add" size="sm" className="h-9 gap-1.5" onClick={() => setAddOpen(true)}>
                 <Plus className="h-3.5 w-3.5" />Add Client
               </Button>
             </>
@@ -218,7 +218,7 @@ function PipelinePage() {
             <PipelineSkeleton />
           ) : (
             <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-              <div className="h-full overflow-x-auto">
+              <div data-tour="pipeline-board" className="h-full overflow-x-auto">
                 <div className="flex gap-4 h-full min-w-max pb-2">
                   {STAGE_COLS.map((col) => {
                     const cards = pipelineClients.filter((c: any) => c.stage === col.key);
