@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { SampleChip } from "@/components/sample-chip";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import {
@@ -329,6 +330,9 @@ function BookPage() {
                       <td className="p-3 font-medium">
                         {r.client_last_name}, {r.client_first_name}
                         {r.carrier_integration && <Link2 className="inline-block ml-1.5 h-3 w-3 text-muted-foreground" />}
+                        {/* On the production table above all others: this is
+                            the page where a number gets reported to somebody. */}
+                        <SampleChip when={r.is_sample} className="ml-1.5 px-1.5 py-0 text-[10px] align-middle" />
                       </td>
                       {showAgentCol && (
                         <td className="p-3 text-muted-foreground text-xs">

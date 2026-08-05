@@ -17,7 +17,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
-import { SEEDED_TABLES, clearSampleData, seedSampleData } from "@/lib/demo-seed.server";
+
+// Imported inside the handlers, not at the top. This module is reached from a
+// client component, and the seed carries five hundred lines of fixture data
+// that has no business in the browser bundle.
 
 const supabaseAdmin = _admin as any;
 
@@ -37,6 +40,7 @@ export const getSampleDataSummary = createServerFn({ method: "GET" })
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) return { total: 0, byTable: [], available: true };
 
+    const { SEEDED_TABLES } = await import("@/lib/demo-seed.server");
     const results = await Promise.all(
       SEEDED_TABLES.map(async (table) => {
         const { count, error } = await supabaseAdmin
@@ -81,6 +85,7 @@ export const clearMySampleData = createServerFn({ method: "POST" })
     if (!orgId) throw new Error("No organization");
     await assertOrgOwner(userId, orgId);
 
+    const { clearSampleData } = await import("@/lib/demo-seed.server");
     const result = await clearSampleData(supabaseAdmin, orgId);
     if (result.failures.length) {
       throw new Error(
@@ -105,6 +110,7 @@ export const addSampleData = createServerFn({ method: "POST" })
     if (!orgId) throw new Error("No organization");
     await assertOrgOwner(userId, orgId);
 
+    const { clearSampleData, seedSampleData } = await import("@/lib/demo-seed.server");
     const cleared = await clearSampleData(supabaseAdmin, orgId);
     if (cleared.failures.length) {
       throw new Error(`Could not clear the existing sample data: ${cleared.failures.join("; ")}`);

@@ -245,6 +245,20 @@ function ImportPage() {
             Approvals
           </TabButton>
         )}
+        {/* A link rather than a tab, deliberately. Document review is a working
+            queue with its own filters, sheet and approve/reject actions, and
+            two other flows deep-link into it by URL. Re-hosting it here would
+            mean a second copy of it, and the copy would be the one that rots.
+            It sits beside Import in the sidebar for the same reason it sits
+            here: both are records arriving from outside that a human accepts. */}
+        {nav.canSeeAgency && (
+          <a
+            href="/contracting-ops/documents"
+            className="ml-auto self-center pb-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Document review →
+          </a>
+        )}
       </div>
 
       {tab === "approvals" ? (

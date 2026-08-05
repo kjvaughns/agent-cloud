@@ -105,6 +105,24 @@ book of business for ten minutes without being told it is invented. Clearly
 labelled sample data builds trust; data pretending to be real destroys it the
 moment somebody notices, and in insurance somebody always notices.
 
+## The same seed, for real agencies
+
+A new solo workspace is offered "Start with sample data so I can look around",
+default on, and it runs the same seed against the new org. That is deliberate:
+three copies of a fixture drift, and the copy that drifts is always the one
+nothing tests.
+
+What keeps it safe is the same flag. Every seeded row carries `is_sample`,
+clients and policies render a "Sample" chip, and Agency Settings has a
+**Clear sample data** button that removes all of it in one action — with a
+confirmation that says what *survives*, because the fear it has to answer is
+"will this delete my real clients".
+
+Seeding also must not lie to the agency about its own progress. The setup
+checklist's "Post your first deal" counts non-sample policies only; without
+that, an agency that accepted the default would be congratulated on
+fifty-two deals it did not write.
+
 ## One deviation from the plan
 
 The plan's CTA was "Start your own free account". There is no free account —

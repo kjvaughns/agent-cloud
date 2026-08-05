@@ -463,7 +463,13 @@ export const createPortalSession = createServerFn({ method: "POST" })
 
 export const initSoloWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  // Optional so every existing caller keeps working; defaulted on because an
+  // empty product cannot demonstrate itself, and somebody's first minute
+  // deciding whether this thing works is the one that matters.
+  .inputValidator((d: unknown) =>
+    z.object({ withSampleData: z.boolean().default(true) }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     const { data: profile } = await supabaseAdmin
       .from("profiles")
@@ -512,7 +518,24 @@ export const initSoloWorkspace = createServerFn({ method: "POST" })
       { onConflict: "organization_id,profile_id", ignoreDuplicates: true },
     );
 
-    return { ok: true, existing: false };
+    // Sample data last, and never fatal. A workspace that exists without its
+    // demo book is a minor disappointment; a signup that fails at the final
+    // step because a fixture could not write is a lost customer. Every row it
+    // writes carries `is_sample`, is chipped in the UI, and comes out again
+    // from Agency Settings in one action.
+    let sampleData: "seeded" | "skipped" | "failed" = "skipped";
+    if (data.withSampleData) {
+      try {
+        const { seedSampleData } = await import("@/lib/demo-seed.server");
+        const seeded = await seedSampleData(supabaseAdmin, org.id);
+        sampleData = seeded.seeded ? "seeded" : "failed";
+      } catch (e: any) {
+        console.error("[signup] sample data failed", e?.message ?? e);
+        sampleData = "failed";
+      }
+    }
+
+    return { ok: true, existing: false, sampleData };
   });
 
 // ── Super admin: platform subscriptions overview ─────────────────────────────

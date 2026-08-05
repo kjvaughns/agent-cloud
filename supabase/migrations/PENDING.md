@@ -19,6 +19,7 @@ Delete a line once the migration is applied.
 - `20260805120000_profile-completeness-and-pii.sql`
 - `20260805130000_sample-data-flag.sql`
 - `20260805140000_demo-org.sql`
+- `20260805150000_book-of-business-sample-flag.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -47,6 +48,13 @@ and caches it, so the guardrails are inert; the banner renders nothing;
 returns 200 with `skipped`. Read the migration's tail before applying — the
 pg_cron schedule is deliberately left commented, because it needs the site
 origin and a vault secret that do not belong in this repository.
+
+`20260805150000` **drops and recreates `get_book_of_business`** to add
+`is_sample` to its return shape — Postgres will not `create or replace` a
+function whose return type changed. It depends on `20260805130000`, so apply
+them in order. One caller reads the rows by name as `any[]`, so the extra
+column is additive; until it lands, the Sample chip on the Book of Business
+simply does not render.
 
 `20260805100000` clears the stored third-party passwords in `scrape_requests`.
 Anyone who submitted one should treat it as disclosed and change it on the
