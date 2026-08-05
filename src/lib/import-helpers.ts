@@ -1,3 +1,5 @@
+import { normalizePolicyStatus } from "@/lib/import-normalize";
+
 /** Strip non-digits, return last 10 digits for comparison */
 export function normalizePhone(raw: string): string {
   return raw.replace(/\D/g, "").slice(-10);
@@ -266,14 +268,32 @@ export function mapTemperature(raw?: string | number): string {
   return "cold";
 }
 
-/** Map Source policy status strings to internal policy status values */
+/**
+ * Map a source policy status onto ours.
+ *
+ * Was four `includes` tests with everything else falling through to "active".
+ * Two problems with that, both of which put a dead policy into somebody's
+ * production numbers:
+ *
+ *   - `cancel` mapped to `lapsed`. A cancelled policy and a lapsed one are
+ *     different outcomes with different retention work attached.
+ *   - Single-letter statuses — `A`, `IF`, `L`, `NT` — matched none of the
+ *     tests, so every one of them became "active". `NT` is *not taken*: the
+ *     application never became a policy at all.
+ *
+ * Now goes through the dictionary in `import-normalize.ts`, which knows the
+ * abbreviations carriers actually use.
+ *
+ * The residual: an unrecognised non-empty status still falls back to "active",
+ * because `policies.status` needs a value and the enum has no "unknown"
+ * member. That is a deliberately narrow default — the dictionary covers the
+ * vocabularies seen in real exports, so reaching it means a genuinely novel
+ * string. Callers that can surface the ambiguity should use
+ * `normalizePolicyStatus` directly and handle the null themselves.
+ */
 export function mapPolicyStatus(raw?: string): string {
   if (!raw) return "active";
-  const r = raw.toLowerCase();
-  if (r.includes("lapse") || r.includes("cancel")) return "lapsed";
-  if (r.includes("review") || r.includes("pending")) return "in_review";
-  if (r.includes("issued") || r.includes("not paid")) return "issued_not_paid";
-  return "active";
+  return normalizePolicyStatus(raw) ?? "active";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
