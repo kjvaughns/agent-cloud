@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { Upload, Loader2, CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, AlertCircle, FileText, AlertTriangle } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -296,6 +296,49 @@ export function AIImportDialog({
                 </div>
               ))}
             </div>
+            {/* What did not come across.
+                An import that reports only its successes asks to be trusted on
+                faith. Naming the gaps is what makes the number that did import
+                believable — and an unidentified carrier is actionable: the
+                agency can add an alias and re-run. */}
+            {(result.rows_missing_effective_date > 0 || (result.unresolved_carriers?.length ?? 0) > 0) && (
+              <div className="space-y-2 rounded-xl border border-warning/40 bg-warning/5 p-3">
+                <div className="flex items-center gap-1.5 text-sm font-medium">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  What we could not do
+                </div>
+                {result.rows_missing_effective_date > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {result.rows_missing_effective_date} polic
+                    {result.rows_missing_effective_date === 1 ? "y" : "ies"} had no effective date and
+                    were dated today. Correct them on the policy record.
+                  </p>
+                )}
+                {(result.unresolved_carriers?.length ?? 0) > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      {result.unresolved_carriers.length} carrier name
+                      {result.unresolved_carriers.length === 1 ? "" : "s"} could not be identified
+                      confidently. Those policies imported without a carrier rather than being
+                      filed under a guess:
+                    </p>
+                    <ul className="max-h-32 space-y-0.5 overflow-y-auto text-xs">
+                      {result.unresolved_carriers.map((c: any) => (
+                        <li key={c.name} className="flex flex-wrap items-baseline gap-x-1.5">
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-muted-foreground">×{c.count}</span>
+                          {c.guess && (
+                            <span className="text-muted-foreground">
+                              — closest was {c.guess} ({Math.round(c.confidence * 100)}%)
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
             <DialogFooter>
               <Button onClick={() => { reset(); onOpenChange(false); }}>Close</Button>
             </DialogFooter>

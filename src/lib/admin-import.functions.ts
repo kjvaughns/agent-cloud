@@ -511,6 +511,17 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
     let duplicatesSkipped = 0;
     let pendingAgentsImported = 0;
 
+    /**
+     * What the import could NOT do.
+     *
+     * An import that reports only its successes is asking to be trusted on
+     * faith. An agency owner moving fifteen years of business wants to know
+     * what did not come across — and telling them is what makes the number
+     * that did come across believable.
+     */
+    let rowsMissingEffectiveDate = 0;
+    const unresolvedCarriers = new Map<string, { count: number; guess: string | null; confidence: number }>();
+
     if (ex.format === "agentlink_multisheet") {
       const roster: ParsedRoster[] = ex.roster ?? [];
       const clientsRaw: ParsedClient[] = ex.clients_raw ?? [];
@@ -613,17 +624,49 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
 
       // 3. Policies — match by client name from Book of Business
       // Build a carrier name → id map once for fast resolution
-      const { data: carrierRows } = await supabase.from("carriers").select("id, name");
-      const carrierByName = new Map<string, string>(
-        (carrierRows ?? []).map((c: any) => [String(c.name).toLowerCase().trim(), c.id as string]),
-      );
+      // Carrier identity, with the aliases and NAIC codes that make it
+      // resolvable. `naic_code` and `carrier_aliases` are both pending
+      // migrations, so each is fetched separately and a failure degrades to
+      // matching on names alone rather than taking the whole import down.
+      const { data: carrierRows } = await supabase.from("carriers").select("*");
+
+      let aliasRows: any[] = [];
+      try {
+        const { data } = await supabase.from("carrier_aliases").select("carrier_id, alias");
+        aliasRows = data ?? [];
+      } catch {
+        aliasRows = [];
+      }
+      const aliasesByCarrier = new Map<string, string[]>();
+      for (const a of aliasRows) {
+        const list = aliasesByCarrier.get(a.carrier_id) ?? [];
+        list.push(a.alias);
+        aliasesByCarrier.set(a.carrier_id, list);
+      }
+
+      const { matchCarrier, isConfident } = await import("@/lib/carrier-match");
+      const carrierIndex = (carrierRows ?? []).map((c: any) => ({
+        id: c.id as string,
+        name: String(c.name ?? ""),
+        naicCode: c.naic_code ?? null,
+        aliases: aliasesByCarrier.get(c.id) ?? [],
+      }));
+
       const resolveCarrierId = (raw?: string | null): string | null => {
         if (!raw) return null;
-        const k = raw.toLowerCase().trim();
-        if (carrierByName.has(k)) return carrierByName.get(k)!;
-        for (const [name, id] of carrierByName) {
-          if (name.includes(k) || k.includes(name)) return id;
-        }
+        const m = matchCarrier(raw, carrierIndex);
+        if (isConfident(m)) return m.carrierId;
+
+        // Below the threshold this is a suggestion, not an answer. Recording
+        // it and returning null is the whole point of the change: the old code
+        // returned its first substring hit here and called it a match.
+        const key = raw.trim();
+        const prev = unresolvedCarriers.get(key);
+        unresolvedCarriers.set(key, {
+          count: (prev?.count ?? 0) + 1,
+          guess: m.carrierId ? carrierIndex.find((c: { id: string; name: string }) => c.id === m.carrierId)?.name ?? null : null,
+          confidence: m.confidence,
+        });
         return null;
       };
 
@@ -635,6 +678,10 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
         if (!c) continue;
 
         const ownerEmail = p.agent_label ? nameToEmail.get(normName(p.agent_label)) ?? c.ownerEmail : c.ownerEmail;
+        // A policy with no effective date still imports — dropping somebody's
+        // policy over a missing cell would be worse — but it is counted and
+        // reported rather than quietly backdated to today.
+        if (!p.effective_date) rowsMissingEffectiveDate++;
         const postedAt = p.effective_date
           ? new Date(`${p.effective_date}T12:00:00Z`).toISOString()
           : new Date().toISOString();
@@ -735,6 +782,35 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           await supabase
             .from("agent_commission_levels")
             .upsert(newLevels, { onConflict: "agent_id,carrier_id" });
+        }
+
+        // The org overlay, without which the carrier is contracted for the
+        // agent but invisible to the agency: every dropdown in the product
+        // reads `org_carriers`, not `carriers`. Skipping this was why an
+        // imported book could show policies against a carrier that did not
+        // appear in the agency's own carrier list.
+        const { data: profileOrg } = await supabase
+          .from("profiles").select("organization_id").eq("id", targetAgent).maybeSingle();
+        const orgId = (profileOrg as any)?.organization_id ?? null;
+        if (orgId) {
+          const { data: existingOrgCarriers } = await supabase
+            .from("org_carriers")
+            .select("carrier_id")
+            .eq("organization_id", orgId)
+            .in("carrier_id", carrierIdArr);
+          const haveOrgCarrier = new Set((existingOrgCarriers ?? []).map((r: any) => r.carrier_id));
+          const newOrgCarriers = carrierIdArr
+            .filter((cid) => !haveOrgCarrier.has(cid))
+            .map((cid) => ({
+              organization_id: orgId,
+              carrier_id: cid,
+              status: "active",
+              created_by: userId,
+            }));
+          if (newOrgCarriers.length > 0) {
+            const { error: ocErr } = await supabase.from("org_carriers").insert(newOrgCarriers);
+            if (ocErr) console.warn("[import] could not add org carriers:", ocErr.message);
+          }
         }
       }
 
@@ -883,6 +959,11 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       notes_imported: notesImported,
       duplicates_skipped: duplicatesSkipped,
       pending_agents_imported: pendingAgentsImported,
+      // The honest half of the report.
+      rows_missing_effective_date: rowsMissingEffectiveDate,
+      unresolved_carriers: Array.from(unresolvedCarriers.entries())
+        .map(([name, v]) => ({ name, ...v }))
+        .sort((a, b) => b.count - a.count),
     };
   });
 
