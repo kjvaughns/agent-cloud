@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { SampleChip } from "@/components/sample-chip";
 import { phone as fmtPhone, money } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { listPipelineClients, createClient, updateClient, importClients } from "@/lib/pipeline.functions";
@@ -329,6 +330,9 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
             {(client.score_pct != null && client.score_pct > 0) && (
               <span className="text-[10px] text-muted-foreground">{client.score_pct}%</span>
             )}
+            {/* On the card rather than only in the detail, because the card is
+                where somebody decides to pick up the phone. */}
+            <SampleChip when={client.is_sample} className="px-1.5 py-0 text-[10px]" />
           </div>
         </div>
       </div>

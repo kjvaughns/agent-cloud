@@ -4,6 +4,7 @@ import { Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell } from "./login";
@@ -31,6 +32,9 @@ function SoloSignupPage() {
   const [busy, setBusy] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [needsConfirm, setNeedsConfirm] = useState(false);
+  // Default on. A product with nothing in it cannot show anybody that it
+  // works, and the first minute is the one that decides whether they stay.
+  const [withSampleData, setWithSampleData] = useState(true);
 
   const initFn = useServerFn(initSoloWorkspace);
   const checkoutFn = useServerFn(createCheckoutSession);
@@ -42,7 +46,7 @@ function SoloSignupPage() {
   async function completeSetup() {
     setBusy(true);
     try {
-      await initFn();
+      await initFn({ data: { withSampleData } });
       const r: any = await checkoutFn({ data: { product: "solo_agent" } });
       if (r?.url) {
         window.location.assign(r.url);
@@ -98,6 +102,21 @@ function SoloSignupPage() {
       ) : authed ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">You're signed in — finish setting up your solo workspace and start your subscription.</p>
+          {/* The same choice on this branch, because somebody who confirmed
+              their email and came back lands here and never sees the form. */}
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-[var(--radius)] border border-border bg-background/40 p-3">
+            <Checkbox
+              checked={withSampleData}
+              onCheckedChange={(v) => setWithSampleData(v === true)}
+              className="mt-0.5"
+            />
+            <span className="text-sm">
+              Start with sample data so I can look around
+              <span className="block text-xs text-muted-foreground">
+                Clearly labelled, and removable in one click from Agency Settings.
+              </span>
+            </span>
+          </label>
           <Button className="w-full" onClick={completeSetup} disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Complete Setup — $${PRICING.soloAgent}/mo`}
           </Button>
@@ -122,6 +141,20 @@ function SoloSignupPage() {
             <Label htmlFor="pw">Password</Label>
             <Input id="pw" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-[var(--radius)] border border-border bg-background/40 p-3">
+            <Checkbox
+              checked={withSampleData}
+              onCheckedChange={(v) => setWithSampleData(v === true)}
+              className="mt-0.5"
+            />
+            <span className="text-sm">
+              Start with sample data so I can look around
+              <span className="block text-xs text-muted-foreground">
+                A sample book of clients, policies and commissions, every row
+                labelled “Sample”. Clear it in one click from Agency Settings.
+              </span>
+            </span>
+          </label>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Continue to Payment — $${PRICING.soloAgent}/mo`}
           </Button>

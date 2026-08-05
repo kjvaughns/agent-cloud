@@ -17,6 +17,13 @@ dist-ssr
 .vercel
 *.local
 
+# Bundled one-off scripts. The check scripts in scripts/ are run by bundling
+# them to the repository root, because esbuild's output has to sit where
+# node_modules resolves from.
+.seed.mjs
+.provision.mjs
+.migsafe.mjs
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars

@@ -17,6 +17,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as DemoLoginRouteImport } from './routes/demo-login'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -169,6 +170,7 @@ import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
+import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
@@ -211,6 +213,11 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoLoginRoute = DemoLoginRouteImport.update({
+  id: '/demo-login',
+  path: '/demo-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoRoute = DemoRouteImport.update({
@@ -1054,6 +1061,11 @@ const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   path: '/api/public/hooks/fetch-news',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDemoResetRoute = ApiPublicHooksDemoResetRouteImport.update({
+  id: '/api/public/hooks/demo-reset',
+  path: '/api/public/hooks/demo-reset',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedContractingOpsRequestsRequestIdRoute =
   AuthenticatedContractingOpsRequestsRequestIdRouteImport.update({
     id: '/$requestId',
@@ -1078,6 +1090,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/cookies': typeof CookiesRoute
   '/demo': typeof DemoRoute
+  '/demo-login': typeof DemoLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -1228,6 +1241,7 @@ export interface FileRoutesByFullPath {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1241,6 +1255,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cookies': typeof CookiesRoute
   '/demo': typeof DemoRoute
+  '/demo-login': typeof DemoLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -1387,6 +1402,7 @@ export interface FileRoutesByTo {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1403,6 +1419,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/cookies': typeof CookiesRoute
   '/demo': typeof DemoRoute
+  '/demo-login': typeof DemoLoginRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
@@ -1553,6 +1570,7 @@ export interface FileRoutesById {
   '/_authenticated/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1569,6 +1587,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/cookies'
     | '/demo'
+    | '/demo-login'
     | '/forgot-password'
     | '/login'
     | '/privacy'
@@ -1719,6 +1738,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1732,6 +1752,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cookies'
     | '/demo'
+    | '/demo-login'
     | '/forgot-password'
     | '/login'
     | '/privacy'
@@ -1878,6 +1899,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1893,6 +1915,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/cookies'
     | '/demo'
+    | '/demo-login'
     | '/forgot-password'
     | '/login'
     | '/privacy'
@@ -2043,6 +2066,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agency/agents/$agentId'
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
+    | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -2059,6 +2083,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   CookiesRoute: typeof CookiesRoute
   DemoRoute: typeof DemoRoute
+  DemoLoginRoute: typeof DemoLoginRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -2087,6 +2112,7 @@ export interface RootRouteChildren {
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -2152,6 +2178,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo-login': {
+      id: '/demo-login'
+      path: '/demo-login'
+      fullPath: '/demo-login'
+      preLoaderRoute: typeof DemoLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo': {
@@ -3218,6 +3251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/demo-reset': {
+      id: '/api/public/hooks/demo-reset'
+      path: '/api/public/hooks/demo-reset'
+      fullPath: '/api/public/hooks/demo-reset'
+      preLoaderRoute: typeof ApiPublicHooksDemoResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/contracting-ops/requests/$requestId': {
       id: '/_authenticated/contracting-ops/requests/$requestId'
       path: '/$requestId'
@@ -3639,6 +3679,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   CookiesRoute: CookiesRoute,
   DemoRoute: DemoRoute,
+  DemoLoginRoute: DemoLoginRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
@@ -3667,6 +3708,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,

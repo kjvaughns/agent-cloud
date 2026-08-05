@@ -17,6 +17,8 @@ export type OrgSettings = {
   notify_new_agent: boolean;
   notify_new_ticket: boolean;
   notify_contract_request: boolean;
+  /** Does this agency submit contracting paperwork itself? Off by default. */
+  collect_contracting_pii: boolean;
 };
 
 const DEFAULTS = {
@@ -28,6 +30,12 @@ const DEFAULTS = {
   notify_new_agent: false,
   notify_new_ticket: false,
   notify_contract_request: false,
+  // Off by default, and the default is the point. Agent Cloud does not submit
+  // contracting paperwork, so it has no use for an SSN, a driver's licence or
+  // a bank account — and a product that asks for them anyway teaches agents
+  // that handing them over is routine. An agency that genuinely does its own
+  // contracting turns this on and the fields come back, scored.
+  collect_contracting_pii: false,
 };
 
 export const getOrgSettings = createServerFn({ method: "GET" })
@@ -56,6 +64,7 @@ const UpdateSchema = z.object({
   notify_new_agent: z.boolean().optional(),
   notify_new_ticket: z.boolean().optional(),
   notify_contract_request: z.boolean().optional(),
+  collect_contracting_pii: z.boolean().optional(),
 });
 
 export const updateOrgSettings = createServerFn({ method: "POST" })
@@ -72,9 +81,24 @@ export const updateOrgSettings = createServerFn({ method: "POST" })
       if (v !== undefined) patch[k] = v === "" ? null : v;
     }
 
-    const { error } = await supabaseAdmin
+    // `collect_contracting_pii` arrives with 20260805120000, and code reaches
+    // production before migrations apply. PostgREST rejects the WHOLE upsert
+    // with 42703 when it names a column that does not exist yet — so without
+    // this, saving any agency setting would fail outright in that window, not
+    // just the new one. Drop the key and retry; the toggle starts working when
+    // the column does.
+    let { error } = await supabaseAdmin
       .from("organization_settings")
       .upsert(patch, { onConflict: "organization_id" });
+
+    const missingColumn = error &&
+      (error.code === "42703" || /column .* does not exist/i.test(error.message ?? ""));
+    if (missingColumn && "collect_contracting_pii" in patch) {
+      const { collect_contracting_pii: _dropped, ...rest } = patch;
+      ({ error } = await supabaseAdmin
+        .from("organization_settings")
+        .upsert(rest, { onConflict: "organization_id" }));
+    }
     if (error) throw new Error(error.message);
 
     await supabaseAdmin.from("audit_log").insert({

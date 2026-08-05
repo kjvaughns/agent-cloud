@@ -111,7 +111,7 @@ function InvitePage() {
       <div className="max-w-4xl mx-auto space-y-[var(--gap)]">
       <HeroBand
         title="Invite Links"
-        subtitle="Create a shareable link that places new agents directly in your downline with pre-assigned carriers and commission levels."
+        subtitle="Create a shareable link that places new agents directly in your downline. Carriers you pick become contracting requests for them to be worked — they are not active until submitted and approved."
       />
 
       <Panel><div className="space-y-5">
@@ -202,13 +202,15 @@ function InvitePage() {
             <span className="min-w-0">
               <span className="block text-sm font-medium">Carriers &amp; Commission Levels</span>
               <span className="block text-xs text-muted-foreground">
-                Optional — you can assign carriers later from Downline Contracts.
+                Optional. Each one becomes a contracting request in your staff queue when
+                the agent joins — the level you set here is what will be requested, not
+                what they hold.
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
               {assignments.length > 0 && (
                 <span className="rounded-full bg-gold-glow px-2 py-0.5 text-[11px] font-semibold text-gold-bright tnum">
-                  {assignments.length} assigned
+                  {assignments.length} requested
                 </span>
               )}
               <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", carriersOpen && "rotate-180")} />

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { productsForCarrier } from "@/lib/products";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,7 +29,6 @@ export const Route = createFileRoute("/_authenticated/post-deal")({
   component: PostDealPage,
 });
 
-const PRODUCTS = ["Final Expense", "Mortgage Protection", "Term Life", "Whole Life", "IUL", "GTL", "Annuity"];
 const RELATIONSHIPS = ["Spouse", "Child", "Parent", "Sibling", "Other"];
 
 type FormData = {
@@ -123,7 +123,19 @@ function PostDealPage() {
   const annual = monthly * 12;
   const selectedCarrierId = watch("carrier_id");
   const carrierMissing = selectedCarrierId && activeCarrierIds && !activeCarrierIds.includes(selectedCarrierId);
-  const selectedCarrierName = carriers?.find((c) => c.id === selectedCarrierId)?.name;
+  const selectedCarrier = carriers?.find((c) => c.id === selectedCarrierId);
+  const selectedCarrierName = selectedCarrier?.name;
+
+  // Two groups, not two lists: the ones this agent holds a contract with, then
+  // the rest of the agency's carriers below a divider. The second group stays
+  // visible because an agent may legitimately be writing under a just-in-time
+  // appointment — it is marked, not hidden.
+  const mine = (carriers ?? []).filter((c) => activeCarrierIds?.includes(c.id));
+  const others = (carriers ?? []).filter((c) => !activeCarrierIds?.includes(c.id));
+
+  // What this carrier actually writes, falling back to the general list when
+  // the agency has not told us. An empty dropdown is worse than a broad one.
+  const products = productsForCarrier(selectedCarrier?.product_types);
   const notes = watch("notes") ?? "";
   const benPctSum = (watch("beneficiaries") ?? []).reduce((a, b) => a + Number(b.percentage || 0), 0);
   const benValid = fields.length === 0 || Math.abs(benPctSum - 100) < 0.01;
@@ -250,7 +262,24 @@ function PostDealPage() {
               <Label>Carrier *</Label>
               <Select value={selectedCarrierId} onValueChange={(v) => setValue("carrier_id", v)}>
                 <SelectTrigger><SelectValue placeholder="Select carrier..." /></SelectTrigger>
-                <SelectContent>{carriers?.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {mine.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {others.length > 0 && (
+                    <>
+                      {mine.length > 0 && (
+                        <div className="mt-1 border-t border-border px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                          No contract on file
+                        </div>
+                      )}
+                      {others.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </>
+                  )}
+                  {(carriers?.length ?? 0) === 0 && (
+                    <div className="px-2 py-3 text-xs text-muted-foreground">
+                      No carriers set up yet. An agency admin adds them in Contracting Ops → Carriers.
+                    </div>
+                  )}
+                </SelectContent>
               </Select>
               {carrierMissing && (
                 <div className="mt-2 flex items-start gap-2 text-amber-700 dark:text-amber-400 text-sm">
@@ -263,7 +292,7 @@ function PostDealPage() {
               <Label>Product Sold *</Label>
               <Select value={watch("product")} onValueChange={(v) => setValue("product", v)}>
                 <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
-                <SelectContent>{PRODUCTS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                <SelectContent>{products.map((p: string) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div><Label>Policy Number *</Label><Input {...register("policy_number")} placeholder="e.g., POL-123456" /></div>

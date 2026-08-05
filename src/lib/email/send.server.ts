@@ -122,6 +122,20 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
       return { sent: false, reason: blocked };
     }
 
+    // --- the sample agency does not send real email ---
+    //
+    // Before idempotency, so a refused demo send does not burn the key that a
+    // real send of the same event would need. Checked two ways because the
+    // caller may know the org, the recipient, or only one of them: a
+    // notification about a demo policy carries orgId, an account email carries
+    // profileId. Exempt categories are gated too — the exemption exists so a
+    // password reset survives an org that has not opted in, not so the demo can
+    // mail somebody.
+    const { refusedForDemo, isDemoUser } = await import("@/lib/demo.server");
+    if ((await refusedForDemo(args.orgId, "send email")) || (await isDemoUser(args.profileId))) {
+      return { sent: false, reason: "demo_org" };
+    }
+
     const template = TEMPLATES[templateName];
     if (!template) {
       console.error("[email] template not registered", { templateName });

@@ -65,21 +65,8 @@ function ImportRequestsPage() {
   });
 
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [uploadTarget, setUploadTarget] = useState<{ id: string; name: string; requestId: string } | null>(null);
   const requests = data?.requests ?? [];
-
-  const toggleReveal = (id: string) =>
-    setRevealed((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-
-  const decodePassword = (encoded: string | null | undefined): string => {
-    if (!encoded) return "—";
-    try { return atob(encoded); } catch { return encoded; }
-  };
 
   return (
     <PageShell>
@@ -90,7 +77,8 @@ function ImportRequestsPage() {
             <Download className="h-6 w-6" /> Import Requests
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Agents who requested a full credential import. Review and complete each request manually.
+            Historical full-import requests. Agent Cloud no longer asks for credentials to other
+            platforms — point new migrations at the Cowork flow on the Import page instead.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -142,23 +130,10 @@ function ImportRequestsPage() {
                     {req.source_username ?? req.agentlink_username}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono text-muted-foreground">
-                        {revealed.has(req.id)
-                          ? decodePassword(req.source_password_encrypted ?? req.agentlink_password_encrypted)
-                          : "••••••••"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleReveal(req.id)}
-                        className="text-muted-foreground hover:text-foreground"
-                        title={revealed.has(req.id) ? "Hide password" : "Reveal password"}
-                      >
-                        {revealed.has(req.id)
-                          ? <EyeOff className="h-3.5 w-3.5" />
-                          : <Eye className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
+                    {/* Credentials are no longer collected, and the rows that
+                        held them were cleared by 20260805100000. Historical
+                        requests stay listed so the queue keeps its history. */}
+                    <span className="text-xs text-muted-foreground">Not collected</span>
                   </TableCell>
                   <TableCell>
                     <Textarea

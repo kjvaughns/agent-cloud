@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/contracting/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
 import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
+import { PRODUCT_TYPES } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
 const TABS = ["carriers", "levels", "grids"] as const;
@@ -240,6 +241,10 @@ function CarrierDialog({
   const [carrierId, setCarrierId] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [form, setForm] = useState<Record<string, string>>({});
+  // Array rather than a form field: this is a set, and the save schema has
+  // always accepted it — the dialog simply never offered a way to change it,
+  // so every carrier kept whatever product_types it was created with (none).
+  const [productTypes, setProductTypes] = useState<string[]>([]);
 
   // Reset when the dialog opens on a different carrier.
   const key = carrier?.id ?? (open ? "new" : "closed");
@@ -256,9 +261,15 @@ function CarrierDialog({
       turnaround_days: carrier?.turnaround_days ? String(carrier.turnaround_days) : "",
       internal_instructions: carrier?.internal_instructions ?? "",
     });
+    setProductTypes(carrier?.product_types ?? []);
   }
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  // The shared list, plus anything already on this carrier that is not in it.
+  // A product type set by an import or by hand must not vanish because the
+  // canonical list does not happen to name it.
+  const productOptions = Array.from(new Set([...PRODUCT_TYPES, ...productTypes]));
 
   const submit = () => {
     // Empty strings must become null, not "", or the url/email validators
@@ -275,7 +286,7 @@ function CarrierDialog({
       support_email: clean(form.support_email ?? ""),
       turnaround_days: form.turnaround_days ? Number(form.turnaround_days) : null,
       internal_instructions: clean(form.internal_instructions ?? ""),
-      product_types: carrier?.product_types ?? [],
+      product_types: productTypes,
       writing_number_scope: carrier?.writing_number_scope ?? "national",
       just_in_time_appointments: carrier?.just_in_time_appointments ?? false,
       transfers_allowed: carrier?.transfers_allowed ?? true,
@@ -351,6 +362,34 @@ function CarrierDialog({
               />
             </div>
           ))}
+
+          <div>
+            <Label>Products this carrier writes</Label>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {productOptions.map((t) => {
+                const on = productTypes.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setProductTypes((cur) =>
+                      cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t])}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      on ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                    )}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[11px] text-text-dim">
+              {productTypes.length === 0
+                ? "Nothing selected, so Post a Deal offers the full product list for this carrier."
+                : `Post a Deal will offer only these ${productTypes.length} for ${carrier?.name ?? "this carrier"}.`}
+            </p>
+          </div>
 
           <div>
             <Label htmlFor="internal_instructions">Instructions for your staff</Label>

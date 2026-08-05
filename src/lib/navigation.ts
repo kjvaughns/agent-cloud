@@ -222,7 +222,25 @@ export const PAGES: Page[] = [
   // away the first thing they open.
   { id: "queue", label: "Today's Work", path: "/contracting-ops/queue", icon: ListTodo, area: "Back office", audience: ["staff"] },
   { id: "requests", label: "Contract Requests", path: "/contracting-ops/requests", icon: FileSignature, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "documents", label: "Documents", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  // Filed with Import rather than under Run Contracting.
+  //
+  // It is not a place you upload documents — it is the queue where somebody
+  // *reviews* an agent's E&O or AML certificate against carrier requirements,
+  // with Approve and Reject actions and sensitive-filename withholding. Sat
+  // between "Contract Requests" and "Carriers & Comp" it read as a third
+  // contracting step, which is why people opened it looking for a file locker.
+  // Next to Import it reads as what it is: records arriving from outside that
+  // a human has to accept. Two flows deep-link straight into it
+  // (work.functions.ts, agent-onboarding.functions.ts), so this is a move
+  // rather than a removal — the page and its URL are unchanged.
+  //
+  // Still listed in the contracting-ops hub below: for back-office staff it is
+  // daily work, not an occasional import chore.
+  // Two entries for one page, so it lands in the right place for each kind of
+  // person without appearing twice for either. Same split, and the same
+  // reason, as run-contracting / contracting-ops above.
+  { id: "documents", label: "Document review", path: "/contracting-ops/documents", icon: UploadCloud, area: "Back office", parent: "contracting-ops", audience: ["staff"], staffPermission: "staff_view_contracts" },
+  { id: "documents-tools", label: "Document review", path: "/contracting-ops/documents", icon: UploadCloud, area: "Tools", parent: "tools", audience: ["core"], unlock: "agency-admin", permission: "staff_is_admin" },
   // Staff see the carrier directory on the same permission as the requests they
   // prepare from it — they cannot submit to a carrier they cannot look up. What
   // they may *change* there is a separate question the page answers itself,
@@ -458,14 +476,14 @@ const HUBS: Record<string, HubGroup[]> = {
     {
       label: "Run contracting",
       ids: [
-        "run-contracting", "requests", "documents",
+        "run-contracting", "requests",
         "carriers-setup",
       ],
     },
   ],
 
   tools: [
-    { label: "", ids: ["import", "resources", "quoter", "marketing"] },
+    { label: "", ids: ["import", "documents-tools", "resources", "quoter", "marketing"] },
   ],
 
   // Was nine rows, nearly all of them a page that belonged inside something

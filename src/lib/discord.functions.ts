@@ -159,6 +159,11 @@ export async function announceDeal(policyId: string): Promise<void> {
       .maybeSingle();
     if (!policy?.organization_id) return;
 
+    // The far end of a webhook is a real Discord channel with real people in
+    // it. Silent rather than thrown, matching this function's contract.
+    const { refusedForDemo } = await import("@/lib/demo.server");
+    if (await refusedForDemo(policy.organization_id, "send a webhook")) return;
+
     const { data: cfg } = await supabaseAdmin
       .from("discord_integrations")
       .select("*")
@@ -261,6 +266,9 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
     await assertOrgOwner(userId, orgId);
+
+    const { assertNotDemo } = await import("@/lib/demo.server");
+    await assertNotDemo(orgId, "send a webhook");
 
     const { data: cfg } = await supabaseAdmin
       .from("discord_integrations").select("webhook_url").eq("organization_id", orgId).maybeSingle();

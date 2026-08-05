@@ -18,10 +18,9 @@ import {
   removeBookImportKey,
   testImportConnection,
   basicImportFromBookImport,
-  submitFullImportRequest,
 } from "@/lib/book-import.functions";
 
-type Phase = "loading" | "no_key" | "has_key" | "basic_running" | "basic_done" | "full_form" | "full_sent" | "error";
+type Phase = "loading" | "no_key" | "has_key" | "basic_running" | "basic_done" | "error";
 
 export function BookImportDialog({
   open,
@@ -39,10 +38,6 @@ export function BookImportDialog({
   const [importError, setImportError] = useState("");
 
   // Full import form fields
-  const [fullUser, setFullUser] = useState("");
-  const [fullPass, setFullPass] = useState("");
-  const [fullNotes, setFullNotes] = useState("");
-  const [showFullPass, setShowFullPass] = useState(false);
 
   // Status query — fires when dialog opens
   const statusFn = useServerFn(getBookImportKeyStatus);
@@ -76,9 +71,6 @@ export function BookImportDialog({
       setApiKeyInput("");
       setImportResult(null);
       setImportError("");
-      setFullUser("");
-      setFullPass("");
-      setFullNotes("");
     }, 200);
     return () => clearTimeout(t);
   }, [open]);
@@ -87,7 +79,6 @@ export function BookImportDialog({
   const removeFn = useServerFn(removeBookImportKey);
   const testFn = useServerFn(testImportConnection);
   const importFn = useServerFn(basicImportFromBookImport);
-  const fullImportFn = useServerFn(submitFullImportRequest);
 
   const saveMut = useMutation({
     mutationFn: () => saveFn({ data: { api_key: apiKeyInput.trim() } }),
@@ -125,16 +116,6 @@ export function BookImportDialog({
       setImportError(e?.message ?? "Import failed");
       setPhase("error");
     },
-  });
-
-  const fullImportMut = useMutation({
-    mutationFn: () => fullImportFn({ data: {
-      source_username: fullUser.trim(),
-      source_password: fullPass,
-      notes: fullNotes.trim() || undefined,
-    }}),
-    onSuccess: () => setPhase("full_sent"),
-    onError: (e: any) => toast.error(e?.message ?? "Failed to submit request"),
   });
 
   const closeable = phase !== "basic_running";
@@ -187,13 +168,6 @@ export function BookImportDialog({
                   </button>
                 </div>
               </div>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
-                onClick={() => setPhase("full_form")}
-              >
-                Don't have an API key? Request a full import instead →
-              </button>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -256,9 +230,6 @@ export function BookImportDialog({
               </div>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" className="text-xs" onClick={() => setPhase("full_form")}>
-                Request Full Import
-              </Button>
               <Button onClick={() => importMut.mutate()} disabled={importMut.isPending}>
                 <Users2 className="h-4 w-4 mr-2" />
                 Quick Import
@@ -316,99 +287,6 @@ export function BookImportDialog({
           </>
         )}
 
-        {/* ── FULL FORM ────────────────────────────────────────────── */}
-        {phase === "full_form" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Request Full Import</DialogTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Our team will securely log into your previous platform and import your full book of business, including complete policy history.
-              </p>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1">
-                <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={fullUser}
-                  onChange={(e) => setFullUser(e.target.value)}
-                  placeholder="you@example.com"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Password</Label>
-                <div className="relative">
-                  <Input
-                    type={showFullPass ? "text" : "password"}
-                    value={fullPass}
-                    onChange={(e) => setFullPass(e.target.value)}
-                    placeholder="Your password on that platform"
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowFullPass((v) => !v)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    tabIndex={-1}
-                  >
-                    {showFullPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label>Notes (optional)</Label>
-                <Textarea
-                  value={fullNotes}
-                  onChange={(e) => setFullNotes(e.target.value)}
-                  placeholder="Any special instructions for the import…"
-                  rows={2}
-                  className="text-sm"
-                />
-              </div>
-              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-                Your credentials are stored encrypted and used only for this one-time import. They are deleted after completion.
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setPhase(status && (status as any).connected ? "has_key" : "no_key")}
-              >
-                Back
-              </Button>
-              <Button
-                onClick={() => fullImportMut.mutate()}
-                disabled={!fullUser.trim() || !fullPass || fullImportMut.isPending}
-              >
-                {fullImportMut.isPending
-                  ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  : <Send className="h-4 w-4 mr-2" />}
-                Submit Request
-              </Button>
-            </DialogFooter>
-          </>
-        )}
-
-        {/* ── FULL SENT ────────────────────────────────────────────── */}
-        {phase === "full_sent" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Request Submitted</DialogTitle>
-            </DialogHeader>
-            <div className="py-6 flex flex-col items-center gap-4 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-              <div>
-                <p className="font-semibold text-lg">We're on it!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your full import request has been submitted. Our team will complete the import and notify you when it's done, usually within 24 hours.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Close</Button>
-            </DialogFooter>
-          </>
-        )}
 
         {/* ── ERROR ────────────────────────────────────────────────── */}
         {phase === "error" && (

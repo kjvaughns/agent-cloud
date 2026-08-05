@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useLocation, useNavigate, useSearch } from "@tanstack/react-router";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { getScopeCapabilities } from "@/lib/scope.functions";
 import {
@@ -22,21 +22,56 @@ export function useScopeCapabilities(): { caps: ScopeCapabilities; ready: boolea
   return { caps: data ?? NO_SCOPE_CAPABILITIES, ready: !isPending };
 }
 
+
+/**
+ * The last scope chosen on this page, if it is still one they may open.
+ *
+ * Keyed by pathname, so choosing Agency on Tasks says nothing about Finances.
+ * Guarded for SSR and for browsers with storage disabled — a preference that
+ * cannot be read is simply a page with no preference yet, never an error.
+ */
+const SCOPE_MEMORY_KEY = "scope-by-page";
+
+function readRemembered(path: string, caps: ScopeCapabilities): Scope | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const all = JSON.parse(localStorage.getItem(SCOPE_MEMORY_KEY) ?? "{}") as Record<string, string>;
+    const raw = all[path];
+    if (!raw) return null;
+    // Re-checked against capabilities every time: somebody whose downline was
+    // reassigned must not keep landing on a Team view they can no longer open.
+    return availableScopes(caps).includes(raw as Scope) ? (raw as Scope) : null;
+  } catch {
+    return null;
+  }
+}
+
+function remember(path: string, next: Scope) {
+  if (typeof window === "undefined") return;
+  try {
+    const all = JSON.parse(localStorage.getItem(SCOPE_MEMORY_KEY) ?? "{}") as Record<string, string>;
+    all[path] = next;
+    localStorage.setItem(SCOPE_MEMORY_KEY, JSON.stringify(all));
+  } catch {
+    // Storage disabled or full. The toggle still works for this visit.
+  }
+}
 /**
  * Bind the current scope to the URL.
  *
- * Absent means default, and the default is never written on arrival. Writing
- * it eagerly costs a visible flash — the page renders at `mine`, capabilities
- * arrive, it rewrites to `agency` — plus one wasted fetch of the wrong rows.
- * So the parameter only appears once somebody has actually chosen something.
+ * Absent means default, and the default is never written on arrival — the
+ * parameter appears only once somebody has actually chosen something, so a
+ * clean URL stays clean.
  *
  * `replace: true` because a scope toggle is a change of view, not a
  * destination; without it the back button walks through every switch instead
  * of leaving the page.
  *
- * Scope is deliberately per-page and never persisted. Sticky scope across
- * pages means somebody opens Money expecting their own paycheque and is shown
- * their team's.
+ * Scope is deliberately per-page. Sticky scope ACROSS pages means somebody
+ * opens Money expecting their own paycheque and is shown their team's — that
+ * reasoning stands and is why the remembered value below is keyed by path.
+ * Within one page it is the opposite: a manager who works out of the Team view
+ * every morning should not have to re-choose it every morning.
  */
 export function useScope(): {
   scope: Scope;
@@ -51,13 +86,19 @@ export function useScope(): {
   // strict: false — this reads whichever route is mounted, so one hook serves
   // every scoped page without each one threading its own Route through.
   const search = useSearch({ strict: false }) as Record<string, unknown>;
+  const path = useLocation({ select: (l) => l.pathname });
 
-  const scope = normalizeScope(search.scope, caps);
+  // The URL wins when it says something — a shared link means what it says.
+  // Otherwise this page's remembered choice, and only then the default.
+  const scope = search.scope != null
+    ? normalizeScope(search.scope, caps)
+    : (ready ? readRemembered(path, caps) ?? defaultScope(caps) : defaultScope(caps));
 
   const setScope = (next: Scope) => {
-    // Absent means default, so the parameter is dropped only when the choice
-    // *is* the default. Dropping it for "mine" would read back as the widest
-    // scope on the next render and bounce the toggle straight back.
+    remember(path, next);
+    // Absent means default. With the remembered value read above, dropping the
+    // parameter for the default is still right: the next render finds no
+    // `?scope`, reads the memory, and lands on the same place.
     const omit = next === defaultScope(caps);
     navigate({
       to: ".",

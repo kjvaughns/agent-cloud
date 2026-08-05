@@ -70,6 +70,14 @@ function LoginPage() {
     <p className="mt-6 text-center text-sm text-muted-foreground">
       Need an account? Ask your upline for an invite link.
     </p>
+    {/* A demo nothing links to is a demo nobody sees. This is the one place
+        somebody who cannot sign in reliably ends up. */}
+    <p className="mt-2 text-center text-sm text-muted-foreground">
+      Just looking?{" "}
+      <Link to="/demo-login" className="text-primary hover:underline">
+        Explore a sample agency
+      </Link>
+    </p>
   </AuthShell>;
 }
 

@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
+import { DemoBanner } from "@/components/demo-banner";
 import { requireSession } from "@/lib/require-session";
 
 function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
@@ -81,6 +82,10 @@ function AuthenticatedLayout() {
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Above the top bar, so it is the first thing on the page rather
+              than something to scroll past. Renders nothing at all outside
+              the demo org. */}
+          <DemoBanner />
           <TopBar />
           <main className="flex-1 min-w-1 content-container">
             <Outlet />

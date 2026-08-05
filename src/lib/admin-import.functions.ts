@@ -280,6 +280,21 @@ async function parseBookExport(file_base64: string): Promise<BookExport | null> 
 
 // ─── AI fallback (single-sheet / unknown formats) ────────────────────────────
 
+/**
+ * What the model is allowed to look for.
+ *
+ * This schema used to include `ssn_last4`, `bank_name`, `routing_number` and
+ * `account_number`, and a rule instructing the model to "parse SSN last-4 from
+ * notes when visible" — so every import of a spreadsheet that happened to
+ * contain them shipped an agency's clients' social security digits and bank
+ * account numbers to a third-party AI gateway, whether or not anyone wanted
+ * that.
+ *
+ * Agent Cloud does not submit contracting paperwork and has no use for either.
+ * They are absent from the schema, and the read-back drops them rather than
+ * null-coalescing: a model that volunteers a field nobody asked for should not
+ * find it written to the database.
+ */
 const EXTRACTION_SYSTEM_PROMPT = `You are a data extraction assistant for a life-insurance CRM migration tool.
 You will be given an export from an agency management platform — could be a spreadsheet text dump, CSV, PDF, or screenshot.
 
@@ -297,20 +312,18 @@ Output schema:
       "born_country_state": "string|null",
       "stage": "new|callback|almost_there|sold",
       "temperature": "hot|warm|cold",
-      "ssn_last4": "string|null",
       "tobacco_use": true/false/null,
       "height_ft": 0, "height_in": 0, "weight_lbs": 0,
       "primary_physician": "string|null", "primary_physician_phone": "string|null",
       "conditions": "string|null", "medications": "string|null", "medical_notes": "string|null",
-      "bank_name": "string|null", "routing_number": "string|null", "account_number": "string|null",
-      "account_type": "checking|savings|null", "draft_date": 0, "payment_method": "string|null",
+      "draft_date": 0, "payment_method": "string|null",
       "policies": [{"carrier_name":"","product":"","policy_number":"","monthly_premium":0,"annual_premium":0,"face_amount":0,"effective_date":null,"status":"active"}],
       "beneficiaries": [{"first_name":"","last_name":"","relationship":"","dob":null,"phone":null,"percentage":0}],
       "notes": [{"content":"","created_at":null,"note_type":null}]
     }
   ]
 }
-Rules: always return a top-level "clients" array; nulls (not empty strings) for missing; numeric fields default to 0; default stage=new, temperature=cold; parse SSN last-4 from notes when visible; parse heights like 5'10" into ft/in; JSON only.`;
+Rules: always return a top-level "clients" array; nulls (not empty strings) for missing; numeric fields default to 0; default stage=new, temperature=cold; parse heights like 5'10" into ft/in; JSON only.`;
 
 async function extractWithAI(userContent: any[]): Promise<any> {
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -792,7 +805,6 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             born_country_state: c.born_country_state ?? null,
             stage: mapStage(c.stage),
             temperature: mapTemperature(c.temperature),
-            ssn_last4: c.ssn_last4 ?? null,
             tobacco_use: c.tobacco_use ?? null,
             height_ft: c.height_ft ?? null,
             height_in: c.height_in ?? null,
@@ -802,10 +814,6 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             conditions: c.conditions ?? null,
             medications: c.medications ?? null,
             medical_notes: c.medical_notes ?? null,
-            bank_name: c.bank_name ?? null,
-            routing_number: c.routing_number ?? null,
-            account_number: c.account_number ?? null,
-            account_type: c.account_type ?? null,
             draft_date: c.draft_date ?? null,
             payment_method: c.payment_method ?? null,
             policies: normalizedPolicies,

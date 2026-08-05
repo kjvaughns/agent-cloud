@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmailsPage } from "@/components/settings/emails-panel";
 import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
+import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 
 export const Route = createFileRoute("/_authenticated/settings/agency")({
   ssr: false,
@@ -272,6 +273,12 @@ function GeneralTab() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Below the agency's own settings rather than tucked into a tab of its
+          own: this is the button somebody looks for when they have decided the
+          made-up clients have to go, and a search for it should end on the
+          first page they open. */}
+      <SampleDataPanel />
     </div>
   );
 }

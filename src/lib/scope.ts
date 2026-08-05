@@ -59,10 +59,23 @@ export function availableScopes(caps: ScopeCapabilities): Scope[] {
   return scopes;
 }
 
-/** The widest view available, which is what somebody wants on arrival. */
-export function defaultScope(caps: ScopeCapabilities): Scope {
-  const scopes = availableScopes(caps);
-  return scopes[scopes.length - 1];
+/**
+ * Your own work, always.
+ *
+ * This used to return the widest scope available, on the theory that somebody
+ * arriving wants to see everything. For an agency owner that meant every page
+ * opened on the whole agency: Finances showed the agency's money before their
+ * own, Tasks showed everybody's, and the Kanban board opened in a state where
+ * `canDrag` is false — so an owner's first sight of the pipeline was a board
+ * that would not respond to being dragged.
+ *
+ * Narrow is the safer default in both directions. Somebody who wants the wide
+ * view takes one click to get it, and the page remembers (see `useScope`).
+ * Somebody who did not want it is never shown other people's numbers under a
+ * heading that does not say whose they are.
+ */
+export function defaultScope(_caps: ScopeCapabilities): Scope {
+  return "mine";
 }
 
 /**

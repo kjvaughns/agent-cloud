@@ -26,6 +26,11 @@
  *     assertMayManage, which fails closed, but the script is not what
  *     established that.
  *   - A select built by string concatenation rather than written inline.
+ *   - A migration that builds its DDL dynamically. `20260805130000` adds
+ *     `is_sample` to eleven tables inside `execute format(...)`, and the parser
+ *     below reads literal `alter table` statements only, so it sees none of
+ *     them. Code that reads `is_sample` before that migration lands will not be
+ *     flagged here.
  *   - Anything reached through a database function rather than from here.
  *   - Only tables, columns and functions are tracked. A pending migration that
  *     widens a CHECK constraint or adds an RLS policy is invisible here, and
@@ -219,6 +224,24 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/components/demo-banner.tsx:organizations.is_demo":
+    "its own narrow query, deliberately not a field on useOrganization: on 42703 the banner renders nothing, which is correct for every deployment that has no demo org",
+  "src/routes/api/public/hooks/demo-reset.ts:demo_reset_log":
+    "the endpoint reads the demo org first and returns 200 skipped when there is none, which is the state of any database that lacks this table; nothing else calls it",
+  // The three below reference `policies.is_sample` / `clients.is_sample`
+  // through a variable or an `.eq()`, so this script cannot see any of them —
+  // recorded here anyway, because the next person to add one should find
+  // company rather than a blank space.
+  "src/lib/pipeline.functions.ts:clients.is_sample":
+    "listPipeline asks for the column and re-runs the select without it on any error; the Sample chip simply does not render until the migration lands",
+  "src/lib/setup-checklist.functions.ts:policies.is_sample":
+    "countRealPolicies filters on it and falls back to the unfiltered count on error, which is the right answer for a database that has no sample rows either",
+  "src/lib/sample-data.functions.ts:policies.is_sample":
+    "every count is attempted per table and the summary reports available:false when all of them fail, so the settings card says the workspace is still updating instead of offering a button that would do nothing",
+  "src/lib/demo.server.ts:organizations.is_demo":
+    "`.eq(\"is_demo\", true)` is not inside a select() so this script cannot see it — noted here anyway. demoOrgId() treats any error as \"no demo org\" and caches that, so the guardrails are inert rather than broken before the migration lands, which matches a deployment that has no demo",
+  "src/lib/org-settings.functions.ts:organization_settings.collect_contracting_pii":
+    "read via select(\"*\") so a missing column is simply absent and reads as false, which is the intended default; the write catches 42703 and retries without the key so saving other settings is unaffected",
   "src/lib/contracting-notes.functions.ts:producer_notes":
     "isMissingTable() catches 42P01 on all three paths: the read returns notesAvailable:false and the panel shows the audit trail alone, the insert throws a sentence naming the reason, and the delete is a no-op",
   "src/lib/resources.functions.ts:academy_modules.is_published":

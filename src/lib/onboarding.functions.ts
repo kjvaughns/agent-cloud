@@ -17,6 +17,42 @@ const SURELC_SECTIONS = [
 ] as const;
 
 /**
+ * Nobody assigns a level above their own.
+ *
+ * The ceiling existed in two places, written out twice, and nowhere else — so
+ * every other path that sets a comp level (the invite builder, the level
+ * request, anything added later) was free to exceed it. One helper, called
+ * from each.
+ *
+ * Silent when the inviter holds no level for that carrier: an agency owner
+ * usually has no `agent_commission_levels` row of their own, and refusing them
+ * would make the ceiling stricter for the person who sets it than for anyone
+ * beneath them.
+ */
+export async function assertLevelWithinUpline(
+  client: any,
+  uplineId: string,
+  carrierId: string,
+  requestedPct: number,
+  carrierLabel?: string,
+) {
+  const { data: mine } = await client
+    .from("agent_commission_levels")
+    .select("assigned_pct")
+    .eq("agent_id", uplineId)
+    .eq("carrier_id", carrierId)
+    .maybeSingle();
+
+  if (mine && Number(mine.assigned_pct) < requestedPct) {
+    throw new Error(
+      carrierLabel
+        ? `Level for ${carrierLabel} exceeds your assigned level.`
+        : "Level exceeds your assigned level.",
+    );
+  }
+}
+
+/**
  * Wire an invite's pre-assigned carriers into both halves of contracting.
  *
  * They are not two competing systems, which is how they looked: contract_requests
@@ -30,10 +66,76 @@ const SURELC_SECTIONS = [
  * an agent joined with carriers assigned, and the readiness checklist — which
  * reads the workflow half — reported they had not started contracting at all.
  *
- * This writes both and links them. A carrier the agency has not set up yet
- * gets the record but no workflow row, because there is nothing to queue it
- * against; the record is still there for when they do.
+ * This writes both and links them. A carrier the agency has not set up yet is
+ * added to its directory rather than skipped — an owner putting a carrier on
+ * an invite is saying the agency works with it, and skipping is what left
+ * owners with carriers they could neither work nor remove.
  */
+/**
+ * Tell the people who have to do something about it.
+ *
+ * A pre-assigned carrier used to appear in the staff queue and nowhere else —
+ * correct, but silent, so it sat unassigned until somebody happened to look.
+ * The set is deliberately the same one the request would route to anyway: the
+ * agent's direct upline, the agency owner, and every staffer who may submit
+ * carrier requests.
+ *
+ * `may_notify` decides per person, so somebody who turned Contracting updates
+ * off stays off. Failure is logged and swallowed — the requests are already
+ * written, and losing them because a notification insert failed would be a
+ * worse outcome than a quiet queue.
+ */
+async function notifyContractingRequestsCreated(opts: {
+  client: any;
+  organizationId: string;
+  agentId: string;
+  uplineId: string | null;
+  count: number;
+}) {
+  const { client, organizationId, agentId, uplineId, count } = opts;
+  if (count === 0) return;
+
+  try {
+    const [{ data: org }, { data: perms }, { data: agent }] = await Promise.all([
+      client.from("organizations").select("owner_id").eq("id", organizationId).maybeSingle(),
+      client.from("role_permissions")
+        .select("profile_id, staff_submit_carrier_requests, contracting_submit, staff_is_admin")
+        .eq("organization_id", organizationId),
+      client.from("profiles").select("first_name, last_name").eq("id", agentId).maybeSingle(),
+    ]);
+
+    const submitters = (perms ?? [])
+      .filter((p: any) => p.staff_submit_carrier_requests || p.contracting_submit || p.staff_is_admin)
+      .map((p: any) => p.profile_id);
+
+    const recipients = Array.from(new Set(
+      [uplineId, org?.owner_id, ...submitters].filter(Boolean) as string[],
+    // Nobody is told about work they created for themselves.
+    )).filter((id) => id !== agentId);
+    if (recipients.length === 0) return;
+
+    const name = `${agent?.first_name ?? ""} ${agent?.last_name ?? ""}`.trim() || "A new agent";
+
+    const allowed = await Promise.all(recipients.map(async (id) => {
+      const { data: ok } = await client.rpc("may_notify", { _profile: id, _category: "contract_updates" });
+      // A missing function or a null answer must not silence the queue — the
+      // preference defaults to on, so default to sending.
+      return ok === false ? null : id;
+    }));
+
+    const rows = allowed.filter(Boolean).map((id) => ({
+      user_id: id,
+      type: "contracting",
+      title: `${count} contracting request${count === 1 ? "" : "s"} to work`,
+      description: `${name} joined with ${count} pre-assigned carrier${count === 1 ? "" : "s"}. They are unassigned in the staff queue.`,
+      read: false,
+    }));
+    if (rows.length) await client.from("notifications").insert(rows);
+  } catch (e: any) {
+    console.error("[invite] could not notify about new contracting requests:", e?.message);
+  }
+}
+
 async function assignInviteCarriers(opts: {
   client: any;
   agentId: string;
@@ -42,6 +144,7 @@ async function assignInviteCarriers(opts: {
   assignments: any[];
 }) {
   const { client, agentId, organizationId, createdBy, assignments } = opts;
+  const created: { requestId: string; carrierId: string }[] = [];
 
   for (const a of assignments) {
     if (!a.carrier_id) continue;
@@ -72,29 +175,49 @@ async function assignInviteCarriers(opts: {
       continue;
     }
 
-    if (a.level_pct != null) {
-      await client.from("agent_commission_levels").upsert({
-        agent_id: agentId,
-        carrier_id: a.carrier_id,
-        assigned_pct: a.level_pct,
-        commission_level: a.level_name ?? `${a.level_pct}%`,
-        assigned_by: createdBy,
-        assigned_at: new Date().toISOString(),
-      }, { onConflict: "agent_id,carrier_id" });
-    }
-
     if (!organizationId) continue;
 
-    // The workflow half needs the agency's own carrier row, not the global
-    // carrier. If the agency has not added this carrier to Contracting
-    // Operations there is nothing to queue against yet.
-    const { data: orgCarrier } = await client
+    // The workflow half needs the agency's own carrier row, not the global one.
+    //
+    // This used to `continue` when the agency had no `org_carriers` row, which
+    // left the two records above with nothing behind them: a carrier that
+    // exists on the agent, no work item routing it, and no way to clear it.
+    // That is the stuck carrier owners could not remove.
+    //
+    // An owner who puts a carrier on an invite is saying the agency works with
+    // that carrier, so create the row rather than skipping. If that fails, stop
+    // for this carrier and say so — a partial record is what caused the problem.
+    let orgCarrierId: string | null = null;
+    const { data: existingOrgCarrier } = await client
       .from("org_carriers")
       .select("id")
       .eq("organization_id", organizationId)
       .eq("carrier_id", a.carrier_id)
       .maybeSingle();
-    if (!orgCarrier) continue;
+
+    if (existingOrgCarrier) {
+      orgCarrierId = existingOrgCarrier.id;
+    } else {
+      const { data: madeOrgCarrier, error: createError } = await client
+        .from("org_carriers")
+        .insert({
+          organization_id: organizationId,
+          carrier_id: a.carrier_id,
+          status: "active",
+          created_by: createdBy,
+          updated_by: createdBy,
+        })
+        .select("id")
+        .maybeSingle();
+      if (createError || !madeOrgCarrier) {
+        console.error(
+          `[invite] could not add carrier ${a.carrier_id} to the agency's directory:`,
+          createError?.message,
+        );
+        continue;
+      }
+      orgCarrierId = madeOrgCarrier.id;
+    }
 
     // A partial unique index already forbids two open requests for the same
     // agent and carrier, so check rather than let the insert fail.
@@ -102,24 +225,56 @@ async function assignInviteCarriers(opts: {
       .from("contracting_requests")
       .select("id")
       .eq("agent_id", agentId)
-      .eq("org_carrier_id", orgCarrier.id)
+      .eq("org_carrier_id", orgCarrierId)
       .not("status", "in", "(approved,writing_number_issued,declined,cancelled,closed)")
       .maybeSingle();
     if (existing) continue;
 
-    await client.from("contracting_requests").insert({
+    // The requested level rides on the REQUEST, not on the agent.
+    //
+    // `agent_commission_levels` used to be written here, at invite time, before
+    // anything had been submitted to anybody — so an agent's contract page
+    // showed a level the carrier had never agreed to, and the string it stored
+    // ("80%") was not the same kind of thing as the UUID the newer tables use.
+    // `requested_comp_level_id` is a real FK to `carrier_comp_levels` and is
+    // what the packet reads. The assignment becomes real when the request does.
+    let requestedCompLevelId: string | null = null;
+    if (a.level_name || a.level_pct != null) {
+      const { data: level } = await client
+        .from("carrier_comp_levels")
+        .select("id")
+        .eq("org_carrier_id", orgCarrierId)
+        .eq(a.level_name ? "level_name" : "commission_pct", a.level_name ?? a.level_pct)
+        .maybeSingle();
+      requestedCompLevelId = level?.id ?? null;
+    }
+
+    const { data: requestRow } = await client.from("contracting_requests").insert({
       organization_id: organizationId,
       agent_id: agentId,
-      org_carrier_id: orgCarrier.id,
+      org_carrier_id: orgCarrierId,
       created_by: createdBy,
       direct_upline_id: createdBy,
+      // `draft` is the honest starting point and it is not invisible: its
+      // REQUEST_STATUS_META entry is `open: true`, which is exactly what
+      // `getStaffQueue` filters on, so this lands in the staff queue's
+      // Unassigned tab immediately. (There is no `open` status — the CHECK
+      // constraint lists seventeen values and that is not one of them.)
       status: "draft",
       is_transfer: Boolean(a.release_needed),
       contract_type: a.release_needed ? "transfer" : "new_contract",
       contract_record_id: record?.id ?? null,
+      requested_comp_level_id: requestedCompLevelId,
+      requested_advance_level: a.level_name ?? (a.level_pct != null ? `${a.level_pct}%` : null),
       notes: "Pre-assigned on the invite link",
-    });
+    }).select("id").maybeSingle();
+
+    if (requestRow?.id) {
+      created.push({ requestId: requestRow.id, carrierId: a.carrier_id });
+    }
   }
+
+  return created;
 }
 
 // ============ PUBLIC (token-based) ============
@@ -166,6 +321,14 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     if (!inv) throw new Error("Invite not found");
     if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
       throw new Error("Invite expired or not found");
+    }
+    // A real account inside the sample agency would be wiped by the nightly
+    // reset, and the person who created it would have no way to know why their
+    // agency vanished. This is the more important half of the invite guard —
+    // creating the link is reversible, following it is not.
+    {
+      const { assertNotDemo } = await import("@/lib/demo.server");
+      await assertNotDemo(inv.organization_id, "invite someone");
     }
     if (inv.linked_agent_id && !inv.is_reusable) throw new Error("This invite has already been used");
 
@@ -272,13 +435,22 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
 
     // Contract records and the contracting work to obtain them, linked.
     const assignments: any[] = (inv.carrier_assignments as any[]) ?? [];
-    await assignInviteCarriers({
+    const createdRequests = await assignInviteCarriers({
       client: supabaseAdmin,
       agentId: newUserId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
       assignments,
     });
+    if (inv.organization_id) {
+      await notifyContractingRequestsCreated({
+        client: supabaseAdmin,
+        organizationId: inv.organization_id,
+        agentId: newUserId,
+        uplineId: inv.created_by ?? null,
+        count: createdRequests.length,
+      });
+    }
 
     // Flag transfer workflow if any assigned carriers need release
     const releaseNeeded = assignments.filter((a: any) => a.release_needed && a.carrier_id);
@@ -357,13 +529,22 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
     // Same as a fresh signup: the contract records and the contracting work to
     // obtain them, linked to each other.
     const assignments: any[] = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments : [];
-    await assignInviteCarriers({
+    const createdRequests = await assignInviteCarriers({
       client: supabaseAdmin,
       agentId: userId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
       assignments,
     });
+    if (inv.organization_id) {
+      await notifyContractingRequestsCreated({
+        client: supabaseAdmin,
+        organizationId: inv.organization_id,
+        agentId: userId,
+        uplineId: inv.created_by ?? null,
+        count: createdRequests.length,
+      });
+    }
 
     return { ok: true, invite: inv };
   });
@@ -485,14 +666,8 @@ export const addCarriersToInvite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
-    // Validate levels ≤ upline's own
     for (const a of data.assignments) {
-      const { data: my } = await supabase
-        .from("agent_commission_levels")
-        .select("assigned_pct").eq("agent_id", userId).eq("carrier_id", a.carrier_id).maybeSingle();
-      if (my && Number(my.assigned_pct) < a.level_pct) {
-        throw new Error(`Level for ${a.carrier_name} exceeds your assigned level.`);
-      }
+      await assertLevelWithinUpline(supabase, userId, a.carrier_id, a.level_pct, a.carrier_name);
     }
 
     const { data: inv } = await supabase.from("invitation_links").select("carrier_assignments,linked_agent_id,created_by").eq("id", data.invite_id).maybeSingle();
@@ -543,11 +718,7 @@ export const updateInviteCarrierLevel = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const { data: my } = await supabase.from("agent_commission_levels")
-      .select("assigned_pct").eq("agent_id", userId).eq("carrier_id", data.carrier_id).maybeSingle();
-    if (my && Number(my.assigned_pct) < data.level_pct) {
-      throw new Error("Level exceeds your assigned level.");
-    }
+    await assertLevelWithinUpline(supabase, userId, data.carrier_id, data.level_pct);
 
     const { data: inv } = await supabase.from("invitation_links")
       .select("carrier_assignments,onboarding_step").eq("id", data.invite_id).maybeSingle();
@@ -895,6 +1066,11 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // Fetch inviter's organization
     const { data: inviterProfile } = await (supabase as any)
       .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
+    {
+      const { assertNotDemo } = await import("@/lib/demo.server");
+      await assertNotDemo(inviterProfile?.organization_id, "invite someone");
+    }
 
     const token = crypto.randomUUID();
 
