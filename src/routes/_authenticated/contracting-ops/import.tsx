@@ -11,6 +11,7 @@ import {
   IMPORT_COLUMNS, IMPORT_KINDS, importContractingRecords, type ImportKind,
 } from "@/lib/contracting-import.functions";
 import { toCsv } from "@/lib/contracting-ops/packet";
+import { parseCsv, guessColumnMapping, applyMapping } from "@/lib/csv";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/contracting-ops/import")({
@@ -23,38 +24,6 @@ const KIND_LABELS: Record<ImportKind, string> = {
   licenses: "Licences",
   carriers: "Carriers",
 };
-
-/**
- * Minimal CSV parser.
- *
- * Handles quoted fields containing commas, quotes and newlines, which is the
- * only part of the format that actually bites — a naive split on comma
- * silently corrupts any row with a company name in it.
- */
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (quoted) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; }
-        else quoted = false;
-      } else field += c;
-      continue;
-    }
-    if (c === '"') { quoted = true; continue; }
-    if (c === ",") { row.push(field); field = ""; continue; }
-    if (c === "\r") continue;
-    if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; continue; }
-    field += c;
-  }
-  if (field.length || row.length) { row.push(field); rows.push(row); }
-  return rows.filter((r) => r.some((v) => v.trim() !== ""));
-}
 
 function ImportPage() {
   const qc = useQueryClient();
@@ -83,18 +52,14 @@ function ImportPage() {
   });
 
   // Rows keyed by our column names, built from the user's mapping.
-  const mapped = useMemo(() => {
-    if (!dataRows.length) return [];
-    return dataRows.map((r) => {
-      const out: Record<string, string> = {};
-      for (const col of columns) {
-        const sourceIdx = mapping[col.key];
-        if (sourceIdx === undefined || sourceIdx === "") continue;
-        out[col.key] = r[Number(sourceIdx)] ?? "";
-      }
-      return out;
-    });
-  }, [dataRows, mapping, columns]);
+  //
+  // Note the shared helper omits blank cells rather than writing empty
+  // strings, which the local version did — an empty string is a value the
+  // importer would dutifully save over whatever was there.
+  const mapped = useMemo(
+    () => (dataRows.length ? applyMapping(dataRows, columns, mapping) : []),
+    [dataRows, mapping, columns],
+  );
 
   const onFile = async (file: File) => {
     const text = await file.text();
@@ -111,17 +76,7 @@ function ImportPage() {
 
     // Guess the mapping from header names. Saves the common case entirely and
     // costs nothing when it guesses wrong — every guess is editable below.
-    const guess: Record<string, string> = {};
-    for (const col of columns) {
-      const idx = head.findIndex((h) => {
-        const n = h.toLowerCase().replace(/[^a-z]/g, "");
-        const k = col.key.replace(/_/g, "");
-        const l = col.label.toLowerCase().replace(/[^a-z]/g, "");
-        return n === k || n === l || n.includes(k) || k.includes(n);
-      });
-      if (idx >= 0) guess[col.key] = String(idx);
-    }
-    setMapping(guess);
+    setMapping(guessColumnMapping(head, columns));
   };
 
   const missingRequired = columns.filter((c) => c.required && !mapping[c.key]);
