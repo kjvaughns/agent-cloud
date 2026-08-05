@@ -26,6 +26,11 @@
  *     assertMayManage, which fails closed, but the script is not what
  *     established that.
  *   - A select built by string concatenation rather than written inline.
+ *   - A migration that builds its DDL dynamically. `20260805130000` adds
+ *     `is_sample` to eleven tables inside `execute format(...)`, and the parser
+ *     below reads literal `alter table` statements only, so it sees none of
+ *     them. Code that reads `is_sample` before that migration lands will not be
+ *     flagged here.
  *   - Anything reached through a database function rather than from here.
  *   - Only tables, columns and functions are tracked. A pending migration that
  *     widens a CHECK constraint or adds an RLS policy is invisible here, and

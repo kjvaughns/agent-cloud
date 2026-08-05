@@ -17,6 +17,7 @@ Delete a line once the migration is applied.
 - `20260805100000_drop-scrape-credentials.sql`
 - `20260805110000_revoke-seeded-founder-admin.sql`
 - `20260805120000_profile-completeness-and-pii.sql`
+- `20260805130000_sample-data-flag.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -30,6 +31,12 @@ stays capped at 80% — the old function scores two document types the UI cannot
 produce — and the Producer Profile reads the new column as absent, which is
 `false`, so the sensitive sections stay hidden. That is the intended default,
 so the pre-migration state is the safe one rather than a broken one.
+
+`20260805130000` adds `is_sample` to the eleven tables the demo seed writes.
+Until it applies, `npm run seed:demo` fails on its first insert — which is the
+right failure, because a seed that ran without the flag would leave rows nobody
+could tell apart from real ones or remove in one action. Nothing in `src/`
+reads the column yet, so the application is unaffected either way.
 
 `20260805100000` clears the stored third-party passwords in `scrape_requests`.
 Anyone who submitted one should treat it as disclosed and change it on the
