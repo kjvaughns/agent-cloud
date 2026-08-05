@@ -32,7 +32,7 @@ export async function upsertPendingAgent(
   uplineId: string,
   row: RosterRow,
   source = "import",
-): Promise<{ status: "created" | "skipped"; reason?: string }> {
+): Promise<{ status: "created" | "skipped"; reason?: string; pendingAgentId?: string | null }> {
   const email = (row.email ?? "").trim().toLowerCase();
   if (!email) return { status: "skipped", reason: "No email on this row" };
 
@@ -40,7 +40,7 @@ export async function upsertPendingAgent(
     .from("profiles").select("id").ilike("email", email).maybeSingle();
   if (existing) return { status: "skipped", reason: "Already has an Agent Cloud account" };
 
-  const { error } = await supabase.from("pending_agents").upsert(
+  const { data, error } = await supabase.from("pending_agents").upsert(
     {
       email,
       first_name: row.first_name ?? null,
@@ -56,7 +56,7 @@ export async function upsertPendingAgent(
       created_by: userId,
     },
     { onConflict: "email" },
-  );
+  ).select("id").maybeSingle();
   if (error) throw new Error(error.message);
 
   await supabase.from("notifications").insert({
@@ -67,7 +67,10 @@ export async function upsertPendingAgent(
     read: false,
   });
 
-  return { status: "created" };
+  // The id comes back so an import batch can be rolled back. Returning only
+  // a status meant an undo had nothing to delete for these rows and would have
+  // reported success while leaving every imported agent in place.
+  return { status: "created", pendingAgentId: (data as any)?.id ?? null };
 }
 
 /**
