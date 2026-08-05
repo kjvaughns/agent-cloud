@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -34,6 +34,7 @@ import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PageShell, HeroBand } from "@/components/page-shell";
+import { getOrgSettings } from "@/lib/org-settings.functions";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
   head: () => ({
@@ -70,8 +71,6 @@ const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string }> = {
   "Home address":      { tab: "profile",   action: "Add your address" },
   "E&O Certificate":   { tab: "documents", action: "Upload it" },
   "AML Certificate":   { tab: "documents", action: "Upload it" },
-  "Driver's License":  { tab: "documents", action: "Upload it" },
-  "Banking Info":      { tab: "banking",   action: "Add your bank details" },
 };
 
 /** Why each item is worth doing — the consequence, not the instruction. */
@@ -81,8 +80,6 @@ const WHY: Record<string, string> = {
   "Home address":      "Appointment paperwork is filed against your residential address.",
   "E&O Certificate":   "No carrier will appoint you without current errors-and-omissions cover.",
   "AML Certificate":   "Anti-money-laundering training is required before you can write annuities.",
-  "Driver's License":  "Used to verify your identity on carrier applications.",
-  "Banking Info":      "Where your commission gets paid.",
 };
 
 const BACKGROUND_QUESTIONS = [
@@ -103,15 +100,27 @@ const BACKGROUND_QUESTIONS = [
 // second, private vocabulary: `background_check` and `other` are not keys in
 // that dictionary, so a reviewer saw them as raw strings, and `pdb_report` was
 // missing entirely — the queue lists it first and there was no way to upload it.
+/**
+ * The documents this profile can hold.
+ *
+ * Voided Check and the banking tab it belongs to are behind
+ * `collect_contracting_pii` — see PII_DOC_CATEGORIES below. Agent Cloud does
+ * not submit contracting paperwork, so by default there is nowhere for a bank
+ * account to go and no reason to ask for one.
+ */
 const DOC_CATEGORIES = [
   { type: "pdb_report", label: "PDB Report", note: "Producer Database report from NIPR" },
   { type: "government_id", label: "Government ID", note: "Driver's License or Passport" },
   { type: "eo_certificate", label: "E&O Certificate", note: "" },
   { type: "aml_certificate", label: "AML Certificate", note: "" },
-  { type: "voided_check", label: "Voided Check", note: "For direct deposit setup" },
   { type: "background_questionnaire", label: "Background Questionnaire", note: "" },
   { type: "w9", label: "W-9", note: "" },
   { type: "other_document", label: "Other", note: "" },
+] as const;
+
+/** Only offered when the agency has said it does its own contracting. */
+const PII_DOC_CATEGORIES = [
+  { type: "voided_check", label: "Voided Check", note: "For direct deposit setup" },
 ] as const;
 
 function ProducerProfilePage() {
@@ -127,6 +136,17 @@ function ProducerProfilePage() {
   const profile = data?.profile;
   const documents = data?.documents ?? [];
   const banking = data?.banking;
+
+  // Whether this agency collects contracting PII at all. Off by default, so
+  // the SSN field, the driver's licence card and the whole Banking tab are
+  // absent unless an agency that does its own contracting has asked for them.
+  const orgSettingsFn = useServerFn(getOrgSettings);
+  const { data: orgSettings } = useQuery({
+    queryKey: ["org-settings"],
+    queryFn: () => orgSettingsFn(),
+    staleTime: 5 * 60_000,
+  });
+  const collectPii = Boolean((orgSettings as any)?.settings?.collect_contracting_pii);
   const background = data?.background ?? [];
   const agreement = data?.agreement;
   const completion = data?.completion ?? { pct: 0, missing: [] as string[] };
@@ -165,14 +185,14 @@ function ProducerProfilePage() {
             <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
             <TabsTrigger value="contracting" className="whitespace-nowrap">Contracting</TabsTrigger>
             <TabsTrigger value="documents" className="whitespace-nowrap">Documents</TabsTrigger>
-            <TabsTrigger value="banking" className="whitespace-nowrap">Banking</TabsTrigger>
+            {collectPii && <TabsTrigger value="banking" className="whitespace-nowrap">Banking</TabsTrigger>}
             <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
             <TabsTrigger value="integrations" className="whitespace-nowrap">Integrations</TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
-          <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} onSaved={invalidate} />
+          <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} collectPii={collectPii} onSaved={invalidate} />
         </TabsContent>
 
         <TabsContent value="contracting" className="mt-4">
@@ -180,12 +200,14 @@ function ProducerProfilePage() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
-          <DocumentsTab documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
+          <DocumentsTab documents={documents} userId={user?.id ?? ""} collectPii={collectPii} onSaved={invalidate} />
         </TabsContent>
 
-        <TabsContent value="banking" className="mt-4">
-          <BankingTab banking={banking} documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
-        </TabsContent>
+        {collectPii && (
+          <TabsContent value="banking" className="mt-4">
+            <BankingTab banking={banking} documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
+          </TabsContent>
+        )}
 
         <TabsContent value="background" className="mt-4">
           <BackgroundTab background={background} agreement={agreement} onSaved={invalidate} />
@@ -322,7 +344,7 @@ function NextStep({
 // ─────────────────────────────────────────────
 // Profile Information Tab
 // ─────────────────────────────────────────────
-function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: any; documents: any[]; agreement: any; onSaved: () => void }) {
+function ProfileInfoTab({ profile, documents, agreement, collectPii, onSaved }: { profile: any; documents: any[]; agreement: any; collectPii: boolean; onSaved: () => void }) {
   const profileFn = useServerFn(updateProducerProfile);
   const { isAdmin, isManager } = useRole();
   const save = (patch: Record<string, unknown>) => {
@@ -334,8 +356,8 @@ function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: a
 
   return (
     <div className="space-y-4">
-      <PersonalCard profile={profile} onSave={save} />
-      <DriversLicenseCard profile={profile} onSave={save} />
+      <PersonalCard profile={profile} collectPii={collectPii} onSave={save} />
+      {collectPii && <DriversLicenseCard profile={profile} onSave={save} />}
       <AddressCard profile={profile} onSave={save} />
       <ContactCard profile={profile} onSave={save} />
       <EoCard doc={eoDoc} onSaved={onSaved} />
@@ -370,7 +392,7 @@ function SaveInput({ label, defaultValue, field, onSave, type = "text", classNam
   );
 }
 
-function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<string, unknown>) => void }) {
+function PersonalCard({ profile, collectPii, onSave }: { profile: any; collectPii: boolean; onSave: (p: Record<string, unknown>) => void }) {
   const [npn, setNpn] = useState(profile?.npn_number ?? "");
   const [showSsn, setShowSsn] = useState(false);
   const [revealedSsn, setRevealedSsn] = useState<string | null>(null);
@@ -473,6 +495,7 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
           </Select>
         </div>
 
+        {collectPii && (
         <div className="space-y-1.5">
           <Label className="text-xs">Social Security Number</Label>
           <div className="flex gap-2">
@@ -486,6 +509,7 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
             <Button variant="outline" size="sm" onClick={() => setShowSsnModal(true)}>Update</Button>
           </div>
         </div>
+        )}
       </CardContent>
 
       <Dialog open={showSsnModal} onOpenChange={setShowSsnModal}>
@@ -760,7 +784,12 @@ function UserAccountCard({ profile }: { profile: any }) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Password</Label>
-            <Button variant="outline" className="w-full justify-start">Change Password</Button>
+            {/* Had no onClick at all. Security is where the password and MFA
+                already live, so this goes there rather than growing a second
+                implementation of the same form. */}
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link to="/settings/security">Change password</Link>
+            </Button>
           </div>
         </div>
       </CardContent>
@@ -785,7 +814,7 @@ function AgreementCard({ agreement }: { agreement: any }) {
 // ─────────────────────────────────────────────
 // Documents Tab
 // ─────────────────────────────────────────────
-function DocumentsTab({ documents, userId, onSaved }: { documents: any[]; userId: string; onSaved: () => void }) {
+function DocumentsTab({ documents, userId, collectPii, onSaved }: { documents: any[]; userId: string; collectPii: boolean; onSaved: () => void }) {
   const dlFn = useServerFn(getDocumentSignedUrl);
 
   function download(doc: any) {
@@ -798,7 +827,7 @@ function DocumentsTab({ documents, userId, onSaved }: { documents: any[]; userId
     <Card>
       <CardContent className="p-0">
         <div className="divide-y">
-          {DOC_CATEGORIES.map(({ type, label, note }) => {
+          {[...DOC_CATEGORIES, ...(collectPii ? PII_DOC_CATEGORIES : [])].map(({ type, label, note }) => {
             const doc = documents.find((d: any) => d.doc_type === type);
             return (
               <div key={type} className="flex items-center gap-4 p-4">
@@ -1095,16 +1124,39 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
 // ─────────────────────────────────────────────
 // Integrations Tab
 // ─────────────────────────────────────────────
+/**
+ * Six integrations, none of them built.
+ *
+ * This rendered Google Calendar, Outlook, Zapier, HubSpot, Salesforce and
+ * Mailchimp, each with a Connect button that had no handler — so clicking any
+ * of them did nothing, silently, forever. A button that does nothing is worse
+ * than an empty state: it tells somebody the feature exists and that they
+ * failed to use it.
+ *
+ * What does exist is named, and the rest is stated as the roadmap it is.
+ */
 function IntegrationsTab() {
   return (
     <Card>
-      <CardContent className="p-6 grid sm:grid-cols-2 gap-3">
-        {["Google Calendar", "Outlook Calendar", "Zapier", "HubSpot CRM", "Salesforce", "Mailchimp"].map((s) => (
-          <div key={s} className="flex items-center justify-between p-3 border rounded-lg">
-            <span className="font-medium text-sm">{s}</span>
-            <Button size="sm" variant="outline">Connect</Button>
-          </div>
-        ))}
+      <CardContent className="space-y-4 p-6">
+        <div>
+          <h3 className="text-sm font-semibold">What's connected today</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your agency's integrations are set up once for everybody, not per agent —
+            an admin manages them in Settings → Agency.
+          </p>
+          <Button asChild size="sm" variant="outline" className="mt-3">
+            <Link to="/settings/agency" search={{ tab: "integrations" } as any}>
+              Open agency integrations
+            </Link>
+          </Button>
+        </div>
+        <div className="rounded-lg border border-border bg-surface-2/40 p-3">
+          <p className="text-xs text-muted-foreground">
+            Calendar, Zapier and CRM connections are not built yet. When they are, they
+            will appear here rather than as buttons that do nothing.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

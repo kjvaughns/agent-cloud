@@ -47,21 +47,29 @@ const EmploymentEntry = z.object({
  * because a middle name is blank learns nothing. These are the fields that
  * block a contracting packet.
  */
-function scoreCompleteness(profile: any, producer: any): number {
-  const checks: boolean[] = [
-    Boolean(producer?.legal_first_name ?? profile?.first_name),
-    Boolean(producer?.legal_last_name ?? profile?.last_name),
-    Boolean(profile?.npn_number),
-    Boolean(profile?.email),
-    Boolean(profile?.phone),
-    Boolean(profile?.date_of_birth),
-    Boolean(producer?.resident_state ?? profile?.state),
-    Boolean(producer?.resident_license_number),
-    Boolean(profile?.street_address && profile?.city && profile?.zip_code),
-    (producer?.address_history ?? []).length > 0,
-    (producer?.employment_history ?? []).length > 0,
-  ];
-  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+/**
+ * Completeness comes from `agent_completion()`, and only from there.
+ *
+ * There were two implementations. This file scored eleven equally-weighted
+ * checks — including address history and employment history, which the profile
+ * page has no field for — while the RPC scored seven weighted ones. The same
+ * agent read 45% on the Contracting tab and 20% on the dashboard, and nobody
+ * could say which was right because both were.
+ *
+ * The RPC wins: it is the one the dashboard, the Team Command Center and the
+ * onboarding checklist already read, it knows about the agency's
+ * `collect_contracting_pii` setting, and its criteria are all reachable from
+ * the UI. This asks it rather than having an opinion.
+ */
+async function completenessFor(agentId: string): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc("agent_completion", { _agent: agentId });
+  // The RPC arrives with a migration and code ships before migrations apply.
+  // Zero is a worse lie than null, so the caller reports "not scored yet".
+  if (error) {
+    console.error("[contracting-producer] agent_completion unavailable:", error.message);
+    return 0;
+  }
+  return Number((data as any)?.pct ?? 0);
 }
 
 export const getContractingProfile = createServerFn({ method: "GET" })
@@ -85,7 +93,7 @@ export const getContractingProfile = createServerFn({ method: "GET" })
     return {
       profile: profile ?? null,
       producer: producer ?? null,
-      completeness: scoreCompleteness(profile, producer),
+      completeness: await completenessFor(targetId),
       isSelf: targetId === userId,
     };
   });
@@ -132,21 +140,22 @@ export const saveContractingProfile = createServerFn({ method: "POST" })
     const { data: profile } = await supabaseAdmin
       .from("profiles").select("organization_id").eq("id", targetId).maybeSingle();
 
-    const completeness = scoreCompleteness(
-      await supabaseAdmin.from("profiles")
-        .select("first_name, last_name, email, phone, npn_number, date_of_birth, state, street_address, city, zip_code")
-        .eq("id", targetId).maybeSingle().then((r: any) => r.data),
-      fields,
-    );
-
     const { error } = await supabaseAdmin.from("producer_profiles").upsert({
       profile_id: targetId,
       organization_id: profile?.organization_id ?? null,
       ...fields,
-      profile_completeness: completeness,
-      completeness_checked_at: new Date().toISOString(),
     }, { onConflict: "profile_id" });
     if (error) throw new Error(error.message);
+
+    // Scored after the write, not before it. Scoring first grades the row as it
+    // was a moment ago and stores a number this very save has already made
+    // wrong — which is how a profile can read 80% directly after the edit that
+    // completed it.
+    const completeness = await completenessFor(targetId);
+    await supabaseAdmin.from("producer_profiles").update({
+      profile_completeness: completeness,
+      completeness_checked_at: new Date().toISOString(),
+    }).eq("profile_id", targetId);
 
     await recordAudit({
       organizationId: profile?.organization_id ?? null,
