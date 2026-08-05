@@ -6,6 +6,7 @@ import {
   getStripe, isStripeConfigured, PRICE_IDS, PRICING, NOVA_LIMITS, NON_BILLABLE_PROFILE_STATUSES,
   pricingFromPlans, type Pricing,
 } from "@/lib/billing/stripe";
+import { assertNotDemoCaller } from "@/lib/demo.server";
 
 // Generated DB types predate the monetization migration; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -339,6 +340,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => CheckoutSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+    await assertNotDemoCaller(userId, "start a checkout");
     if (!isStripeConfigured()) throw new Error("Billing is not configured yet. Add the Stripe keys to enable checkout.");
     const stripe = getStripe();
     const origin = appOrigin();
@@ -438,6 +440,7 @@ export const createPortalSession = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ scope: z.enum(["org", "personal"]) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+    await assertNotDemoCaller(userId, "open the billing portal");
     if (!isStripeConfigured()) throw new Error("Billing is not configured yet");
     const stripe = getStripe();
     let customerId: string | null = null;

@@ -26,6 +26,36 @@ export type SetupStep = {
   blocked?: boolean;
 };
 
+/**
+ * Policies this agency actually wrote.
+ *
+ * "Post your first deal" is the closest thing this product has to an
+ * activation metric, and an agency that started with sample data has fifty-two
+ * policies before it has done anything at all. A checklist that congratulates
+ * somebody for work the seed did is worse than no checklist: it tells them
+ * they are finished when they have not started.
+ *
+ * The retry exists because `is_sample` is a pending column. Naming it in a
+ * select fails the whole query with 42703 until the migration lands, which
+ * would take the entire checklist down; falling back to the unfiltered count
+ * is correct in that window, because a database without the column also has no
+ * sample rows in it.
+ */
+async function countRealPolicies(orgId: string): Promise<{ count: number | null }> {
+  const filtered = await supabaseAdmin
+    .from("policies")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", orgId)
+    .eq("is_sample", false);
+  if (!filtered.error) return { count: filtered.count ?? 0 };
+
+  const all = await supabaseAdmin
+    .from("policies")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", orgId);
+  return { count: all.count ?? 0 };
+}
+
 export const getSetupChecklist = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -52,9 +82,7 @@ export const getSetupChecklist = createServerFn({ method: "GET" })
       supabaseAdmin.from("profiles")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId),
-      supabaseAdmin.from("policies")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", orgId),
+      countRealPolicies(orgId),
     ]);
 
     const o = org.data ?? {};

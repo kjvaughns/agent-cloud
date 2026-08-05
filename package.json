@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "seed:demo": "esbuild scripts/seed-demo.ts --bundle --platform=node --format=esm --outfile=.seed.mjs && node .seed.mjs",
+    "demo:provision": "esbuild scripts/provision-demo.ts --bundle --platform=node --format=esm --outfile=.provision.mjs && node .provision.mjs",
     "check:migrations": "esbuild scripts/migration-safety.ts --bundle --platform=node --format=esm --outfile=.migsafe.mjs && node .migsafe.mjs"
   },
   "dependencies": {

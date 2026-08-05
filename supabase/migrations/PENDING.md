@@ -18,6 +18,7 @@ Delete a line once the migration is applied.
 - `20260805110000_revoke-seeded-founder-admin.sql`
 - `20260805120000_profile-completeness-and-pii.sql`
 - `20260805130000_sample-data-flag.sql`
+- `20260805140000_demo-org.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -37,6 +38,15 @@ Until it applies, `npm run seed:demo` fails on its first insert — which is the
 right failure, because a seed that ran without the flag would leave rows nobody
 could tell apart from real ones or remove in one action. Nothing in `src/`
 reads the column yet, so the application is unaffected either way.
+
+`20260805140000` adds `organizations.is_demo` and `demo_reset_log`. Until it
+applies there is no demo org, and everything downstream reads that correctly
+rather than erroring: `demo.server.ts` treats the missing column as "no demo"
+and caches it, so the guardrails are inert; the banner renders nothing;
+`/demo-login` says the sample agency is not set up yet; and the reset endpoint
+returns 200 with `skipped`. Read the migration's tail before applying — the
+pg_cron schedule is deliberately left commented, because it needs the site
+origin and a vault secret that do not belong in this repository.
 
 `20260805100000` clears the stored third-party passwords in `scrape_requests`.
 Anyone who submitted one should treat it as disclosed and change it on the

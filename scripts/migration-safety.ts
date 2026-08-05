@@ -224,6 +224,12 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/components/demo-banner.tsx:organizations.is_demo":
+    "its own narrow query, deliberately not a field on useOrganization: on 42703 the banner renders nothing, which is correct for every deployment that has no demo org",
+  "src/routes/api/public/hooks/demo-reset.ts:demo_reset_log":
+    "the endpoint reads the demo org first and returns 200 skipped when there is none, which is the state of any database that lacks this table; nothing else calls it",
+  "src/lib/demo.server.ts:organizations.is_demo":
+    "`.eq(\"is_demo\", true)` is not inside a select() so this script cannot see it — noted here anyway. demoOrgId() treats any error as \"no demo org\" and caches that, so the guardrails are inert rather than broken before the migration lands, which matches a deployment that has no demo",
   "src/lib/org-settings.functions.ts:organization_settings.collect_contracting_pii":
     "read via select(\"*\") so a missing column is simply absent and reads as false, which is the intended default; the write catches 42703 and retries without the key so saving other settings is unaffected",
   "src/lib/contracting-notes.functions.ts:producer_notes":

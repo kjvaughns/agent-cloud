@@ -322,6 +322,14 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
       throw new Error("Invite expired or not found");
     }
+    // A real account inside the sample agency would be wiped by the nightly
+    // reset, and the person who created it would have no way to know why their
+    // agency vanished. This is the more important half of the invite guard —
+    // creating the link is reversible, following it is not.
+    {
+      const { assertNotDemo } = await import("@/lib/demo.server");
+      await assertNotDemo(inv.organization_id, "invite someone");
+    }
     if (inv.linked_agent_id && !inv.is_reusable) throw new Error("This invite has already been used");
 
     let newUserId: string;
@@ -1058,6 +1066,11 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // Fetch inviter's organization
     const { data: inviterProfile } = await (supabase as any)
       .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
+    {
+      const { assertNotDemo } = await import("@/lib/demo.server");
+      await assertNotDemo(inviterProfile?.organization_id, "invite someone");
+    }
 
     const token = crypto.randomUUID();
 
