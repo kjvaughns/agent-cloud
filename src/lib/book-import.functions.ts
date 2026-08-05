@@ -564,30 +564,54 @@ export const basicImportFromBookImport = createServerFn({ method: "POST" })
       .eq("agent_id", userId)
       .not("carrier_id", "is", null);
 
-    const uniqueCarrierIds = [...new Set((agentPolicies ?? []).map((p: any) => p.carrier_id).filter(Boolean))];
-    let carriersDetected = 0;
+    const counts = new Map<string, number>();
+    for (const p of agentPolicies ?? []) {
+      if (!p.carrier_id) continue;
+      counts.set(p.carrier_id, (counts.get(p.carrier_id) ?? 0) + 1);
+    }
+    const uniqueCarrierIds = [...counts.keys()];
 
-    for (const carrierId of uniqueCarrierIds) {
-      const { data: existing } = await supabase
-        .from("contract_requests")
-        .select("id")
-        .eq("agent_id", userId)
-        .eq("carrier_id", carrierId)
-        .maybeSingle();
-      if (!existing) {
-        await supabase.from("contract_requests").insert({
-          agent_id: userId,
-          carrier_id: carrierId,
-          status: "assigned",
-          source: "auto_detected_import",
-          notes: "Auto-detected from the book import. Add your writing number to activate.",
-          requested_at: new Date().toISOString(),
-        });
-        carriersDetected++;
-      }
+    // Detected, NOT created.
+    //
+    // This used to insert a `contract_requests` row with status 'assigned' for
+    // every carrier it saw — which is the system asserting, on the agent's
+    // behalf and without asking, that they hold a contract with that carrier.
+    // A contract is a legal relationship; inferring one from a spreadsheet
+    // cell is not a shortcut, it is a claim about the agent's business that
+    // may simply be false. Anything the carrier matcher was unsure of would
+    // have been asserted just as confidently as anything it was certain of.
+    //
+    // So the list comes back and the agent ticks what is theirs.
+    // `confirmDetectedCarriers` does the writing.
+    let detected: { carrier_id: string; name: string; policy_count: number }[] = [];
+    if (uniqueCarrierIds.length > 0) {
+      const [{ data: carrierRows }, { data: existingContracts }] = await Promise.all([
+        supabase.from("carriers").select("id, name").in("id", uniqueCarrierIds),
+        supabase.from("contract_requests").select("carrier_id").eq("agent_id", userId).in("carrier_id", uniqueCarrierIds),
+      ]);
+      const already = new Set((existingContracts ?? []).map((r: any) => r.carrier_id));
+      const nameById = new Map<string, string>((carrierRows ?? []).map((c: any) => [c.id as string, String(c.name ?? "")]));
+
+      detected = uniqueCarrierIds
+        .filter((id) => !already.has(id))
+        .map((id) => ({
+          carrier_id: id,
+          name: nameById.get(id) ?? "Unknown carrier",
+          policy_count: counts.get(id) ?? 0,
+        }))
+        // Most policies first: the carrier they write most is the one they are
+        // most certain about, and it should be the first thing they see.
+        .sort((a, b) => b.policy_count - a.policy_count);
     }
 
-    return { imported, skipped, duplicates, total: rawClients.length, carriers_detected: carriersDetected };
+    return {
+      imported,
+      skipped,
+      duplicates,
+      total: rawClients.length,
+      carriers_detected: detected.length,
+      detected_carriers: detected,
+    };
   });
 
 /**
@@ -604,3 +628,85 @@ export const basicImportFromBookImport = createServerFn({ method: "POST" })
  * The rows already written are cleared by `20260805100000_drop-scrape-credentials.sql`.
  */
 
+
+/**
+ * Add the carriers the agent confirmed — and only those.
+ *
+ * The import detects; this commits. Splitting them is the point: a contract is
+ * a legal relationship between an agent and a carrier, and the previous code
+ * inferred one from a spreadsheet cell and wrote `status: 'assigned'` without
+ * ever asking. That is the system making a claim about somebody's business on
+ * their behalf, and it was as confident about a carrier the matcher had
+ * guessed at as about one it was certain of.
+ *
+ * Two rows per confirmed carrier, because a contract that the agency cannot
+ * see is only half a contract:
+ *
+ *   - `contract_requests` — the agent's side.
+ *   - `org_carriers` — the agency overlay every dropdown in the product reads.
+ *     Without it the policies show against a carrier that does not appear in
+ *     the agency's own carrier list.
+ */
+export const confirmDetectedCarriers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ carrierIds: z.array(z.string().uuid()).max(200) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as { supabase: any; userId: string };
+    if (data.carrierIds.length === 0) return { added: 0 };
+
+    // Re-checked here rather than trusted from the client. The list came from
+    // us, but it came back through a browser, and "which carriers am I
+    // contracted with" is not a question to take an unverified answer to.
+    const { data: existing } = await supabase
+      .from("contract_requests")
+      .select("carrier_id")
+      .eq("agent_id", userId)
+      .in("carrier_id", data.carrierIds);
+    const already = new Set((existing ?? []).map((r: any) => r.carrier_id));
+    const toAdd = data.carrierIds.filter((id) => !already.has(id));
+    if (toAdd.length === 0) return { added: 0 };
+
+    const { error } = await supabase.from("contract_requests").insert(
+      toAdd.map((carrierId) => ({
+        agent_id: userId,
+        carrier_id: carrierId,
+        status: "assigned",
+        source: "confirmed_import",
+        notes: "Confirmed by the agent after a book import. Add your writing number to activate.",
+        requested_at: new Date().toISOString(),
+      })),
+    );
+    if (error) throw new Error(error.message);
+
+    const { data: profile } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const orgId = profile?.organization_id ?? null;
+
+    if (orgId) {
+      const { data: existingOrg } = await supabase
+        .from("org_carriers")
+        .select("carrier_id")
+        .eq("organization_id", orgId)
+        .in("carrier_id", toAdd);
+      const haveOrg = new Set((existingOrg ?? []).map((r: any) => r.carrier_id));
+      const newOrgCarriers = toAdd
+        .filter((id) => !haveOrg.has(id))
+        .map((carrierId) => ({
+          organization_id: orgId,
+          carrier_id: carrierId,
+          status: "active",
+          created_by: userId,
+        }));
+      if (newOrgCarriers.length > 0) {
+        // Not fatal. The contract is the thing the agent asked for; a missing
+        // org overlay is a gap somebody can fill from the carrier page, and
+        // failing the whole confirmation over it would be worse.
+        const { error: ocErr } = await supabase.from("org_carriers").insert(newOrgCarriers);
+        if (ocErr) console.warn("[import] could not add org carriers:", ocErr.message);
+      }
+    }
+
+    return { added: toAdd.length };
+  });
