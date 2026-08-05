@@ -22,6 +22,7 @@ import { UndoImport } from "@/components/import/undo-import";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
 import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } from "@/lib/import-extract-rows";
+import { MigrationGuide } from "@/components/import/migration-guide";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -252,10 +253,16 @@ function ImportPage() {
             mean a second copy of it, and the copy would be the one that rots.
             It sits beside Import in the sidebar for the same reason it sits
             here: both are records arriving from outside that a human accepts. */}
+        {/* The migration path sits on the tab strip because "coming from
+            another CRM" is a question people arrive with, not one they go
+            looking for a settings page to answer. */}
+        <div className="ml-auto flex items-center gap-2 self-center pb-2">
+          <MigrationGuide />
+        </div>
         {nav.canSeeAgency && (
           <a
             href="/contracting-ops/documents"
-            className="ml-auto self-center pb-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
+            className="self-center pb-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
           >
             Document review →
           </a>

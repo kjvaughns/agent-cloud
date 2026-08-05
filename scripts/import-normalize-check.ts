@@ -12,6 +12,9 @@ import {
   normalizePolicyStatus, normalizePremiumMode, normalizePolicyNumber,
   splitName, parseImportDate, parseAmount,
 } from "../src/lib/import-normalize";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { TEMPLATE_SHEETS, coworkPrompt, MIGRATION_SOURCES } from "../src/lib/migration-sources";
 
 let passed = 0;
 const failures: string[] = [];
@@ -118,6 +121,45 @@ check("a bare number passes through", parseAmount(62) === 62);
 check("unparseable returns null, not zero",
   parseAmount("n/a") === null, String(parseAmount("n/a")));
 check("empty returns null", parseAmount("") === null);
+
+// ── 7. The migration template cannot drift from what the importer reads ─────
+//
+// The Cowork prompt tells Claude to produce a workbook with exact sheet and
+// column names. If the importer's expectations move and the template does not,
+// every agency that follows the instructions gets a file that imports nothing
+// — and nothing would fail until somebody tried it for real.
+
+console.log("\n7. Migration template matches the importer");
+
+const importerSrc = readFileSync(join(process.cwd(), "src/lib/admin-import.functions.ts"), "utf8");
+
+for (const sheet of TEMPLATE_SHEETS) {
+  check(
+    `the importer reads a sheet named "${sheet.sheet}"`,
+    importerSrc.includes(`"${sheet.sheet}"`),
+    "not referenced in admin-import.functions.ts",
+  );
+  for (const col of sheet.columns) {
+    check(
+      `  ${sheet.sheet} → "${col}" is read by the importer`,
+      importerSrc.includes(`r["${col}"]`),
+      "the importer never reads this header",
+    );
+  }
+}
+
+const prompt = coworkPrompt(MIGRATION_SOURCES[0]);
+check("the Cowork prompt inlines every sheet name",
+  TEMPLATE_SHEETS.every((s) => prompt.includes(s.sheet)));
+check("the Cowork prompt tells Claude to format IDs as text",
+  /TEXT, not numbers/i.test(prompt));
+check("the Cowork prompt pins an unambiguous date format",
+  prompt.includes("YYYY-MM-DD"));
+check("every source is either an export path or a cowork path",
+  MIGRATION_SOURCES.every((s) => s.path === "export" || s.path === "cowork"));
+check("every export-path source carries steps",
+  MIGRATION_SOURCES.filter((s) => s.path === "export").every((s) => (s.steps?.length ?? 0) > 0),
+  MIGRATION_SOURCES.filter((s) => s.path === "export" && !s.steps?.length).map((s) => s.id).join(", "));
 
 console.log(
   `\n${passed} passed, ${failures.length} failed${failures.length ? ":" : "."}\n` +
