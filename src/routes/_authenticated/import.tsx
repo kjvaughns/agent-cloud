@@ -18,6 +18,7 @@ import {
   dismissImport, type ImportDoc, type Proposal,
 } from "@/lib/import.functions";
 import { extractGrid } from "@/lib/comp-grid.functions";
+import { UndoImport } from "@/components/import/undo-import";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
 import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } from "@/lib/import-extract-rows";
@@ -406,6 +407,9 @@ function DocRow({
             {doc.status !== "applied" && doc.status !== "dismissed" && (
               <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
             )}
+            {/* On the finished import, not behind a menu: the fear an undo
+                answers peaks in the minute after the import completes. */}
+            {doc.status === "applied" && <UndoImport batchId={doc.batch_id} />}
           </div>
         </div>
 

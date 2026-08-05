@@ -762,6 +762,11 @@ export const applyProposals = createServerFn({ method: "POST" })
           // a guess about a hierarchy from a spreadsheet column.
           const res = await upsertPendingAgent(supabase, userId, userId, p.payload);
           if (res.status === "skipped") throw new Error(res.reason ?? "Nothing to do for this row");
+          // Recorded so the batch can be rolled back. Without an id here, an
+          // undo would silently skip every agent the import created and report
+          // success — the worst kind of half-undo, because the person believes
+          // it worked.
+          ref = res.pendingAgentId ?? null;
         } else if (CONTRACTING_TABLES[p.target_table]) {
           // Straight through to the contracting importer, which owns the
           // permission check, the agent and carrier resolution, and the rule
