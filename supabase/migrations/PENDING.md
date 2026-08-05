@@ -14,6 +14,18 @@ without credentials.
 Delete a line once the migration is applied.
 
 - `20260803120000_producer-notes.sql`
+- `20260805100000_drop-scrape-credentials.sql`
+- `20260805110000_revoke-seeded-founder-admin.sql`
+
+`20260805110000` **revokes platform admin from the two hardcoded founder
+emails and does not give it back.** Read its header before applying: the
+accounts keep every agency-level power (those key on `organizations.owner_id`),
+but lose `/admin` until somebody re-grants it deliberately from the SQL editor.
+That is the point of the change, not a side effect of it.
+
+`20260805100000` clears the stored third-party passwords in `scrape_requests`.
+Anyone who submitted one should treat it as disclosed and change it on the
+source platform — base64 is not encryption, and the admin queue displayed it.
 
 Until it is applied, `contracting-notes.functions.ts` treats `42P01` as "not
 yet": the notes panel shows the audit trail on its own, an attempted note

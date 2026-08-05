@@ -59,49 +59,6 @@ async function alCall(supabase: any, userId: string, path: string): Promise<any>
 }
 
 // ─── Save API Key ─────────────────────────────────────────────────────────────
-/**
- * The credential columns, under whichever name the database currently has.
- *
- * `20260802160000` renames them, and code reaches production before a
- * migration is applied — naming only the new ones would break every import
- * request submitted in that window, and naming only the old ones breaks after
- * it. Writing both is safe in exactly one direction: PostgREST rejects an
- * insert naming a column that does not exist, so this picks rather than
- * merges, and the caller retries against the other name.
- */
-function credentialColumns(username: string, obfuscated: string) {
-  return { source_username: username, source_password_encrypted: obfuscated };
-}
-
-/** The pre-rename spelling, for the retry. */
-function legacyCredentialColumns(username: string, obfuscated: string) {
-  return { agentlink_username: username, agentlink_password_encrypted: obfuscated };
-}
-
-/**
- * Insert under the new column names, and fall back to the old ones.
- *
- * 42703 is "column does not exist" — the only error this retry should ever
- * swallow. Anything else is a real failure and is returned as-is.
- */
-async function insertScrapeRequest(
-  supabase: any, userId: string, username: string, obfuscated: string,
-) {
-  const attempt = (cols: Record<string, string>) =>
-    supabase
-      .from("scrape_requests")
-      .insert({ requesting_agent_id: userId, ...cols, status: "pending" })
-      .select("id")
-      .single();
-
-  const first = await attempt(credentialColumns(username, obfuscated));
-  if (!first.error) return first;
-  const missingColumn =
-    first.error.code === "42703" || /column .* does not exist/i.test(first.error.message ?? "");
-  if (!missingColumn) return first;
-  return attempt(legacyCredentialColumns(username, obfuscated));
-}
-
 export const saveBookImportKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -633,97 +590,17 @@ export const basicImportFromBookImport = createServerFn({ method: "POST" })
     return { imported, skipped, duplicates, total: rawClients.length, carriers_detected: carriersDetected };
   });
 
-// ─── Submit Full Import Request (alias for submitScrapeRequest) ───────────────
-export const submitFullImportRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        source_username: z.string().email("Must be a valid email"),
-        source_password: z.string().min(1),
-        notes: z.string().optional(),
-      })
-      .parse(d)
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as any;
-
-    const obfuscated = Buffer.from(data.source_password).toString("base64");
-
-    const { data: req, error } = await insertScrapeRequest(
-      supabase, userId, data.source_username, obfuscated,
-    );
-    if (error) throw new Error(error.message);
-
-    const { data: admins } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .in("role", ["admin", "manager"]);
-
-    for (const admin of admins ?? []) {
-      // `description`, not `body`/`link` — neither column exists on
-      // `notifications`, so PostgREST rejected the row with PGRST204 every
-      // time. The result was never read, so nothing surfaced and no admin was
-      // ever told an import was waiting.
-      const { error: notifyErr } = await supabase.from("notifications").insert({
-        user_id: admin.user_id,
-        type: "scrape_request",
-        title: "New Full Import Request",
-        description: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
-        read: false,
-      });
-      // Not fatal: the request itself is already saved, and failing the whole
-      // call because one admin could not be notified would be worse.
-      if (notifyErr) console.error("[book-import] admin notify failed", notifyErr);
-    }
-
-    return { request_id: req.id, ok: true };
-  });
-
-// ─── Submit Scrape Request ────────────────────────────────────────────────────
-export const submitScrapeRequest = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        source_username: z.string().email("Must be a valid email"),
-        source_password: z.string().min(1),
-        notes: z.string().optional(),
-      })
-      .parse(d)
-  )
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as any;
-
-    const obfuscated = Buffer.from(data.source_password).toString("base64");
-
-    const { data: req, error } = await insertScrapeRequest(
-      supabase, userId, data.source_username, obfuscated,
-    );
-    if (error) throw new Error(error.message);
-
-    const { data: admins } = await supabase
-      .from("user_roles")
-      .select("user_id")
-      .in("role", ["admin", "manager"]);
-
-    for (const admin of admins ?? []) {
-      // `description`, not `body`/`link` — neither column exists on
-      // `notifications`, so PostgREST rejected the row with PGRST204 every
-      // time. The result was never read, so nothing surfaced and no admin was
-      // ever told an import was waiting.
-      const { error: notifyErr } = await supabase.from("notifications").insert({
-        user_id: admin.user_id,
-        type: "scrape_request",
-        title: "New Full Import Request",
-        description: "An agent has submitted a full book import request. Review in Admin → Import Requests.",
-        read: false,
-      });
-      // Not fatal: the request itself is already saved, and failing the whole
-      // call because one admin could not be notified would be worse.
-      if (notifyErr) console.error("[book-import] admin notify failed", notifyErr);
-    }
-
-    return { request_id: req.id, ok: true };
-  });
+/**
+ * The credential-import path is gone.
+ *
+ * `submitFullImportRequest` and `submitScrapeRequest` accepted an agent's
+ * email and password for another platform, base64-encoded the password —
+ * beneath a dialog that told them it was "stored encrypted" — wrote it to
+ * `scrape_requests`, and offered admins a reveal button. Asking a customer for
+ * their credentials to a third-party system is not something to do carefully;
+ * it is something not to do. The Cowork migration flow replaces it: the agency
+ * drives their own browser session and nothing is handed over.
+ *
+ * The rows already written are cleared by `20260805100000_drop-scrape-credentials.sql`.
+ */
 
