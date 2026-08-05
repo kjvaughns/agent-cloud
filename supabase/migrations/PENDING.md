@@ -21,6 +21,7 @@ Delete a line once the migration is applied.
 - `20260805140000_demo-org.sql`
 - `20260805150000_book-of-business-sample-flag.sql`
 - `20260806100000_user-onboarding-state.sql`
+- `20260806110000_carrier-aliases.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -63,6 +64,13 @@ checklist still renders and still derives every step from real data — only the
 choices do not stick, so a dismissed step comes back on the next load. The
 write catches its own error and logs rather than throwing, because losing a
 dismissal is a far smaller problem than a click that fails.
+
+`20260806110000` adds `carriers.naic_code` and the `carrier_aliases` table, and
+seeds the aliases for carriers already in the catalog. Until it applies, carrier
+matching runs on names alone — the alias and NAIC tiers simply find nothing, and
+the confidence threshold still refuses to guess. That is strictly better than
+the substring test it replaces, so the pre-migration state is an improvement
+rather than a regression.
 
 `20260805100000` clears the stored third-party passwords in `scrape_requests`.
 Anyone who submitted one should treat it as disclosed and change it on the
