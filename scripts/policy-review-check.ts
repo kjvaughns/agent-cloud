@@ -14,7 +14,7 @@
 
 import {
   findGaps, needsEstimate, isTerm, isDisability, termYears,
-  summariseGaps, MISSING_INPUTS, type ReviewClient, type ReviewPolicy,
+  summariseGaps, MISSING_INPUTS, UNSTATED_INCOME, type ReviewClient, type ReviewPolicy,
 } from "../src/lib/policy-review";
 
 let pass = 0;
