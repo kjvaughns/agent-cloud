@@ -64,15 +64,21 @@ export type Gap = {
   agenda: string;
 };
 
+/**
+ * Added to the missing list only when neither the screen nor the client record
+ * carries an income, because with one the needs calculation runs.
+ */
+export const UNSTATED_INCOME = {
+  input: "Stated income",
+  why: "No income recorded for this client, so cover can't be compared against it. Type it in below to include the needs calculation.",
+} as const;
+
 /** Named on screen, so the agent knows what the review did not look at. */
 export const MISSING_INPUTS = [
   {
-    input: "Stated income",
-    why: "Clients have no income column. The importer reads \"Monthly Income\" from the migration template and appends it to the notes text, so it cannot be compared against coverage. Type it in below to include the needs calculation.",
-  },
-  {
     input: "Life events",
     why: "Marriage, a birth or a divorce would each change who should be named — none are recorded, so a beneficiary can only be checked for existing, not for being current.",
+
   },
 ] as const;
 
