@@ -766,7 +766,15 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
       id: client.id as string,
       name: `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() || null,
       dateOfBirth: client.date_of_birth ?? null,
-      statedAnnualIncome: data.statedAnnualIncome ?? null,
+      // What the agent typed wins, because they have just asked the client.
+      // Otherwise the stored figure — the importer annualises the template's
+      // "Monthly Income" into `clients.annual_income`, so a review no longer
+      // starts by asking for a number the agency already gave us.
+      statedAnnualIncome:
+        data.statedAnnualIncome ??
+        ((client as any).annual_income === null || (client as any).annual_income === undefined
+          ? null
+          : Number((client as any).annual_income)),
       beneficiaryCount: beneficiaryCount ?? 0,
       policies: mapped,
       asOf: new Date().toISOString().slice(0, 10),
