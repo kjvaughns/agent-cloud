@@ -396,6 +396,7 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
         monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
         faceAmount: p.face_amount === null ? null : Number(p.face_amount),
         effectiveDate: p.effective_date ?? null,
+        premiumMode: p.premium_mode ?? null,
         lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
         asOf,
       });
