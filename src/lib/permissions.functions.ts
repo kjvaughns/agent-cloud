@@ -224,6 +224,42 @@ export type MyAccess = {
   permissions: Permissions;
 };
 
+/**
+ * The organisation this person belongs to, from the three sources the rest of
+ * the product trusts, in the order it trusts them.
+ *
+ *   1. An active `organization_memberships` row — what `getMyPrimaryOrgId`
+ *      uses, and therefore what every other server function means by "my org".
+ *   2. `profiles.organization_id` — the denormalised copy kept by trigger.
+ *   3. `organizations.owner_id` — you own it. Last because it is the rarest
+ *      case, not the weakest: if this is the one that answers, the first two
+ *      are out of step with it, and an agency owner locked out of their own
+ *      workspace is how that gets discovered.
+ *
+ * Service-role reads, because this runs inside `getMyAccess`, which already
+ * uses `supabaseAdmin` to answer questions about the caller that row-level
+ * security would otherwise hide from them mid-onboarding.
+ */
+async function resolveMyOrgId(userId: string, profileOrgId: string | null): Promise<string | null> {
+  const { data: memberships } = await supabaseAdmin
+    .from("organization_memberships")
+    .select("organization_id, is_primary")
+    .eq("profile_id", userId)
+    .eq("status", "active");
+
+  const rows = (memberships ?? []).filter((m: any) => m.organization_id);
+  if (rows.length) {
+    const primary = rows.find((m: any) => m.is_primary) ?? rows[0];
+    return primary.organization_id as string;
+  }
+
+  if (profileOrgId) return profileOrgId;
+
+  const { data: owned } = await supabaseAdmin
+    .from("organizations").select("id").eq("owner_id", userId).limit(1).maybeSingle();
+  return (owned?.id as string) ?? null;
+}
+
 export const getMyAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -235,12 +271,29 @@ export const getMyAccess = createServerFn({ method: "GET" })
     const roles: string[] = (roleRows ?? []).map((r: any) => r.role);
     const pick = ["super_admin", "agency_owner", "admin", "manager", "staff", "agent"].find((r) => roles.includes(r)) ?? (roles[0] ?? null);
 
+    // Which organisation is "mine", asked the same way everywhere.
+    //
+    // This read `profiles.organization_id` and nothing else. Other server
+    // functions — `resolveOrg` in resources-admin.functions.ts is the
+    // documented one — resolve it from active membership first, then the
+    // profile, then `organizations.owner_id`. Two resolutions in one product
+    // means two answers, and the place it surfaced is exactly where you would
+    // expect: `canSeeAgency` decides whether the "Edit resources" button is
+    // rendered, and `can_manage_resources(org)` decides whether the server
+    // honours it. Resolve a different org in each and the page offers an
+    // action the database then refuses — with a message telling you to grant
+    // yourself a permission on the Roles page that would not have helped,
+    // because the permission was never the problem.
+    //
+    // Same three sources, same order, so the two cannot disagree.
+    const orgId = await resolveMyOrgId(userId, profile?.organization_id ?? null);
+
     let org: any = null;
-    if (profile?.organization_id) {
+    if (orgId) {
       const { data } = await supabaseAdmin
         .from("organizations")
         .select("id, name, owner_id, plan_type, subscription_status")
-        .eq("id", profile.organization_id)
+        .eq("id", orgId)
         .maybeSingle();
       org = data;
     }
