@@ -155,24 +155,28 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             Now taking founding agencies
           </div>
 
-          {/* Three clauses, three reasons an agency owner buys anything: write
-              more, keep more of what you wrote, and grow the team doing it.
-              The headline this replaces — "stop running your agency across ten
-              different tools" — described our category rather than their
-              problem. Nobody wakes up wanting fewer tools; they want a bigger
-              check. */}
+          {/*
+            Back to the ten-tools headline, chosen over two later rewrites.
+
+            The copy deck argued this one "describes our category rather than
+            their problem", and that its replacement — "none of them tell you
+            what stuck" — was sharper. It is sharper, and it also asks the
+            visitor to already believe there is something they are not seeing.
+            This one names the thing they can see from where they are standing,
+            and the subhead is the answer to it. Picked on the strength of the
+            page as a whole rather than the line on its own.
+          */}
           <h1
             className="mt-6 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
             style={display}
           >
-            Your agency runs on ten tools.{" "}
-            <span className="text-primary">None of them tell you what stuck.</span>
+            Stop running your agency across{" "}
+            <span className="text-primary">ten different tools.</span>
           </h1>
 
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Contracting, placement, persistency, chargebacks and overrides in one place — one
-            record per agent, from the day you recruit them to the renewal you're still getting
-            paid on.
+            One record per person, from applicant to producing agent. Nothing retyped between
+            recruiting, licensing, contracting and commissions.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -182,7 +186,7 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
               </Button>
             </Link>
             <a href="#demo">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">Try it on sample data</Button>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">Try the demo</Button>
             </a>
           </div>
 
