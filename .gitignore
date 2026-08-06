@@ -44,3 +44,4 @@ dist-ssr
 *.sln
 *.sw?
 .imp.mjs
+.stmt.mjs

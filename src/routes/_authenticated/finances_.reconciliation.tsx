@@ -19,57 +19,23 @@ import {
   listStatements, createStatement, reconcileStatement,
   getStatementDetail, type StatementLine,
 } from "@/lib/reconciliation.functions";
+import { parseStatementBlock } from "@/lib/statement-parse";
+import { readBlock, readDocument } from "@/lib/sheet-shape";
+import { extractDocument } from "@/lib/document-extract";
 
 export const Route = createFileRoute("/_authenticated/finances_/reconciliation")({
   head: () => ({ meta: [{ title: "Commission Reconciliation — Agent Cloud" }] }),
   component: ReconciliationPage,
 });
 
-/** Minimal CSV parse: handles quoted fields and embedded commas. */
-function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [], field = "", inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"') inQuotes = false;
-      else field += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === ",") { row.push(field); field = ""; }
-    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
-    else if (c !== "\r") field += c;
-  }
-  if (field || row.length) { row.push(field); rows.push(row); }
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
-}
-
-const HEADER_HINTS: Record<string, string[]> = {
-  policy_number: ["policy", "policy number", "policy #", "policyno", "contract"],
-  insured_name: ["insured", "client", "insured name", "member"],
-  agent_name: ["agent", "writing agent", "producer"],
-  product: ["product", "plan"],
-  paid_amount: ["amount", "commission", "paid", "net", "commission amount"],
-  paid_date: ["date", "paid date", "process date"],
-};
-
-function mapHeaders(header: string[]) {
-  const map: Record<string, number> = {};
-  header.forEach((h, i) => {
-    const norm = h.trim().toLowerCase();
-    for (const [field, hints] of Object.entries(HEADER_HINTS)) {
-      if (map[field] === undefined && hints.some((x) => norm === x || norm.includes(x))) {
-        map[field] = i;
-      }
-    }
-  });
-  return map;
-}
-
-function money2(s: string) {
-  const n = Number(String(s).replace(/[$,()\s]/g, "").replace(/^-?/, (m) => m));
-  return Number.isFinite(n) ? n : 0;
-}
+/*
+ * The parser, the header guesser and the money parser that used to live here
+ * are in `src/lib/statement-parse.ts`, which is tested by
+ * `npm run check:statements`. They carried four silent defects — the worst of
+ * them read `(1,890.00)` as a *positive* 1,890, so a chargeback reconciled as
+ * a payment and the variance came out wrong by twice the amount, on exactly
+ * the line item this page exists to catch.
+ */
 
 function ReconciliationPage() {
   return <ReconciliationContent />;
@@ -112,9 +78,12 @@ function StatementList({ onOpen, embedded = false }: { onOpen: (id: string) => v
 
         <Panel>
           <p className="text-sm text-muted-foreground">
-            Upload a carrier statement as CSV. Each line is matched to a policy by policy number
+            Upload a carrier statement as CSV or Excel, exactly as the carrier sent it —
+            title rows, subtotals and all. Each line is matched to a policy by policy number
             and compared to the commission the engine calculated when the deal was posted.
-            Nothing here changes your commission schedule — it only reports the difference.
+            Chargebacks keep their sign, so a negative total is a real month, not a parsing
+            error. Nothing here changes your commission schedule — it only reports the
+            difference.
           </p>
         </Panel>
 
@@ -185,32 +154,74 @@ function UploadDialog() {
   const [fileName, setFileName] = useState("");
   const [lines, setLines] = useState<any[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
+  const [notes, setNotes] = useState<string[]>([]);
 
   const createFn = useServerFn(createStatement);
   const reconcileFn = useServerFn(reconcileStatement);
 
+  /**
+   * Read the file.
+   *
+   * A workbook goes through `extractDocument` first, which is the same path
+   * the book importer uses — carriers send .xlsx at least as often as .csv, and
+   * a page that only accepts CSV makes the agency convert it by hand, which is
+   * where a spreadsheet turns a policy number into scientific notation.
+   *
+   * Every sheet is read, not just the first: a statement workbook routinely has
+   * a summary tab in front of the detail. The sheet with the most lines wins,
+   * which is the detail tab in every layout I can find.
+   */
   async function onFile(f: File) {
     setProblem(null);
-    const rows = parseCsv(await f.text());
-    if (rows.length < 2) { setProblem("That file has no data rows."); return; }
+    setNotes([]);
 
-    const map = mapHeaders(rows[0]);
-    if (map.policy_number === undefined || map.paid_amount === undefined) {
-      setProblem("Couldn't find a policy number and an amount column. Expected headers like “Policy Number” and “Commission Amount”.");
+    let blocks;
+    try {
+      const isWorkbook = /spreadsheet|excel/i.test(f.type) || /\.xlsx?$/i.test(f.name);
+      blocks = isWorkbook
+        ? readDocument((await extractDocument(f)).text ?? "")
+        : [readBlock(await f.text())];
+    } catch {
+      setProblem("We couldn't open that file. CSV and Excel workbooks both work.");
       return;
     }
 
-    const parsed = rows.slice(1).map((r) => ({
-      policy_number: (r[map.policy_number] ?? "").trim() || null,
-      insured_name: map.insured_name !== undefined ? (r[map.insured_name] ?? "").trim() || null : null,
-      agent_name: map.agent_name !== undefined ? (r[map.agent_name] ?? "").trim() || null : null,
-      product: map.product !== undefined ? (r[map.product] ?? "").trim() || null : null,
-      paid_amount: money2(r[map.paid_amount] ?? "0"),
-      paid_date: null,
-    })).filter((l) => l.policy_number || l.paid_amount !== 0);
+    const parsedAll = blocks.map(parseStatementBlock);
+    const best = parsedAll.reduce(
+      (a, b) => (b.lines.length > a.lines.length ? b : a),
+      parsedAll[0] ?? parseStatementBlock(readBlock("")),
+    );
+
+    if (!best.lines.length) {
+      setProblem(best.problem ?? "That file has no data rows.");
+      setLines([]);
+      return;
+    }
+
+    // The server takes 5000 lines per statement. Said here, before the upload,
+    // because the alternative is a Zod validation error after the person has
+    // filled in the carrier and the date.
+    if (best.lines.length > 5000) {
+      setProblem(
+        `That statement has ${best.lines.length.toLocaleString()} lines and we take 5,000 at a time. ` +
+        `Split it by period or by agent and upload the parts.`,
+      );
+      setLines([]);
+      return;
+    }
+
+    // Said out loud rather than folded into the line count. A statement whose
+    // total does not match the file is the thing an agency notices a month
+    // later, and "we skipped 6 subtotal rows" is what makes the arithmetic
+    // reconcilable at the time.
+    const said: string[] = [];
+    if (best.skipped.subtotal) said.push(`${best.skipped.subtotal} subtotal row${best.skipped.subtotal === 1 ? "" : "s"} skipped`);
+    if (best.skipped.banner) said.push(`${best.skipped.banner} header row${best.skipped.banner === 1 ? "" : "s"} above the table`);
+    if (best.skipped.unreadableAmount) said.push(`${best.skipped.unreadableAmount} row${best.skipped.unreadableAmount === 1 ? "" : "s"} with an unreadable amount`);
 
     setFileName(f.name);
-    setLines(parsed);
+    setLines(best.lines);
+    setNotes(said);
   }
 
   const submit = useMutation({
@@ -235,6 +246,7 @@ function UploadDialog() {
   });
 
   const total = lines.reduce((a, l) => a + l.paid_amount, 0);
+  const chargebacks = lines.filter((l) => l.paid_amount < 0).length;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -253,17 +265,35 @@ function UploadDialog() {
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs font-medium mb-1 block">CSV file</label>
+            <label className="text-xs font-medium mb-1 block">Statement file</label>
             <Input
-              type="file" accept=".csv,text/csv"
+              type="file"
+              accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
             />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              CSV or Excel. Leave the title rows and subtotals in — we read past them.
+            </p>
           </div>
           {problem && <p className="text-xs text-destructive">{problem}</p>}
           {lines.length > 0 && (
             <div className="rounded-lg border border-border p-3 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Lines</span><span className="tnum">{lines.length}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Total paid</span><span className="tnum font-semibold">{money(total)}</span></div>
+              {/* A negative total is normal on a chargeback-heavy month and used
+                  to be impossible to produce — worth showing rather than
+                  hiding, because it is the number the agency is checking. */}
+              {chargebacks > 0 && (
+                <div className="flex justify-between text-xs pt-1 mt-1 border-t border-border-soft">
+                  <span className="text-muted-foreground">Of which chargebacks</span>
+                  <span className="tnum text-destructive">{chargebacks}</span>
+                </div>
+              )}
+              {notes.length > 0 && (
+                <p className="text-[11px] text-muted-foreground pt-2 mt-2 border-t border-border-soft">
+                  {notes.join(" · ")}
+                </p>
+              )}
             </div>
           )}
         </div>
