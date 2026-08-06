@@ -29,7 +29,7 @@ function greeting() {
 export function TopBar() {
   const { theme, toggle } = useTheme();
   const { user, signOut } = useAuth();
-  const { isAdmin, isManager } = useRole();
+  const { isSuperAdmin } = useRole();
   const navigate = useNavigate();
   const listFn = useServerFn(listNotifications);
 
@@ -115,7 +115,10 @@ export function TopBar() {
       {/* Star the current page — it appears in the sidebar under its hub. */}
       <StarPage />
 
-      {(isAdmin || isManager) && (
+      {/* super_admin only. `isAdmin` folds in agency_owner and admin, and
+          `isManager` folds in all of those plus manager — so this button was
+          offered to four agency roles for a platform-operator portal. */}
+      {isSuperAdmin && (
         <Button asChild variant="outline" size="sm" className="hidden lg:inline-flex gap-1.5">
           <Link to="/admin">
             <ShieldCheck className="h-3.5 w-3.5" />
