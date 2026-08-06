@@ -538,6 +538,76 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_message_log: {
+        Row: {
+          agent_id: string | null
+          body: string
+          channel: string
+          client_id: string | null
+          created_at: string
+          delivered: boolean
+          id: string
+          kind: string
+          organization_id: string | null
+          ruleset_version: string
+          screen_findings: Json
+          screen_flagged: boolean
+          screen_passed: boolean
+        }
+        Insert: {
+          agent_id?: string | null
+          body: string
+          channel?: string
+          client_id?: string | null
+          created_at?: string
+          delivered?: boolean
+          id?: string
+          kind: string
+          organization_id?: string | null
+          ruleset_version: string
+          screen_findings?: Json
+          screen_flagged?: boolean
+          screen_passed: boolean
+        }
+        Update: {
+          agent_id?: string | null
+          body?: string
+          channel?: string
+          client_id?: string | null
+          created_at?: string
+          delivered?: boolean
+          id?: string
+          kind?: string
+          organization_id?: string | null
+          ruleset_version?: string
+          screen_findings?: Json
+          screen_flagged?: boolean
+          screen_passed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_message_log_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_message_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_message_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_insight_cache: {
         Row: {
           agent_id: string
@@ -859,6 +929,7 @@ export type Database = {
           event_type: Database["public"]["Enums"]["event_type"]
           id: string
           is_auto_generated: boolean
+          is_sample: boolean
           notes: string | null
           organization_id: string | null
           policy_id: string | null
@@ -876,6 +947,7 @@ export type Database = {
           event_type: Database["public"]["Enums"]["event_type"]
           id?: string
           is_auto_generated?: boolean
+          is_sample?: boolean
           notes?: string | null
           organization_id?: string | null
           policy_id?: string | null
@@ -893,6 +965,7 @@ export type Database = {
           event_type?: Database["public"]["Enums"]["event_type"]
           id?: string
           is_auto_generated?: boolean
+          is_sample?: boolean
           notes?: string | null
           organization_id?: string | null
           policy_id?: string | null
@@ -982,6 +1055,58 @@ export type Database = {
           },
           {
             foreignKeyName: "call_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carrier_aliases: {
+        Row: {
+          alias: string
+          carrier_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string | null
+          source: string
+        }
+        Insert: {
+          alias: string
+          carrier_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          source?: string
+        }
+        Update: {
+          alias?: string
+          carrier_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carrier_aliases_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_aliases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "carrier_aliases_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -1467,6 +1592,7 @@ export type Database = {
           is_annuity_carrier: boolean
           is_private: boolean
           logo_url: string | null
+          naic_code: string | null
           name: string
           owner_organization_id: string | null
           pay_frequency: string | null
@@ -1492,6 +1618,7 @@ export type Database = {
           is_annuity_carrier?: boolean
           is_private?: boolean
           logo_url?: string | null
+          naic_code?: string | null
           name: string
           owner_organization_id?: string | null
           pay_frequency?: string | null
@@ -1517,6 +1644,7 @@ export type Database = {
           is_annuity_carrier?: boolean
           is_private?: boolean
           logo_url?: string | null
+          naic_code?: string | null
           name?: string
           owner_organization_id?: string | null
           pay_frequency?: string | null
@@ -1844,6 +1972,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
+          is_sample: boolean
           last_name: string
           last_opened_at: string | null
           notes: string | null
@@ -1870,6 +1999,7 @@ export type Database = {
           email?: string | null
           first_name: string
           id?: string
+          is_sample?: boolean
           last_name: string
           last_opened_at?: string | null
           notes?: string | null
@@ -1896,6 +2026,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          is_sample?: boolean
           last_name?: string
           last_opened_at?: string | null
           notes?: string | null
@@ -2181,6 +2312,7 @@ export type Database = {
           created_at: string
           id: string
           is_gtl: boolean
+          is_sample: boolean
           month_number: number | null
           organization_id: string | null
           paid_at: string | null
@@ -2205,6 +2337,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_gtl?: boolean
+          is_sample?: boolean
           month_number?: number | null
           organization_id?: string | null
           paid_at?: string | null
@@ -2229,6 +2362,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_gtl?: boolean
+          is_sample?: boolean
           month_number?: number | null
           organization_id?: string | null
           paid_at?: string | null
@@ -2565,6 +2699,7 @@ export type Database = {
           data_source: string | null
           effective_date: string | null
           id: string
+          is_sample: boolean
           issue_description: string | null
           loa: string | null
           notes: string | null
@@ -2585,6 +2720,7 @@ export type Database = {
           data_source?: string | null
           effective_date?: string | null
           id?: string
+          is_sample?: boolean
           issue_description?: string | null
           loa?: string | null
           notes?: string | null
@@ -2605,6 +2741,7 @@ export type Database = {
           data_source?: string | null
           effective_date?: string | null
           id?: string
+          is_sample?: boolean
           issue_description?: string | null
           loa?: string | null
           notes?: string | null
@@ -2996,6 +3133,7 @@ export type Database = {
           id: string
           integration_metadata: Json
           internal_notes: string | null
+          is_sample: boolean
           is_transfer: boolean
           last_synced_at: string | null
           manual_override: boolean
@@ -3044,6 +3182,7 @@ export type Database = {
           id?: string
           integration_metadata?: Json
           internal_notes?: string | null
+          is_sample?: boolean
           is_transfer?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
@@ -3092,6 +3231,7 @@ export type Database = {
           id?: string
           integration_metadata?: Json
           internal_notes?: string | null
+          is_sample?: boolean
           is_transfer?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
@@ -3539,6 +3679,44 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_reset_log: {
+        Row: {
+          detail: string | null
+          finished_at: string | null
+          id: string
+          organization_id: string | null
+          rows_cleared: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string | null
+          rows_cleared?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          detail?: string | null
+          finished_at?: string | null
+          id?: string
+          organization_id?: string | null
+          rows_cleared?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_reset_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -4957,6 +5135,45 @@ export type Database = {
           },
         ]
       }
+      nova_feature_usage: {
+        Row: {
+          feature: string
+          id: string
+          organization_id: string | null
+          used_at: string
+          user_id: string
+        }
+        Insert: {
+          feature: string
+          id?: string
+          organization_id?: string | null
+          used_at?: string
+          user_id: string
+        }
+        Update: {
+          feature?: string
+          id?: string
+          organization_id?: string | null
+          used_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nova_feature_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nova_feature_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nova_messages: {
         Row: {
           content: string
@@ -5467,6 +5684,7 @@ export type Database = {
       }
       organization_settings: {
         Row: {
+          collect_contracting_pii: boolean
           created_at: string
           email_categories: Json
           emails_enabled: boolean
@@ -5481,6 +5699,7 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          collect_contracting_pii?: boolean
           created_at?: string
           email_categories?: Json
           emails_enabled?: boolean
@@ -5495,6 +5714,7 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          collect_contracting_pii?: boolean
           created_at?: string
           email_categories?: Json
           emails_enabled?: boolean
@@ -5565,6 +5785,7 @@ export type Database = {
           created_at: string | null
           custom_domain: string | null
           id: string
+          is_demo: boolean
           logo_url: string | null
           name: string
           nova_partner_commission_rate: number | null
@@ -5588,6 +5809,7 @@ export type Database = {
           created_at?: string | null
           custom_domain?: string | null
           id?: string
+          is_demo?: boolean
           logo_url?: string | null
           name: string
           nova_partner_commission_rate?: number | null
@@ -5611,6 +5833,7 @@ export type Database = {
           created_at?: string | null
           custom_domain?: string | null
           id?: string
+          is_demo?: boolean
           logo_url?: string | null
           name?: string
           nova_partner_commission_rate?: number | null
@@ -5914,6 +6137,7 @@ export type Database = {
           face_amount: number | null
           id: string
           is_gtl: boolean
+          is_sample: boolean
           last_synced_at: string | null
           monthly_premium: number | null
           organization_id: string | null
@@ -5934,6 +6158,7 @@ export type Database = {
           face_amount?: number | null
           id?: string
           is_gtl?: boolean
+          is_sample?: boolean
           last_synced_at?: string | null
           monthly_premium?: number | null
           organization_id?: string | null
@@ -5954,6 +6179,7 @@ export type Database = {
           face_amount?: number | null
           id?: string
           is_gtl?: boolean
+          is_sample?: boolean
           last_synced_at?: string | null
           monthly_premium?: number | null
           organization_id?: string | null
@@ -6028,6 +6254,7 @@ export type Database = {
           external_provider: string | null
           external_record_id: string | null
           id: string
+          is_sample: boolean
           last_synced_at: string | null
           last_verified_at: string | null
           line_of_authority: string | null
@@ -6051,6 +6278,7 @@ export type Database = {
           external_provider?: string | null
           external_record_id?: string | null
           id?: string
+          is_sample?: boolean
           last_synced_at?: string | null
           last_verified_at?: string | null
           line_of_authority?: string | null
@@ -6074,6 +6302,7 @@ export type Database = {
           external_provider?: string | null
           external_record_id?: string | null
           id?: string
+          is_sample?: boolean
           last_synced_at?: string | null
           last_verified_at?: string | null
           line_of_authority?: string | null
@@ -6172,6 +6401,7 @@ export type Database = {
           file_name: string | null
           file_url: string | null
           id: string
+          is_sample: boolean
           is_sensitive: boolean
           organization_id: string | null
           policy_number: string | null
@@ -6197,6 +6427,7 @@ export type Database = {
           file_name?: string | null
           file_url?: string | null
           id?: string
+          is_sample?: boolean
           is_sensitive?: boolean
           organization_id?: string | null
           policy_number?: string | null
@@ -6222,6 +6453,7 @@ export type Database = {
           file_name?: string | null
           file_url?: string | null
           id?: string
+          is_sample?: boolean
           is_sensitive?: boolean
           organization_id?: string | null
           policy_number?: string | null
@@ -6270,6 +6502,81 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      producer_notes: {
+        Row: {
+          agent_id: string
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          organization_id: string
+          pinned: boolean
+          related_carrier_id: string | null
+          related_request_id: string | null
+          visibility: string
+        }
+        Insert: {
+          agent_id: string
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          organization_id: string
+          pinned?: boolean
+          related_carrier_id?: string | null
+          related_request_id?: string | null
+          visibility?: string
+        }
+        Update: {
+          agent_id?: string
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          pinned?: boolean
+          related_carrier_id?: string | null
+          related_request_id?: string | null
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producer_notes_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_notes_related_carrier_id_fkey"
+            columns: ["related_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producer_notes_related_request_id_fkey"
+            columns: ["related_request_id"]
+            isOneToOne: false
+            referencedRelation: "contracting_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -7626,6 +7933,7 @@ export type Database = {
           external_record_id: string | null
           id: string
           is_resident: boolean | null
+          is_sample: boolean
           issued_date: string | null
           last_synced_at: string | null
           last_verified_at: string | null
@@ -7654,6 +7962,7 @@ export type Database = {
           external_record_id?: string | null
           id?: string
           is_resident?: boolean | null
+          is_sample?: boolean
           issued_date?: string | null
           last_synced_at?: string | null
           last_verified_at?: string | null
@@ -7682,6 +7991,7 @@ export type Database = {
           external_record_id?: string | null
           id?: string
           is_resident?: boolean | null
+          is_sample?: boolean
           issued_date?: string | null
           last_synced_at?: string | null
           last_verified_at?: string | null
@@ -7930,6 +8240,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_sample: boolean
           organization_id: string | null
           priority: string
           related_id: string | null
@@ -7946,6 +8257,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_sample?: boolean
           organization_id?: string | null
           priority?: string
           related_id?: string | null
@@ -7962,6 +8274,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_sample?: boolean
           organization_id?: string | null
           priority?: string
           related_id?: string | null
@@ -8236,6 +8549,48 @@ export type Database = {
           },
         ]
       }
+      upsell_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          organization_id: string | null
+          placement: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          organization_id?: string | null
+          placement: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          organization_id?: string | null
+          placement?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upsell_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       usage_events: {
         Row: {
           action: string | null
@@ -8288,6 +8643,48 @@ export type Database = {
             foreignKeyName: "usage_events_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_onboarding_state: {
+        Row: {
+          checklist_dismissed: boolean
+          completed_tours: string[]
+          dismissed_steps: string[]
+          organization_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checklist_dismissed?: boolean
+          completed_tours?: string[]
+          dismissed_steps?: string[]
+          organization_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checklist_dismissed?: boolean
+          completed_tours?: string[]
+          dismissed_steps?: string[]
+          organization_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_onboarding_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_onboarding_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -8562,6 +8959,7 @@ export type Database = {
           external_record_id: string | null
           hierarchy_path: string | null
           id: string
+          is_sample: boolean
           last_synced_at: string | null
           manual_override: boolean
           notes: string | null
@@ -8594,6 +8992,7 @@ export type Database = {
           external_record_id?: string | null
           hierarchy_path?: string | null
           id?: string
+          is_sample?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
           notes?: string | null
@@ -8626,6 +9025,7 @@ export type Database = {
           external_record_id?: string | null
           hierarchy_path?: string | null
           id?: string
+          is_sample?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
           notes?: string | null
@@ -8770,6 +9170,7 @@ export type Database = {
           face_amount: number
           id: string
           is_gtl: boolean
+          is_sample: boolean
           monthly_premium: number
           policy_number: string
           posted_at: string
