@@ -187,6 +187,33 @@ function contactFactor(lastContactAt: string | null, asOf: string): RiskFactor |
  * to a sentence, which is what lets an agent disagree with it. A number nobody
  * can argue with is a number nobody acts on.
  */
+/**
+ * Payment mode.
+ *
+ * Monthly and weekly draft business lapses at several times the rate of
+ * annual: there are twelve or fifty-two chances a year for a card to fail or
+ * for somebody to decide they no longer want it, against one. An unknown mode
+ * scores nothing — a missing value is not evidence of monthly.
+ */
+function premiumModeFactor(mode: string | null | undefined): RiskFactor | null {
+  if (!mode) return null;
+  switch (mode) {
+    case "weekly":
+    case "biweekly":
+      return { label: "Weekly draft", points: 22, detail: "Drafted every week or fortnight — the most failure-prone schedule there is." };
+    case "monthly":
+      return { label: "Monthly draft", points: 16, detail: "Twelve drafts a year, each one a chance to fail." };
+    case "quarterly":
+      return { label: "Quarterly draft", points: 8, detail: "Four drafts a year." };
+    case "semi_annual":
+      return { label: "Semi-annual", points: 4, detail: "Two payments a year." };
+    case "annual":
+      return { label: "Annual payment", points: 0, detail: "Paid annually, which lapses least often." };
+    default:
+      return null;
+  }
+}
+
 export function scoreLapseRisk(input: RiskInput): RiskScore {
   const months = input.effectiveDate ? monthsBetween(input.effectiveDate, input.asOf) : null;
 
@@ -194,7 +221,9 @@ export function scoreLapseRisk(input: RiskInput): RiskScore {
     monthsInForceFactor(months),
     affordabilityFactor(input.monthlyPremium, input.faceAmount),
     contactFactor(input.lastContactAt, input.asOf),
+    premiumModeFactor(input.premiumMode),
   ].filter((f): f is RiskFactor => f !== null && f.points > 0);
+
 
   const score = Math.min(100, factors.reduce((a, f) => a + f.points, 0));
 
