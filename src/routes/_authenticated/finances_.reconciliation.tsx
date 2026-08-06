@@ -23,6 +23,7 @@ import {
 import { parseStatementBlock } from "@/lib/statement-parse";
 import { readBlock, readDocument } from "@/lib/sheet-shape";
 import { extractDocument } from "@/lib/document-extract";
+import { UpsellCard } from "@/components/nova/upsell-card";
 
 export const Route = createFileRoute("/_authenticated/finances_/reconciliation")({
   head: () => ({ meta: [{ title: "Commission Reconciliation — Agent Cloud" }] }),
@@ -421,6 +422,13 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
             </Panel>
           </div>
         )}
+
+        {/*
+          The moment: they have just reconciled a statement by hand, so the
+          value of ranking what is still paying is concrete rather than
+          abstract. Inline, under their own result, dismissable.
+        */}
+        <UpsellCard placementId="reconciliation_after_upload" />
 
         <div className="flex gap-1.5 flex-wrap">
           {(["variance", "unmatched", "matched", "all"] as const).map((f) => (

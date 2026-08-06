@@ -224,6 +224,10 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/nova-gate.functions.ts:nova_feature_usage":
+    "the count query is wrapped in try/catch and its failure sets usageUnknown, which resolveAccess() turns into ALLOW — deliberately failing open. Blocking would deny somebody a feature because an audit table was late; the cost of failing open is one extra free run. recordTrialRun swallows its own error for the same reason",
+  "src/lib/nova-gate.functions.ts:upsell_events":
+    "both the insert and the read are wrapped in try/catch. Instrumentation must never fail a render or block a click — the point of counting is to find placements that convert below the floor and delete them, and a counter that can break the page it measures would not survive to do that. upsellPerformance returns available:false rather than throwing",
   "src/lib/ai-features.functions.ts:ai_message_log":
     "the insert is wrapped in try/catch and its error is swallowed into a `logged: false` flag returned with the drafts. Before the migration the compliance screen still runs and still blocks — only the audit record is missing, and the flag says so. Deliberate: an agent losing their drafts because an audit table is absent would be a worse failure than a visible gap in the log",
   "src/lib/carrier-index.ts:carrier_aliases":

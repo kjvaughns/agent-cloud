@@ -50,3 +50,4 @@ dist-ssr
 .lapse.mjs
 .comp.mjs
 .rev.mjs
+.ups.mjs
