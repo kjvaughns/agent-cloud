@@ -878,3 +878,26 @@ export const dismissImport = createServerFn({ method: "POST" })
     if (!updated?.length) throw new Error("That import is no longer available.");
     return { ok: true };
   });
+
+/**
+ * The carrier catalogue, for reading a carrier out of a tab name.
+ *
+ * One tab per carrier is the commonest workbook shape in this industry, and the
+ * carrier is then in the sheet name and nowhere else. Deciding that on the
+ * client needs the catalogue on the client — and it has to be the *real* one,
+ * because the alternative is stamping a name nobody has verified across every
+ * policy on the tab. Reference data, read through the caller's own client.
+ */
+export const listCarrierIndex = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as Ctx;
+    try {
+      const { buildCarrierIndex } = await import("@/lib/carrier-index");
+      return { carriers: await buildCarrierIndex(supabase) };
+    } catch {
+      // A tab name is a convenience, never the only path to a carrier. If the
+      // catalogue cannot be read, the column still works.
+      return { carriers: [] };
+    }
+  });

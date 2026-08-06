@@ -16,6 +16,7 @@
     "check:csv": "esbuild scripts/csv-check.ts --bundle --platform=node --format=esm --outfile=.csv.mjs && node .csv.mjs",
     "check:carriers": "esbuild scripts/carrier-match-check.ts --bundle --platform=node --format=esm --outfile=.cm.mjs && node .cm.mjs",
     "check:onboarding": "esbuild scripts/onboarding-check.ts --bundle --platform=node --format=esm --external:driver.js --outfile=.onb.mjs && node .onb.mjs",
+    "check:import": "esbuild scripts/import-check.ts --bundle --platform=node --format=esm --outfile=.imp.mjs && node .imp.mjs",
     "check:mobile": "node scripts/mobile-check.mjs",
     "check:migrations": "esbuild scripts/migration-safety.ts --bundle --platform=node --format=esm --outfile=.migsafe.mjs && node .migsafe.mjs"
   },

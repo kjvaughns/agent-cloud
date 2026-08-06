@@ -224,8 +224,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
-  "src/lib/admin-import.functions.ts:carrier_aliases":
-    "the alias fetch is wrapped in try/catch and falls back to an empty list, so before the migration the matcher runs on names alone; carriers is read with select(\"*\") so the pending naic_code column is simply absent and reads as null. Matching degrades to exact-plus-fuzzy, which still refuses anything under the confidence threshold",
+  "src/lib/carrier-index.ts:carrier_aliases":
+    "the alias fetch is wrapped in try/catch and falls back to an empty list, so before the migration the matcher runs on names alone; carriers is read with select(\"*\") so the pending naic_code column is simply absent and reads as null. Matching degrades to exact-plus-fuzzy, which still refuses anything under the confidence threshold. Both callers — the admin importer and listCarrierIndex — go through this one builder, so neither can degrade differently",
   "src/lib/onboarding-checklist.functions.ts:user_onboarding_state":
     "all three sites tolerate 42P01: the read is a maybeSingle() whose result is consumed as `stateRes.data?.x ?? default`, so a missing table reads as \"nothing dismissed\" — which is the correct starting state anyway — and the upsert catches its own error and warns. Step completion is never stored here, so nothing about the checklist's accuracy depends on this table existing; only the dismissals fail to stick",
   "src/components/demo-banner.tsx:organizations.is_demo":

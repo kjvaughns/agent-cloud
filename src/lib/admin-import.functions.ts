@@ -625,32 +625,11 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
       // 3. Policies — match by client name from Book of Business
       // Build a carrier name → id map once for fast resolution
       // Carrier identity, with the aliases and NAIC codes that make it
-      // resolvable. `naic_code` and `carrier_aliases` are both pending
-      // migrations, so each is fetched separately and a failure degrades to
-      // matching on names alone rather than taking the whole import down.
-      const { data: carrierRows } = await supabase.from("carriers").select("*");
-
-      let aliasRows: any[] = [];
-      try {
-        const { data } = await supabase.from("carrier_aliases").select("carrier_id, alias");
-        aliasRows = data ?? [];
-      } catch {
-        aliasRows = [];
-      }
-      const aliasesByCarrier = new Map<string, string[]>();
-      for (const a of aliasRows) {
-        const list = aliasesByCarrier.get(a.carrier_id) ?? [];
-        list.push(a.alias);
-        aliasesByCarrier.set(a.carrier_id, list);
-      }
-
+      // resolvable. `buildCarrierIndex` is where the degrade-when-pending
+      // handling lives, so this and the import page cannot drift apart.
       const { matchCarrier, isConfident } = await import("@/lib/carrier-match");
-      const carrierIndex = (carrierRows ?? []).map((c: any) => ({
-        id: c.id as string,
-        name: String(c.name ?? ""),
-        naicCode: c.naic_code ?? null,
-        aliases: aliasesByCarrier.get(c.id) ?? [],
-      }));
+      const { buildCarrierIndex } = await import("@/lib/carrier-index");
+      const carrierIndex = await buildCarrierIndex(supabase);
 
       const resolveCarrierId = (raw?: string | null): string | null => {
         if (!raw) return null;
