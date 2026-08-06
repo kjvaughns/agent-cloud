@@ -63,6 +63,57 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
+    const orgId = await getOrgId(supabase, userId);
+
+    // ── May this agent put themselves live? ────────────────────────────────
+    //
+    // This wrote `status: "active"` unconditionally, so an agent could type
+    // any writing number against any carrier and be live, with no approval.
+    // `source: "self_reported"` was already recorded — the flag existed, the
+    // gate did not.
+    //
+    // Fails closed. If the column is missing because the migration has not
+    // been applied, the select errors and the answer is `false`: the agent
+    // raises a request for somebody to confirm rather than activating
+    // themselves. Failing open on a permission check would be handing out the
+    // thing the check exists to withhold, and `false` is the column's default
+    // anyway, so applying the migration changes nothing.
+    let maySelfActivate = false;
+    if (orgId) {
+      const { data: settings } = await supabase
+        .from("org_contracting_settings")
+        .select("agents_may_self_activate_carriers")
+        .eq("organization_id", orgId)
+        .maybeSingle();
+      maySelfActivate = Boolean((settings as any)?.agents_may_self_activate_carriers);
+    }
+
+    if (!maySelfActivate) {
+      // Not a rejection — a request, in the queue, with the number they gave
+      // attached so whoever confirms it has something to check against.
+      // `requested` is an existing status meaning "not live yet"; no new
+      // status value, and therefore no CHECK constraint to migrate.
+      const created = await assignInviteCarriers({
+        client: supabaseAdmin,
+        agentId: userId,
+        organizationId: orgId,
+        createdBy: userId,
+        assignments: [{ carrier_id: data.carrier_id }],
+        contractStatus: "requested",
+        contractNote: data.writing_number
+          ? `Agent reported writing number ${data.writing_number} — unverified`
+          : "Agent reported an existing contract — unverified",
+        requestNote: data.writing_number
+          ? `Agent says they already hold this contract, writing number ${data.writing_number}. Confirm with the carrier before marking active.`
+          : "Agent says they already hold this contract. Confirm with the carrier before marking active.",
+        directUplineId: null,
+      });
+      if (!created.length) {
+        throw new Error("Could not record that contract. Nothing was saved — please try again.");
+      }
+      return { ok: true, pendingVerification: true };
+    }
+
     const { error } = await supabase.from("contract_requests").upsert({
       agent_id: userId,
       carrier_id: data.carrier_id,
@@ -78,13 +129,13 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
     if (data.writing_number) {
       await recordWritingNumber(supabase, {
         agentId: userId,
-        orgId: await getOrgId(supabase, userId),
+        orgId,
         carrierId: data.carrier_id,
         writingNumber: data.writing_number,
         source: "self_reported",
       });
     }
-    return { ok: true };
+    return { ok: true, pendingVerification: false };
   });
 
 // ---------- request commission level ----------
