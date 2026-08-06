@@ -294,7 +294,49 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
       ],
       maxTokens: 1100,
     });
-    return json;
+
+    // Screen before the draft reaches the agent, not after.
+    //
+    // Screening on the client would let a message be copied out of the panel
+    // before the check ran, and would leave the audit log dependent on the
+    // browser reporting honestly. The whole value to an agency principal is
+    // that the record exists whether or not the producer cooperated with it.
+    const { screenMessage, rulesetVersion } = await import("@/lib/compliance-screen");
+    const version = rulesetVersion();
+
+    const screened = (json.drafts ?? []).map((d) => {
+      const screen = screenMessage(d.body);
+      return { ...d, screen };
+    });
+
+    // The log is append-only and its table is a pending migration, so a failure
+    // here degrades to "not logged" rather than taking the drafts down with it.
+    // Deliberate: an agent losing their drafts because an audit table is absent
+    // would be a worse failure than a gap in the log, and the gap is visible.
+    let logged = true;
+    try {
+      const rows = screened.map((d) => ({
+        agent_id: userId,
+        client_id: d.client_id ?? null,
+        kind: d.kind,
+        channel: "sms",
+        body: d.body,
+        screen_passed: d.screen.passed,
+        screen_flagged: d.screen.flagged,
+        screen_findings: d.screen.findings,
+        ruleset_version: version,
+      }));
+      if (rows.length) {
+        // Cast because the generated types predate this migration. Regenerate
+        // `src/integrations/supabase/types.ts` once it is applied.
+        const { error } = await (supabase as any).from("ai_message_log").insert(rows);
+        if (error) logged = false;
+      }
+    } catch {
+      logged = false;
+    }
+
+    return { drafts: screened, rulesetVersion: version, logged };
   });
 
 // ------------------------------------------------------------------

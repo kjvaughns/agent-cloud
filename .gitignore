@@ -48,3 +48,4 @@ dist-ssr
 .stmtm.mjs
 .grid.mjs
 .lapse.mjs
+.comp.mjs
