@@ -22,6 +22,7 @@
     "check:grid-expectation": "esbuild scripts/grid-expectation-check.ts --bundle --platform=node --format=esm --outfile=.grid.mjs && node .grid.mjs",
     "check:lapse-risk": "esbuild scripts/lapse-risk-check.ts --bundle --platform=node --format=esm --outfile=.lapse.mjs && node .lapse.mjs",
     "check:compliance": "esbuild scripts/compliance-check.ts --bundle --platform=node --format=esm --outfile=.comp.mjs && node .comp.mjs",
+    "check:policy-review": "esbuild scripts/policy-review-check.ts --bundle --platform=node --format=esm --outfile=.rev.mjs && node .rev.mjs",
     "check:mobile": "node scripts/mobile-check.mjs",
     "check:migrations": "esbuild scripts/migration-safety.ts --bundle --platform=node --format=esm --outfile=.migsafe.mjs && node .migsafe.mjs"
   },

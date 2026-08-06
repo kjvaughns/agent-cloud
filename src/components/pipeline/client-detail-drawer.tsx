@@ -30,6 +30,7 @@ import {
 } from "@/lib/pipeline.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
+import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
@@ -145,6 +146,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             <ClientAiPanel clientId={clientId} />
+            <PolicyReviewPanel clientId={clientId} />
             <NotesTab clientId={clientId} entries={notes} />
           </div>
         </div>
