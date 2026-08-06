@@ -224,6 +224,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/ai-features.functions.ts:ai_message_log":
+    "the insert is wrapped in try/catch and its error is swallowed into a `logged: false` flag returned with the drafts. Before the migration the compliance screen still runs and still blocks — only the audit record is missing, and the flag says so. Deliberate: an agent losing their drafts because an audit table is absent would be a worse failure than a visible gap in the log",
   "src/lib/carrier-index.ts:carrier_aliases":
     "the alias fetch is wrapped in try/catch and falls back to an empty list, so before the migration the matcher runs on names alone; carriers is read with select(\"*\") so the pending naic_code column is simply absent and reads as null. Matching degrades to exact-plus-fuzzy, which still refuses anything under the confidence threshold. Both callers — the admin importer and listCarrierIndex — go through this one builder, so neither can degrade differently",
   "src/lib/onboarding-checklist.functions.ts:user_onboarding_state":

@@ -4,9 +4,11 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/page-shell";
-import { PhoneCall, MessageSquare, Cake, Users, Sparkles, Copy, Loader2 } from "lucide-react";
+import { PhoneCall, MessageSquare, Cake, Users, Sparkles, Copy, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { generateNovaDrafts, type NovaDraft } from "@/lib/ai-features.functions";
+import { cn } from "@/lib/utils";
+import type { ScreenResult } from "@/lib/compliance-screen";
 
 type T = "recovery" | "sms" | "birthday" | "beneficiary";
 const ICONS: Record<T, React.ComponentType<{ className?: string }>> = { recovery: PhoneCall, sms: MessageSquare, birthday: Cake, beneficiary: Users };
@@ -15,7 +17,7 @@ const LABEL: Record<T, string> = { recovery: "Policy Recovery", sms: "SMS Follow
 /** Nova activity: AI-drafted outreach for matching clients — review + copy. */
 export function NovaActivityPanel() {
   const [kind, setKind] = useState<T>("sms");
-  const [drafts, setDrafts] = useState<NovaDraft[]>([]);
+  const [drafts, setDrafts] = useState<(NovaDraft & { screen?: ScreenResult })[]>([]);
   const gen = useServerFn(generateNovaDrafts);
   const mut = useMutation({
     mutationFn: (k: T) => gen({ data: { kind: k, limit: 8 } }),
@@ -80,10 +82,46 @@ export function NovaActivityPanel() {
                   </div>
                   <div className="text-sm mt-1 whitespace-pre-wrap">{d.body}</div>
                   <div className="text-xs text-muted-foreground mt-1.5 italic">{d.rationale}</div>
+
+                  {/*
+                    What the screen found, in the agent's language.
+
+                    A block is a sentence that is wrong on the facts — a
+                    guaranteed return, calling a policy an investment — and the
+                    copy button goes away, because the cheapest moment to stop
+                    that message is before it is on the clipboard. A warning is
+                    a note: the agent reads it and decides, and the log records
+                    that they were shown it.
+                  */}
+                  {d.screen?.flagged && (
+                    <div className={cn(
+                      "mt-2 rounded-[var(--radius)] border p-2 space-y-1.5",
+                      d.screen.passed
+                        ? "border-warning/40 bg-warning/5"
+                        : "border-destructive/40 bg-destructive/5",
+                    )}>
+                      {d.screen.findings.map((f) => (
+                        <div key={f.ruleId} className="flex gap-2 text-xs">
+                          <ShieldAlert className={cn(
+                            "h-3.5 w-3.5 shrink-0 mt-0.5",
+                            f.severity === "block" ? "text-destructive" : "text-warning",
+                          )} />
+                          <span className="min-w-0">
+                            <span className="font-medium">“{f.matched}”</span> — {f.reason}{" "}
+                            <span className="text-muted-foreground">{f.instead}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(d.body)}>
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
+                {d.screen?.passed !== false ? (
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => copy(d.body)}>
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                ) : (
+                  <Badge variant="destructive" className="shrink-0 text-[10px]">Blocked</Badge>
+                )}
               </div>
             );
           })}

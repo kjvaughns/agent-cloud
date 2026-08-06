@@ -22,6 +22,7 @@ Delete a line once the migration is applied.
 - `20260805150000_book-of-business-sample-flag.sql`
 - `20260806100000_user-onboarding-state.sql`
 - `20260806110000_carrier-aliases.sql`
+- `20260806120000_ai-message-log.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
