@@ -1962,6 +1962,7 @@ export type Database = {
       clients: {
         Row: {
           agent_id: string
+          annual_income: number | null
           assigned_to_email: string | null
           best_time_to_call: string | null
           born_country_state: string | null
@@ -1989,6 +1990,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          annual_income?: number | null
           assigned_to_email?: string | null
           best_time_to_call?: string | null
           born_country_state?: string | null
@@ -2016,6 +2018,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          annual_income?: number | null
           assigned_to_email?: string | null
           best_time_to_call?: string | null
           born_country_state?: string | null
@@ -6143,6 +6146,7 @@ export type Database = {
           organization_id: string | null
           policy_number: string | null
           posted_at: string
+          premium_mode: string | null
           product: string | null
           status: Database["public"]["Enums"]["policy_status"]
           sync_source: string | null
@@ -6164,6 +6168,7 @@ export type Database = {
           organization_id?: string | null
           policy_number?: string | null
           posted_at?: string
+          premium_mode?: string | null
           product?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
@@ -6185,6 +6190,7 @@ export type Database = {
           organization_id?: string | null
           policy_number?: string | null
           posted_at?: string
+          premium_mode?: string | null
           product?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
