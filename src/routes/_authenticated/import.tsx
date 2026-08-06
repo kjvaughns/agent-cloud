@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check } from "lucide-react";
+import { UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNavContext } from "@/hooks/use-my-access";
@@ -57,6 +57,7 @@ function ImportPage() {
   const nav = useNavContext();
   const [tab, setTab] = useState<"import" | "approvals">("import");
   const [note, setNote] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
@@ -256,73 +257,148 @@ function ImportPage() {
     }
   }
 
+  /**
+   * Open the note and take the person to it.
+   *
+   * A file we could not classify tells you to describe it and upload it again.
+   * That instruction pointed at a textarea which is now collapsed by default,
+   * so it would have been telling somebody to use a control they cannot see.
+   * The sentence is a button instead — the fix and the instruction are the
+   * same click.
+   */
+  function describeAgain() {
+    setNoteOpen(true);
+    requestAnimationFrame(() => {
+      document.getElementById("import-note")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   const needsReview = docs.filter((d) => d.status === "needs_review").length;
   const imported = docs.filter((d) => d.status === "applied").length;
   const unreadable = docs.filter((d) => d.status === "failed").length;
 
   return (
     <PageShell>
+      {/*
+        Secondary actions live in the hero's action slot, not on the tab rail.
+
+        They used to sit inside the same non-wrapping flex row as the tabs —
+        MigrationGuide pushed in with `ml-auto`, then a "Document review" link
+        after it. At 375px that row is about 480px wide, so on a phone the
+        button landed *between* the two tabs and the link ran off the right
+        edge mid-phrase. A tab rail has to hold tabs; anything else on it is
+        what breaks first on the narrowest screen anybody uses.
+
+        The migration path is an action rather than a tab because "coming from
+        another CRM" is a question people arrive with. Document review is a
+        link rather than a tab because it is a working queue with its own
+        filters, sheet and approve/reject actions, and two other flows
+        deep-link into it by URL — re-hosting it here would mean a second copy,
+        and the copy would be the one that rots.
+      */}
+      {/* The tour's "nothing saves until you say so" step used to anchor on
+          the tab rail, which is Import|Approvals and has nothing to do with
+          that promise — and the rail is now absent for anyone without the
+          agency permission, so the step would have pointed at nothing. It
+          anchors here, where the subtitle makes the same claim in words. */}
+      <div data-tour="import-review">
       <HeroBand
         title="Import"
-        subtitle="Drop in anything — a book of business, a comp grid, a carrier report. It gets read, matched against what you already have, and shown to you before anything is saved."
+        subtitle="A book of business, a comp grid, a carrier report. Nothing is saved until you have seen what it found."
+        actions={
+          <>
+            <MigrationGuide />
+            {nav.canSeeAgency && (
+              <a
+                href="/contracting-ops/documents"
+                className="inline-flex items-center gap-1 whitespace-nowrap rounded-[var(--radius)] px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Document review <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </>
+        }
       />
+      </div>
 
-      <div data-tour="import-review" className="flex gap-1 border-b border-border">
-        <TabButton active={tab === "import"} onClick={() => setTab("import")}>Import</TabButton>
-        {nav.canSeeAgency && (
+      {/* One tab is not a tab strip. Without the agency permission there is
+          nothing to switch between, so the rail would be a lone underlined
+          word above the content it already describes. */}
+      {nav.canSeeAgency && (
+        <div className="flex gap-1 border-b border-border">
+          <TabButton active={tab === "import"} onClick={() => setTab("import")}>Import</TabButton>
           <TabButton active={tab === "approvals"} onClick={() => setTab("approvals")}>
             Approvals
           </TabButton>
-        )}
-        {/* A link rather than a tab, deliberately. Document review is a working
-            queue with its own filters, sheet and approve/reject actions, and
-            two other flows deep-link into it by URL. Re-hosting it here would
-            mean a second copy of it, and the copy would be the one that rots.
-            It sits beside Import in the sidebar for the same reason it sits
-            here: both are records arriving from outside that a human accepts. */}
-        {/* The migration path sits on the tab strip because "coming from
-            another CRM" is a question people arrive with, not one they go
-            looking for a settings page to answer. */}
-        <div className="ml-auto flex items-center gap-2 self-center pb-2">
-          <MigrationGuide />
         </div>
-        {nav.canSeeAgency && (
-          <a
-            href="/contracting-ops/documents"
-            className="self-center pb-2 text-sm text-muted-foreground hover:text-foreground hover:underline"
-          >
-            Document review →
-          </a>
-        )}
-      </div>
+      )}
 
       {tab === "approvals" ? (
         <ApprovalsTab />
       ) : (
         <>
-          <div className="grid gap-[var(--gap)] sm:grid-cols-3">
-            <StatTile label="Waiting for you" value={needsReview} />
-            <StatTile label="Imported" value={imported} />
-            <StatTile label="Couldn't read" value={unreadable} />
-          </div>
+          {/*
+            The counters only exist once there is something to count.
+
+            Three tiles reading 0 / 0 / 0 was the first thing in the viewport
+            on a phone — a third of the screen spent telling somebody who has
+            never imported anything that they have imported nothing, above the
+            list that says the same thing again. And they were `sm:grid-cols-3`,
+            so below 640px they stacked into three full-width rows.
+          */}
+          {docs.length > 0 && (
+            <div className="grid grid-cols-3 gap-[var(--gap)]">
+              <StatTile label="Waiting for you" value={needsReview} />
+              <StatTile label="Imported" value={imported} />
+              <StatTile label="Couldn't read" value={unreadable} />
+            </div>
+          )}
 
           <Panel>
             <div data-tour="import-drop" className="space-y-3">
-              <label className="block text-sm font-medium">
-                What are you uploading? <span className="text-muted-foreground">(optional)</span>
-              </label>
-              <Textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                placeholder="e.g. My whole book from Blue Sky — I already imported the Aetna policies last month"
-                className="resize-none"
-              />
-              <p className="text-xs text-muted-foreground">
-                A sentence here does two jobs: it tells us what the file is without us
-                having to guess, and it settles the awkward cases when we're deciding
-                whether somebody is already in your book.
-              </p>
+              {/*
+                The note is optional and it collapses.
+
+                Expanded, it was a label, a two-row textarea and a three-line
+                paragraph explaining our own matching logic — roughly 200px
+                that pushed the drop target, which is the entire job of this
+                page, to 44% down a phone screen. Collapsed it is one line.
+
+                It stays *above* the drop target rather than below it because
+                `handleFiles` reads the note at upload time: choosing a file
+                starts the read immediately, so a note added afterwards would
+                arrive too late to do anything.
+              */}
+              {noteOpen ? (
+                <div id="import-note" className="space-y-2">
+                  <label className="block text-sm font-medium">
+                    What are you uploading? <span className="text-muted-foreground">(optional)</span>
+                  </label>
+                  <Textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={2}
+                    autoFocus
+                    placeholder="e.g. My whole book from Blue Sky — I already imported the Aetna policies last month"
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Tells us what the file is, and settles the awkward cases when we are deciding
+                    whether somebody is already in your book.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setNoteOpen(true)}
+                  className="flex w-full items-center gap-2 rounded-[var(--radius)] border border-dashed border-border px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  {note.trim()
+                    ? <span className="truncate">{note.trim()}</span>
+                    : "Say what these files are — optional, but it improves matching"}
+                </button>
+              )}
 
               <label
                 className={cn(
@@ -361,20 +437,19 @@ function ImportPage() {
             </div>
           </Panel>
 
+          {/* No empty panel. "Nothing imported yet" sat directly under a drop
+              target that is already the empty state, on a page where the
+              counters above it had just said 0 three times. Three ways of
+              saying nothing has happened is two too many. */}
           {isLoading ? (
             <Panel><Skeleton className="h-32 w-full" /></Panel>
-          ) : docs.length === 0 ? (
-            <Panel>
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                Nothing imported yet.
-              </div>
-            </Panel>
-          ) : (
+          ) : docs.length === 0 ? null : (
             <div className="space-y-[var(--gap)]">
               {docs.map((d) => (
                 <DocRow
                   key={d.id}
                   doc={d}
+                  onDescribe={describeAgain}
                   open={openDoc === d.id}
                   onToggle={() => setOpenDoc(openDoc === d.id ? null : d.id)}
                   onDismiss={async () => {
@@ -412,8 +487,15 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 }
 
 function DocRow({
-  doc, open, onToggle, onDismiss,
-}: { doc: ImportDoc; open: boolean; onToggle: () => void; onDismiss: () => void }) {
+  doc, open, onToggle, onDismiss, onDescribe,
+}: {
+  doc: ImportDoc;
+  open: boolean;
+  onToggle: () => void;
+  onDismiss: () => void;
+  /** Opens the note field and scrolls to it. */
+  onDescribe: () => void;
+}) {
   const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
@@ -457,8 +539,15 @@ function DocRow({
 
         {doc.status === "needs_review" && !target && (
           <p className="text-sm text-muted-foreground">
-            We couldn't tell what this is, so there's nothing to propose. Tell us in the
-            box above and upload it again, and we'll use that.
+            We couldn't tell what this is, so there's nothing to propose.{" "}
+            <button
+              type="button"
+              onClick={onDescribe}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+            >
+              Tell us what it is
+            </button>{" "}
+            and upload it again — we'll use that.
           </p>
         )}
 
