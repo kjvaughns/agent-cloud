@@ -220,7 +220,12 @@ export const PAGES: Page[] = [
 
   // Everyone can invite. An invited agent gets an account and a dashboard;
   // what they can do with it is a separate question from who may send the link.
-  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "agency-member" },
+    // `agency-admin`, not `agency-member`. This was offered to every agency
+  // member, so an ordinary agent had "Invite an agent" in their sidebar and
+  // could open the builder that places agents in a downline with carriers and
+  // comp levels pre-assigned. The server function is the real gate (see
+  // createOnboardingInvite); this stops offering what it will now refuse.
+  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "agency-admin" },
 
   // ── Back office — staff's own product ────────────────────────────────────
   // These serve two audiences from one set of entries: staff, for whom they

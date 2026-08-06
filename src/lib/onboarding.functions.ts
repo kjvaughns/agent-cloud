@@ -1076,6 +1076,30 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // Validate inviter can assign the requested role
     const { data: inviterRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
     const inviterRoleList = (inviterRoles ?? []).map((r: any) => r.role as string);
+
+    // ── May you create an invite link at all? ──────────────────────────────
+    //
+    // Everything below this checks *which role* may be invited. Nothing
+    // checked whether the caller may invite anybody, so an ordinary agent
+    // could call this with the default invited_role of "agent" — no branch
+    // applies to that value — and mint a link placing new agents in a
+    // downline with carriers and comp levels pre-assigned.
+    //
+    // The nav offered it too (`unlock: "agency-member"`), but that is the
+    // lesser half: hiding the entry would have left the server function open
+    // to anybody who knew its name.
+    //
+    // Manager and above, because inviting into your own downline is a
+    // manager's job. A plain agent or staff member is not building a team.
+    const mayInviteAnyone = inviterRoleList.some((r: string) =>
+      ["super_admin", "agency_owner", "admin", "manager"].includes(r),
+    );
+    if (!mayInviteAnyone) {
+      throw new Error(
+        "Creating invite links is limited to agency owners and managers. " +
+        "Ask yours to send the link, or to grant you a manager role.",
+      );
+    }
     const canInviteAgencyOwner = inviterRoleList.includes("super_admin") || inviterRoleList.includes("agency_owner");
     const canInviteManager     = canInviteAgencyOwner || inviterRoleList.includes("manager");
     if (data.invited_role === "agency_owner" && !canInviteAgencyOwner) {
