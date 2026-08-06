@@ -259,6 +259,25 @@ function NoAccess({ data }: { data: any }) {
         Editing your agency's handbook, scripts and courses is available to the agency owner, and
         to managers and staff granted “Manage resources” on the Roles page.
       </p>
+      {/*
+        Which agency was asked, and how we picked it.
+
+        An agency owner reaching this message is usually not missing a
+        permission — they are being asked about a different organisation than
+        the one they own, because the membership row and the profile column
+        point at different places. Without this line that is invisible, and the
+        message above sends them to a Roles page that cannot fix it.
+      */}
+      {data?.orgId && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Checked against agency <code className="text-[11px]">{data.orgId}</code>
+          {data.orgVia === "membership" && ", found from your active membership"}
+          {data.orgVia === "profile" && ", found from your profile"}
+          {data.orgVia === "owner" && ", found because you own it"}
+          . If that is not the agency you expected, this is a linking fault rather than a
+          permission — report it with that id rather than changing anything on the Roles page.
+        </p>
+      )}
     </Panel>
   );
 }
