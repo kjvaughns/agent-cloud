@@ -36,7 +36,7 @@ export function LiveDemos() {
       <SectionHead
         eyebrow="Try it"
         title="This isn't a marketing mockup."
-        copy="Click around. You are working the actual application, on sample data — move a card, change a premium, close a retention case, and watch it respond the way it does for your team."
+        copy="Click around. This is the actual application on sample data — move a case down the pipeline, change a premium and watch the comp recalculate, work a conservation case. It responds the way it will for your team."
       />
 
       <div className="mt-10 flex flex-wrap justify-center gap-2" role="tablist">

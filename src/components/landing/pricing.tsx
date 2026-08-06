@@ -35,7 +35,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
         "Clients and policies",
         "Book of business",
         "Commission tracking",
-        "Retention alerts",
+        "Lapse alerts",
         "Tasks and documents",
         "Personal analytics",
       ],
@@ -52,7 +52,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
         "Recruiting and onboarding",
         "Licensing and contracting",
         "Staff accounts and permissions",
-        "Retention queues",
+        "Conservation queues",
         "Commission reconciliation",
         "Agency reporting",
       ],
@@ -67,7 +67,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
       <SectionHead
         eyebrow="Pricing"
         title="Two plans. No commission overrides."
-        copy="Pick the one that matches your agency. Add-ons are separate, and optional."
+        copy="Pick the one that matches your operation. Add-ons are separate, and optional."
       />
 
       {!checkoutReady && (
@@ -156,7 +156,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
                   </div>
                   <p className="mt-2.5 text-sm text-muted-foreground leading-relaxed">
                     An operations assistant inside your agency's records — summarizing activity,
-                    surfacing retention risk, drafting follow-ups and creating tasks. It only reads
+                    surfacing lapse risk, drafting follow-ups and creating tasks. It only reads
                     what the person using it is already allowed to see.
                   </p>
                   <p className="mt-2 text-xs text-muted-foreground">

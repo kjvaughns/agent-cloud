@@ -360,7 +360,7 @@ function RetentionScreen() {
       </Table>
 
       <p className="text-[10px] text-muted-foreground">
-        Every score breaks down into the signals behind it, so you can disagree with one.
+        Every score breaks down into the signals behind it, so you can argue with one.
       </p>
     </div>
   );

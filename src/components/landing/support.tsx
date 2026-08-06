@@ -31,11 +31,11 @@ export function faqItems(pricing: Record<string, number>) {
   return [
     {
       q: "How many users are included, and what counts as one?",
-      a: `The Agency plan includes up to ${pricing.includedSeats} active users; each additional one is ${money(pricing.seatOverage)} per month. An active user is anyone with access to your workspace — people you have invited who never accepted are not billed, and neither are inactive or terminated agents.`,
+      a: `The Agency plan includes up to ${pricing.includedSeats} active users; each additional one is ${money(pricing.seatOverage)} per month. An active user is anyone with access to your workspace — recruits you invited who never accepted are not billed, and neither are inactive or terminated producers.`,
     },
     {
-      q: "Can I import my current book of business?",
-      a: "Yes. CSV, XLSX and PDF, with column mapping, a diff report before anything is written, and a rollback if the result is wrong. Carrier book sync then keeps policy statuses current.",
+      q: "Can I bring my book over?",
+      a: "Yes. CSV, XLSX and PDF, with column mapping, a diff report before a single row is written, and a rollback if it comes in wrong. Carrier book sync then keeps policy statuses current.",
     },
     {
       q: "Does Agent Cloud integrate with SureLC and NIPR?",
@@ -88,8 +88,12 @@ export function FinalCta({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: str
   return (
     <LandingSection className="border-t border-border/60">
       <div className="mx-auto max-w-2xl text-center">
+        {/* A closing line an agency owner can act on, rather than a restatement
+            of the category. Reconciling a real statement is the fastest thing
+            we can do that they can check on the spot — and it is the claim
+            they are most sceptical of. */}
         <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground" style={display}>
-          Run your agency from one connected platform.
+          Bring a carrier statement. See what reconciling it turns up.
         </h2>
         {/* No supporting paragraph. It restated the hero headline and the
             problem section in one sentence, three thousand pixels after both.
