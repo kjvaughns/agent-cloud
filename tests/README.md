@@ -32,8 +32,9 @@ animated pages never settled, both timed out, and **both were counted as
 passes** until the categories were separated.
 
 So a missing credential throws with the name of the variable that is missing.
-CI without secrets fails on the first spec rather than walking zero pages and
-saying it walked them all.
+A CI run without secrets fails rather than walking zero pages and saying it
+walked them all — which is why the workflow is manual until the secrets exist
+rather than red on every pull request. See **CI** below.
 
 ---
 
@@ -132,17 +133,30 @@ and a permanently red suite is one nobody reads. Tighten it once these pass.
 
 ## CI
 
-`.github/workflows/e2e.yml` runs the nav walk and the accessibility pass on pull
-requests. It needs the eight credential secrets above set on the repository.
+`.github/workflows/e2e.yml` runs the nav walk and the accessibility pass. It
+needs the eight credential secrets above set on the repository.
 
-**Until those secrets exist the job fails, and that is intended** — a green
-check from a run that had no credentials would be a lie about coverage.
+**It is `workflow_dispatch` only until those secrets exist.** The suite itself
+fails loudly without credentials — that part is deliberate and stays. But a
+check that is red on *every* pull request until somebody sets eight secrets is
+the same failure the a11y threshold avoids: a permanently red gate trains people
+to ignore CI, and the usual next step is disabling the workflow.
 
-The full loop and visual regression are deliberately not in the PR job:
+So: set the secrets, run it once from the Actions tab, and when it is green add
+
+```yaml
+  pull_request:
+    branches: [main]
+```
+
+above `workflow_dispatch:`. One line, and by then it means something.
+
+The full loop and visual regression are excluded from the default suite even
+once it runs on pull requests:
 
 - The loop writes real rows and needs a scratch organisation per run to be
   repeatable.
 - Visual baselines differ enough between a CI runner and a developer's machine
-  that they belong in a scheduled job on fixed hardware.
+  that they belong on fixed hardware.
 
-Both are runnable on demand with `workflow_dispatch`.
+Both can be requested through the workflow's `suite` input.
