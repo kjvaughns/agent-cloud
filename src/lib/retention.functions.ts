@@ -481,10 +481,11 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
           monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
           faceAmount: p.face_amount === null ? null : Number(p.face_amount),
           effectiveDate: p.effective_date ?? null,
+          premiumMode: p.premium_mode ?? null,
           lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
           asOf,
         });
-        return { ...s, clientId: p.client_id, clientName: name, reason: summarise(s), factors: s.factors };
+        return { ...s, policyId: p.id, agentId: p.agent_id ?? null, clientId: p.client_id, clientName: name, reason: summarise(s), factors: s.factors };
       });
       return { queue: rankLapseRisk(scored as any, { minBand: "high" }).map((s) => scored.find((x) => x.policyId === s.policyId)!) };
     })();
