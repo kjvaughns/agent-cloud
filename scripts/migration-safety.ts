@@ -253,6 +253,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/contracting.functions.ts:org_contracting_settings.agents_may_self_activate_carriers":
+    "the select is a plain maybeSingle() whose result is coerced with Boolean(), so a missing column yields false — and false is the gate's closed position. An agent reporting a writing number raises a request for staff to confirm instead of activating themselves. Failing open on a permission check would hand out the exact thing the check exists to withhold, and false is also the column's default, so applying the migration changes no behaviour",
   "src/lib/nova-gate.functions.ts:nova_feature_usage":
     "the count query is wrapped in try/catch and its failure sets usageUnknown, which resolveAccess() turns into ALLOW — deliberately failing open. Blocking would deny somebody a feature because an audit table was late; the cost of failing open is one extra free run. recordTrialRun swallows its own error for the same reason",
   "src/lib/nova-gate.functions.ts:upsell_events":

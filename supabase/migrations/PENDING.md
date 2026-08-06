@@ -24,6 +24,7 @@ Delete a line once the migration is applied.
 - `20260806110000_carrier-aliases.sql`
 - `20260806120000_ai-message-log.sql`
 - `20260806130000_nova-usage-and-upsells.sql`
+- `20260806230000_self-activation-gate.sql`
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the
@@ -134,3 +135,16 @@ Two things were deliberately deferred until these landed, and are now unblocked:
   gate. `getTeamDownline` already maps that shape defensively; `getTeamRoster`'s
   `fullCompany` branch did not, and is corrected. Nothing in the UI passes
   `fullCompany`, so this was latent rather than live.
+
+
+## `20260806230000_self-activation-gate.sql`
+
+Adds `org_contracting_settings.agents_may_self_activate_carriers`, default
+`false`.
+
+Until it is applied, `addAgentCarrier` cannot read the column. It **fails
+closed**: the select returns nothing, the code treats the answer as `false`,
+and an agent reporting a writing number raises a request for staff to confirm
+instead of activating themselves. That is the safe direction and it matches
+the column's default, so applying the migration changes no behaviour — it only
+makes the setting togglable.
