@@ -1,0 +1,6 @@
+{
+  "//": "The root tsconfig includes src/** only, so `tsc --noEmit` does not see tests/ or playwright.config.ts. Without this they would ship untypechecked and the verification claim in a PR would be wrong. Run via `npm run e2e:typecheck`.",
+  "extends": "./tsconfig.json",
+  "include": ["tests/**/*.ts", "playwright.config.ts"],
+  "compilerOptions": { "noEmit": true, "types": ["node"] }
+}

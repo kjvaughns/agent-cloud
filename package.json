@@ -25,6 +25,7 @@
     "check:policy-review": "esbuild scripts/policy-review-check.ts --bundle --platform=node --format=esm --outfile=.rev.mjs && node .rev.mjs",
     "check:upsells": "esbuild scripts/upsell-check.ts --bundle --platform=node --format=esm --outfile=.ups.mjs && node .ups.mjs",
     "e2e": "playwright test",
+    "e2e:typecheck": "tsc -p tsconfig.e2e.json --noEmit",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
     "check:mobile": "node scripts/mobile-check.mjs",
