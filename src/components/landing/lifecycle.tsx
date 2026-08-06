@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { LandingSection, SectionHead, display } from "./primitives";
-import { useInView, prefersReducedMotion } from "./motion";
+import { useInView, useReducedMotion } from "./motion";
 
 /**
  * The agency lifecycle, animated.
@@ -28,7 +28,7 @@ const STEPS: { label: string; module: string; copy: string }[] = [
   { label: "Sell", module: "Clients", copy: "Leads worked through the pipeline and deals posted against the agent's own book." },
   { label: "Policy", module: "Policies", copy: "Placed business organized by carrier, product and status — without a spreadsheet." },
   { label: "Commission", module: "Commissions", copy: "The advance, the trail months and any chargeback, calculated the moment it posts." },
-  { label: "Retention", module: "Retention", copy: "A payment failure opens a case with an owner and a clock, before the policy lapses." },
+  { label: "Retention", module: "Retention", copy: "The in-force book is scored for lapse risk before a draft fails — and a payment failure still opens a case with an owner and a clock." },
 ];
 
 const DWELL = 1600;
@@ -37,9 +37,7 @@ export function LifecycleSection() {
   const { ref, inView } = useInView<HTMLDivElement>(0.25);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => { setReduced(prefersReducedMotion()); }, []);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     if (!inView || paused || reduced) return;
@@ -66,7 +64,7 @@ export function LifecycleSection() {
 
       <div
         ref={ref}
-        className="mt-14"
+        className="mt-10"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -129,7 +127,7 @@ export function LifecycleSection() {
 
           {/* The detail panel. Fixed height so the page does not jump as the
               copy changes length under it. */}
-          <div className="mx-auto mt-10 min-h-[132px] max-w-2xl rounded-2xl border border-primary/25 bg-primary/[0.04] p-6 text-center">
+          <div className="mx-auto mt-8 min-h-[132px] max-w-2xl rounded-2xl border border-primary/25 bg-primary/[0.04] p-6 text-center">
             <div key={active} className="ac-screen-in">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
                 {current.module}

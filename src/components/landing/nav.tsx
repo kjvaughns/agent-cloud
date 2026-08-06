@@ -7,11 +7,18 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing-analytics";
 import { display } from "./primitives";
 
+/**
+ * Four, and every one of them lands somewhere.
+ *
+ * Two of the six pointed at sections that no longer exist — `#platform` at the
+ * module map and `#roles` at the role tabs — and `#tour` at the screen gallery
+ * that the feature bands replaced. A nav link that scrolls nowhere is worse
+ * than a missing one: the visitor concludes the page is broken, on the one
+ * click they chose to spend.
+ */
 const LINKS = [
-  { label: "Platform", href: "#platform" },
-  { label: "Product", href: "#tour" },
+  { label: "Product", href: "#features" },
   { label: "Live demo", href: "#demo" },
-  { label: "Roles", href: "#roles" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -37,8 +44,8 @@ export function AnnouncementBar() {
         <span className="text-muted-foreground">
           Agent Cloud is now accepting founding agencies.
         </span>
-        <a href="#platform" className="font-semibold text-primary hover:underline whitespace-nowrap">
-          Explore the platform →
+        <a href="#features" className="font-semibold text-primary hover:underline whitespace-nowrap">
+          See the product →
         </a>
       </div>
       <button

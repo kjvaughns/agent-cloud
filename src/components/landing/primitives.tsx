@@ -36,7 +36,11 @@ export function LandingSection({
   }, [event]);
 
   return (
-    <section id={id} ref={ref} className={cn("py-20 md:py-24", className)}>
+    // py-12/16, down from py-20/24. At 96px a side, the eight sections on this
+    // page spent 1,344px — a viewport and a half — on nothing at all. Every
+    // section is separated by a border-t as well, so the whitespace was doing
+    // a job that was already done.
+    <section id={id} ref={ref} className={cn("py-12 md:py-16", className)}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6">{children}</div>
     </section>
   );
