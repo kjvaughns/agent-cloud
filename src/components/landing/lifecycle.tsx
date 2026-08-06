@@ -19,16 +19,16 @@ import { useInView, useReducedMotion } from "./motion";
  */
 
 const STEPS: { label: string; module: string; copy: string }[] = [
-  { label: "Applicant", module: "Recruiting", copy: "Someone applies. Source, contact details and stage land on one card — not in an inbox." },
-  { label: "Recruit", module: "Recruiting", copy: "Screening calls, interviews and follow-up all attach to that same card." },
-  { label: "License", module: "Licensing", copy: "Pre-licensing progress, then state licenses with the renewal dates that matter later." },
-  { label: "Onboard", module: "Onboarding", copy: "A structured checklist: background check, E&O, carrier training, direct deposit." },
-  { label: "Contract", module: "Contracting", copy: "Carrier requests submitted and required documents chased until they are done." },
-  { label: "Activate", module: "Agents", copy: "The applicant becomes an agent. Same record, now producing — nothing retyped." },
-  { label: "Sell", module: "Clients", copy: "Leads worked through the pipeline and deals posted against the agent's own book." },
-  { label: "Policy", module: "Policies", copy: "Placed business organized by carrier, product and status — without a spreadsheet." },
+  { label: "Applicant", module: "Recruiting", copy: "Someone applies. Where they came from, who spoke to them and what stage they are at — one card, not an inbox." },
+  { label: "Recruit", module: "Recruiting", copy: "Screening calls, interviews and follow-up all land on that same card." },
+  { label: "License", module: "Licensing", copy: "Pre-licensing progress, then state licenses with the renewal dates that bite you eighteen months from now." },
+  { label: "Onboard", module: "Onboarding", copy: "Background check, E&O, carrier training, direct deposit — a checklist, not somebody's memory." },
+  { label: "Contract", module: "Contracting", copy: "Carrier appointments submitted and outstanding documents chased, because until they are done nobody can write." },
+  { label: "Activate", module: "Agents", copy: "Writing number issued. Same file, now producing — nothing retyped." },
+  { label: "Sell", module: "Clients", copy: "Leads worked through the pipeline and business posted against the producer's own book." },
+  { label: "Policy", module: "Policies", copy: "Issued business by carrier, product and status — without a spreadsheet." },
   { label: "Commission", module: "Commissions", copy: "The advance, the trail months and any chargeback, calculated the moment it posts." },
-  { label: "Retention", module: "Retention", copy: "The in-force book is scored for lapse risk before a draft fails — and a payment failure still opens a case with an owner and a clock." },
+  { label: "Conservation", module: "Retention", copy: "The in-force book scored for lapse risk before a draft fails — and a failed payment still opens a case with an owner and a clock." },
 ];
 
 const DWELL = 1600;
@@ -58,8 +58,8 @@ export function LifecycleSection() {
     >
       <SectionHead
         eyebrow="The differentiator"
-        title="One record, from applicant to producing agent."
-        copy="When you hire someone they should not disappear into a different system. A recruiting profile becomes an agent profile — carrying onboarding, licensing, contracting, production and retention with it."
+        title="One file, from recruit to renewal."
+        copy="Hire somebody and they should not vanish into a different system. The recruiting file becomes the producer file — carrying onboarding, licensing, appointments, production and persistency along with it."
       />
 
       <div

@@ -40,7 +40,7 @@ const STRUCTURED_DATA = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
-        "Insurance agency management software that carries one record per person from applicant to producing agent — licensing, contracting, clients, policies, commissions and retention on the same record.",
+        "Insurance agency management software that carries one file per person from recruit to renewal — licensing, carrier appointments, the book of business, commission reconciliation and lapse prevention, all off the same file.",
       offers: [
         { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
         { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
@@ -66,13 +66,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Run recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, staff workflows, and reporting from one insurance agency operating system.",
+          "Get producers contracted faster, check every carrier commission statement against your comp grid, and rank the in-force book for lapse risk — recruiting, licensing, contracting, clients, policies and commissions in one system.",
       },
       { property: "og:title", content: "Agent Cloud | Insurance Agency Management Software" },
       {
         property: "og:description",
         content:
-          "The operating system for independent insurance agencies. Recruit, onboard, license, contract, sell, track, retain, and grow — from one connected platform.",
+          "The operating system for independent insurance agencies. Recruit, contract, write, get paid correctly, and keep the business on the books — from one connected platform.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -155,19 +155,26 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             Now taking founding agencies
           </div>
 
+          {/* Three clauses, three reasons an agency owner buys anything: write
+              more, keep more of what you wrote, and grow the team doing it.
+              The headline this replaces — "stop running your agency across ten
+              different tools" — described our category rather than their
+              problem. Nobody wakes up wanting fewer tools; they want a bigger
+              check. */}
           <h1
             className="mt-6 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
             style={display}
           >
-            Stop running your agency across{" "}
-            <span className="text-primary">ten different tools.</span>
+            Write more. Keep more of it.{" "}
+            <span className="text-primary">Grow the team that does it.</span>
           </h1>
 
-          {/* States the mechanism rather than enumerating modules. The nine-item
-              list this replaces was the page's "too much" problem in miniature. */}
+          {/* Both halves are literally what the software does — no outcome
+              claim we cannot show on a demo call. */}
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            One record per person, from applicant to producing agent. Nothing retyped between
-            recruiting, licensing, contracting and commissions.
+            Recruiting, licensing, contracting, the book and commissions all run off one file per
+            person — so nobody is sitting on paperwork instead of writing, and nobody is taking
+            the carrier's math on faith.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">

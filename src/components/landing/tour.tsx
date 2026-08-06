@@ -34,12 +34,12 @@ const BANDS: Band[] = [
   {
     screen: "contracting",
     eyebrow: "Contracting & licensing",
-    title: "One queue for the paperwork that blocks production.",
-    copy: "A new agent needs state licences and carrier appointments before they can write anything, and both stall on documents somebody has to chase. They sit in the same queue here, against the same agent record, with an owner and an age on every item.",
+    title: "Nobody writes a case until they are appointed.",
+    copy: "A new producer needs state licenses and carrier appointments before they can submit a single app, and both stall on documents somebody has to chase. They sit in one queue here, against the same producer file, with an owner and an age on every item — so you can see who has been waiting three weeks and on what.",
     points: [
-      "Carrier requests and required documents in one workspace",
-      "Licence renewals and gaps surfaced before they block an appointment",
-      "Writing numbers recorded against the agent, not in a spreadsheet",
+      "Carrier appointments and required documents in one workspace",
+      "License renewals and gaps surfaced before they cost you an appointment",
+      "Writing numbers recorded against the producer, not in a spreadsheet",
     ],
   },
   {
@@ -48,18 +48,18 @@ const BANDS: Band[] = [
     // policy number and never looked at the comp grid.
     screen: "commissions",
     eyebrow: "Commissions",
-    title: "Reconcile the statement the carrier actually sent.",
+    title: "Check the carrier's math.",
     // CSV and Excel, not PDF. The statement uploader accepts
     // `.csv,.xlsx,.xls` and nothing else (finances_.reconciliation.tsx), and
     // the general importer's PDF support is a different pipeline. Naming a
     // format the upload dialog rejects is the kind of claim a prospect
     // disproves in the first ten minutes of a trial.
-    copy: "Carrier statements arrive as CSV and Excel, with title rows, subtotals and a policy column that is blank on exactly the lines worth checking. Leave all of it in — they are read as they came, including accounting negatives, so a chargeback reads as a chargeback rather than a payment of the same size.",
+    copy: "Carrier statements come in as CSV and Excel, with title rows, subtotals and a policy number that is blank on exactly the lines worth checking. Leave all of it in — they are read as they came, including accounting negatives, so a chargeback reads as a chargeback rather than a payment the same size.",
     points: [
       "Lines match on policy number first, then on name, amount and date",
-      "Every matched line compared against what the comp grid says was owed",
-      "Unmatched lines listed, not hidden",
-      "Nova answers from these same records, bounded by what the person asking may see",
+      "Every matched line checked against what your comp grid says you were owed",
+      "Unmatched lines listed, not buried",
+      "Nova answers off these same records, bounded by what the person asking may see",
     ],
   },
   {
@@ -74,12 +74,12 @@ const BANDS: Band[] = [
     // read yet (payment mode, prior NSF history) because the columns do not
     // exist. A ranking missing two of its inputs is a beta.
     status: "beta",
-    title: "Rank the book before the draft fails, not after.",
-    copy: "A policy in grace is already a rescue. The scan scores every in-force policy on how likely it is to lapse — months in force, premium against the death benefit, how long since anyone spoke to the client — and every point of the score traces to a sentence you can disagree with.",
+    title: "Work the case before it lapses, not after.",
+    copy: "A policy in grace is already a conservation case. The scan scores every in-force policy on how likely it is to lapse — months in force, premium against the death benefit, how long since anyone spoke to the client — and every point of the score traces back to a sentence you can argue with.",
     points: [
       "In-force policies ranked by lapse risk, with the reason for each",
-      "Follow-up tasks created from the ranking, one per client",
-      "Payment failures still open a case with an owner and a clock",
+      "Follow-up tasks created off the ranking, one per client",
+      "Failed payments still open a case with an owner and a clock",
       "Save rate and premium at risk measured over time",
     ],
   },
@@ -96,8 +96,8 @@ export function FeatureBands() {
       <LandingSection className="pb-0 md:pb-0">
         <SectionHead
           eyebrow="The product"
-          title="Three jobs, on one record."
-          copy="The screens your team works in every day — not a mood board."
+          title="Three jobs, one file per person."
+          copy="The screens your back office actually lives in — not a mood board."
         />
       </LandingSection>
 

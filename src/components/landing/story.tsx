@@ -18,20 +18,20 @@ import { useInView, useCountUp, useReducedMotion } from "./motion";
 // ── The problem ─────────────────────────────────────────────────────────────
 
 /**
- * Six, not nine.
+ * Six, not nine — and each one named by what it costs, not where it lives.
  *
- * Every line here is one an agency owner will physically wince at, because
- * they are doing it this morning. The three that were cut — a generic CRM,
- * policies tracked by hand, onboarding over text — are true but generic; they
- * describe any small business, not this one.
+ * "Applicants tracked in a spreadsheet" describes a filing problem. "Recruits
+ * sitting in a spreadsheet instead of writing" describes the same fact as
+ * money, which is the only way an agency owner reads a list like this. Every
+ * line here is one they are living this morning.
  */
 const FRAGMENTED = [
-  "Applicants tracked in a spreadsheet",
-  "Licensing stored in a shared folder",
-  "Contracting handled through email",
-  "Commissions reconciled in Excel",
-  "Lapses discovered after the fact",
-  "Staff work scattered across chats",
+  "Recruits sitting in a spreadsheet instead of writing",
+  "Licenses in a shared folder nobody opens until one expires",
+  "Carrier appointments chased over email for weeks",
+  "Commission statements taken on faith",
+  "Lapses found on next month's report",
+  "Nobody sure whose job it was",
 ];
 
 /**
@@ -62,8 +62,8 @@ export function ProblemSection() {
     <LandingSection id="problem" className="border-t border-border/60">
       <SectionHead
         eyebrow="The problem"
-        title="Your agency should not require ten disconnected systems to operate."
-        copy="Every handoff between tools is a place where information is re-keyed, delayed, or lost entirely."
+        title="Every gap between systems is money on the floor."
+        copy="A recruit waiting three weeks on an appointment is a recruit not writing. A statement nobody checks is a shortfall nobody finds. Every handoff between tools is somewhere a dollar or a producer goes missing."
       />
 
       <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[1fr_auto_1fr] items-center">
@@ -126,12 +126,18 @@ export function ProblemSection() {
         >
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold">With Agent Cloud</p>
           <p className="mt-4 text-2xl font-bold text-foreground leading-snug" style={display}>
-            One connected operation.
+            One file. Nothing falls through.
           </p>
+          {/* The sentence this replaces read "a person hired in recruiting is
+              the same record that produces business, and the same record whose
+              retention you protect." Two problems: it called a person a record,
+              and it was wrong — retention protects the *client's* policy, not
+              the producer's. It collapsed two different people into one row to
+              make the rhythm work. */}
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-            Recruiting, licensing, contracting, clients, policies, commissions and retention share
-            the same records. A person hired in recruiting is the same record that produces
-            business, and the same record whose retention you protect.
+            Recruiting, licensing, contracting, the book, commissions and conservation all run off
+            the same file. The person you hired is the person writing six months later, and their
+            clients are the ones whose policies you keep on the books.
           </p>
           {/* No bullet list under this paragraph. "Nothing re-keyed between
               steps" is the hero subhead verbatim, and the other two are the
@@ -222,10 +228,10 @@ export function OwnershipSection() {
             would, and softening it would cost exactly what it buys.
           */}
           <p className="mx-auto mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Owners, managers, staff and agents each see the records their role calls for, enforced
-            in the database rather than hidden in the interface. And we are not going to quote you
-            an hours-saved number until we have real agencies to measure it on — when we do, we
-            will tell you whose agencies they were.
+            Owners, managers, back office and producers each see what their role calls for,
+            enforced in the database rather than hidden in the interface. And we are not going to
+            quote you an hours-saved number until we have real agencies to measure it on — when we
+            do, we will tell you whose agencies they were.
           </p>
 
           <p className="mt-6 text-lg font-semibold text-gold-bright" style={display}>
