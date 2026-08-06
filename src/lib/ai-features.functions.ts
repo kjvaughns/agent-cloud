@@ -335,9 +335,8 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
         ruleset_version: version,
       }));
       if (rows.length) {
-        // Cast because the generated types predate this migration. Regenerate
-        // `src/integrations/supabase/types.ts` once it is applied.
-        const { error } = await (supabase as any).from("ai_message_log").insert(rows);
+        const { error } = await supabase.from("ai_message_log").insert(rows);
+
         if (error) logged = false;
       }
     } catch {
