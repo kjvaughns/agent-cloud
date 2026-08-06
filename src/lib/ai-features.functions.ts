@@ -749,7 +749,7 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
         .eq("client_id", data.clientId),
     ]);
 
-    const { findGaps, summariseGaps, needsEstimate, MISSING_INPUTS } =
+    const { findGaps, summariseGaps, needsEstimate, MISSING_INPUTS, UNSTATED_INCOME } =
       await import("@/lib/policy-review");
 
     const mapped = (policies ?? []).map((p: any) => ({
