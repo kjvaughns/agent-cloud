@@ -67,7 +67,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
       <SectionHead
         eyebrow="Pricing"
         title="Two plans. No commission overrides."
-        copy="Pick the one that matches your operation. Add-ons are separate, and optional."
+        copy="Month to month. No contract, no setup fee, and you can export everything on the way out. Add-ons are separate and optional."
       />
 
       {!checkoutReady && (

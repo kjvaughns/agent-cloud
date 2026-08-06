@@ -14,10 +14,17 @@ import { useInView, useReducedMotion } from "./motion";
  * to see all fifteen screens can book the demo; anybody who does not was being
  * asked to scroll past four complete pitches before reaching a price.
  *
- * Three bands, alternating, each with a real screenshot. Licensing and
+ * Four bands, alternating, each with a real screenshot. Licensing and
  * contracting are merged because they are one job to the buyer — the person
  * chasing a state licence is the person chasing the carrier appointment, on
  * the same Tuesday, for the same agent.
+ *
+ * The fourth, "your agents", is the one no competitor in this category runs.
+ * The loudest grievance in the industry is comp opacity — agents who have
+ * never been shown the grid they are paid off. An owner who can hand an agent
+ * their own numbers has a recruiting advantage over every upline who cannot,
+ * and selling that advantage flatters the honest owner without ever attacking
+ * IMOs, which matters because the buyer here *is* an upline.
  */
 
 type Band = {
@@ -33,57 +40,83 @@ type Band = {
 const BANDS: Band[] = [
   {
     screen: "contracting",
-    eyebrow: "Contracting & licensing",
-    title: "Nobody writes a case until they are appointed.",
-    copy: "A new producer needs state licenses and carrier appointments before they can submit a single app, and both stall on documents somebody has to chase. They sit in one queue here, against the same producer file, with an owner and an age on every item — so you can see who has been waiting three weeks and on what.",
+    eyebrow: "Getting them ready to sell",
+    title: "Green agent to ready-to-sell, without the email thread.",
+    copy: "Every carrier request sits in one queue with a name on it and a clock running. You can see who's waiting on you, who's waiting on the carrier, and who's been sitting eleven days because somebody forgot to send the packet.",
     points: [
-      "Carrier appointments and required documents in one workspace",
-      "License renewals and gaps surfaced before they cost you an appointment",
-      "Writing numbers recorded against the producer, not in a spreadsheet",
+      "Carrier requests routed to whoever actually submits them",
+      "Writing numbers where the whole team can find them",
+      // The deck said "License, E&O and AML expirations". Licences carry an
+      // expiry and E&O carries one (`team-roster.ts` raises `eo_expiring` off
+      // it); AML is tracked as present-or-missing with no date, so promising
+      // an AML expiry alert would be promising a column that does not exist.
+      "License and E&O expirations before they expire, and AML flagged when it's missing",
+      "Every request timestamped, so you learn which carriers are slow",
     ],
   },
   {
-    // Rewritten against what actually shipped in the reconciliation work —
-    // the old copy predated it and described a reconcile that only matched on
-    // policy number and never looked at the comp grid.
     screen: "commissions",
-    eyebrow: "Commissions",
-    title: "Check the carrier's math.",
-    // CSV and Excel, not PDF. The statement uploader accepts
-    // `.csv,.xlsx,.xls` and nothing else (finances_.reconciliation.tsx), and
-    // the general importer's PDF support is a different pipeline. Naming a
-    // format the upload dialog rejects is the kind of claim a prospect
-    // disproves in the first ten minutes of a trial.
-    copy: "Carrier statements come in as CSV and Excel, with title rows, subtotals and a policy number that is blank on exactly the lines worth checking. Leave all of it in — they are read as they came, including accounting negatives, so a chargeback reads as a chargeback rather than a payment the same size.",
+    eyebrow: "What you actually got paid",
+    title: "The carrier shorted you. Would you know?",
+    copy: "Upload the statement. Every line matches to a policy and gets checked against what your grid says should have been paid. Chargebacks read as chargebacks. The lines that don't match get listed, not hidden.",
     points: [
-      "Lines match on policy number first, then on name, amount and date",
-      "Every matched line checked against what your comp grid says you were owed",
-      "Unmatched lines listed, not buried",
-      "Nova answers off these same records, bounded by what the person asking may see",
+      // Not PDF. The statement uploader accepts `.csv,.xlsx,.xls` and nothing
+      // else (finances_.reconciliation.tsx) — the general importer's PDF
+      // support is a different pipeline, and naming a format the upload dialog
+      // rejects is a claim a prospect disproves inside ten minutes of a trial.
+      "Statements in as CSV or XLSX",
+      "Matched on policy number first, then name, amount and date",
+      "Compared line by line against your comp grid",
+      "Variance reported in dollars",
     ],
   },
   {
-    // Also rewritten. The old copy described cases opening from payment
-    // failures, which is a rescue after the fact; the scan added in the
-    // retention work scores the book before the draft fails.
     screen: "retention",
-    eyebrow: "Retention",
+    eyebrow: "Keeping what you wrote",
     // Beta, and the pill is the honest label rather than a hedge. The scan
     // scores what the schema holds — months in force, premium against face,
     // days since contact — and `lapse-risk.ts` names two signals it cannot
     // read yet (payment mode, prior NSF history) because the columns do not
     // exist. A ranking missing two of its inputs is a beta.
     status: "beta",
-    title: "Work the case before it lapses, not after.",
-    copy: "A policy in grace is already a conservation case. The scan scores every in-force policy on how likely it is to lapse — months in force, premium against the death benefit, how long since anyone spoke to the client — and every point of the score traces back to a sentence you can argue with.",
+    title: "Find the lapse before the draft fails.",
+    copy: "Policies ranked by lapse risk before the payment fails — not a queue that opens after the carrier already told you. Every case has an owner and a clock, and your save rate becomes a number you manage instead of a surprise you eat.",
     points: [
-      "In-force policies ranked by lapse risk, with the reason for each",
-      "Follow-up tasks created off the ranking, one per client",
-      "Failed payments still open a case with an owner and a clock",
-      "Save rate and premium at risk measured over time",
+      "Ranked by risk, not by whoever complained loudest",
+      "Premium at risk, in dollars",
+      "Save rate measured over time",
+      // "Nova drafts the outreach" without the qualifier reads as included.
+      // Nova Pro is a paid add-on and the compliance screen sits behind it.
+      "Nova Pro drafts the outreach — you make the call",
+    ],
+  },
+  {
+    // The band no competitor in the category runs, and the one that answers
+    // "help my people make more money" directly. Every claim below is a screen
+    // that already exists: /contracting/commission-grids reads the agent's own
+    // levels, and placement + 4/7/13-month persistency come back scoped by RLS
+    // to whatever the caller is allowed to see.
+    screen: "grid",
+    eyebrow: "Your agents",
+    title: "Show them their grid. It's the best recruiting tool you've got.",
+    copy: "Every agent sees their own contract level, their own placement rate and their own renewals. You decide what's visible. An agent who can see their own numbers doesn't call you asking where their money went — and doesn't leave because they think something's being hidden from them.",
+    points: [
+      "Their level and their grid, visible to them",
+      // The deck said "placement rate and persistency, by carrier". Placement
+      // and 4/7/13-month persistency are real and scoped per agent by RLS;
+      // the per-carrier breakdown is not built, so it is not claimed.
+      "Their placement rate, and 4, 7 and 13-month persistency",
+      // The deck said "chargeback exposure before it lands". There is no
+      // forward-looking exposure figure — `team-roster.ts` says outright that
+      // chargebacks are inferred from negative rows after they post. So this
+      // claims the thing that is true and still useful: they see it when you
+      // do, rather than at year-end.
+      "Chargebacks on their own schedule, the day they post",
+      "What you show is your call — set per role",
     ],
   },
 ];
+
 
 export function FeatureBands() {
   return (
@@ -96,8 +129,8 @@ export function FeatureBands() {
       <LandingSection className="pb-0 md:pb-0">
         <SectionHead
           eyebrow="The product"
-          title="Three jobs, one file per person."
-          copy="The screens your back office actually lives in — not a mood board."
+          title="Four jobs, one record per agent."
+          copy="The screens your back office actually lives in, on sample data — not a mood board."
         />
       </LandingSection>
 

@@ -26,12 +26,12 @@ import { useInView, useCountUp, useReducedMotion } from "./motion";
  * line here is one they are living this morning.
  */
 const FRAGMENTED = [
-  "Recruits sitting in a spreadsheet instead of writing",
-  "Licenses in a shared folder nobody opens until one expires",
-  "Carrier appointments chased over email for weeks",
-  "Commission statements taken on faith",
-  "Lapses found on next month's report",
-  "Nobody sure whose job it was",
+  "Recruits in a spreadsheet somebody stopped updating",
+  "Contracting requests buried in an email thread",
+  "Licenses in a shared drive, renewals nobody's watching",
+  "Comp grids as PDFs on somebody's desktop",
+  "Chargebacks discovered on the statement, sixty days late",
+  "Persistency you find out about at the annual review",
 ];
 
 /**
@@ -62,8 +62,8 @@ export function ProblemSection() {
     <LandingSection id="problem" className="border-t border-border/60">
       <SectionHead
         eyebrow="The problem"
-        title="Every gap between systems is money on the floor."
-        copy="A recruit waiting three weeks on an appointment is a recruit not writing. A statement nobody checks is a shortfall nobody finds. Every handoff between tools is somewhere a dollar or a producer goes missing."
+        title="You can tell me what your team submitted. Can you tell me what stuck?"
+        copy="Every one of these lives in a different place, and none of them talk to each other. So the answer takes a week to assemble and it's already stale when you get it."
       />
 
       <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[1fr_auto_1fr] items-center">
@@ -126,7 +126,7 @@ export function ProblemSection() {
         >
           <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold">With Agent Cloud</p>
           <p className="mt-4 text-2xl font-bold text-foreground leading-snug" style={display}>
-            One file. Nothing falls through.
+            One record per agent.
           </p>
           {/* The sentence this replaces read "a person hired in recruiting is
               the same record that produces business, and the same record whose
@@ -135,9 +135,8 @@ export function ProblemSection() {
               the producer's. It collapsed two different people into one row to
               make the rhythm work. */}
           <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-            Recruiting, licensing, contracting, the book, commissions and conservation all run off
-            the same file. The person you hired is the person writing six months later, and their
-            clients are the ones whose policies you keep on the books.
+            Recruited, licensed, contracted, ready-to-sell, writing, placed, persisting, renewing.
+            Nothing retyped. Nothing lost between two systems.
           </p>
           {/* No bullet list under this paragraph. "Nothing re-keyed between
               steps" is the hero subhead verbatim, and the other two are the
@@ -161,10 +160,10 @@ export function ProblemSection() {
  * above the grid anyway.
  */
 const NOTS = [
-  "We do not take commission overrides",
-  "We do not own your clients",
-  "We do not recruit your agents",
-  "We do not lock your data in",
+  "We don't take an override. Not one basis point.",
+  "We don't own your carrier contracts.",
+  "We don't recruit your agents.",
+  "Export your book whenever you want it. Month to month, no contract.",
 ];
 
 export function OwnershipSection() {
@@ -176,11 +175,11 @@ export function OwnershipSection() {
       <div className="rounded-3xl border border-primary/25 bg-primary/[0.04] p-8 md:p-10">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground" style={display}>
-            Your agency. Your relationships. Your data.
+            We're software. Not your IMO.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground leading-relaxed">
-            Agent Cloud is software, not an IMO. Your hierarchy, your carrier contracts and your
-            book stay yours — and you can export your data whenever you want it.
+            Your hierarchy, your carrier contracts and your book stay yours — and you can take all
+            of it with you whenever you want.
           </p>
 
           {/*
@@ -228,10 +227,10 @@ export function OwnershipSection() {
             would, and softening it would cost exactly what it buys.
           */}
           <p className="mx-auto mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            Owners, managers, back office and producers each see what their role calls for,
-            enforced in the database rather than hidden in the interface. And we are not going to
-            quote you an hours-saved number until we have real agencies to measure it on — when we
-            do, we will tell you whose agencies they were.
+            Owners, managers, staff and agents each see what their role calls for — enforced in
+            the database, not just hidden in the interface. And we're not going to quote you an
+            hours-saved number until we have real agencies to measure it on — when we do, we'll
+            tell you whose agencies they were.
           </p>
 
           <p className="mt-6 text-lg font-semibold text-gold-bright" style={display}>
