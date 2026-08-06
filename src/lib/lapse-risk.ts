@@ -55,10 +55,6 @@
 /** Named so the screen can say what it did not look at. */
 export const MISSING_SIGNALS = [
   {
-    signal: "Payment mode",
-    why: "Policies have no premium-mode column yet, so monthly-draft business can't be told from annual.",
-  },
-  {
     signal: "Prior NSF or missed drafts",
     why: "Only a policy's current status is stored — once it recovers, the failed draft leaves no trace.",
   },
@@ -71,11 +67,18 @@ export type RiskInput = {
   monthlyPremium: number | null;
   faceAmount: number | null;
   effectiveDate: string | null;
+  /**
+   * How the premium is drawn, from `policies.premium_mode`. Null when the
+   * import did not carry one — an unknown mode scores nothing rather than
+   * being assumed monthly.
+   */
+  premiumMode?: string | null;
   /** Most recent contact_history row for this client, if any. */
   lastContactAt: string | null;
   /** Today, injected so the scorer is a pure function of its inputs. */
   asOf: string;
 };
+
 
 export type RiskFactor = { label: string; points: number; detail: string };
 
