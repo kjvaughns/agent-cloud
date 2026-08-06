@@ -127,14 +127,25 @@ const tieB = { ...many, policyId: "b", premiumAtRisk: 900 };
 check("equal scores break toward the larger premium",
   rankLapseRisk([tieA, tieB]).map((r) => r.policyId), ["b", "a"]);
 
-console.log("\n6. Saying what it could not look at");
+console.log("\n6. Payment mode, now that policies store one");
 
-check("two signals are named as missing", MISSING_SIGNALS.length, 2);
-check("payment mode is one of them",
-  MISSING_SIGNALS.some((m) => /payment mode/i.test(m.signal)), true);
-check("prior NSF is the other",
+check("weekly draft outscores annual",
+  scoreLapseRisk({ ...base, premiumMode: "weekly" }).score >
+  scoreLapseRisk({ ...base, premiumMode: "annual" }).score, true);
+check("monthly outscores quarterly",
+  scoreLapseRisk({ ...base, premiumMode: "monthly" }).score >
+  scoreLapseRisk({ ...base, premiumMode: "quarterly" }).score, true);
+check("an unknown mode scores nothing rather than assuming monthly",
+  scoreLapseRisk({ ...base, premiumMode: null }).score,
+  scoreLapseRisk({ ...base, premiumMode: "somethingelse" }).score);
+
+console.log("\n6b. Saying what it could not look at");
+
+check("one signal is named as missing", MISSING_SIGNALS.length, 1);
+check("prior NSF is it",
   MISSING_SIGNALS.some((m) => /NSF/i.test(m.signal)), true);
 check("each says why", MISSING_SIGNALS.every((m) => m.why.length > 20), true);
+
 
 console.log("\n7. The one-line reason");
 
