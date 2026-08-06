@@ -316,12 +316,13 @@ export const getPersistency = createServerFn({ method: "GET" })
  * same policy on two runs, and cannot be argued with. A ranked call list has
  * to be reproducible or nobody trusts it twice.
  *
- * Read-only. Nothing is written to `retention_cases`, because its
- * `risk_reason` CHECK has no value meaning "predicted at risk" — the closest,
- * `manual`, would be a lie about where the row came from. Adding one is a
- * migration, and migrations here are applied by hand; the queue is useful
- * without it and `createTasksForLapseRisk` below is the action the prompt
- * actually asks for.
+ * Read-only. Nothing is written to `retention_cases` from the scan itself —
+ * scoring a book should not fill somebody's queue. `createTasksForLapseRisk`
+ * below is the action, and it now also opens a case per policy it acts on with
+ * `risk_reason = 'predicted'`, which the CHECK constraint accepts as of
+ * `20260805...`; before that the closest value, `manual`, would have been a lie
+ * about where the row came from.
+
  */
 export const scanLapseRisk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
