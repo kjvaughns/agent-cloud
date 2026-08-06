@@ -46,3 +46,4 @@ dist-ssr
 .imp.mjs
 .stmt.mjs
 .stmtm.mjs
+.grid.mjs

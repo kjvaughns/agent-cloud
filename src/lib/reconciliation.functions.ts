@@ -424,3 +424,203 @@ export const applyStatementMatches = createServerFn({ method: "POST" })
 
     return { applied, skipped };
   });
+
+// ── The third opinion: what the contract says ───────────────────────────────
+
+/**
+ * Grid findings for a reconciled statement.
+ *
+ * The existing `expected_amount` is what `commission-calculator.ts` scheduled
+ * when the deal was posted, and that is built from `agent_commission_levels`
+ * alone — `commission_grids.year_1_pct` is displayed, edited and imported, and
+ * never used to compute money. So reconciling paid-against-scheduled compares
+ * the carrier to a number the agency's own comp grid may never have agreed
+ * with, and the disagreement is invisible because both sides of the comparison
+ * come from the same place.
+ *
+ * This adds the third number. Read-only, and read through the caller's own
+ * client so the grid, the levels and the policies are all rows this person may
+ * already see.
+ */
+async function computeGridFindings(supabase: any, statementId: string) {
+  const { data: stmt } = await supabase
+    .from("commission_statements")
+    .select("id, carrier_id")
+    .eq("id", statementId)
+    .maybeSingle();
+  if (!stmt) throw new Error("Statement not found or access denied.");
+
+  const { data: lineRows } = await supabase
+    .from("commission_statement_lines")
+    .select("id, matched_policy_id, matched_agent_id, paid_amount, expected_amount, insured_name")
+    .eq("statement_id", statementId)
+    .not("matched_policy_id", "is", null)
+    .limit(5000);
+
+  const lines = (lineRows ?? []) as any[];
+  if (!lines.length) return { findings: [], summary: { rate_mismatch: 0, underpaid: 0, no_schedule: 0, overpaid: 0 } };
+
+  const policyIds = [...new Set(lines.map((l) => l.matched_policy_id).filter(Boolean))];
+  const { data: policies } = await supabase
+    .from("policies")
+    .select("id, agent_id, carrier_id, product, annual_premium, monthly_premium")
+    .in("id", policyIds);
+  const policyBy = new Map<string, any>((policies ?? []).map((p: any) => [String(p.id), p]));
+
+  // One row per (agent, carrier) rather than per line — the same agent's rate
+  // is the same rate on every line of the statement.
+  const agentIds = [...new Set((policies ?? []).map((p: any) => p.agent_id).filter(Boolean))];
+  const carrierIds = [...new Set((policies ?? []).map((p: any) => p.carrier_id).filter(Boolean))];
+
+  const levelBy = new Map<string, { pct: number | null; level: string | null }>();
+  if (agentIds.length && carrierIds.length) {
+    const { data: levels } = await supabase
+      .from("agent_commission_levels")
+      .select("agent_id, carrier_id, assigned_pct, commission_level")
+      .in("agent_id", agentIds)
+      .in("carrier_id", carrierIds);
+    for (const l of levels ?? []) {
+      levelBy.set(`${l.agent_id}:${l.carrier_id}`, {
+        pct: l.assigned_pct === null ? null : Number(l.assigned_pct),
+        level: l.commission_level ?? null,
+      });
+    }
+  }
+
+  // The grid, keyed the way the calculator keys it: carrier, product, level.
+  const gridBy = new Map<string, number | null>();
+  if (carrierIds.length) {
+    const { data: grids } = await supabase
+      .from("commission_grids")
+      .select("carrier_id, product_name, level_name, year_1_pct, organization_id")
+      .in("carrier_id", carrierIds)
+      // An agency's own grid beats the shared default, same precedence the
+      // calculator uses for renewals.
+      .order("organization_id", { nullsFirst: false });
+    for (const g of grids ?? []) {
+      const key = `${g.carrier_id}:${g.product_name}:${g.level_name ?? ""}`;
+      if (!gridBy.has(key)) gridBy.set(key, g.year_1_pct === null ? null : Number(g.year_1_pct));
+    }
+  }
+
+  const { gridExpectation } = await import("@/lib/grid-expectation");
+
+  const findings = lines.map((l) => {
+    const p = policyBy.get(String(l.matched_policy_id));
+    const lvl = p ? levelBy.get(`${p.agent_id}:${p.carrier_id}`) : undefined;
+    const gridPct = p && lvl?.level
+      ? gridBy.get(`${p.carrier_id}:${p.product}:${lvl.level}`) ?? null
+      : null;
+
+    const annual = p
+      ? (p.annual_premium !== null
+          ? Number(p.annual_premium)
+          : p.monthly_premium !== null ? Number(p.monthly_premium) * 12 : null)
+      : null;
+
+    const e = gridExpectation({
+      annualPremium: annual,
+      assignedPct: lvl?.pct ?? null,
+      gridYear1Pct: gridPct,
+      scheduled: l.expected_amount === null ? null : Number(l.expected_amount),
+      paid: Number(l.paid_amount ?? 0),
+    });
+
+    return {
+      lineId: l.id as string,
+      policyId: (l.matched_policy_id ?? null) as string | null,
+      agentId: (p?.agent_id ?? null) as string | null,
+      insuredName: (l.insured_name ?? null) as string | null,
+      scheduled: l.expected_amount === null ? null : Number(l.expected_amount),
+      paid: Number(l.paid_amount ?? 0),
+      ...e,
+    };
+  });
+
+  const summary = {
+    rate_mismatch: findings.filter((f) => f.finding === "rate_mismatch").length,
+    underpaid: findings.filter((f) => f.finding === "underpaid").length,
+    no_schedule: findings.filter((f) => f.finding === "no_schedule").length,
+    overpaid: findings.filter((f) => f.finding === "overpaid").length,
+  };
+
+  return { findings: findings.filter((f) => f.finding !== "ok" && f.finding !== "no_grid"), summary };
+}
+
+export const gridFindingsForStatement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ statement_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    return computeGridFindings(supabase, data.statement_id);
+  });
+
+/**
+ * Turn the findings into tasks.
+ *
+ * The findings are recomputed here rather than accepted from the request, for
+ * the same reason `applyStatementMatches` recomputes the variance: a client
+ * that could name its own findings could put any sentence it liked into an
+ * agency's task list.
+ *
+ * A rate mismatch is collapsed to one task per agent-and-carrier. It is one
+ * problem affecting every policy that agent wrote, and four hundred identical
+ * tasks is a way of hiding it rather than reporting it.
+ */
+export const createTasksForGridFindings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ statement_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    // The plain helper, not the server function: calling one createServerFn
+    // from another does not carry the middleware context, so `supabase` would
+    // arrive undefined and every lookup would silently return nothing.
+    const { findings } = await computeGridFindings(supabase, data.statement_id);
+    const { isActionable } = await import("@/lib/grid-expectation");
+
+    const actionable = (findings as any[]).filter((f) => isActionable(f.finding));
+    if (!actionable.length) return { created: 0 };
+
+    const rows: any[] = [];
+    const seenMismatch = new Set<string>();
+
+    for (const f of actionable) {
+      if (f.finding === "rate_mismatch") {
+        const key = String(f.agentId ?? "unknown");
+        if (seenMismatch.has(key)) continue;
+        seenMismatch.add(key);
+        rows.push({
+          title: "Commission rate disagrees with the comp grid",
+          description: f.explanation,
+          assigned_to: userId,
+          created_by: userId,
+          priority: "high",
+          related_type: "agent",
+          related_id: f.agentId,
+        });
+        continue;
+      }
+
+      rows.push({
+        title: f.finding === "underpaid"
+          ? `Underpaid: ${f.insuredName ?? "unnamed policy"}`
+          : `No commission schedule: ${f.insuredName ?? "unnamed policy"}`,
+        description: f.explanation,
+        assigned_to: userId,
+        created_by: userId,
+        priority: f.finding === "underpaid" ? "high" : "normal",
+        related_type: "policy",
+        related_id: f.policyId,
+      });
+    }
+
+    // A finding with nothing to point at cannot become a task the person can
+    // act on, so it is dropped rather than written without its link.
+    const writable = rows.filter((r) => r.related_id);
+    if (!writable.length) return { created: 0 };
+
+    const { error } = await supabase.from("tasks").insert(writable);
+    if (error) throw new Error(error.message);
+    return { created: writable.length };
+  });
