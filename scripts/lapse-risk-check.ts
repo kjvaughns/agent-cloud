@@ -130,14 +130,14 @@ check("equal scores break toward the larger premium",
 console.log("\n6. Payment mode, now that policies store one");
 
 check("weekly draft outscores annual",
-  scoreLapseRisk({ ...base, premiumMode: "weekly" }).score >
-  scoreLapseRisk({ ...base, premiumMode: "annual" }).score, true);
+  scoreLapseRisk(policy({ premiumMode: "weekly" })).score >
+  scoreLapseRisk(policy({ premiumMode: "annual" })).score, true);
 check("monthly outscores quarterly",
-  scoreLapseRisk({ ...base, premiumMode: "monthly" }).score >
-  scoreLapseRisk({ ...base, premiumMode: "quarterly" }).score, true);
+  scoreLapseRisk(policy({ premiumMode: "monthly" })).score >
+  scoreLapseRisk(policy({ premiumMode: "quarterly" })).score, true);
 check("an unknown mode scores nothing rather than assuming monthly",
-  scoreLapseRisk({ ...base, premiumMode: null }).score,
-  scoreLapseRisk({ ...base, premiumMode: "somethingelse" }).score);
+  scoreLapseRisk(policy({ premiumMode: null })).score,
+  scoreLapseRisk(policy({ premiumMode: "somethingelse" })).score);
 
 console.log("\n6b. Saying what it could not look at");
 
