@@ -1,24 +1,63 @@
-import { useState } from "react";
 import { ArrowRight, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { track } from "@/lib/landing-analytics";
-import { LandingSection, SectionHead, FadeUp, display } from "./primitives";
+import { LandingSection, SectionHead, display } from "./primitives";
+import { useInView, useCountUp, useReducedMotion } from "./motion";
+
+/**
+ * The problem, and the ownership promise.
+ *
+ * This file used to also hold PlatformMap (twelve module cards) and
+ * RoleSection (a five-tab interactive). Both are gone, and the reason is worth
+ * keeping: the page inventoried the product three separate times in a row —
+ * twelve modules, then fifteen screens, then twenty-five chips — with three
+ * different counts of the same thing. Whatever each section added on its own,
+ * together they read as a brochure rather than an argument. One inventory
+ * survives, the feature bands, and it is the one attached to screenshots.
+ */
 
 // ── The problem ─────────────────────────────────────────────────────────────
 
+/**
+ * Six, not nine.
+ *
+ * Every line here is one an agency owner will physically wince at, because
+ * they are doing it this morning. The three that were cut — a generic CRM,
+ * policies tracked by hand, onboarding over text — are true but generic; they
+ * describe any small business, not this one.
+ */
 const FRAGMENTED = [
   "Applicants tracked in a spreadsheet",
-  "Agents onboarded over text messages",
   "Licensing stored in a shared folder",
   "Contracting handled through email",
-  "Clients in a generic CRM",
-  "Policies tracked by hand",
   "Commissions reconciled in Excel",
   "Lapses discovered after the fact",
   "Staff work scattered across chats",
 ];
 
+/**
+ * The scatter each fragmented row starts from.
+ *
+ * Fixed per index rather than random: a random offset would differ between the
+ * server render and the client hydration, and the row would visibly jump on
+ * load. These are hand-picked to look unplanned without being unplanned.
+ */
+const SCATTER = [
+  { x: -14, y: -6, r: -2.2 },
+  { x: 10, y: 4, r: 1.6 },
+  { x: -8, y: 8, r: 2.4 },
+  { x: 16, y: -4, r: -1.4 },
+  { x: -12, y: 6, r: 1.9 },
+  { x: 8, y: -8, r: -2.6 },
+];
+
 export function ProblemSection() {
+  const { ref, inView } = useInView<HTMLDivElement>(0.25);
+  // Read once at render rather than inside the style callback — calling
+  // matchMedia per row would be six queries per paint for one boolean. The
+  // hook rather than the bare function, because reading matchMedia during
+  // render makes the server and the client disagree.
+  const still = useReducedMotion();
+
   return (
     <LandingSection id="problem" className="border-t border-border/60">
       <SectionHead
@@ -27,225 +66,78 @@ export function ProblemSection() {
         copy="Every handoff between tools is a place where information is re-keyed, delayed, or lost entirely."
       />
 
-      <div className="mt-14 grid gap-6 lg:grid-cols-[1fr_auto_1fr] items-center">
-        <FadeUp>
-          <div className="rounded-2xl border border-destructive/25 bg-destructive/[0.04] p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-destructive font-semibold">Today</p>
-            <ul className="mt-4 space-y-2.5">
-              {FRAGMENTED.map((f) => (
-                <li key={f} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+      <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[1fr_auto_1fr] items-center">
+        {/*
+          The motion IS the argument here, which is the only reason it earns
+          its cost: the left column settles in scattered and slightly rotated,
+          the right snaps into one aligned stack. Somebody who scrolls past
+          without reading a word still sees the difference.
+
+          Under reduced motion both sides render static and aligned — the
+          argument survives without the animation, which is the test any
+          flourish has to pass.
+        */}
+        <div className="rounded-2xl border border-destructive/25 bg-destructive/[0.04] p-6">
+          <p className="text-xs uppercase tracking-[0.2em] text-destructive font-semibold">Today</p>
+          <ul className="mt-4 space-y-2.5">
+            {FRAGMENTED.map((f, i) => {
+              const s = SCATTER[i % SCATTER.length];
+              return (
+                <li
+                  key={f}
+                  className="flex items-start gap-2.5 text-sm text-muted-foreground transition-all duration-700 ease-out"
+                  style={
+                    still
+                      ? undefined
+                      : {
+                          opacity: inView ? 1 : 0,
+                          transform: inView
+                            ? "none"
+                            : `translate(${s.x}px, ${s.y}px) rotate(${s.r}deg)`,
+                          transitionDelay: `${i * 70}ms`,
+                        }
+                  }
+                >
                   <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
                   {f}
                 </li>
-              ))}
-            </ul>
-          </div>
-        </FadeUp>
+              );
+            })}
+          </ul>
+        </div>
 
         <div className="hidden lg:flex items-center justify-center">
           <ArrowRight className="h-7 w-7 text-primary" />
         </div>
 
-        <FadeUp delay={120}>
-          <div className="rounded-2xl border border-primary/30 bg-primary/[0.05] p-6">
-            <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold">With Agent Cloud</p>
-            <p className="mt-4 text-2xl font-bold text-foreground leading-snug" style={display}>
-              One connected operation.
-            </p>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Recruiting, onboarding, licensing, contracting, clients, policies, retention,
-              commissions, tasks and reporting share the same records. A person hired in
-              recruiting is the same record that produces business, and the same record whose
-              retention you protect.
-            </p>
-            <ul className="mt-5 space-y-2.5">
-              {["Nothing re-keyed between steps", "One source of truth per agent and client", "Work visible to the people responsible for it"].map((x) => (
-                <li key={x} className="flex items-start gap-2.5 text-sm text-foreground">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  {x}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </FadeUp>
-      </div>
-    </LandingSection>
-  );
-}
-
-// ── Platform map ────────────────────────────────────────────────────────────
-
-const MODULES: { name: string; copy: string }[] = [
-  { name: "Recruiting", copy: "Track every applicant from first contact to activated agent." },
-  { name: "Onboarding", copy: "Give every new agent a structured checklist and visible progress." },
-  { name: "Licensing", copy: "Keep state licenses, renewals, and gaps in one view." },
-  { name: "Contracting", copy: "Carrier requests, required documents, and outstanding issues in one workspace." },
-  { name: "Agents", copy: "One profile per producer — hierarchy, status, production, documents." },
-  { name: "Clients", copy: "Insurance-specific records, not a generic contact list." },
-  { name: "Policies", copy: "Organize the book without depending on spreadsheets." },
-  { name: "Retention", copy: "Identify at-risk policies early and assign follow-up before business lapses." },
-  { name: "Commissions", copy: "Estimate, import, reconcile, and track commission activity across the agency." },
-  { name: "Tasks", copy: "Assign work, set due dates, and see what is actually getting done." },
-  { name: "Reporting", copy: "Understand production, placement, retention, and operational health." },
-  { name: "Nova AI", copy: "An assistant that works inside your agency's data — and only what each user may see." },
-];
-
-export function PlatformMap() {
-  const [active, setActive] = useState<string | null>(null);
-
-  return (
-    <LandingSection id="platform" className="border-t border-border/60">
-      <SectionHead
-        eyebrow="The platform"
-        title="Twelve modules. One system of record."
-        copy="Each one is useful alone. Together they are what makes the agency run."
-      />
-
-      <div className="mt-12 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-        {MODULES.map((m, i) => {
-          const on = active === m.name;
-          return (
-            <FadeUp key={m.name} delay={i * 35}>
-              <button
-                onMouseEnter={() => setActive(m.name)}
-                onMouseLeave={() => setActive(null)}
-                onFocus={() => setActive(m.name)}
-                onBlur={() => setActive(null)}
-                onClick={() => { setActive(on ? null : m.name); track("screenshot_viewed", { module: m.name }); }}
-                aria-expanded={on}
-                className={cn(
-                  "h-full w-full rounded-xl border p-4 text-left transition-colors",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
-                  on ? "border-primary/60 bg-primary/[0.06]" : "border-border bg-card hover:border-primary/40",
-                )}
-              >
-                <h3 className="text-base font-bold text-foreground" style={display}>{m.name}</h3>
-                {/* Desktop only — expands on hover/focus. Without `hidden`
-                    this also rendered on mobile, so tapping a card showed the
-                    copy twice alongside the always-visible version below. */}
-                <p
-                  className={cn(
-                    "hidden md:block text-xs text-muted-foreground leading-relaxed",
-                    "transition-all duration-300 overflow-hidden",
-                    on ? "mt-2 max-h-32 opacity-100" : "mt-0 max-h-0 opacity-0",
-                  )}
-                >
-                  {m.copy}
-                </p>
-                {/* Mobile has no hover, so the copy is always visible there. */}
-                <p className="md:hidden mt-2 text-xs text-muted-foreground leading-relaxed">{m.copy}</p>
-              </button>
-            </FadeUp>
-          );
-        })}
-      </div>
-    </LandingSection>
-  );
-}
-
-// The lifecycle chain moved to ./lifecycle.tsx when it became animated — it
-// carries its own timing state, and that does not belong in a file of static
-// story sections.
-
-// ── Roles ───────────────────────────────────────────────────────────────────
-
-const ROLES = [
-  {
-    key: "owner", label: "Agency Owner",
-    points: ["Full agency oversight", "Billing and seats", "Team hierarchy", "Reports", "Permissions", "Commission structures"],
-  },
-  {
-    key: "manager", label: "Manager",
-    points: ["Team performance", "Recruiting", "Onboarding", "Tasks", "Retention", "Coaching visibility"],
-  },
-  {
-    key: "staff", label: "Staff",
-    points: ["Operational queues", "Document processing", "Licensing", "Contracting", "Imports", "Support coordination"],
-  },
-  {
-    key: "agent", label: "Agent",
-    points: ["Personal clients", "Policies", "Production", "Commissions", "Retention", "Tasks and resources"],
-  },
-  {
-    key: "solo", label: "Solo Agent",
-    points: ["Personal CRM", "Book of business", "Commission tracking", "Retention", "Tasks", "Personal analytics"],
-  },
-];
-
-export function RoleSection() {
-  const [active, setActive] = useState(ROLES[0].key);
-  const current = ROLES.find((r) => r.key === active)!;
-
-  return (
-    <LandingSection id="roles" className="border-t border-border/60">
-      <SectionHead
-        eyebrow="Built for every seat"
-        title="One platform. A workspace designed for every role."
-        copy="People see the tools and records their role calls for — enforced on the server and in the database, not just hidden in the interface."
-      />
-
-      {/* Desktop tabs */}
-      <div className="mt-12 hidden md:block">
-        <div className="flex flex-wrap justify-center gap-2" role="tablist">
-          {ROLES.map((r) => (
-            <button
-              key={r.key}
-              role="tab"
-              aria-selected={active === r.key}
-              onClick={() => { setActive(r.key); track("role_tab_viewed", { role: r.key }); }}
-              className={cn(
-                "rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
-                active === r.key
-                  ? "border-primary/50 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {r.label}
-            </button>
-          ))}
+        <div
+          className="rounded-2xl border border-primary/30 bg-primary/[0.05] p-6 transition-all duration-700 ease-out"
+          style={
+            still
+              ? undefined
+              : {
+                  opacity: inView ? 1 : 0,
+                  transform: inView ? "none" : "translateY(14px)",
+                  // After the last scattered row has landed, so the snap reads
+                  // as a consequence of the mess rather than a parallel event.
+                  transitionDelay: "460ms",
+                }
+          }
+        >
+          <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold">With Agent Cloud</p>
+          <p className="mt-4 text-2xl font-bold text-foreground leading-snug" style={display}>
+            One connected operation.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            Recruiting, licensing, contracting, clients, policies, commissions and retention share
+            the same records. A person hired in recruiting is the same record that produces
+            business, and the same record whose retention you protect.
+          </p>
+          {/* No bullet list under this paragraph. "Nothing re-keyed between
+              steps" is the hero subhead verbatim, and the other two are the
+              paragraph directly above restated as fragments. The six red lines
+              opposite are the argument; this side only has to be the answer. */}
         </div>
-
-        <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-border bg-card p-8">
-          <h3 className="text-2xl font-bold text-foreground" style={display}>{current.label}</h3>
-          <ul className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3">
-            {current.points.map((p) => (
-              <li key={p} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                {p}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Mobile: accordion beats a row of five tabs on a phone. */}
-      <div className="mt-10 md:hidden space-y-2">
-        {ROLES.map((r) => {
-          const on = active === r.key;
-          return (
-            <div key={r.key} className="rounded-xl border border-border bg-card overflow-hidden">
-              <button
-                onClick={() => { setActive(on ? "" : r.key); track("role_tab_viewed", { role: r.key }); }}
-                aria-expanded={on}
-                className="flex w-full items-center justify-between px-4 py-3.5 text-left"
-              >
-                <span className="font-semibold text-foreground">{r.label}</span>
-                <span className={cn("text-primary transition-transform", on && "rotate-45")}>+</span>
-              </button>
-              {on && (
-                <ul className="space-y-2.5 border-t border-border-soft px-4 py-3.5">
-                  {r.points.map((p) => (
-                    <li key={p} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                      {p}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
       </div>
     </LandingSection>
   );
@@ -253,38 +145,90 @@ export function RoleSection() {
 
 // ── Ownership / trust ───────────────────────────────────────────────────────
 
+/**
+ * Four, not six.
+ *
+ * "We do not own your clients" and "We do not recruit your agents" are the two
+ * that land hardest on a buyer used to IMO-provided software, so they stay
+ * alongside the override and the data-export promise. The two dropped — not
+ * your IMO, not your carrier relationships — are restated in the paragraph
+ * above the grid anyway.
+ */
+const NOTS = [
+  "We do not take commission overrides",
+  "We do not own your clients",
+  "We do not recruit your agents",
+  "We do not lock your data in",
+];
+
 export function OwnershipSection() {
-  const NOTS = [
-    "We are not your IMO or FMO",
-    "We do not take commission overrides",
-    "We do not own your carrier relationships",
-    "We do not own your clients",
-    "We do not recruit your agents",
-    "We do not lock your data in",
-  ];
+  const { ref, inView } = useInView<HTMLDivElement>(0.4);
+  const zero = useCountUp(0, 900, inView);
 
   return (
     <LandingSection id="ownership" className="border-t border-border/60">
-      <div className="rounded-3xl border border-primary/25 bg-primary/[0.04] p-8 md:p-14">
-        <div className="mx-auto max-w-3xl text-center">
+      <div className="rounded-3xl border border-primary/25 bg-primary/[0.04] p-8 md:p-10">
+        <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground" style={display}>
             Your agency. Your relationships. Your data.
           </h2>
-          <p className="mt-5 text-muted-foreground leading-relaxed">
+          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground leading-relaxed">
             Agent Cloud is software, not an IMO. Your hierarchy, your carrier contracts and your
             book stay yours — and you can export your data whenever you want it.
           </p>
 
-          <div className="mt-8 grid gap-2.5 sm:grid-cols-2 text-left">
-            {NOTS.map((n) => (
-              <div key={n} className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                {n}
+          {/*
+            The figure and the list are the same claim, so they sit side by
+            side rather than stacked. Stacked, they were 300px of centred
+            column saying one thing twice; beside each other the number reads
+            as the headline and the four lines as its footnotes.
+          */}
+          <div ref={ref} className="mt-8 grid items-center gap-8 text-left md:grid-cols-[auto_1fr]">
+            {/*
+              The one figure worth keeping from the four-stat band this
+              replaces. "Ten tools become one" restated the headline and "one
+              record per person" restated the lifecycle section; both were the
+              page agreeing with itself. This one is a commercial fact a buyer
+              can check.
+
+              useCountUp animates *to* zero, which sounds pointless and is not
+              — the number ticking down and stopping is what makes somebody
+              read it rather than skim past a percentage.
+            */}
+            <div className="flex flex-col items-center md:items-start">
+              <div className="tnum flex items-baseline text-6xl font-bold text-gold-bright md:text-7xl" style={display}>
+                {Math.round(zero)}
+                <span className="text-4xl md:text-5xl">%</span>
               </div>
-            ))}
+              <div className="mt-1 text-sm font-semibold text-foreground">Of your commission</div>
+            </div>
+
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {NOTS.map((n) => (
+                <div key={n} className="flex items-start gap-2.5 rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  {n}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <p className="mt-8 text-lg font-semibold text-gold-bright" style={display}>
+          {/*
+            Two paragraphs where there were four. The role sentence is all that
+            survives of the five-tab role interactive — somebody evaluating
+            this for a team needs to know permissions are real, and a clause
+            carries that as well as a tab rail did. The honesty sentence is
+            kept verbatim: it builds more trust than any invented statistic
+            would, and softening it would cost exactly what it buys.
+          */}
+          <p className="mx-auto mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            Owners, managers, staff and agents each see the records their role calls for, enforced
+            in the database rather than hidden in the interface. And we are not going to quote you
+            an hours-saved number until we have real agencies to measure it on — when we do, we
+            will tell you whose agencies they were.
+          </p>
+
+          <p className="mt-6 text-lg font-semibold text-gold-bright" style={display}>
             Agent Cloud exists to make agencies more independent, not more dependent.
           </p>
         </div>

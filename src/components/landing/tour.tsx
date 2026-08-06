@@ -1,91 +1,24 @@
-import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { track } from "@/lib/landing-analytics";
-import { LandingSection, SectionHead, display } from "./primitives";
-import { SCREENS, Screen, type ScreenKey } from "./screens";
-import { useInView } from "./motion";
+import { LandingSection, SectionHead, StatusPill, display } from "./primitives";
+import { Screen, type ScreenKey } from "./screens";
+import { useInView, useReducedMotion } from "./motion";
 
 /**
- * The product tour.
+ * The one place the product is inventoried.
  *
- * People buy software because they see software. Two shapes do that work here:
+ * This file used to also export ProductTour — a fifteen-tab gallery of every
+ * screen in the platform. It went, along with the twelve-card platform map and
+ * the twenty-five-chip breadth grid, because the three of them ran back to
+ * back and gave three different counts of the same product. Anybody who wants
+ * to see all fifteen screens can book the demo; anybody who does not was being
+ * asked to scroll past four complete pitches before reaching a price.
  *
- *   ProductTour  — every screen in the platform behind a tab rail, so a
- *                  visitor who wants to see all of it can, in one place,
- *                  without a fifteen-screen scroll.
- *   FeatureBands — the screens that carry the most weight, shown full size and
- *                  alternating, so someone who only scrolls still passes real
- *                  UI every few hundred pixels.
- *
- * Only the active tab renders. Fifteen mounted screens is a lot of DOM for a
- * page whose first job is to load fast.
+ * Three bands, alternating, each with a real screenshot. Licensing and
+ * contracting are merged because they are one job to the buyer — the person
+ * chasing a state licence is the person chasing the carrier appointment, on
+ * the same Tuesday, for the same agent.
  */
-
-export function ProductTour() {
-  const [active, setActive] = useState<ScreenKey>("dashboard");
-  const railRef = useRef<HTMLDivElement>(null);
-  const current = SCREENS.find((s) => s.key === active)!;
-
-  // Keep the selected tab in view when it is chosen with the keyboard, and
-  // when the rail is scrolled horizontally on a phone.
-  useEffect(() => {
-    const el = railRef.current?.querySelector<HTMLElement>(`[data-tab="${active}"]`);
-    el?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-  }, [active]);
-
-  return (
-    <LandingSection id="tour" event="tour_viewed" className="border-t border-border/60">
-      <SectionHead
-        eyebrow="The product"
-        title="Fifteen screens. One system."
-        copy="Not a mood board — these are the screens your team works in every day."
-      />
-
-      {/* The rail scrolls past the fold on every screen size. The mask is the
-          only thing telling a visitor there is more to the right — without it
-          the last tab just looks clipped. */}
-      <div
-        ref={railRef}
-        role="tablist"
-        aria-label="Product screens"
-        className={cn(
-          "mt-10 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          "[mask-image:linear-gradient(to_right,black_calc(100%-64px),transparent)]",
-        )}
-      >
-        {SCREENS.map((s) => (
-          <button
-            key={s.key}
-            data-tab={s.key}
-            role="tab"
-            aria-selected={active === s.key}
-            onClick={() => { setActive(s.key); track("tour_screen_viewed", { screen: s.key }); }}
-            className={cn(
-              "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
-              active === s.key
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      <p className="mt-3 text-sm text-muted-foreground">{current.caption}</p>
-
-      {/* Keyed on the active screen so each one animates in rather than
-          swapping instantly, which read as a broken image. */}
-      <div key={active} className="mt-4 ac-screen-in">
-        <Screen screen={active} />
-      </div>
-    </LandingSection>
-  );
-}
-
-// ── Alternating feature bands ───────────────────────────────────────────────
 
 type Band = {
   screen: ScreenKey;
@@ -93,42 +26,81 @@ type Band = {
   title: string;
   copy: string;
   points: string[];
+  /** Only when a band describes something not fully shipped. */
+  status?: "beta" | "soon";
 };
 
 const BANDS: Band[] = [
   {
-    screen: "recruiting",
-    eyebrow: "Recruiting",
-    title: "Hire without a spreadsheet in the middle.",
-    copy: "Every applicant sits on one board from first contact to first sale. When someone activates, the record does not get retyped into another system — it becomes the agent.",
-    points: ["Stages you can actually see", "Source and age on every applicant", "Activation creates the agent profile"],
+    screen: "contracting",
+    eyebrow: "Contracting & licensing",
+    title: "One queue for the paperwork that blocks production.",
+    copy: "A new agent needs state licences and carrier appointments before they can write anything, and both stall on documents somebody has to chase. They sit in the same queue here, against the same agent record, with an owner and an age on every item.",
+    points: [
+      "Carrier requests and required documents in one workspace",
+      "Licence renewals and gaps surfaced before they block an appointment",
+      "Writing numbers recorded against the agent, not in a spreadsheet",
+    ],
   },
   {
+    // Rewritten against what actually shipped in the reconciliation work —
+    // the old copy predated it and described a reconcile that only matched on
+    // policy number and never looked at the comp grid.
     screen: "commissions",
     eyebrow: "Commissions",
-    title: "Advances, trails and chargebacks, already calculated.",
-    copy: "Post a deal and the schedule is there — the advance, the months the balance lands in, and the carrier exceptions that change it. Import a statement and it reconciles against what the platform expected.",
-    points: ["Carrier-specific advance rules", "Statement import and matching", "Chargebacks tracked, not discovered"],
+    title: "Reconcile the statement the carrier actually sent.",
+    // CSV and Excel, not PDF. The statement uploader accepts
+    // `.csv,.xlsx,.xls` and nothing else (finances_.reconciliation.tsx), and
+    // the general importer's PDF support is a different pipeline. Naming a
+    // format the upload dialog rejects is the kind of claim a prospect
+    // disproves in the first ten minutes of a trial.
+    copy: "Carrier statements arrive as CSV and Excel, with title rows, subtotals and a policy column that is blank on exactly the lines worth checking. Leave all of it in — they are read as they came, including accounting negatives, so a chargeback reads as a chargeback rather than a payment of the same size.",
+    points: [
+      "Lines match on policy number first, then on name, amount and date",
+      "Every matched line compared against what the comp grid says was owed",
+      "Unmatched lines listed, not hidden",
+      "Nova answers from these same records, bounded by what the person asking may see",
+    ],
   },
   {
+    // Also rewritten. The old copy described cases opening from payment
+    // failures, which is a rescue after the fact; the scan added in the
+    // retention work scores the book before the draft fails.
     screen: "retention",
     eyebrow: "Retention",
-    title: "Find the lapse before the carrier tells you.",
-    copy: "Payment failures and lapse notices open a case with an owner and a clock. The queue shows premium at risk and save rate, so retention is a number you manage instead of a surprise you absorb.",
-    points: ["Cases open automatically", "Owner and age on every case", "Save rate measured over time"],
-  },
-  {
-    screen: "nova",
-    eyebrow: "Nova AI",
-    title: "An assistant that can only see what you can see.",
-    copy: "Nova answers from your agency's live records and cites what it read. Permissions are enforced underneath it, so an agent asking about the book gets their book — not somebody else's.",
-    points: ["Answers from live agency data", "Bounded by the asker's permissions", "Turns an answer into assigned work"],
+    // Beta, and the pill is the honest label rather than a hedge. The scan
+    // scores what the schema holds — months in force, premium against face,
+    // days since contact — and `lapse-risk.ts` names two signals it cannot
+    // read yet (payment mode, prior NSF history) because the columns do not
+    // exist. A ranking missing two of its inputs is a beta.
+    status: "beta",
+    title: "Rank the book before the draft fails, not after.",
+    copy: "A policy in grace is already a rescue. The scan scores every in-force policy on how likely it is to lapse — months in force, premium against the death benefit, how long since anyone spoke to the client — and every point of the score traces to a sentence you can disagree with.",
+    points: [
+      "In-force policies ranked by lapse risk, with the reason for each",
+      "Follow-up tasks created from the ranking, one per client",
+      "Payment failures still open a case with an owner and a clock",
+      "Save rate and premium at risk measured over time",
+    ],
   },
 ];
 
 export function FeatureBands() {
   return (
     <div id="features" className="border-t border-border/60">
+      {/* `md:pb-0`, not `pb-0`. LandingSection's own padding is `md:py-16`,
+          which lives inside a media query and therefore lands later in the
+          stylesheet than an unprefixed `pb-0` — so the override silently did
+          nothing above 768px and the head kept a full section's worth of
+          bottom padding above the first band. */}
+      <LandingSection className="pb-0 md:pb-0">
+        <SectionHead
+          eyebrow="The product"
+          title="Three jobs, on one record."
+          copy="The screens your team works in every day — not a mood board."
+        />
+      </LandingSection>
+
       {BANDS.map((b, i) => (
         <FeatureBand key={b.screen} band={b} flip={i % 2 === 1} />
       ))}
@@ -138,6 +110,7 @@ export function FeatureBands() {
 
 function FeatureBand({ band, flip }: { band: Band; flip: boolean }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.12);
+  const still = useReducedMotion();
 
   return (
     // `overflow-x-clip` because the reveal below animates from
@@ -148,7 +121,7 @@ function FeatureBand({ band, flip }: { band: Band; flip: boolean }) {
     //
     // Clip rather than hidden: `overflow: hidden` would make this a scroll
     // container and break `position: sticky` for anything inside it later.
-    <section className={cn("overflow-x-clip py-16 md:py-20", flip && "bg-surface-2/30")}>
+    <section className={cn("overflow-x-clip py-10 md:py-14", flip && "bg-surface-2/30")}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div
           ref={ref}
@@ -159,16 +132,34 @@ function FeatureBand({ band, flip }: { band: Band; flip: boolean }) {
         >
           <div
             className="transition-all duration-700 ease-out"
-            style={{ opacity: inView ? 1 : 0, transform: inView ? "none" : "translateY(16px)" }}
+            style={still ? undefined : { opacity: inView ? 1 : 0, transform: inView ? "none" : "translateY(16px)" }}
           >
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{band.eyebrow}</p>
+            <div className="flex items-center gap-2.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{band.eyebrow}</p>
+              {/* A partial state gets a pill. Shipping a "Beta" label costs
+                  nothing; a false "available" costs the deal on the demo call
+                  where the prospect finds out. */}
+              {band.status && <StatusPill status={band.status} />}
+            </div>
             <h3 className="mt-3 text-2xl font-bold tracking-tight text-foreground md:text-4xl" style={display}>
               {band.title}
             </h3>
             <p className="mt-4 leading-relaxed text-muted-foreground">{band.copy}</p>
             <ul className="mt-6 space-y-2.5">
-              {band.points.map((p) => (
-                <li key={p} className="flex items-start gap-2.5 text-sm text-foreground">
+              {band.points.map((p, i) => (
+                <li
+                  key={p}
+                  className="flex items-start gap-2.5 text-sm text-foreground transition-all duration-500 ease-out"
+                  style={
+                    still
+                      ? undefined
+                      : {
+                          opacity: inView ? 1 : 0,
+                          transform: inView ? "none" : "translateY(10px)",
+                          transitionDelay: `${240 + i * 90}ms`,
+                        }
+                  }
+                >
                   <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   {p}
                 </li>
@@ -178,11 +169,15 @@ function FeatureBand({ band, flip }: { band: Band; flip: boolean }) {
 
           <div
             className="min-w-0 transition-all duration-700 ease-out"
-            style={{
-              opacity: inView ? 1 : 0,
-              transform: inView ? "none" : `translateX(${flip ? -20 : 20}px)`,
-              transitionDelay: "120ms",
-            }}
+            style={
+              still
+                ? undefined
+                : {
+                    opacity: inView ? 1 : 0,
+                    transform: inView ? "none" : `translateX(${flip ? -20 : 20}px)`,
+                    transitionDelay: "120ms",
+                  }
+            }
           >
             <Screen screen={band.screen} />
           </div>

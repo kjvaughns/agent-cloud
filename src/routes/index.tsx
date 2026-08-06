@@ -1,16 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { track } from "@/lib/landing-analytics";
 import { display } from "@/components/landing/primitives";
 import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
-import {
-  ProblemSection, PlatformMap, RoleSection, OwnershipSection,
-} from "@/components/landing/story";
+import { ProblemSection, OwnershipSection } from "@/components/landing/story";
 import { LifecycleSection } from "@/components/landing/lifecycle";
-import { ProductTour, FeatureBands } from "@/components/landing/tour";
-import { EverythingSection, ByTheNumbers } from "@/components/landing/everything";
+import { FeatureBands } from "@/components/landing/tour";
 import { PricingSection } from "@/components/landing/pricing";
 import { LiveDemos, LiveDashboard } from "@/components/landing/live-demos";
 import { FloatingOrbs, Parallax } from "@/components/landing/motion";
@@ -43,7 +40,7 @@ const STRUCTURED_DATA = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
-        "Insurance agency management software covering recruiting, onboarding, licensing, contracting, clients, policies, retention, commissions, staff workflows, and reporting.",
+        "Insurance agency management software that carries one record per person from applicant to producing agent — licensing, contracting, clients, policies, commissions and retention on the same record.",
       offers: [
         { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
         { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
@@ -115,18 +112,18 @@ function LandingPage() {
 
       <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
-      {/* Scroll rhythm: the pain, the map, the story animated, then screen
-          after screen. Someone who never clicks anything still passes real
-          product UI every few hundred pixels. */}
+      {/* The argument, in order: here is the pain, here is the specific reason
+          it happens, here is the mechanism that fixes it, here is that
+          mechanism doing three jobs, here is the product to touch.
+          
+          The page used to inventory the product three times over — a 12-card
+          map, a 15-tab gallery and a 25-chip grid, back to back, with three
+          different counts of the same thing. A visitor passed four complete
+          pitches before reaching a price. One inventory now: the bands. */}
       <ProblemSection />
-      <PlatformMap />
       <LifecycleSection />
       <FeatureBands />
-      <ProductTour />
       <LiveDemos />
-      <ByTheNumbers includedSeats={pricing.includedSeats} />
-      <RoleSection />
-      <EverythingSection />
 
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
       <OwnershipSection />
@@ -151,7 +148,7 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             "radial-gradient(700px 400px at 15% 0%, color-mix(in srgb, var(--gold) 12%, transparent), transparent 60%)",
         }}
       />
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-14 pb-20 md:pt-20 md:pb-28">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 pb-14 md:pt-14 md:pb-16">
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
@@ -166,9 +163,11 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             <span className="text-primary">ten different tools.</span>
           </h1>
 
+          {/* States the mechanism rather than enumerating modules. The nine-item
+              list this replaces was the page's "too much" problem in miniature. */}
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Recruit agents, manage onboarding, licensing, contracting, clients, policies,
-            commissions, retention and AI — all from one operating system.
+            One record per person, from applicant to producing agent. Nothing retyped between
+            recruiting, licensing, contracting and commissions.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -182,13 +181,11 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             </a>
           </div>
 
-          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            {["No commission overrides", "Your agency owns its data", "Built for insurance operations"].map((r) => (
-              <li key={r} className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {r}
-              </li>
-            ))}
-          </ul>
+          {/* The three reassurance chips that sat here — no overrides, you own
+              your data, built for insurance — are the Ownership section's
+              headline, its 0% figure and its four "we do not" cards, said
+              first and worse. Making the promise twice does not make it twice
+              as credible. */}
         </div>
 
         <Parallax strength={14}>

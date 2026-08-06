@@ -77,7 +77,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
       )}
 
       {/* ── The plans ── */}
-      <div className="mx-auto mt-12 grid max-w-3xl gap-5 md:grid-cols-2 items-start">
+      <div className="mx-auto mt-10 grid max-w-3xl gap-5 md:grid-cols-2 items-start">
         {plans.map((p, i) => (
           <FadeUp key={p.key} delay={i * 90}>
             <div
@@ -132,7 +132,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
 
       {/* ── Add-ons, deliberately below and visually distinct from the plans ── */}
       <FadeUp delay={200}>
-        <div className="mx-auto mt-14 max-w-3xl">
+        <div className="mx-auto mt-10 max-w-3xl">
           <div className="flex items-center gap-3">
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Optional add-ons
@@ -140,10 +140,13 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          <div className="mt-5 space-y-3">
+          {/* Side by side above 1024px. Stacked, the two add-on cards were
+              ~500px of a section that already had the plans above it — and
+              they are alternatives to each other, not a sequence. */}
+          <div className="mt-5 grid gap-3 lg:grid-cols-2 lg:items-start">
             {/* Nova */}
             <div className="ac-lift rounded-2xl border border-border bg-card p-5 sm:p-6">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:flex-col lg:gap-4">
                 <div className="max-w-md">
                   <div className="flex items-center gap-2">
                     <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -160,7 +163,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
                     Adds to either plan. Not included in Solo or Agency.
                   </p>
                 </div>
-                <div className="shrink-0 sm:text-right">
+                <div className="shrink-0 sm:text-right lg:text-left">
                   <p className="tnum text-2xl font-bold text-foreground" style={display}>
                     {money(pricing.novaPro)}
                     <span className="text-sm font-normal text-muted-foreground">/user/mo</span>
@@ -178,7 +181,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
 
             {/* White label */}
             <div className="ac-lift rounded-2xl border border-border bg-card p-5 sm:p-6">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between lg:flex-col lg:gap-4">
                 <div className="max-w-md">
                   <div className="flex items-center gap-2">
                     <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -191,7 +194,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
                     Agency Plan.
                   </p>
                 </div>
-                <div className="shrink-0 sm:text-right">
+                <div className="shrink-0 sm:text-right lg:text-left">
                   <p className="tnum text-2xl font-bold text-foreground" style={display}>
                     {money(pricing.whiteLabelMonthly)}
                     <span className="text-sm font-normal text-muted-foreground">/mo</span>

@@ -26,6 +26,37 @@ export function prefersReducedMotion() {
 }
 
 /**
+ * The same answer, safe to read during render.
+ *
+ * Calling `prefersReducedMotion()` directly in a component body is a hydration
+ * bug: the server has no matchMedia and returns false, so it renders the
+ * animated `style` prop, while a client that prefers reduced motion renders no
+ * style at all. React logs a mismatch and — worse — keeps whichever tree it
+ * decided on, so the setting can end up ignored on the very machines that
+ * asked for it.
+ *
+ * So: false on the first render, matching the server exactly, then the real
+ * answer from an effect. One frame of the animated start state is the cost,
+ * and since these components also start hidden until they scroll into view,
+ * that frame is not visible anyway.
+ */
+export function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!mq) return;
+    setReduced(mq.matches);
+    // Someone can flip the OS setting with the page open.
+    const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return reduced;
+}
+
+/**
  * Counts up to `value` once visible.
  *
  * Eases out so the number decelerates into place instead of ticking linearly,
@@ -110,25 +141,11 @@ export function Parallax({
   );
 }
 
-/** Draws an SVG path on first view. */
-export function useDrawPath(inView: boolean, duration = 1400) {
-  const ref = useRef<SVGPathElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const len = el.getTotalLength();
-    el.style.strokeDasharray = String(len);
-
-    if (!inView) { el.style.strokeDashoffset = String(len); return; }
-    if (prefersReducedMotion()) { el.style.strokeDashoffset = "0"; return; }
-
-    el.style.strokeDashoffset = String(len);
-    el.style.transition = `stroke-dashoffset ${duration}ms cubic-bezier(.22,.61,.36,1)`;
-    // Next frame, so the transition has a from-value to animate from.
-    const id = requestAnimationFrame(() => { el.style.strokeDashoffset = "0"; });
-    return () => cancelAnimationFrame(id);
-  }, [inView, duration]);
-
-  return ref;
-}
+/*
+ * `useDrawPath` lived here — an SVG stroke-dashoffset reveal — and nothing
+ * ever called it. The obvious home was the lifecycle's connecting line, but
+ * that line is not a scroll reveal: it fills to chase the active stage, which
+ * is the claim the section is making. Drawing it once on entry would replace a
+ * meaningful animation with a decorative one. Deleted rather than given a use
+ * it does not have.
+ */
