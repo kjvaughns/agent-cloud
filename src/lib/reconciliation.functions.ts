@@ -223,3 +223,204 @@ export const updateStatementLine = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ── The second pass: lines the policy number did not match ──────────────────
+
+/**
+ * Candidate policies for the unmatched lines of a statement, with the insured
+ * name the `policies` table does not carry.
+ *
+ * Scoped to the caller's own RLS view rather than the service-role client, and
+ * that is the security boundary: the suggestion list is derived entirely from
+ * rows this person may already read, so it cannot become a way to learn that
+ * another agency has a client called Willie Jenkins.
+ *
+ * Narrowed to policies whose agent appears on the statement where the statement
+ * names agents at all, and otherwise to the whole readable book. A statement is
+ * a month of one carrier's payments; the book is everything ever written, and
+ * scoring one against the other unfiltered is both slow and a good way to find
+ * a coincidence.
+ */
+async function candidatesFor(supabase: any, statementId: string, carrierId: string | null) {
+  let q = supabase
+    .from("policies")
+    .select("id, policy_number, agent_id, effective_date, monthly_premium, annual_premium, client_id, clients(first_name, last_name)")
+    .limit(4000);
+  if (carrierId) q = q.eq("carrier_id", carrierId);
+
+  const { data: policies } = await q;
+  const rows = (policies ?? []) as any[];
+  if (!rows.length) return [];
+
+  // Expected commission, per policy, in one query rather than per candidate.
+  const ids = rows.map((p) => p.id);
+  const expectedBy = new Map<string, number>();
+  for (let i = 0; i < ids.length; i += 500) {
+    const { data: sched } = await supabase
+      .from("commission_schedule")
+      .select("policy_id, amount")
+      .in("policy_id", ids.slice(i, i + 500));
+    for (const s of sched ?? []) {
+      expectedBy.set(s.policy_id, (expectedBy.get(s.policy_id) ?? 0) + Number(s.amount ?? 0));
+    }
+  }
+
+  return rows.map((p) => ({
+    policyId: p.id as string,
+    policyNumber: (p.policy_number ?? null) as string | null,
+    insuredName: p.clients
+      ? `${p.clients.first_name ?? ""} ${p.clients.last_name ?? ""}`.trim() || null
+      : null,
+    agentId: (p.agent_id ?? null) as string | null,
+    agentName: null,
+    monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
+    annualPremium: p.annual_premium === null ? null : Number(p.annual_premium),
+    effectiveDate: (p.effective_date ?? null) as string | null,
+    expected: expectedBy.has(p.id) ? expectedBy.get(p.id)! : null,
+  }));
+}
+
+/**
+ * Suggestions for the lines `reconcile_statement` could not place.
+ *
+ * Read-only and computed fresh rather than stored. Two reasons, and the second
+ * is the one that decided it: a stored suggestion goes stale the moment a
+ * policy is posted or corrected, and `match_status` has a CHECK constraint
+ * whose vocabulary has no room for "suggested" — inventing a value there would
+ * need a migration, and migrations here are applied by hand.
+ */
+export const suggestStatementMatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ statement_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+
+    const { data: stmt } = await supabase
+      .from("commission_statements")
+      .select("id, carrier_id")
+      .eq("id", data.statement_id)
+      .maybeSingle();
+    if (!stmt) throw new Error("Statement not found or access denied.");
+
+    const { data: lines } = await supabase
+      .from("commission_statement_lines")
+      .select("id, policy_number, insured_name, agent_name, paid_amount, paid_date")
+      .eq("statement_id", data.statement_id)
+      .in("match_status", ["unmatched", "unexpected"])
+      .limit(2000);
+
+    const unplaced = (lines ?? []) as any[];
+    if (!unplaced.length) return { suggestions: {}, candidateCount: 0 };
+
+    const candidates = await candidatesFor(supabase, data.statement_id, (stmt as any).carrier_id ?? null);
+    if (!candidates.length) return { suggestions: {}, candidateCount: 0 };
+
+    const { suggestForStatement } = await import("@/lib/statement-match");
+    const suggestions = suggestForStatement(
+      unplaced.map((l) => ({
+        lineId: l.id as string,
+        policyNumber: l.policy_number ?? null,
+        insuredName: l.insured_name ?? null,
+        agentName: l.agent_name ?? null,
+        paidAmount: Number(l.paid_amount ?? 0),
+        paidDate: l.paid_date ?? null,
+      })),
+      candidates,
+    );
+
+    // The name is looked up here rather than sent from the client, so the label
+    // on the button and the row it writes cannot disagree.
+    const nameById = new Map(candidates.map((c) => [c.policyId, c.insuredName]));
+    const numberById = new Map(candidates.map((c) => [c.policyId, c.policyNumber]));
+    const decorated: Record<string, any[]> = {};
+    for (const [lineId, list] of Object.entries(suggestions)) {
+      decorated[lineId] = list.map((s) => ({
+        ...s,
+        insuredName: nameById.get(s.policyId) ?? null,
+        policyNumber: numberById.get(s.policyId) ?? null,
+      }));
+    }
+
+    return { suggestions: decorated, candidateCount: candidates.length };
+  });
+
+/**
+ * Accept suggestions a person ticked.
+ *
+ * The confidence and the expected amount are recomputed here from the policy
+ * rather than taken from the request. A client that could name its own
+ * `expected_amount` could report any variance it liked, and variance is the
+ * number this whole feature exists to produce.
+ */
+export const applyStatementMatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      statement_id: z.string().uuid(),
+      matches: z.array(z.object({
+        line_id: z.string().uuid(),
+        policy_id: z.string().uuid(),
+      })).min(1).max(2000),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+
+    // Both sides re-read through the caller's own client, so a line or a policy
+    // they cannot see is simply not there to be written.
+    const lineIds = data.matches.map((m) => m.line_id);
+    const { data: lines } = await supabase
+      .from("commission_statement_lines")
+      .select("id, paid_amount")
+      .eq("statement_id", data.statement_id)
+      .in("id", lineIds);
+    const paidBy = new Map<string, number>(
+      (lines ?? []).map((l: any) => [String(l.id), Number(l.paid_amount ?? 0)]),
+    );
+
+    const policyIds = [...new Set(data.matches.map((m) => m.policy_id))];
+    const { data: policies } = await supabase
+      .from("policies")
+      .select("id, agent_id")
+      .in("id", policyIds);
+    const agentBy = new Map<string, string | null>(
+      (policies ?? []).map((p: any) => [String(p.id), p.agent_id ?? null]),
+    );
+
+    const expectedBy = new Map<string, number>();
+    const { data: sched } = await supabase
+      .from("commission_schedule")
+      .select("policy_id, amount")
+      .in("policy_id", policyIds);
+    for (const s of sched ?? []) {
+      expectedBy.set(s.policy_id, (expectedBy.get(s.policy_id) ?? 0) + Number(s.amount ?? 0));
+    }
+
+    let applied = 0;
+    let skipped = 0;
+    for (const m of data.matches) {
+      if (!paidBy.has(m.line_id) || !agentBy.has(m.policy_id)) { skipped++; continue; }
+      const paid = paidBy.get(m.line_id)!;
+      const expected = expectedBy.has(m.policy_id) ? expectedBy.get(m.policy_id)! : null;
+      const variance = expected === null ? null : Math.round((paid - expected) * 100) / 100;
+
+      const { error } = await supabase
+        .from("commission_statement_lines")
+        .update({
+          matched_policy_id: m.policy_id,
+          matched_agent_id: agentBy.get(m.policy_id),
+          expected_amount: expected,
+          variance,
+          // A line matched by this route is never silently "matched" — it is a
+          // human decision, and a zero variance on a hand-matched line still
+          // deserves to read as one.
+          match_status: variance !== null && Math.abs(variance) <= 0.01 ? "matched" : "variance",
+        })
+        .eq("id", m.line_id)
+        .eq("statement_id", data.statement_id);
+      if (error) throw new Error(error.message);
+      applied++;
+    }
+
+    return { applied, skipped };
+  });
