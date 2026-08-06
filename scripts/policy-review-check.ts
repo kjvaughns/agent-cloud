@@ -149,9 +149,12 @@ check("the summary counts what to raise first",
 
 console.log("\n8. Naming what the review could not see");
 
-check("two inputs are named as missing", MISSING_INPUTS.length, 2);
-check("stated income is one", MISSING_INPUTS.some((m) => /income/i.test(m.input)), true);
-check("life events the other", MISSING_INPUTS.some((m) => /life event/i.test(m.input)), true);
+check("one input is named as missing", MISSING_INPUTS.length, 1);
+check("life events is it", MISSING_INPUTS.some((m) => /life event/i.test(m.input)), true);
+check("stated income no longer is — clients store it now",
+  MISSING_INPUTS.some((m) => /income/i.test(m.input)), false);
+check("the unstated-income note still explains itself",
+  UNSTATED_INCOME.why.length > 40, true);
 check("and each explains itself", MISSING_INPUTS.every((m) => m.why.length > 40), true);
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
