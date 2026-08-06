@@ -299,3 +299,207 @@ export const getPersistency = createServerFn({ method: "GET" })
       persistency,
     } as PlacementStats;
   });
+
+// ── The predictive scan ────────────────────────────────────────────────────
+
+/**
+ * Score the in-force book for lapse risk.
+ *
+ * `sync_retention_cases` surfaces policies already in `lapse_pending` or
+ * `nsf` — a list of failures. This scores the ones that have not failed yet,
+ * which is the whole point: by the time a draft has bounced the conversation
+ * is a rescue, and the month before it is where the save is.
+ *
+ * Deterministic, in `lapse-risk.ts`, with a check script. Deliberately not a
+ * model: `getPolicyAiInsight` already asks an LLM for a "score: 0-100" per
+ * policy, which costs one call per row, gives two different answers for the
+ * same policy on two runs, and cannot be argued with. A ranked call list has
+ * to be reproducible or nobody trusts it twice.
+ *
+ * Read-only. Nothing is written to `retention_cases`, because its
+ * `risk_reason` CHECK has no value meaning "predicted at risk" — the closest,
+ * `manual`, would be a lie about where the row came from. Adding one is a
+ * migration, and migrations here are applied by hand; the queue is useful
+ * without it and `createTasksForLapseRisk` below is the action the prompt
+ * actually asks for.
+ */
+export const scanLapseRisk = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      scope: scopeSchema.default("mine"),
+      band: z.enum(["watch", "high"]).default("watch"),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    const agentIds = data.scope === "mine"
+      ? [userId]
+      : await resolveScopeAgentIds(supabase, data.scope);
+    if (!agentIds.length) return { queue: [], scanned: 0, missing: [] as any[] };
+
+    // In force only. A policy already lapse_pending is the existing sweep's
+    // job, and listing it here would put the same policy in two queues with
+    // two different scores.
+    const { data: policies } = await supabase
+      .from("policies")
+      .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, policy_number, clients(first_name, last_name)")
+      .in("agent_id", agentIds)
+      .eq("status", "active")
+      .limit(4000);
+
+    const rows = (policies ?? []) as any[];
+    if (!rows.length) return { queue: [], scanned: 0, missing: [] as any[] };
+
+    // Last logged contact per client, in one pass rather than per policy.
+    const clientIds = [...new Set(rows.map((p) => p.client_id).filter(Boolean))];
+    const lastContact = new Map<string, string>();
+    for (let i = 0; i < clientIds.length; i += 500) {
+      const { data: contacts } = await supabase
+        .from("contact_history")
+        .select("client_id, created_at")
+        .in("client_id", clientIds.slice(i, i + 500))
+        .order("created_at", { ascending: false });
+      for (const c of contacts ?? []) {
+        // Ordered newest-first, so the first sighting of a client is theirs.
+        if (!lastContact.has(c.client_id)) lastContact.set(c.client_id, c.created_at);
+      }
+    }
+
+    const { scoreLapseRisk, rankLapseRisk, summarise, MISSING_SIGNALS } =
+      await import("@/lib/lapse-risk");
+
+    // One `asOf` for the whole scan, so two policies scored in the same run
+    // cannot disagree about what day it is.
+    const asOf = new Date().toISOString().slice(0, 10);
+
+    const scored = rows.map((p) => {
+      const name = p.clients
+        ? `${p.clients.first_name ?? ""} ${p.clients.last_name ?? ""}`.trim() || null
+        : null;
+      const s = scoreLapseRisk({
+        policyId: p.id,
+        clientId: p.client_id ?? null,
+        clientName: name,
+        monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
+        faceAmount: p.face_amount === null ? null : Number(p.face_amount),
+        effectiveDate: p.effective_date ?? null,
+        lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
+        asOf,
+      });
+      return {
+        ...s,
+        clientId: p.client_id ?? null,
+        clientName: name,
+        agentId: p.agent_id ?? null,
+        policyNumber: p.policy_number ?? null,
+        reason: summarise(s),
+      };
+    });
+
+    const queue = rankLapseRisk(scored as any, { minBand: data.band })
+      .map((s) => scored.find((x) => x.policyId === s.policyId)!);
+
+    return { queue, scanned: rows.length, missing: [...MISSING_SIGNALS] };
+  });
+
+/**
+ * Follow-up tasks for the top of the queue.
+ *
+ * The scan is re-run here rather than accepting a list from the client, for
+ * the same reason the reconciliation findings are: otherwise a request could
+ * put any sentence it liked, against any policy it liked, into somebody's task
+ * list.
+ *
+ * Capped, and the cap is stated in what comes back. Turning a four-hundred
+ * policy book into four hundred tasks is a way of burying the top twenty.
+ */
+export const createTasksForLapseRisk = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      scope: scopeSchema.default("mine"),
+      limit: z.number().int().min(1).max(50).default(20),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    const { queue } = await (async () => {
+      // Same computation, same guarantees. Kept inline rather than calling the
+      // server function above, which would not carry the middleware context.
+      const agentIds = data.scope === "mine"
+        ? [userId]
+        : await resolveScopeAgentIds(supabase, data.scope);
+      if (!agentIds.length) return { queue: [] as any[] };
+
+      const { data: policies } = await supabase
+        .from("policies")
+        .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, clients(first_name, last_name)")
+        .in("agent_id", agentIds)
+        .eq("status", "active")
+        .limit(4000);
+      const rows = (policies ?? []) as any[];
+      if (!rows.length) return { queue: [] as any[] };
+
+      const clientIds = [...new Set(rows.map((p) => p.client_id).filter(Boolean))];
+      const lastContact = new Map<string, string>();
+      for (let i = 0; i < clientIds.length; i += 500) {
+        const { data: contacts } = await supabase
+          .from("contact_history")
+          .select("client_id, created_at")
+          .in("client_id", clientIds.slice(i, i + 500))
+          .order("created_at", { ascending: false });
+        for (const c of contacts ?? []) {
+          if (!lastContact.has(c.client_id)) lastContact.set(c.client_id, c.created_at);
+        }
+      }
+
+      const { scoreLapseRisk, rankLapseRisk, summarise } = await import("@/lib/lapse-risk");
+      const asOf = new Date().toISOString().slice(0, 10);
+      const scored = rows.map((p) => {
+        const name = p.clients
+          ? `${p.clients.first_name ?? ""} ${p.clients.last_name ?? ""}`.trim() || null
+          : null;
+        const s = scoreLapseRisk({
+          policyId: p.id, clientId: p.client_id ?? null, clientName: name,
+          monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
+          faceAmount: p.face_amount === null ? null : Number(p.face_amount),
+          effectiveDate: p.effective_date ?? null,
+          lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
+          asOf,
+        });
+        return { ...s, clientId: p.client_id, clientName: name, reason: summarise(s), factors: s.factors };
+      });
+      return { queue: rankLapseRisk(scored as any, { minBand: "high" }).map((s) => scored.find((x) => x.policyId === s.policyId)!) };
+    })();
+
+    const top = queue.slice(0, data.limit);
+    if (!top.length) return { created: 0, skipped: 0 };
+
+    // A task per client, not per policy: two at-risk policies on one person is
+    // one phone call, and two tasks would have the agent ring them twice.
+    const seen = new Set<string>();
+    const rows: any[] = [];
+    for (const q of top) {
+      const key = String(q.clientId ?? q.policyId);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push({
+        title: `Retention call: ${q.clientName ?? "unnamed client"}`,
+        description:
+          `Lapse risk ${q.score}/100 — ${q.reason}.\n\n` +
+          q.factors.map((f: any) => `• ${f.detail}`).join("\n"),
+        assigned_to: userId,
+        created_by: userId,
+        priority: "high",
+        related_type: q.clientId ? "client" : "policy",
+        related_id: q.clientId ?? q.policyId,
+      });
+    }
+
+    const { error } = await supabase.from("tasks").insert(rows);
+    if (error) throw new Error(error.message);
+    return { created: rows.length, skipped: queue.length - rows.length };
+  });
