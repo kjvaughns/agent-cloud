@@ -75,7 +75,7 @@ function UnstarButton({
 export function AppSidebar() {
   const { state } = useSidebar();
   const sidebarCollapsed = state === "collapsed";
-  const { isAdmin, isManager, isAgencyOwner } = useRole();
+  const { isSuperAdmin } = useRole();
   const { access } = useMyAccess();
   const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
@@ -366,7 +366,8 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {/* super_admin only — see the route guard in routes/admin.tsx. */}
+        {isSuperAdmin && (
           <>
             <SidebarSeparator />
             <SidebarGroup>

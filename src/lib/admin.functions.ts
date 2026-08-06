@@ -44,14 +44,24 @@ async function requirePlatformAdmin(supabase: any, userId: string) {
   }
 }
 
+/**
+ * Everything the platform portal reads, gated the way the portal now is.
+ *
+ * This allowed `manager` — so an agency manager could call the functions
+ * behind /admin directly and list every agent, contract, ticket and comp grid
+ * the caller's row-level security would return. The route guard has been
+ * narrowed to super_admin; a guard on the route with a wider one on the API
+ * behind it is not access control, it is a hidden button.
+ *
+ * Every caller of this lives under src/routes/admin.* or
+ * src/components/admin/, checked before the change, so narrowing it does not
+ * take a function away from a page that legitimately used it.
+ *
+ * The name stays because seventeen call sites read better as one rename than
+ * as a diff that also changes what they mean.
+ */
 async function requireManagerOrAdmin(supabase: any, userId: string) {
-  const { data } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .in("role", ["super_admin", "agency_owner", "admin", "manager"])
-    .limit(1);
-  if (!data?.length) throw new Error("Forbidden: manager or admin role required");
+  await requirePlatformAdmin(supabase, userId);
 }
 
 export const adminListAllAgents = createServerFn({ method: "GET" })

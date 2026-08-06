@@ -14,15 +14,34 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
+  /**
+   * Agent Cloud staff, not an agency.
+   *
+   * This allowed `agency_owner`, `admin` and `manager` in, which meant
+   * promoting somebody to Manager inside an agency handed them the platform
+   * operator's portal — the shared carrier catalogue, the default commission
+   * grids, every tenant's support tickets, the database migration runner. An
+   * ordinary promotion was a privilege escalation.
+   *
+   * `admin.functions.ts` already worked this out and wrote it down:
+   * "`admin` and `agency_owner` are agency-level roles in this schema —
+   * is_org_admin() grants on both — so requireAdmin is 'runs *an* agency', not
+   * 'runs Agent Cloud'." Its `requirePlatformAdmin` asks the narrow question.
+   * The route guard was still asking the wide one.
+   *
+   * `super_admin` is the only role that means this platform. `.limit(1)`
+   * rather than `.maybeSingle()` because a user legitimately holds several
+   * roles and maybeSingle() errors on more than one row.
+   */
   beforeLoad: async () => {
     const session = await requireSession();
-    const { data: roleRow } = await supabase
+    const { data: roleRows } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", session.user.id)
-      .in("role", ["super_admin", "agency_owner", "admin", "manager"])
-      .maybeSingle();
-    if (!roleRow) throw redirect({ to: "/dashboard" });
+      .eq("role", "super_admin")
+      .limit(1);
+    if (!roleRows?.length) throw redirect({ to: "/dashboard" });
   },
   component: AdminLayout,
 });
