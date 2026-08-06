@@ -260,6 +260,9 @@ async function parseBookExport(file_base64: string): Promise<BookExport | null> 
       status: cleanStr(r["Status"]),
       monthly_premium: parseMoney(r["Monthly Premium"]),
       annual_premium: parseMoney(r["Annual Premium"]),
+      premium_mode: normalizePremiumMode(
+        r["Premium Mode"] ?? r["Mode"] ?? r["Payment Mode"] ?? r["Draft Mode"] ?? r["Pay Mode"] ?? null,
+      ),
       effective_date: parseDateMaybe(r["Effective Date"]),
       agent_label: cleanStr(r["Agent"]),
     }));
