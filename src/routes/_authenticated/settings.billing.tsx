@@ -13,6 +13,7 @@ import { WhiteLabelPage } from "@/components/settings/white-label-panel";
 import { toast } from "sonner";
 import { money } from "@/lib/format";
 import { PRICING } from "@/lib/billing/pricing";
+import { TELEPHONY_CONNECTED } from "@/lib/telephony";
 import {
   getBillingOverview, createCheckoutSession, createPortalSession,
   listNovaSeatAgents, assignNovaSeat, unassignNovaSeat, getSeatBreakdown, getNovaProStatus,
@@ -29,6 +30,16 @@ export const Route = createFileRoute("/_authenticated/settings/billing")({
     s.tab === "white-label" ? { tab: "white-label" } : {},
   component: BillingPage,
 });
+
+/**
+ * What to show where a Nova Pro business number would be.
+ *
+ * Three panels on this page said "provisioning", which implies a queue
+ * somebody is working through. Nothing is in progress — there is no telephony
+ * provider at all (see src/lib/telephony.ts), so the number is not late, it is
+ * not coming until that changes.
+ */
+const NO_NUMBER_YET = TELEPHONY_CONNECTED ? "provisioning" : "not available yet";
 
 const STATUS_BADGE: Record<string, { v: any; label: string }> = {
   active: { v: "success", label: "Active" },
@@ -112,7 +123,7 @@ function MemberBilling({ access }: { access: any }) {
             {nova.status === "active" || nova.status === "grace_period" ? (
               <div className="text-sm space-y-1.5">
                 <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span>{nova.source === "agency" ? "Agency-assigned seat" : "Personal subscription"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? NO_NUMBER_YET}</span></div>
                 <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/settings/nova-pro">Usage & subscription →</Link></Button>
               </div>
             ) : (
@@ -172,7 +183,7 @@ function SoloBilling({ access }: { access: any }) {
           <Panel title="Nova AI Pro" action={<Badge variant="success">Active</Badge>}>
             <div className="text-sm space-y-1.5 mb-3">
               <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span className="tnum">{money(PRICING.novaPro)}/month</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? NO_NUMBER_YET}</span></div>
             </div>
             <Button asChild size="sm" variant="outline"><Link to="/settings/nova-pro">Usage meters →</Link></Button>
           </Panel>
@@ -390,7 +401,7 @@ function OwnerNovaCard() {
     <Panel title="Your Nova Pro" action={on ? <Badge variant="success">Active</Badge> : <span className="text-xs text-muted-foreground tnum">{money(49)}/month</span>}>
       {on ? (
         <div className="text-sm space-y-1.5">
-          <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? "provisioning"}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Business number</span><span className="tnum">{nova.phone ?? NO_NUMBER_YET}</span></div>
           <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/settings/nova-pro">Usage & subscription →</Link></Button>
         </div>
       ) : (

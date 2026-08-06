@@ -1,6 +1,8 @@
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { queueEmail } from "@/lib/email/send.server";
+import { trackNovaUsage } from "@/lib/billing.functions";
+import { TELEPHONY_UNAVAILABLE } from "@/lib/telephony";
 
 const supabaseAdmin = _admin as any;
 
@@ -26,7 +28,7 @@ const supabaseAdmin = _admin as any;
  *     composed and thrown away.
  */
 
-const SMS_UNAVAILABLE = "SMS is not available — no telephony provider is connected.";
+const SMS_UNAVAILABLE = TELEPHONY_UNAVAILABLE;
 
 /**
  * A refusal from the mailer is not the same as a breakage.
@@ -358,8 +360,16 @@ export async function runAutomationsForAgent(
           .eq("occurrence_key", c.occurrenceKey)
           .eq("channel", channel);
 
-        if (finished.status === "sent") summary.sent++;
-        else if (finished.status === "failed") summary.failed++;
+        if (finished.status === "sent") {
+          summary.sent++;
+          // The "Automation executions" meter on Settings → Nova Pro. Counted
+          // here and only here, on a run the mailer actually accepted — the
+          // number a subscriber is shown against a 200/month allowance has to
+          // mean deliveries, not attempts, or the allowance is spent by
+          // failures the agent never got the benefit of. Fire-and-forget:
+          // a metering failure must not fail a send that already happened.
+          trackNovaUsage(a.agent_id, "automations").catch(() => {});
+        } else if (finished.status === "failed") summary.failed++;
         else summary.blocked++;
       }
     }

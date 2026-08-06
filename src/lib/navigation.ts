@@ -159,7 +159,19 @@ export const PAGES: Page[] = [
   { id: "academy", label: "Academy", path: "/resources/agent-academy", icon: BookOpen, area: "Tools" },
   { id: "handbook", label: "Handbook", path: "/resources/agent-handbook", icon: BookOpen, area: "Tools" },
 
-  { unlock: "activated", id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova", staffPermission: "staff_nova_pro_enabled" },
+  // No staffPermission, deliberately. This entry used to carry
+  // `staff_nova_pro_enabled`, which reads like a subscription check and is not
+  // one: that permission means "this staff member may *subscribe* to Nova Pro"
+  // — a spending authorisation the agency grants, enforced where it belongs on
+  // /settings/nova-pro and /settings/billing.
+  //
+  // The assistant at /ai-assistant is free. Nothing on it calls requireNovaPro,
+  // and every core user gets it. So the permission was doing the one thing it
+  // was never meant to: denying a back-office staffer a free page because
+  // their agency had not authorised them to spend money. Nova Pro's actual
+  // features are gated server-side by requireNovaPro, which is the only place
+  // a subscription should decide anything.
+  { unlock: "activated", id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova" },
 
   // ── Agency ───────────────────────────────────────────────────────────────
   //
