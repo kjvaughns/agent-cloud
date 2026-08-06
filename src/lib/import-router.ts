@@ -22,6 +22,8 @@
  * for whatever it decides the "products" are.
  */
 
+import { readBlock, readDocument } from "./sheet-shape";
+
 export const IMPORT_KINDS = [
   "book_of_business",
   "commission_grid",
@@ -228,12 +230,16 @@ export function resolveKind(headers: string[], note: string | null | undefined):
   return { kind: "unknown", confidence: 0, source: "none", reason: "Couldn't tell from the columns." };
 }
 
-/** The first row of a CSV-ish blob, split into candidate headers. */
+/**
+ * The header row of a CSV-ish blob.
+ *
+ * Not the first line — `sheet-shape.ts` looks past the banner an agency puts
+ * above its data and joins a stacked header back together. Routing off line 0
+ * meant a book of business with a title row was classified `unknown`, which
+ * sent a perfectly readable file to the model and then to a human.
+ */
 export function headerRowOf(text: string): string[] {
-  const firstLine = (text.split(/\r?\n/).find((l) => l.trim()) ?? "").trim();
-  if (!firstLine) return [];
-  const cells = firstLine.split(firstLine.includes("\t") ? "\t" : ",");
-  return cells.map((c) => c.replace(/^"|"$/g, "").trim()).filter(Boolean);
+  return readBlock(text).headers.filter(Boolean);
 }
 
 /**
@@ -242,6 +248,5 @@ export function headerRowOf(text: string): string[] {
  * identifying columns are often on the second tab.
  */
 export function allHeaderRows(text: string): string[] {
-  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m);
-  return blocks.flatMap((b) => headerRowOf(b));
+  return readDocument(text).flatMap((b) => b.headers.filter(Boolean));
 }

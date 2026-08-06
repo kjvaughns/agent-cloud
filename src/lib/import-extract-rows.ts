@@ -11,7 +11,15 @@
  * one deterministic pass here; sending it to be read instead would cost real
  * money, take minutes, and be less accurate at the one thing that matters —
  * getting the phone number right.
+ *
+ * Finding the header row, joining a stacked one, dropping subtotals and reading
+ * the carrier out of a tab name all live in `sheet-shape.ts`. This file is the
+ * vocabulary — which spellings mean which field — and nothing else.
  */
+
+import { readBlock, readDocument, type SheetBlock } from "./sheet-shape";
+import { carrierFromLabel } from "./sheet-shape";
+import type { CarrierRecord } from "./carrier-match";
 
 /** Header spellings we accept, per field. Compared after normalisation. */
 const CLIENT_FIELDS: Record<string, string[]> = {
@@ -41,32 +49,6 @@ const FULL_NAME = ["name", "client name", "insured", "insured name", "client", "
 
 function normHeader(h: string): string {
   return h.toLowerCase().replace(/[_\-.#]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-/**
- * Split a CSV line, respecting quotes.
- *
- * Names contain commas — "Smith, Jr." is not two columns — and a naive split
- * shifts every field after it by one, which is the kind of corruption nobody
- * notices until the phone numbers are in the email column.
- */
-function splitCsvLine(line: string, delim: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (quoted && line[i + 1] === '"') { cur += '"'; i++; }
-      else quoted = !quoted;
-    } else if (ch === delim && !quoted) {
-      out.push(cur); cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out.map((c) => c.trim());
 }
 
 function num(v: string | undefined): number | null {
@@ -112,11 +94,23 @@ export type ExtractedClient = Record<string, any> & { policies?: Record<string, 
  * within-file deduplication belongs.
  */
 export function clientsFromCsv(block: string): ExtractedClient[] {
-  const lines = block.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
+  return clientsFromBlock(readBlock(block));
+}
 
-  const delim = lines[0].includes("\t") ? "\t" : ",";
-  const headers = splitCsvLine(lines[0], delim).map(normHeader);
+/**
+ * The same, from an already-shaped block.
+ *
+ * Split out because `clientsFromDocument` needs the sheet label — a workbook
+ * with one tab per carrier keeps its carrier there and nowhere else — and the
+ * label is lost the moment a block is handed around as a string.
+ */
+export function clientsFromBlock(
+  b: SheetBlock,
+  carriers: CarrierRecord[] = [],
+): ExtractedClient[] {
+  if (!b.headers.length || !b.rows.length) return [];
+
+  const headers = b.headers.map(normHeader);
 
   const colOf = (spellings: string[]): number =>
     headers.findIndex((h) => spellings.includes(h));
@@ -140,11 +134,15 @@ export function clientsFromCsv(block: string): ExtractedClient[] {
     return [];
   }
 
-  const out: ExtractedClient[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i], delim);
-    if (!cells.some((c) => c)) continue;
+  // The carrier can be in the tab name instead of a column, which is the
+  // commonest shape in this industry — one tab per carrier, no carrier column
+  // anywhere. Only consulted when there is no column, so a column always wins.
+  const labelCarrier = policy.carrier_name === undefined
+    ? carrierFromLabel(b.label, carriers)
+    : null;
 
+  const out: ExtractedClient[] = [];
+  for (const cells of b.rows) {
     const rec: ExtractedClient = {};
 
     if (client.first_name !== undefined) rec.first_name = cells[client.first_name] || null;
@@ -180,7 +178,16 @@ export function clientsFromCsv(block: string): ExtractedClient[] {
     if (policy.effective_date !== undefined) pol.effective_date = isoDate(cells[policy.effective_date]);
     if (policy.status !== undefined) pol.status = cells[policy.status] || null;
 
-    if (Object.values(pol).some((v) => v !== null && v !== undefined)) rec.policies = [pol];
+    if (Object.values(pol).some((v) => v !== null && v !== undefined)) {
+      // Stamped after the emptiness test, so a tab name cannot conjure a policy
+      // out of a row that has nothing else policy-shaped in it.
+      if (labelCarrier) {
+        pol.carrier_name = labelCarrier.cleaned;
+        pol.carrier_id = labelCarrier.carrierId;
+        pol.carrier_source = "sheet_name";
+      }
+      rec.policies = [pol];
+    }
 
     out.push(rec);
   }
@@ -194,9 +201,11 @@ export function clientsFromCsv(block: string): ExtractedClient[] {
  * `extractDocument` labels each block; a workbook's book of business is often
  * on the second tab, behind a summary.
  */
-export function clientsFromDocument(text: string): ExtractedClient[] {
-  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
-  return blocks.flatMap((b) => clientsFromCsv(b));
+export function clientsFromDocument(
+  text: string,
+  carriers: CarrierRecord[] = [],
+): ExtractedClient[] {
+  return readDocument(text).flatMap((b) => clientsFromBlock(b, carriers));
 }
 
 // ── Contracting records ──────────────────────────────────────────────────────
@@ -255,11 +264,16 @@ export function contractingRowsFromCsv(
   block: string,
   kind: "writing_numbers" | "licenses" | "carriers",
 ): Record<string, string>[] {
-  const lines = block.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
+  return contractingRowsFromBlock(readBlock(block), kind);
+}
 
-  const delim = lines[0].includes("\t") ? "\t" : ",";
-  const headers = splitCsvLine(lines[0], delim).map(normHeader);
+export function contractingRowsFromBlock(
+  b: SheetBlock,
+  kind: "writing_numbers" | "licenses" | "carriers",
+): Record<string, string>[] {
+  if (!b.headers.length || !b.rows.length) return [];
+
+  const headers = b.headers.map(normHeader);
   const spec = CONTRACTING_FIELDS[kind];
 
   const cols: Record<string, number> = {};
@@ -276,10 +290,7 @@ export function contractingRowsFromCsv(
   if (cols[required] === undefined) return [];
 
   const out: Record<string, string>[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i], delim);
-    if (!cells.some((c) => c)) continue;
-
+  for (const cells of b.rows) {
     const rec: Record<string, string> = {};
     for (const [field, idx] of Object.entries(cols)) rec[field] = cells[idx] ?? "";
     if (!rec[required]?.trim()) continue;
@@ -292,8 +303,7 @@ export function contractingRowsFromDocument(
   text: string,
   kind: "writing_numbers" | "licenses" | "carriers",
 ): Record<string, string>[] {
-  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
-  return blocks.flatMap((b) => contractingRowsFromCsv(b, kind));
+  return readDocument(text).flatMap((b) => contractingRowsFromBlock(b, kind));
 }
 
 // ── Agent roster ─────────────────────────────────────────────────────────────
@@ -321,11 +331,13 @@ const ROSTER_FULL_NAME = ["agent name", "name", "full name", "agent"];
  * never be actioned.
  */
 export function rosterFromCsv(block: string): Record<string, any>[] {
-  const lines = block.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
+  return rosterFromBlock(readBlock(block));
+}
 
-  const delim = lines[0].includes("\t") ? "\t" : ",";
-  const headers = splitCsvLine(lines[0], delim).map(normHeader);
+export function rosterFromBlock(b: SheetBlock): Record<string, any>[] {
+  if (!b.headers.length || !b.rows.length) return [];
+
+  const headers = b.headers.map(normHeader);
 
   const cols: Record<string, number> = {};
   for (const [field, spellings] of Object.entries(ROSTER_FIELDS)) {
@@ -337,8 +349,7 @@ export function rosterFromCsv(block: string): Record<string, any>[] {
   if (cols.email === undefined) return [];
 
   const out: Record<string, any>[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitCsvLine(lines[i], delim);
+  for (const cells of b.rows) {
     const email = (cells[cols.email] ?? "").trim();
     if (!email || !email.includes("@")) continue;
 
@@ -361,6 +372,5 @@ export function rosterFromCsv(block: string): Record<string, any>[] {
 }
 
 export function rosterFromDocument(text: string): Record<string, any>[] {
-  const blocks = text.split(/^=== (?:Sheet|Page): .*? ===$/m).filter((b) => b.trim());
-  return blocks.flatMap((b) => rosterFromCsv(b));
+  return readDocument(text).flatMap((b) => rosterFromBlock(b));
 }

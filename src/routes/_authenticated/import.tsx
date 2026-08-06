@@ -15,13 +15,15 @@ import { useNavContext } from "@/hooks/use-my-access";
 import {
   createImportBatch, classifyImportDoc, setImportKind, reconcileImportRows,
   listImports, getImportSummary, listProposals, decideProposals, applyProposals,
-  dismissImport, type ImportDoc, type Proposal,
+  dismissImport, listCarrierIndex, type ImportDoc, type Proposal,
 } from "@/lib/import.functions";
+import type { CarrierRecord } from "@/lib/carrier-match";
 import { extractGrid } from "@/lib/comp-grid.functions";
 import { UndoImport } from "@/components/import/undo-import";
 import { extractDocument, truncationNotice, type ExtractedDoc } from "@/lib/document-extract";
 import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } from "@/lib/import-router";
 import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } from "@/lib/import-extract-rows";
+import { readDocument } from "@/lib/sheet-shape";
 import { MigrationGuide } from "@/components/import/migration-guide";
 
 export const Route = createFileRoute("/_authenticated/import")({
@@ -66,12 +68,22 @@ function ImportPage() {
   const listFn = useServerFn(listImports);
   const dismissFn = useServerFn(dismissImport);
   const extractGridFn = useServerFn(extractGrid);
+  const carrierIndexFn = useServerFn(listCarrierIndex);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
     queryFn: () => listFn({ data: { status: "all" } }),
   });
   const docs = ((data as any)?.documents ?? []) as ImportDoc[];
+
+  // Reference data, fetched once and reused across the batch. Only used to read
+  // a carrier out of a tab name, so its absence costs that and nothing else.
+  const { data: carrierData } = useQuery({
+    queryKey: ["carrier-index"],
+    queryFn: () => carrierIndexFn({ data: undefined as any }),
+    staleTime: 30 * 60_000,
+  });
+  const carriers = ((carrierData as any)?.carriers ?? []) as CarrierRecord[];
 
   async function handleFiles(files: FileList) {
     const list = Array.from(files).slice(0, 100);
@@ -184,7 +196,7 @@ function ImportPage() {
     let rows: Record<string, any>[] = [];
 
     if (kind === "book_of_business") {
-      rows = doc.text ? clientsFromDocument(doc.text) : [];
+      rows = doc.text ? clientsFromDocument(doc.text, carriers) : [];
     } else if (kind === "commission_grid") {
       // A rate table's meaning is in its layout — which column a number sits
       // under is the level it pays. The text layer gives the numbers in
@@ -214,6 +226,21 @@ function ImportPage() {
     if (!rows.length) {
       toast.warning(`We recognised ${file.name} but couldn't read any rows out of it.`);
       return;
+    }
+
+    // Say what was skipped. "We imported 412 rows" out of a 427-row file is the
+    // kind of quiet arithmetic that gets discovered a month later; naming the
+    // reason turns it into something the agency can agree or disagree with.
+    if (doc.text) {
+      const dropped = readDocument(doc.text).reduce(
+        (n, b) => n + b.skipped.subtotal,
+        0,
+      );
+      if (dropped) {
+        toast.info(
+          `${file.name}: skipped ${dropped} subtotal row${dropped === 1 ? "" : "s"}.`,
+        );
+      }
     }
 
     for (let i = 0; i < rows.length; i += RECONCILE_CHUNK) {

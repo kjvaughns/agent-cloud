@@ -177,6 +177,7 @@ export const MIGRATION_SOURCES: MigrationSource[] = [
       "The importer reads the headers and shows you the mapping before anything saves.",
     ],
     quirks: [
+      "Leave your title rows, subtotal lines and one-tab-per-carrier layout alone. The importer looks past a banner to find the header, joins a two-row header back together, skips subtotals and tells you how many it skipped, and reads the carrier out of the tab name when there is no carrier column.",
       "If a policy number looks like 1.23457E+14, the sheet has been treated as a number somewhere. The importer reconstructs those, but re-exporting with the column formatted as Text is cleaner.",
     ],
   },

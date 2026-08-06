@@ -2,7 +2,7 @@
  * Checks for Import's three decision layers: what kind of document arrived,
  * what records are in it, and which of those we already have.
  *
- * `npx tsx scripts/import-check.ts`
+ *   npm run check:import
  *
  * Three of these guard against a specific way things went wrong before:
  *
@@ -27,6 +27,7 @@ import {
   contractingRowsFromCsv, contractingRowsFromDocument,
   rosterFromCsv, rosterFromDocument,
 } from "../src/lib/import-extract-rows";
+import { readBlock, isSubtotalRow, carrierFromLabel } from "../src/lib/sheet-shape";
 
 const clients = [
   { id: "c1", agent_id: "a", first_name: "John",  last_name: "Smith", phone: "(555) 201-3344", email: "j.smith+book@gmail.com", date_of_birth: "1960-04-02" },
@@ -248,6 +249,113 @@ check("rows without email dropped", rosterFromCsv("Agent Name,Email\nX,\nY,y@x.c
 check("non-email value dropped", rosterFromCsv("Agent Name,Email\nX,notanemail").length, 0);
 check("finds roster on a later sheet",
   rosterFromDocument("=== Sheet: Cover ===\na,b\n1,2\n\n=== Sheet: Team ===\nAgent Name,Email\nZed,z@x.com").length, 1);
+
+// ── The shape of a real spreadsheet ─────────────────────────────────────────
+//
+// Every case below imported *nothing* before, or imported a subtotal as a
+// person, and in both cases said it had succeeded. That silence is the whole
+// reason this section is worth its length.
+
+console.log("\nSheet shape");
+
+// A banner above the header. The commonest single reason a good file imports
+// nothing: line 0 is the agency's name, so no column is recognised.
+const bannered = [
+  "Kingdom Financial Group",
+  "Book of Business as of 08/01/2026",
+  "",
+  "First Name,Last Name,Phone,Policy Number,Monthly Premium",
+  "Willie,Jenkins,555-201-3344,MUT-4820193,62.40",
+].join("\n");
+check("the header is found under a banner", readBlock(bannered).headerIndex, 3);
+check("banner rows are counted, not silently eaten", readBlock(bannered).skipped.banner, 3);
+check("a bannered file still yields its client", clientsFromCsv(bannered).length, 1);
+check("and the policy came with it", clientsFromCsv(bannered)[0].policies?.[0].policy_number, "MUT-4820193");
+check("routing sees past the banner too", headerRowOf(bannered).includes("Policy Number"), true);
+
+// A two-row header stack over a merged span. Read either row alone and
+// "Monthly" and "Annual" lose the word that says what they are.
+const stacked = [
+  "Client,Premium,,Face",
+  "Name,Monthly,Annual,Amount",
+  "Willie Jenkins,62.40,748.80,250000",
+].join("\n");
+check("a merged span is filled and joined",
+  readBlock(stacked).headers, ["Client Name", "Premium Monthly", "Premium Annual", "Face Amount"]);
+check("the stacked header row is not read as data", readBlock(stacked).rows.length, 1);
+check("and the joined name is what the mapper matches on",
+  clientsFromCsv(stacked)[0].policies?.[0].face_amount, 250000);
+
+// A trailing empty in a stacked header is an unnamed column, not the tail of
+// the span next to it — filling it would name it after its neighbour.
+check("a span does not run off the end",
+  readBlock("Client,Premium,,Face,\nName,Monthly,Annual,Amount,Note\nA,1,2,3,x").headers,
+  ["Client Name", "Premium Monthly", "Premium Annual", "Face Amount", "Note"]);
+
+// A lone header row must NOT be forward-filled — an unnamed trailing column
+// named after its neighbour gets mapped, which is worse than being ignored.
+check("a lone header keeps its empty columns empty",
+  readBlock("First Name,Last Name,,\nA,B,x,y").headers, ["First Name", "Last Name", "", ""]);
+
+// Subtotals. These have a premium and no name, so they survive every
+// "does this row have anything in it" test and land in the book as a client
+// called nothing holding the sum of twelve other policies.
+check("a labelled subtotal is dropped",
+  isSubtotalRow(["Subtotal", "", "", "1,240.00"]), true);
+check("a grand total is dropped", isSubtotalRow(["", "Grand Total", "4,980.00"]), true);
+check("a bare arithmetic line is dropped", isSubtotalRow(["", "", "", "1,240.00"]), true);
+// The one that matters in the other direction: a carrier whose name contains
+// the word must not be swept up with them.
+check("a labelled per-agent subtotal is dropped",
+  isSubtotalRow(["Total for J. Smith", "", "", "1,240.00"]), true);
+// The other direction, which matters more: a real row deleted is invisible,
+// a subtotal kept is right there in the review screen.
+check("a carrier called Total Life survives",
+  isSubtotalRow(["Willie Jenkins", "Total Life Insurance Company", "62.40"]), false);
+check("an ordinary row survives", isSubtotalRow(["Willie", "Jenkins", "62.40"]), false);
+check("a two-column row with a name is not arithmetic",
+  isSubtotalRow(["Willie Jenkins", "62.40"]), false);
+
+const withTotals = [
+  "First Name,Last Name,Phone,Monthly Premium",
+  "Willie,Jenkins,555-201-3344,62.40",
+  "Ana,Ruiz,555-201-9911,88.00",
+  "Total,,,150.40",
+].join("\n");
+check("subtotals never become clients", clientsFromCsv(withTotals).length, 2);
+check("and the count of what was dropped is kept", readBlock(withTotals).skipped.subtotal, 1);
+
+// The carrier in the tab name rather than a column — the commonest workbook
+// shape in this industry, and the field a column-only reader loses entirely.
+const carriers = [
+  { id: "moo", name: "Mutual of Omaha" },
+  { id: "for", name: "Foresters Financial" },
+];
+const perCarrier = [
+  "=== Sheet: Mutual of Omaha 2026 ===",
+  "Client Name,Policy Number,Monthly Premium",
+  "Willie Jenkins,MUT-4820193,62.40",
+].join("\n");
+const stamped = clientsFromDocument(perCarrier, carriers);
+check("the carrier is read out of the tab name", stamped[0].policies?.[0].carrier_id, "moo");
+check("and it says where that came from", stamped[0].policies?.[0].carrier_source, "sheet_name");
+
+// A column always wins — the tab name is a label somebody typed for themselves.
+const bothSources = [
+  "=== Sheet: Mutual of Omaha ===",
+  "Client Name,Carrier,Policy Number",
+  "Willie Jenkins,Foresters Financial,F-99",
+].join("\n");
+check("a carrier column beats the tab name",
+  clientsFromDocument(bothSources, carriers)[0].policies?.[0].carrier_name, "Foresters Financial");
+
+// Structural tab names must not be dragged onto a carrier by edit distance.
+check("Summary is not a carrier", carrierFromLabel("Summary", carriers), null);
+check("Sheet1 is not a carrier", carrierFromLabel("Sheet1", carriers), null);
+check("an unknown tab name is not forced onto the nearest carrier",
+  carrierFromLabel("Q3 Leads", carriers), null);
+check("noise around the name is stripped",
+  carrierFromLabel("Foresters Financial - Book (2026)", carriers)?.carrierId, "for");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
