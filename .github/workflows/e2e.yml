@@ -1,0 +1,86 @@
+# End-to-end tests on pull requests.
+#
+# Runs the nav walk and the accessibility pass. The full loop and visual
+# regression are workflow_dispatch only — the loop writes real rows and needs a
+# scratch organisation per run, and screenshot baselines differ enough between a
+# CI runner and a developer's machine to belong on fixed hardware.
+#
+# This job FAILS when the credential secrets are absent, deliberately. A green
+# check from a run that signed in as nobody and walked zero pages would be a lie
+# about coverage, and this repository has already shipped one suite that
+# reported timeouts as passes.
+
+name: e2e
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which specs to run
+        required: false
+        default: nav-walk a11y
+        type: string
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The dev container ships Chromium at /opt/pw-browsers; a GitHub runner
+      # does not, so it is installed here. `--with-deps` because the runner
+      # lacks the shared libraries headless Chromium needs.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Check the credentials exist
+        env:
+          OWNER: ${{ secrets.E2E_OWNER_EMAIL }}
+          AGENT: ${{ secrets.E2E_AGENT_EMAIL }}
+        run: |
+          if [ -z "$OWNER" ] || [ -z "$AGENT" ]; then
+            echo "::error::E2E credential secrets are not set. See tests/README.md."
+            echo "Failing rather than skipping: a green check from a run with no"
+            echo "credentials would report coverage this job did not earn."
+            exit 1
+          fi
+
+      - name: Run the suite
+        env:
+          E2E_BASE: ${{ secrets.E2E_BASE }}
+          E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+          E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+          E2E_MANAGER_EMAIL: ${{ secrets.E2E_MANAGER_EMAIL }}
+          E2E_MANAGER_PASSWORD: ${{ secrets.E2E_MANAGER_PASSWORD }}
+          E2E_STAFF_EMAIL: ${{ secrets.E2E_STAFF_EMAIL }}
+          E2E_STAFF_PASSWORD: ${{ secrets.E2E_STAFF_PASSWORD }}
+          E2E_AGENT_EMAIL: ${{ secrets.E2E_AGENT_EMAIL }}
+          E2E_AGENT_PASSWORD: ${{ secrets.E2E_AGENT_PASSWORD }}
+        run: npx playwright test ${{ github.event.inputs.suite || 'nav-walk a11y' }}
+
+      # Uploaded on failure only. A trace from a passing run is 40MB nobody
+      # opens; a trace from a failing one is how the failure gets diagnosed
+      # without reproducing it locally first.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

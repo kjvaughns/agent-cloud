@@ -51,3 +51,5 @@ dist-ssr
 .comp.mjs
 .rev.mjs
 .ups.mjs
+playwright-report/
+test-results/
