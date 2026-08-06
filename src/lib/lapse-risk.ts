@@ -27,30 +27,27 @@
  *
  * ── What this scores, and what it cannot ───────────────────────────────────
  *
- * The prompt names six signals. Four are derivable from what is stored:
+ * The prompt names six signals. Five are derivable from what is stored:
  *
  *   months in force              policies.effective_date
  *   premium relative to face     monthly_premium vs face_amount
  *   days since last contact      contact_history.created_at
  *   policy age band              effective_date
+ *   payment mode                 policies.premium_mode, written by the
+ *                                importer through `normalizePremiumMode`
  *
- * Two are not, and are deliberately not faked:
+ * One is not, and is deliberately not faked:
  *
- *   payment mode      — there is no premium-mode column on `policies`. The
- *                       importer parses one (`normalizePremiumMode`) and the
- *                       schema has nowhere to put it. Monthly-draft business
- *                       lapses at several times the rate of annual, so this is
- *                       the single most predictive field named in the prompt
- *                       and it is the one we cannot read.
  *   prior NSF / missed drafts — only the *current* status is stored. The
  *                       carrier sync maps NSF to `lapse_pending`, and when the
  *                       policy recovers the fact that it ever failed is gone.
  *
  * `MISSING_SIGNALS` is exported so the UI can say which of the six it looked
- * at. A score that silently omits payment mode while implying it is included
- * is worse than one that says what it saw — an agency that works this list and
- * still loses monthly-draft business should be able to tell why.
+ * at. A score that silently omits a signal while implying it is included is
+ * worse than one that says what it saw — an agency that works this list and
+ * still loses business should be able to tell why.
  */
+
 
 /** Named so the screen can say what it did not look at. */
 export const MISSING_SIGNALS = [
