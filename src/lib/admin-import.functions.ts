@@ -601,6 +601,10 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             state: c.state,
             zip_code: c.zip_code,
             born_country_state: c.born_country_state,
+            // The template collects income monthly; the column is annual, so
+            // the needs calculation in `policy-review.ts` compares like with
+            // like instead of asking the agent to retype it.
+            annual_income: annualIncomeFrom(c.monthly_income),
             stage: c.stage,
             temperature: mapTemperature(undefined),
             notes: null,
