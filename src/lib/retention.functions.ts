@@ -450,7 +450,7 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
 
       const { data: policies } = await supabase
         .from("policies")
-        .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, clients(first_name, last_name)")
+        .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, premium_mode, clients(first_name, last_name)")
         .in("agent_id", agentIds)
         .eq("status", "active")
         .limit(4000);
