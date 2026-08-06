@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getNovaProStatus, createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
+import { NOVA_LIMITS } from "@/lib/billing/pricing";
+import { TELEPHONY_CONNECTED, TELEPHONY_UNAVAILABLE } from "@/lib/telephony";
 import { useMyAccess } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/settings/nova-pro")({
@@ -125,20 +127,38 @@ export function NovaProPage() {
                   {d.phone ? (
                     <span className="tnum font-medium">{d.phone}</span>
                   ) : (
-                    <span className="text-muted-foreground">Provisioning — assigned when the phone provider connection goes live</span>
+                    // "Provisioning" implied a queue somebody was working
+                    // through. Nothing is in progress — there is no provider.
+                    <span className="text-muted-foreground">Not assigned. {TELEPHONY_UNAVAILABLE}</span>
                   )}
                 </div>
               </Panel>
             </div>
 
+            {/*
+              Only the two meters that can actually move.
+
+              Calling minutes and SMS were shown here against a 300 and a 500
+              allowance, and both were structurally incapable of leaving zero —
+              nothing in the product places a call, and every SMS send is
+              refused at source because no telephony provider is connected. A
+              progress bar that can only ever read 0/300 is not a neutral
+              placeholder; it tells a subscriber they have an allowance they are
+              not using, when what is true is that they cannot use it.
+            */}
             <Panel title="Monthly Usage" action={d.usage.resetAt ? <span className="text-xs text-muted-foreground tnum">resets monthly · since {new Date(d.usage.resetAt).toLocaleDateString()}</span> : undefined}>
-              <UsageMeter label={d.limits.outbound_minutes.label} used={d.usage.calls_minutes} included={d.limits.outbound_minutes.included} overage={d.limits.outbound_minutes.overage} />
-              <UsageMeter label={d.limits.sms.label} used={d.usage.sms} included={d.limits.sms.included} overage={d.limits.sms.overage} />
               <UsageMeter label={d.limits.ai_queries.label} used={d.usage.ai_queries} included={d.limits.ai_queries.included} overage={d.limits.ai_queries.overage} />
               <UsageMeter label={d.limits.automations.label} used={d.usage.automations} included={d.limits.automations.included} overage={d.limits.automations.overage} />
               <p className="text-xs text-muted-foreground pt-3">
                 We'll alert you at 80% and 100% of each allowance. Overages are added to your next billing cycle.
               </p>
+              {!TELEPHONY_CONNECTED && (
+                <p className="text-xs text-muted-foreground pt-2 border-t border-border-soft mt-2">
+                  Calling and SMS aren't metered. {TELEPHONY_UNAVAILABLE} Your{" "}
+                  {d.limits.outbound_minutes.included} minutes and {d.limits.sms.included} messages are held for
+                  when it is, and nothing is billed against either in the meantime.
+                </p>
+              )}
             </Panel>
           </>
         ) : (
@@ -150,15 +170,33 @@ export function NovaProPage() {
               <div className="font-display font-bold text-xl" style={{ fontFamily: "var(--font-display)" }}>
                 Upgrade to Nova Pro — {money(d.price)}/mo
               </div>
+              {/*
+                Two of these were sold as delivered and are not.
+                  - The phone number: no telephony provider exists at all.
+                  - Daily at-risk alerts: `notify_policy_at_risk` is a
+                    preference no sender reads. The retention data behind it is
+                    real and already free on /retention; the daily alert is not
+                    written yet.
+                Both stay on the list — they are what the price is buying
+                towards — but greyed and labelled, because a roadmap presented
+                as a feature is the thing this page was doing wrong.
+              */}
               <ul className="text-sm text-muted-foreground space-y-1.5 max-w-sm mx-auto text-left">
-                <li>• Dedicated business phone number</li>
-                <li>• Daily at-risk policy alerts for your book</li>
                 <li>• Client follow-up automations (birthdays, renewals, callbacks)</li>
                 <li>• Advanced Nova queries — drafts, summaries, commission breakdowns</li>
                 <li>• Personal performance dashboard</li>
+                <li className="opacity-70">
+                  • Daily at-risk policy alerts <span className="text-xs">— in build</span>
+                </li>
+                <li className="opacity-70">
+                  • Dedicated business phone number{" "}
+                  <span className="text-xs">— in build, no provider connected yet</span>
+                </li>
               </ul>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Includes 300 outbound + 300 inbound minutes, 500 messages, 500 Nova queries, and 200 automation runs per month. Your subscription follows you between agencies.
+                Includes {NOVA_LIMITS.ai_queries.included} Nova queries and {NOVA_LIMITS.automations.included} automation
+                runs per month, plus {NOVA_LIMITS.outbound_minutes.included} outbound and {NOVA_LIMITS.inbound_minutes.included} inbound
+                minutes and {NOVA_LIMITS.sms.included} messages held for when calling goes live. Your subscription follows you between agencies.
               </p>
               <Button onClick={() => subscribe.mutate()} disabled={!d.configured || subscribe.isPending}>
                 {d.configured ? `Upgrade — ${money(d.price)}/mo` : "Billing not configured yet"}
