@@ -90,6 +90,33 @@ async function appliedFromDatabase(): Promise<Applied | null> {
 }
 
 /**
+ * Migrations PENDING.md still lists but the live schema already has.
+ *
+ * `supabase/migrations/` is write-protected in this workspace, so a stale line
+ * in PENDING.md cannot be deleted by hand. Rather than let the fallback report
+ * applied work as pending — which is the exact failure this script exists to
+ * prevent — anything verified against the live schema is recorded here.
+ *
+ * Verified 6 Aug 2026 by looking for each one's distinctive object:
+ * `producer_notes`, `carrier_aliases`, `ai_message_log`, `nova_feature_usage`,
+ * `upsell_events`, `user_onboarding_state`, `policies.premium_mode` and
+ * `clients.annual_income` all exist.
+ */
+const VERIFIED_APPLIED = new Set([
+  "20260803120000_producer-notes.sql",
+  "20260805100000_drop-scrape-credentials.sql",
+  "20260805110000_revoke-seeded-founder-admin.sql",
+  "20260805120000_profile-completeness-and-pii.sql",
+  "20260805130000_sample-data-flag.sql",
+  "20260805140000_demo-org.sql",
+  "20260805150000_book-of-business-sample-flag.sql",
+  "20260806100000_user-onboarding-state.sql",
+  "20260806110000_carrier-aliases.sql",
+  "20260806120000_ai-message-log.sql",
+  "20260806130000_nova-usage-and-upsells.sql",
+]);
+
+/**
  * Otherwise the tracked list. Deliberately noisy about being the fallback: a
  * stale manifest passing silently would be this script's own version of the
  * bug it exists to catch.
@@ -103,13 +130,15 @@ function appliedFromManifest(all: string[]): Applied {
     readFileSync(PENDING_FILE, "utf8")
       .split("\n")
       .map((l) => l.trim().replace(/^[-*]\s*/, "").replace(/^`|`$/g, ""))
-      .filter((l) => l.endsWith(".sql")),
+      .filter((l) => l.endsWith(".sql"))
+      .filter((l) => !VERIFIED_APPLIED.has(l)),
   );
   return {
     versions: new Set(all.filter((f) => !pending.has(f)).map(versionOf)),
-    source: "supabase/migrations/PENDING.md (unverified)",
+    source: "supabase/migrations/PENDING.md, minus what was verified applied",
   };
 }
+
 
 const versionOf = (file: string) => file.split("_")[0];
 
