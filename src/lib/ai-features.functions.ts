@@ -730,7 +730,7 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
 
     const { data: client, error } = await supabase
       .from("clients")
-      .select("id, first_name, last_name, date_of_birth")
+      .select("id, first_name, last_name, date_of_birth, annual_income")
       .eq("id", data.clientId)
       .eq("agent_id", userId)
       .maybeSingle();
