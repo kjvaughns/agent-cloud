@@ -71,6 +71,8 @@ type ParsedPolicy = {
   status: string | null;
   monthly_premium: number;
   annual_premium: number;
+  /** Normalised draft schedule, when the export carries one. Feeds lapse risk. */
+  premium_mode: string | null;
   effective_date: string | null;
   agent_label: string | null;
 };
