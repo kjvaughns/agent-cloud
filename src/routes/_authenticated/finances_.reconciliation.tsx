@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
 import {
   listStatements, createStatement, reconcileStatement,
-  getStatementDetail, suggestStatementMatches, applyStatementMatches, type StatementLine,
+  getStatementDetail, suggestStatementMatches, applyStatementMatches,
+  gridFindingsForStatement, createTasksForGridFindings, type StatementLine,
 } from "@/lib/reconciliation.functions";
 import { parseStatementBlock } from "@/lib/statement-parse";
 import { readBlock, readDocument } from "@/lib/sheet-shape";
@@ -316,6 +317,8 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
   const detailFn = useServerFn(getStatementDetail);
   const suggestFn = useServerFn(suggestStatementMatches);
   const applyFn = useServerFn(applyStatementMatches);
+  const gridFn = useServerFn(gridFindingsForStatement);
+  const tasksFn = useServerFn(createTasksForGridFindings);
 
   const { data, isLoading } = useQuery({
     queryKey: ["statement", id, filter],
@@ -347,6 +350,28 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
   const chosen = Object.keys(suggestions)
     .map((lineId) => ({ line_id: lineId, policy_id: choiceFor(lineId) }))
     .filter((m): m is { line_id: string; policy_id: string } => m.policy_id !== null);
+
+  // Only meaningful once lines are matched, so it waits for the reconcile
+  // rather than firing against an empty set on first render.
+  const { data: gridData } = useQuery({
+    queryKey: ["statement", id, "grid"],
+    queryFn: () => gridFn({ data: { statement_id: id } }),
+    enabled: (sum?.matched ?? 0) + (sum?.varianceCount ?? 0) > 0,
+  });
+  const gridFindings = ((gridData as any)?.findings ?? []) as any[];
+
+  const makeTasks = useMutation({
+    mutationFn: () => tasksFn({ data: { statement_id: id } }),
+    onSuccess: (r: any) => {
+      toast.success(
+        r.created
+          ? `${r.created} task${r.created === 1 ? "" : "s"} created`
+          : "Nothing here needed a task.",
+      );
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't create those tasks"),
+  });
 
   const apply = useMutation({
     mutationFn: () => applyFn({ data: { statement_id: id, matches: chosen } }),
@@ -422,6 +447,53 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
           left blank. Every suggestion says why, and nothing is written until
           somebody presses the button.
         */}
+        {/*
+          The third opinion.
+
+          Everything above compares what the carrier paid against what the
+          platform scheduled — and the platform schedules from
+          `agent_commission_levels.assigned_pct`, never from the comp grid. So
+          when those two disagree, both sides of that comparison are built on
+          the same wrong rate and the statement reconciles perfectly while the
+          agent is paid fifteen points short on every policy. That finding can
+          only come from a third number.
+        */}
+        {gridFindings.length > 0 && (
+          <Panel>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-2">
+                <div className="text-sm font-medium">What the comp grid says</div>
+                <ul className="space-y-1.5 text-xs">
+                  {gridFindings.slice(0, 6).map((f: any) => (
+                    <li key={f.lineId} className="flex gap-2">
+                      <Badge
+                        variant={f.finding === "rate_mismatch" || f.finding === "underpaid" ? "destructive" : "secondary"}
+                        className="shrink-0 text-[10px] h-fit"
+                      >
+                        {f.finding === "rate_mismatch" ? "Rate" : f.finding === "no_schedule" ? "No schedule" : f.finding}
+                      </Badge>
+                      <span className="min-w-0 text-muted-foreground">{f.explanation}</span>
+                    </li>
+                  ))}
+                </ul>
+                {gridFindings.length > 6 && (
+                  <p className="text-xs text-muted-foreground">
+                    …and {gridFindings.length - 6} more.
+                  </p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => makeTasks.mutate()}
+                disabled={makeTasks.isPending}
+              >
+                {makeTasks.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create tasks for these"}
+              </Button>
+            </div>
+          </Panel>
+        )}
+
         {chosen.length > 0 && (
           <Panel>
             <div className="flex flex-wrap items-center justify-between gap-3">
