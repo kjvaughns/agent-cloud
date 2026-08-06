@@ -516,5 +516,41 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
 
     const { error } = await supabase.from("tasks").insert(rows);
     if (error) throw new Error(error.message);
-    return { created: rows.length, skipped: queue.length - rows.length };
+
+    // Open a case per policy acted on, so the prediction lands in the same
+    // queue the failures do. `predicted` says where the row came from — the
+    // scan, not a person — which is why it was worth a migration rather than
+    // reusing `manual`.
+    //
+    // Skipped silently when a case is already open for that policy: a second
+    // row would double-count premium at risk in the header metrics.
+    let casesOpened = 0;
+    const policyIds = top.map((q: any) => q.policyId).filter(Boolean);
+    if (policyIds.length) {
+      const { data: openCases } = await supabase
+        .from("retention_cases")
+        .select("policy_id")
+        .in("policy_id", policyIds)
+        .in("status", ["open", "working"]);
+      const already = new Set((openCases ?? []).map((c: any) => c.policy_id));
+
+      const caseRows = top
+        .filter((q: any) => q.policyId && !already.has(q.policyId))
+        .map((q: any) => ({
+          policy_id: q.policyId,
+          agent_id: q.agentId ?? userId,
+          assigned_to: userId,
+          risk_reason: "predicted",
+          risk_score: q.score,
+          premium_at_risk: q.premiumAtRisk ?? null,
+          status: "open",
+        }));
+
+      if (caseRows.length) {
+        const { error: caseErr } = await supabase.from("retention_cases").insert(caseRows);
+        if (!caseErr) casesOpened = caseRows.length;
+      }
+    }
+
+    return { created: rows.length, skipped: queue.length - rows.length, casesOpened };
   });
