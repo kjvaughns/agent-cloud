@@ -11,16 +11,12 @@
  *                                          clean; "after a life event" is not,
  *                                          because life events are not tracked
  *
- * The income one is worth stating plainly, because it is not an oversight in
- * this file. `clients` has no income column. The migration template asks for
- * "Monthly Income", `admin-import.functions.ts` reads it, and line 575 appends
- * it to a *notes string* — so every agency that has imported a book gave us
- * that number and it is sitting in prose. `MISSING_INPUTS` says so, and the
- * needs calculation is offered only when an agent types the income in.
- *
- * That is the third field in three PRs where the importer parses something the
- * schema cannot store (premium mode was the first, in the lapse scan). Each is
- * one column.
+ * The income one now has an answer. `clients.annual_income` stores it, the
+ * importer annualises the template's "Monthly Income" into it, and the review
+ * prefers whatever the agent typed on the screen over the stored figure — they
+ * have just asked the client. `UNSTATED_INCOME` is added to the missing list
+ * only when neither source has a number.
+
  *
  * ── Deterministic, for the third time and the same reason ──────────────────
  *
