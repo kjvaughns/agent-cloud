@@ -111,6 +111,98 @@ const HierarchyChangeSchema = z.object({
  * off are recorded as `skipped` rather than omitted — an audit that shows a
  * step was deliberately not required beats one where it silently never existed.
  */
+/**
+ * What is true about this agent right now, so the form can show it.
+ *
+ * Raising a compensation change meant typing into a form that never said what
+ * the agent is on today — and the dialog had no way to send a new level at
+ * all, so `requested_comp_level_id` was in the schema, read by the approver
+ * and written by nobody. Same for a promotion: no current position, no list of
+ * the positions this agency's comp grid actually recognises.
+ *
+ * Everything here is read, never written. It exists so the person raising the
+ * request is choosing between real values instead of recalling them.
+ */
+export const getAgentHierarchyContext = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) throw new OrgAccessError("No organization on your account");
+    await assertSameOrg(userId, data.agent_id);
+
+    const [{ data: profile }, { data: records }, { data: levels }] = await Promise.all([
+      supabaseAdmin.from("profiles").select("upline_id").eq("id", data.agent_id).maybeSingle(),
+      supabaseAdmin
+        .from("carrier_hierarchy_records")
+        .select('org_carrier_id, "current_role", current_comp_level_id, org_carriers ( carriers ( name ) )')
+        .eq("organization_id", orgId)
+        .eq("agent_id", data.agent_id),
+      supabaseAdmin
+        .from("carrier_comp_levels")
+        .select("id, org_carrier_id, level_name, commission_pct, role_eligibility")
+        .eq("organization_id", orgId)
+        .eq("status", "active"),
+    ]);
+
+    let currentUpline: { id: string; name: string } | null = null;
+    if (profile?.upline_id) {
+      const { data: u } = await supabaseAdmin
+        .from("profiles").select("id, first_name, last_name").eq("id", profile.upline_id).maybeSingle();
+      if (u) {
+        currentUpline = {
+          id: u.id as string,
+          name: `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || "Unnamed",
+        };
+      }
+    }
+
+    const allLevels = levels ?? [];
+    const levelById = new Map<string, any>(allLevels.map((l: any) => [l.id as string, l]));
+
+    const carriers = (records ?? []).map((r: any) => {
+      const held = r.current_comp_level_id ? levelById.get(r.current_comp_level_id) : null;
+      return {
+        org_carrier_id: r.org_carrier_id as string,
+        carrier_name: r.org_carriers?.carriers?.name ?? "Unnamed carrier",
+        current_role: (r["current_role"] as string | null) ?? null,
+        current_level_id: (r.current_comp_level_id as string | null) ?? null,
+        current_level_name: held?.level_name ?? null,
+        current_level_pct: held?.commission_pct ?? null,
+        // Only this carrier's levels: a level belongs to one carrier, and
+        // offering another carrier's grid would be offering a level the agent
+        // cannot be placed on.
+        levels: allLevels
+          .filter((l: any) => l.org_carrier_id === r.org_carrier_id)
+          .map((l: any) => ({ id: l.id, name: l.level_name, pct: l.commission_pct }))
+          .sort((a: any, b: any) => Number(b.pct ?? 0) - Number(a.pct ?? 0)),
+      };
+    });
+
+    // The positions this agency's own comp grid recognises, deduped across
+    // carriers. `role_eligibility` is the column that says which internal roles
+    // may hold a level, so it is the only place the product knows what a
+    // promotion could promote somebody *to*.
+    const positions: string[] = [
+      ...new Set(allLevels.flatMap((l: any) => ((l.role_eligibility ?? []) as string[]))),
+    ].filter((r): r is string => Boolean(r)).sort();
+
+    // What they are today, as far as the carrier records agree.
+    const heldRoles: string[] = [
+      ...new Set(carriers.map((c: any) => c.current_role as string | null)),
+    ].filter((r): r is string => Boolean(r));
+
+    return {
+      currentUpline,
+      currentRole: heldRoles.length === 1 ? heldRoles[0] : null,
+      /** More than one carrier disagrees about their title — worth showing. */
+      mixedRoles: heldRoles.length > 1 ? heldRoles : null,
+      carriers,
+      positions,
+    };
+  });
+
 export const createHierarchyChange = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => HierarchyChangeSchema.parse(d))
@@ -279,14 +371,65 @@ export const decideHierarchyChange = createServerFn({ method: "POST" })
     // The internal record is only touched once every step has cleared. Nothing
     // external is applied automatically — the carrier confirmation step is a
     // human recording what the carrier actually did.
-    if (nextStatus === "applied" && request.requested_upline_id && request.org_carrier_id) {
-      await supabaseAdmin.from("carrier_hierarchy_records").update({
-        direct_upline_id: request.requested_upline_id,
-        current_comp_level_id: request.requested_comp_level_id ?? undefined,
-        updated_by: userId,
-      }).eq("organization_id", orgId)
-        .eq("org_carrier_id", request.org_carrier_id)
-        .eq("agent_id", request.agent_id);
+    //
+    // ── What this used to miss ─────────────────────────────────────────────
+    //
+    // The guard was `requested_upline_id && org_carrier_id`, which meant an
+    // approved change applied to nothing in two ordinary cases:
+    //
+    //   - "Every carrier this agent holds" sends org_carrier_id as null, which
+    //     is the whole point of that option — and it was the one value that
+    //     made the update not run. The request reached "applied", the audit
+    //     log recorded it, the agent was notified, and no record moved.
+    //   - A compensation change with no upline move has no requested_upline_id,
+    //     so it fell out of the guard too.
+    //
+    // Applying is now driven by what the request actually asks for.
+    if (nextStatus === "applied") {
+      const patch: Record<string, unknown> = {};
+      if (request.requested_upline_id) patch.direct_upline_id = request.requested_upline_id;
+      if (request.requested_comp_level_id) patch.current_comp_level_id = request.requested_comp_level_id;
+      if (request.requested_role) patch["current_role"] = request.requested_role;
+
+      if (Object.keys(patch).length) {
+        let q = supabaseAdmin.from("carrier_hierarchy_records")
+          .update({ ...patch, updated_by: userId })
+          .eq("organization_id", orgId)
+          .eq("agent_id", request.agent_id);
+        // No carrier on the request means every carrier this agent holds, so
+        // the filter is simply left off rather than matched against null.
+        if (request.org_carrier_id) q = q.eq("org_carrier_id", request.org_carrier_id);
+        await q;
+      }
+
+      // ── The internal org chart ──────────────────────────────────────────
+      //
+      // profiles.upline_id was never written by this flow, so approving a
+      // reassignment moved the carrier records and left the agency's own chart
+      // untouched — and upline_id is what downline scope, the team matrix and
+      // every "who reports to whom" query in the product read. The change was
+      // recorded and, as far as the rest of Agent Cloud was concerned, had not
+      // happened.
+      //
+      // Only for a change that means the agent genuinely reports somewhere
+      // else, and only when no single carrier was named.
+      // `carrier_hierarchy_change` is deliberately excluded: the empty state on
+      // that page says a carrier hierarchy "is how one carrier sees your
+      // structure, which is not always your internal org chart", and that
+      // distinction is the reason the table exists.
+      const MOVES_THE_CHART = new Set([
+        "upline_change", "manager_reassignment", "promotion", "demotion", "role_change",
+      ]);
+      if (
+        request.requested_upline_id &&
+        !request.org_carrier_id &&
+        MOVES_THE_CHART.has(request.change_type)
+      ) {
+        await supabaseAdmin.from("profiles")
+          .update({ upline_id: request.requested_upline_id })
+          .eq("id", request.agent_id)
+          .eq("organization_id", orgId);
+      }
     }
 
     await supabaseAdmin.from("notifications").insert({
