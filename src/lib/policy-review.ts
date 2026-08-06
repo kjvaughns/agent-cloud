@@ -41,7 +41,10 @@ export type ReviewClient = {
   id: string;
   name: string | null;
   dateOfBirth: string | null;
-  /** Only ever what an agent typed on the review screen — never stored. */
+  /**
+   * What the agent typed on the review screen, or `clients.annual_income` when
+   * they typed nothing.
+   */
   statedAnnualIncome?: number | null;
   beneficiaryCount: number;
   policies: ReviewPolicy[];
