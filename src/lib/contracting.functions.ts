@@ -4,6 +4,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds, resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 import { loadWritingNumbers, recordWritingNumber, writingNumberKey } from "@/lib/writing-numbers";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { getMyPrimaryOrgId } from "@/lib/org-guard";
+import { assignInviteCarriers } from "@/lib/onboarding.functions";
 
 // ---------- helpers ----------
 type Ctx = { supabase: any; userId: string };
@@ -175,13 +178,74 @@ export const createContractRequest = createServerFn({ method: "POST" })
       .maybeSingle();
     if (existing) throw new Error(`You already have a ${existing.status} contract request with ${carrier.name}.`);
 
-    const { error } = await supabase.from("contract_requests").insert({
-      agent_id: userId,
-      carrier_id: data.carrier_id,
-      status: "requested",
-      notes: data.notes ?? null,
+    // ── Both records, or the request is invisible ──────────────────────────
+    //
+    // This used to insert a `contract_requests` row and stop. Contracting Ops
+    // reads `contracting_requests`, a different table, so the agent saw their
+    // own request and the people who work requests saw nothing: no queue item
+    // on any filter, "REQUESTS IN PROGRESS: 0" on the ops home, and no
+    // notification. The only place it surfaced was Contracts at Agency scope,
+    // which is a list, not a work queue.
+    //
+    // `assignInviteCarriers` already creates both halves correctly — including
+    // the `org_carriers` row the workflow half needs, and a `draft` status
+    // whose REQUEST_STATUS_META entry is `open: true`, which is what
+    // getStaffQueue filters on. Reusing it is the point: one way requests get
+    // created, so the two cannot drift apart again.
+    const orgId = await getMyPrimaryOrgId(userId);
+
+    const created = await assignInviteCarriers({
+      client: supabaseAdmin,
+      agentId: userId,
+      organizationId: orgId,
+      createdBy: userId,
+      assignments: [{ carrier_id: data.carrier_id }],
+      contractStatus: "requested",
+      contractNote: data.notes ?? "Requested by the agent",
+      requestNote: data.notes
+        ? `Requested by the agent: ${data.notes}`
+        : "Requested by the agent",
+      // The agent asked; nobody has picked it up. Leaving this null is what
+      // puts it in the Unassigned tab rather than under whoever created it.
+      directUplineId: null,
     });
-    if (error) throw new Error(error.message);
+
+    if (!created.length) {
+      throw new Error("Could not raise that request. Nothing was saved — please try again.");
+    }
+
+    // ── Tell the people who have to work it ────────────────────────────────
+    //
+    // The audit asked for a `routed_to` column to be populated. There is no
+    // such column on `contracting_requests`, so routing is expressed the way
+    // the rest of this module already expresses it: the request sits
+    // unassigned in the queue, and the people who own that queue are notified.
+    if (orgId) {
+      const [{ data: org }, { data: me }] = await Promise.all([
+        supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
+        supabaseAdmin.from("profiles").select("upline_id, first_name, last_name").eq("id", userId).maybeSingle(),
+      ]);
+
+      const who = `${me?.first_name ?? ""} ${me?.last_name ?? ""}`.trim() || "An agent";
+      const recipients = [...new Set([org?.owner_id, me?.upline_id].filter(Boolean))] as string[];
+
+      if (recipients.length) {
+        // Best effort. A notification that fails must not lose the request
+        // that has already been written.
+        const { error: notifyError } = await supabaseAdmin.from("notifications").insert(
+          recipients.map((id) => ({
+            user_id: id,
+            title: "New carrier request",
+            description: `${who} requested contracting with ${carrier.name}.`,
+            type: "contracting",
+          })),
+        );
+        if (notifyError) {
+          console.error("[contracting] request saved but notification failed:", notifyError.message);
+        }
+      }
+    }
+
     return { ok: true };
   });
 

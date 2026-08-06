@@ -136,12 +136,32 @@ async function notifyContractingRequestsCreated(opts: {
   }
 }
 
-async function assignInviteCarriers(opts: {
+/**
+ * The one way a carrier request gets created.
+ *
+ * Exported because it was not the only way. `createContractRequest` — what an
+ * agent hits through Contracting → Add Carrier → "Request contracting" —
+ * wrote a `contract_requests` row and stopped there, so the request existed on
+ * the agent and was invisible to Contracting Ops, which reads
+ * `contracting_requests`. No queue item, no org_carriers row, no notification.
+ * Two systems for one concept, and only one of them had a work queue.
+ *
+ * The optional fields exist so the agent path can say what it is without
+ * changing what the invite path does: both default to the invite behaviour.
+ */
+export async function assignInviteCarriers(opts: {
   client: any;
   agentId: string;
   organizationId: string | null;
   createdBy: string;
   assignments: any[];
+  /** Status for the `contract_requests` row. Invite: "assigned". */
+  contractStatus?: string;
+  /** Note on both rows, so the queue says where the request came from. */
+  contractNote?: string;
+  requestNote?: string;
+  /** Who the request is routed under. Invite: the person who made the link. */
+  directUplineId?: string | null;
 }) {
   const { client, agentId, organizationId, createdBy, assignments } = opts;
   const created: { requestId: string; carrierId: string }[] = [];
@@ -155,9 +175,11 @@ async function assignInviteCarriers(opts: {
         agent_id: agentId,
         carrier_id: a.carrier_id,
         organization_id: organizationId,
-        status: "assigned" as any,
+        status: (opts.contractStatus ?? "assigned") as any,
         requested_at: new Date().toISOString(),
-        notes: a.release_needed ? "Release needed from previous upline" : "Assigned via invite link",
+        notes: a.release_needed
+          ? "Release needed from previous upline"
+          : (opts.contractNote ?? "Assigned via invite link"),
       }, { onConflict: "agent_id,carrier_id" })
       .select("id")
       .maybeSingle();
@@ -254,7 +276,7 @@ async function assignInviteCarriers(opts: {
       agent_id: agentId,
       org_carrier_id: orgCarrierId,
       created_by: createdBy,
-      direct_upline_id: createdBy,
+      direct_upline_id: opts.directUplineId !== undefined ? opts.directUplineId : createdBy,
       // `draft` is the honest starting point and it is not invisible: its
       // REQUEST_STATUS_META entry is `open: true`, which is exactly what
       // `getStaffQueue` filters on, so this lands in the staff queue's
@@ -266,7 +288,7 @@ async function assignInviteCarriers(opts: {
       contract_record_id: record?.id ?? null,
       requested_comp_level_id: requestedCompLevelId,
       requested_advance_level: a.level_name ?? (a.level_pct != null ? `${a.level_pct}%` : null),
-      notes: "Pre-assigned on the invite link",
+      notes: opts.requestNote ?? "Pre-assigned on the invite link",
     }).select("id").maybeSingle();
 
     if (requestRow?.id) {
