@@ -11,10 +11,15 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { createHierarchyChange, decideHierarchyChange, listHierarchyChanges } from "@/lib/contracting-workflow.functions";
+import {
+  createHierarchyChange, decideHierarchyChange, listHierarchyChanges, getAgentHierarchyContext,
+} from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
-import { HIERARCHY_CHANGE_LABELS, HIERARCHY_CHANGE_TYPES, type HierarchyChangeType } from "@/lib/contracting-ops/types";
+import {
+  HIERARCHY_CHANGE_LABELS, HIERARCHY_CHANGE_OPTIONS,
+  type HierarchyChangeType,
+} from "@/lib/contracting-ops/types";
 import { Column, FilterChips, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { cn } from "@/lib/utils";
 
@@ -200,14 +205,46 @@ function ChangeDialog({
   open: boolean; agents: any[]; carriers: any[]; pending: boolean;
   onClose: () => void; onSave: (p: any) => void;
 }) {
-  const [form, setForm] = useState<Record<string, string>>({ change_type: "promotion" });
+  const [form, setForm] = useState<Record<string, string>>({ change_type: "upline_change" });
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const clean = (v: string) => (v?.trim() === "" ? null : v.trim());
   const selectClass = "mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm";
 
+  const contextFn = useServerFn(getAgentHierarchyContext);
+  const { data: ctx } = useQuery({
+    queryKey: ["contracting-ops", "agent-hierarchy-context", form.agent_id],
+    queryFn: () => contextFn({ data: { agent_id: form.agent_id } }),
+    enabled: Boolean(form.agent_id),
+  });
+  const info = ctx as any;
+
+  /*
+   * Which fields a change type actually needs.
+   *
+   * Every field used to be shown for every type, so raising a compensation
+   * change offered a "New direct upline" that has nothing to do with pay, and
+   * a promotion offered a free-text "New role" with no hint of what this
+   * agency's roles are called. A field that does not apply is not neutral —
+   * it reads as something you forgot to fill in.
+   */
+  const t = form.change_type;
+  const wantsUpline = ["upline_change", "promotion", "demotion", "transfer", "carrier_hierarchy_change"].includes(t);
+  const wantsPosition = ["promotion", "demotion", "role_change"].includes(t);
+  const wantsComp = ["comp_change", "promotion", "demotion"].includes(t);
+
+  // Comp is chosen per carrier, because a level belongs to one carrier's grid.
+  // With a carrier picked it is that one; with "every carrier" it is all of
+  // them, and the picker below shows each so nobody has to guess which grid a
+  // level came from.
+  const compCarriers: any[] = !info?.carriers?.length
+    ? []
+    : form.org_carrier_id
+      ? info.carriers.filter((c: any) => c.org_carrier_id === form.org_carrier_id)
+      : info.carriers;
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Raise a hierarchy change</DialogTitle>
           <DialogDescription>
@@ -227,11 +264,33 @@ function ChangeDialog({
           <div>
             <Label htmlFor="hc-type">Change type</Label>
             <select id="hc-type" value={form.change_type} onChange={(e) => set("change_type", e.target.value)} className={selectClass}>
-              {HIERARCHY_CHANGE_TYPES.map((t) => (
-                <option key={t} value={t}>{HIERARCHY_CHANGE_LABELS[t]}</option>
+              {HIERARCHY_CHANGE_OPTIONS.map((o) => (
+                <option key={o} value={o}>{HIERARCHY_CHANGE_LABELS[o]}</option>
               ))}
             </select>
           </div>
+
+          {/* Where they stand today. Without this the form asks you to change
+              something it never showed you. */}
+          {info && (
+            <div className="sm:col-span-2 rounded-md border border-border bg-surface-2/60 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">Reports to </span>
+              <span className="font-medium text-foreground">{info.currentUpline?.name ?? "nobody on record"}</span>
+              {info.currentRole && (
+                <>
+                  <span className="text-muted-foreground"> · currently </span>
+                  <span className="font-medium text-foreground">{info.currentRole}</span>
+                </>
+              )}
+              {info.mixedRoles && (
+                <span className="text-warning"> · carriers disagree on their title: {info.mixedRoles.join(", ")}</span>
+              )}
+              {!info.carriers?.length && (
+                <span className="text-muted-foreground"> · no carrier hierarchy recorded yet</span>
+              )}
+            </div>
+          )}
+
           <div className="sm:col-span-2">
             <Label htmlFor="hc-carrier">Carrier</Label>
             <select id="hc-carrier" value={form.org_carrier_id ?? ""} onChange={(e) => set("org_carrier_id", e.target.value)} className={selectClass}>
@@ -239,18 +298,86 @@ function ChangeDialog({
               {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+
+          {wantsUpline && (
+            <div className="sm:col-span-2">
+              <Label htmlFor="hc-upline">New direct upline</Label>
+              <select id="hc-upline" value={form.requested_upline_id ?? ""} onChange={(e) => set("requested_upline_id", e.target.value)} className={selectClass}>
+                <option value="">No change</option>
+                {agents.filter((a) => a.id !== form.agent_id).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {wantsPosition && (
+            <div className="sm:col-span-2">
+              <Label htmlFor="hc-role">New position</Label>
+              {/* The agency's own positions, read off `role_eligibility` on the
+                  comp levels — the only place the product knows what a
+                  promotion could promote somebody to. Free text stays available
+                  when the grid has no eligibility set, because refusing to
+                  accept a title we have not seen would block the request. */}
+              {info?.positions?.length ? (
+                <select id="hc-role" value={form.requested_role ?? ""} onChange={(e) => set("requested_role", e.target.value)} className={selectClass}>
+                  <option value="">No change</option>
+                  {info.positions.map((r: string) => (
+                    <option key={r} value={r}>{r}{r === info.currentRole ? " (current)" : ""}</option>
+                  ))}
+                </select>
+              ) : (
+                <Input id="hc-role" value={form.requested_role ?? ""} onChange={(e) => set("requested_role", e.target.value)}
+                       placeholder="No positions on your comp grid yet" className="mt-1" />
+              )}
+            </div>
+          )}
+
+          {wantsComp && (
+            <div className="sm:col-span-2">
+              <Label>New commission level</Label>
+              {compCarriers.length === 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {form.agent_id
+                    ? "This agent has no carrier hierarchy recorded, so there is no level to move them from."
+                    : "Pick an agent to see what they are on today."}
+                </p>
+              ) : (
+                <div className="mt-1 space-y-2">
+                  {compCarriers.map((c: any) => (
+                    <div key={c.org_carrier_id} className="rounded-md border border-border px-3 py-2">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-sm font-medium">{c.carrier_name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Today: {c.current_level_name ?? "no level set"}
+                          {c.current_level_pct != null && ` · ${c.current_level_pct}%`}
+                        </span>
+                      </div>
+                      <select
+                        aria-label={`New level at ${c.carrier_name}`}
+                        value={form[`comp_${c.org_carrier_id}`] ?? ""}
+                        onChange={(e) => set(`comp_${c.org_carrier_id}`, e.target.value)}
+                        className={selectClass}
+                      >
+                        <option value="">No change</option>
+                        {c.levels.map((l: any) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}{l.pct != null ? ` — ${l.pct}%` : ""}{l.id === c.current_level_id ? " (current)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  {compCarriers.length > 1 && (
+                    <p className="text-xs text-muted-foreground">
+                      One request carries one level. Choosing levels at more than one carrier raises a
+                      separate request for each, so they can be approved and confirmed independently.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="sm:col-span-2">
-            <Label htmlFor="hc-upline">New direct upline</Label>
-            <select id="hc-upline" value={form.requested_upline_id ?? ""} onChange={(e) => set("requested_upline_id", e.target.value)} className={selectClass}>
-              <option value="">No change</option>
-              {agents.filter((a) => a.id !== form.agent_id).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="hc-role">New role</Label>
-            <Input id="hc-role" value={form.requested_role ?? ""} onChange={(e) => set("requested_role", e.target.value)} className="mt-1" />
-          </div>
-          <div>
             <Label htmlFor="hc-eff">Effective date</Label>
             <Input id="hc-eff" type="date" value={form.requested_effective_date ?? ""}
                    onChange={(e) => set("requested_effective_date", e.target.value)} className="mt-1" />
@@ -265,19 +392,37 @@ function ChangeDialog({
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button size="sm" disabled={pending || !form.agent_id}
-                  onClick={() => onSave({
-                    agent_id: form.agent_id,
-                    org_carrier_id: clean(form.org_carrier_id ?? ""),
-                    change_type: form.change_type,
-                    requested_upline_id: clean(form.requested_upline_id ?? ""),
-                    requested_role: clean(form.requested_role ?? ""),
-                    requested_effective_date: clean(form.requested_effective_date ?? ""),
-                    reason: clean(form.reason ?? ""),
-                  })}>
+                  onClick={() => {
+                    const base = {
+                      agent_id: form.agent_id,
+                      change_type: form.change_type,
+                      requested_upline_id: wantsUpline ? clean(form.requested_upline_id ?? "") : null,
+                      requested_role: wantsPosition ? clean(form.requested_role ?? "") : null,
+                      requested_effective_date: clean(form.requested_effective_date ?? ""),
+                      reason: clean(form.reason ?? ""),
+                    };
+                    // A comp level belongs to one carrier's grid, and the
+                    // request row holds one level — so picking levels at two
+                    // carriers is two requests, not one row that silently keeps
+                    // the last one.
+                    const chosen = wantsComp
+                      ? compCarriers
+                          .map((c: any) => ({ carrier: c.org_carrier_id, level: clean(form[`comp_${c.org_carrier_id}`] ?? "") }))
+                          .filter((x) => x.level)
+                      : [];
+                    if (chosen.length) {
+                      for (const c of chosen) {
+                        onSave({ ...base, org_carrier_id: c.carrier, requested_comp_level_id: c.level });
+                      }
+                    } else {
+                      onSave({ ...base, org_carrier_id: clean(form.org_carrier_id ?? ""), requested_comp_level_id: null });
+                    }
+                  }}>
             {pending ? "Raising…" : "Raise change"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+
 }

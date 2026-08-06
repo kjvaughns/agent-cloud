@@ -200,16 +200,35 @@ export const HIERARCHY_CHANGE_TYPES = [
 
 export type HierarchyChangeType = (typeof HIERARCHY_CHANGE_TYPES)[number];
 
+/**
+ * The types actually offered when raising a change. Nine, not eleven.
+ *
+ * Two of the eleven were the same request under two names:
+ *
+ *   - `manager_reassignment` and `upline_change` both mean "this agent reports
+ *     to somebody else now". There is no field that distinguishes them and no
+ *     branch anywhere that treats them differently.
+ *   - `transfer` and `agency_transfer` likewise.
+ *
+ * `HIERARCHY_CHANGE_TYPES` keeps all eleven, because rows already exist with
+ * the retired values and a list that cannot label its own history is worse
+ * than a list with duplicates. This is the shorter list the picker offers.
+ */
+export const HIERARCHY_CHANGE_OPTIONS = [
+  "upline_change", "promotion", "demotion", "role_change", "comp_change",
+  "carrier_hierarchy_change", "release", "transfer", "writing_number_correction",
+] as const satisfies readonly HierarchyChangeType[];
+
 export const HIERARCHY_CHANGE_LABELS: Record<HierarchyChangeType, string> = {
   promotion: "Promotion",
   demotion: "Demotion",
-  manager_reassignment: "Manager reassignment",
-  upline_change: "Direct upline change",
-  carrier_hierarchy_change: "Carrier hierarchy change",
+  manager_reassignment: "Manager reassignment (retired — use \"Change who they report to\")",
+  upline_change: "Change who they report to",
+  carrier_hierarchy_change: "Carrier hierarchy correction",
   comp_change: "Compensation change",
   release: "Release request",
-  transfer: "Transfer request",
-  agency_transfer: "Agency transfer",
+  transfer: "Transfer to another agency",
+  agency_transfer: "Agency transfer (retired — use \"Transfer\")",
   writing_number_correction: "Writing number correction",
   role_change: "Role change",
 };
