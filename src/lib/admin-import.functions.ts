@@ -10,6 +10,7 @@ import {
   saveClientFullRecord,
   upsertPendingAgent,
 } from "@/lib/import-helpers";
+import { normalizePremiumMode } from "@/lib/import-normalize";
 
 type Ctx = { supabase: any; userId: string };
 
