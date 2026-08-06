@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { useRole } from "@/hooks/use-role";
 
 export const Route = createFileRoute("/_authenticated/contracting/invite")({
-  component: InvitePage,
+  component: InviteRoute,
   head: () => ({ meta: [{ title: "Invite Links | Agent Cloud" }] }),
 });
 
@@ -38,6 +38,47 @@ type Assignment = {
   level_pct: number;
   release_needed?: boolean;
 };
+
+/**
+ * The builder itself, once we know they may use it.
+ *
+ * `isManager` is `manager || isAdmin`, which mirrors the role list
+ * `createOnboardingInvite` now enforces server-side — so the page refuses on
+ * the same rule the server does, rather than offering a form whose submit
+ * would throw.
+ */
+function InviteRoute() {
+  const { isManager, loading } = useRole();
+
+  if (loading) {
+    return (
+      <PageShell>
+        <Skeleton className="h-64 rounded-xl" />
+      </PageShell>
+    );
+  }
+
+  if (!isManager) {
+    return (
+      <PageShell>
+        <div className="mx-auto max-w-xl">
+          <Panel title="Invite links are created by owners and managers">
+            <p className="text-sm text-muted-foreground">
+              An invite link places a new agent in a downline with carriers and commission levels
+              already assigned, so creating one is limited to the people who own that structure.
+              Ask your agency owner or your manager to send the link.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3">
+              <Link to="/contracting">Back to contracting</Link>
+            </Button>
+          </Panel>
+        </div>
+      </PageShell>
+    );
+  }
+
+  return <InvitePage />;
+}
 
 function InvitePage() {
   const qc = useQueryClient();
