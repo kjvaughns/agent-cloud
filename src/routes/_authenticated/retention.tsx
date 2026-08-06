@@ -23,7 +23,8 @@ import { cn } from "@/lib/utils";
 import { money, number } from "@/lib/format";
 import {
   listRetentionCases, getRetentionStats, syncRetentionCases,
-  updateRetentionCase, getPersistency, type RetentionCase,
+  updateRetentionCase, getPersistency, scanLapseRisk, createTasksForLapseRisk,
+  type RetentionCase,
 } from "@/lib/retention.functions";
 
 export const Route = createFileRoute("/_authenticated/retention")({
@@ -87,6 +88,31 @@ function RetentionPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["retention"] });
 
+  // The predictive half. `sync_retention_cases` above surfaces policies that
+  // have already gone lapse_pending or NSF; this scores the in-force book for
+  // the ones that have not, which is where the save actually is.
+  const scanFn = useServerFn(scanLapseRisk);
+  const lapseTasksFn = useServerFn(createTasksForLapseRisk);
+  const { data: scan, isLoading: scanning } = useQuery({
+    queryKey: ["retention", "scan", scope],
+    queryFn: () => scanFn({ data: { scope, band: "watch" } }),
+  });
+  const atRisk = ((scan as any)?.queue ?? []) as any[];
+  const missingSignals = ((scan as any)?.missing ?? []) as { signal: string; why: string }[];
+
+  const lapseTasks = useMutation({
+    mutationFn: () => lapseTasksFn({ data: { scope, limit: 20 } }),
+    onSuccess: (r: any) => {
+      toast.success(
+        r.created
+          ? `${r.created} follow-up task${r.created === 1 ? "" : "s"} created`
+          : "Nothing scored high enough to call.",
+      );
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't create those tasks"),
+  });
+
   const sync = useMutation({
     mutationFn: () => syncFn(),
     onSuccess: (r: any) => {
@@ -122,6 +148,75 @@ function RetentionPage() {
             </div>
           }
         />
+
+        {/*
+          The call list.
+
+          Everything else on this page is about policies that have already
+          failed a draft. This is the month before that — ranked by a
+          deterministic score whose every point traces to a sentence, so an
+          agent can disagree with a row rather than take it on faith.
+        */}
+        {scanning ? (
+          <Skeleton className="h-32" />
+        ) : atRisk.length > 0 ? (
+          <Panel>
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">
+                  {atRisk.length} in-force polic{atRisk.length === 1 ? "y" : "ies"} worth a call
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Scored across {number((scan as any)?.scanned ?? 0)} active policies. These have not
+                  lapsed — that is the point.
+                </p>
+              </div>
+              <Button size="sm" onClick={() => lapseTasks.mutate()} disabled={lapseTasks.isPending}>
+                {lapseTasks.isPending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><PhoneCall className="h-3.5 w-3.5 mr-1" /> Create follow-up tasks</>}
+              </Button>
+            </div>
+
+            <div className="space-y-1.5">
+              {atRisk.slice(0, 8).map((r) => (
+                <div key={r.policyId} className="flex items-start gap-3 py-2 border-b border-border-soft last:border-0">
+                  <Badge
+                    variant={r.band === "high" ? "destructive" : "warning"}
+                    className="shrink-0 tnum text-[10px] mt-0.5"
+                  >
+                    {r.score}
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium truncate">{r.clientName ?? "Unnamed client"}</div>
+                    <div className="text-xs text-muted-foreground">{r.reason}</div>
+                  </div>
+                  {r.premiumAtRisk != null && (
+                    <span className="shrink-0 text-xs tnum text-muted-foreground">
+                      {money(r.premiumAtRisk)}/yr
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {atRisk.length > 8 && (
+              <p className="text-xs text-muted-foreground mt-2">…and {atRisk.length - 8} more.</p>
+            )}
+
+            {/*
+              Said out loud rather than left implied. Two of the six signals the
+              score is meant to use are not in the schema, and an agency that
+              works this list and still loses monthly-draft business deserves to
+              know the score never saw the payment mode.
+            */}
+            {missingSignals.length > 0 && (
+              <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border-soft">
+                Not included: {missingSignals.map((m) => m.signal.toLowerCase()).join(" and ")} —{" "}
+                {missingSignals.map((m) => m.why.replace(/\.$/, "")).join("; ")}.
+              </p>
+            )}
+          </Panel>
+        ) : null}
 
         {/* Book health — how business places and how long it stays. */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-[var(--gap)]">

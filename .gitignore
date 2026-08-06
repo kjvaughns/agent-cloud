@@ -47,3 +47,4 @@ dist-ssr
 .stmt.mjs
 .stmtm.mjs
 .grid.mjs
+.lapse.mjs
