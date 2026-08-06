@@ -107,6 +107,21 @@ function parseMoney(v: any): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Monthly income as stated on the template, annualised.
+ *
+ * Null rather than 0 when the cell is blank: a client whose income nobody
+ * recorded is not a client who earns nothing, and the needs calculation has to
+ * be able to tell those apart.
+ */
+function annualIncomeFrom(monthly: string | null | undefined): number | null {
+  if (!monthly) return null;
+  const n = parseMoney(monthly);
+  return n > 0 ? Math.round(n * 12) : null;
+}
+
+
+
 function parseDateMaybe(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
   // Real Date object (from XLSX cellDates:true)
