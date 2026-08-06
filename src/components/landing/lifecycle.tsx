@@ -18,17 +18,25 @@ import { useInView, useReducedMotion } from "./motion";
  * first one selected.
  */
 
+/**
+ * Eight stages, not ten — and these are the states an agency actually names.
+ *
+ * The old ten were verbs from our side of the table (Applicant, Recruit,
+ * License, Onboard, Contract, Activate, Sell, Policy, Commission, Retention).
+ * These are the words an owner uses when somebody asks where a new agent is
+ * at. "RTS" and "Placed" are not explained anywhere on this page on purpose:
+ * explaining ready-to-sell to an agency owner tells them the page was not
+ * written for them.
+ */
 const STEPS: { label: string; module: string; copy: string }[] = [
-  { label: "Applicant", module: "Recruiting", copy: "Someone applies. Where they came from, who spoke to them and what stage they are at — one card, not an inbox." },
-  { label: "Recruit", module: "Recruiting", copy: "Screening calls, interviews and follow-up all land on that same card." },
-  { label: "License", module: "Licensing", copy: "Pre-licensing progress, then state licenses with the renewal dates that bite you eighteen months from now." },
-  { label: "Onboard", module: "Onboarding", copy: "Background check, E&O, carrier training, direct deposit — a checklist, not somebody's memory." },
-  { label: "Contract", module: "Contracting", copy: "Carrier appointments submitted and outstanding documents chased, because until they are done nobody can write." },
-  { label: "Activate", module: "Agents", copy: "Writing number issued. Same file, now producing — nothing retyped." },
-  { label: "Sell", module: "Clients", copy: "Leads worked through the pipeline and business posted against the producer's own book." },
-  { label: "Policy", module: "Policies", copy: "Issued business by carrier, product and status — without a spreadsheet." },
-  { label: "Commission", module: "Commissions", copy: "The advance, the trail months and any chargeback, calculated the moment it posts." },
-  { label: "Conservation", module: "Retention", copy: "The in-force book scored for lapse risk before a draft fails — and a failed payment still opens a case with an owner and a clock." },
+  { label: "Applicant", module: "Recruiting", copy: "Somebody applies. Where they came from, who spoke to them, what stage they are at — one card, not an inbox." },
+  { label: "Licensed", module: "Licensing", copy: "Pre-licensing progress, then the resident and non-resident lines, with the renewal dates that bite you eighteen months out." },
+  { label: "Contracted", module: "Contracting", copy: "Carrier requests submitted, packets tracked, and the appointment recorded when it comes back." },
+  { label: "RTS", module: "Contracting", copy: "Writing number issued, E&O current, AML done. Same file — now they can actually sell something." },
+  { label: "Writing", module: "Clients", copy: "Apps submitted against their own book, with the pipeline showing what is still out at the carrier." },
+  { label: "Placed", module: "Policies", copy: "Issued and paid, by carrier and product. Submitted is a number; this is the one that pays." },
+  { label: "Persisting", module: "Retention", copy: "Ranked for lapse risk before the draft fails, and 4, 7 and 13-month persistency measured the way the carriers measure it." },
+  { label: "Renewing", module: "Commissions", copy: "The advance, the trail months and any chargeback, calculated the moment the statement posts." },
 ];
 
 const DWELL = 1600;
@@ -57,9 +65,9 @@ export function LifecycleSection() {
       className="border-t border-border/60 bg-surface-2/30"
     >
       <SectionHead
-        eyebrow="The differentiator"
-        title="One file, from recruit to renewal."
-        copy="Hire somebody and they should not vanish into a different system. The recruiting file becomes the producer file — carrying onboarding, licensing, appointments, production and persistency along with it."
+        eyebrow="How it works"
+        title="One record. Recruit to renewal."
+        copy="The person you recruit is the same record that gets contracted, gets a writing number, writes business, and shows up in your override. Nobody retypes anything into a second system, so nothing falls between them."
       />
 
       <div
@@ -72,10 +80,15 @@ export function LifecycleSection() {
         <div className="hidden md:block">
           <div className="relative">
             {/* Track, and the fill that chases the marker. Inset to the first
-                and last node centres — ten equal cells put those at 5% and
-                95%, and a line running the full width reads as a bar that
-                overshoots the chain at both ends. */}
-            <div aria-hidden className="absolute left-[5%] right-[5%] top-[18px]">
+                and last node centres: with N equal cells those sit at
+                100/(2N)% from each end, so the inset has to be derived rather
+                than hardcoded — it was `left-[5%]` for the old ten stages and
+                would overshoot both ends now that there are eight. */}
+            <div
+              aria-hidden
+              className="absolute top-[18px]"
+              style={{ left: `${50 / STEPS.length}%`, right: `${50 / STEPS.length}%` }}
+            >
               <div className="h-px w-full bg-border" />
               <div
                 className="absolute left-0 top-0 h-px bg-primary"

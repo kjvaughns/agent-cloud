@@ -3,7 +3,6 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { money } from "@/lib/format";
 import { track } from "@/lib/landing-analytics";
 import { BrandLogo } from "@/components/brand-logo";
 import { LandingSection, SectionHead, display } from "./primitives";
@@ -11,39 +10,40 @@ import { LandingSection, SectionHead, display } from "./primitives";
 // ── FAQ ─────────────────────────────────────────────────────────────────────
 
 /**
- * Four, down from thirteen.
+ * The four questions this buyer actually asks, in the order they ask them.
  *
- * Six of the thirteen were answered by the section immediately above this one
- * — whether we are an IMO, whether we take overrides, who owns the data, what
- * staff can see. Asking the same question again three hundred pixels later
- * reads as a page padding itself out, and it pushed the questions that decide
- * a purchase below the fold of an already-open accordion.
+ * Not the four we most want to answer. An agency owner evaluating software
+ * sold into their industry opens with "are you one of them" — because most
+ * agency software is IMO-provided and comes with a hook in the comp. The seat
+ * mechanics they will read on the pricing card; whether we are their upline
+ * they will not.
  *
- * What survives is what actually stops a signup: the billing surprise, getting
- * the existing book in, the two integrations every agency in this niche asks
- * about by name, and how to leave.
+ * The fourth answer is a "no", on purpose. We do not submit contracting to
+ * carriers, and an agent can smell an overclaim — they would find out on the
+ * demo call anyway, and finding out then costs the deal in a way that saying
+ * it here does not.
  *
- * This list is also the FAQPage structured data (see routes/index.tsx), and
- * Google requires schema questions to be visible on the page — so trimming the
- * accordion has to mean trimming the source, not hiding rows from it.
+ * The parameter stays in the signature because routes/index.tsx passes PRICING
+ * in to build the FAQPage structured data from this same list. Google requires
+ * schema questions to be visible on the page, so the two cannot diverge.
  */
-export function faqItems(pricing: Record<string, number>) {
+export function faqItems(_pricing: Record<string, number>) {
   return [
     {
-      q: "How many users are included, and what counts as one?",
-      a: `The Agency plan includes up to ${pricing.includedSeats} active users; each additional one is ${money(pricing.seatOverage)} per month. An active user is anyone with access to your workspace — recruits you invited who never accepted are not billed, and neither are inactive or terminated producers.`,
+      q: "Are you an IMO? Do you take an override?",
+      a: "No and no. Agent Cloud is software you pay for. Your hierarchy, your carrier contracts and your comp are yours — we never sit in them and we never take a piece.",
     },
     {
-      q: "Can I bring my book over?",
-      a: "Yes. CSV, XLSX and PDF, with column mapping, a diff report before a single row is written, and a rollback if it comes in wrong. Carrier book sync then keeps policy statuses current.",
+      q: "Who owns my data if I leave?",
+      a: "You do. Export your book, your agents, your policies and your commission history to CSV any time, without asking us. Month to month, no contract, no exit fee.",
     },
     {
-      q: "Does Agent Cloud integrate with SureLC and NIPR?",
-      a: "Both are in beta. SureLC single sign-on and NIPR/PDB license lookup work today; we are still hardening them across accounts.",
+      q: "Can my agents see each other's numbers?",
+      a: "Only if you say so. Every agent sees their own book by default. You set what managers and staff can see, per role — enforced in the database, not just hidden in the interface.",
     },
     {
-      q: "Can I cancel?",
-      a: "Yes. Subscriptions are monthly and you can cancel from the billing portal. Access continues to the end of the period you have paid for.",
+      q: "Do you submit contracting to the carriers for me?",
+      a: "Not yet. You prepare the packet here — requests, documents, hierarchy, comp level — and submit it through whatever each carrier requires, whether that's SureLC, their portal, or email. We keep the record, the status and the writing number once it's issued.",
     },
   ];
 }
@@ -128,7 +128,7 @@ export function LandingFooter() {
       ],
     },
     {
-      title: "Solutions",
+      title: "For",
       links: [
         { label: "Agency lifecycle", href: "#lifecycle" },
         { label: "Solo agents", href: "#pricing" },

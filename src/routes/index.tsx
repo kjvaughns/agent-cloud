@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { track } from "@/lib/landing-analytics";
@@ -40,7 +40,7 @@ const STRUCTURED_DATA = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
-        "Insurance agency management software that carries one file per person from recruit to renewal — licensing, carrier appointments, the book of business, commission reconciliation and lapse prevention, all off the same file.",
+        "Insurance agency management software that carries one record per agent from recruit to renewal — contracting, licensing, placement, persistency, commission reconciliation against your comp grid, and chargebacks.",
       offers: [
         { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
         { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
@@ -66,13 +66,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Get producers contracted faster, check every carrier commission statement against your comp grid, and rank the in-force book for lapse risk — recruiting, licensing, contracting, clients, policies and commissions in one system.",
+          "Contracting, placement, persistency, chargebacks and overrides in one place. Check every carrier statement against your comp grid, rank the in-force book for lapse risk, and show every agent their own numbers.",
       },
       { property: "og:title", content: "Agent Cloud | Insurance Agency Management Software" },
       {
         property: "og:description",
         content:
-          "The operating system for independent insurance agencies. Recruit, contract, write, get paid correctly, and keep the business on the books — from one connected platform.",
+          "One record per agent, from the day you recruit them to the renewal you're still getting paid on. We're software, not an IMO — we never take an override.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -165,16 +165,14 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
             className="mt-6 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
             style={display}
           >
-            Write more. Keep more of it.{" "}
-            <span className="text-primary">Grow the team that does it.</span>
+            Your agency runs on ten tools.{" "}
+            <span className="text-primary">None of them tell you what stuck.</span>
           </h1>
 
-          {/* Both halves are literally what the software does — no outcome
-              claim we cannot show on a demo call. */}
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Recruiting, licensing, contracting, the book and commissions all run off one file per
-            person — so nobody is sitting on paperwork instead of writing, and nobody is taking
-            the carrier's math on faith.
+            Contracting, placement, persistency, chargebacks and overrides in one place — one
+            record per agent, from the day you recruit them to the renewal you're still getting
+            paid on.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -184,15 +182,33 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
               </Button>
             </Link>
             <a href="#demo">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">Try the demo</Button>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">Try it on sample data</Button>
             </a>
           </div>
 
-          {/* The three reassurance chips that sat here — no overrides, you own
-              your data, built for insurance — are the Ownership section's
-              headline, its 0% figure and its four "we do not" cards, said
-              first and worse. Making the promise twice does not make it twice
-              as credible. */}
+          {/*
+            Risk reversal, above the fold. An earlier pass deleted the chips
+            that sat here for duplicating the ownership section, and that was
+            right about the two it had — "no overrides" and "you own your
+            data" both get said properly further down.
+
+            These earn the space because the third one is new and is the one
+            this audience has actually been burned by: non-refundable
+            prepayment and an upline who will not release you. "Month to
+            month" answers that in three words, and it has to be answered
+            before they scroll, not after.
+          */}
+          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {[
+              "We don't take an override",
+              "Your book, your data, export any time",
+              "Month to month — no contract",
+            ].map((r) => (
+              <li key={r} className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-success" /> {r}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <Parallax strength={14}>

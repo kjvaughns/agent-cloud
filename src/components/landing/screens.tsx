@@ -199,7 +199,7 @@ function Cell({ children, grow = 1, className }: { children: React.ReactNode; gr
 
 // ── The screens ─────────────────────────────────────────────────────────────
 
-export type ScreenKey = "contracting" | "commissions" | "retention";
+export type ScreenKey = "contracting" | "commissions" | "retention" | "grid";
 
 function ContractingScreen() {
   return (
@@ -366,6 +366,75 @@ function RetentionScreen() {
   );
 }
 
+
+/**
+ * What an agent sees about themselves.
+ *
+ * The one screen here that is not the back office looking at the book — it is
+ * the producer looking at their own numbers. Every figure is one the product
+ * already computes and already scopes by RLS to the person asking: their
+ * carrier levels off `listMyCarrierLevels`, placement and 4/7/13-month
+ * persistency off `getPersistency`.
+ *
+ * The persistency bands read 88 / 84 / 79 rather than a single rounded number
+ * because that is the shape of a real one — it decays with duration, and an
+ * agent who has seen a carrier report knows that.
+ */
+function GridScreen() {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        <Tile label="Placement" value="77.8%" delta="42 of 54 submitted" tone="muted" />
+        <Tile label="13-mo persistency" value="83.4%" delta="+2.1 pts vs agency" />
+        <Tile label="Chargebacks YTD" value={money(1240)} delta="3 policies" tone="warning" />
+      </div>
+
+      <div className="grid gap-3 @xl/frame:grid-cols-[1.4fr_1fr]">
+        <Table cols={["Carrier", "Level", "Yr 1", "Trail"]}>
+          {[
+            { c: "Mutual of Omaha", l: "110", y: "110%", t: "5%" },
+            { c: "Transamerica", l: "105", y: "105%", t: "4%" },
+            { c: "Foresters", l: "100", y: "100%", t: "5%" },
+            { c: "GTL", l: "95", y: "95%", t: "3%" },
+          ].map((r) => (
+            <Row key={r.c}>
+              <Cell grow={2} className="text-foreground">{r.c}</Cell>
+              <Cell><Pill tone="info">{r.l}</Pill></Cell>
+              <Cell className="tnum text-muted-foreground">{r.y}</Cell>
+              <Cell className="tnum hidden text-muted-foreground @xl/frame:block">{r.t}</Cell>
+            </Row>
+          ))}
+        </Table>
+
+        <div className="rounded-lg border border-border p-3">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            Persistency
+          </span>
+          <div className="mt-2 space-y-2">
+            {[["4 month", 88], ["7 month", 84], ["13 month", 79]].map(([l, v]) => (
+              <div key={String(l)}>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-muted-foreground">{l}</span>
+                  <span className="tnum font-semibold text-foreground">{v}%</span>
+                </div>
+                <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                  <span
+                    className={cn("block h-full rounded-full", (v as number) >= 80 ? "bg-success" : "bg-warning")}
+                    style={{ width: `${v}%` }}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[9px] leading-relaxed text-muted-foreground">
+            Measured on policies old enough to reach each duration.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 /**
@@ -385,6 +454,7 @@ const SCREENS: Record<ScreenKey, {
   contracting: { label: "Contracting", nav: "Contracting", render: () => <ContractingScreen /> },
   commissions: { label: "Commissions", nav: "Commissions", render: () => <CommissionsScreen /> },
   retention: { label: "Retention", nav: "Retention", render: () => <RetentionScreen /> },
+  grid: { label: "My Comp Grid", nav: "Agents", render: () => <GridScreen /> },
 };
 
 /** A single screen with its chrome, ready to drop anywhere on the page. */
