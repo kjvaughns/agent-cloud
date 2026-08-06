@@ -45,3 +45,4 @@ dist-ssr
 *.sw?
 .imp.mjs
 .stmt.mjs
+.stmtm.mjs

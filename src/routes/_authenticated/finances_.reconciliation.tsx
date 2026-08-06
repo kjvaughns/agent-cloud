@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
 import {
   listStatements, createStatement, reconcileStatement,
-  getStatementDetail, type StatementLine,
+  getStatementDetail, suggestStatementMatches, applyStatementMatches, type StatementLine,
 } from "@/lib/reconciliation.functions";
 import { parseStatementBlock } from "@/lib/statement-parse";
 import { readBlock, readDocument } from "@/lib/sheet-shape";
@@ -311,8 +311,11 @@ function UploadDialog() {
 }
 
 function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack: () => void; embedded?: boolean }) {
+  const qc = useQueryClient();
   const [filter, setFilter] = useState<"all" | "variance" | "unmatched" | "matched">("variance");
   const detailFn = useServerFn(getStatementDetail);
+  const suggestFn = useServerFn(suggestStatementMatches);
+  const applyFn = useServerFn(applyStatementMatches);
 
   const { data, isLoading } = useQuery({
     queryKey: ["statement", id, filter],
@@ -322,6 +325,42 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
   const s = (data as any)?.statement;
   const sum = (data as any)?.summary;
   const lines = ((data as any)?.lines ?? []) as StatementLine[];
+
+  // Computed fresh rather than stored, so a policy posted since the upload
+  // shows up without anybody re-running the reconcile.
+  const { data: suggested } = useQuery({
+    queryKey: ["statement", id, "suggestions"],
+    queryFn: () => suggestFn({ data: { statement_id: id } }),
+    enabled: (sum?.unmatched ?? 0) > 0,
+  });
+  const suggestions = ((suggested as any)?.suggestions ?? {}) as Record<string, any[]>;
+
+  // Which suggestion, if any, the person has chosen per line. Strong ones start
+  // ticked; everything else starts blank. Pre-ticking is not the same as
+  // applying — nothing is written until the button is pressed.
+  const [picked, setPicked] = useState<Record<string, string | null>>({});
+  const choiceFor = (lineId: string): string | null => {
+    if (lineId in picked) return picked[lineId];
+    const top = suggestions[lineId]?.[0];
+    return top && top.confidence >= 0.85 ? top.policyId : null;
+  };
+  const chosen = Object.keys(suggestions)
+    .map((lineId) => ({ line_id: lineId, policy_id: choiceFor(lineId) }))
+    .filter((m): m is { line_id: string; policy_id: string } => m.policy_id !== null);
+
+  const apply = useMutation({
+    mutationFn: () => applyFn({ data: { statement_id: id, matches: chosen } }),
+    onSuccess: (r: any) => {
+      toast.success(
+        `${r.applied} line${r.applied === 1 ? "" : "s"} matched` +
+        (r.skipped ? ` · ${r.skipped} skipped` : ""),
+      );
+      setPicked({});
+      qc.invalidateQueries({ queryKey: ["statement", id] });
+      qc.invalidateQueries({ queryKey: ["statements"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't apply those matches"),
+  });
 
   return (
     <Shell embedded={embedded}>
@@ -375,6 +414,35 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
           ))}
         </div>
 
+        {/*
+          The unmatched pile, worked rather than displayed.
+          `reconcile_statement` matches on policy number alone, so what lands
+          here is mostly not unmatched at all — a carrier printing a base number
+          against a suffixed one, or an adjustment line with the policy column
+          left blank. Every suggestion says why, and nothing is written until
+          somebody presses the button.
+        */}
+        {chosen.length > 0 && (
+          <Panel>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">
+                  {Object.keys(suggestions).length} unmatched line
+                  {Object.keys(suggestions).length === 1 ? "" : "s"} look like policies we already have
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {chosen.length} ticked below. Nothing is written until you apply them.
+                </p>
+              </div>
+              <Button size="sm" onClick={() => apply.mutate()} disabled={apply.isPending}>
+                {apply.isPending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : `Apply ${chosen.length} match${chosen.length === 1 ? "" : "es"}`}
+              </Button>
+            </div>
+          </Panel>
+        )}
+
         {isLoading ? (
           <Skeleton className="h-64" />
         ) : lines.length === 0 ? (
@@ -399,7 +467,8 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
                 </thead>
                 <tbody>
                   {lines.map((l) => (
-                    <tr key={l.id} className="border-t border-border-soft hover:bg-surface-2 transition-colors">
+                    <Fragment key={l.id}>
+                    <tr className="border-t border-border-soft hover:bg-surface-2 transition-colors">
                       <td className="px-4 py-2.5 tnum">{l.policy_number || "—"}</td>
                       <td className="px-4 py-2.5">{l.insured_name || "—"}</td>
                       <td className="px-4 py-2.5 text-right tnum">{money(Number(l.paid_amount))}</td>
@@ -426,6 +495,47 @@ function StatementDetail({ id, onBack, embedded = false }: { id: string; onBack:
                         </Badge>
                       </td>
                     </tr>
+
+                    {/* One row per candidate, radio-style: a line belongs to one
+                        policy or to none, and "none" has to stay reachable —
+                        otherwise a pre-ticked wrong guess cannot be undone. */}
+                    {(suggestions[l.id] ?? []).map((sg: any) => {
+                      const on = choiceFor(l.id) === sg.policyId;
+                      return (
+                        <tr key={`${l.id}:${sg.policyId}`} className="bg-surface-2/40">
+                          <td colSpan={6} className="px-4 py-2 pl-10">
+                            <label className="flex items-start gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                onChange={() => setPicked((p) => ({ ...p, [l.id]: on ? null : sg.policyId }))}
+                                className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
+                              />
+                              <span className="min-w-0 text-xs">
+                                <span className="font-medium">
+                                  {sg.insuredName || "Unnamed client"}
+                                </span>
+                                {sg.policyNumber && <span className="tnum text-muted-foreground"> · {sg.policyNumber}</span>}
+                                {sg.expected != null && (
+                                  <span className="text-muted-foreground">
+                                    {" "}· expected {money(Number(sg.expected))}
+                                    {sg.variance != null && sg.variance !== 0 && (
+                                      <span className={cn(sg.variance < 0 ? "text-destructive" : "text-warning")}>
+                                        {" "}({money(Number(sg.variance))})
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                <span className="block text-muted-foreground mt-0.5">
+                                  {sg.reasons.join(" · ")}
+                                </span>
+                              </span>
+                            </label>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
