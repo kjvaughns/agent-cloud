@@ -335,9 +335,8 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
         ruleset_version: version,
       }));
       if (rows.length) {
-        // Cast because the generated types predate this migration. Regenerate
-        // `src/integrations/supabase/types.ts` once it is applied.
-        const { error } = await (supabase as any).from("ai_message_log").insert(rows);
+        const { error } = await supabase.from("ai_message_log").insert(rows);
+
         if (error) logged = false;
       }
     } catch {
@@ -730,7 +729,7 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
 
     const { data: client, error } = await supabase
       .from("clients")
-      .select("id, first_name, last_name, date_of_birth")
+      .select("id, first_name, last_name, date_of_birth, annual_income")
       .eq("id", data.clientId)
       .eq("agent_id", userId)
       .maybeSingle();
@@ -749,7 +748,7 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
         .eq("client_id", data.clientId),
     ]);
 
-    const { findGaps, summariseGaps, needsEstimate, MISSING_INPUTS } =
+    const { findGaps, summariseGaps, needsEstimate, MISSING_INPUTS, UNSTATED_INCOME } =
       await import("@/lib/policy-review");
 
     const mapped = (policies ?? []).map((p: any) => ({
@@ -766,7 +765,15 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
       id: client.id as string,
       name: `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() || null,
       dateOfBirth: client.date_of_birth ?? null,
-      statedAnnualIncome: data.statedAnnualIncome ?? null,
+      // What the agent typed wins, because they have just asked the client.
+      // Otherwise the stored figure — the importer annualises the template's
+      // "Monthly Income" into `clients.annual_income`, so a review no longer
+      // starts by asking for a number the agency already gave us.
+      statedAnnualIncome:
+        data.statedAnnualIncome ??
+        ((client as any).annual_income === null || (client as any).annual_income === undefined
+          ? null
+          : Number((client as any).annual_income)),
       beneficiaryCount: beneficiaryCount ?? 0,
       policies: mapped,
       asOf: new Date().toISOString().slice(0, 10),
@@ -788,6 +795,9 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
       inForceFace,
       policyCount: mapped.filter((p) => p.status === "active").length,
       needs: needsEstimate(subject.statedAnnualIncome, inForceFace),
-      missingInputs: [...MISSING_INPUTS],
+      missingInputs: [
+        ...(subject.statedAnnualIncome && subject.statedAnnualIncome > 0 ? [] : [UNSTATED_INCOME]),
+        ...MISSING_INPUTS,
+      ],
     };
   });

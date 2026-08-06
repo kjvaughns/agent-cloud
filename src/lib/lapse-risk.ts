@@ -27,37 +27,30 @@
  *
  * ── What this scores, and what it cannot ───────────────────────────────────
  *
- * The prompt names six signals. Four are derivable from what is stored:
+ * The prompt names six signals. Five are derivable from what is stored:
  *
  *   months in force              policies.effective_date
  *   premium relative to face     monthly_premium vs face_amount
  *   days since last contact      contact_history.created_at
  *   policy age band              effective_date
+ *   payment mode                 policies.premium_mode, written by the
+ *                                importer through `normalizePremiumMode`
  *
- * Two are not, and are deliberately not faked:
+ * One is not, and is deliberately not faked:
  *
- *   payment mode      — there is no premium-mode column on `policies`. The
- *                       importer parses one (`normalizePremiumMode`) and the
- *                       schema has nowhere to put it. Monthly-draft business
- *                       lapses at several times the rate of annual, so this is
- *                       the single most predictive field named in the prompt
- *                       and it is the one we cannot read.
  *   prior NSF / missed drafts — only the *current* status is stored. The
  *                       carrier sync maps NSF to `lapse_pending`, and when the
  *                       policy recovers the fact that it ever failed is gone.
  *
  * `MISSING_SIGNALS` is exported so the UI can say which of the six it looked
- * at. A score that silently omits payment mode while implying it is included
- * is worse than one that says what it saw — an agency that works this list and
- * still loses monthly-draft business should be able to tell why.
+ * at. A score that silently omits a signal while implying it is included is
+ * worse than one that says what it saw — an agency that works this list and
+ * still loses business should be able to tell why.
  */
+
 
 /** Named so the screen can say what it did not look at. */
 export const MISSING_SIGNALS = [
-  {
-    signal: "Payment mode",
-    why: "Policies have no premium-mode column yet, so monthly-draft business can't be told from annual.",
-  },
   {
     signal: "Prior NSF or missed drafts",
     why: "Only a policy's current status is stored — once it recovers, the failed draft leaves no trace.",
@@ -71,11 +64,18 @@ export type RiskInput = {
   monthlyPremium: number | null;
   faceAmount: number | null;
   effectiveDate: string | null;
+  /**
+   * How the premium is drawn, from `policies.premium_mode`. Null when the
+   * import did not carry one — an unknown mode scores nothing rather than
+   * being assumed monthly.
+   */
+  premiumMode?: string | null;
   /** Most recent contact_history row for this client, if any. */
   lastContactAt: string | null;
   /** Today, injected so the scorer is a pure function of its inputs. */
   asOf: string;
 };
+
 
 export type RiskFactor = { label: string; points: number; detail: string };
 
@@ -187,6 +187,33 @@ function contactFactor(lastContactAt: string | null, asOf: string): RiskFactor |
  * to a sentence, which is what lets an agent disagree with it. A number nobody
  * can argue with is a number nobody acts on.
  */
+/**
+ * Payment mode.
+ *
+ * Monthly and weekly draft business lapses at several times the rate of
+ * annual: there are twelve or fifty-two chances a year for a card to fail or
+ * for somebody to decide they no longer want it, against one. An unknown mode
+ * scores nothing — a missing value is not evidence of monthly.
+ */
+function premiumModeFactor(mode: string | null | undefined): RiskFactor | null {
+  if (!mode) return null;
+  switch (mode) {
+    case "weekly":
+    case "biweekly":
+      return { label: "Weekly draft", points: 22, detail: "Drafted every week or fortnight — the most failure-prone schedule there is." };
+    case "monthly":
+      return { label: "Monthly draft", points: 16, detail: "Twelve drafts a year, each one a chance to fail." };
+    case "quarterly":
+      return { label: "Quarterly draft", points: 8, detail: "Four drafts a year." };
+    case "semi_annual":
+      return { label: "Semi-annual", points: 4, detail: "Two payments a year." };
+    case "annual":
+      return { label: "Annual payment", points: 0, detail: "Paid annually, which lapses least often." };
+    default:
+      return null;
+  }
+}
+
 export function scoreLapseRisk(input: RiskInput): RiskScore {
   const months = input.effectiveDate ? monthsBetween(input.effectiveDate, input.asOf) : null;
 
@@ -194,7 +221,9 @@ export function scoreLapseRisk(input: RiskInput): RiskScore {
     monthsInForceFactor(months),
     affordabilityFactor(input.monthlyPremium, input.faceAmount),
     contactFactor(input.lastContactAt, input.asOf),
+    premiumModeFactor(input.premiumMode),
   ].filter((f): f is RiskFactor => f !== null && f.points > 0);
+
 
   const score = Math.min(100, factors.reduce((a, f) => a + f.points, 0));
 

@@ -20,8 +20,7 @@ import type { CarrierRecord } from "./carrier-match";
  *   agency-wide reference data either way.
  */
 export async function buildCarrierIndex(db: any): Promise<CarrierRecord[]> {
-  // `*` rather than a column list: `naic_code` is a pending migration.
-  const { data: carrierRows } = await db.from("carriers").select("*");
+  const { data: carrierRows } = await db.from("carriers").select("id, name, naic_code");
 
   let aliasRows: any[] = [];
   try {

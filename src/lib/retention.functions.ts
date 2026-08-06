@@ -316,12 +316,13 @@ export const getPersistency = createServerFn({ method: "GET" })
  * same policy on two runs, and cannot be argued with. A ranked call list has
  * to be reproducible or nobody trusts it twice.
  *
- * Read-only. Nothing is written to `retention_cases`, because its
- * `risk_reason` CHECK has no value meaning "predicted at risk" — the closest,
- * `manual`, would be a lie about where the row came from. Adding one is a
- * migration, and migrations here are applied by hand; the queue is useful
- * without it and `createTasksForLapseRisk` below is the action the prompt
- * actually asks for.
+ * Read-only. Nothing is written to `retention_cases` from the scan itself —
+ * scoring a book should not fill somebody's queue. `createTasksForLapseRisk`
+ * below is the action, and it now also opens a case per policy it acts on with
+ * `risk_reason = 'predicted'`, which the CHECK constraint accepts as of
+ * `20260805...`; before that the closest value, `manual`, would have been a lie
+ * about where the row came from.
+
  */
 export const scanLapseRisk = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -354,7 +355,7 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
     // two different scores.
     const { data: policies } = await supabase
       .from("policies")
-      .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, policy_number, clients(first_name, last_name)")
+      .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, premium_mode, policy_number, clients(first_name, last_name)")
       .in("agent_id", agentIds)
       .eq("status", "active")
       .limit(4000);
@@ -395,6 +396,7 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
         monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
         faceAmount: p.face_amount === null ? null : Number(p.face_amount),
         effectiveDate: p.effective_date ?? null,
+        premiumMode: p.premium_mode ?? null,
         lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
         asOf,
       });
@@ -448,7 +450,7 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
 
       const { data: policies } = await supabase
         .from("policies")
-        .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, clients(first_name, last_name)")
+        .select("id, client_id, agent_id, monthly_premium, face_amount, effective_date, premium_mode, clients(first_name, last_name)")
         .in("agent_id", agentIds)
         .eq("status", "active")
         .limit(4000);
@@ -479,10 +481,11 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
           monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
           faceAmount: p.face_amount === null ? null : Number(p.face_amount),
           effectiveDate: p.effective_date ?? null,
+          premiumMode: p.premium_mode ?? null,
           lastContactAt: p.client_id ? lastContact.get(p.client_id) ?? null : null,
           asOf,
         });
-        return { ...s, clientId: p.client_id, clientName: name, reason: summarise(s), factors: s.factors };
+        return { ...s, policyId: p.id, agentId: p.agent_id ?? null, clientId: p.client_id, clientName: name, reason: summarise(s), factors: s.factors };
       });
       return { queue: rankLapseRisk(scored as any, { minBand: "high" }).map((s) => scored.find((x) => x.policyId === s.policyId)!) };
     })();
@@ -513,5 +516,41 @@ export const createTasksForLapseRisk = createServerFn({ method: "POST" })
 
     const { error } = await supabase.from("tasks").insert(rows);
     if (error) throw new Error(error.message);
-    return { created: rows.length, skipped: queue.length - rows.length };
+
+    // Open a case per policy acted on, so the prediction lands in the same
+    // queue the failures do. `predicted` says where the row came from — the
+    // scan, not a person — which is why it was worth a migration rather than
+    // reusing `manual`.
+    //
+    // Skipped silently when a case is already open for that policy: a second
+    // row would double-count premium at risk in the header metrics.
+    let casesOpened = 0;
+    const policyIds = top.map((q: any) => q.policyId).filter(Boolean);
+    if (policyIds.length) {
+      const { data: openCases } = await supabase
+        .from("retention_cases")
+        .select("policy_id")
+        .in("policy_id", policyIds)
+        .in("status", ["open", "working"]);
+      const already = new Set((openCases ?? []).map((c: any) => c.policy_id));
+
+      const caseRows = top
+        .filter((q: any) => q.policyId && !already.has(q.policyId))
+        .map((q: any) => ({
+          policy_id: q.policyId,
+          agent_id: q.agentId ?? userId,
+          assigned_to: userId,
+          risk_reason: "predicted",
+          risk_score: q.score,
+          premium_at_risk: q.premiumAtRisk ?? null,
+          status: "open",
+        }));
+
+      if (caseRows.length) {
+        const { error: caseErr } = await supabase.from("retention_cases").insert(caseRows);
+        if (!caseErr) casesOpened = caseRows.length;
+      }
+    }
+
+    return { created: rows.length, skipped: queue.length - rows.length, casesOpened };
   });

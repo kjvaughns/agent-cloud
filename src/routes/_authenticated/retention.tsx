@@ -50,6 +50,7 @@ const REASON_LABEL: Record<string, string> = {
   nsf: "NSF",
   cancelled_pending: "Cancel pending",
   no_contact: "No contact",
+  predicted: "Predicted risk",
   manual: "Flagged",
 };
 

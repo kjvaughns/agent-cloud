@@ -10,6 +10,7 @@ import {
   saveClientFullRecord,
   upsertPendingAgent,
 } from "@/lib/import-helpers";
+import { normalizePremiumMode } from "@/lib/import-normalize";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -71,6 +72,8 @@ type ParsedPolicy = {
   status: string | null;
   monthly_premium: number;
   annual_premium: number;
+  /** Normalised draft schedule, when the export carries one. Feeds lapse risk. */
+  premium_mode: string | null;
   effective_date: string | null;
   agent_label: string | null;
 };
@@ -103,6 +106,21 @@ function parseMoney(v: any): number {
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 }
+
+/**
+ * Monthly income as stated on the template, annualised.
+ *
+ * Null rather than 0 when the cell is blank: a client whose income nobody
+ * recorded is not a client who earns nothing, and the needs calculation has to
+ * be able to tell those apart.
+ */
+function annualIncomeFrom(monthly: string | null | undefined): number | null {
+  if (!monthly) return null;
+  const n = parseMoney(monthly);
+  return n > 0 ? Math.round(n * 12) : null;
+}
+
+
 
 function parseDateMaybe(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
@@ -258,6 +276,9 @@ async function parseBookExport(file_base64: string): Promise<BookExport | null> 
       status: cleanStr(r["Status"]),
       monthly_premium: parseMoney(r["Monthly Premium"]),
       annual_premium: parseMoney(r["Annual Premium"]),
+      premium_mode: normalizePremiumMode(
+        r["Premium Mode"] ?? r["Mode"] ?? r["Payment Mode"] ?? r["Draft Mode"] ?? r["Pay Mode"] ?? null,
+      ),
       effective_date: parseDateMaybe(r["Effective Date"]),
       agent_label: cleanStr(r["Agent"]),
     }));
@@ -595,6 +616,10 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
             state: c.state,
             zip_code: c.zip_code,
             born_country_state: c.born_country_state,
+            // The template collects income monthly; the column is annual, so
+            // the needs calculation in `policy-review.ts` compares like with
+            // like instead of asking the agent to retype it.
+            annual_income: annualIncomeFrom(c.monthly_income),
             stage: c.stage,
             temperature: mapTemperature(undefined),
             notes: null,
@@ -694,6 +719,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           policy_number: p.policy_number,
           monthly_premium: p.monthly_premium,
           annual_premium: p.annual_premium || p.monthly_premium * 12,
+          premium_mode: p.premium_mode,
           effective_date: p.effective_date,
           status: mapPolicyStatus(p.status ?? undefined),
           posted_at: postedAt,
@@ -1084,6 +1110,7 @@ export const replayAdminImportPolicies = createServerFn({ method: "POST" })
         policy_number: p.policy_number,
         monthly_premium: p.monthly_premium,
         annual_premium: p.annual_premium || (p.monthly_premium ?? 0) * 12,
+        premium_mode: p.premium_mode ?? null,
         effective_date: p.effective_date,
         status: mapPolicyStatus(p.status ?? undefined),
         posted_at: new Date().toISOString(),

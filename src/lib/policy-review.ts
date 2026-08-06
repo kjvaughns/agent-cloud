@@ -11,16 +11,12 @@
  *                                          clean; "after a life event" is not,
  *                                          because life events are not tracked
  *
- * The income one is worth stating plainly, because it is not an oversight in
- * this file. `clients` has no income column. The migration template asks for
- * "Monthly Income", `admin-import.functions.ts` reads it, and line 575 appends
- * it to a *notes string* — so every agency that has imported a book gave us
- * that number and it is sitting in prose. `MISSING_INPUTS` says so, and the
- * needs calculation is offered only when an agent types the income in.
- *
- * That is the third field in three PRs where the importer parses something the
- * schema cannot store (premium mode was the first, in the lapse scan). Each is
- * one column.
+ * The income one now has an answer. `clients.annual_income` stores it, the
+ * importer annualises the template's "Monthly Income" into it, and the review
+ * prefers whatever the agent typed on the screen over the stored figure — they
+ * have just asked the client. `UNSTATED_INCOME` is added to the missing list
+ * only when neither source has a number.
+
  *
  * ── Deterministic, for the third time and the same reason ──────────────────
  *
@@ -45,7 +41,10 @@ export type ReviewClient = {
   id: string;
   name: string | null;
   dateOfBirth: string | null;
-  /** Only ever what an agent typed on the review screen — never stored. */
+  /**
+   * What the agent typed on the review screen, or `clients.annual_income` when
+   * they typed nothing.
+   */
   statedAnnualIncome?: number | null;
   beneficiaryCount: number;
   policies: ReviewPolicy[];
@@ -65,15 +64,21 @@ export type Gap = {
   agenda: string;
 };
 
+/**
+ * Added to the missing list only when neither the screen nor the client record
+ * carries an income, because with one the needs calculation runs.
+ */
+export const UNSTATED_INCOME = {
+  input: "Stated income",
+  why: "No income recorded for this client, so cover can't be compared against it. Type it in below to include the needs calculation.",
+} as const;
+
 /** Named on screen, so the agent knows what the review did not look at. */
 export const MISSING_INPUTS = [
   {
-    input: "Stated income",
-    why: "Clients have no income column. The importer reads \"Monthly Income\" from the migration template and appends it to the notes text, so it cannot be compared against coverage. Type it in below to include the needs calculation.",
-  },
-  {
     input: "Life events",
     why: "Marriage, a birth or a divorce would each change who should be named — none are recorded, so a beneficiary can only be checked for existing, not for being current.",
+
   },
 ] as const;
 
