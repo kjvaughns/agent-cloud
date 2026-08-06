@@ -700,6 +700,7 @@ export const confirmAdminImport = createServerFn({ method: "POST" })
           policy_number: p.policy_number,
           monthly_premium: p.monthly_premium,
           annual_premium: p.annual_premium || p.monthly_premium * 12,
+          premium_mode: p.premium_mode,
           effective_date: p.effective_date,
           status: mapPolicyStatus(p.status ?? undefined),
           posted_at: postedAt,
