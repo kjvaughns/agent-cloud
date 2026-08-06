@@ -20,6 +20,7 @@ import {
 import { RefreshCw, PhoneCall, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { LockedFeature, TrialMeter, UpsellCard } from "@/components/nova/upsell-card";
 import { money, number } from "@/lib/format";
 import {
   listRetentionCases, getRetentionStats, syncRetentionCases,
@@ -98,6 +99,7 @@ function RetentionPage() {
     queryFn: () => scanFn({ data: { scope, band: "watch" } }),
   });
   const atRisk = ((scan as any)?.queue ?? []) as any[];
+  const scanAccess = (scan as any)?.access as { allowed: boolean; message: string; runsLeft: number | null } | undefined;
   const missingSignals = ((scan as any)?.missing ?? []) as { signal: string; why: string }[];
 
   const lapseTasks = useMutation({
@@ -159,6 +161,10 @@ function RetentionPage() {
         */}
         {scanning ? (
           <Skeleton className="h-32" />
+        ) : scanAccess && !scanAccess.allowed ? (
+          <Panel>
+            <LockedFeature message={scanAccess.message} />
+          </Panel>
         ) : atRisk.length > 0 ? (
           <Panel>
             <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
@@ -168,7 +174,8 @@ function RetentionPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Scored across {number((scan as any)?.scanned ?? 0)} active policies. These have not
-                  lapsed — that is the point.
+                  lapsed — that is the point.{" "}
+                  <TrialMeter runsLeft={scanAccess?.runsLeft ?? null} />
                 </p>
               </div>
               <Button size="sm" onClick={() => lapseTasks.mutate()} disabled={lapseTasks.isPending}>

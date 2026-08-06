@@ -17,7 +17,7 @@ const LABEL: Record<T, string> = { recovery: "Policy Recovery", sms: "SMS Follow
 /** Nova activity: AI-drafted outreach for matching clients — review + copy. */
 export function NovaActivityPanel() {
   const [kind, setKind] = useState<T>("sms");
-  const [drafts, setDrafts] = useState<(NovaDraft & { screen?: ScreenResult })[]>([]);
+  const [drafts, setDrafts] = useState<(NovaDraft & { screen?: ScreenResult | null })[]>([]);
   const gen = useServerFn(generateNovaDrafts);
   const mut = useMutation({
     mutationFn: (k: T) => gen({ data: { kind: k, limit: 8 } }),

@@ -304,10 +304,17 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
     const { screenMessage, rulesetVersion } = await import("@/lib/compliance-screen");
     const version = rulesetVersion();
 
-    const screened = (json.drafts ?? []).map((d) => {
-      const screen = screenMessage(d.body);
-      return { ...d, screen };
-    });
+    // The gate sits on the SCREENING, not on the drafting. A free user still
+    // gets their drafts — taking those away would be converting a feature that
+    // already shipped free, which is the one thing the upsell rules forbid.
+    // What Nova Pro adds is the screen and the record it leaves.
+    const { checkAccess, recordTrialRun } = await import("@/lib/nova-gate.functions");
+    const screenAccess = await checkAccess(supabase, userId, "compliance_screen");
+
+    const screened = (json.drafts ?? []).map((d) => ({
+      ...d,
+      screen: screenAccess.allowed ? screenMessage(d.body) : null,
+    }));
 
     // The log is append-only and its table is a pending migration, so a failure
     // here degrades to "not logged" rather than taking the drafts down with it.
@@ -315,15 +322,16 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
     // would be a worse failure than a gap in the log, and the gap is visible.
     let logged = true;
     try {
+      if (!screenAccess.allowed) throw new Error("not screened");
       const rows = screened.map((d) => ({
         agent_id: userId,
         client_id: d.client_id ?? null,
         kind: d.kind,
         channel: "sms",
         body: d.body,
-        screen_passed: d.screen.passed,
-        screen_flagged: d.screen.flagged,
-        screen_findings: d.screen.findings,
+        screen_passed: d.screen!.passed,
+        screen_flagged: d.screen!.flagged,
+        screen_findings: d.screen!.findings,
         ruleset_version: version,
       }));
       if (rows.length) {
@@ -336,7 +344,11 @@ export const generateNovaDrafts = createServerFn({ method: "POST" })
       logged = false;
     }
 
-    return { drafts: screened, rulesetVersion: version, logged };
+    if (screenAccess.allowed && screenAccess.mode === "trial") {
+      await recordTrialRun(supabase, userId, "compliance_screen");
+    }
+
+    return { drafts: screened, rulesetVersion: version, logged, screenAccess };
   });
 
 // ------------------------------------------------------------------
@@ -708,6 +720,14 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
+    // Gated, with one free run. The gate is checked before any query, so a
+    // locked user costs nothing to refuse.
+    const { checkAccess, recordTrialRun } = await import("@/lib/nova-gate.functions");
+    const access = await checkAccess(supabase, userId, "review_prep");
+    if (!access.allowed) {
+      return { locked: true as const, access };
+    }
+
     const { data: client, error } = await supabase
       .from("clients")
       .select("id, first_name, last_name, date_of_birth")
@@ -757,7 +777,11 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
       .filter((p) => p.status === "active")
       .reduce((a, p) => a + (p.faceAmount ?? 0), 0);
 
+    if (access.mode === "trial") await recordTrialRun(supabase, userId, "review_prep");
+
     return {
+      locked: false as const,
+      access,
       client: { id: subject.id, name: subject.name },
       gaps,
       summary: summariseGaps(gaps),

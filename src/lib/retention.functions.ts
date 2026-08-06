@@ -334,10 +334,20 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
+    // Gated. One free run on the agent's own book, because the output is the
+    // argument — a ranked list of their own clients beats any description of
+    // one. The run is recorded AFTER the scan produces something, so a scan
+    // that fell over on a database error does not cost somebody their look.
+    const { checkAccess, recordTrialRun } = await import("@/lib/nova-gate.functions");
+    const access = await checkAccess(supabase, userId, "lapse_scan");
+    if (!access.allowed) {
+      return { queue: [], scanned: 0, missing: [] as any[], access };
+    }
+
     const agentIds = data.scope === "mine"
       ? [userId]
       : await resolveScopeAgentIds(supabase, data.scope);
-    if (!agentIds.length) return { queue: [], scanned: 0, missing: [] as any[] };
+    if (!agentIds.length) return { queue: [], scanned: 0, missing: [] as any[], access };
 
     // In force only. A policy already lapse_pending is the existing sweep's
     // job, and listing it here would put the same policy in two queues with
@@ -350,7 +360,7 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
       .limit(4000);
 
     const rows = (policies ?? []) as any[];
-    if (!rows.length) return { queue: [], scanned: 0, missing: [] as any[] };
+    if (!rows.length) return { queue: [], scanned: 0, missing: [] as any[], access };
 
     // Last logged contact per client, in one pass rather than per policy.
     const clientIds = [...new Set(rows.map((p) => p.client_id).filter(Boolean))];
@@ -401,7 +411,9 @@ export const scanLapseRisk = createServerFn({ method: "POST" })
     const queue = rankLapseRisk(scored as any, { minBand: data.band })
       .map((s) => scored.find((x) => x.policyId === s.policyId)!);
 
-    return { queue, scanned: rows.length, missing: [...MISSING_SIGNALS] };
+    if (access.mode === "trial") await recordTrialRun(supabase, userId, "lapse_scan");
+
+    return { queue, scanned: rows.length, missing: [...MISSING_SIGNALS], access };
   });
 
 /**

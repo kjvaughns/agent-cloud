@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
 import { getPolicyReviewPrep } from "@/lib/ai-features.functions";
+import { LockedFeature, TrialMeter } from "@/components/nova/upsell-card";
 
 const TONE = {
   high: "border-destructive/40 bg-destructive/5",
@@ -76,7 +77,11 @@ export function PolicyReviewPanel({ clientId }: { clientId: string }) {
         We don't store income, so the coverage-gap check only runs when you type it here.
       </p>
 
-      {data && (
+      {data?.locked && (
+        <LockedFeature message={(data as any).access?.message ?? "Nova Pro runs this."} />
+      )}
+
+      {data && !data.locked && (
         <div className="space-y-2 pt-1">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>
@@ -90,6 +95,7 @@ export function PolicyReviewPanel({ clientId }: { clientId: string }) {
                 guideline <span className="tnum font-medium text-foreground">{money(data.needs.recommended)}</span>
               </span>
             )}
+            <TrialMeter runsLeft={(data as any).access?.runsLeft ?? null} />
           </div>
 
           {gaps.length === 0 ? (
