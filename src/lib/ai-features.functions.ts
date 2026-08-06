@@ -676,3 +676,94 @@ export const getProspectNurture = createServerFn({ method: "POST" })
       maxTokens: 1400,
     });
   });
+
+// ------------------------------------------------------------------
+// 12) Policy review prep — the gaps, computed, and the agenda
+// ------------------------------------------------------------------
+
+const ReviewSchema = z.object({
+  clientId: z.string().uuid(),
+  /**
+   * Typed by the agent on the review screen, never stored.
+   *
+   * `clients` has no income column — the migration template asks for "Monthly
+   * Income", the importer reads it, and it ends up appended to a notes string.
+   * Rather than parse a number back out of prose, the agent is asked, and the
+   * needs calculation is simply absent until they answer.
+   */
+  statedAnnualIncome: z.number().min(0).max(50_000_000).nullable().optional(),
+});
+
+/**
+ * Prepare an annual review.
+ *
+ * The gap detection is arithmetic and lives in `policy-review.ts`, which has a
+ * check script. `getNeedsAnalysis` above asks a model to do the same sums, and
+ * a model that returns a different coverage figure for the same client on two
+ * runs is a figure nobody can read out to that client.
+ */
+export const getPolicyReviewPrep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ReviewSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: client, error } = await supabase
+      .from("clients")
+      .select("id, first_name, last_name, date_of_birth")
+      .eq("id", data.clientId)
+      .eq("agent_id", userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!client) throw new Error("Client not found");
+
+    const [{ data: policies }, { count: beneficiaryCount }] = await Promise.all([
+      supabase
+        .from("policies")
+        .select("id, product, face_amount, monthly_premium, effective_date, status, carriers(name)")
+        .eq("client_id", data.clientId)
+        .limit(100),
+      supabase
+        .from("beneficiaries")
+        .select("id", { count: "exact", head: true })
+        .eq("client_id", data.clientId),
+    ]);
+
+    const { findGaps, summariseGaps, needsEstimate, MISSING_INPUTS } =
+      await import("@/lib/policy-review");
+
+    const mapped = (policies ?? []).map((p: any) => ({
+      id: p.id as string,
+      product: p.product ?? null,
+      carrierName: p.carriers?.name ?? null,
+      faceAmount: p.face_amount === null ? null : Number(p.face_amount),
+      monthlyPremium: p.monthly_premium === null ? null : Number(p.monthly_premium),
+      effectiveDate: p.effective_date ?? null,
+      status: p.status ?? null,
+    }));
+
+    const subject = {
+      id: client.id as string,
+      name: `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() || null,
+      dateOfBirth: client.date_of_birth ?? null,
+      statedAnnualIncome: data.statedAnnualIncome ?? null,
+      beneficiaryCount: beneficiaryCount ?? 0,
+      policies: mapped,
+      asOf: new Date().toISOString().slice(0, 10),
+    };
+
+    const gaps = findGaps(subject);
+    const inForceFace = mapped
+      .filter((p) => p.status === "active")
+      .reduce((a, p) => a + (p.faceAmount ?? 0), 0);
+
+    return {
+      client: { id: subject.id, name: subject.name },
+      gaps,
+      summary: summariseGaps(gaps),
+      inForceFace,
+      policyCount: mapped.filter((p) => p.status === "active").length,
+      needs: needsEstimate(subject.statedAnnualIncome, inForceFace),
+      missingInputs: [...MISSING_INPUTS],
+    };
+  });

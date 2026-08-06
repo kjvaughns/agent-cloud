@@ -49,3 +49,4 @@ dist-ssr
 .grid.mjs
 .lapse.mjs
 .comp.mjs
+.rev.mjs
