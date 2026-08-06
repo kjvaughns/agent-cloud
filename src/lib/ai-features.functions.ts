@@ -796,6 +796,9 @@ export const getPolicyReviewPrep = createServerFn({ method: "POST" })
       inForceFace,
       policyCount: mapped.filter((p) => p.status === "active").length,
       needs: needsEstimate(subject.statedAnnualIncome, inForceFace),
-      missingInputs: [...MISSING_INPUTS],
+      missingInputs: [
+        ...(subject.statedAnnualIncome && subject.statedAnnualIncome > 0 ? [] : [UNSTATED_INCOME]),
+        ...MISSING_INPUTS,
+      ],
     };
   });
