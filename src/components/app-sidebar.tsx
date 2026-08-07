@@ -72,11 +72,23 @@ function UnstarButton({
   );
 }
 
+/**
+ * Where somebody goes when the nav resolves to nothing.
+ *
+ * Every one of these is reachable without an organisation, which is the whole
+ * point: they are what remains when the agency link is the thing that broke.
+ */
+const STRANDED_PAGES = [
+  { label: "Home", url: "/dashboard", icon: LayoutDashboard },
+  { label: "Settings", url: "/settings", icon: Settings },
+  { label: "Help", url: "/account/help", icon: HelpCircle },
+] as const;
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const sidebarCollapsed = state === "collapsed";
   const { isSuperAdmin } = useRole();
-  const { access } = useMyAccess();
+  const { access, loading: accessLoading } = useMyAccess();
   const { org } = useOrganization();
   const path = useRouterState({ select: (r) => r.location.pathname });
 
@@ -89,6 +101,26 @@ export function AppSidebar() {
   const groups = navGroups
     .map((g, i) => ({ label: g.label || (i === 0 ? "" : "More"), items: g.items.map(asNavItem) }));
   const accountItems = ACCOUNT_PAGES.map(asNavItem);
+
+  /*
+   * A sidebar with nothing in it is not a sidebar.
+   *
+   * Almost every entry a staff member has carries `unlock: "agency-member"`,
+   * which gates on `ctx.inAgency` — and `inAgency` is
+   * `Boolean(org) && plan_type !== "solo"`. So if the organisation fails to
+   * resolve for that account, every row disappears at once and they are left
+   * with an empty rail and no way to move around the product. That is what the
+   * four-role audit found on the staff pass: zero links, while every route
+   * still worked when typed directly.
+   *
+   * Resolving the org the same way everywhere (getMyAccess, permissions
+   * .functions.ts) should stop most of these, but "most" is not a thing to
+   * leave a person stranded on. If the nav comes back empty once loading has
+   * finished, show the handful of destinations that never depended on an
+   * agency, and say plainly that the workspace link looks wrong — an empty
+   * rail reads as a broken app, and this reads as something to report.
+   */
+  const stranded = !accessLoading && groups.every((g) => g.items.length === 0);
 
   // Starred pages. Ones belonging to a hub already in this sidebar nest under
   // it; the rest collect in a Starred group below.
@@ -297,6 +329,30 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
+        {stranded && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {STRANDED_PAGES.map((p) => (
+                  <SidebarMenuItem key={p.url}>
+                    <SidebarMenuButton asChild tooltip={p.label}>
+                      <Link to={p.url}>
+                        <p.icon className="h-4 w-4" />
+                        <span>{p.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+              {!sidebarCollapsed && (
+                <p className="px-2 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  The rest of your workspace isn't loading. Your account doesn't appear to be
+                  linked to an agency — worth reporting rather than working around.
+                </p>
+              )}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         {groups.map((g, gi) => (
           <SidebarGroup key={g.label || `group-${gi}`}>
             {!sidebarCollapsed && g.label && (
