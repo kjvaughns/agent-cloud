@@ -20,13 +20,14 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
+import { RequireAgencyAdmin } from "@/components/require-agency-admin";
 
 export const Route = createFileRoute("/_authenticated/back-office/case-design")({
   head: () => ({ meta: [
     { title: "Case Design — Agent Cloud" },
     { name: "description", content: "Submit complex cases for expert underwriting review within 24 hours." },
   ]}),
-  component: CaseDesignPage,
+  component: CaseDesignPageGuarded,
 });
 
 const TOBACCO = ["Never", "Quit < 1 year ago", "Quit 1-5 years ago", "Quit 5+ years ago", "Current user"];
@@ -348,4 +349,21 @@ function sanitize(html: string): string {
     .replace(/\son\w+="[^"]*"/gi, "")
     .replace(/\son\w+='[^']*'/gi, "")
     .replace(/javascript:/gi, "");
+}
+
+/**
+ * Wrapped rather than checked inline, so every back-office page refuses in the
+ * same words. This route had no guard at all and rendered in full for anybody
+ * signed in.
+ */
+function CaseDesignPageGuarded() {
+  return (
+    <RequireAgencyAdmin
+      title="Case design is limited to administrators"
+      what="Case design and the advanced concierge desk are agency-level tools. Ask your agency owner, or an admin they've granted access to."
+      backTo="/dashboard"
+    >
+      <CaseDesignPage />
+    </RequireAgencyAdmin>
+  );
 }
