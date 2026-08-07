@@ -5509,6 +5509,7 @@ export type Database = {
       org_contracting_settings: {
         Row: {
           agents_may_request_contracts: boolean
+          agents_may_self_activate_carriers: boolean
           auto_assign_staff_id: string | null
           created_at: string
           default_request_priority: string
@@ -5528,6 +5529,7 @@ export type Database = {
         }
         Insert: {
           agents_may_request_contracts?: boolean
+          agents_may_self_activate_carriers?: boolean
           auto_assign_staff_id?: string | null
           created_at?: string
           default_request_priority?: string
@@ -5547,6 +5549,7 @@ export type Database = {
         }
         Update: {
           agents_may_request_contracts?: boolean
+          agents_may_self_activate_carriers?: boolean
           auto_assign_staff_id?: string | null
           created_at?: string
           default_request_priority?: string
