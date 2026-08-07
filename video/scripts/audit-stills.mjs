@@ -50,7 +50,13 @@ for (const [name, frame] of SHOTS) {
   process.stdout.write(`${String(frame).padStart(3)}  ${name} ... `);
   execFileSync(
     "npx",
-    ["remotion", "still", "Launch", `out/audit/${String(frame).padStart(3, "0")}-${name}.png`, `--frame=${frame}`],
+    [
+      "remotion",
+      "still",
+      "Launch",
+      `out/audit/${String(frame).padStart(3, "0")}-${name}.png`,
+      `--frame=${frame}`,
+    ],
     { stdio: ["ignore", "ignore", "pipe"] },
   );
   console.log("ok");

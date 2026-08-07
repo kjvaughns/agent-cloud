@@ -45,15 +45,10 @@ export const Grid: React.FC = () => {
 
       <Eyebrow start={12}>What the agent sees</Eyebrow>
 
-      <Caption
-        start={40}
-        lines={["Show them their grid.", "Best recruiting tool you've got."]}
-      />
+      <Caption start={40} lines={["Show them their grid.", "Best recruiting tool you've got."]} />
 
       {/* One frame of white on the cut in, to hide the seam from Retention. */}
-      {frame === 0 ? (
-        <AbsoluteFill style={{ background: "#FFFFFF", opacity: 0.16 }} />
-      ) : null}
+      {frame === 0 ? <AbsoluteFill style={{ background: "#FFFFFF", opacity: 0.16 }} /> : null}
     </AbsoluteFill>
   );
 };

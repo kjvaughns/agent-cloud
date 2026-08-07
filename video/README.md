@@ -11,12 +11,12 @@ npm install
 npm run studio                  # http://localhost:3000
 ```
 
-| Composition    | Size      | Length | What it is                                             |
-| -------------- | --------- | ------ | ------------------------------------------------------ |
-| `Launch`       | 1080×1920 | 24s    | the cut — Reels, TikTok, Shorts                         |
-| `LaunchSquare` | 1080×1080 | 24s    | same edit, centre-cropped for square feeds              |
-| `HeroLoop`     | 1920×1080 | 8s     | seamless ambient loop for the website hero              |
-| `Probe`        | 1080×1920 | 1f     | measurement rig — not a deliverable, see *Anchors*      |
+| Composition    | Size      | Length | What it is                                         |
+| -------------- | --------- | ------ | -------------------------------------------------- |
+| `Launch`       | 1080×1920 | 24s    | the cut — Reels, TikTok, Shorts                    |
+| `LaunchSquare` | 1080×1080 | 24s    | same edit, centre-cropped for square feeds         |
+| `HeroLoop`     | 1920×1080 | 8s     | seamless ambient loop for the website hero         |
+| `Probe`        | 1080×1920 | 1f     | measurement rig — not a deliverable, see _Anchors_ |
 
 ```
 npm run render                  # out/launch.mp4        h264, CRF 18
@@ -48,7 +48,7 @@ will still render. The affected element will just be wrong in every frame, in a
 way that looks like a bug in the video.
 
 One thing to know: `screens.tsx` imports `display` from `./primitives`, and
-`primitives.tsx` *does* contain transitions and effects (`FadeUp`,
+`primitives.tsx` _does_ contain transitions and effects (`FadeUp`,
 `LandingSection`). Those come along in the bundle but are never rendered, so
 they cost a few KB and change nothing. `primitives.tsx` also reaches
 `@/lib/landing-analytics`, which is window-guarded and inert here.
@@ -69,7 +69,7 @@ it.
 `screens.tsx` imports `@/lib/utils` and `@/lib/format`. `remotion.config.ts`
 aliases `@` to `../src`.
 
-The subtlety is *what it is resolved against*. Neither obvious anchor works: the
+The subtlety is _what it is resolved against_. Neither obvious anchor works: the
 Remotion CLI transpiles the config to CJS, so `import.meta.url` is empty and
 `fileURLToPath` throws; and it evaluates the result from inside its own package,
 so `__dirname` is `node_modules/@remotion/cli/dist`. Aliasing against that
@@ -124,7 +124,7 @@ exists only above **768px of layout width**, and the second column and table
 headers of every screen key off `@xl/frame` at 576px.
 
 So the card is laid out at `FRAME_W = 980` and shrunk with a CSS transform.
-Setting `width: 900px` to make it fit a 1080px canvas *looks like it worked* and
+Setting `width: 900px` to make it fit a 1080px canvas _looks like it worked_ and
 quietly costs you the nav rail, the table headers and the right-hand column of
 every screen — which is most of what makes this read as an application rather
 than a card with some rows in it. Transforms do not affect layout width, so the
@@ -142,7 +142,7 @@ later without re-timing a single scene.
 // src/lib/timing.ts
 export const BPM = 120;
 export const FPS = 30;
-export const B = (60 / BPM) * FPS;        // 15 frames per beat
+export const B = (60 / BPM) * FPS; // 15 frames per beat
 export const beat = (n: number) => Math.round(n * B);
 ```
 
@@ -152,16 +152,16 @@ count for its position.
 
 48 beats = 720 frames = 24s:
 
-| Beats | Frames  | Scene         | File                      |
-| ----- | ------- | ------------- | ------------------------- |
-| 0–4   | 0–60    | Hook          | `scenes/Hook.tsx`         |
-| 4–10  | 60–150  | Contracting   | `scenes/Contracting.tsx`  |
-| 10–16 | 150–240 | Commissions   | `scenes/Commissions.tsx`  |
-| 16–22 | 240–330 | Retention     | `scenes/Retention.tsx`    |
-| 22–28 | 330–420 | Grid          | `scenes/Grid.tsx`         |
-| 28–34 | 420–510 | Hero          | `scenes/Hero.tsx`         |
-| 34–40 | 510–600 | Not your IMO  | `scenes/NotYourImo.tsx`   |
-| 40–48 | 600–720 | CTA           | `scenes/Cta.tsx`          |
+| Beats | Frames  | Scene        | File                     |
+| ----- | ------- | ------------ | ------------------------ |
+| 0–4   | 0–60    | Hook         | `scenes/Hook.tsx`        |
+| 4–10  | 60–150  | Contracting  | `scenes/Contracting.tsx` |
+| 10–16 | 150–240 | Commissions  | `scenes/Commissions.tsx` |
+| 16–22 | 240–330 | Retention    | `scenes/Retention.tsx`   |
+| 22–28 | 330–420 | Grid         | `scenes/Grid.tsx`        |
+| 28–34 | 420–510 | Hero         | `scenes/Hero.tsx`        |
+| 34–40 | 510–600 | Not your IMO | `scenes/NotYourImo.tsx`  |
+| 40–48 | 600–720 | CTA          | `scenes/Cta.tsx`         |
 
 Scenes are pure — none reads absolute time — so any of them can be re-ordered
 or dropped into another composition without editing it.
@@ -177,7 +177,7 @@ The mechanism that makes this feel fast without feeling frantic:
   and then sits for 25.
 
 The failure mode is stretching element motion to fill the beat. A card that
-takes 30 frames to arrive reads sluggish *and* the cut still lands too soon.
+takes 30 frames to arrive reads sluggish _and_ the cut still lands too soon.
 
 Three spring configs live in `lib/motion.ts`; `SNAPPY` does about 90% of the
 work, `POP` is spent once on the hero line, and `NONE` exists for transitions.
@@ -204,7 +204,7 @@ About 70% of the cuts are hard cuts on the beat. Nothing uses
   exactly on the beat.
 
 The built-in `crossZoom()` and `dreamyZoom()` cannot do this — they zoom to
-*frame centre*, not to an element. They are also built on HTML-in-canvas, which
+_frame centre_, not to an element. They are also built on HTML-in-canvas, which
 needs Chrome 149 with `chrome://flags/#canvas-draw-element` to preview and does
 not work in Firefox or Safari at all; a preview that looks broken while the
 render is correct is that.
@@ -232,7 +232,7 @@ screen's layout changes in the app, re-run the probe and update the numbers —
 nothing else in the video needs to move.
 
 `ScreenStage` takes `zoom` and `pull` separately, and the split matters:
-centring the anchor is what makes a punch-in look aimed, but it is *not* wanted
+centring the anchor is what makes a punch-in look aimed, but it is _not_ wanted
 at zoom 1, where an off-centre anchor is just a card sitting to one side for no
 reason. Scenes drive `pull` on the same interpolation as the zoom.
 
@@ -293,7 +293,7 @@ anticipated:
 sandboxes, most locked-down build images. The config prefers
 `$REMOTION_BROWSER_EXECUTABLE`, then Playwright's Chromium under
 `$PLAYWRIGHT_BROWSERS_PATH`, then Remotion's own resolution. It looks for
-`headless_shell` across every install *before* falling back to `chrome`, because
+`headless_shell` across every install _before_ falling back to `chrome`, because
 Playwright installs both side by side and the full binary has removed old
 headless mode — finding it first gets you a browser that exits immediately with
 an error that does not mention browser selection at all.

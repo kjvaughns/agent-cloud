@@ -64,7 +64,10 @@ export const NotYourImo: React.FC = () => {
         <PunchWords
           start={4}
           size={112}
-          lines={[{ words: ["We're", "software."] }, { words: ["Not", "your", "IMO."], color: GOLD }]}
+          lines={[
+            { words: ["We're", "software."] },
+            { words: ["Not", "your", "IMO."], color: GOLD },
+          ]}
         />
       </div>
 

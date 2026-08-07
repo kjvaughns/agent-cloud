@@ -51,8 +51,7 @@ export const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 /** Accelerate. Used by the zoom-through's outgoing half, so it leaves rather than drifts. */
 export const easeIn = (t: number) => t * t * t;
 
-export const easeInOut = (t: number) =>
-  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+export const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /**
  * `back.out(2.2)`.

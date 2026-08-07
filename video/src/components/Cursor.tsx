@@ -19,8 +19,6 @@ import { backOut, easeOut, lerp } from "../lib/motion";
  * Drawn as an SVG arrow rather than a screenshot of an OS pointer: a bitmap
  * cursor is the wrong DPI at every scale and dates the video to an OS version.
  */
-export type Click = { at: number };
-
 export const Cursor: React.FC<{
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -161,8 +159,7 @@ export const Spotlight: React.FC<{
   if (frame < at || frame > until) return null;
 
   const o =
-    lerp(frame, [at, at + 7], [0, 1], easeOut) *
-    lerp(frame, [until - 7, until], [1, 0], easeOut);
+    lerp(frame, [at, at + 7], [0, 1], easeOut) * lerp(frame, [until - 7, until], [1, 0], easeOut);
 
   return (
     <div

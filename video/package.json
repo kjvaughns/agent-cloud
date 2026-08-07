@@ -11,7 +11,10 @@
     "render:square": "remotion render LaunchSquare out/launch-square.mp4 --codec=h264 --crf=18",
     "render:hero": "remotion render HeroLoop out/hero-loop.mp4 --codec=h264 --crf=18",
     "render:draft": "remotion render Launch out/draft.mp4 --codec=h264 --scale=0.5 --crf=28",
-    "audit": "node scripts/audit-stills.mjs"
+    "audit": "node scripts/audit-stills.mjs",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --config ../.prettierrc --write \"src/**/*.{ts,tsx,css}\" \"tools/*.cjs\" \"scripts/*.mjs\" \"*.ts\" \"*.md\"",
+    "format:check": "prettier --config ../.prettierrc --check \"src/**/*.{ts,tsx,css}\" \"tools/*.cjs\" \"scripts/*.mjs\" \"*.ts\" \"*.md\""
   },
   "dependencies": {
     "@remotion/animation-utils": "4.0.506",
@@ -32,6 +35,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.0",
+    "prettier": "^3.9.6",
     "typescript": "^5.8.3"
   }
 }

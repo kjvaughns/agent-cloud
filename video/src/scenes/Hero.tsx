@@ -40,12 +40,7 @@ export const Hero: React.FC = () => {
   const { fps } = useVideoConfig();
 
   // 0 while fanned out, 1 once converged.
-  const converge = lerp(
-    frame,
-    [CONVERGE_AT, CONVERGE_AT + CONVERGE_LEN],
-    [0, 1],
-    easeInOut,
-  );
+  const converge = lerp(frame, [CONVERGE_AT, CONVERGE_AT + CONVERGE_LEN], [0, 1], easeInOut);
 
   const linePop = enter(frame, fps, 12, POP, LINE_AT);
 

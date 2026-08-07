@@ -48,10 +48,8 @@ module.exports = function appTokensLoader(source) {
   // this text into `video/src`, every relative source path in it now points at
   // the wrong tree — `@source "../src"` would quietly scan the video workspace
   // instead of the app and generate none of the classes the screens use.
-  css = css.replace(
-    /@source[ \t]+["']([^"']+)["']/g,
-    (m, spec) =>
-      spec.startsWith(".") ? `@source "${path.resolve(appCssDir, spec)}"` : m,
+  css = css.replace(/@source[ \t]+["']([^"']+)["']/g, (m, spec) =>
+    spec.startsWith(".") ? `@source "${path.resolve(appCssDir, spec)}"` : m,
   );
 
   return source.replace(
