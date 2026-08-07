@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
-import { resolveScopeAgentIds } from "@/lib/scope.functions";
+import { resolveScopeAgentIds, resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -110,6 +110,49 @@ export const getTaskCounts = createServerFn({ method: "GET" })
       else if (t.due_date === today) dueToday++;
     }
     return { open: (rows ?? []).length, overdue, dueToday };
+  });
+
+/**
+ * Who this person may hand a task to.
+ *
+ * The New Task dialog populated its assignee picker from `listOrgMembers`,
+ * which is the roster behind Roles & Permissions and calls
+ * `assertCanManagePermissions` on its non-owner path. A manager without
+ * permission-management rights makes that throw, so the query failed, the
+ * roster came back empty, and the picker — which has been fully built this
+ * whole time — hid itself behind `roster.length > 0`.
+ *
+ * That is why the audit found "no assignee field". The field exists; it was
+ * being fed by a function that refuses managers.
+ *
+ * "Who may I administer" and "who may I assign work to" are different
+ * questions. This asks the second one, using the same team scope `listTasks`
+ * already uses — which is the set the tasks WITH CHECK policy will accept, so
+ * the picker offers exactly what the database will allow rather than a list
+ * that half-fails on submit.
+ */
+export const listAssignableTeammates = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    // ...OrNone: somebody with nobody under them assigns to themselves, which
+    // is a shorter list rather than an error.
+    const ids = (await resolveScopeAgentIdsOrNone(supabase, "team")).filter((id) => id !== userId);
+    if (!ids.length) return { members: [] as { id: string; name: string }[] };
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email")
+      .in("id", ids)
+      .order("first_name", { ascending: true });
+
+    return {
+      members: (data ?? []).map((p: any) => ({
+        id: p.id as string,
+        name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "Unnamed",
+      })),
+    };
   });
 
 export const createTask = createServerFn({ method: "POST" })
