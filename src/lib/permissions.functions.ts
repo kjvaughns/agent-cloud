@@ -45,9 +45,26 @@ export type Permissions = Partial<Record<PermissionKey, boolean>> & { staff_pres
 const ALL_KEYS = [...MANAGER_PERMS, ...STAFF_PERMS, ...ADMIN_PERMS] as string[];
 
 /** Manager defaults applied on invite: assigned-agents view, analytics, onboarding. */
+/**
+ * What a manager can do the moment they are made one.
+ *
+ * The audit asked for three: view team analytics, view assigned agents, add
+ * and edit resources. Only two of those are toggles. "View assigned agents"
+ * is not a permission — `mgr_view_all_agents` is labelled "off = assigned
+ * agents only", so seeing your own assigned agents is the default state and
+ * the toggle *widens* it to the whole agency. Turning it on by default would
+ * grant the opposite of what was asked for.
+ *
+ * `mgr_manage_resources` is the one addition here that grants write access to
+ * something shared — the agency handbook, scripts and academy. It is included
+ * because a manager who cannot correct the script their team reads from is a
+ * manager in name only, which is the whole complaint. Easy to remove if that
+ * is not wanted: delete the line.
+ */
 export const MANAGER_DEFAULTS: Permissions = {
   mgr_view_team_analytics: true,
   mgr_manage_onboarding: true,
+  mgr_manage_resources: true,
 };
 
 export const STAFF_PRESETS: Record<string, Permissions> = {
@@ -306,8 +323,32 @@ export const getMyAccess = createServerFn({ method: "GET" })
         .eq("profile_id", userId)
         .eq("organization_id", org.id)
         .maybeSingle();
+      // ── A blank row must not beat the defaults ─────────────────────────
+      //
+      // MANAGER_DEFAULTS only applied when there was NO role_permissions row
+      // at all. Promoting somebody through the Roles page writes a row, so the
+      // defaults were skipped from the moment the promotion was saved — and a
+      // freshly promoted manager got an experience identical to an agent, with
+      // every scope switcher absent rather than disabled and nothing on screen
+      // explaining why.
+      //
+      // The fix is not "add more defaults", which is what it looks like from
+      // the outside. It is that the defaults have to sit UNDER the row instead
+      // of being replaced by it.
+      //
+      // Nulls fall through to the default; an explicit `false` does not. That
+      // distinction is the point: a column nobody has touched is unset, and an
+      // owner who deliberately turned team analytics off means it, so their
+      // choice survives while an untouched column takes the sensible value.
       if (rp) {
-        permissions = Object.fromEntries(Object.entries(rp).filter(([k]) => ALL_KEYS.includes(k) || k === "staff_preset")) as Permissions;
+        const stored = Object.fromEntries(
+          Object.entries(rp).filter(
+            ([k, v]) => (ALL_KEYS.includes(k) || k === "staff_preset") && v !== null,
+          ),
+        );
+        permissions = (pick === "manager"
+          ? { ...zeroPerms(), ...MANAGER_DEFAULTS, ...stored }
+          : { ...zeroPerms(), ...stored }) as Permissions;
       } else if (pick === "manager") {
         permissions = { ...zeroPerms(), ...MANAGER_DEFAULTS };
       } else {
