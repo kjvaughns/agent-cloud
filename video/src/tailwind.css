@@ -1,0 +1,43 @@
+/*
+ * The one and only stylesheet in this workspace.
+ *
+ * Tailwind is declared here, exactly once. `@app-tokens` below is replaced at
+ * build time with the contents of the application's own `src/styles.css`, minus
+ * its bare `@import`s — see `tools/app-tokens-loader.cjs` for why that is a
+ * loader and not an `@import`.
+ *
+ * The effect is that `border-border`, `bg-card`, `bg-surface-2`,
+ * `text-muted-foreground` and the gold triad mean here exactly what they mean
+ * in the product, read from the product's own file on every build. Change
+ * `--gold` in the app and this video's accent changes with it.
+ *
+ * Gotcha (b) in the README: one Tailwind entry, one preflight. Two preflights
+ * fighting over resets breaks the layout in ways that look like bugs in the
+ * scene code.
+ */
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+
+/*
+ * `source(none)` above means nothing is scanned unless it is named here.
+ *
+ * The app tree is added by the token loader, which rewrites the `@source` that
+ * `src/styles.css` already declares into an absolute path. This one is for the
+ * scenes in this workspace, and is resolved relative to this file.
+ */
+@source ".";
+
+/* @app-tokens */
+
+/*
+ * The video canvas.
+ *
+ * The app's `@layer base` paints `body` from `--background`, and the *unscoped*
+ * token set in `src/styles.css` is the light theme — the dark values live under
+ * `.dark`. Every root in this workspace therefore carries `className="dark"`,
+ * and the canvas colour is set here rather than inherited, because the body
+ * element sits outside that class.
+ */
+body {
+  background-color: #08080a;
+}
