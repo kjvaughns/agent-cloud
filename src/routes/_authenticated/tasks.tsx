@@ -20,9 +20,7 @@ import { Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
-  listTasks, createTask, updateTask, deleteTask, type Task,
-} from "@/lib/tasks.functions";
-import { listOrgMembers } from "@/lib/permissions.functions";
+  listTasks, createTask, updateTask, deleteTask, type Task, listAssignableTeammates } from "@/lib/tasks.functions";
 import { ScopeToggle } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, emptyScopeMessage, type Scope } from "@/lib/scope";
@@ -200,11 +198,16 @@ function NewTaskDialog({ onCreated }: { onCreated: () => void }) {
   const [assignee, setAssignee] = useState<string>("__self__");
 
   const createFn = useServerFn(createTask);
-  const membersFn = useServerFn(listOrgMembers);
+  const membersFn = useServerFn(listAssignableTeammates);
 
-  // Only used to populate the assignee picker; failure just means self-assign.
+  // listAssignableTeammates, not listOrgMembers. The latter is the roster
+  // behind Roles & Permissions and calls assertCanManagePermissions on its
+  // non-owner path, so it threw for any manager without permission-management
+  // rights — the query failed, the roster came back empty, and this picker
+  // hid itself. The field was never missing; it was being fed by a function
+  // that refuses managers.
   const { data: members } = useQuery({
-    queryKey: ["org-members", "task-assign"],
+    queryKey: ["assignable-teammates"],
     queryFn: () => membersFn(),
     enabled: open,
     retry: false,
@@ -234,7 +237,7 @@ function NewTaskDialog({ onCreated }: { onCreated: () => void }) {
     onError: (e: any) => toast.error(e?.message ?? "Couldn't create task"),
   });
 
-  const roster = ((members as any)?.members ?? []) as any[];
+  const roster = ((members as any)?.members ?? []) as { id: string; name: string }[];
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
@@ -276,10 +279,8 @@ function NewTaskDialog({ onCreated }: { onCreated: () => void }) {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__self__">Myself</SelectItem>
-                  {roster.map((m: any) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {`${m.first_name ?? ""} ${m.last_name ?? ""}`.trim() || m.email}
-                    </SelectItem>
+                  {roster.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
