@@ -3,6 +3,7 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import type { ScreenKey } from "@/components/landing/screens";
 import { ScreenStage } from "./components/ScreenStage";
 import { Bloom, Canvas, Grain, Vignette } from "./components/Atmosphere";
+import { stage } from "./lib/space";
 
 /**
  * An eight-second loop for the website hero. 1920x1080.
@@ -37,11 +38,12 @@ export const HeroLoop: React.FC = () => {
       {CARDS.map((c) => (
         <ScreenStage
           key={c.screen}
-          screen={c.screen}
-          fit={0.66}
-          centerY={578}
-          translateX={c.x + 14 * Math.cos(theta + c.phase)}
-          translateY={c.y + 20 * Math.sin(theta + c.phase)}
+          stage={stage(c.screen, {
+            fit: 0.66,
+            centerY: 578,
+            translateX: c.x + 14 * Math.cos(theta + c.phase),
+            translateY: c.y + 20 * Math.sin(theta + c.phase),
+          })}
           rotate={c.rotate + 0.9 * Math.sin(theta + c.phase)}
         />
       ))}

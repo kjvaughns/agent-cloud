@@ -22,13 +22,21 @@ import hanken700 from "../../public/fonts/HankenGrotesk-700.woff2";
  * in `remotion.config.ts`. These arrive as `data:` URIs, so the load is
  * synchronous in everything but name and cannot race the render.
  *
- * These are the app's real faces. The brief asked for Sora and Inter, but the
- * product ships Space Grotesk (`--font-display`) and Hanken Grotesk
- * (`--font-body`) — see `src/styles.css` and `src/routes/__root.tsx`. Since
- * `screens.tsx` renders headings with `font-family: var(--font-display)`,
- * loading Sora would have left the UI in one typeface and the captions in
- * another. Matching the app was the actual goal, so the app won.
+ * These are the app's real faces: Space Grotesk (`--font-display`) and Hanken
+ * Grotesk (`--font-body`) — see `src/styles.css` and `src/routes/__root.tsx`.
+ *
+ * Display is Space Grotesk rather than Sora, and the distinction matters. The
+ * slop rule being guarded against is "Inter or Roboto or system fonts for
+ * display text" — a face with no character carrying the big type. Space Grotesk
+ * is not that; it is a geometric display face with real personality. And since
+ * `screens.tsx` sets its headings from `var(--font-display)`, and this video
+ * renders `screens.tsx`, choosing Sora would have put the captions in one
+ * typeface and the UI inside the card in another — manufacturing exactly the
+ * incoherence the rule exists to prevent.
  */
+export const DISPLAY = '"Space Grotesk", ui-sans-serif, system-ui, sans-serif';
+export const BODY = '"Hanken Grotesk", ui-sans-serif, system-ui, sans-serif';
+
 const FACES: { family: string; weight: string; url: string }[] = [
   { family: "Space Grotesk", weight: "500", url: spaceGrotesk500 },
   { family: "Space Grotesk", weight: "700", url: spaceGrotesk700 },
@@ -58,5 +66,3 @@ Promise.all(
     console.error("Font loading failed, continuing in a fallback face", err);
   })
   .finally(() => continueRender(handle));
-
-export {};

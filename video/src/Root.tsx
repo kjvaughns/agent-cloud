@@ -2,22 +2,22 @@ import React from "react";
 import { Composition } from "remotion";
 import "./lib/fonts";
 import "./tailwind.css";
-import { FPS, TOTAL } from "./lib/timing";
+import { FPS, K } from "./timeline";
 import { Launch } from "./Launch";
 import { LaunchSquare } from "./LaunchSquare";
 import { HeroLoop } from "./HeroLoop";
 import { Probe } from "./Probe";
 
 /**
- * `TOTAL` is derived from the beat grid, not typed in. Change `BPM` in
- * `lib/timing.ts` and every composition's length moves with the edit.
+ * `K.TOTAL` is derived by accumulating `D`, never typed in. Lengthen any
+ * duration in `src/timeline.ts` and every composition's length moves with it.
  */
 export const RemotionRoot: React.FC = () => (
   <>
     <Composition
       id="Launch"
       component={Launch}
-      durationInFrames={TOTAL}
+      durationInFrames={K.TOTAL}
       fps={FPS}
       width={1080}
       height={1920}
@@ -26,7 +26,7 @@ export const RemotionRoot: React.FC = () => (
     <Composition
       id="LaunchSquare"
       component={LaunchSquare}
-      durationInFrames={TOTAL}
+      durationInFrames={K.TOTAL}
       fps={FPS}
       width={1080}
       height={1080}

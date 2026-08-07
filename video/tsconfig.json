@@ -9,6 +9,10 @@
     "noEmit": true,
     "strict": true,
     "skipLibCheck": true,
+    // Catches the refactor that leaves a constant behind — and, more usefully,
+    // the one that leaves TWO copies of a constant behind, one of which is now
+    // the value nothing reads.
+    "noUnusedLocals": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "types": ["node"],

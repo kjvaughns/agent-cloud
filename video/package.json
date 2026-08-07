@@ -11,10 +11,13 @@
     "render:square": "remotion render LaunchSquare out/launch-square.mp4 --codec=h264 --crf=18",
     "render:hero": "remotion render HeroLoop out/hero-loop.mp4 --codec=h264 --crf=18",
     "render:draft": "remotion render Launch out/draft.mp4 --codec=h264 --scale=0.5 --crf=28",
-    "audit": "node scripts/audit-stills.mjs",
-    "typecheck": "tsc --noEmit",
+    "audit": "npm run build:timeline && TIMELINE_JS=$PWD/out/timeline.mjs node scripts/audit-stills.mjs",
+    "typecheck": "tsc --noEmit && node scripts/check-params.mjs",
     "format": "prettier --config ../.prettierrc --write \"src/**/*.{ts,tsx,css}\" \"tools/*.cjs\" \"scripts/*.mjs\" \"*.ts\" \"*.md\"",
-    "format:check": "prettier --config ../.prettierrc --check \"src/**/*.{ts,tsx,css}\" \"tools/*.cjs\" \"scripts/*.mjs\" \"*.ts\" \"*.md\""
+    "format:check": "prettier --config ../.prettierrc --check \"src/**/*.{ts,tsx,css}\" \"tools/*.cjs\" \"scripts/*.mjs\" \"*.ts\" \"*.md\"",
+    "check:params": "node scripts/check-params.mjs",
+    "build:timeline": "esbuild src/timeline.ts --bundle --format=esm --outfile=out/timeline.mjs --log-level=error && esbuild src/card-path.ts --bundle --format=esm --outfile=out/card-path.mjs --alias:@=../src --log-level=error",
+    "check:jank": "npm run build:timeline && TIMELINE_JS=$PWD/out/timeline.mjs CARD_PATH_JS=$PWD/out/card-path.mjs node scripts/check-jank.mjs"
   },
   "dependencies": {
     "@remotion/animation-utils": "4.0.506",
@@ -35,6 +38,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.0",
+    "esbuild": "^0.28.1",
     "prettier": "^3.9.6",
     "typescript": "^5.8.3"
   }

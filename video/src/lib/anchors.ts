@@ -44,26 +44,36 @@ export const centerOf = (screen: ScreenKey): Anchor => ({
   y: FRAME_H[screen] / 2,
 });
 
-/** The carrier request queue, and the Transamerica row inside it. */
+/**
+ * The rows the agent card lands in.
+ *
+ * The card is the main character: it is a profile card in the hook, and then it
+ * *becomes* a row in each screen it travels through. So these are not decorative
+ * anchors — the card is sized and positioned to sit exactly on top of the real
+ * row, covering it. Measured from `Probe`; a few pixels out and the card visibly
+ * floats above the table instead of being part of it.
+ */
+export type FrameRect = { cx: number; cy: number; w: number; h: number };
+
+/** The carrier request queue, and row three inside it. */
 export const CONTRACTING_QUEUE: Anchor = { x: 388, y: 212 };
-export const CONTRACTING_ROW: Anchor = { x: 388, y: 201 };
-/** Frame-space rect of the Transamerica row, for the click highlight. */
-export const CONTRACTING_ROW_RECT = { x: 170, y: 185, w: 435, h: 33 };
+export const CONTRACTING_ROW: FrameRect = { cx: 388, cy: 236, w: 435, h: 35 };
 
 /** The statement import panel — where a carrier's shortfall shows up. */
 export const COMMISSIONS_VARIANCE: Anchor = { x: 762, y: 262 };
+/** The Transamerica statement line. Same carrier, one system over. */
+export const COMMISSIONS_ROW: FrameRect = { cx: 767, cy: 269, w: 365, h: 30 };
 
 /**
- * The at-risk queue.
+ * The at-risk queue, anchored on the row's own centre.
  *
- * Anchored left of the table's true centre (563) on purpose. At the punch-in's
- * 1.5x the table is wider than the canvas, so something has to fall off the
- * edge; anchoring at 470 drops the Owner initials rather than the client names,
- * and the caption is about a client.
+ * The card BECOMES this row, and a row whose centre is not the punch anchor
+ * ends up straddling the canvas edge — which silently cut the risk score off
+ * the right-hand side, the one number the beat is counting down.
  */
-export const RETENTION_QUEUE: Anchor = { x: 470, y: 262 };
-/** The top row, 38 frame-pixels above the queue anchor. Drives the spotlight. */
-export const RETENTION_TOP_ROW: Anchor = { x: 470, y: 224 };
+export const RETENTION_QUEUE: Anchor = { x: 563, y: 262 };
+/** The top row of the at-risk queue. Drives both the card and the spotlight. */
+export const RETENTION_ROW: FrameRect = { cx: 563, cy: 225, w: 802, h: 36 };
 
 /** The carrier levels table. */
 export const GRID_LEVELS: Anchor = { x: 372, y: 268 };
