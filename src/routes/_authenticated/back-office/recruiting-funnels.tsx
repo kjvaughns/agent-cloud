@@ -13,6 +13,7 @@ import { ExternalLink, Plus, Copy, Trash2, Megaphone } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { SectionLabel } from "@/components/ui/section-label";
+import { RequireAgencyAdmin } from "@/components/require-agency-admin";
 
 export const Route = createFileRoute("/_authenticated/back-office/recruiting-funnels")({
   head: () => ({
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/_authenticated/back-office/recruiting-fun
       { name: "description", content: "Build branded recruiting websites to attract licensed and unlicensed agents." },
     ],
   }),
-  component: FunnelsPage,
+  component: FunnelsPageGuarded,
 });
 
 function slugify(s: string) {
@@ -209,5 +210,23 @@ function CreateFunnelDialog() {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Wrapped rather than checked inline, so every back-office page refuses in the
+ * same words. This route had no guard at all and rendered in full for anybody
+ * signed in.
+ */
+function FunnelsPageGuarded() {
+  return (
+    <RequireAgencyAdmin
+      title="Recruiting funnels are limited to administrators"
+      what="Recruiting funnels belong to whoever runs recruiting for this agency. Ask your agency owner, or ask to be granted recruiting access on the Roles page."
+      backTo="/dashboard"
+      alsoAllow={(p) => Boolean(p.mgr_access_recruiting)}
+    >
+      <FunnelsPage />
+    </RequireAgencyAdmin>
   );
 }

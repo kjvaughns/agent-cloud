@@ -25,13 +25,14 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { RequireAgencyAdmin } from "@/components/require-agency-admin";
 
 export const Route = createFileRoute("/_authenticated/back-office/advanced-desk")({
   head: () => ({ meta: [
     { title: "Advanced Desk — Agent Cloud" },
     { name: "description", content: "Interactive retirement planning center with projections and case management." },
   ]}),
-  component: AdvancedDeskPage,
+  component: AdvancedDeskPageGuarded,
 });
 
 const ACCOUNT_TYPES = [
@@ -602,5 +603,22 @@ function NeedsAttention({ onOpen }: { onOpen: (id: string) => void }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Wrapped rather than checked inline, so every back-office page refuses in the
+ * same words. This route had no guard at all and rendered in full for anybody
+ * signed in.
+ */
+function AdvancedDeskPageGuarded() {
+  return (
+    <RequireAgencyAdmin
+      title="The advanced desk is limited to administrators"
+      what="The advanced concierge desk is an agency-level tool. Ask your agency owner, or an admin they've granted access to."
+      backTo="/dashboard"
+    >
+      <AdvancedDeskPage />
+    </RequireAgencyAdmin>
   );
 }

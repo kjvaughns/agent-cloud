@@ -1,26 +1,44 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { Briefcase, Megaphone } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMyAccess } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/back-office")({
   component: BackOfficeLayout,
 });
 
+/**
+ * `adminOnly` marks a tab whose route refuses non-administrators.
+ *
+ * This shell is not all one access level, which is why it has no guard of its
+ * own: Client Marketing is offered to every agency member under Tools, while
+ * Recruiting Funnels is `agency-admin` + `mgr_access_recruiting` in the nav.
+ * Guarding the shell would have locked ordinary agents out of a page they are
+ * meant to have. So the tabs hide individually and each route refuses on its
+ * own — see require-agency-admin.tsx.
+ */
 const ADVANCED_MARKET_TABS = [
-  { label: "Case Design", url: "/back-office/case-design" },
-  { label: "Advanced Desk", url: "/back-office/advanced-desk" },
+  { label: "Case Design", url: "/back-office/case-design", adminOnly: true },
+  { label: "Advanced Desk", url: "/back-office/advanced-desk", adminOnly: true },
 ];
 
 const MARKETING_TABS = [
-  { label: "Recruiting Funnels", url: "/back-office/recruiting-funnels" },
+  { label: "Recruiting Funnels", url: "/back-office/recruiting-funnels", adminOnly: true },
   { label: "Client Marketing", url: "/back-office/client-marketing" },
   { label: "Marketing Tracker", url: "/back-office/marketing-tracker" },
 ];
 
 function BackOfficeLayout() {
   const path = useRouterState({ select: (r) => r.location.pathname });
+  const { access } = useMyAccess();
+  const isAdmin =
+    Boolean(access?.canSeeAgency) ||
+    Boolean((access?.permissions as any)?.mgr_access_recruiting);
+
   const isMarketing = MARKETING_TABS.some((t) => path.startsWith(t.url));
-  const tabs = isMarketing ? MARKETING_TABS : ADVANCED_MARKET_TABS;
+  const all = isMarketing ? MARKETING_TABS : ADVANCED_MARKET_TABS;
+  // Offering a tab that answers with a refusal is worse than not offering it.
+  const tabs = all.filter((t) => !t.adminOnly || isAdmin);
   const title = isMarketing ? "Marketing" : "Advanced Market";
   const subtitle = isMarketing
     ? "Recruiting funnels, client marketing, and pipeline trackers."
