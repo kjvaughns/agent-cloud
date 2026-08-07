@@ -34,6 +34,7 @@ import {
   Eye,
   BadgeAlert,
 } from "lucide-react";
+import { MoveAgentSection } from "@/components/team/move-agent-section";
 import { getAgentDetail, setAgentHidden, setAgentStatus } from "@/lib/team.functions";
 
 type Props = { agentId: string | null; onClose: () => void; isAdmin: boolean };
@@ -367,6 +368,16 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
                 {isAdmin && <StatusControl status={status} onSet={(s) => term.mutate(s)} busy={term.isPending} />}
               </div>
             </div>
+
+            {/* Who this agent reports to. Admin only — the internal org chart
+                is the agency's to set, and it is what downline scope, the team
+                matrix and every reports-to query read. */}
+            {isAdmin && (
+              <div className="rounded-[var(--radius)] border border-border p-3">
+                <div className="text-sm font-medium mb-2">Reports to</div>
+                <MoveAgentSection agentId={p.id} currentUplineId={p.upline_id ?? null} />
+              </div>
+            )}
           </>
         )}
       </SheetContent>
