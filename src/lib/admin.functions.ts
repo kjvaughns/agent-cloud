@@ -321,6 +321,39 @@ export const adminMoveAgent = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireAdmin(supabase, userId);
+
+    if (data.new_upline_id === data.agent_id) {
+      throw new Error("An agent cannot report to themselves.");
+    }
+
+    // ── No loops ───────────────────────────────────────────────────────────
+    //
+    // Nothing stopped an admin pointing an agent's upline at somebody already
+    // beneath them. That makes a cycle in profiles.upline_id, and every query
+    // that walks the chain — my_scopes(), get_team_downline_for(), the team
+    // matrix — either recurses until Postgres stops it or silently returns a
+    // partial tree. A structure nobody can see is broken is worse than a
+    // refused edit, and this is the only place that writes the column by hand.
+    //
+    // Walking up from the proposed upline is the cheap direction: an agency
+    // hierarchy is shallow, and the loop stops the moment it reaches a root.
+    if (data.new_upline_id) {
+      const seen = new Set<string>([data.agent_id]);
+      let cursor: string | null = data.new_upline_id;
+
+      while (cursor) {
+        if (seen.has(cursor)) {
+          throw new Error(
+            "That would put this agent above their own upline. Move the other agent first.",
+          );
+        }
+        seen.add(cursor);
+        const parentRes: { data: { upline_id: string | null } | null } = await supabase
+          .from("profiles").select("upline_id").eq("id", cursor).maybeSingle();
+        cursor = parentRes.data?.upline_id ?? null;
+      }
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({ upline_id: data.new_upline_id })

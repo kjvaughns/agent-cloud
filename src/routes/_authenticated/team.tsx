@@ -806,58 +806,6 @@ function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapse
 }
 
 // ============ Move Agent Section ============
-function MoveAgentSection({ agentId, currentUplineId }: { agentId: string; currentUplineId: string | null }) {
-  const qc = useQueryClient();
-  const allAgentsFn = useServerFn(getAllAgentsForHierarchy);
-  const moveFn = useServerFn(adminMoveAgent);
-  const [newUplineId, setNewUplineId] = useState("");
-
-  const { data: allAgents = [] } = useQuery({
-    queryKey: ["team", "allAgentsForHierarchy"],
-    queryFn: () => allAgentsFn(),
-  });
-
-  const candidates = (allAgents as any[]).filter((a: any) => a.id !== agentId);
-  const current = (allAgents as any[]).find((a: any) => a.id === currentUplineId);
-
-  const move = useMutation({
-    mutationFn: () => moveFn({ data: { agent_id: agentId, new_upline_id: newUplineId === "__none__" ? null : newUplineId } }),
-    onSuccess: () => {
-      toast.success("Upline updated");
-      qc.invalidateQueries({ queryKey: ["team"] });
-      setNewUplineId("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <div className="space-y-2">
-      <div className="text-xs text-muted-foreground">
-        Current upline: {current ? `${current.first_name} ${current.last_name}` : "None (root)"}
-      </div>
-      <Select value={newUplineId} onValueChange={setNewUplineId}>
-        <SelectTrigger className="h-8 text-sm">
-          <SelectValue placeholder="Select new upline..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="__none__">No upline (make root)</SelectItem>
-          {candidates.map((a: any) => (
-            <SelectItem key={a.id} value={a.id}>
-              {a.first_name} {a.last_name} {a.email ? `(${a.email})` : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        size="sm"
-        disabled={!newUplineId || move.isPending}
-        onClick={() => move.mutate()}
-      >
-        {move.isPending ? "Moving..." : "Move Agent"}
-      </Button>
-    </div>
-  );
-}
 
 // `AgentDetailDrawer` lived here: 147 lines, defined and never rendered —
 // line 226 renders `AgentProfileDrawer` instead. It carried its own copy of
