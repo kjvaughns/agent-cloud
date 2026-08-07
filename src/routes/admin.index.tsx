@@ -77,14 +77,26 @@ function AdminOverview() {
       });
 
       const [recentContracts, recentTickets, recentAgents] = await Promise.all([
+        // `requested_at`, not `updated_at`. contract_requests has no
+        // updated_at column — its timestamps are requested_at, submitted_at
+        // and activated_at — so both the select and the order named a column
+        // that does not exist and PostgREST answered 400. That is the
+        // "HTTP 400 /rest/v1/contract_requests" the audit saw for owner and
+        // manager and not for agent or staff: before the portal was narrowed
+        // to super_admin, those were exactly the roles that could open it.
         supabase
           .from("contract_requests")
-          .select("id, status, updated_at, profiles!agent_id(first_name, last_name), carriers(name)")
-          .order("updated_at", { ascending: false })
+          .select("id, status, requested_at, profiles!agent_id(first_name, last_name), carriers(name)")
+          .order("requested_at", { ascending: false })
           .limit(10),
+        // No profiles embed here. support_tickets.agent_id references
+        // auth.users, not public.profiles, so PostgREST has no relationship to
+        // traverse and refuses the whole query — the second 400. The name is
+        // fetched separately below, which costs one round trip and returns
+        // rows instead of an error.
         supabase
           .from("support_tickets")
-          .select("id, subject, priority, status, created_at, profiles!agent_id(first_name, last_name)")
+          .select("id, subject, priority, status, created_at, agent_id")
           .order("created_at", { ascending: false })
           .limit(5),
         supabase
@@ -94,8 +106,21 @@ function AdminOverview() {
           .order("created_at", { ascending: false }),
       ]);
       setContracts(recentContracts.data ?? []);
-      setTickets(recentTickets.data ?? []);
       setNewAgents(recentAgents.data ?? []);
+
+      // The name the embed used to supply, fetched on its own because
+      // support_tickets.agent_id points at auth.users and PostgREST cannot
+      // join it to profiles. A ticket whose author has no profile row still
+      // renders — it just shows no name, rather than taking the page down.
+      const ticketRows = recentTickets.data ?? [];
+      const authorIds = [...new Set(ticketRows.map((t: any) => t.agent_id).filter(Boolean))];
+      const authors = new Map<string, { first_name: string | null; last_name: string | null }>();
+      if (authorIds.length) {
+        const { data: people } = await supabase
+          .from("profiles").select("id, first_name, last_name").in("id", authorIds);
+        for (const person of people ?? []) authors.set(person.id, person as any);
+      }
+      setTickets(ticketRows.map((t: any) => ({ ...t, profiles: authors.get(t.agent_id) ?? null })));
 
       // Maintenance: null carrier policies + carriers list
       const [nullCarriersRes, carriersListRes] = await Promise.all([
