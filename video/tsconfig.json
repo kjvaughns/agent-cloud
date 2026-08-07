@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../src/*"],
+
+      // The same problem the webpack config solves with `resolve.modules`, in
+      // the type checker: files under `../src` are outside this package, so TS
+      // resolves their bare imports by walking up from the repo root and finds
+      // nothing — `video/` is the only place anything is installed.
+      //
+      // React points at `@types/react` rather than at the runtime package: the
+      // runtime ships no declarations of its own, so mapping to it would resolve
+      // and then type as `any`. The rest carry their own `.d.ts`.
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "lucide-react": ["./node_modules/lucide-react"],
+      "clsx": ["./node_modules/clsx"],
+      "tailwind-merge": ["./node_modules/tailwind-merge"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "remotion.config.ts"]
+}
