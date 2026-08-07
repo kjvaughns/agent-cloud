@@ -611,6 +611,38 @@ export const setMemberRole = createServerFn({ method: "POST" })
       }
     }
 
+    // ── A staff preset must not outlive the staff role ─────────────────────
+    //
+    // `staff_preset` is what labels somebody "Contracting Specialist" in the
+    // UI. Only the demote-to-agent branch below cleared it, so promoting a
+    // staff member to manager left the preset — and the staff_* flags behind
+    // it — sitting on the row. The audit watched one account carry
+    // "Contracting Specialist" through Agent, Manager and Staff.
+    //
+    // Only when the role actually changed. setMemberRole is also how an owner
+    // re-saves a role they have already set, and wiping a manager's
+    // deliberately configured row because somebody pressed Save twice would be
+    // a worse bug than the label.
+    const previous = (prevRoles ?? []).map((r: any) => r.role as string);
+    const roleChanged = !previous.includes(data.role);
+
+    if (roleChanged && data.role !== "staff" && data.role !== "agent") {
+      const { data: existing } = await supabaseAdmin
+        .from("role_permissions").select("id")
+        .eq("profile_id", data.member_id).eq("organization_id", data.organization_id).maybeSingle();
+      if (existing) {
+        // The staff_* grants go with the preset. They are meaningless on a
+        // role that is not staff, and leaving them means a later demotion back
+        // to staff silently restores access nobody re-granted.
+        const clearedStaff = Object.fromEntries(
+          Object.keys(zeroPerms()).filter((k) => k.startsWith("staff_")).map((k) => [k, false]),
+        );
+        await supabaseAdmin.from("role_permissions")
+          .update({ ...clearedStaff, staff_preset: null, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      }
+    }
+
     // Manager defaults on first promotion.
     if (data.role === "manager") {
       const { data: existing } = await supabaseAdmin
