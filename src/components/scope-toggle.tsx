@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useScope } from "@/hooks/use-scope";
+import { useRole } from "@/hooks/use-role";
 import { listScopeAgents } from "@/lib/scope.functions";
 import { SCOPE_DESCRIPTIONS, SCOPE_LABELS, type Scope } from "@/lib/scope";
 
@@ -23,8 +24,36 @@ import { SCOPE_DESCRIPTIONS, SCOPE_LABELS, type Scope } from "@/lib/scope";
  */
 export function ScopeToggle({ className }: { className?: string }) {
   const { scope, setScope, options } = useScope();
+  const { role } = useRole();
 
-  if (options.length < 2) return null;
+  if (options.length < 2) {
+    /*
+     * Silent is right for an agent and wrong for a manager.
+     *
+     * Rendering nothing when there is one answer is this component's whole
+     * design, and for the people who only ever see their own work it is
+     * correct — a control with one option in it is worse than no control.
+     *
+     * A manager is the exception, and it is the one the audit hit: somebody
+     * told they now manage a team, looking at four pages where the Mine /
+     * Team / Agency pills are absent rather than disabled, with nothing on
+     * screen to say why. The cause is almost never a permission — scope comes
+     * from my_scopes(), which counts the downline — so the honest sentence
+     * names the empty downline rather than pointing at the Roles page.
+     *
+     * `role === "manager"` exactly, not useRole().isManager, which folds in
+     * owners and admins. Those have an agency scope and never land here.
+     */
+    if (role === "manager") {
+      return (
+        <p className={cn("text-xs text-muted-foreground", className)}>
+          No agents are assigned to you yet, so there is nothing to switch between. Your agency
+          owner can assign them from the Team page.
+        </p>
+      );
+    }
+    return null;
+  }
 
   return (
     <ToggleGroup
