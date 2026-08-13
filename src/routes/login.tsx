@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,22 +27,39 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  // The markup arrives before the JavaScript that submits it. A click in that
+  // window used to do nothing at all — no request, no error, no feedback —
+  // which reads exactly like "it won't let me log in". Hold the buttons until
+  // the handlers are actually attached.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) return toast.error(error.message);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    if (error) {
+      setLoading(false);
+      return toast.error(error.message);
+    }
     toast.success("Welcome back");
     await navigate({ to: redirect });
+    setLoading(false);
   }
 
   async function onGoogle() {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) toast.error(result.error.message);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) toast.error(result.error.message);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Google sign-in failed");
+    }
   }
 
   return <AuthShell title="Welcome back" subtitle="Sign in to your Agent Cloud workspace">
@@ -58,15 +75,15 @@ function LoginPage() {
         </div>
         <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
+      <Button type="submit" className="w-full" disabled={loading || !ready}>
+        {loading || !ready ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
       </Button>
     </form>
     <div className="relative my-6">
       <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
       <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
     </div>
-    <Button variant="outline" className="w-full" onClick={onGoogle}>Continue with Google</Button>
+    <Button variant="outline" className="w-full" onClick={onGoogle} disabled={!ready}>Continue with Google</Button>
     <p className="mt-6 text-center text-sm text-muted-foreground">
       Need an account? Ask your upline for an invite link.
     </p>
