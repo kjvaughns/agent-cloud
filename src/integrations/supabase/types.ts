@@ -9282,6 +9282,7 @@ export type Database = {
         Returns: boolean
       }
       may_write_academy_media: { Args: { _folder: string }; Returns: boolean }
+      may_write_org_branding: { Args: { _folder: string }; Returns: boolean }
       move_to_dlq: {
         Args: {
           dlq_name: string
