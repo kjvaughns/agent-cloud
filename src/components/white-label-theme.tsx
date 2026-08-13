@@ -3,22 +3,23 @@ import { useOrganization } from "@/hooks/use-organization";
 import { buildAccentRamp, applyAccentRamp, DEFAULT_ACCENT } from "@/lib/theme/accent";
 
 /**
- * Applies a white-label agency's brand colour to the design system tokens.
+ * Applies an agency's brand colour to the design system tokens.
  *
- * Deliberately narrow. The override runs only when the organization is on the
- * white_label plan AND has set an accent that differs from the stock gold.
- * Every other workspace — including agencies that happen to have an
- * accent_color row from an older default — renders the standard palette,
- * untouched.
+ * The plan check is gone. It used to require `plan_type === "white_label"`,
+ * which meant the accent picker in Agency settings was the only control in the
+ * product that was visible, editable, saved — and did nothing. Every agency
+ * can set a colour now and see it.
+ *
+ * The other half of the condition stays and is doing real work: an accent has
+ * to be present *and* differ from the stock gold. Plenty of organisations carry
+ * an `accent_color` row from an older default, and those must keep rendering
+ * the standard palette rather than being re-tinted with a value nobody chose.
  */
 export function WhiteLabelTheme() {
   const { org } = useOrganization();
 
   const accent = org?.accent_color ?? null;
-  const enabled =
-    org?.plan_type === "white_label" &&
-    !!accent &&
-    accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase();
+  const enabled = !!accent && accent.toLowerCase() !== DEFAULT_ACCENT.toLowerCase();
 
   useEffect(() => {
     if (!enabled || !accent) {

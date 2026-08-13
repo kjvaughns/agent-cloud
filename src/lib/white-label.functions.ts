@@ -61,11 +61,20 @@ export const getWhiteLabelStatus = createServerFn({ method: "GET" })
 
     // Each of these is a different conversation, so they are distinguished
     // rather than collapsed into one "not eligible".
+    //
+    // `solo_plan` and `inactive_subscription` used to sit here too, and both
+    // are gone. This is an *application*, not a checkout — a human reads it,
+    // checks the domain and has a call before anything is provisioned or
+    // billed. Refusing to accept the form from somebody on the wrong plan
+    // turned the one place they could ask about upgrading into a closed door,
+    // and the plan is the first thing the conversation would have settled
+    // anyway.
+    //
+    // What stays is what a reviewer genuinely cannot work around: not being
+    // the owner, having no agency at all, and already being live.
     const reason =
       !isOwner ? ("not_owner" as const)
       : org?.plan_type === "white_label" ? ("already_live" as const)
-      : org?.plan_type === "solo" ? ("solo_plan" as const)
-      : org?.subscription_status !== "active" ? ("inactive_subscription" as const)
       : null;
 
     return {
@@ -115,13 +124,12 @@ export const applyForWhiteLabel = createServerFn({ method: "POST" })
     const { data: org } = await supabaseAdmin
       .from("organizations").select("plan_type, subscription_status").eq("id", orgId).maybeSingle();
 
+    // Only the check a reviewer cannot undo by hand. The plan and subscription
+    // throws that used to sit here are gone for the reason set out in
+    // `getWhiteLabelStatus`: this is an application a person reads, and the
+    // plan is what the resulting conversation is largely about. Both are still
+    // recorded on the row for whoever picks it up.
     if (org?.plan_type === "white_label") throw new Error("Your agency is already on White Label.");
-    if (org?.plan_type === "solo") {
-      throw new Error("White Label requires the Agency Plan. Upgrade first, then apply.");
-    }
-    if (org?.subscription_status !== "active") {
-      throw new Error("Your Agency Plan needs to be active before applying.");
-    }
 
     const { data: existing } = await supabaseAdmin
       .from("white_label_applications")

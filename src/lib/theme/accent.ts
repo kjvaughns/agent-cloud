@@ -44,6 +44,71 @@ function luminance([r, g, b]: [number, number, number]) {
   return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
 }
 
+/** WCAG contrast between two luminances. */
+function ratio(a: number, b: number) {
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Black or white on the accent — whichever is actually more readable.
+ *
+ * This was `lum > 0.45 ? black : white`, and the threshold picked the wrong
+ * side for exactly the colours the product ships with. Agent Cloud's own gold
+ * `#CBA35A` sits just under the cutoff, so it took **white** text at 2.35:1
+ * when black would have given 7.80:1 — over three times the contrast, on every
+ * primary button in the app. Hot pink and mid-green failed the same way.
+ *
+ * There is no cutoff that gets this right, because the answer depends on the
+ * distance to *both* ends rather than on a single position between them. So
+ * ask the question directly: compute both and keep the winner. Two luminance
+ * calculations, no constant to tune, and correct for every input by
+ * construction.
+ */
+function readableForeground(rgb: [number, number, number]): string {
+  const bg = luminance(rgb);
+  const black = "#1a1400";
+  const white = "#ffffff";
+  return ratio(bg, luminance(hexToRgb(black)!)) >= ratio(bg, luminance(hexToRgb(white)!))
+    ? black
+    : white;
+}
+
+/**
+ * `--gold-bright`, dragged until it is actually readable as text.
+ *
+ * This token is not decoration. `text-gold-bright` is every headline figure on
+ * the dashboard, every active nav row, every selected chip — text on the page
+ * background, not on the accent. The stock palette handles that by hand:
+ * `--gold-bright` is `#7A5E22` in light mode, *darker* than `--gold` itself, so
+ * the numbers survive a white background.
+ *
+ * A fixed 30% mix reproduced that for mid-tone colours and failed at the ends.
+ * An agency picking near-white got `#B3B3B3` on white — around 1.9:1, which is
+ * not text, it is a suggestion of text. That did not matter while this ran only
+ * for white-label agencies, whose colours came out of a setup conversation.
+ * Every agency can pick any hex now, including the pale ones, so the mix walks
+ * until it crosses a luminance the page can hold it against rather than
+ * trusting one constant to suit every input.
+ */
+function readableBright(rgb: [number, number, number], dark: boolean): [number, number, number] {
+  // Targets, not exact values: light mode needs it dark enough to read on a
+  // near-white surface, dark mode light enough to read on a near-black one.
+  const target = dark ? 0.42 : 0.16;
+  const toward = dark ? 255 : 0;
+
+  let out = mix(rgb, toward, dark ? 0.28 : 0.3);
+  // Bounded loop rather than while-true: 20 steps of 5% covers the whole
+  // range, and a colour that somehow cannot reach the target returns the
+  // closest it got instead of hanging.
+  for (let i = 0; i < 20; i++) {
+    const lum = luminance(out);
+    if (dark ? lum >= target : lum <= target) break;
+    out = mix(out, toward, 0.05);
+  }
+  return out;
+}
+
 /**
  * @param hex   the agency's brand colour
  * @param dark  whether the app is currently in dark mode — the stock palette
@@ -54,7 +119,7 @@ export function buildAccentRamp(hex: string, dark: boolean): AccentRamp | null {
   const rgb = hexToRgb(hex);
   if (!rgb) return null;
 
-  const bright = dark ? mix(rgb, 255, 0.28) : mix(rgb, 0, 0.3);
+  const bright = readableBright(rgb, dark);
   const dim = dark ? mix(rgb, 0, 0.35) : mix(rgb, 0, 0.15);
   const lum = luminance(rgb);
 
@@ -63,8 +128,7 @@ export function buildAccentRamp(hex: string, dark: boolean): AccentRamp | null {
     goldBright: rgbToHex(...bright),
     goldDim: rgbToHex(...dim),
     goldGlow: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${dark ? 0.1 : 0.14})`,
-    // 0.45 rather than 0.5: mid-tone brand colours read better with dark text.
-    goldForeground: lum > 0.45 ? "#1a1400" : "#ffffff",
+    goldForeground: readableForeground(rgb),
   };
 }
 
