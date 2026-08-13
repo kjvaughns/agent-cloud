@@ -227,6 +227,28 @@ export type MyAccess = {
    */
   canSeeAgency: boolean;
   /**
+   * May change the agency's name, branding, emails, automations and
+   * integrations — the Settings → Agency page.
+   *
+   * Separate from `canSeeAgency` for two reasons, both of which were live bugs.
+   *
+   * `canSeeAgency` is gated on `inAgency`, which excludes the solo plan. A solo
+   * owner *is* an agency owner — of an agency of one — and had no way to reach
+   * their own workspace's name or logo at all. Branding is not a headcount
+   * question.
+   *
+   * And the page and the write disagreed. The route rendered the whole editable
+   * form for anyone with `canSeeAgency`, while `updateOrganization` refused
+   * anyone who was not `owner_id` or `super_admin` — so a delegated admin filled
+   * the form in and was told on submit that only the owner may do this. Both
+   * sides ask this one question now.
+   *
+   * The subdomain and custom domain are still owner-only, inside
+   * `updateOrganization`: they are globally unique and decide where traffic
+   * goes, which is a different blast radius from changing a colour.
+   */
+  canEditAgencySettings: boolean;
+  /**
    * Has an account but is not yet a selling agent — invited, not activated,
    * no first sale. They get everything that leads to selling and none of the
    * selling itself.
@@ -275,6 +297,38 @@ async function resolveMyOrgId(userId: string, profileOrgId: string | null): Prom
   const { data: owned } = await supabaseAdmin
     .from("organizations").select("id").eq("owner_id", userId).limit(1).maybeSingle();
   return (owned?.id as string) ?? null;
+}
+
+/**
+ * The one answer to "may this person change the agency's settings", for
+ * servers rather than for the UI.
+ *
+ * `getMyAccess` is a server function and cannot be called from inside another
+ * one, so without this the write path would grow its own copy of the rule —
+ * which is exactly how the page and the save came to disagree in the first
+ * place. Same org resolution (`resolveMyOrgId`) and the same two claims, so
+ * `canEditAgencySettings` in the browser and this in the handler cannot drift.
+ *
+ * `isOwner` comes back alongside because a couple of fields are still narrower
+ * than the rest — the caller decides what to do with it rather than asking a
+ * second question.
+ */
+export async function resolveAgencySettingsAccess(
+  userId: string,
+): Promise<{ orgId: string | null; isOwner: boolean; canEdit: boolean }> {
+  const { data: profile } = await supabaseAdmin
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
+  const orgId = await resolveMyOrgId(userId, (profile as any)?.organization_id ?? null);
+  if (!orgId) return { orgId: null, isOwner: false, canEdit: false };
+
+  const { data: org } = await supabaseAdmin
+    .from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
+
+  const isOwner = (org as any)?.owner_id === userId;
+  const canManageRoles = (await resolveCanManagePermissions(userId, orgId)) !== null;
+
+  return { orgId, isOwner, canEdit: isOwner || canManageRoles };
 }
 
 export const getMyAccess = createServerFn({ method: "GET" })
@@ -372,6 +426,10 @@ export const getMyAccess = createServerFn({ method: "GET" })
       canManageRoles,
       inAgency,
       canSeeAgency: inAgency && (org?.owner_id === userId || canManageRoles),
+      // Not gated on `inAgency`, unlike the row above — a solo owner still has
+      // a workspace with a name and a logo. See the type for why the two
+      // answers differ.
+      canEditAgencySettings: Boolean(org) && (org?.owner_id === userId || canManageRoles),
       // An org owner is never pending — they are the one who does the
       // activating, and locking them out of their own workspace on the day
       // they sign up would be absurd.

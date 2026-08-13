@@ -25,6 +25,15 @@ Delete a line once the migration is applied.
 - `20260806120000_ai-message-log.sql`
 - `20260806130000_nova-usage-and-upsells.sql`
 - `20260806230000_self-activation-gate.sql`
+- `20260807100000_org-branding-bucket.sql`
+
+`20260807100000` adds the `org-branding` bucket and `may_write_org_branding`.
+Until it applies, choosing a logo and saving reports *"Saved, but the logo did
+not upload. Logo uploads are waiting on a workspace update"* — the name,
+tagline and accent colour save normally, and the accent is the part that
+actually changes how the app looks. Note that this is already better than the
+state it replaces, where the upload failed silently on **every** attempt,
+applied or not, and the page said it had saved.
 
 `20260805110000` **revokes platform admin from the two hardcoded founder
 emails and does not give it back.** Read its header before applying: the

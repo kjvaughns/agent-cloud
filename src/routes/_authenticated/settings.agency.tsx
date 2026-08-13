@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/hooks/use-organization";
+import { uploadOrgLogo, LOGO_LIMIT } from "@/lib/org-branding";
 import { updateOrganization } from "@/lib/organization.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,10 +43,15 @@ export const Route = createFileRoute("/_authenticated/settings/agency")({
 /**
  * May this person configure the agency, and if not, why not.
  *
- * `canSeeAgency` is the same signal the sidebar uses to decide whether to
- * offer this row at all (`getMyAccess`, permissions.functions.ts), so the link
- * and the page now agree. Reaching this by URL without it gets a sentence
- * rather than a redirect.
+ * `canEditAgencySettings` rather than `canSeeAgency`, and the difference is
+ * two real lockouts. `canSeeAgency` requires `inAgency`, which is false on the
+ * solo plan — so a solo owner could not open their own workspace's name or
+ * logo, as though branding were a headcount question. And `canSeeAgency` was
+ * never the rule the *save* enforced: `updateOrganization` refused everyone but
+ * the owner, so a delegated admin got the full form and a refusal on submit.
+ *
+ * Both sides now ask `resolveAgencySettingsAccess`. Reaching this by URL
+ * without the capability gets a sentence rather than a redirect.
  */
 function AgencySettingsRoute() {
   const { access, loading } = useMyAccess();
@@ -59,7 +64,7 @@ function AgencySettingsRoute() {
     );
   }
 
-  if (!access?.canSeeAgency) {
+  if (!access?.canEditAgencySettings) {
     return (
       <PageShell>
         <div className="mx-auto max-w-xl">
@@ -94,11 +99,25 @@ function GeneralTab() {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const { access } = useMyAccess();
 
-  // Logo, accent colour and subdomain are the White Label product. Showing
-  // them to everyone means most agencies configure branding that never
-  // renders — the theme override and custom domain only apply on that plan.
+  // Logo and accent colour are every agency's, on every plan. They used to be
+  // hidden unless `plan_type === "white_label"`, which left an owner with a
+  // name field, a tagline field and an advert — and the accent they could not
+  // set was the only thing standing between the product and looking like
+  // theirs.
+  //
+  // What White Label still buys is the part that needs a human: a custom
+  // domain, the branded sign-in page on it, and the setup conversation. The
+  // subdomain field below stays with it, because nothing in this codebase
+  // provisions DNS and a field that quietly does nothing is worse than no
+  // field at all.
   const whiteLabel = org?.plan_type === "white_label";
+
+  // The subdomain is globally unique and decides where traffic goes, so the
+  // server keeps it owner-only. Disabling it here means the refusal is visible
+  // before somebody types into it rather than after they press save.
+  const canEditSlug = Boolean(access?.isOwner);
 
   // Sync form when org loads
   useQuery({
@@ -117,32 +136,65 @@ function GeneralTab() {
     enabled: !!org,
   });
 
-  const logoPreview = logoFile ? URL.createObjectURL(logoFile) : (org?.logo_url ?? null);
+  // Revoked on change and on unmount. Without this every file the user picks
+  // leaks a blob for the lifetime of the tab.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!logoFile) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(logoFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
+  const logoPreview = previewUrl ?? org?.logo_url ?? null;
+
+  /**
+   * Save, and tell the truth about what saved.
+   *
+   * The old version uploaded to a path row-level security always rejected,
+   * swallowed the rejection with a bare `if (!uploadErr)`, saved the rest of
+   * the form and then said "Agency settings saved!". The logo on screen was a
+   * local `blob:` URL, so it looked right until the first reload and then was
+   * simply gone — with nothing anywhere reporting a failure.
+   *
+   * The upload is now its own step with its own failure. A logo that did not
+   * upload does not stop the name and tagline being saved — losing typing
+   * because a picture failed is its own annoyance — but it is reported
+   * separately and never counted as success.
+   */
   async function save() {
     setSaving(true);
     try {
-      let logo_url = org?.logo_url ?? null;
+      let logo_url: string | undefined;
+      let logoError: string | null = null;
 
       if (logoFile && org?.id) {
-        const ext = logoFile.name.split(".").pop();
-        const path = `org-logos/${org.id}.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from("agent-documents")
-          .upload(path, logoFile, { upsert: true });
-        if (!uploadErr) {
-          const { data: { publicUrl } } = supabase.storage
-            .from("agent-documents")
-            .getPublicUrl(path);
-          logo_url = publicUrl;
+        try {
+          logo_url = (await uploadOrgLogo(org.id, logoFile)).url;
+        } catch (e: any) {
+          logoError = e?.message ?? "The logo could not be uploaded.";
         }
       }
 
-      await updateFn({ data: { ...form, logo_url } });
+      await updateFn({
+        data: {
+          name: form.name,
+          tagline: form.tagline,
+          accent_color: form.accent_color,
+          // Omitted entirely rather than sent unchanged when this person may
+          // not change it — the server rejects the field, not the value.
+          ...(canEditSlug ? { slug: form.slug } : {}),
+          ...(logo_url ? { logo_url } : {}),
+        },
+      });
+
       qc.invalidateQueries({ queryKey: ["organization"] });
-      toast.success("Agency settings saved!");
+      if (logo_url) setLogoFile(null);
+
+      if (logoError) toast.error(`Saved, but the logo did not upload. ${logoError}`);
+      else toast.success("Agency settings saved");
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to save");
+      toast.error(e?.message ?? "Failed to save");
     } finally {
       setSaving(false);
     }
@@ -157,8 +209,7 @@ function GeneralTab() {
 
       <Card>
         <CardContent className="p-6 space-y-5">
-          {/* Logo — White Label only */}
-          {whiteLabel && (
+          {/* Logo — every plan */}
           <div className="space-y-2">
             <Label>Agency Logo</Label>
             <div className="flex items-center gap-4">
@@ -180,15 +231,17 @@ function GeneralTab() {
                 <input
                   id="logo-upload"
                   type="file"
-                  accept="image/*"
+                  accept={LOGO_LIMIT.accept}
                   className="hidden"
                   onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
                 />
               </label>
             </div>
-            <p className="text-xs text-muted-foreground">PNG or SVG recommended. Square logos work best.</p>
+            <p className="text-xs text-muted-foreground">
+              PNG or SVG recommended. Square logos work best. Up to {LOGO_LIMIT.label}.
+              {logoFile && " Not uploaded until you save."}
+            </p>
           </div>
-          )}
 
           {/* Name */}
           <div className="space-y-1.5">
@@ -211,8 +264,7 @@ function GeneralTab() {
             />
           </div>
 
-          {/* Accent colour — White Label only */}
-          {whiteLabel && (
+          {/* Accent colour — every plan */}
           <div className="space-y-1.5">
             <Label>Accent Color</Label>
             <div className="flex items-center gap-3 flex-wrap">
@@ -235,35 +287,43 @@ function GeneralTab() {
               <p className="text-xs text-muted-foreground">Used for buttons, badges, and highlights.</p>
             </div>
           </div>
-          )}
 
-          {/* Subdomain — White Label only */}
-          {whiteLabel && (
+          {/* Subdomain — still White Label, because nothing here provisions DNS */}
           <div className="space-y-1.5">
             <Label>Your Subdomain</Label>
             <div className="flex items-center gap-2 flex-wrap">
               <Input
                 value={form.slug}
+                disabled={!whiteLabel || !canEditSlug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
                 className="max-w-[180px] font-mono text-sm"
               />
               <span className="text-muted-foreground text-sm">.agentcloud.com</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Your team will access your platform at <strong>{form.slug || "…"}.agentcloud.com</strong>
+              {!whiteLabel
+                ? "A domain of your own is set up with our team as part of White Label — it needs DNS pointed at us, so it isn't something this page can switch on."
+                : !canEditSlug
+                  ? "Only the agency owner can change the subdomain."
+                  : <>Your team will access your platform at <strong>{form.slug || "…"}.agentcloud.com</strong></>}
             </p>
           </div>
-          )}
 
           {!whiteLabel && (
             <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-4">
-              <p className="text-sm font-medium">Want your own logo, colours and domain?</p>
+              <p className="text-sm font-medium">Want your own domain too?</p>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                Custom branding is part of White Label. Your agency name and tagline above
-                apply on every plan.
+                The logo and colour above are yours on every plan and apply as soon as you save.
+                White Label adds the part that needs setting up with us: your own domain, a
+                sign-in page on it carrying your brand rather than ours, and a call to get it live.
               </p>
               <Button asChild variant="outline" size="sm" className="mt-3">
-                <Link to="/settings/white-label">Apply for White Label →</Link>
+                {/* Straight to the panel. `/settings/white-label` is a
+                    beforeLoad redirect to this same place, so linking to it
+                    just adds a hop. */}
+                <Link to="/settings/billing" search={{ tab: "white-label" } as any}>
+                  Apply for White Label →
+                </Link>
               </Button>
             </div>
           )}

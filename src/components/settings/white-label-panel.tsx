@@ -25,11 +25,20 @@ import {
 const TIMELINES = ["As soon as possible", "Within a month", "This quarter", "Just exploring"];
 const AGENT_COUNTS = ["1–10", "11–25", "26–50", "51–150", "150+"];
 
+/**
+ * What this actually buys, now that it is not branding.
+ *
+ * "Your logo and brand colour across the whole platform" used to head this
+ * list. Every agency has that on every plan now — it is set in Agency settings
+ * and applies on save — so leading with it would be selling something already
+ * given away. What is left is the part that needs DNS, a certificate and a
+ * person: the address people sign in at, and Agent Cloud's name coming off it.
+ */
 const INCLUDED = [
-  { icon: Palette, title: "Your branding", body: "Your logo and brand colour across the whole platform." },
   { icon: Globe, title: "Your domain", body: "Your team signs in at your address, not ours." },
-  { icon: LogIn, title: "Branded login", body: "Your mark on the sign-in and signup screens." },
+  { icon: LogIn, title: "Branded login", body: "Your mark on the sign-in and signup screens, before anyone has an account." },
   { icon: Mail, title: "Branded email", body: "Agency mail carries your identity, not Agent Cloud's." },
+  { icon: Palette, title: "Our name off it", body: "Logo and colour are yours on every plan — this is what removes ours from the rest." },
 ];
 
 const STATUS_COPY: Record<string, { label: string; variant: any; body: string }> = {
@@ -189,28 +198,11 @@ export function WhiteLabelPage() {
                     Only the agency owner can apply for White Label.
                   </p>
                 )}
-                {d?.reason === "solo_plan" && (
-                  <>
-                    <p className="text-sm font-medium">White Label sits on top of the Agency Plan.</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Upgrade to the Agency Plan first, then apply.
-                    </p>
-                    <Button asChild size="sm" className="mt-3">
-                      <Link to="/settings">View plans →</Link>
-                    </Button>
-                  </>
-                )}
-                {d?.reason === "inactive_subscription" && (
-                  <>
-                    <p className="text-sm font-medium">Your Agency Plan needs to be active first.</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Activate your subscription and this page will open up.
-                    </p>
-                    <Button asChild size="sm" className="mt-3">
-                      <Link to="/settings">Go to billing →</Link>
-                    </Button>
-                  </>
-                )}
+                {/* `solo_plan` and `inactive_subscription` used to be two more
+                    branches here. Both are gone: the application is read by a
+                    person, and which plan the agency should be on is most of
+                    what that conversation is for. Turning the only place to
+                    ask into a closed door was the wrong end of it. */}
                 {d?.reason === "no_org" && (
                   <p className="text-sm text-muted-foreground">
                     No agency is attached to your account yet.
