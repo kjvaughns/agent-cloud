@@ -37,6 +37,11 @@ export type AuditAction =
   | "hierarchy.changed" | "hierarchy_change.requested" | "hierarchy_change.decided"
   | "comp.changed"
   | "spreadsheet.exported" | "packet.downloaded" | "email.generated"
+  // Somebody left the platform for a carrier's own contracting flow. The
+  // stretch between "ready to submit" and "submitted" happens entirely off
+  // this system, so the departure is the last thing it can witness — which
+  // makes it the one event worth recording carefully.
+  | "handoff.opened"
   | "sensitive.accessed";
 
 export async function recordAudit(input: {
@@ -49,6 +54,15 @@ export async function recordAudit(input: {
   previous?: unknown;
   next?: unknown;
   metadata?: Record<string, unknown>;
+  /**
+   * The log has carried ip_address and user_agent columns since it was
+   * created, and nothing ever set them — every caller is a server function
+   * acting on an already-authenticated request, where they add little. A
+   * handoff is different: it is the record of somebody *leaving*, and "which
+   * device left" is the half of that record the tables cannot supply.
+   */
+  ipAddress?: string | null;
+  userAgent?: string | null;
 }): Promise<void> {
   try {
     await supabaseAdmin.from("contracting_audit_log").insert({
@@ -61,6 +75,8 @@ export async function recordAudit(input: {
       previous_value: input.previous ?? null,
       new_value: input.next ?? null,
       metadata: input.metadata ?? {},
+      ip_address: input.ipAddress ?? null,
+      user_agent: input.userAgent ?? null,
     });
   } catch (err) {
     console.error("[contracting-audit] write failed", input.action, err);

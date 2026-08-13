@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
+import { beginContractingHandoff } from "@/lib/contracting-handoff.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 import {
   CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
@@ -113,6 +114,36 @@ function RequestDetailPage() {
     onError: (e: any) => toast.error(e?.message ?? "Could not export"),
   });
 
+  const handoffFn = useServerFn(beginContractingHandoff);
+  const handoff = useMutation({
+    // The window opens synchronously on click and gets its destination when
+    // the server answers — the one shape popup blockers permit. `about:blank`
+    // plus a severed opener, not `noopener` in the features string, because
+    // `noopener` makes window.open return null and there would be nothing to
+    // point at the URL.
+    mutationFn: async (vars: { method_id?: string }) => {
+      const w = window.open("about:blank", "_blank");
+      if (w) w.opener = null;
+      try {
+        const r = await handoffFn({ data: { request_id: requestId, ...vars } });
+        if (r.url.startsWith("mailto:")) {
+          w?.close();
+          window.location.href = r.url;
+        } else if (w) {
+          w.location.href = r.url;
+        } else {
+          window.open(r.url, "_blank", "noopener,noreferrer");
+        }
+        return r;
+      } catch (e) {
+        w?.close();
+        throw e;
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contracting-ops", "request", requestId] }),
+    onError: (e: any) => toast.error(e?.message ?? "Could not open the carrier's contracting flow"),
+  });
+
   const setStatus = useMutation({
     mutationFn: (vars: { status: string; agent_visible_message?: string | null }) =>
       statusFn({ data: { id: requestId, ...vars } as any }),
@@ -138,7 +169,8 @@ function RequestDetailPage() {
     return <p className="text-sm text-muted-foreground">That request is not available to you.</p>;
   }
 
-  const { packet, readiness, access, request, methods, history } = data as any;
+  const { packet, readiness, access, request, methods, history, submissions } = data as any;
+  const handoffs = ((submissions ?? []) as any[]).filter((s) => s.artifact_type === "portal_handoff");
   const ready = readiness.blockers.length === 0 && readiness.state === "ready_to_submit";
   const isStaff = access.canSubmit || access.canApprove;
 
@@ -350,27 +382,36 @@ function RequestDetailPage() {
               </p>
             )}
 
+            {/* Every departure goes through beginContractingHandoff rather
+                than a raw <a>: the server resolves the destination, fills any
+                {npn}-style prefill, and records who left, when, from where —
+                which is the whole funnel between "ready" and "submitted". */}
             <div className="mt-4 space-y-2">
-              {packet.carrier.surelc_url && (
-                <a href={packet.carrier.surelc_url} target="_blank" rel="noreferrer" className="block">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open SureLC
-                  </Button>
-                </a>
-              )}
-              {packet.carrier.portal_url && (
-                <a href={packet.carrier.portal_url} target="_blank" rel="noreferrer" className="block">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open carrier portal
-                  </Button>
-                </a>
-              )}
-              {packet.carrier.invitation_link && (
-                <a href={packet.carrier.invitation_link} target="_blank" rel="noreferrer" className="block">
-                  <Button variant="outline" size="sm" className="w-full justify-start">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open invitation link
-                  </Button>
-                </a>
+              {(methods as any[]).filter((m) => m.method !== "email" ? m.target_url : m.target_email).map((m, i) => (
+                <Button
+                  key={m.id}
+                  variant={i === 0 ? "default" : "outline"}
+                  size="sm"
+                  className="w-full justify-start"
+                  disabled={handoff.isPending}
+                  onClick={() => handoff.mutate({ method_id: m.id })}
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  Open {METHOD_LABELS[m.method as ContractingMethod] ?? m.method}
+                </Button>
+              ))}
+              {/* Carriers configured before methods existed: one button, the
+                  server picks from the legacy columns. */}
+              {(methods as any[]).length === 0 &&
+                (packet.carrier.surelc_url || packet.carrier.portal_url || packet.carrier.invitation_link) && (
+                <Button
+                  size="sm"
+                  className="w-full justify-start"
+                  disabled={handoff.isPending}
+                  onClick={() => handoff.mutate({})}
+                >
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Open contracting flow
+                </Button>
               )}
               {packet.carrier.contracting_email && (
                 <a href={`mailto:${packet.carrier.contracting_email}`} className="block">
@@ -381,6 +422,22 @@ function RequestDetailPage() {
               )}
               <CopyButton label="Copy everything" text={fullBlock(packet)} />
             </div>
+
+            {handoffs.length > 0 && (
+              <div className="mt-3 space-y-1 border-t border-border-soft pt-3">
+                {handoffs.slice(0, 5).map((h: any) => (
+                  <p key={h.id} className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>
+                      Opened {METHOD_LABELS[h.method as ContractingMethod] ?? h.method ?? "portal"}
+                      {" · "}{new Date(h.generated_at).toLocaleDateString()}
+                    </span>
+                    <span className={h.marked_submitted_at ? "text-success" : "text-text-dim"}>
+                      {h.marked_submitted_at ? "submitted" : "not yet marked submitted"}
+                    </span>
+                  </p>
+                ))}
+              </div>
+            )}
 
             {methods.length === 0 && (
               <p className="mt-3 text-[11px] text-text-dim">

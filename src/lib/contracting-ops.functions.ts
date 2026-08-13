@@ -10,6 +10,7 @@ import {
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
 import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
+import { resolveHandoffMethod, legacyFallbackUrl } from "@/lib/contracting-ops/handoff";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -258,9 +259,10 @@ const OrgCarrierSchema = z.object({
   /** Supplied instead of carrier_id to create a carrier the catalog lacks. */
   new_carrier_name: z.string().trim().min(2).max(120).optional(),
   status: z.enum(["active", "paused", "not_contracted", "terminated"]).default("active"),
-  contracting_portal_url: z.string().url().max(500).nullable().optional(),
-  surelc_url: z.string().url().max(500).nullable().optional(),
-  invitation_link: z.string().url().max(500).nullable().optional(),
+  // The three gateway URL fields are gone from this schema on purpose. They
+  // live in org_carrier_methods now, written through saveOrgCarrierMethod;
+  // z.object strips unknown keys, so a stale client still sending them has
+  // them dropped rather than written to the deprecated columns.
   contracting_email: z.string().email().max(200).nullable().optional(),
   contracting_phone: z.string().max(40).nullable().optional(),
   support_email: z.string().email().max(200).nullable().optional(),
@@ -939,7 +941,12 @@ export const getContractingRequest = createServerFn({ method: "GET" })
     const agent = facts.agentProfile;
     const upline = facts.uplineProfile;
     const owner = facts.ownerProfile;
-    const method = (methods ?? []).find((m: any) => m.is_default) ?? (methods ?? [])[0] ?? null;
+    // Through the shared resolver, which is what the handoff itself uses — so
+    // the method the packet names and the door the Open button opens cannot
+    // disagree. The old inline pick (`is_default ?? first`) ignored
+    // `applies_to`, so a carrier with "email for transfers, SureLC for
+    // everything else" showed SureLC on its transfer packets.
+    const method = resolveHandoffMethod((methods ?? []) as any[], facts.request.contract_type);
 
     const packet: Packet = {
       agency_name: null,
@@ -982,9 +989,15 @@ export const getContractingRequest = createServerFn({ method: "GET" })
       carrier: {
         name: facts.carrier?.carriers?.name ?? "Carrier",
         method: method?.method ?? null,
-        portal_url: method?.target_url ?? facts.carrier?.contracting_portal_url ?? null,
-        surelc_url: facts.carrier?.surelc_url ?? null,
-        invitation_link: facts.carrier?.invitation_link ?? null,
+        // Method row first, legacy column second — for every kind. The old
+        // chain fell back only for portal_url, so a SureLC link living on the
+        // legacy column rendered a packet with no SureLC at all.
+        portal_url: (method?.method === "carrier_portal" ? method.target_url : null)
+          ?? legacyFallbackUrl(facts.carrier, "carrier_portal"),
+        surelc_url: (method?.method === "surelc" ? method.target_url : null)
+          ?? facts.carrier?.surelc_url ?? null,
+        invitation_link: (method?.method === "invitation_link" ? method.target_url : null)
+          ?? facts.carrier?.invitation_link ?? null,
         contracting_email: method?.target_email ?? facts.carrier?.contracting_email ?? null,
         support_email: facts.carrier?.support_email ?? null,
         support_phone: facts.carrier?.support_phone ?? null,
@@ -1155,6 +1168,34 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin
       .from("contracting_requests").update(patch).eq("id", data.id).eq("organization_id", orgId);
     if (error) throw new Error(error.message);
+
+    // "Mark submitted" closes the handoff loop. If somebody opened a portal
+    // for this request and this is the first confirmation since, stamp that
+    // handoff's marked_submitted_at — the column whose own header says "set
+    // when a human confirms the external step" and which nothing ever wrote.
+    // The gap between generated_at and this stamp is time-to-complete per
+    // carrier, the number the whole telemetry exists to produce.
+    if (data.status === "submitted") {
+      const { data: handoff } = await supabaseAdmin
+        .from("contracting_submissions")
+        .select("id")
+        .eq("request_id", data.id)
+        .eq("artifact_type", "portal_handoff")
+        .is("marked_submitted_at", null)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (handoff) {
+        await supabaseAdmin
+          .from("contracting_submissions")
+          .update({
+            marked_submitted_at: now,
+            marked_submitted_by: userId,
+            confirmation_reference: data.confirmation_reference ?? null,
+          })
+          .eq("id", handoff.id);
+      }
+    }
 
     // Finishing the work produces a contract. contract_requests is where a
     // contract record lives — it is what the agent's own Contracts page, the

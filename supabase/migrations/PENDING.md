@@ -25,6 +25,17 @@ Delete a line once the migration is applied.
 - `20260806120000_ai-message-log.sql`
 - `20260806130000_nova-usage-and-upsells.sql`
 - `20260806230000_self-activation-gate.sql`
+- `20260814100000_contracting-gateway-consolidation.sql`
+
+`20260814100000` backfills `org_carrier_methods` from the three legacy
+`org_carriers` URL columns and promotes one default per carrier. Nothing breaks
+while it is pending: the handoff and packet resolvers read method rows first
+and fall back to the legacy columns, which is exactly the pre-migration state.
+What the window costs is coherence for *newly edited* carriers — the dialog no
+longer writes the legacy columns, so a carrier whose URL is changed via
+Submission methods before the backfill runs briefly has the new URL in methods
+and the old one in the legacy column; every reader prefers the method row, so
+the old value is inert. The columns are commented deprecated, not dropped.
 - `20260807100000_org-branding-bucket.sql`
 
 `20260807100000` adds the `org-branding` bucket and `may_write_org_branding`.
