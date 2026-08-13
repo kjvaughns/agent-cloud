@@ -114,6 +114,11 @@ const VERIFIED_APPLIED = new Set([
   "20260806110000_carrier-aliases.sql",
   "20260806120000_ai-message-log.sql",
   "20260806130000_nova-usage-and-upsells.sql",
+  "20260806230000_self-activation-gate.sql",
+  // Applied as a private bucket plus its policies — this workspace refuses
+  // public buckets, so the `insert into storage.buckets` line went in with
+  // `public = false` and `src/lib/org-branding.ts` reads through a signed URL.
+  "20260807100000_org-branding-bucket.sql",
 ]);
 
 /**
