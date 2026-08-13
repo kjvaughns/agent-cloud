@@ -397,6 +397,9 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       // the two. The agency owner can activate them at any point, and posting
       // a first policy does it automatically.
       status: "pending",
+      // The invite carries the agency level the owner picked, so the new agent
+      // lands on the ladder rather than nowhere.
+      agency_level_id: (inv as any).agency_level_id ?? null,
     }).eq("id", newUserId);
 
     // Assign role from invite
