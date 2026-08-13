@@ -11,8 +11,12 @@ type Ctx = { supabase: any; userId: string };
 /**
  * Discord sales bot.
  *
- * Announces posted deals in the agency's own Discord server via an incoming
- * webhook.
+ * An agency can connect several channels — a sales channel that hears about
+ * every deal, a leadership channel that only hears about the big ones — so
+ * each webhook is its own row with its own threshold and its own event
+ * switches. The delivery ledger records which webhook each announcement went
+ * to, which is also what stops the idempotency guard from letting the first
+ * channel announce a deal and calling every other channel a duplicate.
  *
  * The webhook URL is a bearer credential — anyone holding it can post to that
  * channel. So it is owner-only at the RLS layer, never returned to the browser
@@ -35,6 +39,12 @@ function maskWebhook(url: string) {
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
+const WEBHOOK_COLUMNS =
+  "id, channel_label, enabled, post_deals, post_milestones, post_new_agents, min_annual_premium, last_success_at, last_error, last_error_at, created_at";
+
+/** Somebody will paste the same channel twice; there is no limit worth arguing about beyond that. */
+const MAX_WEBHOOKS = 10;
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 export const getDiscordSettings = createServerFn({ method: "GET" })
@@ -42,87 +52,115 @@ export const getDiscordSettings = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
-    if (!orgId) return { settings: null, isOwner: false };
+    if (!orgId) return { webhooks: [], isOwner: false, maxWebhooks: MAX_WEBHOOKS };
 
     const { data: org } = await supabaseAdmin
       .from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
     const isOwner = org?.owner_id === userId;
-    if (!isOwner) return { settings: null, isOwner: false };
+    if (!isOwner) return { webhooks: [], isOwner: false, maxWebhooks: MAX_WEBHOOKS };
 
     const { data } = await supabaseAdmin
       .from("discord_integrations")
-      .select("*")
+      // The full URL never leaves the server; the masked form is enough to
+      // recognise which channel a row is.
+      .select(`${WEBHOOK_COLUMNS}, webhook_url`)
       .eq("organization_id", orgId)
-      .maybeSingle();
+      .order("created_at", { ascending: true });
 
-    if (!data) return { settings: null, isOwner: true };
+    const webhooks = ((data ?? []) as any[]).map(({ webhook_url, ...rest }) => ({
+      ...rest,
+      webhook_masked: maskWebhook(webhook_url),
+    }));
 
-    // Never hand the full credential back to the client.
-    const { webhook_url, ...rest } = data;
-    return {
-      settings: { ...rest, webhook_masked: maskWebhook(webhook_url), configured: true },
-      isOwner: true,
-    };
+    return { webhooks, isOwner: true, maxWebhooks: MAX_WEBHOOKS };
   });
+
+const WebhookSchema = z.object({
+  /** Omitted when adding a channel; present when editing one. */
+  id: z.string().uuid().optional(),
+  // Omit to keep the stored URL — the UI never receives it to send back.
+  webhook_url: z
+    .string()
+    .url()
+    .refine((u) => /^https:\/\/(canary\.|ptb\.)?discord\.com\/api\/webhooks\//.test(u), {
+      message: "That is not a Discord webhook URL.",
+    })
+    .optional(),
+  channel_label: z.string().trim().max(80).nullable().optional(),
+  enabled: z.boolean().optional(),
+  post_deals: z.boolean().optional(),
+  post_milestones: z.boolean().optional(),
+  post_new_agents: z.boolean().optional(),
+  min_annual_premium: z.number().min(0).max(1_000_000).optional(),
+});
 
 export const saveDiscordSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({
-      // Omit to keep the stored URL — the UI never receives it to send back.
-      webhook_url: z
-        .string()
-        .url()
-        .refine((u) => /^https:\/\/(canary\.|ptb\.)?discord\.com\/api\/webhooks\//.test(u), {
-          message: "That is not a Discord webhook URL.",
-        })
-        .optional(),
-      channel_label: z.string().trim().max(80).nullable().optional(),
-      enabled: z.boolean().optional(),
-      post_deals: z.boolean().optional(),
-      post_milestones: z.boolean().optional(),
-      post_new_agents: z.boolean().optional(),
-      min_annual_premium: z.number().min(0).max(1_000_000).optional(),
-    }).parse(d)
-  )
+  .inputValidator((d: unknown) => WebhookSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
     await assertOrgOwner(userId, orgId);
 
-    const { data: existing } = await supabaseAdmin
-      .from("discord_integrations").select("organization_id").eq("organization_id", orgId).maybeSingle();
+    const { id, ...fields } = data;
+    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined) patch[k] = v;
 
-    if (!existing && !data.webhook_url) {
-      throw new Error("Add your Discord webhook URL to connect.");
+    if (id) {
+      // Scoped by organization_id as well as id: an owner may only edit their
+      // own agency's channels, even holding somebody else's row id.
+      const { data: row, error } = await supabaseAdmin
+        .from("discord_integrations")
+        .update(patch)
+        .eq("id", id)
+        .eq("organization_id", orgId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(friendlyError(error));
+      if (!row) throw new Error("That Discord channel no longer exists.");
+      return { ok: true, id: row.id };
     }
 
-    const patch: Record<string, unknown> = {
-      organization_id: orgId,
-      created_by: userId,
-      updated_at: new Date().toISOString(),
-    };
-    for (const [k, v] of Object.entries(data)) if (v !== undefined) patch[k] = v;
+    if (!data.webhook_url) throw new Error("Add your Discord webhook URL to connect.");
 
-    const { error } = await supabaseAdmin
+    const { count } = await supabaseAdmin
       .from("discord_integrations")
-      .upsert(patch, { onConflict: "organization_id" });
-    if (error) throw new Error(error.message);
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId);
+    if ((count ?? 0) >= MAX_WEBHOOKS) {
+      throw new Error(`You can connect up to ${MAX_WEBHOOKS} Discord channels.`);
+    }
 
-    return { ok: true };
+    const { data: row, error } = await supabaseAdmin
+      .from("discord_integrations")
+      .insert({ ...patch, organization_id: orgId, created_by: userId })
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(friendlyError(error));
+    return { ok: true, id: row?.id };
   });
+
+/** 23505 here can only be the one-webhook-per-channel index. */
+function friendlyError(error: { code?: string; message?: string }): string {
+  if (error.code === "23505") return "That channel is already connected.";
+  return error.message ?? "Could not save that Discord channel.";
+}
 
 export const disconnectDiscord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
     await assertOrgOwner(userId, orgId);
 
     const { error } = await supabaseAdmin
-      .from("discord_integrations").delete().eq("organization_id", orgId);
+      .from("discord_integrations")
+      .delete()
+      .eq("id", data.id)
+      .eq("organization_id", orgId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -143,12 +181,27 @@ async function postToDiscord(webhookUrl: string, body: unknown) {
   return res.status;
 }
 
+async function markSuccess(integrationId: string) {
+  await supabaseAdmin
+    .from("discord_integrations")
+    .update({ last_success_at: new Date().toISOString(), last_error: null, last_error_at: null })
+    .eq("id", integrationId);
+}
+
+async function markFailure(integrationId: string, message: string) {
+  await supabaseAdmin
+    .from("discord_integrations")
+    .update({ last_error: message.slice(0, 500), last_error_at: new Date().toISOString() })
+    .eq("id", integrationId);
+}
+
 /**
- * Announce a posted deal.
+ * Announce a posted deal in every channel that wants it.
  *
  * Called from the deal-posting path. Deliberately never throws: a Discord
  * outage must not fail the deal that was just written. Every outcome —
- * including "skipped" — is recorded so an owner can see why nothing appeared.
+ * including "skipped" — is recorded per channel, so an owner can see which
+ * channel heard about a deal and which did not, and why.
  */
 export async function announceDeal(policyId: string): Promise<void> {
   try {
@@ -164,25 +217,17 @@ export async function announceDeal(policyId: string): Promise<void> {
     const { refusedForDemo } = await import("@/lib/demo.server");
     if (await refusedForDemo(policy.organization_id, "send a webhook")) return;
 
-    const { data: cfg } = await supabaseAdmin
+    const { data: configs } = await supabaseAdmin
       .from("discord_integrations")
       .select("*")
       .eq("organization_id", policy.organization_id)
-      .maybeSingle();
+      .eq("enabled", true)
+      .eq("post_deals", true);
 
-    if (!cfg || !cfg.enabled || !cfg.post_deals) return;
+    const targets = (configs ?? []) as any[];
+    if (targets.length === 0) return;
 
     const annual = Number(policy.annual_premium ?? 0);
-    if (annual < Number(cfg.min_annual_premium ?? 0)) {
-      await supabaseAdmin.from("discord_deliveries").insert({
-        organization_id: policy.organization_id,
-        event_type: "deal_posted",
-        policy_id: policy.id,
-        status: "skipped",
-        error: "Below the agency's minimum premium threshold",
-      });
-      return;
-    }
 
     const [{ data: agent }, { data: carrier }] = await Promise.all([
       supabaseAdmin.from("profiles").select("first_name, last_name").eq("id", policy.agent_id).maybeSingle(),
@@ -204,7 +249,7 @@ export async function announceDeal(policyId: string): Promise<void> {
       { name: "Face Amount", value: policy.face_amount ? money(Number(policy.face_amount)) : "—", inline: true },
     ];
 
-    const status = await postToDiscord(cfg.webhook_url, {
+    const body = {
       username: "Agent Cloud",
       embeds: [
         {
@@ -216,52 +261,70 @@ export async function announceDeal(policyId: string): Promise<void> {
           footer: { text: "Agent Cloud" },
         },
       ],
-    });
+    };
 
-    // Unique on (policy_id, event_type) where status = 'sent', so a retry or a
-    // double submit cannot announce the same deal twice.
-    await supabaseAdmin.from("discord_deliveries").insert({
-      organization_id: policy.organization_id,
-      event_type: "deal_posted",
-      policy_id: policy.id,
-      status: "sent",
-      http_status: status,
-    });
+    // One channel refusing, or failing, must not stop the others.
+    await Promise.all(
+      targets.map(async (cfg) => {
+        try {
+          if (annual < Number(cfg.min_annual_premium ?? 0)) {
+            await supabaseAdmin.from("discord_deliveries").insert({
+              organization_id: policy.organization_id,
+              integration_id: cfg.id,
+              event_type: "deal_posted",
+              policy_id: policy.id,
+              status: "skipped",
+              error: "Below this channel's minimum premium threshold",
+            });
+            return;
+          }
 
-    await supabaseAdmin
-      .from("discord_integrations")
-      .update({ last_success_at: new Date().toISOString(), last_error: null, last_error_at: null })
-      .eq("organization_id", policy.organization_id);
-  } catch (e: any) {
-    // 23505 = already announced. Not an error worth surfacing.
-    if (e?.code === "23505") return;
-    try {
-      const { data: policy } = await supabaseAdmin
-        .from("policies").select("organization_id").eq("id", policyId).maybeSingle();
-      if (policy?.organization_id) {
-        await supabaseAdmin.from("discord_deliveries").insert({
-          organization_id: policy.organization_id,
-          event_type: "deal_posted",
-          policy_id: policyId,
-          status: "failed",
-          http_status: e?.status ?? null,
-          error: String(e?.message ?? e).slice(0, 500),
-        });
-        await supabaseAdmin
-          .from("discord_integrations")
-          .update({ last_error: String(e?.message ?? e).slice(0, 500), last_error_at: new Date().toISOString() })
-          .eq("organization_id", policy.organization_id);
-      }
-    } catch {
-      // Logging the failure must not itself throw.
-    }
+          const status = await postToDiscord(cfg.webhook_url, body);
+
+          // Unique on (policy_id, event_type, integration_id) where status =
+          // 'sent', so a retry or a double submit cannot announce the same deal
+          // twice in the same channel.
+          await supabaseAdmin.from("discord_deliveries").insert({
+            organization_id: policy.organization_id,
+            integration_id: cfg.id,
+            event_type: "deal_posted",
+            policy_id: policy.id,
+            status: "sent",
+            http_status: status,
+          });
+
+          await markSuccess(cfg.id);
+        } catch (e: any) {
+          // 23505 = already announced in this channel. Not worth surfacing.
+          if (e?.code === "23505") return;
+          const msg = String(e?.message ?? e).slice(0, 500);
+          try {
+            await supabaseAdmin.from("discord_deliveries").insert({
+              organization_id: policy.organization_id,
+              integration_id: cfg.id,
+              event_type: "deal_posted",
+              policy_id: policy.id,
+              status: "failed",
+              http_status: e?.status ?? null,
+              error: msg,
+            });
+            await markFailure(cfg.id, msg);
+          } catch {
+            // Logging the failure must not itself throw.
+          }
+        }
+      }),
+    );
+  } catch {
+    // Same contract: the deal is already written, and nothing here may undo it.
   }
 }
 
-/** Owner-triggered test post, so setup can be verified without writing a deal. */
+/** Owner-triggered test post, so each channel can be verified on its own. */
 export const sendDiscordTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
@@ -271,8 +334,12 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
     await assertNotDemo(orgId, "send a webhook");
 
     const { data: cfg } = await supabaseAdmin
-      .from("discord_integrations").select("webhook_url").eq("organization_id", orgId).maybeSingle();
-    if (!cfg?.webhook_url) throw new Error("Connect Discord first.");
+      .from("discord_integrations")
+      .select("id, webhook_url")
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!cfg?.webhook_url) throw new Error("That Discord channel no longer exists.");
 
     try {
       const status = await postToDiscord(cfg.webhook_url, {
@@ -284,17 +351,11 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
           timestamp: new Date().toISOString(),
         }],
       });
-      await supabaseAdmin
-        .from("discord_integrations")
-        .update({ last_success_at: new Date().toISOString(), last_error: null, last_error_at: null })
-        .eq("organization_id", orgId);
+      await markSuccess(cfg.id);
       return { ok: true, status };
     } catch (e: any) {
       const msg = String(e?.message ?? e).slice(0, 500);
-      await supabaseAdmin
-        .from("discord_integrations")
-        .update({ last_error: msg, last_error_at: new Date().toISOString() })
-        .eq("organization_id", orgId);
+      await markFailure(cfg.id, msg);
       throw new Error(
         e?.status === 404
           ? "Discord rejected that webhook — it may have been deleted. Create a new one and paste it again."
@@ -309,7 +370,7 @@ export const listDiscordDeliveries = createServerFn({ method: "GET" })
     const { supabase } = context as Ctx;
     const { data, error } = await supabase
       .from("discord_deliveries")
-      .select("id, event_type, status, http_status, error, created_at")
+      .select("id, event_type, status, http_status, error, created_at, integration_id")
       .order("created_at", { ascending: false })
       .limit(25);
     if (error) return { deliveries: [] };
