@@ -188,22 +188,33 @@ function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
                 ))}
               </dl>
 
-              {(c.contracting_portal_url || c.surelc_url) && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {c.surelc_url && (
-                    <a href={c.surelc_url} target="_blank" rel="noreferrer"
-                       className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" /> SureLC
-                    </a>
-                  )}
-                  {c.contracting_portal_url && (
-                    <a href={c.contracting_portal_url} target="_blank" rel="noreferrer"
-                       className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                      <ExternalLink className="h-3 w-3" /> Portal
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Method rows first, the legacy columns as fallback — the same
+                  order the packet and the handoff use. These stay plain links:
+                  this is a staff configuration surface, and the per-request
+                  funnel is where clicks are worth recording. */}
+              {(() => {
+                const byKind = (kind: string) =>
+                  (c.org_carrier_methods ?? []).find((m: any) => m.method === kind)?.target_url
+                    ?? (kind === "surelc" ? c.surelc_url
+                      : kind === "carrier_portal" ? c.contracting_portal_url
+                      : c.invitation_link);
+                const chips = [
+                  ["SureLC", byKind("surelc")],
+                  ["Portal", byKind("carrier_portal")],
+                  ["Invitation", byKind("invitation_link")],
+                ].filter(([, url]) => url);
+                if (!chips.length) return null;
+                return (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {chips.map(([label, url]) => (
+                      <a key={String(label)} href={String(url)} target="_blank" rel="noreferrer"
+                         className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                        <ExternalLink className="h-3 w-3" /> {label}
+                      </a>
+                    ))}
+                  </div>
+                );
+              })()}
             </Panel>
           ))}
         </div>
@@ -254,8 +265,6 @@ function CarrierDialog({
     setCarrierId("");
     setNewName("");
     setForm({
-      contracting_portal_url: carrier?.contracting_portal_url ?? "",
-      surelc_url: carrier?.surelc_url ?? "",
       contracting_email: carrier?.contracting_email ?? "",
       support_email: carrier?.support_email ?? "",
       turnaround_days: carrier?.turnaround_days ? String(carrier.turnaround_days) : "",
@@ -280,8 +289,10 @@ function CarrierDialog({
       carrier_id: editingExisting ? undefined : (carrierId || undefined),
       new_carrier_name: editingExisting ? undefined : (newName.trim() || undefined),
       status: carrier?.status ?? "active",
-      contracting_portal_url: clean(form.contracting_portal_url ?? ""),
-      surelc_url: clean(form.surelc_url ?? ""),
+      // The URL fields are gone from this dialog on purpose — gateways live in
+      // Submission methods below, one row per method, rather than as loose
+      // columns here. Omitting them (not nulling them) leaves any legacy
+      // values in place until the backfill migration moves them over.
       contracting_email: clean(form.contracting_email ?? ""),
       support_email: clean(form.support_email ?? ""),
       turnaround_days: form.turnaround_days ? Number(form.turnaround_days) : null,
@@ -343,9 +354,11 @@ function CarrierDialog({
             </>
           )}
 
+          {/* SureLC and portal URLs used to be two loose fields here, beside a
+              Submission methods editor holding the same facts — two stores for
+              one answer, and the packet had to guess which one to trust.
+              Methods are the one store now; these fields are contact info. */}
           {([
-            ["surelc_url", "SureLC link", "https://…"],
-            ["contracting_portal_url", "Carrier portal", "https://…"],
             ["contracting_email", "Contracting email", "contracting@carrier.com"],
             ["support_email", "Support email", "support@carrier.com"],
             ["turnaround_days", "Typical turnaround (days)", "7"],
@@ -412,6 +425,12 @@ function CarrierDialog({
               the alternative is holding unsaved methods in memory and writing
               them after the insert, which fails halfway in a way nobody sees. */}
           {editingExisting && <MethodsEditor carrier={carrier} />}
+          {!editingExisting && (
+            <p className="text-[11px] text-text-dim">
+              Where submissions actually go — SureLC, a carrier portal, an invitation link — is
+              configured under Submission methods, which appears once the carrier is saved.
+            </p>
+          )}
         </div>
 
         <DialogFooter>
