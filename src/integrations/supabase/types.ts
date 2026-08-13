@@ -267,6 +267,105 @@ export type Database = {
           },
         ]
       }
+      agency_level_carrier_mappings: {
+        Row: {
+          agency_level_id: string
+          carrier_level_name: string | null
+          carrier_pct: number | null
+          created_at: string
+          id: string
+          org_carrier_id: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_level_id: string
+          carrier_level_name?: string | null
+          carrier_pct?: number | null
+          created_at?: string
+          id?: string
+          org_carrier_id: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_level_id?: string
+          carrier_level_name?: string | null
+          carrier_pct?: number | null
+          created_at?: string
+          id?: string
+          org_carrier_id?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_level_carrier_mappings_agency_level_id_fkey"
+            columns: ["agency_level_id"]
+            isOneToOne: false
+            referencedRelation: "agency_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_carrier_mappings_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_carrier_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_levels: {
+        Row: {
+          active: boolean
+          base_pct: number
+          can_invite: boolean
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          base_pct: number
+          can_invite?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          base_pct?: number
+          can_invite?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_levels_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
@@ -4648,6 +4747,7 @@ export type Database = {
       }
       invitation_links: {
         Row: {
+          agency_level_id: string | null
           agent_completed_at: string | null
           agent_started_at: string | null
           carrier_assignments: Json
@@ -4674,6 +4774,7 @@ export type Database = {
           token: string
         }
         Insert: {
+          agency_level_id?: string | null
           agent_completed_at?: string | null
           agent_started_at?: string | null
           carrier_assignments?: Json
@@ -4700,6 +4801,7 @@ export type Database = {
           token: string
         }
         Update: {
+          agency_level_id?: string | null
           agent_completed_at?: string | null
           agent_started_at?: string | null
           carrier_assignments?: Json
@@ -4726,6 +4828,13 @@ export type Database = {
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invitation_links_agency_level_id_fkey"
+            columns: ["agency_level_id"]
+            isOneToOne: false
+            referencedRelation: "agency_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invitation_links_created_by_fkey"
             columns: ["created_by"]
@@ -6747,6 +6856,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          agency_level_id: string | null
           agent_slug: string | null
           agreement_agency_name: string | null
           agreement_signature_html: string | null
@@ -6800,6 +6910,7 @@ export type Database = {
           zip_code: string | null
         }
         Insert: {
+          agency_level_id?: string | null
           agent_slug?: string | null
           agreement_agency_name?: string | null
           agreement_signature_html?: string | null
@@ -6853,6 +6964,7 @@ export type Database = {
           zip_code?: string | null
         }
         Update: {
+          agency_level_id?: string | null
           agent_slug?: string | null
           agreement_agency_name?: string | null
           agreement_signature_html?: string | null
@@ -6906,6 +7018,13 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_agency_level_id_fkey"
+            columns: ["agency_level_id"]
+            isOneToOne: false
+            referencedRelation: "agency_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_organization_id_fkey"
             columns: ["organization_id"]
