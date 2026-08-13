@@ -397,7 +397,6 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       // the two. The agency owner can activate them at any point, and posting
       // a first policy does it automatically.
       status: "pending",
-      agency_level_id: inv.agency_level_id ?? null,
     }).eq("id", newUserId);
 
     // Assign role from invite
@@ -689,4 +688,453 @@ export const addCarriersToInvite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
-    for (coÛÝx¶‰žËkºwµç@¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È¡•ÉÉ½È¹µ•ÍÍ…”¤ì(€€€É•ÑÕÉ¸ì½¬èÑÉÕ”ôì(€ô¤ì()•áÁ½ÉÐ½¹ÍÐ‘•±•Ñ•¡…¹•I•ÅÕ•ÍÐ€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ì¥èè¹ÍÑÉ¥¹œ ¤¹ÕÕ¥ ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”ô€ô½¹Ñ•áÐ…ÌÑàì(€€€€¼¼€¹Í•±•Ð ‰¥ˆ¤Í¼…¸I1Lµ™¥±Ñ•É•‘•±•Ñ”¥ÌÉ•Á½ÉÑ•É…Ñ¡•ÈÑ¡…¸(€€€€¼¼É•ÑÕÉ¹¥¹œ½¬¸A½ÍÑÉ•Ì‘½•Ì¹½ÐÑÉ•…Ð€‰µ…Ñ¡•¹¼É½ÝÌˆ…Ì…¸•ÉÉ½È°(€€€€¼¼Í¼Ñ¡¥ÌÕÍ•Ñ¼ÍÕ••Í¥±•¹Ñ±ä…¹Ñ¡”¡…¹”É•ÅÕ•ÍÐÍÑ…å•½¸ÍÉ••¸(€€€€¼¼Õ¹Ñ¥°Ñ¡”¹•áÐÉ•™É•Í ‰É½Õ¡Ð¥Ð‰…¬¸(€€€½¹ÍÐì‘…Ñ„è½¹”°•ÉÉ½Èô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€¹™É½´ ‰¡…¹•}É•ÅÕ•ÍÑÌˆ¤¹‘•±•Ñ” ¤¹•Ä ‰¥ˆ°‘…Ñ„¹¥¤¹Í•±•Ð ‰¥ˆ¤ì(€€€¥˜€¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È¡•ÉÉ½È¹µ•ÍÍ…”¤ì(€€€¥˜€ …½¹”ü¹±•¹Ñ ¤ì(€€€€€Ñ¡É½Ü¹•ÜÉÉ½È ‰Q¡…Ð¡…¹”É•ÅÕ•ÍÐ¥Ì¹¼±½¹•ÈÑ¡•É”°½È¥Ð¥Ì¹½Ðå½ÕÉÌÑ¼‘•±•Ñ”¸ˆ¤ì(€€€ô(€€€É•ÑÕÉ¸ì½¬èÑÉÕ”ôì(€ô¤ì((¼¼€ôôôôôôôôôôôôMÕÉ•1AÉ½É•ÍÌ€ôôôôôôôôôôôô()•áÁ½ÉÐ½¹ÍÐ±¥ÍÑMÕÉ•±AÉ½É•ÍÌ€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ìÍ½Á”èè¹•¹Õ´¡l‰µ¥¹”ˆ°‰‘½Ý¹±¥¹”‰t¤¹‘•™…Õ±Ð ‰‘½Ý¹±¥¹”ˆ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”°ÕÍ•É%ô€ô½¹Ñ•áÐ…ÌÑàì((€€€±•Ð…•¹Ñ%‘ÌèÍÑÉ¥¹mt€ômtì(€€€¥˜€¡‘…Ñ„¹Í½Á”€ôôô€‰µ¥¹”ˆ¤ì(€€€€€…•¹Ñ%‘Ì€ômÕÍ•É%‘tì(€€€ô•±Í”ì(€€€€€½¹ÍÐì‘…Ñ„è‘½Ý¹±¥¹”ô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹ÉÁŒ ‰•Ñ}‘½Ý¹±¥¹•}…•¹ÑÌˆ¤ì(€€€€€…•¹Ñ%‘Ì€ômÕÍ•É%°€¸¸¸ ¡‘½Ý¹±¥¹”€üümt¤…Ì…¹åmt¤¹µ…À ¡è…¹ä¤€ôø¹¥¥tì(€€€ô((€€€½¹ÍÐì‘…Ñ„è¥¹Ù¥Ñ•Ìô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€¹™É½´ ‰¥¹Ù¥Ñ…Ñ¥½¹}±¥¹­Ìˆ¤(€€€€€€¹Í•±•Ð ‰¥±±¥¹­•‘}…•¹Ñ}¥±…ÉÉ¥•É}…ÍÍ¥¹µ•¹ÑÌ±É•…Ñ•‘}…Ð±ÍÕÉ•±}…•¹Ñ}¥ˆ¤(€€€€€€¹¥¸ ‰±¥¹­•‘}…•¹Ñ}¥ˆ°…•¹Ñ%‘Ì¤(€€€€€€¹•Ä ‰ÍÑ…ÑÕÌˆ°€‰¥¹}ÍÕÉ•±Œˆ¤ì((€€€½¹ÍÐ±¥¹­•‘%‘Ì€ôÉÉ…ä¹™É½´¡¹•ÜM•Ð  ¡¥¹Ù¥Ñ•Ì€üümt¤…Ì…¹åmt¤¹µ…À ¡¤è…¹ä¤€ôø¤¹±¥¹­•‘}…•¹Ñ}¥¤¤¤ì(€€€¥˜€¡±¥¹­•‘%‘Ì¹±•¹Ñ €ôôô€À¤É•ÑÕÉ¸ì…•¹ÑÌèmtôì((€€€½¹ÍÐì‘…Ñ„èÁÉ½™¥±•Ìô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹™É½´ ‰ÁÉ½™¥±•Ìˆ¤¹Í•±•Ð ‰¥±™¥ÉÍÑ}¹…µ”±±…ÍÑ}¹…µ”ˆ¤¹¥¸ ‰¥ˆ°±¥¹­•‘%‘Ì¤ì(€€€½¹ÍÐÁÉ½™5…À€ô¹•Ü5…ÀñÍÑÉ¥¹œ°…¹äø ¤ì(€€€€¡ÁÉ½™¥±•Ì€üümt¤¹™½É…  ¡Àè…¹ä¤€ôøÁÉ½™5…À¹Í•Ð¡À¹¥°À¤¤ì((€€€½¹ÍÐì‘…Ñ„èÁÉ½É•ÍÌô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€¹™É½´ ‰ÍÕÉ•±}ÁÉ½É•ÍÌˆ¤¹Í•±•Ð ‰…•¹Ñ}¥±Í•Ñ¥½¹}¹…µ”±½µÁ±•Ñ•±±…ÍÑ}Íå¹•‘}…Ðˆ¤¹¥¸ ‰…•¹Ñ}¥ˆ°±¥¹­•‘%‘Ì¤ì((€€€½¹ÍÐ…•¹ÑÌ€ô€¡¥¹Ù¥Ñ•Ì€üümt¤¹µ…À ¡¥¹Øè…¹ä¤€ôøì(€€€€€½¹ÍÐÍ•Ñ¥½¹Ì€ô€¡ÁÉ½É•ÍÌ€üümt¤¹™¥±Ñ•È ¡Àè…¹ä¤€ôøÀ¹…•¹Ñ}¥€ôôô¥¹Ø¹±¥¹­•‘}…•¹Ñ}¥¤ì(€€€€€½¹ÍÐ½µÁ±•Ñ•€ôÍ•Ñ¥½¹Ì¹™¥±Ñ•È ¡Ìè…¹ä¤€ôøÌ¹½µÁ±•Ñ•¤¹±•¹Ñ ì(€€€€€½¹ÍÐÑ½Ñ…°€ôMUI1}MQ%=9L¹±•¹Ñ ì(€€€€€½¹ÍÐÁÉ½™¥±”€ôÁÉ½™5…À¹•Ð¡¥¹Ø¹±¥¹­•‘}…•¹Ñ}¥¤ì(€€€€€½¹ÍÐ…ÉÉ¥•ÉÌ€ôÉÉ…ä¹¥ÍÉÉ…ä¡¥¹Ø¹…ÉÉ¥•É}…ÍÍ¥¹µ•¹ÑÌ¤€ü¥¹Ø¹…ÉÉ¥•É}…ÍÍ¥¹µ•¹ÑÌ¹µ…À ¡Œè…¹ä¤€ôøŒ¹…ÉÉ¥•É}¹…µ”¤€èmtì(€€€€€É•ÑÕÉ¸ì(€€€€€€€…•¹Ñ}¥è¥¹Ø¹±¥¹­•‘}…•¹Ñ}¥°(€€€€€€€…•¹Ñ}¹…µ”èÁÉ½™¥±”€ü€‘íÁÉ½™¥±”¹™¥ÉÍÑ}¹…µ”€üü€ˆ‰ô€‘íÁÉ½™¥±”¹±…ÍÑ}¹…µ”€üü€ˆ‰õ€¹ÑÉ¥´ ¤€è€‰•¹Ðˆ°(€€€€€€€¥¹Ù¥Ñ•}¥è¥¹Ø¹¥°(€€€€€€€¥¹Ù¥Ñ•}Í•¹Ñ}…Ðè¥¹Ø¹É•…Ñ•‘}…Ð°(€€€€€€€…ÉÉ¥•ÉÌ°(€€€€€€€½µÁ±•Ñ•‘}½Õ¹Ðè½µÁ±•Ñ•°(€€€€€€€Ñ½Ñ…±}½Õ¹ÐèÑ½Ñ…°°(€€€€€€€Í•Ñ¥½¹ÌèMUI1}MQ%=9L¹µ…À ¡¹…µ”¤€ôøì(€€€€€€€€€½¹ÍÐÉ½Ü€ôÍ•Ñ¥½¹Ì¹™¥¹ ¡Ìè…¹ä¤€ôøÌ¹Í•Ñ¥½¹}¹…µ”€ôôô¹…µ”¤ì(€€€€€€€€€É•ÑÕÉ¸ì¹…µ”°½µÁ±•Ñ•èÉ½Üü¹½µÁ±•Ñ•€üü™…±Í”°±…ÍÑ}Íå¹•‘}…ÐèÉ½Üü¹±…ÍÑ}Íå¹•‘}…Ð€üü¹Õ±°ôì(€€€€€€€ô¤°(€€€€€ôì(€€€ô¤ì((€€€É•ÑÕÉ¸ì…•¹ÑÌôì(€ô¤ì()•áÁ½ÉÐ½¹ÍÐÉ•™É•Í¡MÕÉ•±AÉ½É•ÍÌ€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ì…•¹Ñ}¥èè¹ÍÑÉ¥¹œ ¤¹ÕÕ¥ ¤¹½ÁÑ¥½¹…° ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”°ÕÍ•É%ô€ô½¹Ñ•áÐ…ÌÑàì((€€€€¼¼MÑÕˆèÉ…¹‘½µ±ä…‘Ù…¹”€Ä´È¥¹½µÁ±•Ñ”Í•Ñ¥½¹ÌÁ•È…•¹Ð(€€€±•Ð…•¹Ñ%‘ÌèÍÑÉ¥¹mtì(€€€¥˜€¡‘…Ñ„¹…•¹Ñ}¥¤ì(€€€€€…•¹Ñ%‘Ì€ôm‘…Ñ„¹…•¹Ñ}¥‘tì(€€€ô•±Í”ì(€€€€€½¹ÍÐì‘…Ñ„è‘½Ý¹±¥¹”ô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹ÉÁŒ ‰•Ñ}‘½Ý¹±¥¹•}…•¹ÑÌˆ¤ì(€€€€€…•¹Ñ%‘Ì€ômÕÍ•É%°€¸¸¸ ¡‘½Ý¹±¥¹”€üümt¤…Ì…¹åmt¤¹µ…À ¡è…¹ä¤€ôø¹¥¥tì(€€€ô((€€€™½È€¡½¹ÍÐ…¥½˜…•¹Ñ%‘Ì¤ì(€€€€€½¹ÍÐì‘…Ñ„è¥¹½µÁ±•Ñ”ô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€€€¹™É½´ ‰ÍÕÉ•±}ÁÉ½É•ÍÌˆ¤¹Í•±•Ð ‰¥ˆ¤¹•Ä ‰…•¹Ñ}¥ˆ°…¥¤¹•Ä ‰½µÁ±•Ñ•ˆ°™…±Í”¤ì(€€€€€½¹ÍÐ±¥ÍÐ€ô€¡¥¹½µÁ±•Ñ”€üümt¤…Ì…¹åmtì(€€€€€¥˜€¡±¥ÍÐ¹±•¹Ñ €ôôô€À¤½¹Ñ¥¹Õ”ì(€€€€€½¹ÍÐ…‘Ù…¹•½Õ¹Ð€ô5…Ñ ¹µ¥¸¡±¥ÍÐ¹±•¹Ñ °5…Ñ ¹É…¹‘½´ ¤€ð€À¸Ð€ü€È€è€Ä¤ì(€€€€€½¹ÍÐÍ¡Õ™™±•€ô±¥ÍÐ¹Í½ÉÐ  ¤€ôø5…Ñ ¹É…¹‘½´ ¤€´€À¸Ô¤¹Í±¥” À°…‘Ù…¹•½Õ¹Ð¤ì(€€€€€™½È€¡½¹ÍÐÉ½Ü½˜Í¡Õ™™±•¤ì(€€€€€€€…Ý…¥ÐÍÕÁ…‰…Í”¹™É½´ ‰ÍÕÉ•±}ÁÉ½É•ÍÌˆ¤¹ÕÁ‘…Ñ”¡ì(€€€€€€€€€½µÁ±•Ñ•èÑÉÕ”°(€€€€€€€€€±…ÍÑ}Íå¹•‘}…Ðè¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¤°(€€€€€€€ô¤¹•Ä ‰¥ˆ°É½Ü¹¥¤ì(€€€€€ô(€€€ô(€€€É•ÑÕÉ¸ì½¬èÑÉÕ”ôì(€ô¤ì((¼¼€ôôôôôôôôôôôô5¥ÍŒ¡•±Á•ÉÌ€ôôôôôôôôôôôô()•áÁ½ÉÐ½¹ÍÐÍ•…É¡½Ý¹±¥¹••¹ÑÌ€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ìÅÕ•Éäèè¹ÍÑÉ¥¹œ ¤¹µ…à àÀ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”ô€ô½¹Ñ•áÐ…ÌÑàì(€€€½¹ÍÐì‘…Ñ„è‘½Ý¹±¥¹”ô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹ÉÁŒ ‰•Ñ}‘½Ý¹±¥¹•}…•¹ÑÌˆ¤ì(€€€½¹ÍÐÄ€ô‘…Ñ„¹ÅÕ•Éä¹Ñ½1½Ý•É…Í” ¤¹ÑÉ¥´ ¤ì(€€€½¹ÍÐ™¥±Ñ•É•€ô€ ¡‘½Ý¹±¥¹”€üümt¤…Ì…¹åmt¤¹™¥±Ñ•È ¡„è…¹ä¤€ôøì(€€€€€¥˜€ …Ä¤É•ÑÕÉ¸ÑÉÕ”ì(€€€€€É•ÑÕÉ¸€¡€‘í„¹™¥ÉÍÑ}¹…µ”€üü€ˆ‰ô€‘í„¹±…ÍÑ}¹…µ”€üü€ˆ‰õ€¤¹Ñ½1½Ý•É…Í” ¤¹¥¹±Õ‘•Ì¡Ä¤ì(€€€ô¤¹Í±¥” À°€ÈÀ¤ì(€€€É•ÑÕÉ¸ì…•¹ÑÌè™¥±Ñ•É•ôì(€ô¤ì()•áÁ½ÉÐ½¹ÍÐÍ…Ù•%¹Ù¥Ñ•M¥¹…ÑÕÉ”€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ìÍ¥¹…ÑÕÉ•}¡Ñµ°èè¹ÍÑÉ¥¹œ ¤¹µ…à ÔÀÀÀ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”°ÕÍ•É%ô€ô½¹Ñ•áÐ…ÌÑàì(€€€½¹ÍÐì•ÉÉ½Èô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹™É½´ ‰ÁÉ½™¥±•Ìˆ¤¹ÕÁ‘…Ñ”¡ì¥¹Ù¥Ñ•}Í¥¹…ÑÕÉ•}¡Ñµ°è‘…Ñ„¹Í¥¹…ÑÕÉ•}¡Ñµ°ô¤¹•Ä ‰¥ˆ°ÕÍ•É%¤ì(€€€¥˜€¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È¡•ÉÉ½È¹µ•ÍÍ…”¤ì(€€€É•ÑÕÉ¸ì½¬èÑÉÕ”ôì(€ô¤ì()•áÁ½ÉÐ½¹ÍÐ•Ñ5å%¹Ù¥Ñ•M¥¹…ÑÕÉ”€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰Pˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”°ÕÍ•É%ô€ô½¹Ñ•áÐ…ÌÑàì(€€€½¹ÍÐì‘…Ñ„ô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹™É½´ ‰ÁÉ½™¥±•Ìˆ¤¹Í•±•Ð ‰¥¹Ù¥Ñ•}Í¥¹…ÑÕÉ•}¡Ñµ°ˆ¤¹•Ä ‰¥ˆ°ÕÍ•É%¤¹µ…å‰•M¥¹±” ¤ì(€€€É•ÑÕÉ¸ìÍ¥¹…ÑÕÉ•}¡Ñµ°è‘…Ñ„ü¹¥¹Ù¥Ñ•}Í¥¹…ÑÕÉ•}¡Ñµ°€üü€ˆˆôì(€ô¤ì()•áÁ½ÉÐ½¹ÍÐ•ÑÑ¥Ù•½¹ÑÉ…ÑÍ½É•¹Ð€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ì…•¹Ñ}¥èè¹ÍÑÉ¥¹œ ¤¹ÕÕ¥ ¤ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”ô€ô½¹Ñ•áÐ…ÌÑàì(€€€½¹ÍÐÕÑ½™˜€ô¹•Ü…Ñ”¡…Ñ”¹¹½Ü ¤€´€äÀ€¨€ÈÐ€¨€ØÀ€¨€ØÀ€¨€ÄÀÀÀ¤¹Ñ½%M=MÑÉ¥¹œ ¤ì(€€€½¹ÍÐì‘…Ñ„èÉ½ÝÌ°•ÉÉ½Èô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€¹™É½´ ‰½¹ÑÉ…Ñ}É•ÅÕ•ÍÑÌˆ¤(€€€€€€¹Í•±•Ð ‰¥±…ÉÉ¥•É}¥±…Ñ¥Ù…Ñ•‘}…Ð±ÍÑ…ÑÕÌ±…ÉÉ¥•ÉÌ¡¹…µ”¤ˆ¤(€€€€€€¹•Ä ‰…•¹Ñ}¥ˆ°‘…Ñ„¹…•¹Ñ}¥¤(€€€€€€¹•Ä ‰ÍÑ…ÑÕÌˆ°€‰…Ñ¥Ù”ˆ¤(€€€€€€¹±Ñ” ‰…Ñ¥Ù…Ñ•‘}…Ðˆ°ÕÑ½™˜¤ì(€€€¥˜€¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È¡•ÉÉ½È¹µ•ÍÍ…”¤ì(€€€É•ÑÕÉ¸ìÉ½ÝÌèÉ½ÝÌ€üümtôì(€ô¤ì((¼¼€ôôôôôôôôôôôô¹¡…¹•É•…Ñ•%¹Ù¥Ñ•XÈ€¡Ý¥Ñ ™Õ±°…ÉÉ¥•È…ÍÍ¥¹µ•¹ÑÌ€¬¹•Ü…•¹Ð™¥•±‘Ì¤€ôôôôôôôôôôôô()½¹ÍÐÕ±±ÍÍ¥¹µ•¹ÑM¡•µ„€ôè¹½‰©•Ð¡ì(€…ÉÉ¥•É}¥èè¹ÍÑÉ¥¹œ ¤¹ÕÕ¥ ¤°(€…ÉÉ¥•É}¹…µ”èè¹ÍÑÉ¥¹œ ¤°(€±•Ù•±}¹…µ”èè¹ÍÑÉ¥¹œ ¤¹½ÁÑ¥½¹…° ¤¹¹Õ±±…‰±” ¤°(€±•Ù•±}ÁÐèè¹¹Õµ‰•È ¤¹µ¥¸ À¤¹µ…à ÈÀÀ¤°(€É•±•…Í•}¹••‘•èè¹‰½½±•…¸ ¤¹½ÁÑ¥½¹…° ¤¹‘•™…Õ±Ð¡™…±Í”¤°)ô¤ì()•áÁ½ÉÐ½¹ÍÐÉ•…Ñ•=¹‰½…É‘¥¹%¹Ù¥Ñ”€ôÉ•…Ñ•M•ÉÙ•É¸¡ìµ•Ñ¡½è€‰A=MPˆô¤(€€¹µ¥‘‘±•Ý…É”¡mÉ•ÅÕ¥É•MÕÁ…‰…Í•ÕÑ¡t¤(€€¹¥¹ÁÕÑY…±¥‘…Ñ½È ¡¤€ôøè¹½‰©•Ð¡ì(€€€±¥¹­}¹…µ”è€€€è¹ÍÑÉ¥¹œ ¤¹ÑÉ¥´ ¤¹µ¥¸ Ä¤¹µ…à àÀ¤°(€€€¥¹Ù¥Ñ•‘}É½±”èè¹•¹Õ´¡l‰…•¹Ðˆ°€‰µ…¹…•Èˆ°€‰…•¹å}½Ý¹•Èˆ°€‰ÍÑ…™˜‰t¤¹‘•™…Õ±Ð ‰…•¹Ðˆ¤°(€€€…•¹å}±•Ù•±}¥èè¹ÍÑÉ¥¹œ ¤¹ÕÕ¥ ¤¹¹Õ±±…‰±” ¤¹½ÁÑ¥½¹…° ¤°(€€€…ÍÍ¥¹µ•¹ÑÌè€è¹…ÉÉ…ä¡Õ±±ÍÍ¥¹µ•¹ÑM¡•µ„¤¹µ…à ÔÀ¤¹½ÁÑ¥½¹…° ¤¹‘•™…Õ±Ð¡mt¤°(€ô¤¹Á…ÉÍ”¡¤¤(€€¹¡…¹‘±•È¡…Íå¹Œ€¡ì‘…Ñ„°½¹Ñ•áÐô¤€ôøì(€€€½¹ÍÐìÍÕÁ…‰…Í”°ÕÍ•É%ô€ô½¹Ñ•áÐ…ÌÑàì((€€€€¼¼Y…±¥‘…Ñ”•Ù•Éä±•Ù•°ƒŠ&ÕÁ±¥¹”Ì(€€€™½È€¡½¹ÍÐ„½˜‘…Ñ„¹…ÍÍ¥¹µ•¹ÑÌ¤ì(€€€€€½¹ÍÐì‘…Ñ„èµäô€ô…Ý…¥ÐÍÕÁ…‰…Í”(€€€€€€€€¹™É½´ ‰…•¹Ñ}½µµ¥ÍÍ¥½¹}±•Ù•±Ìˆ¤¹Í•±•Ð ‰…ÍÍ¥¹•‘}ÁÐˆ¤(€€€€€€€€¹•Ä ‰…•¹Ñ}¥ˆ°ÕÍ•É%¤¹•Ä ‰…ÉÉ¥•É}¥ˆ°„¹…ÉÉ¥•É}¥¤¹µ…å‰•M¥¹±” ¤ì(€€€€€¥˜€¡µä€˜˜9Õµ‰•È¡µä¹…ÍÍ¥¹•‘}ÁÐ¤€ð„¹±•Ù•±}ÁÐ¤ì(€€€€€€€Ñ¡É½Ü¹•ÜÉÉ½È¡1•Ù•°™½È€‘í„¹…ÉÉ¥•É}¹…µ•ô€ ‘í„¹±•Ù•±}ÁÑô”¤•á••‘Ìå½ÕÈ…ÍÍ¥¹•±•Ù•°¹€¤ì(€€€€€ô(€€€ô((€€€€¼¼Y…±¥‘…Ñ”¥¹Ù¥Ñ•È…¸…ÍÍ¥¸Ñ¡”É•ÅÕ•ÍÑ•É½±”(€€€½¹ÍÐì‘…Ñ„è¥¹Ù¥Ñ•ÉI½±•Ìô€ô…Ý…¥ÐÍÕÁ…‰…Í”¹™É½´ ‰ÕÍ•É}É½±•Ìˆ¤¹Í•±•Ð ‰É½±”ˆ¤¹•Ä ‰ÕÍ•É}¥ˆ°ÕÍ•É%¤ì(€€€½¹ÍÐ¥¹Ù¥Ñ•ÉI½±•1¥ÍÐ€ô€¡¥¹Ù¥Ñ•ÉI½±•Ì€üümt¤¹µ…À ¡Èè…¹ä¤€ôøÈ¹É½±”…ÌÍÑÉ¥¹œ¤ì((€€€€¼¼ƒŠRŠR 5…äå½ÔÉ•…Ñ”…¸¥¹Ù¥Ñ”±¥¹¬…Ð…±°üƒŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠRŠR (€€€€¼¼(€€€€¼¼Ù•ÉåÑ¡¥¹œ‰•±½ÜÑ¡¥Ì¡•­Ì€©Ý¡¥ É½±”¨µ…ä‰”¥¹Ù¥Ñ•¸9½Ñ¡¥¹œ(€€€€¼¼¡•­•Ý¡•Ñ¡•ÈÑ¡”…±±•Èµ…ä¥¹Ù¥Ñ”…¹å‰½‘ä°Í¼…¸½É‘¥¹…Éä…•¹Ð(€€€€¼¼½Õ±…±°Ñ¡¥ÌÝ¥Ñ Ñ¡”‘•™…Õ±Ð¥¹Ù¥Ñ•‘}É½±”½˜€‰…•¹ÐˆƒŠP¹¼‰É…¹ (€€€€¼¼…ÁÁ±¥•ÌÑ¼Ñ¡…ÐÙ…±Õ”ƒŠP…¹µ¥¹Ð„±¥¹¬Á±…¥¹œ¹•Ü…•¹ÑÌ¥¸„(€€€€¼¼‘½Ý¹±¥¹”Ý¥Ñ …ÉÉ¥•ÉÌ…¹½µÀ±•Ù•±ÌÁÉ”µ…ÍÍ¥¹•¸(€€€€¼¼(€€€€¼¼Q¡”¹…Ø½™™•É•¥ÐÑ½¼€¡Õ¹±½¬è€‰…•¹äµµ•µ‰•È‰€¤°‰ÕÐÑ¡…Ð¥ÌÑ¡”(€€€€¼¼±•ÍÍ•È¡…±˜è¡¥‘¥¹œÑ¡”•¹ÑÉäÝ½Õ±¡…Ù”±•™ÐÑ¡”Í•ÉÙ•È™Õ¹Ñ¥½¸½Á•¸(€€€€¼¼Ñ¼…¹å‰½‘äÝ¡¼­¹•Ü¥ÑÌ¹…µ”¸(€€€€¼¼(€€€€¼¼5…¹…•È…¹…‰½Ù”°‰•…ÕÍ”¥¹Ù¥Ñ¥¹œ¥¹Ñ¼å½ÕÈ½Ý¸‘½Ý¹±¥¹”¥Ì„(€€€€¼¼µ…¹…•ÈÌ©½ˆ¸Á±…¥¸…•¹Ð½ÈÍÑ…™˜µ•µ‰•È¥Ì¹½Ð‰Õ¥±‘¥¹œ„Ñ•…´¸(€€€½¹ÍÐµ…å%¹Ù¥Ñ•¹å½¹”€ô¥¹Ù¥Ñ•ÉI½±•1¥ÍÐ¹Í½µ” ¡ÈèÍÑÉ¥¹œ¤€ôø(€€€€€l‰ÍÕÁ•É}…‘µ¥¸ˆ°€‰…•¹å}½Ý¹•Èˆ°€‰…‘µ¥¸ˆ°€‰µ…¹…•È‰t¹¥¹±Õ‘•Ì¡È¤°(€€€€¤ì(€€€¥˜€ …µ…å%¹Ù¥Ñ•¹å½¹”¤ì(€€€€€Ñ¡É½Ü¹•ÜÉÉ½È (€€€€€€€€‰É•…Ñ¥¹œ¥¹Ù¥Ñ”±¥¹­Ì¥Ì±¥µ¥Ñ•Ñ¼…•¹ä½Ý¹•ÉÌ…¹µ…¹…•ÉÌ¸€ˆ€¬(€€€€€€€€‰Í¬å½ÕÉÌÑ¼Í•¹Ñ¡”±¥¹¬°½ÈÑ¼É…¹Ðå½Ô„µ…¹…•ÈÉ½±”¸ˆ°(€€€€€€¤ì(€€€ô(€€€½¹ÍÐ…¹%¹Ù¥Ñ••¹å=Ý¹•È€ô¥¹Ù¥Ñ•ÉI½±•1¥ÍÐ¹¥¹±Õ‘•Ì ‰ÍÕÁ•É}…‘µ¥¸ˆ¤ñð¥¹Ù¥Ñ•ÉI½±•1¥ÍÐ¹¥¹±Õ‘•Ì ‰…•¹å}½Ý¹•Èˆ¤ì(€€€½¹ÍÐ…¹%¹Ù¥Ñ•5…¹…•È€€€€€ô…¹%¹Ù¥Ñ••¹å=Ý¹•Èñð¥¹Ù¥Ñ•ÉI½±•1¥ÍÐ¹¥¹±Õ‘•Ì ‰µ…¹…•Èˆ¤ì(€€€¥˜€¡‘…Ñ„¹¥¹Ù¥Ñ•‘}É½±”€ôôô€‰…•¹å}½Ý¹•Èˆ€˜˜€……¹%¹Ù¥Ñ••¹å=Ý¹•È¤ì(€€€€€Ñ¡É½Ü¹•ÜÉÉ½È ‰=¹±ä…•¹ä½Ý¹•ÉÌ…¹…‰½Ù”…¸¥¹Ù¥Ñ”…•¹ä½Ý¹•ÉÌ¸ˆ¤ì(€€€ô(€€€¥˜€¡‘…Ñ„¹¥¹Ù¥Ñ•‘}É½±”€ôôô€‰µ…¹…•Èˆ€˜˜€……¹%¹Ù¥Ñ•5…¹…•È¤ì(€€€€€Ñ¡É½Ü¹•ÜÉÉ½È ‰=¹±äµ…¹…•ÉÌ…¹…‰½Ù”…¸¥¹Ù¥Ñ”µ…¹…•ÉÌ¸ˆ¤ì(€€€ô((€€€€¼¼•Ñ ¥¹Ù¥Ñ•ÈÌ½É…¹¥é…Ñ¥½¸(€€€½¹ÍÐì‘…Ñ„è¥¹Ù¥Ñ•ÉAÉ½™¥±”ô€ô…Ý…¥Ð€¡ÍÕÁ…‰…Í”…Ì…¹ä¤(€€€€€€¹™É½´ ‰ÁÉ½™¥±•Ìˆ¤¹Í•±•Ð ‰½É…¹¥é…Ñ¥½¹}¥±…•¹å}±•Ù•±}¥ˆ¤¹•Ä ‰¥ˆ°ÕÍ•É%¤¹µ…å‰•M¥¹±” ¤ì((€€€ì(€€€€€½¹ÍÐì…ÍÍ•ÉÑ9½Ñ•µ¼ô€ô…Ý…¥Ð¥µÁ½ÉÐ ‰ ½±¥ˆ½‘•µ¼¹Í•ÉÙ•Èˆ¤ì(€€€€€…Ý…¥Ð…ÍÍ•ÉÑ9½Ñ•µ¼¡¥¹Ù¥Ñ•ÉAÉ½™¥±”ü¹½É…¹¥é…Ñ¥½¹}¥°€‰¥¹Ù¥Ñ”Í½µ•½¹”ˆ¤ì(€€€ô((€€€½¹ÍÐÑ½­•¸€ôÉåÁÑ¼¹É…¹‘½µUU% ¤ì((€€€±•Ð…ÍÍ¥¹µ•¹ÑÌ€ô‘…Ñ„¹…ÍÍ¥¹µ•¹ÑÌì(€€€¥˜€¡‘…Ñ„¹…•¹å}±•Ù•±}¥¤ì(€€€€€½¹ÍÐì‘…Ñ„è±•Ù•°ô€ô…Ý…¥Ð€¡ÍÕÁ…‰…Í”…Ì…¹ä¤¹™É½´ ‰…•¹å}±•Ù•±Ìˆ¤(€€€€€€€€¹Í•±•Ð ‰¥±¹…µ”±‰…Í•}ÁÐ±½É…¹¥é…Ñ¥½¹}¥±…•¹å}±•Ù•±}…ÉÉ¥•É}µ…ÁÁ¥¹Ì¡½É}…ÉÉ¥•É}¥±…ÉÉ¥•É}±•Ù•±}¹…µ”±…ÉÉ¥•É}ÁÐ¤ˆ¤(€€€€€€€€¹•Ä ‰¥ˆ°‘…Ñ„¹…•¹å}±•Ù•±}¥¤¹•Ä ‰½É…¹¥é…Ñ¥½¹}¥ˆ°¥¹Ù¥Ñ•ÉAÉ½™¥±”ü¹½É…¹¥é…Ñ¥½¹}¥¤¹µ…å‰•M¥¹±” ¤ì(€€€€€¥˜€ …±•Ù•°¤Ñ¡É½Ü¹•ÜÉÉ½È ‰Q¡…Ð…•¹ä±•Ù•°¥Ì¹½Ð…Ù…¥±…‰±”¸ˆ¤ì(€€€€€¥˜€ ……¹%¹Ù¥Ñ••¹å=Ý¹•È¤ì(€€€€€€€½¹ÍÐì‘…Ñ„è¥¹Ù¥Ñ•É1•Ù•°ô€ô¥¹Ù¥Ñ•ÉAÉ½™¥±”ü¹…•¹å}±•Ù•±}¥(€€€€€€€€€€ü…Ý…¥Ð€¡ÍÕÁ…‰…Í”…Ì…¹ä¤¹™É½´ ‰…•¹å}±•Ù•±Ìˆ¤¹Í•±•Ð ‰‰…Í•}ÁÐ±…¹}¥¹Ù¥Ñ”ˆ¤¹•Ä ‰¥ˆ°¥¹Ù¥Ñ•ÉAÉ½™¥±”¹…•¹å}±•Ù•±}¥¤¹µ…å‰•M¥¹±” ¤(€€€€€€€€€€èì‘…Ñ„è¹Õ±°ôì(€€€€€€€¥˜€ …¥¹Ù¥Ñ•É1•Ù•°ü¹…¹}¥¹Ù¥Ñ”¤Ñ¡É½Ü¹•ÜÉÉ½È ‰e½ÕÈ…•¹ä±•Ù•°…¹¹½ÐÉ•…Ñ”¥¹Ù¥Ñ”±¥¹­Ì¸ˆ¤ì(€€€€€€€¥˜€¡9Õµ‰•È¡±•Ù•°¹‰…Í•}ÁÐ¤€øô9Õµ‰•È¡¥¹Ù¥Ñ•É1•Ù•°¹‰…Í•}ÁÐ¤¤Ñ¡É½Ü¹•ÜÉÉ½È ‰e½Ô…¸½¹±ä¥¹Ù¥Ñ”Í½µ•½¹”…Ð„±•Ù•°‰•¹•…Ñ å½ÕÈ½Ý¸¸ˆ¤ì(€€€€€ô(€€€€€½¹ÍÐì‘…Ñ„è½É…ÉÉ¥•ÉÌô€ô…Ý…¥Ð€¡ÍÕÁ…‰…Í”…Ì…¹ä¤¹™É½´ ‰½É}…ÉÉ¥•ÉÌˆ¤(€€€€€€€€¹Í•±•Ð ‰¥±…ÉÉ¥•É}¥±…ÉÉ¥•ÉÌ¡¹…µ”¤ˆ¤¹•Ä ‰½É…¹¥é…Ñ¥½¹}¥ˆ°¥¹Ù¥Ñ•ÉAÉ½™¥±”ü¹½É…¹¥é…Ñ¥½¹}¥¤¹•Ä ‰ÍÑ…ÑÕÌˆ°€‰…Ñ¥Ù”ˆ¤ì(€€€€€½¹ÍÐ‰å…ÉÉ¥•È€ô¹•Ü5…À ¡±•Ù•°¹…•¹å}±•Ù•±}…ÉÉ¥•É}µ…ÁÁ¥¹Ì€üümt¤¹µ…À ¡´è…¹ä¤€ôøm´¹½É}…ÉÉ¥•É}¥°µt¤¤ì(€€€€€…ÍÍ¥¹µ•¹ÑÌ€ô€¡½É…ÉÉ¥•ÉÌ€üümt¤¹µ…À ¡Œè…¹ä¤€ôøì(€€€€€€€½¹ÍÐ´è…¹ä€ô‰å…ÉÉ¥•È¹•Ð¡Œ¹¥¤ì(€€€€€€€É•ÑÕÉ¸ì…ÉÉ¥•É}¥èŒ¹…ÉÉ¥•É}¥°…ÉÉ¥•É}¹…µ”èŒ¹…ÉÉ¥•ÉÌü¹¹…µ”€üü€‰…ÉÉ¥•Èˆ°±•Ù•±}¹…µ”è´ü¹…ÉÉ¥•É}±•Ù•±}¹…µ”€üü±•Ù•°¹¹…µ”°±•Ù•±}ÁÐè9Õµ‰•È¡´ü¹…ÉÉ¥•É}ÁÐ€üü±•Ù•°¹‰…Í•}ÁÐ¤°É•±•…Í•}¹••‘•è™…±Í”ôì(€€€€€ô¤ì(€€€ô((€€€½¹ÍÐì‘…Ñ„è¥¹Í•ÉÑ•°•ÉÉ½Èô€ô…Ý…¥Ð€¡ÍÕÁ…‰…Í”…Ì…¹ä¤¹™É½´ ‰¥¹Ù¥Ñ…Ñ¥½¹}±¥¹­Ìˆ¤¹¥¹Í•ÉÐ¡ì(€€€€€É•…Ñ•‘}‰äè€€€€€ÕÍ•É%°(€€€€€¹…µ”è€€€€€€€€€€€‘…Ñ„¹±¥¹­}¹…µ”°(€€€€€±¥¹­}¹…µ”è€€€€€€‘…Ñ„¹±¥¹­}¹…µ”°(€€€€€¥Í}É•ÕÍ…‰±”è€€€€ÑÉÕ”°(€€€€€¹•Ý}…•¹Ñ}•µ…¥°è¹Õ±°°(€€€€€Ñ½­•¸°(€€€€€…ÉÉ¥•É}…ÍÍ¥¹µ•¹ÑÌè…ÍÍ¥¹µ•¹ÑÌ°(€€€€€ÍÑ…ÑÕÌè€€€€€€€€€€‰Á•¹‘¥¹œˆ°(€€€€€½¹‰½…É‘¥¹}ÍÑ•Àè€À°(€€€€€¥¹Ù¥Ñ•‘}É½±”è€€€‘…Ñ„¹¥¹Ù¥Ñ•‘}É½±”°(€€€€€…•¹å}±•Ù•±}¥è‘…Ñ„¹…•¹å}±•Ù•±}¥€üü¹Õ±°°(€€€€€½É…¹¥é…Ñ¥½¹}¥è¥¹Ù¥Ñ•ÉAÉ½™¥±”ü¹½É…¹¥é…Ñ¥½¹}¥€üü¹Õ±°°(€€€ô¤¹Í•±•Ð ‰¥±Ñ½­•¸ˆ¤¹Í¥¹±” ¤ì((€€€¥˜€¡•ÉÉ½È¤Ñ¡É½Ü¹•ÜÉÉ½È¡•ÉÉ½È¹µ•ÍÍ…”¤ì((€€€É•ÑÕÉ¸ì½¬èÑÉÕ”°¥è¥¹Í•ÉÑ•¹¥°Ñ½­•¸è¥¹Í•ÉÑ•¹Ñ½­•¸ôì(€ô¤ì(
+    for (const a of data.assignments) {
+      await assertLevelWithinUpline(supabase, userId, a.carrier_id, a.level_pct, a.carrier_name);
+    }
+
+    const { data: inv } = await supabase.from("invitation_links").select("carrier_assignments,linked_agent_id,created_by").eq("id", data.invite_id).maybeSingle();
+    if (!inv) throw new Error("Invite not found");
+
+    const existing = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments : [];
+    const existingIds = new Set(existing.map((e: any) => e.carrier_id));
+    const merged = [...existing, ...data.assignments.filter((a) => !existingIds.has(a.carrier_id))];
+
+    const { error } = await supabase.from("invitation_links").update({ carrier_assignments: merged }).eq("id", data.invite_id);
+    if (error) throw new Error(error.message);
+
+    // Notify linked agent (if exists) via in-app
+    if (inv.linked_agent_id) {
+      const names = data.assignments.map((a) => a.carrier_name).join(", ");
+      const many = data.assignments.length > 1;
+      await supabase.from("notifications").insert({
+        user_id: inv.linked_agent_id,
+        title: many ? "New carriers added to your contracting" : "New carrier added to your contracting",
+        description: `${names} ${many ? "have" : "has"} been added to your contracting application.`,
+        type: "contracting",
+      });
+
+      const { queueEmail } = await import("@/lib/email/send.server");
+      await queueEmail({
+        template: "carrier-added",
+        profileId: inv.linked_agent_id,
+        category: "contract_updates",
+        key: `carrier-added:${data.invite_id}:${data.assignments
+          .map((a) => a.carrier_id)
+          .sort()
+          .join(",")}`,
+        data: { carrierName: names },
+      });
+    }
+
+
+    return { ok: true };
+  });
+
+export const updateInviteCarrierLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    invite_id: z.string().uuid(),
+    carrier_id: z.string().uuid(),
+    level_pct: z.number().min(0).max(200),
+    level_name: z.string().max(64).optional().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    await assertLevelWithinUpline(supabase, userId, data.carrier_id, data.level_pct);
+
+    const { data: inv } = await supabase.from("invitation_links")
+      .select("carrier_assignments,onboarding_step").eq("id", data.invite_id).maybeSingle();
+    if (!inv) throw new Error("Invite not found");
+    if (inv.onboarding_step >= 4) throw new Error("Cannot edit level after SuranceBay step");
+
+    const updated = (inv.carrier_assignments ?? []).map((c: any) =>
+      c.carrier_id === data.carrier_id ? { ...c, level_pct: data.level_pct, level_name: data.level_name ?? c.level_name } : c
+    );
+    const { error } = await supabase.from("invitation_links").update({ carrier_assignments: updated }).eq("id", data.invite_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const resendInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ invite_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    await supabase.from("invitation_links").update({ last_resent_at: new Date().toISOString() }).eq("id", data.invite_id);
+    return { ok: true };
+  });
+
+// ============ Onboarding documents ============
+
+export const listOnboardingDocs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { data: docs, error } = await supabase
+      .from("onboarding_documents")
+      .select("id,doc_type,file_name,file_url,uploaded_at,uploaded_by")
+      .eq("agent_id", data.agent_id)
+      .order("uploaded_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { docs: docs ?? [] };
+  });
+
+export const recordOnboardingDoc = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    agent_id: z.string().uuid(),
+    doc_type: z.enum(["eo_certificate","aml_certificate","drivers_license","banking","agreement"]),
+    file_url: z.string().min(1).max(500),
+    file_name: z.string().min(1).max(255),
+    invitation_id: z.string().uuid().optional().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { error } = await supabase.from("onboarding_documents").insert({
+      agent_id: data.agent_id,
+      uploaded_by: userId,
+      doc_type: data.doc_type,
+      file_url: data.file_url,
+      file_name: data.file_name,
+      invitation_id: data.invitation_id ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getOnboardingDocSignedUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ doc_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { data: doc } = await supabase.from("onboarding_documents").select("file_url").eq("id", data.doc_id).maybeSingle();
+    if (!doc?.file_url) throw new Error("Not found");
+    const { data: signed, error } = await supabase.storage.from("agent-documents").createSignedUrl(doc.file_url, 3600);
+    if (error) throw new Error(error.message);
+    return { url: signed.signedUrl };
+  });
+
+// ============ Change requests ============
+
+export const listChangeRequests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as Ctx;
+    const { data, error } = await supabase
+      .from("change_requests")
+      .select("id,request_type,other_description,new_level_name,new_level_pct,status,submitted_at,resolved_at,agent_id,carrier_id,new_upline_id,contract_request_id,carriers(name),agent:agent_id(first_name,last_name),new_upline:new_upline_id(first_name,last_name)")
+      .order("submitted_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return { rows: data ?? [] };
+  });
+
+export const submitChangeRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    agent_id: z.string().uuid(),
+    contract_request_id: z.string().uuid(),
+    carrier_id: z.string().uuid(),
+    request_type: z.enum(["level_change","upline_transfer","other"]),
+    other_description: z.string().max(1000).optional().nullable(),
+    new_upline_id: z.string().uuid().optional().nullable(),
+    new_level_name: z.string().max(64).optional().nullable(),
+    new_level_pct: z.number().min(0).max(200).optional().nullable(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    // Verify the contract has been active 90+ days
+    const { data: cr } = await supabase
+      .from("contract_requests").select("activated_at,status")
+      .eq("id", data.contract_request_id).maybeSingle();
+    if (!cr || cr.status !== "active" || !cr.activated_at) {
+      throw new Error("Contract must be active to submit a change request.");
+    }
+    const ageMs = Date.now() - new Date(cr.activated_at).getTime();
+    if (ageMs < 90 * 24 * 60 * 60 * 1000) {
+      throw new Error("Contract must be active for at least 90 days.");
+    }
+
+    const { error } = await supabase.from("change_requests").insert({
+      submitted_by: userId,
+      agent_id: data.agent_id,
+      carrier_id: data.carrier_id,
+      contract_request_id: data.contract_request_id,
+      request_type: data.request_type,
+      other_description: data.other_description ?? null,
+      new_upline_id: data.new_upline_id ?? null,
+      new_level_name: data.new_level_name ?? null,
+      new_level_pct: data.new_level_pct ?? null,
+      status: "deferred",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const updateChangeRequestStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    id: z.string().uuid(),
+    status: z.enum(["deferred","in_review","completed","denied"]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const update: any = { status: data.status };
+    if (data.status === "completed" || data.status === "denied") update.resolved_at = new Date().toISOString();
+    const { error } = await supabase.from("change_requests").update(update).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteChangeRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    // .select("id") so an RLS-filtered delete is reported rather than
+    // returning ok. Postgres does not treat "matched no rows" as an error,
+    // so this used to succeed silently and the change request stayed on screen
+    // until the next refresh brought it back.
+    const { data: gone, error } = await supabase
+      .from("change_requests").delete().eq("id", data.id).select("id");
+    if (error) throw new Error(error.message);
+    if (!gone?.length) {
+      throw new Error("That change request is no longer there, or it is not yours to delete.");
+    }
+    return { ok: true };
+  });
+
+// ============ SureLC Progress ============
+
+export const listSurelcProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ scope: z.enum(["mine","downline"]).default("downline") }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    let agentIds: string[] = [];
+    if (data.scope === "mine") {
+      agentIds = [userId];
+    } else {
+      const { data: downline } = await supabase.rpc("get_downline_agents");
+      agentIds = [userId, ...((downline ?? []) as any[]).map((d: any) => d.id)];
+    }
+
+    const { data: invites } = await supabase
+      .from("invitation_links")
+      .select("id,linked_agent_id,carrier_assignments,created_at,surelc_agent_id")
+      .in("linked_agent_id", agentIds)
+      .eq("status", "in_surelc");
+
+    const linkedIds = Array.from(new Set(((invites ?? []) as any[]).map((i: any) => i.linked_agent_id)));
+    if (linkedIds.length === 0) return { agents: [] };
+
+    const { data: profiles } = await supabase.from("profiles").select("id,first_name,last_name").in("id", linkedIds);
+    const profMap = new Map<string, any>();
+    (profiles ?? []).forEach((p: any) => profMap.set(p.id, p));
+
+    const { data: progress } = await supabase
+      .from("surelc_progress").select("agent_id,section_name,completed,last_synced_at").in("agent_id", linkedIds);
+
+    const agents = (invites ?? []).map((inv: any) => {
+      const sections = (progress ?? []).filter((p: any) => p.agent_id === inv.linked_agent_id);
+      const completed = sections.filter((s: any) => s.completed).length;
+      const total = SURELC_SECTIONS.length;
+      const profile = profMap.get(inv.linked_agent_id);
+      const carriers = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments.map((c: any) => c.carrier_name) : [];
+      return {
+        agent_id: inv.linked_agent_id,
+        agent_name: profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() : "Agent",
+        invite_id: inv.id,
+        invite_sent_at: inv.created_at,
+        carriers,
+        completed_count: completed,
+        total_count: total,
+        sections: SURELC_SECTIONS.map((name) => {
+          const row = sections.find((s: any) => s.section_name === name);
+          return { name, completed: row?.completed ?? false, last_synced_at: row?.last_synced_at ?? null };
+        }),
+      };
+    });
+
+    return { agents };
+  });
+
+export const refreshSurelcProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ agent_id: z.string().uuid().optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    // Stub: randomly advance 1-2 incomplete sections per agent
+    let agentIds: string[];
+    if (data.agent_id) {
+      agentIds = [data.agent_id];
+    } else {
+      const { data: downline } = await supabase.rpc("get_downline_agents");
+      agentIds = [userId, ...((downline ?? []) as any[]).map((d: any) => d.id)];
+    }
+
+    for (const aid of agentIds) {
+      const { data: incomplete } = await supabase
+        .from("surelc_progress").select("id").eq("agent_id", aid).eq("completed", false);
+      const list = (incomplete ?? []) as any[];
+      if (list.length === 0) continue;
+      const advanceCount = Math.min(list.length, Math.random() < 0.4 ? 2 : 1);
+      const shuffled = list.sort(() => Math.random() - 0.5).slice(0, advanceCount);
+      for (const row of shuffled) {
+        await supabase.from("surelc_progress").update({
+          completed: true,
+          last_synced_at: new Date().toISOString(),
+        }).eq("id", row.id);
+      }
+    }
+    return { ok: true };
+  });
+
+// ============ Misc helpers ============
+
+export const searchDownlineAgents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ query: z.string().max(80) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { data: downline } = await supabase.rpc("get_downline_agents");
+    const q = data.query.toLowerCase().trim();
+    const filtered = ((downline ?? []) as any[]).filter((a: any) => {
+      if (!q) return true;
+      return (`${a.first_name ?? ""} ${a.last_name ?? ""}`).toLowerCase().includes(q);
+    }).slice(0, 20);
+    return { agents: filtered };
+  });
+
+export const saveInviteSignature = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ signature_html: z.string().max(5000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { error } = await supabase.from("profiles").update({ invite_signature_html: data.signature_html }).eq("id", userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const getMyInviteSignature = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data } = await supabase.from("profiles").select("invite_signature_html").eq("id", userId).maybeSingle();
+    return { signature_html: data?.invite_signature_html ?? "" };
+  });
+
+export const getActiveContractsForAgent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ agent_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: rows, error } = await supabase
+      .from("contract_requests")
+      .select("id,carrier_id,activated_at,status,carriers(name)")
+      .eq("agent_id", data.agent_id)
+      .eq("status", "active")
+      .lte("activated_at", cutoff);
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [] };
+  });
+
+// ============ Enhanced createInviteV2 (with full carrier assignments + new agent fields) ============
+
+const FullAssignmentSchema = z.object({
+  carrier_id: z.string().uuid(),
+  carrier_name: z.string(),
+  level_name: z.string().optional().nullable(),
+  level_pct: z.number().min(0).max(200),
+  release_needed: z.boolean().optional().default(false),
+});
+
+export const createOnboardingInvite = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({
+    link_name:    z.string().trim().min(1).max(80),
+    invited_role: z.enum(["agent", "manager", "agency_owner", "staff"]).default("agent"),
+    assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    // Validate every level â‰¤ upline's
+    for (const a of data.assignments) {
+      const { data: my } = await supabase
+        .from("agent_commission_levels").select("assigned_pct")
+        .eq("agent_id", userId).eq("carrier_id", a.carrier_id).maybeSingle();
+      if (my && Number(my.assigned_pct) < a.level_pct) {
+        throw new Error(`Level for ${a.carrier_name} (${a.level_pct}%) exceeds your assigned level.`);
+      }
+    }
+
+    // Validate inviter can assign the requested role
+    const { data: inviterRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+    const inviterRoleList = (inviterRoles ?? []).map((r: any) => r.role as string);
+
+    // â”€â”€ May you create an invite link at all? â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //
+    // Everything below this checks *which role* may be invited. Nothing
+    // checked whether the caller may invite anybody, so an ordinary agent
+    // could call this with the default invited_role of "agent" â€” no branch
+    // applies to that value â€” and mint a link placing new agents in a
+    // downline with carriers and comp levels pre-assigned.
+    //
+    // The nav offered it too (`unlock: "agency-member"`), but that is the
+    // lesser half: hiding the entry would have left the server function open
+    // to anybody who knew its name.
+    //
+    // Manager and above, because inviting into your own downline is a
+    // manager's job. A plain agent or staff member is not building a team.
+    const mayInviteAnyone = inviterRoleList.some((r: string) =>
+      ["super_admin", "agency_owner", "admin", "manager"].includes(r),
+    );
+    if (!mayInviteAnyone) {
+      throw new Error(
+        "Creating invite links is limited to agency owners and managers. " +
+        "Ask yours to send the link, or to grant you a manager role.",
+      );
+    }
+    const canInviteAgencyOwner = inviterRoleList.includes("super_admin") || inviterRoleList.includes("agency_owner");
+    const canInviteManager     = canInviteAgencyOwner || inviterRoleList.includes("manager");
+    if (data.invited_role === "agency_owner" && !canInviteAgencyOwner) {
+      throw new Error("Only agency owners and above can invite agency owners.");
+    }
+    if (data.invited_role === "manager" && !canInviteManager) {
+      throw new Error("Only managers and above can invite managers.");
+    }
+
+    // Fetch inviter's organization
+    const { data: inviterProfile } = await (supabase as any)
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+
+    {
+      const { assertNotDemo } = await import("@/lib/demo.server");
+      await assertNotDemo(inviterProfile?.organization_id, "invite someone");
+    }
+
+    const token = crypto.randomUUID();
+
+    const { data: inserted, error } = await (supabase as any).from("invitation_links").insert({
+      created_by:      userId,
+      name:            data.link_name,
+      link_name:       data.link_name,
+      is_reusable:     true,
+      new_agent_email: null,
+      token,
+      carrier_assignments: data.assignments,
+      status:          "pending",
+      onboarding_step: 0,
+      invited_role:    data.invited_role,
+      organization_id: inviterProfile?.organization_id ?? null,
+    }).select("id,token").single();
+
+    if (error) throw new Error(error.message);
+
+    return { ok: true, id: inserted.id, token: inserted.token };
+  });
