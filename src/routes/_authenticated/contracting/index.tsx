@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ScopeToggle } from "@/components/scope-toggle";
 import { useScope, useScopeCapabilities } from "@/hooks/use-scope";
+import { useNavContext } from "@/hooks/use-my-access";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
@@ -144,6 +145,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
   const [filter, setFilter] = useState<ContractStatus | "all">("all");
   const [requestLevelFor, setRequestLevelFor] = useState<any | null>(null);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const { canSeeAgency } = useNavContext();
 
   const checkSureLcFn = useServerFn(checkSureLcStatus);
   const syncFn = useServerFn(syncSureLcStatuses);
@@ -244,6 +246,11 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" /> Open in SureLC
               </Button>
             )}
+            {canSeeAgency && (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/contracting-ops/carriers">Set up agency carriers</Link>
+              </Button>
+            )}
             <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
           </>
         }
@@ -281,7 +288,11 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
           body={EMPTY_STATES.contracts.body}
           ghost={ghostFor("contracts")}
           action={
-            <Button asChild size="sm"><Link to="/contracting/carriers">Add a carrier</Link></Button>
+            <Button asChild size="sm">
+              <Link to={canSeeAgency ? "/contracting-ops/carriers" : "/contracting/carriers"}>
+                {canSeeAgency ? "Set up agency carriers" : "Add a carrier"}
+              </Link>
+            </Button>
           }
         />
       ) : (

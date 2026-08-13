@@ -262,7 +262,7 @@ export const PAGES: Page[] = [
   // prepare from it — they cannot submit to a carrier they cannot look up. What
   // they may *change* there is a separate question the page answers itself,
   // through `canManageCarriers`.
-  { id: "carriers-setup", label: "Carriers & Comp", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
 
   // The rest of the back office. Every one of these pages already existed and
   // was reachable only by typing its URL or finding a tile on the overview —
@@ -489,12 +489,15 @@ const HUBS: Record<string, HubGroup[]> = {
   // Flattened into a second group here instead. Same pages, in the section
   // whose name they share, and visible.
   "my-contracts": [
-    { label: "", ids: ["contracts-list", "carriers", "comp-grids", "invite"] },
+    // Owners should see the place where their agency actually adds carriers
+    // before the read-only carrier reference directory. The old order put the
+    // directory first and buried setup under "Run contracting", which made
+    // the obvious "Carrier Directory" link look like the configuration page.
+    { label: "", ids: ["contracts-list", "carriers-setup", "comp-grids", "invite", "carriers"] },
     {
       label: "Run contracting",
       ids: [
         "run-contracting", "requests",
-        "carriers-setup",
       ],
     },
   ],

@@ -211,6 +211,54 @@ export const deleteWritingNumber = createServerFn({ method: "POST" })
 
 // ── Compensation levels ─────────────────────────────────────────────────────
 
+export const listAgencyLevels = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) return { rows: [] };
+    const { data, error } = await supabaseAdmin.from("agency_levels")
+      .select("*, agency_level_carrier_mappings(*, org_carriers(id, carriers(name)))")
+      .eq("organization_id", orgId).order("sort_order").order("base_pct");
+    if (error) throw new Error(error.message);
+    return { rows: data ?? [] };
+  });
+
+export const saveAgencyLevel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    id: z.string().uuid().optional(),
+    name: z.string().trim().min(1).max(80),
+    base_pct: z.number().min(0).max(500),
+    sort_order: z.number().int().min(0).max(999).default(0),
+    can_invite: z.boolean().default(false),
+    active: z.boolean().default(true),
+    mappings: z.array(z.object({
+      org_carrier_id: z.string().uuid(),
+      carrier_level_name: z.string().trim().max(80).nullable().optional(),
+      carrier_pct: z.number().min(0).max(500).nullable().optional(),
+    })).max(100).default([]),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await requireCapability(userId, ["contracting_manage_comp_levels"],
+      "You don't have permission to manage agency levels.");
+    const { id, mappings, ...fields } = data;
+    const q = id
+      ? supabaseAdmin.from("agency_levels").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", orgId)
+      : supabaseAdmin.from("agency_levels").insert({ ...fields, organization_id: orgId });
+    const { data: saved, error } = await q.select("id").single();
+    if (error) throw new Error(error.message.includes("agency_levels_organization_id_name_key") ? "That agency level already exists." : error.message);
+    if (mappings.length) {
+      const { error: mappingError } = await supabaseAdmin.from("agency_level_carrier_mappings").upsert(
+        mappings.map((m) => ({ ...m, organization_id: orgId, agency_level_id: saved.id, updated_at: new Date().toISOString() })),
+        { onConflict: "agency_level_id,org_carrier_id" },
+      );
+      if (mappingError) throw new Error(mappingError.message);
+    }
+    return { ok: true, id: saved.id as string };
+  });
+
 export const listCompLevels = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

@@ -50,20 +50,28 @@ function CarriersPage() {
   const [active, setActive] = useState<Tab>(tab ?? "carriers");
 
   return (
-    <Tabs value={active} onValueChange={(v) => setActive(v as Tab)} className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="carriers">Carriers</TabsTrigger>
-        <TabsTrigger value="levels">Levels</TabsTrigger>
-        <TabsTrigger value="grids">Comp grids</TabsTrigger>
-      </TabsList>
-      <TabsContent value="carriers"><CarrierDirectoryPage onBuildGrid={() => setActive("grids")} /></TabsContent>
-      <TabsContent value="levels"><LevelsPanel /></TabsContent>
-      <TabsContent value="grids"><ManageGridsPage embedded /></TabsContent>
-    </Tabs>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight text-foreground">Carrier Setup</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Add the carriers your agency uses, create the levels they offer, then enter the commission grid.
+        </p>
+      </div>
+      <Tabs value={active} onValueChange={(v) => setActive(v as Tab)} className="space-y-4">
+        <TabsList className="h-auto flex-wrap">
+          <TabsTrigger value="carriers">1. Carriers</TabsTrigger>
+          <TabsTrigger value="levels">2. Agency levels</TabsTrigger>
+          <TabsTrigger value="grids">3. Commission grids</TabsTrigger>
+        </TabsList>
+        <TabsContent value="carriers"><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></TabsContent>
+        <TabsContent value="levels"><LevelsPanel /></TabsContent>
+        <TabsContent value="grids"><ManageGridsPage embedded /></TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
-function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
+function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels: () => void }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listOrgCarriers);
   const availableFn = useServerFn(listAvailableCarriers);
@@ -85,10 +93,12 @@ function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
   const save = useMutation({
     mutationFn: (payload: any) => saveFn({ data: payload }),
     onSuccess: () => {
-      toast.success("Carrier saved");
+      const wasAdding = adding;
+      toast.success(wasAdding ? "Carrier added. Now add its agency levels." : "Carrier saved");
       setAdding(false);
       setEditing(null);
       qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+      if (wasAdding) onConfigureLevels();
     },
     onError: (e: any) => toast.error(e?.message ?? "Could not save the carrier"),
   });
@@ -100,7 +110,7 @@ function CarrierDirectoryPage({ onBuildGrid }: { onBuildGrid: () => void }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          Every carrier your agency contracts with, and how each one takes submissions.
+          Start here. Add every carrier your agency writes with. You can configure levels and rates in the next two steps.
         </p>
         {canManage && (
           <Button size="sm" onClick={() => setAdding(true)}>

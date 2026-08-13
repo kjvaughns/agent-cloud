@@ -25,6 +25,7 @@ import { Copy, Check, Trash2, Lock, Link2, User, Users, Building2, ClipboardList
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRole } from "@/hooks/use-role";
+import { listAgencyLevels } from "@/lib/contracting-records.functions";
 
 export const Route = createFileRoute("/_authenticated/contracting/invite")({
   component: InviteRoute,
@@ -87,6 +88,7 @@ function InvitePage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [carriersOpen, setCarriersOpen] = useState(false);
   const [invitedRole, setInvitedRole] = useState<"agent" | "manager" | "agency_owner" | "staff">("agent");
+  const [agencyLevelId, setAgencyLevelId] = useState("");
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
@@ -97,10 +99,12 @@ function InvitePage() {
     queryKey: ["onb", "invites", "mine"],
     queryFn: () => listOnboardingInvites({ data: { scope: "mine" } }),
   });
+  const levelsFn = useServerFn(listAgencyLevels);
+  const { data: agencyLevels } = useQuery({ queryKey: ["agency-levels"], queryFn: () => levelsFn() });
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, assignments } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -108,12 +112,14 @@ function InvitePage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to create link"),
   });
 
-  const canCreate = linkName.trim().length > 0;
+  const needsAgencyLevel = invitedRole === "agent" || invitedRole === "manager";
+  const canCreate = linkName.trim().length > 0 && (!needsAgencyLevel || Boolean(agencyLevelId));
 
   function resetForm() {
     setSuccess(null);
     setLinkName("");
     setAssignments([]);
+    setAgencyLevelId("");
   }
 
   if (success) {
@@ -233,7 +239,18 @@ function InvitePage() {
           </div>
         </div>
 
-        <div className="rounded-[var(--radius)] border border-border overflow-hidden">
+        {invitedRole !== "staff" && invitedRole !== "agency_owner" && (
+          <div>
+            <Label>Agency Level</Label>
+            <Select value={agencyLevelId} onValueChange={setAgencyLevelId}>
+              <SelectTrigger className="mt-1 max-w-sm"><SelectValue placeholder="Select their level" /></SelectTrigger>
+              <SelectContent>{(agencyLevels?.rows ?? []).filter((l: any) => l.active).map((l: any) => <SelectItem key={l.id} value={l.id}>{l.name} ({Number(l.base_pct)}%)</SelectItem>)}</SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
+          </div>
+        )}
+
+        <div className="hidden rounded-[var(--radius)] border border-border overflow-hidden">
           <button
             type="button"
             onClick={() => setCarriersOpen((o) => !o)}

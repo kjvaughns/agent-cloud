@@ -1,294 +1,49 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Lock, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { listCompLevels, saveCompLevel, saveRoleCompMapping } from "@/lib/contracting-records.functions";
+import { listAgencyLevels, saveAgencyLevel } from "@/lib/contracting-records.functions";
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
-import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { EmptyState } from "@/components/contracting/shared";
-
-
-/**
- * Comp levels, and the internal role each one maps to.
- *
- * Lifted out of the Compensation route so the Carriers page can render it
- * beside the carriers the levels belong to.
- */
-
-const INTERNAL_ROLES = ["agent", "senior_agent", "manager", "agency_owner"];
 
 export function LevelsPanel() {
   const qc = useQueryClient();
-  const listFn = useServerFn(listCompLevels);
+  const listFn = useServerFn(listAgencyLevels);
   const carriersFn = useServerFn(listOrgCarriers);
-  const saveFn = useServerFn(saveCompLevel);
-  const mapFn = useServerFn(saveRoleCompMapping);
-
+  const saveFn = useServerFn(saveAgencyLevel);
   const [editing, setEditing] = useState<any | null>(null);
   const [adding, setAdding] = useState(false);
-  const [carrierFilter, setCarrierFilter] = useState("");
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["contracting-ops", "comp-levels"],
-    queryFn: () => listFn(),
-  });
-  const { data: carrierData } = useQuery({
-    queryKey: ["contracting-ops", "carriers"],
-    queryFn: () => carriersFn(),
-  });
-
-  const save = useMutation({
-    mutationFn: (p: any) => saveFn({ data: p }),
-    onSuccess: () => {
-      toast.success("Compensation level saved");
-      setAdding(false); setEditing(null);
-      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Could not save"),
-  });
-
-  const map = useMutation({
-    mutationFn: (p: any) => mapFn({ data: p }),
-    onSuccess: () => {
-      toast.success("Role mapping saved");
-      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Could not save the mapping"),
-  });
-
-  const all = (data?.rows ?? []) as any[];
-  const rows = useMemo(
-    () => carrierFilter ? all.filter((r) => r.org_carrier_id === carrierFilter) : all,
-    [all, carrierFilter],
-  );
-
-  const columns: Column<any>[] = [
-    { key: "level", header: "Level", className: "flex-[2]",
-      render: (r) => <Stacked top={r.level_name} bottom={r.carrier_name} /> },
-    { key: "pct", header: "Commission", className: "w-28",
-      render: (r) => <span className="tnum text-sm text-foreground">{r.commission_pct != null ? `${r.commission_pct}%` : "—"}</span> },
-    { key: "advance", header: "Advance", className: "w-32",
-      render: (r) => (
-        <span className="tnum text-xs text-muted-foreground">
-          {r.advance_pct != null ? `${r.advance_pct}%` : "—"}
-          {r.advance_months ? ` · ${r.advance_months}mo` : ""}
-        </span>
-      ) },
-    { key: "renewal", header: "Renewal", className: "w-24", secondary: true,
-      render: (r) => <span className="tnum text-xs text-muted-foreground">{r.renewal_pct != null ? `${r.renewal_pct}%` : "—"}</span> },
-    { key: "roles", header: "Eligible roles", className: "flex-1", secondary: true,
-      render: (r) => <span className="truncate text-xs text-muted-foreground">
-        {(r.role_eligibility ?? []).join(", ") || "Any"}
-      </span> },
-    { key: "status", header: "Status", className: "w-24",
-      render: (r) => <Pill tone={r.status === "active" ? "success" : "neutral"}>{r.status}</Pill> },
-    { key: "actions", header: "", className: "w-14",
-      render: (r) => (
-        <button onClick={(e) => { e.stopPropagation(); setEditing(r); }}
-                className="text-[11px] text-muted-foreground hover:text-foreground">Edit</button>
-      ) },
-  ];
-
-  // An empty list can mean "none configured" or "you may not see compensation".
-  // Those are different answers and the empty state says which.
-  if (!isLoading && all.length === 0) {
-    return (
-      <EmptyState
-        title="No compensation levels configured"
-        body="Add the levels each carrier offers, then map your internal roles to them. Levels are compensation data — if you expected to see some here, your agency owner controls who can view them."
-        action={<Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add a level</Button>}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={carrierFilter}
-          onChange={(e) => setCarrierFilter(e.target.value)}
-          className="rounded-md border border-border bg-card px-3 py-2 text-sm"
-        >
-          <option value="">All carriers</option>
-          {(carrierData?.carriers ?? []).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <Button size="sm" className="ml-auto" onClick={() => setAdding(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> Add level
-        </Button>
-      </div>
-
-      <Panel pad={false}>
-        <RecordTable
-          rows={rows}
-          columns={columns}
-          loading={isLoading}
-          empty={{ title: "No levels for this carrier", body: "Add the levels this carrier offers your agency." }}
-        />
-      </Panel>
-
-      <Panel title="Internal role to carrier level">
-        <p className="text-xs text-muted-foreground">
-          Mapping a role recommends a level when somebody is promoted. It never changes an agent's
-          compensation on its own — a promotion raises a change request for approval.
-        </p>
-        <div className="mt-3 space-y-2">
-          {INTERNAL_ROLES.map((role) => {
-            const existing = (data?.mappings ?? []).filter((m: any) => m.internal_role === role);
-            return (
-              <div key={role} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2/40 px-3 py-2">
-                <span className="w-32 shrink-0 text-sm font-medium capitalize text-foreground">
-                  {role.replace(/_/g, " ")}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                  {existing.length
-                    ? existing.map((m: any) => `${m.carrier_name}: ${m.level_name}`).join(" · ")
-                    : "Not mapped"}
-                </span>
-                <select
-                  defaultValue=""
-                  onChange={(e) => {
-                    const level = all.find((l) => l.id === e.target.value);
-                    if (!level) return;
-                    map.mutate({ org_carrier_id: level.org_carrier_id, internal_role: role, comp_level_id: level.id });
-                    e.currentTarget.value = "";
-                  }}
-                  className="rounded-md border border-border bg-card px-2 py-1 text-xs"
-                >
-                  <option value="">Map to…</option>
-                  {all.filter((l) => l.status === "active").map((l) => (
-                    <option key={l.id} value={l.id}>{l.carrier_name} — {l.level_name}</option>
-                  ))}
-                </select>
-              </div>
-            );
-          })}
-        </div>
-      </Panel>
-
-      <p className="flex items-start gap-1.5 text-[11px] text-text-dim">
-        <Lock className="mt-0.5 h-3 w-3 shrink-0" />
-        Compensation levels are restricted. Agents see only the level they hold, through their own
-        records.
-      </p>
-
-      <CompLevelDialog
-        open={adding || Boolean(editing)}
-        record={editing}
-        carriers={(carrierData?.carriers ?? []) as any[]}
-        pending={save.isPending}
-        onClose={() => { setAdding(false); setEditing(null); }}
-        onSave={(p) => save.mutate(p)}
-      />
-    </div>
-  );
+  const { data, isLoading } = useQuery({ queryKey: ["agency-levels"], queryFn: () => listFn() });
+  const { data: carrierData } = useQuery({ queryKey: ["contracting-ops", "carriers"], queryFn: () => carriersFn() });
+  const save = useMutation({ mutationFn: (p: any) => saveFn({ data: p }), onSuccess: () => { toast.success("Agency level saved"); setAdding(false); setEditing(null); qc.invalidateQueries({ queryKey: ["agency-levels"] }); }, onError: (e: any) => toast.error(e?.message ?? "Could not save the agency level") });
+  const rows = (data?.rows ?? []) as any[];
+  if (!isLoading && rows.length === 0) return <EmptyState title="Create your agency promotion ladder" body="Create each level once, such as Trainee 50%, Agent 60%, and MGA 80%. Carrier equivalents are optional exceptions inside the level." action={<Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create first level</Button>} />;
+  return <div className="space-y-4">
+    <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">One simple ladder used for invites, promotions, and permissions.</p><Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button></div>
+    <div className="space-y-2">{rows.map((level) => <Panel key={level.id} className="p-4"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-bold text-primary tnum">{Number(level.base_pct)}%</div><div className="min-w-0 flex-1"><h3 className="font-semibold text-foreground">{level.name}</h3><p className="text-xs text-muted-foreground">{level.can_invite ? "Can build a downline" : "Cannot create invite links"} · {(level.agency_level_carrier_mappings ?? []).length} carrier overrides</p></div><Button size="sm" variant="ghost" onClick={() => setEditing(level)}><Pencil className="h-3.5 w-3.5" /></Button></div></Panel>)}</div>
+    <AgencyLevelDialog open={adding || Boolean(editing)} record={editing} carriers={(carrierData?.carriers ?? []) as any[]} pending={save.isPending} onClose={() => { setAdding(false); setEditing(null); }} onSave={(p) => save.mutate(p)} />
+  </div>;
 }
 
-function CompLevelDialog({
-  open, record, carriers, pending, onClose, onSave,
-}: {
-  open: boolean; record: any | null; carriers: any[]; pending: boolean;
-  onClose: () => void; onSave: (p: any) => void;
-}) {
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [roles, setRoles] = useState<string[]>([]);
+function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }: { open: boolean; record: any; carriers: any[]; pending: boolean; onClose: () => void; onSave: (p: any) => void }) {
   const key = record?.id ?? (open ? "new" : "closed");
   const [lastKey, setLastKey] = useState(key);
-  if (key !== lastKey) {
-    setLastKey(key);
-    setForm({
-      org_carrier_id: record?.org_carrier_id ?? "",
-      level_name: record?.level_name ?? "",
-      commission_pct: record?.commission_pct != null ? String(record.commission_pct) : "",
-      advance_pct: record?.advance_pct != null ? String(record.advance_pct) : "",
-      advance_months: record?.advance_months != null ? String(record.advance_months) : "",
-      renewal_pct: record?.renewal_pct != null ? String(record.renewal_pct) : "",
-      chargeback_rules: record?.chargeback_rules ?? "",
-      status: record?.status ?? "active",
-    });
-    setRoles(record?.role_eligibility ?? []);
-  }
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const num = (v: string) => (v?.trim() === "" ? null : Number(v));
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{record ? `Edit ${record.level_name}` : "Add a compensation level"}</DialogTitle>
-          <DialogDescription>The levels this carrier offers your agency.</DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="cl-carrier">Carrier</Label>
-            <select id="cl-carrier" value={form.org_carrier_id ?? ""} onChange={(e) => set("org_carrier_id", e.target.value)}
-                    disabled={Boolean(record)}
-                    className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm disabled:opacity-60">
-              <option value="">Select a carrier…</option>
-              {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-
-          <div className="sm:col-span-2">
-            <Label htmlFor="cl-name">Level name</Label>
-            <Input id="cl-name" value={form.level_name ?? ""} onChange={(e) => set("level_name", e.target.value)}
-                   placeholder="e.g. 80%" className="mt-1" />
-          </div>
-
-          {([["commission_pct", "Commission %"], ["advance_pct", "Advance %"],
-             ["advance_months", "Advance months"], ["renewal_pct", "Renewal %"]] as const).map(([k, label]) => (
-            <div key={k}>
-              <Label htmlFor={`cl-${k}`}>{label}</Label>
-              <Input id={`cl-${k}`} inputMode="decimal" value={form[k] ?? ""}
-                     onChange={(e) => set(k, e.target.value)} className="mt-1" />
-            </div>
-          ))}
-
-          <div className="sm:col-span-2">
-            <Label>Eligible roles</Label>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {INTERNAL_ROLES.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRoles((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r])}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium capitalize ${
-                    roles.includes(r) ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {r.replace(/_/g, " ")}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" disabled={pending || !form.org_carrier_id || !form.level_name?.trim()}
-                  onClick={() => onSave({
-                    id: record?.id,
-                    org_carrier_id: form.org_carrier_id,
-                    level_name: form.level_name.trim(),
-                    commission_pct: num(form.commission_pct),
-                    advance_pct: num(form.advance_pct),
-                    advance_months: num(form.advance_months),
-                    renewal_pct: num(form.renewal_pct),
-                    chargeback_rules: form.chargeback_rules?.trim() || null,
-                    role_eligibility: roles,
-                    status: form.status,
-                  })}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+  const [name, setName] = useState(""); const [pct, setPct] = useState(""); const [canInvite, setCanInvite] = useState(false); const [showOverrides, setShowOverrides] = useState(false);
+  const [mappings, setMappings] = useState<Record<string, { carrier_level_name: string; carrier_pct: string }>>({});
+  if (key !== lastKey) { setLastKey(key); setName(record?.name ?? ""); setPct(record?.base_pct != null ? String(record.base_pct) : ""); setCanInvite(Boolean(record?.can_invite)); setMappings(Object.fromEntries((record?.agency_level_carrier_mappings ?? []).map((m: any) => [m.org_carrier_id, { carrier_level_name: m.carrier_level_name ?? "", carrier_pct: m.carrier_pct != null ? String(m.carrier_pct) : "" }]))); setShowOverrides(false); }
+  const submit = () => onSave({ id: record?.id, name: name.trim(), base_pct: Number(pct), sort_order: Number(pct), can_invite: canInvite, active: true, mappings: Object.entries(mappings).filter(([, m]) => m.carrier_level_name || m.carrier_pct).map(([org_carrier_id, m]) => ({ org_carrier_id, carrier_level_name: m.carrier_level_name || null, carrier_pct: m.carrier_pct === "" ? null : Number(m.carrier_pct) })) });
+  return <Dialog open={open} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>{record ? "Edit agency level" : "Add agency level"}</DialogTitle><DialogDescription>Create it once. Carrier specific equivalents are optional.</DialogDescription></DialogHeader><div className="space-y-4">
+    <div><Label>Level name</Label><Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Supervising Agent" /></div>
+    <div><Label>Headline commission</Label><div className="relative mt-1"><Input type="number" value={pct} onChange={(e) => setPct(e.target.value)} placeholder="65" className="pr-8" /><span className="absolute right-3 top-2 text-sm text-muted-foreground">%</span></div></div>
+    <div className="flex items-center justify-between rounded-lg border border-border p-3"><div><p className="text-sm font-medium">Can build a downline</p><p className="text-xs text-muted-foreground">Allow people at this level to create invite links.</p></div><Switch checked={canInvite} onCheckedChange={setCanInvite} /></div>
+    <button type="button" onClick={() => setShowOverrides((v) => !v)} className="text-sm font-medium text-primary">{showOverrides ? "Hide" : "Add"} carrier equivalents</button>
+    {showOverrides && <div className="space-y-3 rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">Only change carriers whose naming or percentage differs from {pct || "this"}%.</p>{carriers.map((c) => { const m = mappings[c.id] ?? { carrier_level_name: "", carrier_pct: "" }; return <div key={c.id} className="grid grid-cols-[1fr_1fr_90px] gap-2 items-end"><span className="pb-2 text-xs font-medium truncate">{c.name}</span><Input value={m.carrier_level_name} onChange={(e) => setMappings((x) => ({ ...x, [c.id]: { ...m, carrier_level_name: e.target.value } }))} placeholder="Level name" /><Input type="number" value={m.carrier_pct} onChange={(e) => setMappings((x) => ({ ...x, [c.id]: { ...m, carrier_pct: e.target.value } }))} placeholder={pct || "%"} /></div>; })}</div>}
+  </div><DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={submit} disabled={pending || !name.trim() || pct === "">{pending ? "Saving…" : "Save level"}</Button></DialogFooter></DialogContent></Dialog>;
 }
