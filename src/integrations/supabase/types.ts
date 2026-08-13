@@ -3815,6 +3815,7 @@ export type Database = {
           event_type: string
           http_status: number | null
           id: string
+          integration_id: string | null
           organization_id: string | null
           policy_id: string | null
           status: string
@@ -3825,6 +3826,7 @@ export type Database = {
           event_type: string
           http_status?: number | null
           id?: string
+          integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
           status?: string
@@ -3835,11 +3837,19 @@ export type Database = {
           event_type?: string
           http_status?: number | null
           id?: string
+          integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "discord_deliveries_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "discord_integrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "discord_deliveries_organization_id_fkey"
             columns: ["organization_id"]
@@ -3862,6 +3872,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           enabled: boolean
+          id: string
           last_error: string | null
           last_error_at: string | null
           last_success_at: string | null
@@ -3878,6 +3889,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           enabled?: boolean
+          id?: string
           last_error?: string | null
           last_error_at?: string | null
           last_success_at?: string | null
@@ -3894,6 +3906,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           enabled?: boolean
+          id?: string
           last_error?: string | null
           last_error_at?: string | null
           last_success_at?: string | null
@@ -3916,7 +3929,7 @@ export type Database = {
           {
             foreignKeyName: "discord_integrations_organization_id_fkey"
             columns: ["organization_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
