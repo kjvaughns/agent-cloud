@@ -23,14 +23,18 @@ export type EmailLogRow = {
 };
 
 async function assertEmailViewer(supabase: any, userId: string) {
+  // `limit(1)`, not `maybeSingle()`. A founder holds both `agency_owner` and
+  // `super_admin`, and maybeSingle() treats two matching rows as an error —
+  // so the people most entitled to read the log were the only ones refused.
   const { data } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
     .in("role", ["super_admin", "admin", "agency_owner"])
-    .maybeSingle();
-  if (!data) throw new Error("Forbidden");
+    .limit(1);
+  if (!data?.length) throw new Error("Forbidden");
 }
+
 
 export const listEmailSends = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
