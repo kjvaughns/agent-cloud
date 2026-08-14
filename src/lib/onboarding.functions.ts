@@ -316,8 +316,72 @@ export const getInviteByToken = createServerFn({ method: "POST" })
         .maybeSingle();
       migration_match = roster ?? null;
     }
-    return { invite, migration_match };
+
+    // An agency link is branded by the agency, not by the person who made it,
+    // and the person joining picks their own upline. Both of those need data
+    // the RPC does not return, so they are read here from the row itself.
+    let agency_link: {
+      organization_name: string | null;
+      upline_options: { id: string; name: string }[];
+    } | null = null;
+
+    if (invite?.token) {
+      const { data: row } = await (supabaseAdmin as any)
+        .from("invitation_links")
+        .select("is_agency_link, organization_id")
+        .eq("token", data.token)
+        .maybeSingle();
+
+      if (row?.is_agency_link) {
+        const { data: org } = row.organization_id
+          ? await (supabaseAdmin as any)
+              .from("organizations").select("name").eq("id", row.organization_id).maybeSingle()
+          : { data: null };
+        // Names only, of active people in that one agency: enough to choose an
+        // upline from, and nothing a stranger with the link could not be told
+        // by the person who sent it.
+        const { data: agents } = await (supabaseAdmin as any)
+          .from("profiles")
+          .select("id, first_name, last_name, status")
+          .eq("organization_id", row.organization_id ?? "")
+          .order("first_name", { ascending: true });
+        agency_link = {
+          organization_name: org?.name ?? null,
+          upline_options: ((agents ?? []) as any[])
+            .filter((a) => a.status !== "revoked" && a.status !== "inactive")
+            .map((a) => ({
+              id: a.id,
+              name: [a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed agent",
+            }))
+            .filter((a) => a.name !== "Unnamed agent"),
+        };
+      }
+    }
+
+    return { invite, migration_match, agency_link };
   });
+
+/**
+ * The upline a joining agent ends up under.
+ *
+ * Three answers, in order: the one they chose themselves on an agency-branded
+ * link, the one the link was built with, and — for every link made before
+ * either existed — whoever created it. The choice is only honoured on an
+ * agency link, and only for somebody inside that agency, so a stray id in the
+ * request body cannot graft a new agent onto another agency's tree.
+ */
+async function resolveJoinUpline(inv: any, chosen?: string | null): Promise<string> {
+  const fallback: string = inv.upline_id ?? inv.created_by;
+  if (!inv.is_agency_link || !chosen || chosen === fallback) return fallback;
+  const { data: candidate } = await (supabaseAdmin as any)
+    .from("profiles").select("id, organization_id").eq("id", chosen).maybeSingle();
+  if (!candidate) throw new Error("That upline could not be found.");
+  if ((candidate.organization_id ?? null) !== (inv.organization_id ?? null)) {
+    throw new Error("That upline is not part of this agency.");
+  }
+  return candidate.id;
+}
+
 
 export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
@@ -328,6 +392,10 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     password: z.string().min(8).max(100),
     phone: z.string().trim().min(7).max(30),
     npn_number: z.string().trim().max(40).optional().nullable(),
+    // Only meaningful on an agency-branded link, where the person joining says
+    // who they report to. Ignored on a personal link.
+    upline_id: z.string().uuid().optional().nullable(),
+
   }).parse(d))
   .handler(async ({ data }) => {
     // Read the row itself rather than get_invite_by_token. That RPC does not
@@ -386,10 +454,10 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     // carrier packet needs and the agent already knows it by heart. Everything
     // else the packet wants is asked for by the readiness checklist, in the
     // app, where it can be saved and returned to.
-    // The link's chosen upline, falling back to whoever made it. Every link
-    // created before the picker existed has a null here, and for those the
-    // creator is still the right answer.
-    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+    // On an agency link, whoever they picked; otherwise the link's own upline,
+    // falling back to whoever made it.
+    const inviteUplineId: string = await resolveJoinUpline(inv, data.upline_id ?? null);
+
 
     await supabaseAdmin.from("profiles").update({
       upline_id: inviteUplineId,
@@ -547,7 +615,10 @@ async function loadInviteForUser(supabase: any, token: string, userId: string) {
 
 export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ token: z.string().min(8).max(100) }).parse(d))
+  .inputValidator((d) => z.object({
+    token: z.string().min(8).max(100),
+    upline_id: z.string().uuid().optional().nullable(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const inv = await loadInviteForUser(supabase, data.token, userId);
@@ -559,9 +630,9 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
     );
 
-    // The link's chosen upline, falling back to whoever made it — links that
-    // predate the picker carry null and still mean their creator.
-    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+    // On an agency link, the upline they picked; otherwise the link's own.
+    const inviteUplineId: string = await resolveJoinUpline(inv, data.upline_id ?? null);
+
 
     // Set upline if not already set. Deliberately guarded: accepting a second
     // link must not move somebody out from under the upline they already have.
@@ -654,7 +725,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     let query = supabase
       .from("invitation_links")
-      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,upline_id,sent_on_behalf_of,surelc_agent_id")
+      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,upline_id,is_agency_link,sent_on_behalf_of,surelc_agent_id")
       .order("created_at", { ascending: false });
 
     if (data.scope === "mine") {
@@ -1104,6 +1175,11 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // Who the invited agent reports to. Omitted means the creator, which is
     // what every link meant before this existed.
     upline_id: z.string().uuid().nullable().optional(),
+    // An agency-branded link: the page says the agency's name rather than the
+    // creator's, and the person joining chooses their own upline from the
+    // agency's agents. Any upline picked here is ignored for such a link.
+    is_agency_link: z.boolean().optional().default(false),
+
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
@@ -1218,7 +1294,8 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       onboarding_step: 0,
       invited_role:    data.invited_role,
       agency_level_id: agencyLevelId,
-      upline_id:       uplineId,
+      upline_id:       data.is_agency_link ? null : uplineId,
+      is_agency_link:  data.is_agency_link,
       organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 

@@ -4818,6 +4818,7 @@ export type Database = {
           id: string
           invite_signature_html: string | null
           invited_role: string | null
+          is_agency_link: boolean
           is_reusable: boolean
           last_resent_at: string | null
           link_name: string | null
@@ -4846,6 +4847,7 @@ export type Database = {
           id?: string
           invite_signature_html?: string | null
           invited_role?: string | null
+          is_agency_link?: boolean
           is_reusable?: boolean
           last_resent_at?: string | null
           link_name?: string | null
@@ -4874,6 +4876,7 @@ export type Database = {
           id?: string
           invite_signature_html?: string | null
           invited_role?: string | null
+          is_agency_link?: boolean
           is_reusable?: boolean
           last_resent_at?: string | null
           link_name?: string | null

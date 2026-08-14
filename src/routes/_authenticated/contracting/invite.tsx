@@ -96,6 +96,8 @@ function InvitePage() {
   // "" means the link creator, which is what upline_id being null means on the
   // row. A sentinel is needed because Radix Select cannot hold an empty value.
   const [uplineId, setUplineId] = useState("");
+  // An agency-branded link: the joining agent picks their own upline.
+  const [isAgencyLink, setIsAgencyLink] = useState(false);
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
@@ -120,7 +122,7 @@ function InvitePage() {
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, assignments: [] } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -137,6 +139,7 @@ function InvitePage() {
     setAssignments([]);
     setAgencyLevelId("");
     setUplineId("");
+    setIsAgencyLink(false);
   }
 
   if (success) {
@@ -271,7 +274,40 @@ function InvitePage() {
             which is all it could ever do before. Choosing somebody else is how
             one owner builds a link for a manager's team without handing that
             manager the invite screen. */}
+        {/* Two kinds of link. A personal one places everybody under one chosen
+            person; an agency one is branded by the agency and lets the person
+            joining say who they report to. */}
         {invitedRole !== "staff" && (
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Link Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAgencyLink(false)}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${!isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <User className="h-4 w-4" /> Personal invite
+                  {!isAgencyLink && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">"[Your name] invited you" — you set the upline</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAgencyLink(true)}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4" /> Agency signup link
+                  {isAgencyLink && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">"[Agency] invited you" — they pick their upline</div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {invitedRole !== "staff" && !isAgencyLink && (
           <div>
             <Label>Their Upline</Label>
             <Select value={uplineId || SELF} onValueChange={(v) => setUplineId(v === SELF ? "" : v)}>
@@ -291,6 +327,14 @@ function InvitePage() {
             </p>
           </div>
         )}
+
+        {invitedRole !== "staff" && isAgencyLink && (
+          <p className="text-xs text-muted-foreground">
+            The signup page will show your agency's name and ask the new agent to choose their
+            upline from the agents in your agency.
+          </p>
+        )}
+
 
         <div className="hidden rounded-[var(--radius)] border border-border overflow-hidden">
           <button
@@ -486,7 +530,7 @@ function LinksTable({ rows }: { rows: any[] }) {
           return (
             <TableRow key={r.id}>
               <TableCell className="font-medium">{name}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">{uplineName ?? "You"}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{r.is_agency_link ? "Chosen by agent" : uplineName ?? "You"}</TableCell>
               <TableCell>
                 {carriers.length === 0 ? (
                   <span className="text-xs text-muted-foreground">None</span>
