@@ -17,7 +17,7 @@ import { getAllAgentsForHierarchy } from "@/lib/team.functions";
  * That is why the audit found "no UI anywhere to assign existing agents to a
  * manager", and it is the root of the rest of the Manager complaint: with
  * nobody assignable, downline_count stays 0, my_scopes() returns no team
- * scope, the scope switchers never render, and Team Command Center reads
+ * scope, the scope switchers never render, and the Team page reads
  * "0 agents". One unmounted component, four symptoms.
  *
  * It lives here now so the agent drawer can render it, which is where somebody

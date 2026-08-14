@@ -142,12 +142,14 @@ check("both still render on the dashboard",
 check("…without the comment about the missing half of the app",
   /why half the\s+app is not here yet/.test(DASH), false);
 
-// The agency-side view of the same data is a different screen and stays.
-check("the owner's Getting Ready panel survives",
-  existsSync(join(ROOT, "src/components/onboarding/onboarding-panel.tsx")), true);
-check("…and so does the checklist it renders",
-  existsSync(join(ROOT, "src/components/onboarding/get-ready.tsx")), true);
-check("the team page still mounts it", /OnboardingPage/.test(read("src/routes/_authenticated/team.tsx")), true);
+// GetReady is the checklist itself and must survive: the agent's own dashboard
+// still renders it. Its agency-side wrapper does not — "Getting agents ready"
+// stopped being a page and became the first list on the Team page, so the
+// panel that used to host it has nothing left to host.
+check("the checklist survives", existsSync(join(ROOT, "src/components/onboarding/get-ready.tsx")), true);
+check("…rendered on the agent's own dashboard", /GetReady/.test(read("src/components/onboarding/my-onboarding.tsx")), true);
+check("the agency-side wrapper is gone with the tab",
+  existsSync(join(ROOT, "src/components/onboarding/onboarding-panel.tsx")), false);
 
 // ── Nova ────────────────────────────────────────────────────────────────────
 

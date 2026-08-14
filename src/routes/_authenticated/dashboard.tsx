@@ -668,7 +668,7 @@ function DashboardRail({ atRisk }: { atRisk: any[] }) {
   );
 }
 
-// ── Agency Command Center Widgets ────────────────────────────────────────────
+// ── Agency Widgets ───────────────────────────────────────────────────────────
 
 function initials(f?: string | null, l?: string | null) {
   return `${(f ?? "?")[0] ?? "?"}${(l ?? "")[0] ?? ""}`.toUpperCase();

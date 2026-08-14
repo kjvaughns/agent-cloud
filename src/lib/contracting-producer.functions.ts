@@ -56,7 +56,7 @@ const EmploymentEntry = z.object({
  * agent read 45% on the Contracting tab and 20% on the dashboard, and nobody
  * could say which was right because both were.
  *
- * The RPC wins: it is the one the dashboard, the Team Command Center and the
+ * The RPC wins: it is the one the dashboard, the Team page and the
  * onboarding checklist already read, and its criteria are all reachable from
  * the UI. This asks it rather than having an opinion.
  */

@@ -175,7 +175,7 @@ export function AgencyTeamPage({ embedded = false }: { embedded?: boolean } = {}
           <HeroBand
             title="Team & Permissions"
             subtitle="Set each member's role and exactly what they can see and do. Changes take effect immediately."
-            actions={<Button asChild variant="outline" size="sm"><Link to="/team">Team Command Center →</Link></Button>}
+            actions={<Button asChild variant="outline" size="sm"><Link to="/team">Team →</Link></Button>}
           />
         )}
         <Panel pad={false}>
