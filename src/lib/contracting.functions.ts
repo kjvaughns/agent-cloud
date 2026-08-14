@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
@@ -80,12 +81,10 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
     // anyway, so applying the migration changes nothing.
     let maySelfActivate = false;
     if (orgId) {
-      const { data: settings } = await supabase
-        .from("org_contracting_settings")
-        .select("agents_may_self_activate_carriers")
-        .eq("organization_id", orgId)
-        .maybeSingle();
-      maySelfActivate = Boolean((settings as any)?.agents_may_self_activate_carriers);
+      // Effective, not raw: a child agency without its own row is governed by
+      // its parent's policy here, same as every other contracting setting.
+      const { effective } = await loadEffectiveContractingSettings(orgId);
+      maySelfActivate = Boolean(effective.agents_may_self_activate_carriers);
     }
 
     if (!maySelfActivate) {
