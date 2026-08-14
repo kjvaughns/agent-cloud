@@ -696,7 +696,12 @@ function AmlCard({ doc, onSaved }: { doc: any; onSaved: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DocUploadButton docType="aml_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ provider_name: provider || null, certificate_number: certNum || null, start_date: completionDate || null }} onSaved={onSaved} label="Upload Certificate" />
+          <DocUploadButton docType="aml_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ provider_name: provider || null, certificate_number: certNum || null, start_date: completionDate || null }} onSaved={onSaved} label="Upload Certificate"
+            onExtracted={(f) => {
+              if (f.provider_name) setProvider(f.provider_name);
+              if (f.certificate_number) setCertNum(f.certificate_number);
+              if (f.start_date) setCompletionDate(f.start_date);
+            }} />
           {doc?.file_name && (
             <button onClick={download} className="text-xs text-primary flex items-center gap-1 hover:underline">
               <FileText className="h-3 w-3" /> {doc.file_name}
