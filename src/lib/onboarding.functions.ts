@@ -386,8 +386,13 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     // carrier packet needs and the agent already knows it by heart. Everything
     // else the packet wants is asked for by the readiness checklist, in the
     // app, where it can be saved and returned to.
+    // The link's chosen upline, falling back to whoever made it. Every link
+    // created before the picker existed has a null here, and for those the
+    // creator is still the right answer.
+    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+
     await supabaseAdmin.from("profiles").update({
-      upline_id: inv.created_by,
+      upline_id: inviteUplineId,
       phone: data.phone,
       npn_number: data.npn_number || null,
       first_name: data.first_name,
@@ -467,6 +472,9 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       agentId: newUserId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
+      // The carrier requests route to the upline the agent actually reports
+      // to, not to whoever pressed the button on the link.
+      directUplineId: inviteUplineId,
       assignments,
     });
     if (inv.organization_id) {
@@ -474,7 +482,7 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
         client: supabaseAdmin,
         organizationId: inv.organization_id,
         agentId: newUserId,
-        uplineId: inv.created_by ?? null,
+        uplineId: inviteUplineId ?? null,
         count: createdRequests.length,
       });
     }
@@ -551,9 +559,13 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
     );
 
+    // The link's chosen upline, falling back to whoever made it — links that
+    // predate the picker carry null and still mean their creator.
+    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+
     // Set upline if not already set. Deliberately guarded: accepting a second
     // link must not move somebody out from under the upline they already have.
-    await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
+    await supabase.from("profiles").update({ upline_id: inviteUplineId }).eq("id", userId).is("upline_id", null);
 
     // The position is a separate write, and separately guarded, because the two
     // answer different questions. Folded into the update above, an agent who
@@ -574,6 +586,7 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       agentId: userId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
+      directUplineId: inviteUplineId,
       assignments,
     });
     if (inv.organization_id) {
@@ -581,7 +594,7 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
         client: supabaseAdmin,
         organizationId: inv.organization_id,
         agentId: userId,
-        uplineId: inv.created_by ?? null,
+        uplineId: inviteUplineId ?? null,
         count: createdRequests.length,
       });
     }
@@ -641,7 +654,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     let query = supabase
       .from("invitation_links")
-      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,sent_on_behalf_of,surelc_agent_id")
+      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,upline_id,sent_on_behalf_of,surelc_agent_id")
       .order("created_at", { ascending: false });
 
     if (data.scope === "mine") {
@@ -656,8 +669,12 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
 
-    // Enrich with linked agent names
-    const linkedIds = Array.from(new Set(((rows ?? []) as any[]).map((r: any) => r.linked_agent_id).filter(Boolean)));
+    // Enrich with linked agent names, and with the upline each link places
+    // people under — the whole point of choosing one is being able to see it
+    // on the link afterwards.
+    const linkedIds = Array.from(new Set(
+      ((rows ?? []) as any[]).flatMap((r: any) => [r.linked_agent_id, r.upline_id]).filter(Boolean),
+    ));
     let agentMap = new Map<string, any>();
     if (linkedIds.length) {
       const { data: agents } = await supabase.from("profiles").select("id,first_name,last_name,email").in("id", linkedIds);
@@ -682,6 +699,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
       rows: (rows ?? []).map((r: any) => ({
         ...r,
         linked_agent: r.linked_agent_id ? agentMap.get(r.linked_agent_id) ?? null : null,
+        upline: r.upline_id ? agentMap.get(r.upline_id) ?? null : null,
         accepted_count: accepted.get(r.id) ?? 0,
         expired: r.expires_at ? new Date(r.expires_at).getTime() < now : false,
         days_left: r.expires_at
@@ -1083,6 +1101,9 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // accept paths copied that null onto the new profile. Every agent in the
     // product has no position as a result. Named here, it survives.
     agency_level_id: z.string().uuid().nullable().optional(),
+    // Who the invited agent reports to. Omitted means the creator, which is
+    // what every link meant before this existed.
+    upline_id: z.string().uuid().nullable().optional(),
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
@@ -1160,6 +1181,31 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       agencyLevelId = level.id;
     }
 
+    // The upline the link places people under. Checked against the caller's
+    // own agency and reach rather than trusted: an id from another agency
+    // would graft a stranger's downline onto somebody else's tree, and a
+    // manager naming an agent outside their downline would be placing agents
+    // somewhere they do not manage.
+    let uplineId: string | null = null;
+    if (data.upline_id && data.upline_id !== userId) {
+      const { data: candidate } = await (supabase as any)
+        .from("profiles").select("id,organization_id").eq("id", data.upline_id).maybeSingle();
+      if (!candidate || candidate.organization_id !== (inviterProfile?.organization_id ?? null)) {
+        throw new Error("That upline is not someone in your agency.");
+      }
+      const isOwner = inviterRoleList.some((r: string) =>
+        ["super_admin", "agency_owner", "admin"].includes(r),
+      );
+      if (!isOwner) {
+        const { data: inReach } = await (supabase as any)
+          .rpc("is_in_downline", { _upline: userId, _target: data.upline_id });
+        if (!inReach) {
+          throw new Error("You can only place new agents under yourself or someone in your downline.");
+        }
+      }
+      uplineId = candidate.id;
+    }
+
     const { data: inserted, error } = await (supabase as any).from("invitation_links").insert({
       created_by:      userId,
       name:            data.link_name,
@@ -1172,6 +1218,7 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       onboarding_step: 0,
       invited_role:    data.invited_role,
       agency_level_id: agencyLevelId,
+      upline_id:       uplineId,
       organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 

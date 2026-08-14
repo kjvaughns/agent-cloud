@@ -8,7 +8,11 @@ import {
   getMyContractedCarriers,
 } from "@/lib/onboarding.functions";
 import { deleteInvitationLink } from "@/lib/contracting.functions";
+import { listScopeAgents } from "@/lib/scope.functions";
 import { listCarrierGridLevels } from "@/lib/admin.functions";
+
+/** Radix Select cannot hold "", so "me" stands in for the link's creator. */
+const SELF = "__self__";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,6 +93,9 @@ function InvitePage() {
   const [carriersOpen, setCarriersOpen] = useState(false);
   const [invitedRole, setInvitedRole] = useState<"agent" | "manager" | "agency_owner" | "staff">("agent");
   const [agencyLevelId, setAgencyLevelId] = useState("");
+  // "" means the link creator, which is what upline_id being null means on the
+  // row. A sentinel is needed because Radix Select cannot hold an empty value.
+  const [uplineId, setUplineId] = useState("");
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
@@ -102,9 +109,18 @@ function InvitePage() {
   const levelsFn = useServerFn(listAgencyLevels);
   const { data: agencyLevels } = useQuery({ queryKey: ["agency-levels"], queryFn: () => levelsFn() });
 
+  // The people this person may place agents under. `get_scope_agents`
+  // authorizes inside SQL, so an owner sees the agency and a manager sees only
+  // their own downline — the same narrowing the server enforces on save.
+  const scopeAgentsFn = useServerFn(listScopeAgents);
+  const { data: uplineOptions } = useQuery({
+    queryKey: ["scope-agents", "agency"],
+    queryFn: () => scopeAgentsFn({ data: { scope: "agency" } }),
+  });
+
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, assignments: [] } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -120,6 +136,7 @@ function InvitePage() {
     setLinkName("");
     setAssignments([]);
     setAgencyLevelId("");
+    setUplineId("");
   }
 
   if (success) {
@@ -247,6 +264,31 @@ function InvitePage() {
               <SelectContent>{(agencyLevels?.rows ?? []).filter((l: any) => l.active).map((l: any) => <SelectItem key={l.id} value={l.id}>{l.name} ({Number(l.base_pct)}%)</SelectItem>)}</SelectContent>
             </Select>
             <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
+          </div>
+        )}
+
+        {/* Who they report to. Left alone, the link places people under you —
+            which is all it could ever do before. Choosing somebody else is how
+            one owner builds a link for a manager's team without handing that
+            manager the invite screen. */}
+        {invitedRole !== "staff" && (
+          <div>
+            <Label>Their Upline</Label>
+            <Select value={uplineId || SELF} onValueChange={(v) => setUplineId(v === SELF ? "" : v)}>
+              <SelectTrigger className="mt-1 max-w-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELF}>Me (default)</SelectItem>
+                {(uplineOptions ?? []).map((a: any) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed agent"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Anyone joining through this link is placed under whoever you pick here, and their
+              carrier requests go to that person.
+            </p>
           </div>
         )}
 
@@ -427,6 +469,7 @@ function LinksTable({ rows }: { rows: any[] }) {
     <Table>
       <TableHeader><TableRow>
         <TableHead>Link Name</TableHead>
+        <TableHead>Upline</TableHead>
         <TableHead>Carriers</TableHead>
         <TableHead>Joined</TableHead>
         <TableHead>Status</TableHead>
@@ -437,9 +480,13 @@ function LinksTable({ rows }: { rows: any[] }) {
           const url = typeof window !== "undefined" ? `${window.location.origin}/invite/${r.token}` : "";
           const carriers = Array.isArray(r.carrier_assignments) ? r.carrier_assignments : [];
           const name = r.link_name || r.name || "Invite Link";
+          const uplineName = r.upline
+            ? [r.upline.first_name, r.upline.last_name].filter(Boolean).join(" ") || r.upline.email
+            : null;
           return (
             <TableRow key={r.id}>
               <TableCell className="font-medium">{name}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{uplineName ?? "You"}</TableCell>
               <TableCell>
                 {carriers.length === 0 ? (
                   <span className="text-xs text-muted-foreground">None</span>

@@ -4832,6 +4832,7 @@ export type Database = {
           status: string
           surelc_agent_id: string | null
           token: string
+          upline_id: string | null
         }
         Insert: {
           agency_level_id?: string | null
@@ -4859,6 +4860,7 @@ export type Database = {
           status?: string
           surelc_agent_id?: string | null
           token: string
+          upline_id?: string | null
         }
         Update: {
           agency_level_id?: string | null
@@ -4886,6 +4888,7 @@ export type Database = {
           status?: string
           surelc_agent_id?: string | null
           token?: string
+          upline_id?: string | null
         }
         Relationships: [
           {
@@ -4907,6 +4910,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitation_links_upline_id_fkey"
+            columns: ["upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
