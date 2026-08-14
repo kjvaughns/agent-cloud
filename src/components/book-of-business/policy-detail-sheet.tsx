@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { draftSummary } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -41,6 +42,21 @@ export function PolicyDetailSheet({
         .single();
       if (error) throw error;
       return data;
+    },
+  });
+
+  // How the client pays. Client-level, so it is keyed on client_id and shared
+  // by every policy they hold.
+  const bankingQ = useQuery({
+    enabled: !!row?.client_id,
+    queryKey: ["bob", "banking", row?.client_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("client_banking")
+        .select("payment_method, draft_date")
+        .eq("client_id", row!.client_id)
+        .maybeSingle();
+      return data ?? null;
     },
   });
 
@@ -126,6 +142,8 @@ export function PolicyDetailSheet({
                   <Row k="Monthly premium" v={row.monthly_premium ? money(row.monthly_premium, { maximumFractionDigits: 2 }) : "—"} />
                   <Row k="Annual premium" v={<span className="font-semibold text-emerald-700 dark:text-emerald-400">{row.annual_premium ? money(row.annual_premium, { maximumFractionDigits: 2 }) : "—"}</span>} />
                   <Row k="Agent" v={`${row.agent_first_name ?? ""} ${row.agent_last_name ?? ""}`.trim() || "—"} />
+                  {/* Em dash when there is nothing on file, never a made-up day. */}
+                  <Row k="Draft" v={draftSummary(bankingQ.data?.payment_method, bankingQ.data?.draft_date) ?? "—"} />
                 </dl>
               </div>
 

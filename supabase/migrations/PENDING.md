@@ -13,6 +13,16 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260814180000_social-security-payment-method.sql`
+
+`20260814180000` adds `social_security` to the CHECK on
+`client_banking.payment_method` (the constraint previously allowed only
+`bank_draft`, `credit_card`, `money_order`, `direct_express`). Nothing is
+removed, so no existing row can be invalidated. Until it is applied, Post a
+Deal's Social Security option is the one method that fails to save — the
+insert is rejected by the constraint, logged, and the policy still posts
+because the billing write is deliberately non-fatal. Every other method works.
+
 - `20260814140000_contracting-settings-inheritance.sql`
 - `20260814150000_agency-relationships.sql`
 - `20260814160000_imo-scope.sql`

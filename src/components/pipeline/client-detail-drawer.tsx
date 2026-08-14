@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { draftSummary } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -813,6 +814,9 @@ const statusCls: Record<string, string> = {
 };
 
 function PolicyFields({ detail }: { detail: any }) {
+  // Billing lives on the client, not the policy, so every policy row shows the
+  // same draft line — which is the truth: a client pays one way.
+  const banking = detail?.banking ?? null;
   const [showForm, setShowForm] = useState(false);
   const client = detail.client;
   const policies = detail.policies;
@@ -828,7 +832,7 @@ function PolicyFields({ detail }: { detail: any }) {
       {policies.length > 0 && (
         <div className="space-y-2">
           {policies.map((pol: any) => (
-            <PolicyRow key={pol.id} pol={pol} clientId={client.id} />
+            <PolicyRow banking={banking} key={pol.id} pol={pol} clientId={client.id} />
           ))}
         </div>
       )}
@@ -923,7 +927,7 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
 }
 
 // ============ PolicyRow (display + inline edit) ============
-function PolicyRow({ pol, clientId }: { pol: any; clientId: string }) {
+function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; banking?: any }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -984,6 +988,12 @@ function PolicyRow({ pol, clientId }: { pol: any; clientId: string }) {
           <div><span className="font-medium text-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
           <div><span className="font-medium text-foreground">Annual:</span> {money(pol.annual_premium)}</div>
           <div><span className="font-medium text-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+          {/* An em dash when nothing is on file — never a default day, which
+              would read as "it drafts on the 1st". */}
+          <div className="col-span-2">
+            <span className="font-medium text-foreground">Draft:</span>{" "}
+            {draftSummary(banking?.payment_method, banking?.draft_date) ?? "—"}
+          </div>
         </div>
       </div>
     );

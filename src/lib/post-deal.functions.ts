@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { PAYMENT_METHODS } from "@/lib/deals/social-security";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { announceDeal } from "@/lib/discord.functions";
@@ -101,6 +102,20 @@ const PostDealSchema = z.object({
   }),
   beneficiaries: z.array(BeneficiarySchema).max(10),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  /**
+   * How the premium gets paid. Both parts optional — a policy is often posted
+   * before billing is set up, and an empty block writes nothing at all.
+   *
+   * Deliberately only the method and the day. An account or routing number
+   * would make this table worth stealing, and the platform does not need one
+   * to run: it neither drafts the premium nor submits the application.
+   */
+  billing: z.object({
+    payment_method: z.enum(PAYMENT_METHODS).optional(),
+    // 1–28, matching the column's CHECK: a 30th does not exist in February,
+    // and a draft day that skips a month is a lapse waiting to happen.
+    draft_date: z.number().int().min(1).max(28).optional(),
+  }).optional(),
 });
 
 export const postDeal = createServerFn({ method: "POST" })
@@ -150,11 +165,40 @@ export const postDeal = createServerFn({ method: "POST" })
         face_amount: data.policy.face_amount,
         monthly_premium: data.policy.monthly_premium,
         annual_premium: annual,
+        // The form asks for a monthly premium and annualises it by twelve, so
+        // the mode is not a guess. Left null by this path until now, which
+        // cost the lapse scorer a signal it explicitly looks for on every
+        // manually posted deal.
+        premium_mode: "monthly",
         status: data.policy.status ?? "issued_not_paid",
       })
       .select("id")
       .single();
     if (polErr) throw new Error(polErr.message);
+
+    // How the premium is paid, on the client rather than the policy — the
+    // table is keyed one row per client, which is the right grain: a client
+    // pays the same way for every policy they hold.
+    //
+    // Only the fields collected here are named, so an upsert cannot blank the
+    // bank details somebody entered in the pipeline drawer. Nothing is written
+    // when the agent left both blank; a row of nulls would be indistinguishable
+    // from "we asked and they said none".
+    if (data.billing?.payment_method || data.billing?.draft_date) {
+      const { error: bankErr } = await supabase.from("client_banking").upsert(
+        {
+          client_id: clientId,
+          ...(data.billing.payment_method ? { payment_method: data.billing.payment_method } : {}),
+          ...(data.billing.draft_date ? { draft_date: data.billing.draft_date } : {}),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "client_id" },
+      );
+      // Non-fatal, like the commission calculation below: the policy is
+      // written and must not be lost because a billing preference would not
+      // save. The agent can set it from the client drawer.
+      if (bankErr) console.error("[post-deal] client_banking:", bankErr.message);
+    }
 
     // Fire-and-forget commission calculation (never block deal response)
     try {
@@ -222,7 +266,7 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context as { supabase: any; userId: string };
 
-    const [{ data: client }, { data: policies }, { data: bens }] = await Promise.all([
+    const [{ data: client }, { data: policies }, { data: bens }, { data: banking }] = await Promise.all([
       supabase
         .from("clients")
         .select("id, first_name, last_name, phone, date_of_birth")
@@ -240,6 +284,12 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
         .from("beneficiaries")
         .select("first_name, last_name, relationship, dob, percentage")
         .eq("client_id", data.client_id),
+      // Billing already on file, so re-posting a client does not ask again.
+      supabase
+        .from("client_banking")
+        .select("payment_method, draft_date")
+        .eq("client_id", data.client_id)
+        .maybeSingle(),
     ]);
 
     if (!client) throw new Error("Client not found");
@@ -275,5 +325,11 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
         dob: b.dob ?? "",
         percentage: b.percentage != null ? String(b.percentage) : "",
       })),
+      // Strings, matching the rest of this payload — the form holds every
+      // field as a string and converts on submit.
+      billing: {
+        payment_method: (banking as any)?.payment_method ?? "",
+        draft_date: (banking as any)?.draft_date != null ? String((banking as any).draft_date) : "",
+      },
     };
   });
