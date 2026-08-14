@@ -79,12 +79,14 @@ const STARTER_GREETING_TEXT =
   "Hi, I'm Nova. You're just getting started, so there's no book for me to read yet — but I can help you build a script, plan your first month, or work through an objection before you hit the phones.";
 
 function NovaAIPage() {
-  // `isPending` already means "has not posted a policy yet" — it is what gates
-  // Clients, Book and Finances in the nav. No new query for this.
-  const { audience, isPending: noBookYet } = useNavContext();
+  // Whether they have posted a policy, which is the only thing that decides
+  // if there is a book to read. This used to ride on the pending-agent flag,
+  // which meant membership status rather than book size and so went false as
+  // soon as an owner ticked somebody active.
+  const { audience, hasNoBookYet } = useNavContext();
   // Staff are never "starting out": they have no book because they do not sell,
   // not because they have not sold yet.
-  const starter = audience === "core" && noBookYet;
+  const starter = audience === "core" && hasNoBookYet;
 
   const chips = audience === "staff"
     ? QUICK_CHIPS.staff

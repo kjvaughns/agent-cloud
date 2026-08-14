@@ -49,12 +49,6 @@ export type Unlock =
   /** The agency has child agencies. A Sub-Agencies page with none is a concept lesson, not a page. */
   | "has-sub-agencies"
   /**
-   * A selling surface. Hidden while somebody is still becoming an agent —
-   * they have no clients, no book and no commissions, so these pages can only
-   * show them zero and ask them to wait.
-   */
-  | "activated"
-  /**
    * Somebody whose job includes answering tickets. Not the same set as
    * "administers the agency": a client-services staffer or a manager the
    * owner has ticked "respond to support tickets" for works the queue
@@ -117,11 +111,6 @@ export const PAGES: Page[] = [
   { id: "calendar", label: "Calendar", path: "/calendar", icon: Calendar, area: "Clients", parent: "clients" },
   { id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
   { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
-
-  // Contracting — becoming and staying appointed, and what it pays.
-  // Post a Deal is deliberately NOT gated on being activated: posting the
-  // first policy is one of the two things that ends the pending state, so
-  // locking it would make that route impossible to walk.
 
   // Contracting — becoming and staying appointed.
   //
@@ -373,8 +362,6 @@ export type NavContext = {
   canSeeAgency: boolean;
   /** How many people are under them. Drives the has-downline gate. */
   downlineCount: number;
-  /** Invited, not yet activated, no first sale. */
-  isPending: boolean;
   /**
    * They answer tickets for the agency. Mirrors the database's
    * can_work_tickets() so the row that offers the desk and the policy that
@@ -385,6 +372,11 @@ export type NavContext = {
   canEditResources: boolean;
   /** At least one organization names theirs as parent. Drives has-sub-agencies. */
   hasSubAgencies: boolean;
+  /**
+   * They have never posted a policy. Gates nothing — it only lets Nova open
+   * with something useful to somebody who has no book yet.
+   */
+  hasNoBookYet: boolean;
   perms: Record<string, unknown>;
 };
 
@@ -420,7 +412,6 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "has-sub-agencies") gates.push(ctx.hasSubAgencies && ctx.canSeeAgency);
   if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
   if (p.unlock === "resource-editor") gates.push(ctx.canEditResources);
-  if (p.unlock === "activated") gates.push(!ctx.isPending);
   if (p.permission) gates.push(Boolean(ctx.perms[p.permission]));
   if (gates.length > 0 && !gates.some(Boolean)) return false;
 

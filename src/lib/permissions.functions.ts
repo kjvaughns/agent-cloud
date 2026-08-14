@@ -249,11 +249,15 @@ export type MyAccess = {
    */
   canEditAgencySettings: boolean;
   /**
-   * Has an account but is not yet a selling agent — invited, not activated,
-   * no first sale. They get everything that leads to selling and none of the
-   * selling itself.
+   * They have never posted a policy. Nova uses it to open with something
+   * useful to somebody with no book instead of offering to read one.
+   *
+   * This replaced an `isPending` flag that claimed to mean the same thing and
+   * did not: it read membership status, so it went false the moment an owner
+   * marked somebody active, book or no book. It is not a gate — nothing is
+   * hidden from a new agent any more.
    */
-  isPending: boolean;
+  hasNoBookYet: boolean;
   isSolo: boolean;
   isOwner: boolean;
   /**
@@ -424,8 +428,9 @@ export const getMyAccess = createServerFn({ method: "GET" })
 
     const inAgency = Boolean(org) && org?.plan_type !== "solo";
 
-    const { data: me } = await supabaseAdmin
-      .from("profiles").select("status").eq("id", userId).maybeSingle();
+    // Count only, no rows: all anyone asks is whether the number is zero.
+    const { count: policyCount } = await supabaseAdmin
+      .from("policies").select("id", { count: "exact", head: true }).eq("agent_id", userId);
 
     // parent_org_id, not agency_relationships: the foreign key is the source
     // of truth for "has children"; the relationship row carries the terms.
@@ -445,10 +450,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
       // a workspace with a name and a logo. See the type for why the two
       // answers differ.
       canEditAgencySettings: Boolean(org) && (org?.owner_id === userId || canManageRoles),
-      // An org owner is never pending — they are the one who does the
-      // activating, and locking them out of their own workspace on the day
-      // they sign up would be absurd.
-      isPending: me?.status === "pending" && org?.owner_id !== userId,
+      hasNoBookYet: (policyCount ?? 0) === 0,
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       hasSubAgencies,

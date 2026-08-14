@@ -67,7 +67,9 @@ async function buildAgentContext(ctx: Ctx): Promise<string> {
     .toISOString();
 
   const [profileRes, leadsRes, policiesRes, riskRes, contractsRes, tasksRes] = await Promise.all([
-    supabase.from("profiles").select("first_name, status, npn_number").eq("id", userId).maybeSingle(),
+    // Only the first name is read. `status` fed the pending-agent guidance
+    // that no longer exists, and `npn_number` was never used at all.
+    supabase.from("profiles").select("first_name").eq("id", userId).maybeSingle(),
     supabase.from("clients").select("stage, temperature, last_opened_at, created_at").eq("agent_id", userId).limit(2000),
     supabase.from("policies").select("status, monthly_premium, annual_premium, posted_at, carriers(name)").eq("agent_id", userId).limit(2000),
     supabase.from("retention_cases").select("status, risk_reason, premium_at_risk").eq("agent_id", userId).in("status", ["open", "working"]).limit(200),
@@ -136,12 +138,6 @@ async function buildAgentContext(ctx: Ctx): Promise<string> {
     lines.push(
       `Tasks: ${tasks.length} open${overdue.length ? `, ${overdue.length} overdue` : ""}.` +
         (overdue.length ? ` Overdue: ${overdue.slice(0, 5).map((t) => t.title).join("; ")}.` : ""),
-    );
-  }
-
-  if (profile?.status === "pending") {
-    lines.push(
-      "This agent is not activated yet — they have no clients or commissions, and are working through licensing and contracting. Answer accordingly.",
     );
   }
 

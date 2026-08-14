@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Sparkles, X } from "lucide-react";
-import { useNavContext } from "@/hooks/use-my-access";
 import { getProducerProfile } from "@/lib/account.functions";
 
 /**
@@ -17,7 +16,6 @@ import { getProducerProfile } from "@/lib/account.functions";
  * be dismissed. A suggestion you cannot close is a demand.
  */
 export function PendingAgentNotice() {
-  const { isPending } = useNavContext();
   const [dismissed, setDismissed] = useState(false);
 
   // Same key the Producer Profile page uses, so this reads from cache when the
@@ -25,13 +23,20 @@ export function PendingAgentNotice() {
   const { data } = useQuery({
     queryKey: ["account", "producerProfile"],
     queryFn: () => getProducerProfile(),
-    enabled: isPending && !dismissed,
+    enabled: !dismissed,
     staleTime: 60_000,
   });
 
   const pct = Number((data as any)?.completion?.pct ?? 0);
 
-  if (!isPending || dismissed || pct >= 100) return null;
+  // How complete the profile is, and nothing else. This used to also require
+  // the agent to be "pending" — a membership status that no longer exists for
+  // anybody new, which would have quietly retired the nudge along with the
+  // gate. Whether a profile is worth finishing has nothing to do with it.
+  //
+  // Waits for `data` rather than trusting the 0 default, so a fully complete
+  // profile never flashes "0% on file" while the query is in flight.
+  if (dismissed || !data || pct >= 100) return null;
 
   return (
     <div className="relative rounded-[var(--radius)] border border-primary/40 bg-gold-glow p-4">
