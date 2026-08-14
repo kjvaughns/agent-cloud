@@ -366,6 +366,60 @@ export type Database = {
           },
         ]
       }
+      agency_relationships: {
+        Row: {
+          allow_sales_feed: boolean
+          child_org_id: string
+          created_at: string
+          effective_date: string
+          id: string
+          include_production: boolean
+          parent_org_id: string
+          status: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          allow_sales_feed?: boolean
+          child_org_id: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          include_production?: boolean
+          parent_org_id: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          allow_sales_feed?: boolean
+          child_org_id?: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          include_production?: boolean
+          parent_org_id?: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_relationships_child_org_id_fkey"
+            columns: ["child_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_relationships_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
@@ -5645,6 +5699,7 @@ export type Database = {
           notify_on_missing_documents: boolean
           notify_on_status_change: boolean
           organization_id: string
+          overridden_fields: string[] | null
           pdb_refresh_days: number
           request_sla_days: number
           require_manager_review: boolean
@@ -5665,6 +5720,7 @@ export type Database = {
           notify_on_missing_documents?: boolean
           notify_on_status_change?: boolean
           organization_id: string
+          overridden_fields?: string[] | null
           pdb_refresh_days?: number
           request_sla_days?: number
           require_manager_review?: boolean
@@ -5685,6 +5741,7 @@ export type Database = {
           notify_on_missing_documents?: boolean
           notify_on_status_change?: boolean
           organization_id?: string
+          overridden_fields?: string[] | null
           pdb_refresh_days?: number
           request_sla_days?: number
           require_manager_review?: boolean
@@ -5827,6 +5884,8 @@ export type Database = {
           notify_new_ticket: boolean
           organization_id: string
           primary_admin_email: string | null
+          show_own_on_leaderboards: boolean
+          show_own_sales_in_feed: boolean
           support_email: string | null
           updated_at: string
           updated_by: string | null
@@ -5842,6 +5901,8 @@ export type Database = {
           notify_new_ticket?: boolean
           organization_id: string
           primary_admin_email?: string | null
+          show_own_on_leaderboards?: boolean
+          show_own_sales_in_feed?: boolean
           support_email?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -5857,6 +5918,8 @@ export type Database = {
           notify_new_ticket?: boolean
           organization_id?: string
           primary_admin_email?: string | null
+          show_own_on_leaderboards?: boolean
+          show_own_sales_in_feed?: boolean
           support_email?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -9394,6 +9457,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      imo_org_ids: { Args: never; Returns: string[] }
       increment_funnel_applications: {
         Args: { _slug: string }
         Returns: undefined

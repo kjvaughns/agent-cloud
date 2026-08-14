@@ -11,6 +11,8 @@ import {
   lookupNpnLicenses,
 } from "@/lib/account.functions";
 import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
+import { readProducerDocument } from "@/lib/document-intake.functions";
+import { extractDocument } from "@/lib/document-extract";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRole } from "@/hooks/use-role";
@@ -68,13 +70,13 @@ const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string }> = {
   "AML Certificate":   { tab: "documents", action: "Upload it" },
 };
 
-/** Why each item is worth doing — the consequence, not the instruction. */
+/** Why each item is worth having here — useful, never a precondition. */
 const WHY: Record<string, string> = {
-  "Personal details":  "Carriers contract your legal name and date of birth. Every packet needs them.",
+  "Personal details":  "Carriers contract your legal name. Keeping it here means every packet is pre-filled.",
   "NPN Number":        "Your National Producer Number identifies you to every carrier and to NIPR.",
   "Home address":      "Appointment paperwork is filed against your residential address.",
-  "E&O Certificate":   "No carrier will appoint you without current errors-and-omissions cover.",
-  "AML Certificate":   "Anti-money-laundering training is required before you can write annuities.",
+  "E&O Certificate":   "Carriers ask for current errors-and-omissions cover when they appoint you.",
+  "AML Certificate":   "Carriers ask for anti-money-laundering training before annuity business.",
 };
 
 const BACKGROUND_QUESTIONS = [
@@ -250,11 +252,14 @@ function NextStep({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-              Next
+              Suggested next
             </div>
             <div className="mt-1 text-base font-bold">{next}</div>
             <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-              {WHY[next] ?? "Carriers ask for this before they will appoint you."}
+              {WHY[next] ?? "Worth keeping here so you only ever type it once."}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Nothing here is required — the rest of Agent Cloud is open either way.
             </div>
             <Button size="sm" className="mt-3" onClick={() => onGo(where.tab)}>
               {where.action}
@@ -263,7 +268,7 @@ function NextStep({
           <div className="shrink-0 text-right">
             <div className="tnum text-3xl font-bold text-foreground">{pct}%</div>
             <div className="text-xs text-muted-foreground">
-              {missing.length} left
+              {missing.length} to go
             </div>
           </div>
         </div>
@@ -493,12 +498,29 @@ function ContactCard({ profile, onSave }: { profile: any; onSave: (p: Record<str
   );
 }
 
-function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, label = "Upload" }: {
-  docType: string; userId: string; currentDoc?: any; extraData?: Record<string, string | null>; onSaved: () => void; label?: string;
+/**
+ * Upload a document, and let the document fill in its own fields.
+ *
+ * The carrier, the policy number, the expiry — all of it is printed on the
+ * certificate being uploaded, and asking somebody to retype it is why these
+ * fields sit empty. So after the file is stored we read it (text layer first,
+ * page images only for scans), ask the model for the handful of fields this
+ * card holds, and save whatever came back.
+ *
+ * Reading is strictly a bonus. If it fails, or finds nothing, the document is
+ * already saved and the fields stay as the agent left them — an upload never
+ * fails because the reader could not make sense of the file. Anything typed by
+ * hand wins over anything read, because the person is right.
+ */
+function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, onExtracted, label = "Upload" }: {
+  docType: string; userId: string; currentDoc?: any; extraData?: Record<string, string | null>;
+  onSaved: () => void; onExtracted?: (fields: Record<string, string | null>) => void; label?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [reading, setReading] = useState(false);
   const upsertFn = useServerFn(upsertProducerDocument);
+  const readFn = useServerFn(readProducerDocument);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -511,10 +533,38 @@ function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, labe
       await upsertFn({ data: { doc_type: docType as any, file_path: path, file_name: file.name, ...extraData } });
       onSaved();
       toast.success("Document uploaded");
+      setUploading(false);
+
+      // Read it. Anything the agent already typed stays; only blanks get filled.
+      setReading(true);
+      try {
+        const doc = await extractDocument(file, { prefer: "text", maxPages: 4 });
+        const found: any = await readFn({
+          data: {
+            doc_type: docType as any,
+            text: doc.text || null,
+            images: doc.images?.length ? doc.images.slice(0, 4) : null,
+          },
+        });
+        const fill: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(found ?? {})) {
+          if (typeof v === "string" && v && !extraData?.[k]) fill[k] = v;
+        }
+        if (Object.keys(fill).length > 0) {
+          await upsertFn({ data: { doc_type: docType as any, ...extraData, ...fill } as any });
+          onExtracted?.(fill);
+          onSaved();
+          toast.success("Filled in what we could read — worth a quick check.");
+        }
+      } catch {
+        // Silent on purpose: the upload succeeded, which is what was asked for.
+      } finally {
+        setReading(false);
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
-    } finally {
       setUploading(false);
+    } finally {
       if (fileRef.current) fileRef.current.value = "";
     }
   }
@@ -522,8 +572,9 @@ function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, labe
   return (
     <>
       <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf,.jpg,.jpeg,.png" />
-      <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-        <Upload className="h-3 w-3 mr-1" /> {uploading ? "Uploading..." : label}
+      <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading || reading}>
+        <Upload className="h-3 w-3 mr-1" />
+        {uploading ? "Uploading..." : reading ? "Reading..." : label}
       </Button>
     </>
   );
@@ -580,7 +631,14 @@ function EoCard({ doc, onSaved }: { doc: any; onSaved: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DocUploadButton docType="eo_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ carrier_name: carrier || null, policy_number: policyNum || null, coverage_amount: coverage || null, start_date: startDate || null, expiration_date: expDate || null }} onSaved={onSaved} label="Upload Certificate (PDF)" />
+          <DocUploadButton docType="eo_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ carrier_name: carrier || null, policy_number: policyNum || null, coverage_amount: coverage || null, start_date: startDate || null, expiration_date: expDate || null }} onSaved={onSaved} label="Upload Certificate (PDF)"
+            onExtracted={(f) => {
+              if (f.carrier_name) setCarrier(f.carrier_name);
+              if (f.policy_number) setPolicyNum(f.policy_number);
+              if (f.coverage_amount) setCoverage(f.coverage_amount);
+              if (f.start_date) setStartDate(f.start_date);
+              if (f.expiration_date) setExpDate(f.expiration_date);
+            }} />
           {doc?.file_name && (
             <button onClick={download} className="text-xs text-primary flex items-center gap-1 hover:underline">
               <FileText className="h-3 w-3" /> {doc.file_name}
@@ -641,7 +699,12 @@ function AmlCard({ doc, onSaved }: { doc: any; onSaved: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DocUploadButton docType="aml_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ provider_name: provider || null, certificate_number: certNum || null, start_date: completionDate || null }} onSaved={onSaved} label="Upload Certificate" />
+          <DocUploadButton docType="aml_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ provider_name: provider || null, certificate_number: certNum || null, start_date: completionDate || null }} onSaved={onSaved} label="Upload Certificate"
+            onExtracted={(f) => {
+              if (f.provider_name) setProvider(f.provider_name);
+              if (f.certificate_number) setCertNum(f.certificate_number);
+              if (f.start_date) setCompletionDate(f.start_date);
+            }} />
           {doc?.file_name && (
             <button onClick={download} className="text-xs text-primary flex items-center gap-1 hover:underline">
               <FileText className="h-3 w-3" /> {doc.file_name}

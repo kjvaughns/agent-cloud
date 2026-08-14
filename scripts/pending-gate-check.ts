@@ -7,21 +7,27 @@
  * sell. Eight nav sections were hidden, and a banner explained that "selling
  * opens once your agency activates you" — but activation was never a real,
  * discoverable action, so the banner described a door with no handle. The
- * whole gate is gone: the `activated` unlock, the flag that fed it, the
- * banner, and the dashboard checklist that sat under it.
+ * gate is gone: the `activated` unlock, the resolver branch, the union member
+ * and the flag that fed all three.
  *
- * Most of this is deletion, so most of these assertions are "is it gone".
- * The two that are not:
+ * What is NOT gone is the useful half. Three things had quietly come to
+ * depend on that flag, and deleting it without care would have taken them
+ * with it:
  *
- *   * The eight pages must still be REACHABLE. Deleting a gate that was the
- *     only thing keeping a row out of the sidebar could just as easily delete
- *     the row, and the acceptance test is that a new agent can open all of
- *     them.
+ *   * The eight pages must still be REACHABLE. A gate was the only thing
+ *     keeping those rows conditional, and removing a condition is one typo
+ *     away from removing the row. The acceptance test is that a brand-new
+ *     agent can open all eight.
  *
- *   * Nova's starter greeting must survive. It rode on the same pending flag
- *     while claiming to mean "has not posted a policy yet" — which the flag
- *     never meant, since it read membership status. Removing the flag would
- *     have killed the greeting silently, so it now reads a real book check.
+ *   * The dashboard notice, which is no longer a gate's explanation but a
+ *     dismissible "finish your producer profile" nudge. It still read the
+ *     pending flag, so it would have rendered for nobody once nobody is
+ *     pending. It now asks how complete the profile is, which is the only
+ *     thing it ever actually wanted to know.
+ *
+ *   * Nova's starter greeting, which rode on the same flag while claiming to
+ *     mean "has not posted a policy yet" — which the flag never meant, since
+ *     it read membership status. It now reads a real book check.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -112,14 +118,28 @@ check("no row is rewritten and nothing is dropped",
 
 console.log("");
 
-check("the pending banner is deleted", existsSync(join(ROOT, "src/components/pending-agent-notice.tsx")), false);
-check("the dashboard checklist is deleted", existsSync(join(ROOT, "src/components/onboarding/my-onboarding.tsx")), false);
+// The banner survives, but as a different thing. It used to explain why half
+// the app was missing; it is now a dismissible "finish your profile" nudge,
+// and the copy about activation is gone.
+const NOTICE = read("src/components/pending-agent-notice.tsx");
+// Stripped: its docblock describes what it used to be, on purpose. What must
+// not survive is the claim in the rendered copy.
+check("the notice no longer explains a missing half of the app",
+  /activates you|selling opens|why half the app/i.test(strip(NOTICE)), false);
+check("it says plainly that it is not a gate", /A nudge, not a gate/.test(NOTICE), true);
+// The point of the re-gate: it must not ride on a status nobody will have.
+check("…and is gated on profile completeness, not membership status",
+  /isPending/.test(NOTICE), false);
+check("it hides once the profile is complete", /pct >= 100/.test(NOTICE), true);
+check("…and waits for the answer rather than flashing 0%",
+  /dismissed \|\| !data \|\| pct >= 100/.test(NOTICE), true);
+check("it can still be dismissed", /setDismissed\(true\)/.test(NOTICE), true);
 
 const DASH = read("src/routes/_authenticated/dashboard.tsx");
-check("neither is imported or rendered", /PendingAgentNotice|MyOnboarding/.test(DASH), false);
-// Deleting a render and leaving the prose above it is how a file ends up
-// explaining something that is not there.
-check("…and the comment about the missing half of the app went with them",
+check("both still render on the dashboard",
+  /<PendingAgentNotice \/>/.test(DASH) && /<MyOnboarding \/>/.test(DASH), true);
+// The old prose promised an explanation the component no longer gives.
+check("…without the comment about the missing half of the app",
   /why half the\s+app is not here yet/.test(DASH), false);
 
 // The agency-side view of the same data is a different screen and stays.
