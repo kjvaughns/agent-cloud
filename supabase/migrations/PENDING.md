@@ -13,6 +13,22 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260814170000_completeness-without-pii.sql`
+
+`20260814170000` rewrites `agent_completion()` so profile completeness stops
+scoring a date of birth, an SSN, a government ID or a voided cheque — the
+product no longer asks for any of them. Nothing is dropped: every column and
+table those fields lived in survives with its rows intact, and
+`organization_settings.collect_contracting_pii` is left in place and simply
+stops being read. In the window: the old function still scores a date of
+birth (15 points, ungated) and, for agencies that had the PII flag on, 30
+more for SSN, government ID and voided cheque. Since the profile page no
+longer offers those fields, affected agents will sit at 85% — or 55% with the
+flag on — and see items in "missing" they cannot act on. Nothing errors and
+nothing blocks; onboarding readiness comes from `agent-onboarding.functions.ts`,
+which already ignores those fields, so "ready" is reachable throughout. Apply
+this one promptly to clear the phantom gap.
+
 - `20260814180000_social-security-payment-method.sql`
 
 `20260814180000` adds `social_security` to the CHECK on

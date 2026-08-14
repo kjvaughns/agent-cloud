@@ -39,7 +39,7 @@ export const getAgencyPeopleOverview = createServerFn({ method: "GET" })
     ] = await Promise.all([
       ids.length
         ? supabaseAdmin.from("profiles")
-            .select("id, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code")
+            .select("id, status, npn_number, street_address, city, state, zip_code")
             .in("id", ids)
         : Promise.resolve({ data: [] }),
       ids.length
@@ -88,7 +88,10 @@ export const getAgencyPeopleOverview = createServerFn({ method: "GET" })
     let notReady = 0;
     for (const p of (profiles ?? []) as any[]) {
       const identity = Boolean(
-        p.npn_number && p.date_of_birth && p.ssn_last4 &&
+        // Same definition as the onboarding checklist's: date of birth and
+        // SSN are no longer collected, so requiring them here would hold every
+        // agent out of the "ready" count for good.
+        p.npn_number &&
         p.street_address && p.city && p.state && p.zip_code);
       const done = p.status === "active" && identity &&
         licensed.has(p.id) && eoOk.has(p.id) && contracted.has(p.id);

@@ -71,7 +71,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const [{ data: me }, { data: agent }] = await Promise.all([
       supabaseAdmin.from("profiles").select("id, organization_id").eq("id", userId).maybeSingle(),
       supabaseAdmin.from("profiles")
-        .select("id, first_name, last_name, organization_id, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code, upline_id, needs_transfer_request, drivers_license_number")
+        .select("id, first_name, last_name, organization_id, status, npn_number, street_address, city, state, zip_code, upline_id, needs_transfer_request")
         .eq("id", agentId).maybeSingle(),
     ]);
 
@@ -88,7 +88,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     const [
       { data: producer }, { data: licences }, { data: docs },
       { data: requests }, { data: ready }, { data: contractRecords },
-      { data: banking }, { data: background }, { count: policyCount },
+      { data: background }, { count: policyCount },
     ] = await Promise.all([
       supabaseAdmin.from("producer_profiles")
         .select("legal_first_name, legal_last_name, resident_state")
@@ -107,10 +107,6 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
       // had not started contracting.
       supabaseAdmin.from("contract_requests")
         .select("id, status").eq("agent_id", agentId),
-      // The four the dashboard banner used to chase separately, plus the
-      // carrier release. Folded in here so removing that banner loses nothing.
-      supabaseAdmin.from("producer_banking")
-        .select("agent_id, account_last4").eq("agent_id", agentId).maybeSingle(),
       supabaseAdmin.from("background_questions")
         .select("id").eq("agent_id", agentId),
       // For the first-deal step. head + exact so this costs a count, not rows.
@@ -125,8 +121,12 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
 
     const joined = agent.status === "active";
 
+    // Identity is who they are and where they live. Date of birth and SSN were
+    // required here and are gone: the product no longer asks for either, so
+    // requiring them would have pinned every agent below "ready" permanently
+    // with no field left to fill in.
     const identityDone = Boolean(
-      agent.npn_number && agent.date_of_birth && agent.ssn_last4 &&
+      agent.npn_number &&
       agent.street_address && agent.city && agent.state && agent.zip_code &&
       producer?.legal_first_name && producer?.legal_last_name && producer?.resident_state,
     );
@@ -167,8 +167,6 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
     // downstream gates on somebody having reviewed them.
     const hasDoc = (type: string) => allDocs.some((d: any) => d.doc_type === type);
     const amlDone = hasDoc("aml_certificate");
-    const licenceIdDone = hasDoc("drivers_license") || Boolean(agent.drivers_license_number);
-    const bankingDone = Boolean(banking?.account_last4);
     const backgroundDone = (background ?? []).length > 0;
     const needsTransfer = Boolean(agent.needs_transfer_request);
     const firstDealDone = (policyCount ?? 0) > 0;
@@ -225,15 +223,6 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         cta: "Upload it",
       },
       {
-        key: "identification",
-        actor: "owner",
-        title: "Add a driver's licence",
-        why: "Carriers use it to verify identity on the application.",
-        done: licenceIdDone,
-        href: "/account/producer-profile",
-        cta: "Upload it",
-      },
-      {
         key: "background",
         actor: "agent",
         title: "Answer the background questions",
@@ -241,15 +230,6 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         done: backgroundDone,
         href: "/account/producer-profile",
         cta: "Answer them",
-      },
-      {
-        key: "banking",
-        actor: "agent",
-        title: "Add bank details",
-        why: "Where commission gets paid. Nothing is blocked without it, but the first payment is.",
-        done: bankingDone,
-        href: "/account/producer-profile",
-        cta: "Add them",
       },
       {
         key: "contracting",
@@ -357,7 +337,7 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
       { data: requests }, { data: contractRecords },
     ] = await Promise.all([
         supabaseAdmin.from("profiles")
-          .select("id, first_name, last_name, status, npn_number, date_of_birth, ssn_last4, street_address, city, state, zip_code")
+          .select("id, first_name, last_name, status, npn_number, street_address, city, state, zip_code")
           .in("id", ids),
         supabaseAdmin.from("state_licenses").select("agent_id, expires_date").in("agent_id", ids),
         supabaseAdmin.from("producer_documents")
@@ -396,8 +376,10 @@ export const listOnboardingProgress = createServerFn({ method: "GET" })
       const rs = req.get(p.id) ?? [];
       const live = rs.some((r: any) => ["approved", "writing_number_issued"].includes(r.status))
         || (rec.get(p.id) ?? []).some((r: any) => r.status === "active");
+      // Same definition as getAgentOnboarding's identityDone, and for the same
+      // reason: nothing asks for a date of birth or an SSN any more.
       const identity = Boolean(
-        p.npn_number && p.date_of_birth && p.ssn_last4 &&
+        p.npn_number &&
         p.street_address && p.city && p.state && p.zip_code);
 
       // `live` appeared twice in this array while `total` was hardcoded to 6,

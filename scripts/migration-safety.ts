@@ -294,8 +294,6 @@ const REVIEWED: Record<string, string> = {
     "every count is attempted per table and the summary reports available:false when all of them fail, so the settings card says the workspace is still updating instead of offering a button that would do nothing",
   "src/lib/demo.server.ts:organizations.is_demo":
     "`.eq(\"is_demo\", true)` is not inside a select() so this script cannot see it — noted here anyway. demoOrgId() treats any error as \"no demo org\" and caches that, so the guardrails are inert rather than broken before the migration lands, which matches a deployment that has no demo",
-  "src/lib/org-settings.functions.ts:organization_settings.collect_contracting_pii":
-    "read via select(\"*\") so a missing column is simply absent and reads as false, which is the intended default; the write catches 42703 and retries without the key so saving other settings is unaffected",
   "src/lib/contracting-notes.functions.ts:producer_notes":
     "isMissingTable() catches 42P01 on all three paths: the read returns notesAvailable:false and the panel shows the audit trail alone, the insert throws a sentence naming the reason, and the delete is a no-op",
   "src/lib/resources.functions.ts:academy_modules.is_published":

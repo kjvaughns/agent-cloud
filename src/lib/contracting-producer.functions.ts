@@ -57,8 +57,7 @@ const EmploymentEntry = z.object({
  * could say which was right because both were.
  *
  * The RPC wins: it is the one the dashboard, the Team Command Center and the
- * onboarding checklist already read, it knows about the agency's
- * `collect_contracting_pii` setting, and its criteria are all reachable from
+ * onboarding checklist already read, and its criteria are all reachable from
  * the UI. This asks it rather than having an opinion.
  */
 async function completenessFor(agentId: string): Promise<number> {
@@ -85,7 +84,10 @@ export const getContractingProfile = createServerFn({ method: "GET" })
 
     const [{ data: profile }, { data: producer }] = await Promise.all([
       supabaseAdmin.from("profiles")
-        .select("id, first_name, last_name, email, phone, npn_number, date_of_birth, state, street_address, city, zip_code, organization_id")
+        // No date_of_birth: the column still exists and still holds what it
+        // held, but no field on this tab ever displayed it, so sending it to
+        // the browser only created somewhere for it to leak from.
+        .select("id, first_name, last_name, email, phone, npn_number, state, street_address, city, zip_code, organization_id")
         .eq("id", targetId).maybeSingle(),
       supabaseAdmin.from("producer_profiles").select("*").eq("profile_id", targetId).maybeSingle(),
     ]);

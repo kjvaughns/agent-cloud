@@ -24,7 +24,6 @@ type Form = {
   notify_new_agent: boolean;
   notify_new_ticket: boolean;
   notify_contract_request: boolean;
-  collect_contracting_pii: boolean;
 };
 
 const EMPTY: Form = {
@@ -34,7 +33,6 @@ const EMPTY: Form = {
   notify_new_agent: false,
   notify_new_ticket: false,
   notify_contract_request: false,
-  collect_contracting_pii: false,
 };
 
 function AdminSettings() {
@@ -55,7 +53,6 @@ function AdminSettings() {
       primary_admin_email: s.primary_admin_email ?? "",
       welcome_message: s.welcome_message ?? "",
       notify_new_agent: s.notify_new_agent,
-      collect_contracting_pii: s.collect_contracting_pii,
       notify_new_ticket: s.notify_new_ticket,
       notify_contract_request: s.notify_contract_request,
     });
@@ -75,7 +72,6 @@ function AdminSettings() {
           primary_admin_email: form.primary_admin_email.trim() || null,
           welcome_message: form.welcome_message.trim() || null,
           notify_new_agent: form.notify_new_agent,
-          collect_contracting_pii: form.collect_contracting_pii,
           notify_new_ticket: form.notify_new_ticket,
           notify_contract_request: form.notify_contract_request,
         },
@@ -176,31 +172,6 @@ function AdminSettings() {
                 className="min-h-[100px]"
               />
               <p className="text-xs text-muted-foreground mt-1">Shown to new agents on first login</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-base">Contracting paperwork</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              Agent Cloud does not submit contracting to carriers, so it does not ask your agents
-              for the details a carrier application needs. Turn this on only if your agency
-              submits that paperwork itself and wants to collect them here.
-            </p>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Collect SSN, driver's licence and banking</p>
-                <p className="text-xs text-muted-foreground">
-                  Adds those fields back to the Producer Profile and counts them toward
-                  profile completeness. Off by default.
-                </p>
-              </div>
-              <Switch
-                disabled={readOnly}
-                checked={form.collect_contracting_pii}
-                onCheckedChange={(v) => set("collect_contracting_pii", v)}
-              />
             </div>
           </CardContent>
         </Card>

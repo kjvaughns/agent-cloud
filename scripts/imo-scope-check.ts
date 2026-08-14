@@ -111,7 +111,7 @@ check("the visibility toggles save through org settings",
   /show_own_sales_in_feed: z\.boolean\(\)\.optional\(\)/.test(ORG_SETTINGS) &&
   /show_own_on_leaderboards: z\.boolean\(\)\.optional\(\)/.test(ORG_SETTINGS), true);
 check("…with the pending-column retry covering them",
-  /PENDING_COLUMNS = \["collect_contracting_pii", "show_own_sales_in_feed", "show_own_on_leaderboards"\]/.test(ORG_SETTINGS), true);
+  /PENDING_COLUMNS = \["show_own_sales_in_feed", "show_own_on_leaderboards"\]/.test(ORG_SETTINGS), true);
 
 const AGENCY_PAGE = read("src/routes/_authenticated/settings.agency.tsx");
 check("the owner sees both toggles in plain words",
