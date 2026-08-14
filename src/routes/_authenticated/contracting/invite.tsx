@@ -469,6 +469,7 @@ function LinksTable({ rows }: { rows: any[] }) {
     <Table>
       <TableHeader><TableRow>
         <TableHead>Link Name</TableHead>
+        <TableHead>Upline</TableHead>
         <TableHead>Carriers</TableHead>
         <TableHead>Joined</TableHead>
         <TableHead>Status</TableHead>
@@ -479,9 +480,13 @@ function LinksTable({ rows }: { rows: any[] }) {
           const url = typeof window !== "undefined" ? `${window.location.origin}/invite/${r.token}` : "";
           const carriers = Array.isArray(r.carrier_assignments) ? r.carrier_assignments : [];
           const name = r.link_name || r.name || "Invite Link";
+          const uplineName = r.upline
+            ? [r.upline.first_name, r.upline.last_name].filter(Boolean).join(" ") || r.upline.email
+            : null;
           return (
             <TableRow key={r.id}>
               <TableCell className="font-medium">{name}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{uplineName ?? "You"}</TableCell>
               <TableCell>
                 {carriers.length === 0 ? (
                   <span className="text-xs text-muted-foreground">None</span>
