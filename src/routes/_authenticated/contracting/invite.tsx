@@ -122,7 +122,7 @@ function InvitePage() {
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, assignments: [] } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -139,6 +139,7 @@ function InvitePage() {
     setAssignments([]);
     setAgencyLevelId("");
     setUplineId("");
+    setIsAgencyLink(false);
   }
 
   if (success) {
