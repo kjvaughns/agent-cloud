@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Mail, Phone, Eye, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, Trash2, Users, Loader2 } from "lucide-react";
+import { UserPlus, Mail, Phone, Eye, AlertTriangle, Trash2, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import {
@@ -31,8 +31,9 @@ import {
   type TeamAgent,
 } from "@/lib/team.functions";
 import { listAgencyLevels } from "@/lib/contracting-records.functions";
-import { PositionCell } from "@/components/team/position-pill";
-import { needsPosition, type Position } from "@/lib/team/positions";
+import { PositionCell, PositionPill } from "@/components/team/position-pill";
+import { needsPosition, positionLabel, sortPositions, type Position } from "@/lib/team/positions";
+import { RANGE_LABELS, producedInRange, rangeBounds, type RangeKey } from "@/lib/team/production";
 import { adminMoveAgent } from "@/lib/admin.functions";
 import { OnboardingPage } from "@/components/onboarding/onboarding-panel";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
@@ -54,7 +55,12 @@ const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => get
 // The roster needs two things the downline RPC does not carry — compliance and
 // days since last sale — so it has its own query rather than making every
 // consumer of the downline pay for them.
-const rosterQO = queryOptions({ queryKey: ["team", "roster"], queryFn: () => getTeamRoster() });
+const rosterQO = (start: string | null, end: string | null) => queryOptions({
+  // The range is part of the key: two windows are two different answers, and
+  // caching them together would show last week's numbers under "All".
+  queryKey: ["team", "roster", start ?? "all", end ?? "open"],
+  queryFn: () => getTeamRoster({ data: { rangeStart: start, rangeEnd: end } }),
+});
 
 function TeamPending() {
   return (
@@ -208,7 +214,15 @@ function TeamPage() {
     () => downlineAll.filter((a) => !(a as any).is_hidden && a.status !== "terminated" && a.status !== "imported"),
     [downlineAll],
   );
-  const { data: roster } = useQuery(rosterQO);
+  // The range lives on the page, not inside the table, because it drives the
+  // query the table renders.
+  const [rangeKey, setRangeKey] = useState<RangeKey>("all");
+  const [customRange, setCustomRange] = useState<{ from?: string; to?: string }>({});
+  const bounds = useMemo(
+    () => rangeBounds(rangeKey, Date.now(), customRange),
+    [rangeKey, customRange],
+  );
+  const { data: roster } = useQuery(rosterQO(bounds.start, bounds.end));
   const downlineForRoster = useMemo(
     () => ((roster?.rows ?? []) as RosterAgent[]).filter((a) => !(a as any).is_hidden),
     [roster],
@@ -300,7 +314,17 @@ function TeamPage() {
           <TabsContent value="roster" className="space-y-6 mt-4">
             <KpiRow />
             <DepthChart />
-            <div data-tour="team-roster"><RosterTable downline={downlineForRoster} onOpen={setOpenAgent} canAssign={canManageRoles} /></div>
+            <div data-tour="team-roster">
+              <RosterTable
+                downline={downlineForRoster}
+                onOpen={setOpenAgent}
+                canAssign={canManageRoles}
+                rangeKey={rangeKey}
+                onRangeKey={setRangeKey}
+                customRange={customRange}
+                onCustomRange={setCustomRange}
+              />
+            </div>
           </TabsContent>
 
           {canManageRoles && (
@@ -310,7 +334,7 @@ function TeamPage() {
           )}
 
           <TabsContent value="org" className="mt-4">
-            <OrgChart downline={downline} onOpen={setOpenAgent} />
+            <OrgList downline={downlineForRoster} onOpen={setOpenAgent} />
           </TabsContent>
 
           {canManageRoles && (
@@ -508,8 +532,37 @@ function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (
 }
 
 // ============ Roster Table ============
-function RosterTable({ downline, onOpen, canAssign }: {
+/** A column header that sorts. The arrow only shows on the active column. */
+function SortHead({
+  k, active, dir, onSort, className, children,
+}: {
+  k: SortKey; active: SortKey; dir: "asc" | "desc"; onSort: (k: SortKey) => void;
+  className?: string; children: React.ReactNode;
+}) {
+  const on = active === k;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={cn("inline-flex items-center gap-1 hover:text-foreground", on && "text-foreground font-semibold")}
+        aria-sort={on ? (dir === "asc" ? "ascending" : "descending") : "none"}
+      >
+        {children}
+        <span className={cn("text-[10px]", on ? "opacity-100" : "opacity-0")}>{dir === "asc" ? "▲" : "▼"}</span>
+      </button>
+    </TableHead>
+  );
+}
+
+type SortKey = "name" | "position" | "upline" | "status" | "own" | "team" | "atrisk" | "contracts" | "active" | "stale" | "compliance";
+
+function RosterTable({
+  downline, onOpen, canAssign, rangeKey, onRangeKey, customRange, onCustomRange,
+}: {
   downline: RosterAgent[]; onOpen: (id: string) => void; canAssign: boolean;
+  rangeKey: RangeKey; onRangeKey: (k: RangeKey) => void;
+  customRange: { from?: string; to?: string }; onCustomRange: (r: { from?: string; to?: string }) => void;
 }) {
   const qc = useQueryClient();
   const levelsFn = useServerFn(listAgencyLevels);
@@ -538,7 +591,10 @@ function RosterTable({ downline, onOpen, canAssign }: {
   const [status, setStatus] = useState("all_except_imported");
   const [depth, setDepth] = useState("all");
   const [stage, setStage] = useState<"all" | LifecycleStage>("all");
-  const [sort, setSort] = useState<"name" | "stale" | "production" | "compliance">("name");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [positionFilter, setPositionFilter] = useState("all");
+  const [producedOnly, setProducedOnly] = useState(false);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [page, setPage] = useState(0);
   const perPage = 25;
@@ -554,23 +610,62 @@ function RosterTable({ downline, onOpen, canAssign }: {
     if (depth !== "all" && a.depth_level !== Number(depth)) return false;
     if (stage !== "all" && a.stage !== stage) return false;
     if (pendingOnly && a.agency_level_id) return false;
+    if (positionFilter !== "all" && a.agency_level_id !== positionFilter) return false;
+    // The reason this table exists: forty agents, three producing.
+    if (producedOnly && !producedInRange(a.own, a.team)) return false;
     return true;
-  }), [downline, search, status, depth, stage, pendingOnly]);
+  }), [downline, search, status, depth, stage, pendingOnly, positionFilter, producedOnly]);
 
   // At-risk first regardless of the chosen sort. A flag you have to scroll to
   // find is the same dead end as no flag at all.
   const COMPLIANCE_ORDER: Record<string, number> = { bad: 0, warn: 1, unknown: 2, ok: 3 };
   const sorted = useMemo(() => {
     const worst = (a: RosterAgent) => (a.flags.some((f) => f.severity === "critical") ? 0 : a.flags.length ? 1 : 2);
+    const name = (a: RosterAgent) => `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim();
+    const uplineName = (a: RosterAgent) => {
+      const u = a.upline_id ? agentById.get(a.upline_id) : null;
+      return u ? `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() : "";
+    };
+    // Every column compares ascending here; direction is applied once, after.
+    const cmp = (a: RosterAgent, b: RosterAgent): number => {
+      switch (sortKey) {
+        case "position": return (a.position_pct ?? -1) - (b.position_pct ?? -1);
+        case "upline": return uplineName(a).localeCompare(uplineName(b));
+        case "status": return a.status.localeCompare(b.status);
+        case "own": return a.own.premium - b.own.premium;
+        case "team": return a.team.premium - b.team.premium;
+        case "atrisk": return a.at_risk_monthly - b.at_risk_monthly;
+        case "contracts": return a.active_carriers - b.active_carriers;
+        case "active": return (a.last_active_at ?? "").localeCompare(b.last_active_at ?? "");
+        case "stale": return (a.days_since_sale ?? -1) - (b.days_since_sale ?? -1);
+        case "compliance": return COMPLIANCE_ORDER[a.compliance] - COMPLIANCE_ORDER[b.compliance];
+        default: return name(a).localeCompare(name(b));
+      }
+    };
     return [...filtered].sort((a, b) => {
-      const w = worst(a) - worst(b);
-      if (w !== 0) return w;
-      if (sort === "stale") return (b.days_since_sale ?? -1) - (a.days_since_sale ?? -1);
-      if (sort === "production") return Number(b.premium_total) - Number(a.premium_total);
-      if (sort === "compliance") return COMPLIANCE_ORDER[a.compliance] - COMPLIANCE_ORDER[b.compliance];
-      return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+      // At-risk first regardless of the chosen sort — except when the reader
+      // has explicitly asked to sort by something, in which case honouring
+      // their click matters more than the flag they can already see.
+      if (sortKey === "name") {
+        const w = worst(a) - worst(b);
+        if (w !== 0) return w;
+      }
+      const c = cmp(a, b);
+      return sortDir === "asc" ? c : -c;
     });
-  }, [filtered, sort]);
+  }, [filtered, sortKey, sortDir, agentById]);
+
+  const sortProps = {
+    active: sortKey,
+    dir: sortDir,
+    onSort: (k: SortKey) => {
+      // Same column toggles direction; a new column starts descending for the
+      // numeric ones, because "who wrote the most" is the question being asked.
+      if (k === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      else { setSortKey(k); setSortDir(k === "name" || k === "upline" || k === "status" ? "asc" : "desc"); }
+      setPage(0);
+    },
+  };
 
   const pageRows = sorted.slice(page * perPage, (page + 1) * perPage);
   const pages = Math.max(1, Math.ceil(sorted.length / perPage));
@@ -579,6 +674,53 @@ function RosterTable({ downline, onOpen, canAssign }: {
   return (
     <Panel>
       <div className="space-y-3">
+        {/* The range drives every time-bound column at once — both production
+            columns move together, so Own and Team are always the same window. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(["all", "week", "month", "quarter", "custom"] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => { onRangeKey(k); setPage(0); }}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors",
+                rangeKey === k
+                  ? "border-primary/40 bg-gold-glow text-gold-bright"
+                  : "border-border bg-surface-2 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {RANGE_LABELS[k]}
+            </button>
+          ))}
+          {rangeKey === "custom" && (
+            <span className="flex items-center gap-1.5">
+              <Input
+                type="date" className="h-7 w-auto text-xs"
+                value={customRange.from?.slice(0, 10) ?? ""}
+                onChange={(e) => onCustomRange({ ...customRange, from: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="date" className="h-7 w-auto text-xs"
+                value={customRange.to?.slice(0, 10) ?? ""}
+                onChange={(e) => onCustomRange({ ...customRange, to: e.target.value ? new Date(e.target.value).toISOString() : undefined })}
+              />
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => { setProducedOnly((v) => !v); setPage(0); }}
+            className={cn(
+              "ml-auto rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              producedOnly
+                ? "border-success/50 bg-success/10 text-success"
+                : "border-border bg-surface-2 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            Produced in {RANGE_LABELS[rangeKey].toLowerCase()}
+          </button>
+        </div>
+
         {/* Stage chips. Counts on the chip so you can see there are four
             at-risk agents without selecting the filter to find out. */}
         <div className="flex flex-wrap gap-1.5">
@@ -624,15 +766,19 @@ function RosterTable({ downline, onOpen, canAssign }: {
 
         <div className="flex gap-2 flex-wrap">
           <Input placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="max-w-xs" />
-          <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-            <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Sort: Name</SelectItem>
-              <SelectItem value="stale">Sort: Days since last sale</SelectItem>
-              <SelectItem value="production">Sort: Production</SelectItem>
-              <SelectItem value="compliance">Sort: Compliance</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Sorting moved onto the column headers — every column sorts, which
+              a four-option select could never offer. */}
+          {positions.length > 0 && (
+            <Select value={positionFilter} onValueChange={(v) => { setPositionFilter(v); setPage(0); }}>
+              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All positions</SelectItem>
+                {sortPositions(positions).map((pos) => (
+                  <SelectItem key={pos.id} value={pos.id}>{positionLabel(pos.name, pos.pct)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
             <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -657,21 +803,22 @@ function RosterTable({ downline, onOpen, canAssign }: {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Agent</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead className="text-center">Compliance</TableHead>
-                <TableHead>Upline</TableHead>
-                <TableHead>Carriers</TableHead>
-                <TableHead>Policies</TableHead>
-                <TableHead>Production</TableHead>
-                <TableHead>Last sale</TableHead>
+                <SortHead k="name" {...sortProps}>Agent</SortHead>
+                <SortHead k="position" {...sortProps}>Position</SortHead>
+                <SortHead k="upline" {...sortProps}>Upline</SortHead>
+                <SortHead k="status" {...sortProps}>Stage</SortHead>
+                <SortHead k="compliance" {...sortProps} className="text-center">Compliance</SortHead>
+                <SortHead k="own" {...sortProps}>Production (own)</SortHead>
+                <SortHead k="team" {...sortProps}>Production (team)</SortHead>
+                <SortHead k="atrisk" {...sortProps}>At risk</SortHead>
+                <SortHead k="contracts" {...sortProps}>Contracts</SortHead>
+                <SortHead k="active" {...sortProps}>Last active</SortHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageRows.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
               ) : pageRows.map((a) => {
                 const upline = a.upline_id ? agentById.get(a.upline_id) : null;
                 return (
@@ -696,21 +843,54 @@ function RosterTable({ downline, onOpen, canAssign }: {
                       onAssign={(agencyLevelId) => assign.mutate({ agentId: a.id, agencyLevelId })}
                     />
                   </TableCell>
-                  <TableCell><StageBadge stage={a.stage} flags={a.flags} /></TableCell>
-                  <TableCell className="text-center"><ComplianceDot level={a.compliance} /></TableCell>
                   <TableCell className="text-sm">
                     {upline
                       ? <span>{upline.first_name} {upline.last_name}</span>
                       : <span className="text-muted-foreground text-xs">{a.upline_id ? "—" : "Root"}</span>
                     }
                   </TableCell>
-                  <TableCell className="tnum">{a.active_carriers}</TableCell>
-                  <TableCell className="tnum">{a.policies_count}</TableCell>
-                  <TableCell className="tnum">{fmtCurrency(Number(a.premium_total))}</TableCell>
+                  <TableCell><StageBadge stage={a.stage} flags={a.flags} /></TableCell>
+                  <TableCell className="text-center"><ComplianceDot level={a.compliance} /></TableCell>
+                  {/* Own beside team is the whole point: who writes, versus who
+                      has built people who write. */}
                   <TableCell className="tnum">
-                    {a.days_since_sale == null
-                      ? <span className="text-muted-foreground text-xs">Never</span>
-                      : `${a.days_since_sale}d ago`}
+                    <div>{fmtCurrency(a.own.premium)}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {a.own.policies} deal{a.own.policies === 1 ? "" : "s"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="tnum">
+                    {a.team.policies === 0 && a.team.premium === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <>
+                        <div>{fmtCurrency(a.team.premium)}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {a.team.policies} deal{a.team.policies === 1 ? "" : "s"}
+                        </div>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="tnum">
+                    {a.at_risk_cases === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <>
+                        {/* Monthly, because premium_at_risk is monthly premium.
+                            Saying so is the difference between a number and a
+                            wrong number. */}
+                        <div className="text-warning">{fmtCurrency(a.at_risk_monthly)}<span className="text-[11px]">/mo</span></div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {a.at_risk_cases} polic{a.at_risk_cases === 1 ? "y" : "ies"}
+                        </div>
+                      </>
+                    )}
+                  </TableCell>
+                  <TableCell className="tnum">{a.active_carriers}</TableCell>
+                  <TableCell className="text-xs">
+                    {a.last_active_at
+                      ? timeAgo(a.last_active_at)
+                      : <span className="text-muted-foreground">Never</span>}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => onOpen(a.id)}><Eye className="h-4 w-4" /></Button>
@@ -741,129 +921,126 @@ function RosterTable({ downline, onOpen, canAssign }: {
   );
 }
 
-// ============ Org Chart ============
-type TreeNode = TeamAgent & { children: TreeNode[] };
+// ============ Org list ============
+//
+// A collapsible indented list, deliberately not a canvas.
+//
+// This was a zoom/pan diagram with drag, scale and a reset control — the
+// "Graph" view the pattern this roster copies also ships. A hierarchy diagram
+// is the thing everyone asks for and nobody reads twice: it answers "who
+// reports to whom" beautifully and every other question badly, and it costs a
+// viewport of chrome to do it. What people actually come here for is to look
+// somebody up and see where they sit, which an indented list does better at a
+// fraction of the weight — and it works on a phone, which the canvas did not.
+type TreeNode = RosterAgent & { children: TreeNode[] };
 
-function buildTree(rootId: string, downline: TeamAgent[]): TreeNode[] {
-  const byUpline = new Map<string, TeamAgent[]>();
+function buildTree(rootId: string, downline: RosterAgent[]): TreeNode[] {
+  const byUpline = new Map<string, RosterAgent[]>();
   for (const a of downline) {
     const k = a.upline_id ?? "";
     if (!byUpline.has(k)) byUpline.set(k, []);
     byUpline.get(k)!.push(a);
   }
-  const build = (id: string): TreeNode[] =>
-    (byUpline.get(id) ?? []).map((a) => ({ ...a, children: build(a.id) }));
-  return build(rootId);
+  // Cycle guard: upline_id is not constrained to be acyclic, and a loop here
+  // would recurse until the tab died rather than fail a query. Placing each
+  // agent at most once also means a malformed chain loses a subtree instead of
+  // duplicating one.
+  const placed = new Set<string>();
+  const build = (id: string, depth: number): TreeNode[] => {
+    if (depth > 50) return [];
+    const out: TreeNode[] = [];
+    for (const a of byUpline.get(id) ?? []) {
+      if (a.id === id || placed.has(a.id)) continue;
+      placed.add(a.id);
+      out.push({ ...a, children: build(a.id, depth + 1) });
+    }
+    return out;
+  };
+  return build(rootId, 0);
 }
 
-function OrgChart({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState<{ x: number; y: number } | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
-    if (downline.length > 50) return new Set(downline.filter((a) => a.depth_level >= 1).map((a) => a.id));
-    return new Set();
-  });
-
+function OrgList({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (id: string) => void }) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const rootId = downline[0]?.upline_id ?? "";
   const tree = useMemo(() => buildTree(rootId, downline), [rootId, downline]);
+  const toggle = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
-  const toggle = (id: string) => setCollapsed((s) => {
-    const n = new Set(s);
-    if (n.has(id)) n.delete(id); else n.add(id);
-    return n;
-  });
+  if (downline.length === 0) {
+    return (
+      <Panel>
+        <p className="py-8 text-center text-sm text-muted-foreground">Nobody reports to you yet.</p>
+      </Panel>
+    );
+  }
 
   return (
     <Panel>
-      <header className="flex items-center justify-between gap-3 mb-3.5">
-        <div>
-          <h2 className="font-display text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground" style={{ fontFamily: "var(--font-display)" }}>Organization Chart</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Visual hierarchy of your team</p>
-        </div>
-        <div className="flex gap-1">
-          <Button size="icon" variant="outline" onClick={() => setZoom((z) => Math.min(2, z + 0.1))}><ZoomIn className="h-4 w-4" /></Button>
-          <Button size="icon" variant="outline" onClick={() => setZoom((z) => Math.max(0.4, z - 0.1))}><ZoomOut className="h-4 w-4" /></Button>
-          <Button size="icon" variant="outline" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}><RotateCcw className="h-4 w-4" /></Button>
-        </div>
-      </header>
-      <div>
-        <div
-          className="border border-border rounded-lg bg-surface-2 overflow-hidden h-[600px] relative cursor-grab active:cursor-grabbing"
-          onPointerDown={(e) => setDragging({ x: e.clientX - pan.x, y: e.clientY - pan.y })}
-          onPointerMove={(e) => dragging && setPan({ x: e.clientX - dragging.x, y: e.clientY - dragging.y })}
-          onPointerUp={() => setDragging(null)}
-          onPointerLeave={() => setDragging(null)}
-        >
-          <div className="absolute inset-0 flex items-start justify-center pt-8" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "top center" }}>
-            <TooltipProvider>
-              <div className="flex flex-col items-center gap-6">
-                <RootNode />
-                <div className="flex gap-6 items-start">
-                  {tree.map((n) => <OrgNode key={n.id} node={n} collapsed={collapsed} toggle={toggle} onOpen={onOpen} />)}
-                </div>
-              </div>
-            </TooltipProvider>
-          </div>
-        </div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Who sits where. Click a name to open them.</p>
+        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setCollapsed(new Set())}>
+          Expand all
+        </Button>
       </div>
+      <ul className="text-sm">
+        {tree.map((n) => <OrgRow key={n.id} node={n} depth={0} collapsed={collapsed} toggle={toggle} onOpen={onOpen} />)}
+      </ul>
     </Panel>
   );
 }
 
-function RootNode() {
-  return (
-    <div className="border border-primary/40 rounded-lg bg-gold-glow px-4 py-3 text-center min-w-[140px]">
-      <div className="font-medium text-sm text-gold-bright">You</div>
-      <div className="text-xs text-muted-foreground">Upline</div>
-    </div>
-  );
-}
-
-function OrgNode({ node, collapsed, toggle, onOpen }: { node: TreeNode; collapsed: Set<string>; toggle: (id: string) => void; onOpen: (id: string) => void }) {
+function OrgRow({
+  node, depth, collapsed, toggle, onOpen,
+}: {
+  node: TreeNode; depth: number; collapsed: Set<string>;
+  toggle: (id: string) => void; onOpen: (id: string) => void;
+}) {
   const isCollapsed = collapsed.has(node.id);
-  const borderColor = node.status === "active" ? "border-l-green-500" : node.status === "pending" ? "border-l-amber-500" : node.status === "imported" ? "border-l-primary" : "border-l-muted-foreground";
-  const dotColor = node.status === "active" ? "bg-green-500" : node.status === "pending" ? "bg-amber-500" : node.status === "imported" ? "bg-primary" : "bg-muted-foreground";
-  const isActive = node.status === "active";
+  const kids = node.children.length;
   return (
-    <div className="flex flex-col items-center gap-4">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button onClick={() => toggle(node.id)} className={cn("border border-border border-l-4 rounded-lg px-3 py-2 min-w-[140px] hover:shadow-md transition-shadow", borderColor, isActive ? "bg-gold-glow" : "bg-card")}>
-            <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8"><AvatarFallback className="text-xs">{initials(node.first_name, node.last_name)}</AvatarFallback></Avatar>
-              <div className="text-left">
-                <div className="font-medium text-sm leading-tight">{node.first_name} {node.last_name}</div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
-                  <span className="tnum">{node.contracts_count}</span> contracts
-                </div>
-              </div>
-            </div>
+    <li>
+      <div
+        className="flex items-center gap-2 rounded-md py-1.5 pr-2 hover:bg-surface-2"
+        style={{ paddingLeft: `${depth * 18 + 4}px` }}
+      >
+        {kids > 0 ? (
+          <button
+            type="button"
+            onClick={() => toggle(node.id)}
+            aria-label={isCollapsed ? `Expand ${node.first_name ?? "agent"}` : `Collapse ${node.first_name ?? "agent"}`}
+            className="h-4 w-4 shrink-0 text-xs text-muted-foreground hover:text-foreground"
+          >
+            {isCollapsed ? "▸" : "▾"}
           </button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <div className="space-y-1 text-xs">
-            <div className="font-medium">{node.first_name} {node.last_name}</div>
-            <div>{node.email}</div>
-            <div>Production: {fmtCurrency(Number(node.premium_total))}</div>
-            <div>Policies: {node.policies_count}</div>
-            <div>Last active: {timeAgo(node.last_active_at)}</div>
-            <Button size="sm" variant="outline" className="w-full mt-1" onClick={(e) => { e.stopPropagation(); onOpen(node.id); }}>
-              <Eye className="h-3 w-3 mr-1" /> View
-            </Button>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-      {!isCollapsed && node.children.length > 0 && (
-        <div className="flex gap-4 items-start pt-2 border-t-2 border-border">
-          {node.children.map((c) => <OrgNode key={c.id} node={c} collapsed={collapsed} toggle={toggle} onOpen={onOpen} />)}
-        </div>
+        ) : (
+          <span className="h-4 w-4 shrink-0" />
+        )}
+        <button onClick={() => onOpen(node.id)} className="min-w-0 flex-1 truncate text-left hover:underline">
+          {node.first_name} {node.last_name}
+        </button>
+        {node.position_name != null && node.position_pct != null && (
+          <PositionPill name={node.position_name} pct={node.position_pct} />
+        )}
+        <span className="tnum shrink-0 text-xs text-muted-foreground">
+          {node.policies_count} polic{node.policies_count === 1 ? "y" : "ies"}
+        </span>
+        {kids > 0 && (
+          <span className="tnum shrink-0 text-[11px] text-text-dim">{kids} down</span>
+        )}
+      </div>
+      {!isCollapsed && kids > 0 && (
+        <ul>
+          {node.children.map((c) => (
+            <OrgRow key={c.id} node={c} depth={depth + 1} collapsed={collapsed} toggle={toggle} onOpen={onOpen} />
+          ))}
+        </ul>
       )}
-      {isCollapsed && node.children.length > 0 && (
-        <div className="text-xs text-muted-foreground">+{node.children.length} hidden</div>
-      )}
-    </div>
+    </li>
   );
 }
 
