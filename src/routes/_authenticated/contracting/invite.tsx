@@ -96,6 +96,8 @@ function InvitePage() {
   // "" means the link creator, which is what upline_id being null means on the
   // row. A sentinel is needed because Radix Select cannot hold an empty value.
   const [uplineId, setUplineId] = useState("");
+  // An agency-branded link: the joining agent picks their own upline.
+  const [isAgencyLink, setIsAgencyLink] = useState(false);
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
