@@ -11,6 +11,8 @@ import {
   lookupNpnLicenses,
 } from "@/lib/account.functions";
 import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
+import { readProducerDocument } from "@/lib/document-intake.functions";
+import { extractDocument } from "@/lib/document-extract";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useRole } from "@/hooks/use-role";
