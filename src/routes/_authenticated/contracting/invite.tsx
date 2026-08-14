@@ -335,7 +335,8 @@ function InvitePage() {
         {invitedRole !== "staff" && isAgencyLink && (
           <p className="text-xs text-muted-foreground">
             The signup page will show your agency's name and ask the new agent to choose their
-            upline from the agents in your agency.
+            upline from the agents in your agency. No agency level is set on this link — you
+            assign each person's level from their profile once they have an account.
           </p>
         )}
 
