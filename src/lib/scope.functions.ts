@@ -27,6 +27,9 @@ export const getScopeCapabilities = createServerFn({ method: "GET" })
       downlineCount: Number((data as any).downline_count ?? 0),
       canAgency: Boolean((data as any).can_agency),
       canEditTeamRecords: Boolean((data as any).can_edit_team_records),
+      // Absent before the imo-scope migration, and Boolean(undefined) is the
+      // right answer for that window: no Total IMO option until it exists.
+      canImo: Boolean((data as any).can_imo),
     };
   });
 

@@ -258,6 +258,12 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/dashboard.functions.ts:organization_settings.show_own_on_leaderboards":
+    "the whole opt-out lookup is wrapped in try/catch whose catch treats the failure as 'nobody has opted out' — which is both the column's default and the pre-migration truth. The leaderboard renders identically to today until the imo-scope migration lands; the only thing the window withholds is the ability to hide one's own line, which does not exist yet either",
+  "src/lib/discord.functions.ts:organization_settings.show_own_sales_in_feed":
+    "wrapped in try/catch treating failure as 'everyone participates', the column's default and today's behaviour. announceDeal's contract is that nothing here may fail the deal that was just written, so the catch was going to exist regardless of migrations",
+  "src/lib/discord.functions.ts:agency_relationships":
+    "the parent walk is wrapped in try/catch whose catch leaves feedOrgIds as the policy's own org — exactly the pre-IMO fan-out. A missing table means no ancestors hear about the deal, which is what happened before the feature existed",
   "src/lib/agency-relationships.functions.ts:agency_relationships":
     "all three sites tolerate the table not existing. listSubAgencies catches 42P01 and returns children: [] with pendingMigration: true, which the Sub-Agencies page renders as a 'waiting on a workspace update' notice; getMyParentAgency treats 42P01 as 'no parent row' and returns parent: null; updateSubAgency can only be reached from rows those two returned, so before the migration there is nothing to update and no path to the error. The sidebar entry is additionally gated on organizations.parent_org_id, which exists regardless",
   "src/lib/contracting.functions.ts:org_contracting_settings.agents_may_self_activate_carriers":

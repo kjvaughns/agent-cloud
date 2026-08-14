@@ -8,6 +8,7 @@ import { z } from "zod";
  *   mine    just you
  *   team    you plus everyone under you in the upline chain
  *   agency  everyone in your organisation
+ *   imo     your organisation plus every sub-agency opted into the rollup
  *
  * Kept deliberately free of imports so both a server function and the browser
  * bundle can use it.
@@ -19,7 +20,7 @@ import { z } from "zod";
  * you, which is why the options come from the database rather than the role.
  */
 
-export const SCOPES = ["mine", "team", "agency"] as const;
+export const SCOPES = ["mine", "team", "agency", "imo"] as const;
 export type Scope = (typeof SCOPES)[number];
 
 export const scopeSchema = z.enum(SCOPES);
@@ -36,12 +37,20 @@ export type ScopeCapabilities = {
    * records and cannot change them.
    */
   canEditTeamRecords: boolean;
+  /**
+   * Whether the Total IMO view exists for them: they administer an agency
+   * with at least one active sub-agency opted into the production rollup.
+   * Like everything else here it comes from the data, not the plan — an
+   * "IMO" with no participating children has nothing to total.
+   */
+  canImo: boolean;
 };
 
 export const NO_SCOPE_CAPABILITIES: ScopeCapabilities = {
   downlineCount: 0,
   canAgency: false,
   canEditTeamRecords: false,
+  canImo: false,
 };
 
 /**
@@ -56,6 +65,7 @@ export function availableScopes(caps: ScopeCapabilities): Scope[] {
   const scopes: Scope[] = ["mine"];
   if (caps.downlineCount > 0) scopes.push("team");
   if (caps.canAgency) scopes.push("agency");
+  if (caps.canImo) scopes.push("imo");
   return scopes;
 }
 
@@ -93,6 +103,7 @@ export const SCOPE_LABELS: Record<Scope, string> = {
   mine: "Mine",
   team: "Team",
   agency: "Agency",
+  imo: "Total IMO",
 };
 
 /** Said out loud, for empty states and captions. */
@@ -100,6 +111,7 @@ export const SCOPE_DESCRIPTIONS: Record<Scope, string> = {
   mine: "Only your own",
   team: "You and everyone under you",
   agency: "Everyone in the agency",
+  imo: "Your agency plus every sub-agency that's opted in",
 };
 
 /**
@@ -113,5 +125,6 @@ export function emptyScopeMessage(scope: Scope, caps: ScopeCapabilities, noun = 
   if (scope === "team" && caps.downlineCount === 0) return "Nobody reports to you yet.";
   if (scope === "mine") return `No ${noun} of your own yet.`;
   if (scope === "team") return `Nobody on your team has any ${noun} yet.`;
+  if (scope === "imo") return `Nobody across your agencies has any ${noun} yet.`;
   return `Nobody in the agency has any ${noun} yet.`;
 }
