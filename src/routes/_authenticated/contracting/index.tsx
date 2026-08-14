@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CompGridsContent } from "./commission-grids";
+import { CompGridsContent } from "@/components/contracting/comp-grids-content";
 import { TransferRequestsTab } from "@/components/contracting/transfer-requests-tab";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -37,6 +37,16 @@ import { useNavContext } from "@/hooks/use-my-access";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
+// The wording for a resolved percentage lives beside the rule that resolved
+// it — a second copy here would be a second thing to keep true.
+import {
+  PCT_SOURCE_LABELS,
+  ADVANCE_SOURCE_LABELS,
+  ADVANCE_LABELS,
+  type AdvanceOption,
+  type PctSource,
+  type AdvanceSource,
+} from "@/lib/compensation/resolve";
 
 export const Route = createFileRoute("/_authenticated/contracting/")({
   validateSearch: (s: Record<string, unknown>): { tab?: "my" | "downline" | "comp-grids" | "transfer-requests" | "inbox"; scope?: Scope } => ({
@@ -97,6 +107,114 @@ function ContractingHome() {
         </Tabs>
       </div>
     </PageShell>
+  );
+}
+
+// ---------------- What a contract actually pays ----------------
+//
+// The list showed a status and a writing number and nothing about money, so
+// an agent could not see the percentage they were on, where it came from, or
+// whether they were advanced. Worse, a carrier the agency had not finished
+// setting up looks exactly like one it had — and an unresolvable carrier
+// writes no commission schedule at all, so the first sign of it used to be a
+// posted deal that never paid.
+//
+// The number and its provenance both come from the resolver; nothing here
+// works one out.
+
+/** The compact form, visible without expanding the row. */
+function CompensationChip({ compensation }: { compensation: any }) {
+  if (!compensation) return null;
+  if (!compensation.ok) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning whitespace-nowrap">
+        <AlertTriangle className="h-3 w-3" /> Comp not set up
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] whitespace-nowrap">
+      <span className="tnum font-semibold text-foreground">{compensation.pct}%</span>
+      <span className="text-muted-foreground">
+        {compensation.advance === "as_earned" ? "as earned" : `${compensation.advance_months}mo adv`}
+      </span>
+    </span>
+  );
+}
+
+function CompensationPanel({
+  compensation,
+  contractLevel,
+}: {
+  compensation: any;
+  contractLevel: number | null;
+}) {
+  if (!compensation) return null;
+
+  if (!compensation.ok) {
+    return (
+      <Alert variant="default" className="border-warning/30 bg-warning/15">
+        <AlertTriangle className="h-4 w-4 text-warning" />
+        <AlertTitle className="text-warning">No compensation resolves for this carrier</AlertTitle>
+        <AlertDescription>
+          <ul className="list-disc pl-4 space-y-0.5">
+            {(compensation.messages ?? []).map((m: string) => <li key={m}>{m}</li>)}
+          </ul>
+          {/* Said out loud because it is the consequence, not a detail: a deal
+              written here produces no commission rows at all. */}
+          <p className="mt-2">
+            Deals posted on this carrier won't produce a commission schedule until this is fixed.
+          </p>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // The contract record carries its own percentage, written by a different
+  // path from the one the resolver reads. Where they disagree, the resolved
+  // number is what pays — so the disagreement is worth showing rather than
+  // quietly rendering both as though they were the same fact.
+  const disagrees =
+    contractLevel != null && Number(contractLevel) !== Number(compensation.pct);
+
+  return (
+    <div className="rounded-lg border border-border bg-surface-2 p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+        <div>
+          <div className="text-xs text-muted-foreground">Pays</div>
+          <div className="tnum font-semibold text-base">{compensation.pct}%</div>
+          <div className="text-[11px] text-muted-foreground">
+            {PCT_SOURCE_LABELS[compensation.pct_source as PctSource] ?? compensation.pct_source}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Advance</div>
+          <div className="font-semibold">
+            {ADVANCE_LABELS[compensation.advance as AdvanceOption] ?? compensation.advance}
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {ADVANCE_SOURCE_LABELS[compensation.advance_source as AdvanceSource] ?? compensation.advance_source}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Level</div>
+          <div className="font-semibold">{compensation.level_name}</div>
+          {/* The carrier's own name for the rung — "80%", "GA3" — which is what
+              its commission grid is keyed by, and rarely what the agency calls
+              it. */}
+          {compensation.carrier_level_name && (
+            <div className="text-[11px] text-muted-foreground">
+              {compensation.carrier_level_name} at the carrier
+            </div>
+          )}
+        </div>
+      </div>
+      {disagrees && (
+        <p className="mt-2 text-[11px] text-warning">
+          The contract record says {Number(contractLevel)}%. {compensation.pct}% is what pays.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -326,6 +444,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
                       {c.agent_name ? `${c.agent_name} · ` : ""}Requested: {fmtDate(c.requested_at)}
                     </div>
                   </div>
+                  <CompensationChip compensation={c.compensation} />
                   <ContractStatusBadge status={c.status} />
                   {c.status !== "active" && (
                     <Button
@@ -387,10 +506,12 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
                       )}
                     </div>
                   )}
+                  <CompensationPanel compensation={c.compensation} contractLevel={c.commission_level} />
+
                   {(c.commission_level != null || c.effective_date || (c.products?.length ?? 0) > 0) && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
                       {c.commission_level != null && (
-                        <div><div className="text-xs text-muted-foreground">Contract Level</div><div className="tnum font-semibold">{Number(c.commission_level)}%</div></div>
+                        <div><div className="text-xs text-muted-foreground">On the contract record</div><div className="tnum font-semibold">{Number(c.commission_level)}%</div></div>
                       )}
                       {c.effective_date && (
                         <div><div className="text-xs text-muted-foreground">Effective Date</div><div className="tnum">{fmtDate(c.effective_date)}</div></div>

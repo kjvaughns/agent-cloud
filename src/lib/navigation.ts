@@ -132,7 +132,6 @@ export const PAGES: Page[] = [
   { id: "my-contracts", label: "Contracting", path: "/contracting", icon: FileSignature, area: "Contracting", staffPermission: "staff_view_contracts" },
   { id: "contracts-list", label: "My Contracts", path: "/contracting", icon: FileSignature, area: "Contracting", parent: "my-contracts", staffPermission: "staff_view_contracts" },
   { id: "carriers", label: "Carrier Directory", path: "/contracting/carriers", icon: Building2, area: "Contracting", parent: "my-contracts" },
-  { id: "comp-grids", label: "Comp Grids", path: "/contracting/commission-grids", icon: Percent, area: "Contracting", parent: "my-contracts" },
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Contracting", staffPermission: "staff_post_policies" },
 
   // Money is its own answer to its own question, not a footnote to a contract.
@@ -528,7 +527,12 @@ const HUBS: Record<string, HubGroup[]> = {
     // Carrier setup left this list for Settings — the Contracting tab is the
     // work: my contracts, the grid I'm paid on, invites, the reference
     // directory.
-    { label: "", ids: ["contracts-list", "comp-grids", "invite", "carriers"] },
+    // Comp Grids is a tab inside Contracts, not a page beside it. It had a row
+    // of its own pointing at `/contracting/commission-grids`, which rendered
+    // the same component the tab does — so the menu offered two entries for
+    // one thing and the second one left the workspace to show it. The URL
+    // still works; it redirects into the tab.
+    { label: "", ids: ["contracts-list", "invite", "carriers"] },
     {
       label: "Run contracting",
       ids: [

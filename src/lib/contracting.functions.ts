@@ -188,13 +188,45 @@ export const listMyContracts = createServerFn({ method: "POST" })
     // has not run or because the pair could not be mapped to an org carrier.
     const numbers = await loadWritingNumbers(supabase, agentIds);
 
+    /**
+     * What each contract actually pays, from the one place that decides.
+     *
+     * The list showed a status and a writing number and said nothing about
+     * money — so an agent had no way to see the percentage they are on, where
+     * it comes from, or whether they are advanced or paid as earned, and no
+     * way to notice that their agency had not finished setting the carrier up.
+     * That last one is not cosmetic: an unresolvable carrier writes no
+     * commission schedule at all, and until now the first sign of it was a
+     * deal that never paid.
+     *
+     * Batched deliberately — `resolveForAgent` is four queries, and an agency
+     * roster of contracts would be hundreds.
+     */
+    const { loadCompensationIndex } = await import("@/lib/compensation/lookup.server");
+    const comp = await loadCompensationIndex(supabase, agentIds);
+
     return {
-      rows: (data ?? []).map((r: any) => ({
-        ...r,
-        writing_number:
-          numbers.get(writingNumberKey(r.agent_id, r.carrier_id)) ?? r.writing_number ?? null,
-        agent_name: names.get(r.agent_id) ?? null,
-      })),
+      rows: (data ?? []).map((r: any) => {
+        const resolution = comp.resolve(r.agent_id, r.carrier_id);
+        return {
+          ...r,
+          writing_number:
+            numbers.get(writingNumberKey(r.agent_id, r.carrier_id)) ?? r.writing_number ?? null,
+          agent_name: names.get(r.agent_id) ?? null,
+          compensation: resolution.ok
+            ? {
+                ok: true as const,
+                pct: resolution.pct,
+                pct_source: resolution.pctSource,
+                level_name: resolution.levelName,
+                carrier_level_name: resolution.carrierLevelName,
+                advance: resolution.advance,
+                advance_months: resolution.advanceMonths,
+                advance_source: resolution.advanceSource,
+              }
+            : { ok: false as const, failures: resolution.failures, messages: resolution.messages },
+        };
+      }),
     };
   });
 
