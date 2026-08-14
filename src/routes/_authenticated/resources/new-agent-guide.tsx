@@ -59,22 +59,22 @@ const STAFF_SECTIONS: {
       {
         title: "Carrier submission methods",
         desc: "How each carrier takes paperwork — SureLC, a portal, an invitation link, email or a spreadsheet. More than one per carrier is normal: SureLC for a new contract, email for a hierarchy change.",
-        href: "/contracting-ops/carriers", cta: "Open carriers",
+        href: "/settings/carriers", cta: "Open carriers",
       },
       {
         title: "Carrier requirements",
         desc: "What each carrier needs before a submission is in good order. These drive the readiness bar on every request, so a missing requirement here is a NIGO later.",
-        href: "/contracting-ops/carriers", cta: "Edit a carrier",
+        href: "/settings/carriers", cta: "Edit a carrier",
       },
       {
         title: "Submission templates",
         desc: "The email wording and spreadsheet columns each carrier expects, so a batch is not rejected over one blank column.",
-        href: "/contracting-ops/templates", cta: "Open templates",
+        href: "/settings/templates", cta: "Open templates",
       },
       {
         title: "Contracting settings",
         desc: "Agency defaults: how often a fresh PDB report is required, the licence expiry warning window, request priorities and due dates.",
-        href: "/contracting-ops/settings", cta: "Open settings",
+        href: "/settings/contracting", cta: "Open settings",
       },
     ],
   },
@@ -93,7 +93,7 @@ const STAFF_SECTIONS: {
       {
         title: "Reading a comp grid",
         desc: "A carrier's comp levels are the ladder; a grid is what each level pays by product and issue age. A writing number is issued against a level, so changing the level is a contracting request, not an edit.",
-        href: "/contracting-ops/carriers", cta: "Comp levels and grids",
+        href: "/settings/comp-grids", cta: "Comp levels and grids",
       },
       {
         title: "NIPR and the national database",

@@ -262,7 +262,14 @@ export const PAGES: Page[] = [
   // prepare from it — they cannot submit to a carrier they cannot look up. What
   // they may *change* there is a separate question the page answers itself,
   // through `canManageCarriers`.
-  { id: "carriers-setup", label: "Carrier Setup", path: "/contracting-ops/carriers", icon: Building2, area: "Back office", parent: "my-contracts", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  //
+  // Configuration lives under Settings now: carriers, levels, grids, templates
+  // and the contracting policy are set up occasionally by an owner and then
+  // left alone, which is what Settings is for. The Contracting tab keeps the
+  // daily work. The old /contracting-ops/* paths redirect.
+  { id: "carriers-setup", label: "Carriers", path: "/settings/carriers", icon: Building2, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "comp-grids-setup", label: "Comp Grids", path: "/settings/comp-grids", icon: Percent, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "agency-levels", label: "Levels & Positions", path: "/settings/levels", icon: Target, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
 
   // The rest of the back office. Every one of these pages already existed and
   // was reachable only by typing its URL or finding a tile on the overview —
@@ -271,10 +278,10 @@ export const PAGES: Page[] = [
   { id: "ops-licensing", label: "Licensing & PDB", path: "/contracting-ops/licensing", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "writing-numbers", label: "Writing numbers", path: "/contracting-ops/requests?tab=numbers", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "ops-import", label: "Import records", path: "/contracting-ops/import", icon: UploadCloud, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "contracting-templates", label: "Submission templates", path: "/contracting-ops/templates", icon: FileSignature, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "contracting-templates", label: "Submission templates", path: "/settings/templates", icon: FileSignature, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   // Agency-level configuration rather than daily work, so it keeps the
   // administrator gate and takes no staff permission.
-  { id: "contracting-settings", label: "Contracting settings", path: "/contracting-ops/settings", icon: Settings, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", permission: "staff_is_admin" },
+  { id: "contracting-settings", label: "How contracting works", path: "/settings/contracting", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin", permission: "staff_is_admin" },
 
   // Updates
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
@@ -459,12 +466,13 @@ const HUBS: Record<string, HubGroup[]> = {
   // Declared first so `hubForPath` resolves a `/contracting-ops/...` URL to
   // this hub rather than to my-contracts, which lists four of the same pages.
   // See the tie-break note in hubForPath.
+  // Daily work only. The "Set up contracting" group moved to the Settings hub
+  // below — carriers, grids, levels, templates and policy are configuration.
+  // Writing numbers and Import stay: one is an operational registry, the other
+  // brings records in; both are work on data, not setup.
   "contracting-ops": [
     { label: "", ids: ["queue", "requests", "ops-licensing", "documents"] },
-    {
-      label: "Set up contracting",
-      ids: ["carriers-setup", "writing-numbers", "ops-import", "contracting-templates", "contracting-settings"],
-    },
+    { label: "Records", ids: ["writing-numbers", "ops-import"] },
   ],
 
   // Home has none, on purpose. See the registry note above it.
@@ -493,7 +501,10 @@ const HUBS: Record<string, HubGroup[]> = {
     // before the read-only carrier reference directory. The old order put the
     // directory first and buried setup under "Run contracting", which made
     // the obvious "Carrier Directory" link look like the configuration page.
-    { label: "", ids: ["contracts-list", "carriers-setup", "comp-grids", "invite", "carriers"] },
+    // Carrier setup left this list for Settings — the Contracting tab is the
+    // work: my contracts, the grid I'm paid on, invites, the reference
+    // directory.
+    { label: "", ids: ["contracts-list", "comp-grids", "invite", "carriers"] },
     {
       label: "Run contracting",
       ids: [
@@ -513,7 +524,16 @@ const HUBS: Record<string, HubGroup[]> = {
   // resources it edits. What people use is gone.
   settings: [
     { label: "", ids: ["notif-settings", "security", "nova-pro", "billing"] },
-    { label: "Your agency", ids: ["agency-settings", "agency-roles"] },
+    // The configuration hub, in the order an owner sets an agency up: profile,
+    // carriers, what they pay, the ladder, how contracting runs, who may do
+    // what, then the templates submissions are generated from.
+    {
+      label: "Your agency",
+      ids: [
+        "agency-settings", "carriers-setup", "comp-grids-setup", "agency-levels",
+        "contracting-settings", "agency-roles", "contracting-templates",
+      ],
+    },
   ],
 };
 

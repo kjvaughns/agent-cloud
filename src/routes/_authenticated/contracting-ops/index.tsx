@@ -200,11 +200,11 @@ function OverviewPage() {
 
           <Panel title="Quick actions">
             <div className="grid gap-2 sm:grid-cols-2">
-              <QuickAction to="/contracting-ops/carriers" icon={Building2} label="Add a carrier" />
+              <QuickAction to="/settings/carriers" icon={Building2} label="Add a carrier" />
               <QuickAction to="/contracting-ops/requests" icon={FilePlus} label="Create a request" />
               <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
               <QuickAction to="/contracting-ops/requests" search={{ tab: "numbers" }} icon={IdCard} label="Add a writing number" />
-              <QuickAction to="/contracting-ops/carriers" search={{ tab: "levels" }} icon={Percent} label="Add a comp level" />
+              <QuickAction to="/settings/levels" icon={Percent} label="Add a comp level" />
               <QuickAction to="/contracting-ops/queue" icon={Users} label="Staff queue" />
             </div>
             {access && !access.canManageCarriers && (
