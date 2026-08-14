@@ -454,10 +454,10 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     // carrier packet needs and the agent already knows it by heart. Everything
     // else the packet wants is asked for by the readiness checklist, in the
     // app, where it can be saved and returned to.
-    // The link's chosen upline, falling back to whoever made it. Every link
-    // created before the picker existed has a null here, and for those the
-    // creator is still the right answer.
-    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+    // On an agency link, whoever they picked; otherwise the link's own upline,
+    // falling back to whoever made it.
+    const inviteUplineId: string = await resolveJoinUpline(inv, data.upline_id ?? null);
+
 
     await supabaseAdmin.from("profiles").update({
       upline_id: inviteUplineId,
