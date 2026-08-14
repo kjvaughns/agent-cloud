@@ -752,21 +752,76 @@ export const createInvitationLink = createServerFn({ method: "POST" })
     return { ok: true, token };
   });
 
+/**
+ * Revoke an invitation link.
+ *
+ * Two changes from the delete this replaces, both about what survives.
+ *
+ * It marks the row `revoked` rather than removing it. A link is a grant of
+ * standing — a rung, an upline, a role — and deleting the row deleted the only
+ * record that it had ever been offered, along with any answer to "who sent
+ * this and who took it back". Every path that follows a token already refuses
+ * a revoked row, so the link is just as dead.
+ *
+ * And the agency's owner may revoke one too. Scoped to the creator alone, an
+ * owner could not close a link a departing manager had left live, which is the
+ * case where revoking matters most. Anyone else still matches nothing, and a
+ * revoke that matches nothing is reported rather than swallowed.
+ */
 export const deleteInvitationLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    // Scoped to the creator, so a link somebody else made matches nothing —
-    // and a delete that matches nothing is not an error. Without the count,
-    // this reported success and the link stayed live, which for an invitation
-    // link is the difference between revoked and not.
-    const { data: removed, error } = await supabase
-      .from("invitation_links").delete().eq("id", data.id).eq("created_by", userId).select("id");
-    if (error) throw new Error(error.message);
-    if (!removed?.length) {
+
+    const { data: link } = await supabase
+      .from("invitation_links")
+      .select("id,created_by,organization_id,status,name,link_name,agency_level_id,invited_role")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!link) {
+      throw new Error("That invite link couldn't be found — it may already have been revoked.");
+    }
+    if (link.status === "revoked") return { ok: true, already: true };
+
+    // `organizations.owner_id`, not the agency_owner role: it is what
+    // `is_org_owner` reads, and the RLS check on this table is written in
+    // those terms. Anything looser would pass here and be refused by the
+    // database with a message nobody can act on.
+    let mayRevoke = link.created_by === userId;
+    if (!mayRevoke && link.organization_id) {
+      const { data: org } = await supabase
+        .from("organizations").select("owner_id").eq("id", link.organization_id).maybeSingle();
+      mayRevoke = (org as any)?.owner_id === userId;
+    }
+    if (!mayRevoke) {
       throw new Error("That invite link couldn't be revoked — it was created by someone else.");
     }
+
+    const { data: updated, error } = await supabase
+      .from("invitation_links")
+      .update({ status: "revoked" })
+      .eq("id", data.id)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!updated?.length) {
+      throw new Error("That invite link couldn't be revoked — it was created by someone else.");
+    }
+
+    const { auditInvitation } = await import("@/lib/invitations/lookup.server");
+    await auditInvitation("invitation.revoked", {
+      organizationId: link.organization_id ?? null,
+      performedBy: userId,
+      previous: { invitation_id: link.id, status: link.status },
+      next: {
+        invitation_id: link.id,
+        status: "revoked",
+        link_name: link.link_name ?? link.name,
+        invited_role: link.invited_role ?? null,
+        agency_level_id: link.agency_level_id ?? null,
+      },
+    });
+
     return { ok: true };
   });
 

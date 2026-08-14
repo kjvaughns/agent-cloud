@@ -5,6 +5,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import {
   listOnboardingInvites,
   createOnboardingInvite,
+  getInviteOptions,
   getMyContractedCarriers,
 } from "@/lib/onboarding.functions";
 import { deleteInvitationLink } from "@/lib/contracting.functions";
@@ -28,8 +29,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Copy, Check, Trash2, Lock, Link2, User, Users, Building2, ClipboardList, CheckCircle2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useRole } from "@/hooks/use-role";
-import { listAgencyLevels } from "@/lib/contracting-records.functions";
 
 export const Route = createFileRoute("/_authenticated/contracting/invite")({
   component: InviteRoute,
@@ -47,15 +46,22 @@ type Assignment = {
 /**
  * The builder itself, once we know they may use it.
  *
- * `isManager` is `manager || isAdmin`, which mirrors the role list
- * `createOnboardingInvite` now enforces server-side — so the page refuses on
- * the same rule the server does, rather than offering a form whose submit
- * would throw.
+ * Asked of the server rather than worked out here. This gated on `isManager`,
+ * which refused every ordinary agent — while `createOnboardingInvite` has
+ * allowed them for as long as `agency_levels.can_invite` has existed. So an
+ * agency that opened recruiting at the bottom rung had the page telling those
+ * agents to ask their manager, and the server perfectly willing.
+ *
+ * The refusal now comes back with the answer, and says what would change it.
  */
 function InviteRoute() {
-  const { isManager, loading } = useRole();
+  const optionsFn = useServerFn(getInviteOptions);
+  const { data: options, isLoading } = useQuery({
+    queryKey: ["invite-options"],
+    queryFn: () => optionsFn(),
+  });
 
-  if (loading) {
+  if (isLoading || !options) {
     return (
       <PageShell>
         <Skeleton className="h-64 rounded-xl" />
@@ -63,15 +69,14 @@ function InviteRoute() {
     );
   }
 
-  if (!isManager) {
+  if (!options.canRecruit) {
     return (
       <PageShell>
         <div className="mx-auto max-w-xl">
-          <Panel title="Invite links are created by owners and managers">
+          <Panel title="Your level doesn't build a team yet">
             <p className="text-sm text-muted-foreground">
-              An invite link places a new agent in a downline with carriers and commission levels
-              already assigned, so creating one is limited to the people who own that structure.
-              Ask your agency owner or your manager to send the link.
+              {options.refusal}
+              {options.myLevelName ? ` You're currently a ${options.myLevelName}.` : ""}
             </p>
             <Button asChild variant="outline" size="sm" className="mt-3">
               <Link to="/contracting">Back to contracting</Link>
@@ -82,10 +87,10 @@ function InviteRoute() {
     );
   }
 
-  return <InvitePage />;
+  return <InvitePage options={options} />;
 }
 
-function InvitePage() {
+function InvitePage({ options }: { options: any }) {
   const qc = useQueryClient();
   const [success, setSuccess] = useState<{ token: string; linkName: string } | null>(null);
   const [linkName, setLinkName] = useState("");
@@ -98,7 +103,10 @@ function InvitePage() {
   const [uplineId, setUplineId] = useState("");
   // An agency-branded link: the joining agent picks their own upline.
   const [isAgencyLink, setIsAgencyLink] = useState(false);
-  const { canInviteAgencyOwner, canInviteManager } = useRole();
+  // Thirty days is what the column has always defaulted to. The point of the
+  // control is that the number is now visible before the link is handed out.
+  const [expiresInDays, setExpiresInDays] = useState("30");
+  const { canInviteAgencyOwner, canInviteManager } = options;
 
   const { data: myCarriers } = useQuery({
     queryKey: ["onb", "myCarriers"],
@@ -108,8 +116,6 @@ function InvitePage() {
     queryKey: ["onb", "invites", "mine"],
     queryFn: () => listOnboardingInvites({ data: { scope: "mine" } }),
   });
-  const levelsFn = useServerFn(listAgencyLevels);
-  const { data: agencyLevels } = useQuery({ queryKey: ["agency-levels"], queryFn: () => levelsFn() });
 
   // The people this person may place agents under. `get_scope_agents`
   // authorizes inside SQL, so an owner sees the agency and a manager sees only
@@ -122,7 +128,7 @@ function InvitePage() {
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, assignments: [] } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, expires_in_days: Number(expiresInDays), assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -133,7 +139,12 @@ function InvitePage() {
   // A personal invite names one person, so the owner already knows what level
   // to hand them. An agency signup link is handed to a room: who joins and at
   // what level is decided once they have an account, on their profile.
-  const needsAgencyLevel = !isAgencyLink && (invitedRole === "agent" || invitedRole === "manager");
+  const needsAgencyLevel =
+    !isAgencyLink &&
+    (invitedRole === "agent" || invitedRole === "manager") &&
+    // Nothing to require when there is nothing to pick — otherwise an agency
+    // that has not built its ladder can never submit the form.
+    options.assignableLevels.length > 0;
   const canCreate = linkName.trim().length > 0 && (!needsAgencyLevel || Boolean(agencyLevelId));
 
   function resetForm() {
@@ -143,6 +154,7 @@ function InvitePage() {
     setAgencyLevelId("");
     setUplineId("");
     setIsAgencyLink(false);
+    setExpiresInDays("30");
   }
 
   if (success) {
@@ -262,16 +274,52 @@ function InvitePage() {
           </div>
         </div>
 
+        {/* Only the levels below this person's own. The list used to be every
+            active level in the agency, including the ones above them, and the
+            server refuses those — so the form offered a choice whose submit
+            would throw. An owner is not bounded by a rung and still sees all
+            of them. */}
         {invitedRole !== "staff" && invitedRole !== "agency_owner" && !isAgencyLink && (
           <div>
             <Label>Agency Level</Label>
-            <Select value={agencyLevelId} onValueChange={setAgencyLevelId}>
-              <SelectTrigger className="mt-1 max-w-sm"><SelectValue placeholder="Select their level" /></SelectTrigger>
-              <SelectContent>{(agencyLevels?.rows ?? []).filter((l: any) => l.active).map((l: any) => <SelectItem key={l.id} value={l.id}>{l.name} ({Number(l.base_pct)}%)</SelectItem>)}</SelectContent>
-            </Select>
-            <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
+            {options.assignableLevels.length === 0 ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {!options.hasLadder
+                  ? "Your agency hasn't set up its levels yet. You can still send the link — assign their level from their profile once they've joined."
+                  : options.myLevelName
+                    ? `There's no level below ${options.myLevelName} to place someone on. Ask your agency owner to add one, or to move you up. You can still send the link and set their level from their profile later.`
+                    : "You haven't been placed on an agency level yet, so there's none below yours to offer. Send the link anyway and set their level from their profile once they've joined."}
+              </p>
+            ) : (
+              <>
+                <Select value={agencyLevelId} onValueChange={setAgencyLevelId}>
+                  <SelectTrigger className="mt-1 max-w-sm"><SelectValue placeholder="Select their level" /></SelectTrigger>
+                  <SelectContent>{options.assignableLevels.map((l: any) => <SelectItem key={l.id} value={l.id}>{l.name} ({Number(l.base_pct)}%)</SelectItem>)}</SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
+              </>
+            )}
           </div>
         )}
+
+        {/* Links have always died after thirty days — the column is not null
+            and has defaulted to it since it was added. Nothing said so, so an
+            owner found out from a recruit on a dead link. */}
+        <div>
+          <Label>Link Expires</Label>
+          <Select value={expiresInDays} onValueChange={setExpiresInDays}>
+            <SelectTrigger className="mt-1 max-w-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">In 7 days</SelectItem>
+              <SelectItem value="30">In 30 days (default)</SelectItem>
+              <SelectItem value="90">In 90 days</SelectItem>
+              <SelectItem value="365">In a year</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            After this the link stops working. You can revoke it sooner from the list below.
+          </p>
+        </div>
 
 
         {/* Who they report to. Left alone, the link places people under you —
@@ -511,7 +559,8 @@ function LinksTable({ rows }: { rows: any[] }) {
 
   const del = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
-    onSuccess: () => { toast.success("Link deleted"); qc.invalidateQueries({ queryKey: ["onb", "invites"] }); },
+    onSuccess: () => { toast.success("Link revoked"); qc.invalidateQueries({ queryKey: ["onb", "invites"] }); },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't revoke that link"),
   });
 
   return (
@@ -573,7 +622,11 @@ function LinksTable({ rows }: { rows: any[] }) {
                 )}
               </TableCell>
               <TableCell className="text-sm">
-                {r.expired ? (
+                {r.status === "revoked" ? (
+                  // Before this, revoking deleted the row and the link simply
+                  // vanished from the list. It stays, saying what happened.
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Revoked</span>
+                ) : r.expired ? (
                   <span className="rounded bg-destructive/15 px-2 py-0.5 text-xs text-destructive">Expired</span>
                 ) : r.days_left != null && r.days_left <= 7 ? (
                   // Says it before it happens, rather than leaving the agent to
@@ -590,21 +643,27 @@ function LinksTable({ rows }: { rows: any[] }) {
                   <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copied!"); }}>
                     <Copy className="h-3.5 w-3.5 mr-1" /> Copy Link
                   </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete "{name}"?</AlertDialogTitle>
-                        <AlertDialogDescription>The invite link will stop working immediately.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => del.mutate(r.id)}>Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  {r.status !== "revoked" && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="ghost" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Revoke "{name}"?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            The link stops working immediately. Anyone who already joined through it
+                            keeps their account — this only closes the link. It stays in this list,
+                            marked revoked, so there is a record of what was offered.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => del.mutate(r.id)}>Revoke</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
