@@ -586,6 +586,7 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       agentId: userId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
+      directUplineId: inviteUplineId,
       assignments,
     });
     if (inv.organization_id) {
@@ -593,7 +594,7 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
         client: supabaseAdmin,
         organizationId: inv.organization_id,
         agentId: userId,
-        uplineId: inv.created_by ?? null,
+        uplineId: inviteUplineId ?? null,
         count: createdRequests.length,
       });
     }
