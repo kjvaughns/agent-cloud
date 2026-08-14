@@ -1176,6 +1176,31 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       agencyLevelId = level.id;
     }
 
+    // The upline the link places people under. Checked against the caller's
+    // own agency and reach rather than trusted: an id from another agency
+    // would graft a stranger's downline onto somebody else's tree, and a
+    // manager naming an agent outside their downline would be placing agents
+    // somewhere they do not manage.
+    let uplineId: string | null = null;
+    if (data.upline_id && data.upline_id !== userId) {
+      const { data: candidate } = await (supabase as any)
+        .from("profiles").select("id,organization_id").eq("id", data.upline_id).maybeSingle();
+      if (!candidate || candidate.organization_id !== (inviterProfile?.organization_id ?? null)) {
+        throw new Error("That upline is not someone in your agency.");
+      }
+      const isOwner = inviterRoleList.some((r: string) =>
+        ["super_admin", "agency_owner", "admin"].includes(r),
+      );
+      if (!isOwner) {
+        const { data: inReach } = await (supabase as any)
+          .rpc("is_in_downline", { _upline: userId, _target: data.upline_id });
+        if (!inReach) {
+          throw new Error("You can only place new agents under yourself or someone in your downline.");
+        }
+      }
+      uplineId = candidate.id;
+    }
+
     const { data: inserted, error } = await (supabase as any).from("invitation_links").insert({
       created_by:      userId,
       name:            data.link_name,
@@ -1188,6 +1213,7 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       onboarding_step: 0,
       invited_role:    data.invited_role,
       agency_level_id: agencyLevelId,
+      upline_id:       uplineId,
       organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 
