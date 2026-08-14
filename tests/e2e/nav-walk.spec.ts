@@ -24,24 +24,58 @@ import { navFor, hubGroupsFor, isHub, type NavContext } from "../../src/lib/navi
  */
 const CONTEXTS: Record<Role, NavContext> = {
   owner: {
-    audience: "core", inAgency: true, canSeeAgency: true, downlineCount: 12,
-    isPending: false, canWorkTickets: true, canEditResources: true,
+    audience: "core",
+    inAgency: true,
+    canSeeAgency: true,
+    downlineCount: 12,
+    hasNoBookYet: false,
+    canWorkTickets: true,
+    canEditResources: true,
+    // Owners always may. Exercising both sides of the can-invite gate.
+    hasSubAgencies: false,
+    canInvite: true,
     perms: { staff_is_admin: true },
   },
   manager: {
-    audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 4,
-    isPending: false, canWorkTickets: false, canEditResources: false, perms: {},
+    audience: "core",
+    inAgency: true,
+    canSeeAgency: false,
+    downlineCount: 4,
+    hasNoBookYet: false,
+    canWorkTickets: false,
+    canEditResources: false,
+    hasSubAgencies: false,
+    canInvite: false,
+    perms: {},
   },
   agent: {
-    audience: "core", inAgency: true, canSeeAgency: false, downlineCount: 0,
-    isPending: false, canWorkTickets: false, canEditResources: false, perms: {},
+    audience: "core",
+    inAgency: true,
+    canSeeAgency: false,
+    downlineCount: 0,
+    hasNoBookYet: false,
+    canWorkTickets: false,
+    canEditResources: false,
+    hasSubAgencies: false,
+    canInvite: false,
+    perms: {},
   },
   staff: {
-    audience: "staff", inAgency: true, canSeeAgency: false, downlineCount: 0,
-    isPending: false, canWorkTickets: true, canEditResources: false,
+    audience: "staff",
+    inAgency: true,
+    canSeeAgency: false,
+    downlineCount: 0,
+    hasNoBookYet: false,
+    canWorkTickets: true,
+    canEditResources: false,
+    hasSubAgencies: false,
+    canInvite: false,
     perms: {
-      staff_is_admin: true, staff_view_contracts: true, staff_view_clients: true,
-      staff_view_policies: true, staff_post_policies: true,
+      staff_is_admin: true,
+      staff_view_contracts: true,
+      staff_view_clients: true,
+      staff_view_policies: true,
+      staff_post_policies: true,
     },
   },
 };
@@ -76,7 +110,9 @@ for (const role of ["owner", "manager", "staff", "agent"] as Role[]) {
     test(`${role} has a sidebar worth walking`, async () => {
       // A role whose nav resolved to nothing means the context above drifted
       // from navigation.ts, and every "pass" below would be vacuous.
-      expect(paths.length, `${role} has no nav items — the test context is stale`).toBeGreaterThan(3);
+      expect(paths.length, `${role} has no nav items — the test context is stale`).toBeGreaterThan(
+        3,
+      );
     });
 
     for (const path of paths) {
