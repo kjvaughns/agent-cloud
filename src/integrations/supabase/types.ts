@@ -5645,6 +5645,7 @@ export type Database = {
           notify_on_missing_documents: boolean
           notify_on_status_change: boolean
           organization_id: string
+          overridden_fields: string[] | null
           pdb_refresh_days: number
           request_sla_days: number
           require_manager_review: boolean
@@ -5665,6 +5666,7 @@ export type Database = {
           notify_on_missing_documents?: boolean
           notify_on_status_change?: boolean
           organization_id: string
+          overridden_fields?: string[] | null
           pdb_refresh_days?: number
           request_sla_days?: number
           require_manager_review?: boolean
@@ -5685,6 +5687,7 @@ export type Database = {
           notify_on_missing_documents?: boolean
           notify_on_status_change?: boolean
           organization_id?: string
+          overridden_fields?: string[] | null
           pdb_refresh_days?: number
           request_sla_days?: number
           require_manager_review?: boolean
