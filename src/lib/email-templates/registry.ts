@@ -26,6 +26,7 @@ import { template as carrierAdded } from './carrier-added'
 import { template as contractStatusChanged } from './contract-status-changed'
 import { template as transferRequest } from './transfer-request'
 import { template as taskAssigned } from './task-assigned'
+import { template as announcement } from './announcement'
 import { template as commissionPosted } from './commission-posted'
 import { template as statementReconciled } from './statement-reconciled'
 import { template as paymentFailed } from './payment-failed'
@@ -100,6 +101,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
 
   // Work
   'task-assigned': taskAssigned,
+  'announcement': announcement,
 
   // Money
   'commission-posted': commissionPosted,

@@ -422,3 +422,64 @@ export const listDiscordDeliveries = createServerFn({ method: "GET" })
     if (error) return { deliveries: [] };
     return { deliveries: data ?? [] };
   });
+
+/**
+ * Post an agency announcement to that agency's own Discord channels.
+ *
+ * Deliberately narrower than `announceDeal`: no walk up the parent chain. A
+ * sub-agency's Discord belongs to the sub-agency, and an announcement already
+ * reaches it as its own row with its own delivery — pushing it up or down a
+ * webhook chain as well would post the same notice twice in one channel.
+ *
+ * Never throws. The caller has already persisted the post; a Discord outage
+ * must not turn a published announcement into an error.
+ */
+export async function announceToDiscord(
+  orgId: string,
+  title: string,
+  bodyHtml: string,
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+  try {
+    const { refusedForDemo } = await import("@/lib/demo.server");
+    if (await refusedForDemo(orgId, "send a webhook")) return { sent, failed };
+
+    const { data: hooks } = await supabaseAdmin
+      .from("discord_integrations")
+      .select("id, webhook_url, channel_label, enabled")
+      .eq("organization_id", orgId)
+      .eq("enabled", true);
+
+    // Discord renders markdown, not HTML. Tags out, entities back, and a cap
+    // well under the 2000-character limit the API enforces.
+    const text = bodyHtml
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .slice(0, 1500);
+
+    for (const hook of hooks ?? []) {
+      if (!hook.webhook_url) continue;
+      try {
+        await postToDiscord(hook.webhook_url, {
+          embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: 0xd4af37 }],
+        });
+        await markSuccess(hook.id);
+        sent += 1;
+      } catch (e: any) {
+        await markFailure(hook.id, e?.message ?? "unknown error");
+        failed += 1;
+      }
+    }
+  } catch (e: any) {
+    console.error("[discord] announceToDiscord:", e?.message);
+  }
+  return { sent, failed };
+}

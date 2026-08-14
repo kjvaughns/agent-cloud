@@ -97,8 +97,11 @@ check("…and the insert carries it", /agency_level_id: agencyLevelId,/.test(ONB
 check("a position from another agency is refused",
   /eq\("organization_id", inviterProfile\?\.organization_id \?\? ""\)/.test(ONB) &&
   /not one of your agency's/.test(ONB), true);
+// The upline value moved into a named variable upstream; what this guards is
+// unchanged — two separate writes, each refusing to overwrite a value the
+// agent already has.
 check("the accept path sets upline and position separately",
-  /update\(\{ upline_id: inv\.created_by \}\)[\s\S]{0,120}is\("upline_id", null\)/.test(ONB) &&
+  /update\(\{ upline_id: inviteUplineId \}\)[\s\S]{0,120}is\("upline_id", null\)/.test(ONB) &&
   /update\(\{ agency_level_id: inv\.agency_level_id \}\)[\s\S]{0,80}is\("agency_level_id", null\)/.test(ONB), true);
 
 const INVITE_UI = read("src/routes/_authenticated/contracting/invite.tsx");

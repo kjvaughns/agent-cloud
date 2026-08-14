@@ -271,6 +271,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/announcements.functions.ts:announcement_deliveries":
+    "both sites tolerate the table not existing, and neither can fail a post. The read in listAnnouncements never checks its error — a missing table leaves the channels map empty, so the feed simply shows no channel badges, which is what it showed before the ledger existed. The writes all happen inside deliver(), whose entire call is wrapped in .catch() at the call site precisely because delivery must never turn a published announcement into an error: the row is already committed and readable by the time any of this runs",
   "src/lib/dashboard.functions.ts:organization_settings.show_own_on_leaderboards":
     "the whole opt-out lookup is wrapped in try/catch whose catch treats the failure as 'nobody has opted out' — which is both the column's default and the pre-migration truth. The leaderboard renders identically to today until the imo-scope migration lands; the only thing the window withholds is the ability to hide one's own line, which does not exist yet either",
   "src/lib/discord.functions.ts:organization_settings.show_own_sales_in_feed":
