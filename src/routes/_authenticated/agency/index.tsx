@@ -74,7 +74,7 @@ const TILES: Tile[] = [
       : `${n} ${n === 1 ? "invite" : "invites"} not accepted yet`,
   },
   {
-    title: "Ready to sell", to: "/contracting-ops/ready-to-sell", icon: Trophy,
+    title: "Ready to sell", to: "/contracting-ops/requests", icon: Trophy,
     value: (m) => m.ready,
     caption: (n) => `${n} ${n === 1 ? "agent" : "agents"} cleared to write`,
   },

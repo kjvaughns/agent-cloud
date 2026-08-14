@@ -23,7 +23,7 @@ import {
 import { EmptyState } from "@/components/contracting/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
-import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
+import { ManageGridsPage } from "@/components/contracting/manage-grids";
 import { PRODUCT_TYPES } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +60,7 @@ function CarriersPage() {
       <Tabs value={active} onValueChange={(v) => setActive(v as Tab)} className="space-y-4">
         <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="carriers">1. Carriers</TabsTrigger>
-          <TabsTrigger value="levels">2. Agency levels</TabsTrigger>
+          <TabsTrigger value="levels" data-tour="carrier-comp">2. Agency levels</TabsTrigger>
           <TabsTrigger value="grids">3. Commission grids</TabsTrigger>
         </TabsList>
         <TabsContent value="carriers"><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></TabsContent>
@@ -113,7 +113,7 @@ function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels: () => 
           Start here. Add every carrier your agency writes with. You can configure levels and rates in the next two steps.
         </p>
         {canManage && (
-          <Button size="sm" onClick={() => setAdding(true)}>
+          <Button size="sm" data-tour="carrier-add" onClick={() => setAdding(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Add carrier
           </Button>
         )}
@@ -132,7 +132,7 @@ function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels: () => 
             : undefined}
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-tour="carrier-list" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {carriers.map((c) => (
             <Panel key={c.id} className="p-4">
               <div className="flex items-start gap-3">

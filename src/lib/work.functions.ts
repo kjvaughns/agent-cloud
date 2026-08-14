@@ -195,7 +195,7 @@ export const getMyWork = createServerFn({ method: "GET" })
         detail: "Waiting on a decision from you.",
         count: hierarchy.length,
         urgency: "today",
-        href: "/contracting-ops/hierarchy-changes",
+        href: "/contracting-ops/requests?tab=changes",
       });
     }
 

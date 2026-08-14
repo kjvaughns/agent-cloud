@@ -100,7 +100,9 @@ export const CHECKLIST: ChecklistItem[] = [
     description: "Your agency's real carriers drive every dropdown in the product.",
     roles: ["owner"],
     completion: "carriers_added",
-    ctaRoute: "/contracting/carriers",
+    // Carrier Setup, not the read-only reference directory — the directory's
+    // own add dialog was a second write path and is gone.
+    ctaRoute: "/contracting-ops/carriers",
     ctaLabel: "Add carriers",
     agencySetup: true,
     tourId: "carriers",

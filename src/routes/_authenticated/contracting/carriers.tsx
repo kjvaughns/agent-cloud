@@ -10,13 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Globe, Phone, Clock, Zap, DollarSign, Lock, User, ExternalLink, GraduationCap, Info, Search } from "lucide-react";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { useRole } from "@/hooks/use-role";
-import { useServerFn } from "@/hooks/use-server-fn";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { addCarrier } from "@/lib/contracting.functions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/contracting/carriers")({
   component: CarriersPage,
@@ -42,7 +35,11 @@ function CarriersPage() {
 
   return (
     <PageShell>
-      <HeroBand title="Carriers" subtitle="Reference directory — contacts, pay schedules, and portals. Contracts and comp live in the Contracts hub." actions={<AddCarrierButton />} />
+      {/* Read-only on purpose. Adding a carrier is agency configuration and
+          lives in Carrier Setup (/contracting-ops/carriers), which also knows
+          about submission methods and private carriers — this page had its own
+          "+ Add Carrier" dialog writing through a second code path. */}
+      <HeroBand title="Carriers" subtitle="Reference directory — contacts, pay schedules, and portals. Contracts and comp live in the Contracts hub." />
 
       <div className="flex flex-col md:flex-row gap-3 mt-[var(--gap)]">
         <div className="relative flex-1">
@@ -67,7 +64,7 @@ function CarriersPage() {
         ) : filtered.length === 0 ? (
           <Panel><div className="py-10 text-center text-sm text-muted-foreground">No carriers match.</div></Panel>
         ) : (
-          <div data-tour="carrier-list" className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-2 gap-4">
             {filtered.map((c: any) => (
               <div
                 key={c.id}
@@ -83,7 +80,7 @@ function CarriersPage() {
                     {c.is_annuity_carrier && <Badge variant="secondary" className="mt-1">Annuity</Badge>}
                   </div>
                 </div>
-                <div data-tour="carrier-comp" className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   {c.website && <Row Icon={Globe} label={<a href={c.website} target="_blank" rel="noreferrer" className="hover:underline">Website</a>} />}
                   {c.phone && <Row Icon={Phone} label={<span className="tnum">{c.phone}</span>} />}
                   {c.hours && <Row Icon={Clock} label={c.hours} />}
@@ -135,68 +132,3 @@ function Row({ Icon, label, full }: { Icon: any; label: React.ReactNode; full?: 
 }
 
 function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-
-function AddCarrierButton() {
-  const { isAdmin, isAgencyOwner } = useRole();
-  const qc = useQueryClient();
-  const addFn = useServerFn(addCarrier);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>({ name: "", phone: "", hours: "", pay_frequency: "", advance_cap: "", ideal_client: "", website: "", agent_portal_url: "", training_url: "" });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  const mut = useMutation({
-    mutationFn: () => addFn({ data: {
-      name: form.name.trim(),
-      phone: form.phone.trim() || undefined,
-      hours: form.hours.trim() || undefined,
-      pay_frequency: (form.pay_frequency === "weekly" || form.pay_frequency === "monthly") ? form.pay_frequency : undefined,
-      advance_cap: form.advance_cap.trim() || undefined,
-      ideal_client: form.ideal_client.trim() || undefined,
-      website: form.website.trim() || undefined,
-      agent_portal_url: form.agent_portal_url.trim() || undefined,
-      training_url: form.training_url.trim() || undefined,
-    } as any }),
-    onSuccess: () => {
-      toast.success("Carrier added");
-      setOpen(false);
-      qc.invalidateQueries({ queryKey: ["contracting"] });
-      qc.invalidateQueries({ queryKey: ["carriers-filter"] });
-    },
-    onError: (e: any) => toast.error(e?.message ?? "Couldn't add carrier"),
-  });
-
-  if (!(isAdmin || isAgencyOwner)) return null;
-  return (
-    <>
-      <Button size="sm" data-tour="carrier-add" onClick={() => setOpen(true)}>+ Add Carrier</Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Add Carrier</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            {([["name","Carrier name *"],["phone","Phone"],["hours","Hours"],["advance_cap","Advance cap"],["ideal_client","Ideal client"],["website","Website URL"],["agent_portal_url","Agent portal URL"],["training_url","Training URL"]] as const).map(([k, label]) => (
-              <div key={k}>
-                <Label className="text-xs">{label}</Label>
-                <Input className="mt-1" value={form[k]} onChange={set(k)} />
-              </div>
-            ))}
-            <div>
-              <Label className="text-xs">Pay schedule</Label>
-              <div className="flex gap-2 mt-1">
-                {(["weekly","monthly"] as const).map((p) => (
-                  <Button key={p} type="button" size="sm" variant={form.pay_frequency === p ? "default" : "outline"} onClick={() => setForm((f) => ({ ...f, pay_frequency: f.pay_frequency === p ? "" : p }))}>
-                    {p === "weekly" ? "Weekly" : "Monthly"}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => mut.mutate()} disabled={!form.name.trim() || mut.isPending}>{mut.isPending ? "Saving…" : "Save Carrier"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}

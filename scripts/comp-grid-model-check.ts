@@ -190,7 +190,7 @@ console.log("");
 
 const strip = (s: string) => s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-const PAGE = readFileSync(join(ROOT, "src/routes/_authenticated/contracting.comp-grids-manage.tsx"), "utf8");
+const PAGE = readFileSync(join(ROOT, "src/components/contracting/manage-grids.tsx"), "utf8");
 const MATRIX = readFileSync(join(ROOT, "src/components/contracting/comp-grid-matrix.tsx"), "utf8");
 const MODEL = readFileSync(join(ROOT, "src/lib/comp-grid-model.ts"), "utf8");
 const FNS = readFileSync(join(ROOT, "src/lib/comp-grid.functions.ts"), "utf8");
