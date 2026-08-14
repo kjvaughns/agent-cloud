@@ -46,10 +46,11 @@ function Metric({
   return to ? <Link to={to}>{body}</Link> : body;
 }
 
-function QuickAction({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function QuickAction({ to, icon: Icon, label, search }: { to: string; icon: any; label: string; search?: Record<string, string> }) {
   return (
     <Link
       to={to}
+      search={search}
       className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary/40"
     >
       <Icon className="h-3.5 w-3.5 text-primary" />
@@ -93,7 +94,7 @@ function OverviewPage() {
     { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/licensing", search: { filter: "missing_pdb" } },
     { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/licensing", search: { filter: "stale_pdb" } },
     { label: "Licenses expiring soon", value: m.expiring_licenses, to: "/contracting-ops/licensing", search: { filter: "expiring" } },
-    { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/hierarchy-changes" },
+    { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/requests", search: { tab: "changes" } },
   ].filter((a) => a.value > 0);
 
   return (
@@ -105,7 +106,7 @@ function OverviewPage() {
           value={m.agents_ready_to_sell}
           sub={`of ${m.active_agents} agents`}
           tone={m.agents_ready_to_sell > 0 ? "success" : "neutral"}
-          to="/contracting-ops/ready-to-sell"
+          to="/contracting-ops/requests"
         />
         <Metric label="Requests in progress" value={m.in_progress} to="/contracting-ops/requests" />
         <Metric
@@ -202,8 +203,8 @@ function OverviewPage() {
               <QuickAction to="/contracting-ops/carriers" icon={Building2} label="Add a carrier" />
               <QuickAction to="/contracting-ops/requests" icon={FilePlus} label="Create a request" />
               <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
-              <QuickAction to="/contracting-ops/writing-numbers" icon={IdCard} label="Add a writing number" />
-              <QuickAction to="/contracting-ops/compensation" icon={Percent} label="Add a comp level" />
+              <QuickAction to="/contracting-ops/requests" search={{ tab: "numbers" }} icon={IdCard} label="Add a writing number" />
+              <QuickAction to="/contracting-ops/carriers" search={{ tab: "levels" }} icon={Percent} label="Add a comp level" />
               <QuickAction to="/contracting-ops/queue" icon={Users} label="Staff queue" />
             </div>
             {access && !access.canManageCarriers && (

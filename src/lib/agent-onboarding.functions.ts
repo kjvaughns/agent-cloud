@@ -272,7 +272,7 @@ export const getAgentOnboarding = createServerFn({ method: "POST" })
         title: "Ready to sell",
         why: "Licensed, appointed and cleared to write in at least one state.",
         done: readyToSell || contractingLive,
-        href: "/contracting-ops/ready-to-sell",
+        href: "/contracting-ops/requests",
         cta: "See where they can write",
       },
       {

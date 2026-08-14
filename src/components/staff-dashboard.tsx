@@ -90,7 +90,7 @@ export function StaffDashboard() {
         { label: "Missing PDB reports", value: m.missing_pdb, to: "/contracting-ops/licensing", search: { filter: "missing_pdb" } },
         { label: "PDB reports out of date", value: m.stale_pdb, to: "/contracting-ops/licensing", search: { filter: "stale_pdb" } },
         { label: "Licences expiring soon", value: m.expiring_licenses, to: "/contracting-ops/licensing", search: { filter: "expiring" } },
-        { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/hierarchy-changes" },
+        { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/requests", search: { tab: "changes" } },
       ].filter((a) => a.value > 0)
     : [];
 

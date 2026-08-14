@@ -15,7 +15,7 @@ import { PageShell, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { useNavContext } from "@/hooks/use-my-access";
-import { ManageGridsPage } from "@/routes/_authenticated/contracting.comp-grids-manage";
+import { ManageGridsPage } from "@/components/contracting/manage-grids";
 
 
 /**
