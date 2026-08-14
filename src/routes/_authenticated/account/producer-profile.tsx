@@ -70,13 +70,13 @@ const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string }> = {
   "AML Certificate":   { tab: "documents", action: "Upload it" },
 };
 
-/** Why each item is worth doing — the consequence, not the instruction. */
+/** Why each item is worth having here — useful, never a precondition. */
 const WHY: Record<string, string> = {
-  "Personal details":  "Carriers contract your legal name and date of birth. Every packet needs them.",
+  "Personal details":  "Carriers contract your legal name. Keeping it here means every packet is pre-filled.",
   "NPN Number":        "Your National Producer Number identifies you to every carrier and to NIPR.",
   "Home address":      "Appointment paperwork is filed against your residential address.",
-  "E&O Certificate":   "No carrier will appoint you without current errors-and-omissions cover.",
-  "AML Certificate":   "Anti-money-laundering training is required before you can write annuities.",
+  "E&O Certificate":   "Carriers ask for current errors-and-omissions cover when they appoint you.",
+  "AML Certificate":   "Carriers ask for anti-money-laundering training before annuity business.",
 };
 
 const BACKGROUND_QUESTIONS = [
