@@ -24,11 +24,15 @@ export function LevelsPanel() {
   const { data: carrierData } = useQuery({ queryKey: ["contracting-ops", "carriers"], queryFn: () => carriersFn() });
   const save = useMutation({ mutationFn: (p: any) => saveFn({ data: p }), onSuccess: () => { toast.success("Agency level saved"); setAdding(false); setEditing(null); qc.invalidateQueries({ queryKey: ["agency-levels"] }); }, onError: (e: any) => toast.error(e?.message ?? "Could not save the agency level") });
   const rows = (data?.rows ?? []) as any[];
-  if (!isLoading && rows.length === 0) return <EmptyState title="Create your agency promotion ladder" body="Create each level once, such as Trainee 50%, Agent 60%, and MGA 80%. Carrier equivalents are optional exceptions inside the level." action={<Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create first level</Button>} />;
+  const dialog = <AgencyLevelDialog open={adding || Boolean(editing)} record={editing} carriers={(carrierData?.carriers ?? []) as any[]} pending={save.isPending} onClose={() => { setAdding(false); setEditing(null); }} onSave={(p) => save.mutate(p)} />;
+  if (!isLoading && rows.length === 0) return <>
+    <EmptyState title="Create your agency promotion ladder" body="Create each level once, such as Trainee 50%, Agent 60%, and MGA 80%. Carrier equivalents are optional exceptions inside the level." action={<Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create first level</Button>} />
+    {dialog}
+  </>;
   return <div className="space-y-4">
     <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">One simple ladder used for invites, promotions, and permissions.</p><Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button></div>
     <div className="space-y-2">{rows.map((level) => <Panel key={level.id} className="p-4"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-bold text-primary tnum">{Number(level.base_pct)}%</div><div className="min-w-0 flex-1"><h3 className="font-semibold text-foreground">{level.name}</h3><p className="text-xs text-muted-foreground">{level.can_invite ? "Can build a downline" : "Cannot create invite links"} · {(level.agency_level_carrier_mappings ?? []).length} carrier overrides</p></div><Button size="sm" variant="ghost" onClick={() => setEditing(level)}><Pencil className="h-3.5 w-3.5" /></Button></div></Panel>)}</div>
-    <AgencyLevelDialog open={adding || Boolean(editing)} record={editing} carriers={(carrierData?.carriers ?? []) as any[]} pending={save.isPending} onClose={() => { setAdding(false); setEditing(null); }} onSave={(p) => save.mutate(p)} />
+    {dialog}
   </div>;
 }
 
