@@ -94,9 +94,14 @@ const ONB = read("src/lib/onboarding.functions.ts");
 check("the invite schema names the position",
   /agency_level_id: z\.string\(\)\.uuid\(\)\.nullable\(\)\.optional\(\)/.test(ONB), true);
 check("…and the insert carries it", /agency_level_id: agencyLevelId,/.test(ONB), true);
+// The org-scoped lookup this used to name moved into the invitation rules,
+// which refuse the same case by name and now also refuse a position at or
+// above the inviter's own. `requestedRungFrom` only ever finds ids among the
+// agency's own levels; anything else becomes a stand-in that `checkInvite`
+// rejects as `rung_not_in_agency`.
 check("a position from another agency is refused",
-  /eq\("organization_id", inviterProfile\?\.organization_id \?\? ""\)/.test(ONB) &&
-  /not one of your agency's/.test(ONB), true);
+  /requestedRungFrom\(inviteCtx, data\.agency_level_id\)/.test(strip(ONB)) &&
+  /belongs to a different agency/.test(read("src/lib/invitations/permissions.ts")), true);
 // The upline value moved into a named variable upstream; what this guards is
 // unchanged — two separate writes, each refusing to overwrite a value the
 // agent already has.

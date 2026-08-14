@@ -2,6 +2,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  checkInvite,
+  canRecruit,
+  assignableRungs,
+  ROLE_RANK,
+  REFUSAL_MESSAGES,
+} from "@/lib/invitations/permissions";
+import {
+  loadInviteContext,
+  requestedRungFrom,
+  auditInvitation,
+} from "@/lib/invitations/lookup.server";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -412,6 +424,12 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     if (inv.expires_at && new Date(inv.expires_at).getTime() < Date.now()) {
       throw new Error("Invite expired or not found");
     }
+    // Revoking used to delete the row, so this guard had nothing to check.
+    // It keeps the record of what was offered instead, which means the token
+    // still resolves and the refusal has to be said out loud.
+    if (inv.status === "revoked") {
+      throw new Error("This invite link has been revoked. Ask whoever sent it for a new one.");
+    }
     // A real account inside the sample agency would be wiped by the nightly
     // reset, and the person who created it would have no way to know why their
     // agency vanished. This is the more important half of the invite guard —
@@ -600,6 +618,9 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
 async function loadInviteForUser(supabase: any, token: string, userId: string) {
   const { data: inv } = await supabaseAdmin.from("invitation_links").select("*").eq("token", token).maybeSingle();
   if (!inv) throw new Error("Invite not found");
+  if ((inv as any).status === "revoked") {
+    throw new Error("This invite link has been revoked. Ask whoever sent it for a new one.");
+  }
   if (inv.is_reusable) return inv; // reusable links are not locked to a specific user
   if (inv.linked_agent_id && inv.linked_agent_id !== userId) throw new Error("Invite belongs to another user");
   if (!inv.linked_agent_id) {
@@ -1160,6 +1181,47 @@ const FullAssignmentSchema = z.object({
   release_needed: z.boolean().optional().default(false),
 });
 
+/**
+ * What the invite builder is allowed to offer, answered by the server that
+ * enforces it.
+ *
+ * The page used to decide this for itself: it gated on `isManager`, which
+ * refused every ordinary agent even though the server had allowed them for as
+ * long as `agency_levels.can_invite` has existed — and it listed every active
+ * level in the agency, including the ones above the person filling the form
+ * in, whose submit would then be refused. Both halves of that disagreement go
+ * away by asking.
+ */
+export const getInviteOptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const ctx = await loadInviteContext(supabase, userId);
+    const mayRecruit = canRecruit(ctx.rung, ctx.role);
+    const rank = (r: string | null) => (r ? (ROLE_RANK[r] ?? 0) : 0);
+
+    return {
+      canRecruit: mayRecruit,
+      // Only meaningful when the answer is no, and then it is the whole
+      // explanation the page shows.
+      refusal: mayRecruit ? null : REFUSAL_MESSAGES.level_cannot_recruit,
+      myLevelName: ctx.rung?.name ?? null,
+      // Strictly below the inviter's own, best first. An administrator is not
+      // bounded by a rung, so they see the agency's whole active ladder.
+      assignableLevels: (rank(ctx.role) >= ROLE_RANK.admin
+        ? ctx.rungs.filter((r) => r.active)
+        : assignableRungs(ctx.rung, ctx.rungs)
+      )
+        .slice()
+        .sort((a, b) => (b.base_pct ?? 0) - (a.base_pct ?? 0))
+        .map((r) => ({ id: r.id, name: r.name, base_pct: r.base_pct })),
+      /** The agency defines a ladder at all — false means nothing to pick from. */
+      hasLadder: ctx.rungs.some((r) => r.active),
+      canInviteManager: rank(ctx.role) >= ROLE_RANK.manager,
+      canInviteAgencyOwner: rank(ctx.role) >= ROLE_RANK.agency_owner,
+    };
+  });
+
 export const createOnboardingInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({
@@ -1179,6 +1241,13 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // creator's, and the person joining chooses their own upline from the
     // agency's agents. Any upline picked here is ignored for such a link.
     is_agency_link: z.boolean().optional().default(false),
+    // How long the link stays good for. `invitation_links.expires_at` is not
+    // null and has always defaulted to thirty days, so links have been quietly
+    // dying at a month for as long as the column has existed and nothing ever
+    // said so. Thirty stays the default; the point of naming it is that the
+    // page can now show the date, and somebody handing a link to a room can
+    // ask for longer instead of finding out from a recruit.
+    expires_in_days: z.number().int().min(1).max(365).optional().default(30),
 
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
@@ -1195,62 +1264,29 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       }
     }
 
-    // Validate inviter can assign the requested role
-    const { data: inviterRoles } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-    const inviterRoleList = (inviterRoles ?? []).map((r: any) => r.role as string);
+    // ── What this person may hand to somebody else ─────────────────────────
+    //
+    // One decision, made by `invitations/permissions.ts`, rather than the four
+    // separate checks that used to live here — and it now answers a question
+    // none of them asked: whether the rung being handed out is below the
+    // inviter's own. It was not checked anywhere, so an agent could mint a
+    // link placing a new account at Owner, then be paid a negative override
+    // off them, or simply follow their own link onto a better contract.
+    //
+    // The rules are pure and the queries are in `lookup.server`; both halves
+    // are exercised by `scripts/invite-permissions-check.ts`.
+    const inviteCtx = await loadInviteContext(supabase, userId);
+    const inviterRoleList = inviteCtx.roles;
+    const verdict = checkInvite({
+      inviterRung: inviteCtx.rung,
+      inviterRole: inviteCtx.role,
+      requestedRung: requestedRungFrom(inviteCtx, data.agency_level_id),
+      requestedRole: data.invited_role,
+      agencyRungs: inviteCtx.rungs,
+    });
+    if (!verdict.ok) throw new Error(verdict.messages.join(" "));
 
-    // ── May you create an invite link at all? ──────────────────────────────
-    //
-    // Everything below this checks *which role* may be invited. Nothing
-    // checked whether the caller may invite anybody, so an ordinary agent
-    // could call this with the default invited_role of "agent" — no branch
-    // applies to that value — and mint a link placing new agents in a
-    // downline with carriers and comp levels pre-assigned.
-    //
-    // The nav offered it too (`unlock: "agency-member"`), but that is the
-    // lesser half: hiding the entry would have left the server function open
-    // to anybody who knew its name.
-    //
-    // Manager and above, because inviting into your own downline is a
-    // manager's job. A plain agent or staff member is not building a team.
-    // Manager and above always may. An ordinary agent may too — recruiting is
-    // part of the job — unless their position on the agency's ladder says
-    // otherwise: `agency_levels.can_invite` is how an agency closes inviting
-    // off at the bottom rung. Somebody with no position yet may, because there
-    // is no rung saying they cannot.
-    let mayInviteAnyone = inviterRoleList.some((r: string) =>
-      ["super_admin", "agency_owner", "admin", "manager"].includes(r),
-    );
-    if (!mayInviteAnyone) {
-      const { data: myProfile } = await (supabase as any)
-        .from("profiles").select("agency_level_id").eq("id", userId).maybeSingle();
-      const myLevelId = myProfile?.agency_level_id ?? null;
-      if (!myLevelId) {
-        mayInviteAnyone = true;
-      } else {
-        const { data: myLevel } = await (supabase as any)
-          .from("agency_levels").select("can_invite").eq("id", myLevelId).maybeSingle();
-        mayInviteAnyone = myLevel ? myLevel.can_invite !== false : true;
-      }
-    }
-    if (!mayInviteAnyone) {
-      throw new Error(
-        "Your position in the agency can't send invite links yet. " +
-        "Ask your upline or agency owner to send it, or to move you up a level.",
-      );
-    }
-    const canInviteAgencyOwner = inviterRoleList.includes("super_admin") || inviterRoleList.includes("agency_owner");
-    const canInviteManager     = canInviteAgencyOwner || inviterRoleList.includes("manager");
-    if (data.invited_role === "agency_owner" && !canInviteAgencyOwner) {
-      throw new Error("Only agency owners and above can invite agency owners.");
-    }
-    if (data.invited_role === "manager" && !canInviteManager) {
-      throw new Error("Only managers and above can invite managers.");
-    }
-
-    // Fetch inviter's organization
-    const { data: inviterProfile } = await (supabase as any)
-      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const inviterProfile = { organization_id: inviteCtx.organizationId };
 
     {
       const { assertNotDemo } = await import("@/lib/demo.server");
@@ -1258,21 +1294,10 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     }
 
     const token = crypto.randomUUID();
-
-    // A position from another agency would be assignable by anyone holding its
-    // id, and would put an agent on a ladder their own agency does not define.
-    // Confirmed against the inviter's org rather than trusted from the client.
-    let agencyLevelId: string | null = null;
-    if (data.agency_level_id) {
-      const { data: level } = await (supabase as any)
-        .from("agency_levels")
-        .select("id")
-        .eq("id", data.agency_level_id)
-        .eq("organization_id", inviterProfile?.organization_id ?? "")
-        .maybeSingle();
-      if (!level) throw new Error("That position is not one of your agency's.");
-      agencyLevelId = level.id;
-    }
+    const expiresAt = new Date(Date.now() + data.expires_in_days * 86400000).toISOString();
+    // Checked above against the agency's own ladder, so an id from elsewhere
+    // has already been refused by name rather than silently dropped.
+    const agencyLevelId: string | null = data.agency_level_id ?? null;
 
     // The upline the link places people under. Checked against the caller's
     // own agency and reach rather than trusted: an id from another agency
@@ -1314,9 +1339,27 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       upline_id:       data.is_agency_link ? null : uplineId,
       is_agency_link:  data.is_agency_link,
       organization_id: inviterProfile?.organization_id ?? null,
+      expires_at:      expiresAt,
     }).select("id,token").single();
 
     if (error) throw new Error(error.message);
 
-    return { ok: true, id: inserted.id, token: inserted.token };
+    // What was granted, by whom, to a rung and an upline — recorded before
+    // anybody has claimed it, because afterwards the only trace is a profile
+    // sitting somewhere nobody remembers putting it.
+    await auditInvitation("invitation.created", {
+      organizationId: inviterProfile?.organization_id ?? null,
+      performedBy: userId,
+      next: {
+        invitation_id: inserted.id,
+        link_name: data.link_name,
+        invited_role: data.invited_role,
+        agency_level_id: agencyLevelId,
+        upline_id: data.is_agency_link ? null : uplineId,
+        is_agency_link: data.is_agency_link,
+        expires_at: expiresAt,
+      },
+    });
+
+    return { ok: true, id: inserted.id, token: inserted.token, expires_at: expiresAt };
   });

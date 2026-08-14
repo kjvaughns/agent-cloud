@@ -380,8 +380,27 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
     const carrierAssignments = Object.entries(data.tier_assignments).map(
       ([carrier_id, level_pct]) => ({ carrier_id, level_pct })
     );
+    const { hasOpenInvitation, auditInvitation } = await import("@/lib/invitations/lookup.server");
+    const { data: inviterProfile } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const organizationId = (inviterProfile as any)?.organization_id ?? null;
+
     const results = [];
     for (const agent of data.agents) {
+      // One live invitation per person per agency. Two of them is how somebody
+      // ends up with two accounts on two rungs under two uplines, decided by
+      // whichever link they happened to click — and a batch paste with a
+      // repeated address made exactly that, silently.
+      if (await hasOpenInvitation(supabase, { email: agent.email, organizationId })) {
+        results.push({
+          email: agent.email,
+          ok: false,
+          token: null,
+          error: "There is already an open invitation for that email address.",
+        });
+        continue;
+      }
+
       // Create placeholder auth user so the agent appears in the roster immediately
       const { data: authData } = await (supabaseAdmin as any).auth.admin.createUser({
         email: agent.email,
@@ -408,8 +427,19 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
         expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
         carrier_assignments: carrierAssignments,
         is_reusable: false,
+        organization_id: organizationId,
       });
       if (!error) {
+        await auditInvitation("invitation.created", {
+          organizationId,
+          performedBy: userId,
+          targetUserId: authData?.user?.id ?? null,
+          next: {
+            email: agent.email,
+            source: "admin_batch",
+            carrier_assignments: carrierAssignments,
+          },
+        });
         const { queueEmail } = await import("@/lib/email/send.server");
         await queueEmail({
           template: "agent-invited",
