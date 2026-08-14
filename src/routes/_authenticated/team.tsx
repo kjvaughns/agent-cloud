@@ -386,10 +386,9 @@ function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) 
               <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
                 <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                 <div className="min-w-0 flex-1">
-                  <Link to="/team/agent/$agentId" params={{ agentId: a.id }}
-                        className="block truncate text-sm font-medium hover:underline">
+                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
                     {a.first_name} {a.last_name}
-                  </Link>
+                  </button>
                   <p className="truncate text-xs text-muted-foreground">
                     {(a.missing ?? []).length > 0 ? `Needs ${(a.missing ?? []).join(", ")}` : STAGE_LABELS[a.stage]}
                   </p>
@@ -420,20 +419,17 @@ function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) 
               <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
                 <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                 <div className="min-w-0 flex-1">
-                  <Link to="/team/agent/$agentId" params={{ agentId: a.id }}
-                        className="block truncate text-sm font-medium hover:underline">
+                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
                     {a.first_name} {a.last_name}
-                  </Link>
+                  </button>
                   <p className="truncate text-xs text-muted-foreground tnum">
                     <Clock className="mr-1 inline h-3 w-3" />
                     {a.days_since_sale} days since last deal
                     {a.last_active_at ? ` · last seen ${timeAgo(a.last_active_at)}` : ""}
                   </p>
                 </div>
-                <Button asChild size="sm" variant="ghost" className="shrink-0">
-                  <Link to="/team/agent/$agentId" params={{ agentId: a.id }}>
-                    <Eye className="mr-1 h-3 w-3" /> Open
-                  </Link>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onOpen(a.id)}>
+                  <Eye className="mr-1 h-3 w-3" /> Open
                 </Button>
               </div>
             ))}
@@ -558,13 +554,8 @@ function RowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem asChild>
-            <Link to="/team/agent/$agentId" params={{ agentId: agent.id }}>
-              <Eye className="mr-2 h-4 w-4" /> Open dashboard
-            </Link>
-          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onOpen(agent.id)}>
-            Quick look
+            <Eye className="mr-2 h-4 w-4" /> Open dashboard
           </DropdownMenuItem>
           {agent.email && (
             <DropdownMenuItem asChild>

@@ -130,7 +130,10 @@ function InvitePage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to create link"),
   });
 
-  const needsAgencyLevel = invitedRole === "agent" || invitedRole === "manager";
+  // A personal invite names one person, so the owner already knows what level
+  // to hand them. An agency signup link is handed to a room: who joins and at
+  // what level is decided once they have an account, on their profile.
+  const needsAgencyLevel = !isAgencyLink && (invitedRole === "agent" || invitedRole === "manager");
   const canCreate = linkName.trim().length > 0 && (!needsAgencyLevel || Boolean(agencyLevelId));
 
   function resetForm() {
@@ -259,7 +262,7 @@ function InvitePage() {
           </div>
         </div>
 
-        {invitedRole !== "staff" && invitedRole !== "agency_owner" && (
+        {invitedRole !== "staff" && invitedRole !== "agency_owner" && !isAgencyLink && (
           <div>
             <Label>Agency Level</Label>
             <Select value={agencyLevelId} onValueChange={setAgencyLevelId}>
@@ -269,6 +272,7 @@ function InvitePage() {
             <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
           </div>
         )}
+
 
         {/* Who they report to. Left alone, the link places people under you —
             which is all it could ever do before. Choosing somebody else is how
@@ -294,7 +298,7 @@ function InvitePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsAgencyLink(true)}
+                onClick={() => { setIsAgencyLink(true); setAgencyLevelId(""); }}
                 className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
               >
                 <div className="font-medium text-sm flex items-center gap-1.5">
@@ -331,7 +335,8 @@ function InvitePage() {
         {invitedRole !== "staff" && isAgencyLink && (
           <p className="text-xs text-muted-foreground">
             The signup page will show your agency's name and ask the new agent to choose their
-            upline from the agents in your agency.
+            upline from the agents in your agency. No agency level is set on this link — you
+            assign each person's level from their profile once they have an account.
           </p>
         )}
 
