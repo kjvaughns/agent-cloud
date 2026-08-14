@@ -62,7 +62,39 @@ export const updatePolicyStatus = createServerFn({ method: "POST" })
       .update({ status: data.status })
       .eq("id", data.policyId);
     if (error) throw new Error(error.message);
+    // What was, who changed it and when is recorded by
+    // `trg_policy_events_status` on the table itself rather than here. Three
+    // paths write this column and nothing stops a fourth; a trigger is the one
+    // place that cannot be forgotten.
     return { ok: true };
+  });
+
+/**
+ * What has happened to one policy, in order.
+ *
+ * The detail sheet could change a policy's status and show the new one, and
+ * that was all it could ever say: the column holds one value and nothing kept
+ * the last. So a policy that went active, lapsed, had retention work done and
+ * came back looked exactly like one that had never moved — and a chargeback
+ * conversation came down to whose memory was better.
+ */
+export const listPolicyEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ policyId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    // Cast and caught: the table arrives with 20260814230000, and a detail
+    // sheet that will not open is worse than one with no history in it yet.
+    try {
+      const { data: rows } = await (context.supabase as any)
+        .from("policy_events")
+        .select("*")
+        .eq("policy_id", data.policyId)
+        .order("occurred_at", { ascending: false });
+      return { rows: (rows ?? []) as any[], available: true };
+    } catch (e: any) {
+      console.error("[book] policy history unavailable:", e?.message);
+      return { rows: [] as any[], available: false };
+    }
   });
 
 export const getPolicyCommissionTotal = createServerFn({ method: "POST" })

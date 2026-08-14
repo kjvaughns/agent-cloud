@@ -276,6 +276,10 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/pipeline.functions.ts:policy_events":
+    "read alongside retention_cases inside one try/catch, after the batch that builds the client record, whose catch logs and leaves both arrays empty. The table arrives with 20260814230000. In the window the client's timeline is assembled from its other three sources — contact history, life events, scheduled meetings — and shows everything it showed before, minus policy activity that nothing was recording anyway. A client record that will not open is far worse than a timeline missing one of five sources",
+  "src/lib/book-of-business.functions.ts:policy_events":
+    "listPolicyEvents wraps its read in try/catch and returns `{ rows: [], available: false }` rather than throwing. The detail sheet branches on `available` and says 'Policy history isn't available yet' instead of rendering an empty list, which would claim nothing had ever happened to the policy. Everything else on the sheet — status, commissions, client detail — is unaffected",
   "src/lib/post-deal.functions.ts:commission_setup_issues":
     "read inside the same try/catch that wraps the commission calculation, whose catch sets compensation to a generic 'could not be worked out' message. The table arrives with 20260814210000; before it exists the read throws, the catch reports the honest fallback, and the deal — which is already written by this point — still posts. The window degrades to a vaguer sentence, never to a lost policy or a false success",
   "src/lib/compensation/lookup.server.ts:commission_setup_issues":
