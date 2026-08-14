@@ -13,4 +13,11 @@ without credentials.
 
 Delete a line once the migration is applied.
 
-(none — every migration in this directory has been applied.)
+- `20260814140000_contracting-settings-inheritance.sql`
+
+`20260814140000` adds `org_contracting_settings.overridden_fields` — the
+marker that lets a child agency inherit contracting policy from its parent.
+In the window: saves retry without the column on `PGRST204`/`42703`, and the
+resolver treats a row without the marker as "every field is local", which is
+the pre-inheritance behaviour. Nothing breaks; the How Contracting Works page
+simply shows every field as "Set by you" until the column exists.

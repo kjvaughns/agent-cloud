@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
@@ -491,11 +492,9 @@ export const listLicensingRecords = createServerFn({ method: "GET" })
       Boolean((access.perms as any).contracting_manage_licenses) ||
       Boolean((access.perms as any).contracting_view_sensitive_docs);
 
-    const { data: settings } = await supabaseAdmin
-      .from("org_contracting_settings").select("pdb_refresh_days, license_expiry_warning_days")
-      .eq("organization_id", orgId).maybeSingle();
-    const refreshDays = settings?.pdb_refresh_days ?? 90;
-    const warnDays = settings?.license_expiry_warning_days ?? 45;
+    const { effective } = await loadEffectiveContractingSettings(orgId);
+    const refreshDays = Number(effective.pdb_refresh_days ?? 90);
+    const warnDays = Number(effective.license_expiry_warning_days ?? 45);
 
     const { data: members } = canSeeRoster
       ? await supabaseAdmin
@@ -640,9 +639,8 @@ export const reviewPdbReport = createServerFn({ method: "POST" })
       "You don't have permission to review PDB reports.");
     await assertSameOrg(userId, data.agent_id);
 
-    const { data: settings } = await supabaseAdmin
-      .from("org_contracting_settings").select("pdb_refresh_days").eq("organization_id", orgId).maybeSingle();
-    const refreshDays = settings?.pdb_refresh_days ?? 90;
+    const { effective } = await loadEffectiveContractingSettings(orgId);
+    const refreshDays = Number(effective.pdb_refresh_days ?? 90);
 
     const nextReview = data.status === "verified" && refreshDays > 0
       ? new Date(Date.now() + refreshDays * 86_400_000).toISOString().slice(0, 10)
@@ -875,7 +873,7 @@ export const getAgentContracting = createServerFn({ method: "GET" })
       { data: numbers },
       { data: requests },
       { data: documents },
-      { data: settings },
+      settings,
     ] = await Promise.all([
       supabaseAdmin.from("profiles")
         .select("id, first_name, last_name, email, phone, npn_number, state, status")
@@ -899,13 +897,12 @@ export const getAgentContracting = createServerFn({ method: "GET" })
       supabase.from("producer_documents")
         .select("id, doc_type, file_name, review_status, expiration_date, created_at, updated_at, is_sensitive")
         .eq("agent_id", agentId),
-      supabaseAdmin.from("org_contracting_settings")
-        .select("license_expiry_warning_days").eq("organization_id", orgId).maybeSingle(),
+      loadEffectiveContractingSettings(orgId),
     ]);
 
     if (!profile) throw new Error("That agent is not in your agency, or no longer has a profile.");
 
-    const warnDays = settings?.license_expiry_warning_days ?? 45;
+    const warnDays = Number(settings?.effective?.license_expiry_warning_days ?? 45);
     const warnBy = new Date(Date.now() + warnDays * 86_400_000).toISOString().slice(0, 10);
 
     // Same rule the readiness engine uses: a row left at 'active' with a date

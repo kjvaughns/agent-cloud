@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
@@ -222,10 +223,8 @@ export const getMyWork = createServerFn({ method: "GET" })
     }
 
     // Licensing, which is slower-moving but blocks everything downstream.
-    const { data: settings } = await supabaseAdmin
-      .from("org_contracting_settings")
-      .select("license_expiry_warning_days").eq("organization_id", orgId).maybeSingle();
-    const warnDays = settings?.license_expiry_warning_days ?? 45;
+    const { effective } = await loadEffectiveContractingSettings(orgId);
+    const warnDays = Number(effective.license_expiry_warning_days ?? 45);
     const warnBy = new Date(Date.now() + warnDays * 86_400_000).toISOString().slice(0, 10);
 
     if (memberIds.length) {

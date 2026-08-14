@@ -11,6 +11,8 @@ import {
 import type { Packet } from "@/lib/contracting-ops/packet";
 import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
 import { resolveHandoffMethod, legacyFallbackUrl } from "@/lib/contracting-ops/handoff";
+import { INHERITABLE_FIELDS } from "@/lib/contracting-ops/effective-settings";
+import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -118,27 +120,14 @@ function deny(message: string): never {
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
-async function getSettings(orgId: string) {
-  const { data } = await supabaseAdmin
-    .from("org_contracting_settings").select("*").eq("organization_id", orgId).maybeSingle();
-  // Defaults mirror the column defaults so a workspace that has never opened
-  // Settings behaves identically to one that saved the defaults.
-  return data ?? {
-    organization_id: orgId,
-    pdb_refresh_days: 90,
-    license_expiry_warning_days: 45,
-    require_manager_review: false,
-    require_owner_approval: true,
-    require_owner_approval_for_comp_change: true,
-    require_owner_approval_for_hierarchy: true,
-    default_request_priority: "normal",
-    request_sla_days: 7,
-    auto_assign_staff_id: null,
-    agents_may_request_contracts: true,
-    warn_on_duplicate_requests: true,
-    notify_on_missing_documents: true,
-    notify_on_status_change: true,
-  };
+/**
+ * Effective settings — own overrides, else the parent chain, else defaults.
+ * The resolution rule lives in contracting-ops/effective-settings; this is
+ * just the plumbing every caller in this file shares.
+ */
+async function getSettings(orgId: string): Promise<Record<string, any>> {
+  const { effective } = await loadEffectiveContractingSettings(orgId);
+  return { organization_id: orgId, ...effective };
 }
 
 export const getContractingSettings = createServerFn({ method: "GET" })
@@ -146,7 +135,23 @@ export const getContractingSettings = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const access = await resolveAccess((context as Ctx).userId);
     const orgId = requireOrg(access);
-    return { settings: await getSettings(orgId), access };
+    const resolved = await loadEffectiveContractingSettings(orgId);
+    // What the org's own row currently claims, so the UI can tell an
+    // override from an inheritance without re-deriving the rule.
+    const { data: own } = await supabaseAdmin
+      .from("org_contracting_settings").select("*").eq("organization_id", orgId).maybeSingle();
+    const overridden = own
+      ? (own.overridden_fields ?? INHERITABLE_FIELDS.slice())
+      : [];
+    return {
+      settings: { organization_id: orgId, ...resolved.effective },
+      sources: resolved.sources,
+      inheritedValues: resolved.inheritedValues,
+      hasParent: resolved.hasParent,
+      parentName: resolved.parentName,
+      overridden,
+      access,
+    };
   });
 
 const SettingsSchema = z.object({
@@ -163,6 +168,12 @@ const SettingsSchema = z.object({
   warn_on_duplicate_requests: z.boolean(),
   notify_on_missing_documents: z.boolean(),
   notify_on_status_change: z.boolean(),
+  /**
+   * Which fields this org sets for itself; everything else inherits from the
+   * parent chain. Omitted (a stale client, or an org with no parent) means
+   * every field is local — the pre-inheritance behaviour.
+   */
+  overridden_fields: z.array(z.enum(INHERITABLE_FIELDS)).optional(),
 });
 
 export const saveContractingSettings = createServerFn({ method: "POST" })
@@ -174,13 +185,34 @@ export const saveContractingSettings = createServerFn({ method: "POST" })
     const orgId = requireOrg(access);
     if (!access.isOwner && !access.canManageCarriers) deny("Only the agency owner can change contracting settings.");
 
+    const { overridden_fields, ...fields } = data;
+
+    // A root agency has nothing to inherit from, so every field is its own —
+    // regardless of what the client sent. Only a child's list is honoured.
+    const { data: org } = await supabaseAdmin
+      .from("organizations").select("parent_org_id").eq("id", orgId).maybeSingle();
+    const marker = org?.parent_org_id
+      ? (overridden_fields ?? INHERITABLE_FIELDS.slice())
+      : INHERITABLE_FIELDS.slice();
+
     const before = await getSettings(orgId);
-    const { error } = await supabaseAdmin
+    const row = { organization_id: orgId, ...fields, overridden_fields: marker, updated_by: userId };
+    let { error } = await supabaseAdmin
       .from("org_contracting_settings")
-      .upsert({ organization_id: orgId, ...data, updated_by: userId }, { onConflict: "organization_id" });
+      .upsert(row, { onConflict: "organization_id" });
+    // Pre-migration window: the marker column does not exist yet. Save the
+    // values without it — a null marker reads as "every field local", which
+    // is exactly what the pre-migration database can express.
+    if (error && (error.code === "PGRST204" || error.code === "42703")) {
+      const { overridden_fields: _dropped, ...withoutMarker } = row;
+      ({ error } = await supabaseAdmin
+        .from("org_contracting_settings")
+        .upsert(withoutMarker, { onConflict: "organization_id" }));
+    }
     if (error) throw new Error(error.message);
 
-    const d = diff(before as any, { ...before, ...data } as any);
+    const after = await getSettings(orgId);
+    const d = diff(before as any, after as any);
     await recordAudit({
       organizationId: orgId, actorId: userId, action: "carrier.updated",
       recordType: "org_contracting_settings", recordId: orgId,

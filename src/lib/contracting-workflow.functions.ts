@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
@@ -218,14 +219,14 @@ export const createHierarchyChange = createServerFn({ method: "POST" })
       }
     }
 
-    const [{ data: settings }, { data: profile }, { data: org }] = await Promise.all([
-      supabaseAdmin.from("org_contracting_settings").select("*").eq("organization_id", orgId).maybeSingle(),
+    const [{ effective }, { data: profile }, { data: org }] = await Promise.all([
+      loadEffectiveContractingSettings(orgId),
       supabaseAdmin.from("profiles").select("upline_id").eq("id", data.agent_id).maybeSingle(),
       supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
     ]);
 
-    const requireManager = settings?.require_manager_review ?? false;
-    const requireOwner = settings?.require_owner_approval_for_hierarchy ?? true;
+    const requireManager = Boolean(effective.require_manager_review ?? false);
+    const requireOwner = Boolean(effective.require_owner_approval_for_hierarchy ?? true);
 
     // Which carriers this change touches, so the approver sees the blast radius.
     const { data: affected } = await supabaseAdmin
