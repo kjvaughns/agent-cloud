@@ -5884,6 +5884,8 @@ export type Database = {
           notify_new_ticket: boolean
           organization_id: string
           primary_admin_email: string | null
+          show_own_on_leaderboards: boolean
+          show_own_sales_in_feed: boolean
           support_email: string | null
           updated_at: string
           updated_by: string | null
@@ -5899,6 +5901,8 @@ export type Database = {
           notify_new_ticket?: boolean
           organization_id: string
           primary_admin_email?: string | null
+          show_own_on_leaderboards?: boolean
+          show_own_sales_in_feed?: boolean
           support_email?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -5914,6 +5918,8 @@ export type Database = {
           notify_new_ticket?: boolean
           organization_id?: string
           primary_admin_email?: string | null
+          show_own_on_leaderboards?: boolean
+          show_own_sales_in_feed?: boolean
           support_email?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -9451,6 +9457,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      imo_org_ids: { Args: never; Returns: string[] }
       increment_funnel_applications: {
         Args: { _slug: string }
         Returns: undefined
