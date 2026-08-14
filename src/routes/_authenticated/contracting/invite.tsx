@@ -8,7 +8,11 @@ import {
   getMyContractedCarriers,
 } from "@/lib/onboarding.functions";
 import { deleteInvitationLink } from "@/lib/contracting.functions";
+import { listScopeAgents } from "@/lib/scope.functions";
 import { listCarrierGridLevels } from "@/lib/admin.functions";
+
+/** Radix Select cannot hold "", so "me" stands in for the link's creator. */
+const SELF = "__self__";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
