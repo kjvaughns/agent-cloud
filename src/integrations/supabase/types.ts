@@ -269,6 +269,7 @@ export type Database = {
       }
       agency_level_carrier_mappings: {
         Row: {
+          advance_option: Database["public"]["Enums"]["advance_option"] | null
           agency_level_id: string
           carrier_level_name: string | null
           carrier_pct: number | null
@@ -279,6 +280,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          advance_option?: Database["public"]["Enums"]["advance_option"] | null
           agency_level_id: string
           carrier_level_name?: string | null
           carrier_pct?: number | null
@@ -289,6 +291,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          advance_option?: Database["public"]["Enums"]["advance_option"] | null
           agency_level_id?: string
           carrier_level_name?: string | null
           carrier_pct?: number | null
@@ -422,6 +425,7 @@ export type Database = {
       }
       agent_commission_levels: {
         Row: {
+          advance_option: Database["public"]["Enums"]["advance_option"] | null
           agent_id: string
           assigned_at: string
           assigned_by: string | null
@@ -431,9 +435,11 @@ export type Database = {
           id: string
           organization_id: string | null
           pending: boolean
+          status: string
           writing_number: string | null
         }
         Insert: {
+          advance_option?: Database["public"]["Enums"]["advance_option"] | null
           agent_id: string
           assigned_at?: string
           assigned_by?: string | null
@@ -443,9 +449,11 @@ export type Database = {
           id?: string
           organization_id?: string | null
           pending?: boolean
+          status?: string
           writing_number?: string | null
         }
         Update: {
+          advance_option?: Database["public"]["Enums"]["advance_option"] | null
           agent_id?: string
           assigned_at?: string
           assigned_by?: string | null
@@ -455,6 +463,7 @@ export type Database = {
           id?: string
           organization_id?: string | null
           pending?: boolean
+          status?: string
           writing_number?: string | null
         }
         Relationships: [
@@ -2522,11 +2531,13 @@ export type Database = {
           agent_id: string
           amount: number
           annual_premium: number | null
+          calc_run_id: string | null
           carrier: string | null
           client_name: string | null
           commission_pct: number | null
           created_at: string
           id: string
+          idempotency_key: string | null
           is_gtl: boolean
           is_sample: boolean
           month_number: number | null
@@ -2539,6 +2550,7 @@ export type Database = {
           product: string | null
           source_agent_id: string | null
           status: string
+          superseded_at: string | null
           writing_agent_id: string | null
           writing_agent_name: string | null
         }
@@ -2547,11 +2559,13 @@ export type Database = {
           agent_id: string
           amount?: number
           annual_premium?: number | null
+          calc_run_id?: string | null
           carrier?: string | null
           client_name?: string | null
           commission_pct?: number | null
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           is_gtl?: boolean
           is_sample?: boolean
           month_number?: number | null
@@ -2564,6 +2578,7 @@ export type Database = {
           product?: string | null
           source_agent_id?: string | null
           status?: string
+          superseded_at?: string | null
           writing_agent_id?: string | null
           writing_agent_name?: string | null
         }
@@ -2572,11 +2587,13 @@ export type Database = {
           agent_id?: string
           amount?: number
           annual_premium?: number | null
+          calc_run_id?: string | null
           carrier?: string | null
           client_name?: string | null
           commission_pct?: number | null
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           is_gtl?: boolean
           is_sample?: boolean
           month_number?: number | null
@@ -2589,6 +2606,7 @@ export type Database = {
           product?: string | null
           source_agent_id?: string | null
           status?: string
+          superseded_at?: string | null
           writing_agent_id?: string | null
           writing_agent_name?: string | null
         }
@@ -2604,6 +2622,74 @@ export type Database = {
             foreignKeyName: "commission_schedule_policy_id_fkey"
             columns: ["policy_id"]
             isOneToOne: false
+            referencedRelation: "policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commission_setup_issues: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          failures: string[]
+          id: string
+          messages: string[]
+          org_carrier_id: string | null
+          organization_id: string | null
+          policy_id: string
+          resolved_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          failures?: string[]
+          id?: string
+          messages?: string[]
+          org_carrier_id?: string | null
+          organization_id?: string | null
+          policy_id: string
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          failures?: string[]
+          id?: string
+          messages?: string[]
+          org_carrier_id?: string | null
+          organization_id?: string | null
+          policy_id?: string
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_setup_issues_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_setup_issues_org_carrier_id_fkey"
+            columns: ["org_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "org_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_setup_issues_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_setup_issues_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: true
             referencedRelation: "policies"
             referencedColumns: ["id"]
           },
@@ -4091,6 +4177,7 @@ export type Database = {
           last_success_at: string | null
           min_annual_premium: number
           organization_id: string
+          post_announcements: boolean
           post_deals: boolean
           post_milestones: boolean
           post_new_agents: boolean
@@ -4108,6 +4195,7 @@ export type Database = {
           last_success_at?: string | null
           min_annual_premium?: number
           organization_id: string
+          post_announcements?: boolean
           post_deals?: boolean
           post_milestones?: boolean
           post_new_agents?: boolean
@@ -4125,6 +4213,7 @@ export type Database = {
           last_success_at?: string | null
           min_annual_premium?: number
           organization_id?: string
+          post_announcements?: boolean
           post_deals?: boolean
           post_milestones?: boolean
           post_new_agents?: boolean
@@ -5611,6 +5700,7 @@ export type Database = {
       }
       org_carriers: {
         Row: {
+          available_for_post_deal: boolean
           carrier_id: string
           contracting_email: string | null
           contracting_phone: string | null
@@ -5618,6 +5708,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           custom_statuses: Json
+          default_advance_option:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
+          enabled: boolean
           external_provider: string | null
           external_record_id: string | null
           external_status: string | null
@@ -5635,6 +5729,7 @@ export type Database = {
           product_types: string[]
           release_required: boolean
           release_requirements: string | null
+          requestable_by_agents: boolean
           staff_notes: string | null
           status: string
           support_email: string | null
@@ -5646,9 +5741,11 @@ export type Database = {
           turnaround_days: number | null
           updated_at: string
           updated_by: string | null
+          visible_to_agents: boolean
           writing_number_scope: string
         }
         Insert: {
+          available_for_post_deal?: boolean
           carrier_id: string
           contracting_email?: string | null
           contracting_phone?: string | null
@@ -5656,6 +5753,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           custom_statuses?: Json
+          default_advance_option?:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
+          enabled?: boolean
           external_provider?: string | null
           external_record_id?: string | null
           external_status?: string | null
@@ -5673,6 +5774,7 @@ export type Database = {
           product_types?: string[]
           release_required?: boolean
           release_requirements?: string | null
+          requestable_by_agents?: boolean
           staff_notes?: string | null
           status?: string
           support_email?: string | null
@@ -5684,9 +5786,11 @@ export type Database = {
           turnaround_days?: number | null
           updated_at?: string
           updated_by?: string | null
+          visible_to_agents?: boolean
           writing_number_scope?: string
         }
         Update: {
+          available_for_post_deal?: boolean
           carrier_id?: string
           contracting_email?: string | null
           contracting_phone?: string | null
@@ -5694,6 +5798,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           custom_statuses?: Json
+          default_advance_option?:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
+          enabled?: boolean
           external_provider?: string | null
           external_record_id?: string | null
           external_status?: string | null
@@ -5711,6 +5819,7 @@ export type Database = {
           product_types?: string[]
           release_required?: boolean
           release_requirements?: string | null
+          requestable_by_agents?: boolean
           staff_notes?: string | null
           status?: string
           support_email?: string | null
@@ -5722,6 +5831,7 @@ export type Database = {
           turnaround_days?: number | null
           updated_at?: string
           updated_by?: string | null
+          visible_to_agents?: boolean
           writing_number_scope?: string
         }
         Relationships: [
@@ -6483,6 +6593,62 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policy_events: {
+        Row: {
+          actor_id: string | null
+          agent_id: string | null
+          client_id: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          kind: string
+          note: string | null
+          occurred_at: string
+          organization_id: string | null
+          policy_id: string
+          source: string | null
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          agent_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          occurred_at?: string
+          organization_id?: string | null
+          policy_id: string
+          source?: string | null
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          agent_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_at?: string
+          organization_id?: string | null
+          policy_id?: string
+          source?: string | null
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_events_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "policies"
             referencedColumns: ["id"]
           },
         ]
@@ -9598,6 +9764,12 @@ export type Database = {
       waitlist_count: { Args: never; Returns: number }
     }
     Enums: {
+      advance_option:
+        | "as_earned"
+        | "3_months"
+        | "6_months"
+        | "9_months"
+        | "12_months"
       app_role:
         | "agent"
         | "staff"
@@ -9787,6 +9959,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      advance_option: [
+        "as_earned",
+        "3_months",
+        "6_months",
+        "9_months",
+        "12_months",
+      ],
       app_role: [
         "agent",
         "staff",
