@@ -785,8 +785,58 @@ export type Database = {
         }
         Relationships: []
       }
+      announcement_deliveries: {
+        Row: {
+          announcement_id: string
+          channel: string
+          created_at: string
+          error: string | null
+          id: string
+          organization_id: string | null
+          status: string
+          target: string | null
+        }
+        Insert: {
+          announcement_id: string
+          channel: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string
+          target?: string | null
+        }
+        Update: {
+          announcement_id?: string
+          channel?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          organization_id?: string | null
+          status?: string
+          target?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_deliveries_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_deliveries_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
+          announcement_group_id: string | null
+          audience: string
           body_html: string | null
           created_at: string
           created_by: string | null
@@ -795,6 +845,8 @@ export type Database = {
           title: string
         }
         Insert: {
+          announcement_group_id?: string | null
+          audience?: string
           body_html?: string | null
           created_at?: string
           created_by?: string | null
@@ -803,6 +855,8 @@ export type Database = {
           title: string
         }
         Update: {
+          announcement_group_id?: string | null
+          audience?: string
           body_html?: string | null
           created_at?: string
           created_by?: string | null
