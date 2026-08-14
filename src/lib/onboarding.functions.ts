@@ -1096,6 +1096,9 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // accept paths copied that null onto the new profile. Every agent in the
     // product has no position as a result. Named here, it survives.
     agency_level_id: z.string().uuid().nullable().optional(),
+    // Who the invited agent reports to. Omitted means the creator, which is
+    // what every link meant before this existed.
+    upline_id: z.string().uuid().nullable().optional(),
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
