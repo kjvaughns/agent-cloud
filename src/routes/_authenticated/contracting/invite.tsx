@@ -130,7 +130,10 @@ function InvitePage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to create link"),
   });
 
-  const needsAgencyLevel = invitedRole === "agent" || invitedRole === "manager";
+  // A personal invite names one person, so the owner already knows what level
+  // to hand them. An agency signup link is handed to a room: who joins and at
+  // what level is decided once they have an account, on their profile.
+  const needsAgencyLevel = !isAgencyLink && (invitedRole === "agent" || invitedRole === "manager");
   const canCreate = linkName.trim().length > 0 && (!needsAgencyLevel || Boolean(agencyLevelId));
 
   function resetForm() {
