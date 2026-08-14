@@ -46,6 +46,8 @@ export type Unlock =
   | "agency-admin"
   /** Somebody has people under them. A team page with no team is a dead end. */
   | "has-downline"
+  /** The agency has child agencies. A Sub-Agencies page with none is a concept lesson, not a page. */
+  | "has-sub-agencies"
   /**
    * A selling surface. Hidden while somebody is still becoming an agent —
    * they have no clients, no book and no commissions, so these pages can only
@@ -282,6 +284,9 @@ export const PAGES: Page[] = [
   // Agency-level configuration rather than daily work, so it keeps the
   // administrator gate and takes no staff permission.
   { id: "contracting-settings", label: "How contracting works", path: "/settings/contracting", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin", permission: "staff_is_admin" },
+  // Only offered to an agency that actually has children — the gate keeps a
+  // solo agency from seeing an empty tab about a concept it doesn't have.
+  { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", parent: "settings", unlock: "has-sub-agencies" },
 
   // Updates
   { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
@@ -378,6 +383,8 @@ export type NavContext = {
   canWorkTickets: boolean;
   /** They maintain the agency's handbook, scripts and courses. Mirrors can_manage_resources(). */
   canEditResources: boolean;
+  /** At least one organization names theirs as parent. Drives has-sub-agencies. */
+  hasSubAgencies: boolean;
   perms: Record<string, unknown>;
 };
 
@@ -410,6 +417,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-member") gates.push(ctx.inAgency);
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
+  if (p.unlock === "has-sub-agencies") gates.push(ctx.hasSubAgencies && ctx.canSeeAgency);
   if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
   if (p.unlock === "resource-editor") gates.push(ctx.canEditResources);
   if (p.unlock === "activated") gates.push(!ctx.isPending);
@@ -531,7 +539,7 @@ const HUBS: Record<string, HubGroup[]> = {
       label: "Your agency",
       ids: [
         "agency-settings", "carriers-setup", "comp-grids-setup", "agency-levels",
-        "contracting-settings", "agency-roles", "contracting-templates",
+        "contracting-settings", "agency-roles", "contracting-templates", "sub-agencies",
       ],
     },
   ],

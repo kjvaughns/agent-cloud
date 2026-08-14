@@ -14,6 +14,13 @@ without credentials.
 Delete a line once the migration is applied.
 
 - `20260814140000_contracting-settings-inheritance.sql`
+- `20260814150000_agency-relationships.sql`
+
+`20260814150000` creates `agency_relationships` — the terms of each
+parent/child agency link (production rollup, sales-feed access, status) —
+and backfills one row per existing `parent_org_id`. In the window: the
+Sub-Agencies page catches `42P01` and shows a "waiting on a workspace
+update" notice instead of erroring; nothing else reads the table yet.
 
 `20260814140000` adds `org_contracting_settings.overridden_fields` — the
 marker that lets a child agency inherit contracting policy from its parent.

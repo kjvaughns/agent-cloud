@@ -101,6 +101,7 @@ import { Route as AuthenticatedSettingsWhiteLabelRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated/settings.usage'
 import { Route as AuthenticatedSettingsTemplatesRouteImport } from './routes/_authenticated/settings.templates'
 import { Route as AuthenticatedSettingsSupportRouteImport } from './routes/_authenticated/settings.support'
+import { Route as AuthenticatedSettingsSubAgenciesRouteImport } from './routes/_authenticated/settings.sub-agencies'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
 import { Route as AuthenticatedSettingsResourcesRouteImport } from './routes/_authenticated/settings.resources'
@@ -655,6 +656,12 @@ const AuthenticatedSettingsSupportRoute =
   AuthenticatedSettingsSupportRouteImport.update({
     id: '/support',
     path: '/support',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsSubAgenciesRoute =
+  AuthenticatedSettingsSubAgenciesRouteImport.update({
+    id: '/sub-agencies',
+    path: '/sub-agencies',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsSecurityRoute =
@@ -1254,6 +1261,7 @@ export interface FileRoutesByFullPath {
   '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/sub-agencies': typeof AuthenticatedSettingsSubAgenciesRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
@@ -1420,6 +1428,7 @@ export interface FileRoutesByTo {
   '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/sub-agencies': typeof AuthenticatedSettingsSubAgenciesRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
@@ -1593,6 +1602,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/_authenticated/settings/sub-agencies': typeof AuthenticatedSettingsSubAgenciesRoute
   '/_authenticated/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/_authenticated/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
@@ -1766,6 +1776,7 @@ export interface FileRouteTypes {
     | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
+    | '/settings/sub-agencies'
     | '/settings/support'
     | '/settings/templates'
     | '/settings/usage'
@@ -1932,6 +1943,7 @@ export interface FileRouteTypes {
     | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
+    | '/settings/sub-agencies'
     | '/settings/support'
     | '/settings/templates'
     | '/settings/usage'
@@ -2104,6 +2116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/resources'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/security'
+    | '/_authenticated/settings/sub-agencies'
     | '/_authenticated/settings/support'
     | '/_authenticated/settings/templates'
     | '/_authenticated/settings/usage'
@@ -2831,6 +2844,13 @@ declare module '@tanstack/react-router' {
       path: '/support'
       fullPath: '/settings/support'
       preLoaderRoute: typeof AuthenticatedSettingsSupportRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/sub-agencies': {
+      id: '/_authenticated/settings/sub-agencies'
+      path: '/sub-agencies'
+      fullPath: '/settings/sub-agencies'
+      preLoaderRoute: typeof AuthenticatedSettingsSubAgenciesRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/security': {
@@ -3601,6 +3621,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsResourcesRoute: typeof AuthenticatedSettingsResourcesRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
+  AuthenticatedSettingsSubAgenciesRoute: typeof AuthenticatedSettingsSubAgenciesRoute
   AuthenticatedSettingsSupportRoute: typeof AuthenticatedSettingsSupportRoute
   AuthenticatedSettingsTemplatesRoute: typeof AuthenticatedSettingsTemplatesRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
@@ -3625,6 +3646,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsResourcesRoute: AuthenticatedSettingsResourcesRoute,
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
+  AuthenticatedSettingsSubAgenciesRoute: AuthenticatedSettingsSubAgenciesRoute,
   AuthenticatedSettingsSupportRoute: AuthenticatedSettingsSupportRoute,
   AuthenticatedSettingsTemplatesRoute: AuthenticatedSettingsTemplatesRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
