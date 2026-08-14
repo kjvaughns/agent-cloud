@@ -81,9 +81,8 @@ function StepAction({
     }
     return (
       <Link
-        to="/agency/agents/$agentId"
+        to="/team/agent/$agentId"
         params={{ agentId }}
-        search={{ tab: "readiness" as const }}
         className={cls}
       >
         {step.cta}

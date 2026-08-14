@@ -351,8 +351,7 @@ function LicenseSheet({
             numbers, open requests, what each carrier still needs — is a page,
             because it is too much to read sideways. */}
         <Link
-          to="/agency/agents/$agentId"
-          search={{ tab: "contracting" }}
+          to="/team/agent/$agentId"
           params={{ agentId: agent.id }}
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
         >

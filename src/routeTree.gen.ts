@@ -177,6 +177,7 @@ import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/em
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
+import { Route as AuthenticatedTeamAgentAgentIdRouteImport } from './routes/_authenticated/team.agent.$agentId'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
@@ -1108,6 +1109,12 @@ const ApiPublicHooksDemoResetRoute = ApiPublicHooksDemoResetRouteImport.update({
   path: '/api/public/hooks/demo-reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTeamAgentAgentIdRoute =
+  AuthenticatedTeamAgentAgentIdRouteImport.update({
+    id: '/agent/$agentId',
+    path: '/agent/$agentId',
+    getParentRoute: () => AuthenticatedTeamRoute,
+  } as any)
 const AuthenticatedContractingOpsRequestsRequestIdRoute =
   AuthenticatedContractingOpsRequestsRequestIdRouteImport.update({
     id: '/$requestId',
@@ -1170,7 +1177,7 @@ export interface FileRoutesByFullPath {
   '/retention': typeof AuthenticatedRetentionRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
-  '/team': typeof AuthenticatedTeamRoute
+  '/team': typeof AuthenticatedTeamRouteWithChildren
   '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -1289,6 +1296,7 @@ export interface FileRoutesByFullPath {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/team/agent/$agentId': typeof AuthenticatedTeamAgentAgentIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
@@ -1338,7 +1346,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/retention': typeof AuthenticatedRetentionRoute
   '/tasks': typeof AuthenticatedTasksRoute
-  '/team': typeof AuthenticatedTeamRoute
+  '/team': typeof AuthenticatedTeamRouteWithChildren
   '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -1456,6 +1464,7 @@ export interface FileRoutesByTo {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/team/agent/$agentId': typeof AuthenticatedTeamAgentAgentIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
@@ -1511,7 +1520,7 @@ export interface FileRoutesById {
   '/_authenticated/retention': typeof AuthenticatedRetentionRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
-  '/_authenticated/team': typeof AuthenticatedTeamRoute
+  '/_authenticated/team': typeof AuthenticatedTeamRouteWithChildren
   '/_authenticated/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -1630,6 +1639,7 @@ export interface FileRoutesById {
   '/_authenticated/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/_authenticated/team/agent/$agentId': typeof AuthenticatedTeamAgentAgentIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
@@ -1804,6 +1814,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/team/agent/$agentId'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
@@ -1971,6 +1982,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/team/agent/$agentId'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
@@ -2144,6 +2156,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agency/agents/$agentId'
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
+    | '/_authenticated/team/agent/$agentId'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
@@ -3378,6 +3391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksDemoResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/team/agent/$agentId': {
+      id: '/_authenticated/team/agent/$agentId'
+      path: '/agent/$agentId'
+      fullPath: '/team/agent/$agentId'
+      preLoaderRoute: typeof AuthenticatedTeamAgentAgentIdRouteImport
+      parentRoute: typeof AuthenticatedTeamRoute
+    }
     '/_authenticated/contracting-ops/requests/$requestId': {
       id: '/_authenticated/contracting-ops/requests/$requestId'
       path: '/$requestId'
@@ -3659,6 +3679,17 @@ const AuthenticatedSettingsRouteWithChildren =
     AuthenticatedSettingsRouteChildren,
   )
 
+interface AuthenticatedTeamRouteChildren {
+  AuthenticatedTeamAgentAgentIdRoute: typeof AuthenticatedTeamAgentAgentIdRoute
+}
+
+const AuthenticatedTeamRouteChildren: AuthenticatedTeamRouteChildren = {
+  AuthenticatedTeamAgentAgentIdRoute: AuthenticatedTeamAgentAgentIdRoute,
+}
+
+const AuthenticatedTeamRouteWithChildren =
+  AuthenticatedTeamRoute._addFileChildren(AuthenticatedTeamRouteChildren)
+
 interface AuthenticatedRouteChildren {
   AuthenticatedAiAssistantRoute: typeof AuthenticatedAiAssistantRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
@@ -3689,7 +3720,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRetentionRoute: typeof AuthenticatedRetentionRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
-  AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
+  AuthenticatedTeamRoute: typeof AuthenticatedTeamRouteWithChildren
   AuthenticatedWhiteLabelRoute: typeof AuthenticatedWhiteLabelRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
@@ -3738,7 +3769,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRetentionRoute: AuthenticatedRetentionRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
-  AuthenticatedTeamRoute: AuthenticatedTeamRoute,
+  AuthenticatedTeamRoute: AuthenticatedTeamRouteWithChildren,
   AuthenticatedWhiteLabelRoute: AuthenticatedWhiteLabelRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,

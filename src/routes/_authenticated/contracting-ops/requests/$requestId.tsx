@@ -209,8 +209,7 @@ function RequestDetailPage() {
                     carrier, licence and document — which is the next question
                     an operator has when a blocker here does not explain itself. */}
                 <Link
-                  to="/agency/agents/$agentId"
-                  search={{ tab: "contracting" }}
+                  to="/team/agent/$agentId"
                   params={{ agentId: request.agent_id }}
                   className="ac-no-print inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
                 >
