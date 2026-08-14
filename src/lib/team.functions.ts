@@ -97,6 +97,10 @@ export type RosterAgent = TeamAgent & {
   flags: RiskFlag[];
   active_carriers: number;
   days_since_sale: number | null;
+  /** The catalog position they hold, null while unassigned. */
+  agency_level_id: string | null;
+  position_name: string | null;
+  position_pct: number | null;
 };
 
 /**
@@ -146,7 +150,7 @@ export const getTeamRoster = createServerFn({ method: "GET" })
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const [licences, docs, policies, contracts] = await Promise.all([
+    const [licences, docs, policies, contracts, placements] = await Promise.all([
       supabase.from("state_licenses")
         .select("agent_id, expires_date, status").in("agent_id", ids),
       // Both spellings. `eo` predates `eo_certificate` and the vocabulary
@@ -160,7 +164,26 @@ export const getTeamRoster = createServerFn({ method: "GET" })
         .order("posted_at", { ascending: false }),
       supabase.from("contract_requests")
         .select("agent_id, status, activated_at, requested_at").in("agent_id", ids),
+      // `get_team_downline` does not carry the position, and the roster is
+      // where positions are read and assigned, so it comes from profiles.
+      supabase.from("profiles").select("id, agency_level_id").in("id", ids),
     ]);
+
+    // Resolve only the positions actually in use. The full catalog is a
+    // separate concern — the assignment picker asks listAgencyLevels for it —
+    // and loading every position to label a handful would be wasted work.
+    const levelIds = Array.from(new Set(
+      ((placements.data ?? []) as any[]).map((p) => p.agency_level_id).filter(Boolean),
+    ));
+    const { data: levelRows } = levelIds.length
+      ? await (supabase as any).from("agency_levels").select("id, name, base_pct").in("id", levelIds)
+      : { data: [] };
+    const levelById = new Map<string, { name: string; base_pct: number }>(
+      ((levelRows ?? []) as any[]).map((l) => [l.id, { name: l.name, base_pct: Number(l.base_pct) }]),
+    );
+    const placedAt = new Map<string, string | null>(
+      ((placements.data ?? []) as any[]).map((p) => [p.id, p.agency_level_id ?? null]),
+    );
 
     const nextLicence = new Map<string, string>();
     const liveLicences = new Map<string, number>();
@@ -222,6 +245,8 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           persistencyPct: null,
         };
         const flags = riskFlags(facts, now);
+        const levelId = placedAt.get(a.id) ?? null;
+        const level = levelId ? levelById.get(levelId) ?? null : null;
         return {
           ...a,
           stage: lifecycleStage(facts, flags),
@@ -229,6 +254,9 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           flags,
           active_carriers: facts.activeCarriers,
           days_since_sale: daysSince(facts.lastSaleAt, now),
+          agency_level_id: levelId,
+          position_name: level?.name ?? null,
+          position_pct: level ? level.base_pct : null,
         };
       }),
     };
@@ -387,6 +415,62 @@ export const setAgentHidden = createServerFn({ method: "POST" })
  * agency owner (the org policies are conjunctive, so revoking an owner locks
  * them out of their own agency), and returns a row count.
  */
+/**
+ * Put an agent on a position from the agency's catalog, or take them off it.
+ *
+ * The catalog is configuration (Settings ▸ Levels & Positions); this is the
+ * assignment, which is daily work and belongs on the roster.
+ *
+ * Both ends are checked against the caller's own organisation before anything
+ * is written: an agent id from another agency, or a position id from another
+ * agency, are both refusals rather than writes. The update then asserts its
+ * row count, because RLS on `profiles` grants updates on the org-OWNER branch
+ * only — narrower than the `is_org_admin` that may edit the catalog — so an
+ * admin who can create a position may still be refused when assigning one.
+ * Without the assert that refusal returns silently and the UI claims success.
+ */
+export const setAgentPosition = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { agentId: string; agencyLevelId: string | null }) =>
+    z.object({
+      agentId: z.string().uuid(),
+      /** Null clears the position, putting them back in the pending queue. */
+      agencyLevelId: z.string().uuid().nullable(),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+
+    const { data: me } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const orgId = me?.organization_id;
+    if (!orgId) throw new Error("You are not in an agency.");
+
+    const { data: agent } = await supabase
+      .from("profiles").select("id, organization_id").eq("id", data.agentId).maybeSingle();
+    if (!agent || agent.organization_id !== orgId) {
+      throw new Error("That agent is not in your agency.");
+    }
+
+    if (data.agencyLevelId) {
+      const { data: level } = await (supabase as any)
+        .from("agency_levels").select("id")
+        .eq("id", data.agencyLevelId).eq("organization_id", orgId).maybeSingle();
+      if (!level) throw new Error("That position is not one of your agency's.");
+    }
+
+    const { data: touched, error } = await supabase
+      .from("profiles")
+      .update({ agency_level_id: data.agencyLevelId })
+      .eq("id", data.agentId)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!touched?.length) {
+      throw new Error("Only the agency owner can change an agent's position.");
+    }
+    return { ok: true as const };
+  });
+
 export const setAgentStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentId: string; status: "active" | "inactive" | "terminated" }) =>

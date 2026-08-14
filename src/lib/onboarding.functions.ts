@@ -549,8 +549,21 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
     );
 
-    // Set upline if not already set
-    await supabase.from("profiles").update({ upline_id: inv.created_by, agency_level_id: inv.agency_level_id ?? null }).eq("id", userId).is("upline_id", null);
+    // Set upline if not already set. Deliberately guarded: accepting a second
+    // link must not move somebody out from under the upline they already have.
+    await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
+
+    // The position is a separate write, and separately guarded, because the two
+    // answer different questions. Folded into the update above, an agent who
+    // already had an upline — the re-invited, the transferred — was skipped by
+    // the upline guard and so never received a position either. Filling an
+    // empty position is safe whatever their upline says; overwriting one they
+    // already hold is not, which is what `.is(null)` protects.
+    if (inv.agency_level_id) {
+      await supabase.from("profiles")
+        .update({ agency_level_id: inv.agency_level_id })
+        .eq("id", userId).is("agency_level_id", null);
+    }
     // Same as a fresh signup: the contract records and the contracting work to
     // obtain them, linked to each other.
     const assignments: any[] = Array.isArray(inv.carrier_assignments) ? inv.carrier_assignments : [];
@@ -1061,6 +1074,13 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
   .inputValidator((d) => z.object({
     link_name:    z.string().trim().min(1).max(80),
     invited_role: z.enum(["agent", "manager", "agency_owner", "staff"]).default("agent"),
+    // The position the invited agent lands on. The invite screen has required
+    // this for agent and manager invites since it shipped, and the schema
+    // dropped it on the floor — zod strips unknown keys, so the value was
+    // discarded here, `invitation_links.agency_level_id` stayed null, and both
+    // accept paths copied that null onto the new profile. Every agent in the
+    // product has no position as a result. Named here, it survives.
+    agency_level_id: z.string().uuid().nullable().optional(),
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
@@ -1123,6 +1143,21 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
 
     const token = crypto.randomUUID();
 
+    // A position from another agency would be assignable by anyone holding its
+    // id, and would put an agent on a ladder their own agency does not define.
+    // Confirmed against the inviter's org rather than trusted from the client.
+    let agencyLevelId: string | null = null;
+    if (data.agency_level_id) {
+      const { data: level } = await (supabase as any)
+        .from("agency_levels")
+        .select("id")
+        .eq("id", data.agency_level_id)
+        .eq("organization_id", inviterProfile?.organization_id ?? "")
+        .maybeSingle();
+      if (!level) throw new Error("That position is not one of your agency's.");
+      agencyLevelId = level.id;
+    }
+
     const { data: inserted, error } = await (supabase as any).from("invitation_links").insert({
       created_by:      userId,
       name:            data.link_name,
@@ -1134,6 +1169,7 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       status:          "pending",
       onboarding_step: 0,
       invited_role:    data.invited_role,
+      agency_level_id: agencyLevelId,
       organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 
