@@ -47,7 +47,7 @@ function CompGridsPage() {
             ? "Your agency's own rates. Editing a carrier replaces the platform default for your agency only."
             : "What each carrier and product pays at your level."}
           actions={
-            // The editor existed but lived at /contracting-ops/compensation
+            // The editor existed but lived on a separate management page
             // behind a tab, which is not where anyone looks for "the comp
             // grids". Same component, reachable from the page it edits.
             canSeeAgency ? (

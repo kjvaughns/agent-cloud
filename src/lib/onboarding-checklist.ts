@@ -102,7 +102,7 @@ export const CHECKLIST: ChecklistItem[] = [
     completion: "carriers_added",
     // Carrier Setup, not the read-only reference directory — the directory's
     // own add dialog was a second write path and is gone.
-    ctaRoute: "/contracting-ops/carriers",
+    ctaRoute: "/settings/carriers",
     ctaLabel: "Add carriers",
     agencySetup: true,
     tourId: "carriers",
@@ -113,7 +113,7 @@ export const CHECKLIST: ChecklistItem[] = [
     description: "What each level pays. Commissions are computed from this, so it is worth getting right once.",
     roles: ["owner"],
     completion: "comp_grid_set",
-    ctaRoute: "/contracting/commission-grids",
+    ctaRoute: "/settings/comp-grids",
     ctaLabel: "Set levels",
     agencySetup: true,
   },

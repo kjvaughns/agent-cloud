@@ -248,7 +248,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
             )}
             {canSeeAgency && (
               <Button asChild size="sm" variant="outline">
-                <Link to="/contracting-ops/carriers">Set up agency carriers</Link>
+                <Link to="/settings/carriers">Set up agency carriers</Link>
               </Button>
             )}
             <AddCarrierDialog onAdded={() => qc.invalidateQueries({ queryKey: ["contracting"] })} />
@@ -289,7 +289,7 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
           ghost={ghostFor("contracts")}
           action={
             <Button asChild size="sm">
-              <Link to={canSeeAgency ? "/contracting-ops/carriers" : "/contracting/carriers"}>
+              <Link to={canSeeAgency ? "/settings/carriers" : "/contracting/carriers"}>
                 {canSeeAgency ? "Set up agency carriers" : "Add a carrier"}
               </Link>
             </Button>

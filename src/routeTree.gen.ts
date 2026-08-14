@@ -99,14 +99,19 @@ import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenti
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedSettingsWhiteLabelRouteImport } from './routes/_authenticated/settings.white-label'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated/settings.usage'
+import { Route as AuthenticatedSettingsTemplatesRouteImport } from './routes/_authenticated/settings.templates'
 import { Route as AuthenticatedSettingsSupportRouteImport } from './routes/_authenticated/settings.support'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
 import { Route as AuthenticatedSettingsRolesRouteImport } from './routes/_authenticated/settings.roles'
 import { Route as AuthenticatedSettingsResourcesRouteImport } from './routes/_authenticated/settings.resources'
 import { Route as AuthenticatedSettingsNovaProRouteImport } from './routes/_authenticated/settings.nova-pro'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
+import { Route as AuthenticatedSettingsLevelsRouteImport } from './routes/_authenticated/settings.levels'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsEmailsRouteImport } from './routes/_authenticated/settings.emails'
+import { Route as AuthenticatedSettingsContractingRouteImport } from './routes/_authenticated/settings.contracting'
+import { Route as AuthenticatedSettingsCompGridsRouteImport } from './routes/_authenticated/settings.comp-grids'
+import { Route as AuthenticatedSettingsCarriersRouteImport } from './routes/_authenticated/settings.carriers'
 import { Route as AuthenticatedSettingsBillingRouteImport } from './routes/_authenticated/settings.billing'
 import { Route as AuthenticatedSettingsAutomationsRouteImport } from './routes/_authenticated/settings.automations'
 import { Route as AuthenticatedSettingsAgencyRouteImport } from './routes/_authenticated/settings.agency'
@@ -640,6 +645,12 @@ const AuthenticatedSettingsUsageRoute =
     path: '/usage',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsTemplatesRoute =
+  AuthenticatedSettingsTemplatesRouteImport.update({
+    id: '/templates',
+    path: '/templates',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsSupportRoute =
   AuthenticatedSettingsSupportRouteImport.update({
     id: '/support',
@@ -676,6 +687,12 @@ const AuthenticatedSettingsNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsLevelsRoute =
+  AuthenticatedSettingsLevelsRouteImport.update({
+    id: '/levels',
+    path: '/levels',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsIntegrationsRoute =
   AuthenticatedSettingsIntegrationsRouteImport.update({
     id: '/integrations',
@@ -686,6 +703,24 @@ const AuthenticatedSettingsEmailsRoute =
   AuthenticatedSettingsEmailsRouteImport.update({
     id: '/emails',
     path: '/emails',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsContractingRoute =
+  AuthenticatedSettingsContractingRouteImport.update({
+    id: '/contracting',
+    path: '/contracting',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsCompGridsRoute =
+  AuthenticatedSettingsCompGridsRouteImport.update({
+    id: '/comp-grids',
+    path: '/comp-grids',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsCarriersRoute =
+  AuthenticatedSettingsCarriersRouteImport.update({
+    id: '/carriers',
+    path: '/carriers',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsBillingRoute =
@@ -1208,14 +1243,19 @@ export interface FileRoutesByFullPath {
   '/settings/agency': typeof AuthenticatedSettingsAgencyRoute
   '/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/carriers': typeof AuthenticatedSettingsCarriersRoute
+  '/settings/comp-grids': typeof AuthenticatedSettingsCompGridsRoute
+  '/settings/contracting': typeof AuthenticatedSettingsContractingRoute
   '/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/levels': typeof AuthenticatedSettingsLevelsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
+  '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -1369,14 +1409,19 @@ export interface FileRoutesByTo {
   '/settings/agency': typeof AuthenticatedSettingsAgencyRoute
   '/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/settings/carriers': typeof AuthenticatedSettingsCarriersRoute
+  '/settings/comp-grids': typeof AuthenticatedSettingsCompGridsRoute
+  '/settings/contracting': typeof AuthenticatedSettingsContractingRoute
   '/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/levels': typeof AuthenticatedSettingsLevelsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
+  '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -1537,14 +1582,19 @@ export interface FileRoutesById {
   '/_authenticated/settings/agency': typeof AuthenticatedSettingsAgencyRoute
   '/_authenticated/settings/automations': typeof AuthenticatedSettingsAutomationsRoute
   '/_authenticated/settings/billing': typeof AuthenticatedSettingsBillingRoute
+  '/_authenticated/settings/carriers': typeof AuthenticatedSettingsCarriersRoute
+  '/_authenticated/settings/comp-grids': typeof AuthenticatedSettingsCompGridsRoute
+  '/_authenticated/settings/contracting': typeof AuthenticatedSettingsContractingRoute
   '/_authenticated/settings/emails': typeof AuthenticatedSettingsEmailsRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/_authenticated/settings/levels': typeof AuthenticatedSettingsLevelsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/nova-pro': typeof AuthenticatedSettingsNovaProRoute
   '/_authenticated/settings/resources': typeof AuthenticatedSettingsResourcesRoute
   '/_authenticated/settings/roles': typeof AuthenticatedSettingsRolesRoute
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/settings/support': typeof AuthenticatedSettingsSupportRoute
+  '/_authenticated/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
   '/_authenticated/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
@@ -1705,14 +1755,19 @@ export interface FileRouteTypes {
     | '/settings/agency'
     | '/settings/automations'
     | '/settings/billing'
+    | '/settings/carriers'
+    | '/settings/comp-grids'
+    | '/settings/contracting'
     | '/settings/emails'
     | '/settings/integrations'
+    | '/settings/levels'
     | '/settings/notifications'
     | '/settings/nova-pro'
     | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
     | '/settings/support'
+    | '/settings/templates'
     | '/settings/usage'
     | '/settings/white-label'
     | '/tools/leads'
@@ -1866,14 +1921,19 @@ export interface FileRouteTypes {
     | '/settings/agency'
     | '/settings/automations'
     | '/settings/billing'
+    | '/settings/carriers'
+    | '/settings/comp-grids'
+    | '/settings/contracting'
     | '/settings/emails'
     | '/settings/integrations'
+    | '/settings/levels'
     | '/settings/notifications'
     | '/settings/nova-pro'
     | '/settings/resources'
     | '/settings/roles'
     | '/settings/security'
     | '/settings/support'
+    | '/settings/templates'
     | '/settings/usage'
     | '/settings/white-label'
     | '/tools/leads'
@@ -2033,14 +2093,19 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/agency'
     | '/_authenticated/settings/automations'
     | '/_authenticated/settings/billing'
+    | '/_authenticated/settings/carriers'
+    | '/_authenticated/settings/comp-grids'
+    | '/_authenticated/settings/contracting'
     | '/_authenticated/settings/emails'
     | '/_authenticated/settings/integrations'
+    | '/_authenticated/settings/levels'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/nova-pro'
     | '/_authenticated/settings/resources'
     | '/_authenticated/settings/roles'
     | '/_authenticated/settings/security'
     | '/_authenticated/settings/support'
+    | '/_authenticated/settings/templates'
     | '/_authenticated/settings/usage'
     | '/_authenticated/settings/white-label'
     | '/_authenticated/tools/leads'
@@ -2754,6 +2819,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsUsageRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/templates': {
+      id: '/_authenticated/settings/templates'
+      path: '/templates'
+      fullPath: '/settings/templates'
+      preLoaderRoute: typeof AuthenticatedSettingsTemplatesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/support': {
       id: '/_authenticated/settings/support'
       path: '/support'
@@ -2796,6 +2868,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/levels': {
+      id: '/_authenticated/settings/levels'
+      path: '/levels'
+      fullPath: '/settings/levels'
+      preLoaderRoute: typeof AuthenticatedSettingsLevelsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/integrations': {
       id: '/_authenticated/settings/integrations'
       path: '/integrations'
@@ -2808,6 +2887,27 @@ declare module '@tanstack/react-router' {
       path: '/emails'
       fullPath: '/settings/emails'
       preLoaderRoute: typeof AuthenticatedSettingsEmailsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/contracting': {
+      id: '/_authenticated/settings/contracting'
+      path: '/contracting'
+      fullPath: '/settings/contracting'
+      preLoaderRoute: typeof AuthenticatedSettingsContractingRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/comp-grids': {
+      id: '/_authenticated/settings/comp-grids'
+      path: '/comp-grids'
+      fullPath: '/settings/comp-grids'
+      preLoaderRoute: typeof AuthenticatedSettingsCompGridsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/carriers': {
+      id: '/_authenticated/settings/carriers'
+      path: '/carriers'
+      fullPath: '/settings/carriers'
+      preLoaderRoute: typeof AuthenticatedSettingsCarriersRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/billing': {
@@ -3490,14 +3590,19 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAgencyRoute: typeof AuthenticatedSettingsAgencyRoute
   AuthenticatedSettingsAutomationsRoute: typeof AuthenticatedSettingsAutomationsRoute
   AuthenticatedSettingsBillingRoute: typeof AuthenticatedSettingsBillingRoute
+  AuthenticatedSettingsCarriersRoute: typeof AuthenticatedSettingsCarriersRoute
+  AuthenticatedSettingsCompGridsRoute: typeof AuthenticatedSettingsCompGridsRoute
+  AuthenticatedSettingsContractingRoute: typeof AuthenticatedSettingsContractingRoute
   AuthenticatedSettingsEmailsRoute: typeof AuthenticatedSettingsEmailsRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
+  AuthenticatedSettingsLevelsRoute: typeof AuthenticatedSettingsLevelsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsNovaProRoute: typeof AuthenticatedSettingsNovaProRoute
   AuthenticatedSettingsResourcesRoute: typeof AuthenticatedSettingsResourcesRoute
   AuthenticatedSettingsRolesRoute: typeof AuthenticatedSettingsRolesRoute
   AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
   AuthenticatedSettingsSupportRoute: typeof AuthenticatedSettingsSupportRoute
+  AuthenticatedSettingsTemplatesRoute: typeof AuthenticatedSettingsTemplatesRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
   AuthenticatedSettingsWhiteLabelRoute: typeof AuthenticatedSettingsWhiteLabelRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
@@ -3507,9 +3612,13 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAgencyRoute: AuthenticatedSettingsAgencyRoute,
   AuthenticatedSettingsAutomationsRoute: AuthenticatedSettingsAutomationsRoute,
   AuthenticatedSettingsBillingRoute: AuthenticatedSettingsBillingRoute,
+  AuthenticatedSettingsCarriersRoute: AuthenticatedSettingsCarriersRoute,
+  AuthenticatedSettingsCompGridsRoute: AuthenticatedSettingsCompGridsRoute,
+  AuthenticatedSettingsContractingRoute: AuthenticatedSettingsContractingRoute,
   AuthenticatedSettingsEmailsRoute: AuthenticatedSettingsEmailsRoute,
   AuthenticatedSettingsIntegrationsRoute:
     AuthenticatedSettingsIntegrationsRoute,
+  AuthenticatedSettingsLevelsRoute: AuthenticatedSettingsLevelsRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsNovaProRoute: AuthenticatedSettingsNovaProRoute,
@@ -3517,6 +3626,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsRolesRoute: AuthenticatedSettingsRolesRoute,
   AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
   AuthenticatedSettingsSupportRoute: AuthenticatedSettingsSupportRoute,
+  AuthenticatedSettingsTemplatesRoute: AuthenticatedSettingsTemplatesRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
   AuthenticatedSettingsWhiteLabelRoute: AuthenticatedSettingsWhiteLabelRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,

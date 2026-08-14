@@ -118,7 +118,9 @@ const HANDOFF_FN = readFileSync(join(ROOT, "src/lib/contracting-handoff.function
 const OPS = readFileSync(join(ROOT, "src/lib/contracting-ops.functions.ts"), "utf8");
 const AUDIT = readFileSync(join(ROOT, "src/lib/contracting-ops/audit.ts"), "utf8");
 const DETAIL = readFileSync(join(ROOT, "src/routes/_authenticated/contracting-ops/requests/$requestId.tsx"), "utf8");
-const CARRIERS_UI = readFileSync(join(ROOT, "src/routes/_authenticated/contracting-ops/carriers.tsx"), "utf8");
+// The carrier setup UI moved out of the route tree in the Settings
+// consolidation; the route file is a redirect stub now.
+const CARRIERS_UI = readFileSync(join(ROOT, "src/components/contracting/carrier-setup.tsx"), "utf8");
 const MIGRATION = readFileSync(join(ROOT, "supabase/migrations/20260814100000_contracting-gateway-consolidation.sql"), "utf8");
 
 // The departure is recorded. These three schema slots sat unwritten for weeks.

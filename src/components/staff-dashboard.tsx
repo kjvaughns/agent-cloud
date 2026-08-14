@@ -187,7 +187,7 @@ export function StaffDashboard() {
                 <QuickAction to="/contracting-ops/requests" icon={FilePlus} label="Create a request" />
                 <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
                 <QuickAction to="/contracting-ops/requests" search={{ tab: "numbers" }} icon={IdCard} label="Add a writing number" />
-                <QuickAction to="/contracting-ops/carriers" icon={Building2} label="Carriers & comp" />
+                <QuickAction to="/settings/carriers" icon={Building2} label="Carriers & comp" />
                 <QuickAction to="/contracting-ops" icon={Users} label="Contracting overview" />
               </div>
               {(data as any)?.access && !(data as any).access.canManageCarriers && (

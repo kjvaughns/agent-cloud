@@ -45,7 +45,7 @@ check("the grid editor lives with the components", /export function ManageGridsP
 check("…and declares no route of its own", /createFileRoute|beforeLoad/.test(MANAGE), false);
 
 for (const [name, p] of [
-  ["ops carriers", "src/routes/_authenticated/contracting-ops/carriers.tsx"],
+  ["the settings page", "src/routes/_authenticated/settings.comp-grids.tsx"],
   ["the grid reader", "src/routes/_authenticated/contracting/commission-grids.tsx"],
 ] as const) {
   check(`${name} imports the editor from components`,
@@ -53,21 +53,23 @@ for (const [name, p] of [
 }
 check("nothing imports the editor from the old route file",
   /from "@\/routes\/_authenticated\/contracting\.comp-grids-manage"/.test(
-    ["src/routes/_authenticated/contracting-ops/carriers.tsx",
+    ["src/routes/_authenticated/settings.comp-grids.tsx",
      "src/routes/_authenticated/contracting/commission-grids.tsx"].map(read).join("")), false);
 
 // ── Redirects land in one hop ───────────────────────────────────────────────
 
 console.log("");
 
+// Phase 2 moved the grids editor's home from Carrier Setup to Settings ▸
+// Comp Grids; the requirement is unchanged — one hop, no stub-to-stub chains.
 const STUB_MANAGE = read("src/routes/_authenticated/contracting.comp-grids-manage.tsx");
 const STUB_GRIDS = read("src/routes/_authenticated/contracting-ops/comp-grids.tsx");
-check("/contracting/comp-grids-manage goes straight to Carrier Setup",
-  /to: "\/contracting-ops\/carriers", search: \{ tab: "grids" \}/.test(STUB_MANAGE), true);
-check("/contracting-ops/comp-grids goes straight to Carrier Setup",
-  /to: "\/contracting-ops\/carriers", search: \{ tab: "grids" \}/.test(STUB_GRIDS), true);
-check("neither hops through the compensation stub",
-  /contracting-ops\/compensation/.test(strip(STUB_MANAGE) + strip(STUB_GRIDS)), false);
+check("/contracting/comp-grids-manage goes straight to the editor's home",
+  /to: "\/settings\/comp-grids"/.test(STUB_MANAGE), true);
+check("/contracting-ops/comp-grids goes straight to the editor's home",
+  /to: "\/settings\/comp-grids"/.test(STUB_GRIDS), true);
+check("neither hops through another stub",
+  /contracting-ops\/(compensation|carriers)/.test(strip(STUB_MANAGE) + strip(STUB_GRIDS)), false);
 
 // ── One write path for carriers ─────────────────────────────────────────────
 
@@ -76,9 +78,9 @@ console.log("");
 const DIRECTORY = read("src/routes/_authenticated/contracting/carriers.tsx");
 check("the reference directory has no add-carrier dialog", /AddCarrierButton|addCarrier\b/.test(strip(DIRECTORY)), false);
 check("…and no leftover dialog imports", /ui\/dialog/.test(DIRECTORY), false);
-check("Carrier Setup still has the one add button", /data-tour="carrier-add"/.test(read("src/routes/_authenticated/contracting-ops/carriers.tsx")), true);
+check("Carrier Setup still has the one add button", /data-tour="carrier-add"/.test(read("src/components/contracting/carrier-setup.tsx")), true);
 check("the owner checklist sends owners to Carrier Setup",
-  /ctaRoute: "\/contracting-ops\/carriers"/.test(read("src/lib/onboarding-checklist.ts")), true);
+  /ctaRoute: "\/settings\/carriers"/.test(read("src/lib/onboarding-checklist.ts")), true);
 check("the grid editor keeps its inline add-a-carrier row",
   /addCarrier/.test(MANAGE) && /NEW_CARRIER/.test(MANAGE), true);
 

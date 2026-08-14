@@ -36,9 +36,9 @@ function CarriersPage() {
   return (
     <PageShell>
       {/* Read-only on purpose. Adding a carrier is agency configuration and
-          lives in Carrier Setup (/contracting-ops/carriers), which also knows
-          about submission methods and private carriers — this page had its own
-          "+ Add Carrier" dialog writing through a second code path. */}
+          lives at Settings ▸ Carriers, which also knows about submission
+          methods and private carriers — this page had its own "+ Add Carrier"
+          dialog writing through a second code path. */}
       <HeroBand title="Carriers" subtitle="Reference directory — contacts, pay schedules, and portals. Contracts and comp live in the Contracts hub." />
 
       <div className="flex flex-col md:flex-row gap-3 mt-[var(--gap)]">

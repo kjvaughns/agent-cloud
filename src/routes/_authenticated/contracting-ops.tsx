@@ -104,10 +104,10 @@ const SECTIONS: { to: string; label: string; blurb: string }[] = [
   { to: "/contracting-ops/requests", label: "Contract Requests", blurb: "Every request, plus writing numbers, hierarchy and change requests." },
   { to: "/contracting-ops/licensing", label: "Licensing & PDB", blurb: "State licences, expirations, PDB reports and regulatory review." },
   { to: "/contracting-ops/documents", label: "Documents", blurb: "What each producer has on file, and what is missing or expired." },
-  { to: "/contracting-ops/carriers", label: "Carriers & Comp", blurb: "Carrier setup, submission methods, comp levels and grids." },
+  { to: "/settings/carriers", label: "Carriers & Comp", blurb: "Carrier setup, submission methods, comp levels and grids — under Settings." },
   { to: "/contracting-ops/import", label: "Import records", blurb: "Bring contracting records in from a spreadsheet or carrier report." },
-  { to: "/contracting-ops/templates", label: "Submission templates", blurb: "Email and spreadsheet formats each carrier expects." },
-  { to: "/contracting-ops/settings", label: "Contracting settings", blurb: "Agency defaults: PDB refresh cadence, priorities, due dates." },
+  { to: "/settings/templates", label: "Submission templates", blurb: "Email and spreadsheet formats each carrier expects — under Settings." },
+  { to: "/settings/contracting", label: "How contracting works", blurb: "Agency defaults: PDB refresh cadence, priorities, due dates — under Settings." },
 ];
 
 function ContractingOpsDirectory() {
