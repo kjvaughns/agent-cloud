@@ -262,7 +262,7 @@ function InvitePage() {
           </div>
         </div>
 
-        {invitedRole !== "staff" && invitedRole !== "agency_owner" && (
+        {invitedRole !== "staff" && invitedRole !== "agency_owner" && !isAgencyLink && (
           <div>
             <Label>Agency Level</Label>
             <Select value={agencyLevelId} onValueChange={setAgencyLevelId}>
@@ -272,6 +272,7 @@ function InvitePage() {
             <p className="mt-1 text-xs text-muted-foreground">This automatically applies the matching level across your agency carriers.</p>
           </div>
         )}
+
 
         {/* Who they report to. Left alone, the link places people under you —
             which is all it could ever do before. Choosing somebody else is how
