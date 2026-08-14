@@ -136,6 +136,7 @@ function InvitePage() {
     setLinkName("");
     setAssignments([]);
     setAgencyLevelId("");
+    setUplineId("");
   }
 
   if (success) {
