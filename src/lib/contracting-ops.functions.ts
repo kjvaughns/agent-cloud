@@ -1287,16 +1287,18 @@ async function notifyAgent(
   const title = AGENT_VISIBLE[status];
   if (!title) return;
 
-  try {
-    await supabaseAdmin.from("notifications").insert({
-      user_id: agentId,
-      title,
-      description: message ?? (reference ? `Request ${reference}` : null),
-      type: "contracting",
-    });
-  } catch (err) {
-    console.error("[contracting] notification failed", err);
-  }
+  // Through `notifyPeople`, which asks may_notify first. The agency's
+  // `notify_on_status_change` above is the org's switch; this is the person's,
+  // and "Contracting updates — carrier appointments, level changes,
+  // transfers" is exactly what these are. It was never consulted here.
+  const { notifyPeople } = await import("@/lib/notify.server");
+  await notifyPeople(supabaseAdmin, {
+    userIds: [agentId],
+    category: "contract_updates",
+    title,
+    description: message ?? (reference ? `Request ${reference}` : null),
+    type: "contracting",
+  });
 }
 
 // ── Overview ────────────────────────────────────────────────────────────────

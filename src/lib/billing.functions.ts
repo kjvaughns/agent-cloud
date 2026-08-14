@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { notifyPeople } from "@/lib/notify.server";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import {
   getStripe, isStripeConfigured, PRICE_IDS, PRICING, NOVA_LIMITS, NON_BILLABLE_PROFILE_STATUSES,
@@ -233,8 +234,9 @@ export const assignNovaSeat = createServerFn({ method: "POST" })
       nova_usage_reset_at: new Date().toISOString(),
     }).eq("id", data.agent_id);
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: data.agent_id,
+    await notifyPeople(supabaseAdmin, {
+      userIds: [data.agent_id],
+      category: "billing",
       title: "Nova AI Pro activated",
       description: "Your agency has assigned you a Nova Pro seat. Automations, retention alerts, and advanced Nova features are now unlocked.",
       type: "billing",
@@ -277,8 +279,9 @@ export const unassignNovaSeat = createServerFn({ method: "POST" })
       nova_pro_expires_at: expires,
     }).eq("id", data.agent_id);
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: data.agent_id,
+    await notifyPeople(supabaseAdmin, {
+      userIds: [data.agent_id],
+      category: "billing",
       title: "Your agency's Nova Pro subscription has ended",
       description: "Subscribe personally within 48 hours to keep access — your phone number and automations continue uninterrupted during the grace period.",
       type: "billing",
@@ -638,8 +641,9 @@ export async function trackNovaUsage(
   await supabaseAdmin.from("profiles").update({ [col]: after }).eq("id", userId);
   for (const pct of [0.8, 1.0]) {
     if (before < limit * pct && after >= limit * pct) {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: userId,
+      await notifyPeople(supabaseAdmin, {
+        userIds: [userId],
+        category: "billing",
         title: pct === 1 ? "Nova Pro limit reached" : "Nova Pro usage at 80%",
         description: `You've used ${Math.round((after / limit) * 100)}% of your monthly ${(NOVA_LIMITS as any)[limitKey]?.label?.toLowerCase() ?? metric}.${pct === 1 ? " Overage rates now apply." : ""}`,
         type: "billing",

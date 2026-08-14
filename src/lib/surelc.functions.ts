@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { notifyPeople } from "@/lib/notify.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -203,14 +204,14 @@ export const syncSureLcStatuses = createServerFn({ method: "POST" })
         // every time. supabase-js returns that in `{ error }` rather than
         // rejecting, and the result is discarded here, so it surfaced nowhere
         // — an agent was never told their contract had been approved.
-        await supabase.from("notifications").insert({
-          user_id: userId,
+        await notifyPeople(supabase, {
+          userIds: [userId],
+          category: "contract_updates",
           title:   `Contract Approved — ${(carrier as any)?.name ?? "Carrier"}`,
           description: status.writingNumber
             ? `Your contract has been approved. Writing number: ${status.writingNumber}`
             : "Your contract has been approved by the carrier.",
           type:    "contracting",
-          read:    false,
         }).catch(() => {});
 
         const { queueEmail } = await import("@/lib/email/send.server");

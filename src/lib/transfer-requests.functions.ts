@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { notifyPeople } from "@/lib/notify.server";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 
 // Generated DB types predate the transfer_requests migration; cast until regenerated.
@@ -139,8 +140,9 @@ export const createTransferRequest = createServerFn({ method: "POST" })
     if (orgId) {
       const { data: org } = await supabaseAdmin.from("organizations").select("owner_id, name").eq("id", orgId).maybeSingle();
       if (org?.owner_id && org.owner_id !== userId) {
-        await supabaseAdmin.from("notifications").insert({
-          user_id: org.owner_id,
+        await notifyPeople(supabaseAdmin, {
+          userIds: [org.owner_id],
+          category: "contract_updates",
           title: "New transfer request",
           description: "An agent submitted a carrier transfer request. Review it in Contracts → Transfer Requests.",
           type: "contracting",
