@@ -133,7 +133,6 @@ const VERIFIED_APPLIED = new Set([
   "20260814180000_social-security-payment-method.sql",
 ]);
 
-
 /**
  * Otherwise the tracked list. Deliberately noisy about being the fallback: a
  * stale manifest passing silently would be this script's own version of the
@@ -147,7 +146,12 @@ function appliedFromManifest(all: string[]): Applied {
   const pending = new Set(
     readFileSync(PENDING_FILE, "utf8")
       .split("\n")
-      .map((l) => l.trim().replace(/^[-*]\s*/, "").replace(/^`|`$/g, ""))
+      .map((l) =>
+        l
+          .trim()
+          .replace(/^[-*]\s*/, "")
+          .replace(/^`|`$/g, ""),
+      )
       .filter((l) => l.endsWith(".sql"))
       .filter((l) => !VERIFIED_APPLIED.has(l)),
   );
@@ -156,7 +160,6 @@ function appliedFromManifest(all: string[]): Applied {
     source: "supabase/migrations/PENDING.md, minus what was verified applied",
   };
 }
-
 
 const versionOf = (file: string) => file.split("_")[0];
 
@@ -181,7 +184,9 @@ function parse(sql: string): Objects {
     /alter\s+table\s+(?:only\s+)?(?:public\.)?([a-z_][a-z0-9_]*)([\s\S]*?);/gi,
   )) {
     const table = stmt[1].toLowerCase();
-    for (const col of stmt[2].matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)/gi)) {
+    for (const col of stmt[2].matchAll(
+      /add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z_][a-z0-9_]*)/gi,
+    )) {
       columns.add(`${table}.${col[1].toLowerCase()}`);
     }
     // A rename introduces the new name just as surely as an ADD does. The
@@ -271,6 +276,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/compensation/lookup.server.ts:commission_setup_issues":
+    "both sites are inside one try/catch in recordSetupIssue whose catch logs and returns. The table arrives with 20260814210000, but the guard is not really about migrations: recording WHY a deal could not be paid must never be the thing that stops the deal being recorded, and the policy is already written by the time this runs. In the window an unresolvable policy simply has no issue row, which is exactly today's behaviour — the old calculator wrote a console warning and nothing else",
   "src/lib/announcements.functions.ts:announcement_deliveries":
     "both sites tolerate the table not existing, and neither can fail a post. The read in listAnnouncements never checks its error — a missing table leaves the channels map empty, so the feed simply shows no channel badges, which is what it showed before the ledger existed. The writes all happen inside deliver(), whose entire call is wrapped in .catch() at the call site precisely because delivery must never turn a published announcement into an error: the row is already committed and readable by the time any of this runs",
   "src/lib/dashboard.functions.ts:organization_settings.show_own_on_leaderboards":
@@ -290,9 +297,9 @@ const REVIEWED: Record<string, string> = {
   "src/lib/ai-features.functions.ts:ai_message_log":
     "the insert is wrapped in try/catch and its error is swallowed into a `logged: false` flag returned with the drafts. Before the migration the compliance screen still runs and still blocks — only the audit record is missing, and the flag says so. Deliberate: an agent losing their drafts because an audit table is absent would be a worse failure than a visible gap in the log",
   "src/lib/carrier-index.ts:carrier_aliases":
-    "the alias fetch is wrapped in try/catch and falls back to an empty list, so before the migration the matcher runs on names alone; carriers is read with select(\"*\") so the pending naic_code column is simply absent and reads as null. Matching degrades to exact-plus-fuzzy, which still refuses anything under the confidence threshold. Both callers — the admin importer and listCarrierIndex — go through this one builder, so neither can degrade differently",
+    'the alias fetch is wrapped in try/catch and falls back to an empty list, so before the migration the matcher runs on names alone; carriers is read with select("*") so the pending naic_code column is simply absent and reads as null. Matching degrades to exact-plus-fuzzy, which still refuses anything under the confidence threshold. Both callers — the admin importer and listCarrierIndex — go through this one builder, so neither can degrade differently',
   "src/lib/onboarding-checklist.functions.ts:user_onboarding_state":
-    "all three sites tolerate 42P01: the read is a maybeSingle() whose result is consumed as `stateRes.data?.x ?? default`, so a missing table reads as \"nothing dismissed\" — which is the correct starting state anyway — and the upsert catches its own error and warns. Step completion is never stored here, so nothing about the checklist's accuracy depends on this table existing; only the dismissals fail to stick",
+    'all three sites tolerate 42P01: the read is a maybeSingle() whose result is consumed as `stateRes.data?.x ?? default`, so a missing table reads as "nothing dismissed" — which is the correct starting state anyway — and the upsert catches its own error and warns. Step completion is never stored here, so nothing about the checklist\'s accuracy depends on this table existing; only the dismissals fail to stick',
   "src/components/demo-banner.tsx:organizations.is_demo":
     "its own narrow query, deliberately not a field on useOrganization: on 42703 the banner renders nothing, which is correct for every deployment that has no demo org",
   "src/routes/api/public/hooks/demo-reset.ts:demo_reset_log":
@@ -308,15 +315,15 @@ const REVIEWED: Record<string, string> = {
   "src/lib/sample-data.functions.ts:policies.is_sample":
     "every count is attempted per table and the summary reports available:false when all of them fail, so the settings card says the workspace is still updating instead of offering a button that would do nothing",
   "src/lib/demo.server.ts:organizations.is_demo":
-    "`.eq(\"is_demo\", true)` is not inside a select() so this script cannot see it — noted here anyway. demoOrgId() treats any error as \"no demo org\" and caches that, so the guardrails are inert rather than broken before the migration lands, which matches a deployment that has no demo",
+    '`.eq("is_demo", true)` is not inside a select() so this script cannot see it — noted here anyway. demoOrgId() treats any error as "no demo org" and caches that, so the guardrails are inert rather than broken before the migration lands, which matches a deployment that has no demo',
   "src/lib/contracting-notes.functions.ts:producer_notes":
     "isMissingTable() catches 42P01 on all three paths: the read returns notesAvailable:false and the panel shows the audit trail alone, the insert throws a sentence naming the reason, and the delete is a no-op",
   "src/lib/resources.functions.ts:academy_modules.is_published":
-    "getAcademyProgress asks for the column, and on 42703 re-runs the select without it. "
-    + "The wide `select(\"*\")` this script would rather see is the wrong shape here — it would "
-    + "pull every lesson body on the platform to count them. Every other read of this column "
-    + "does use `*`, and `isLive` treats a missing value as published so nothing that exists "
-    + "today disappears",
+    "getAcademyProgress asks for the column, and on 42703 re-runs the select without it. " +
+    'The wide `select("*")` this script would rather see is the wrong shape here — it would ' +
+    "pull every lesson body on the platform to count them. Every other read of this column " +
+    "does use `*`, and `isLive` treats a missing value as published so nothing that exists " +
+    "today disappears",
   "src/lib/team.functions.ts:set_agent_status":
     "setAgentStatus catches 42883/PGRST202 and falls back to the direct profiles update, which is exactly today's behaviour",
   "src/lib/ai-assistant.functions.ts:nova_conversations":
@@ -350,7 +357,9 @@ const REVIEWED: Record<string, string> = {
 
 // ── Run ─────────────────────────────────────────────────────────────────────
 
-const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+const files = readdirSync(MIGRATIONS)
+  .filter((f) => f.endsWith(".sql"))
+  .sort();
 const applied = (await appliedFromDatabase()) ?? appliedFromManifest(files);
 
 console.log(`\nApplied migrations according to: ${applied.source}`);
