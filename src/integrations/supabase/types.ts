@@ -2274,8 +2274,10 @@ export type Database = {
           id: string
           is_estimated: boolean
           level_name: string | null
+          level_sort: number | null
           organization_id: string | null
           product_name: string
+          sort_order: number | null
           source: string | null
           source_file: string | null
           updated_at: string
@@ -2294,8 +2296,10 @@ export type Database = {
           id?: string
           is_estimated?: boolean
           level_name?: string | null
+          level_sort?: number | null
           organization_id?: string | null
           product_name: string
+          sort_order?: number | null
           source?: string | null
           source_file?: string | null
           updated_at?: string
@@ -2314,8 +2318,10 @@ export type Database = {
           id?: string
           is_estimated?: boolean
           level_name?: string | null
+          level_sort?: number | null
           organization_id?: string | null
           product_name?: string
+          sort_order?: number | null
           source?: string | null
           source_file?: string | null
           updated_at?: string
