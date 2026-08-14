@@ -669,8 +669,12 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const { data: rows, error } = await query;
     if (error) throw new Error(error.message);
 
-    // Enrich with linked agent names
-    const linkedIds = Array.from(new Set(((rows ?? []) as any[]).map((r: any) => r.linked_agent_id).filter(Boolean)));
+    // Enrich with linked agent names, and with the upline each link places
+    // people under — the whole point of choosing one is being able to see it
+    // on the link afterwards.
+    const linkedIds = Array.from(new Set(
+      ((rows ?? []) as any[]).flatMap((r: any) => [r.linked_agent_id, r.upline_id]).filter(Boolean),
+    ));
     let agentMap = new Map<string, any>();
     if (linkedIds.length) {
       const { data: agents } = await supabase.from("profiles").select("id,first_name,last_name,email").in("id", linkedIds);
