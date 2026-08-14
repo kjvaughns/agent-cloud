@@ -5,13 +5,9 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import {
   getProducerProfile,
   updateProducerProfile,
-  setSsn,
-  revealSsn,
   upsertProducerDocument,
   getDocumentSignedUrl,
   signBackgroundDisclosure,
-  upsertProducerBanking,
-  revealBankingAccount,
   lookupNpnLicenses,
 } from "@/lib/account.functions";
 import { checkAgentSyncStatus, syncAgentByNpn } from "@/lib/agentsync.functions";
@@ -34,7 +30,6 @@ import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PageShell, HeroBand } from "@/components/page-shell";
-import { getOrgSettings } from "@/lib/org-settings.functions";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
   head: () => ({
@@ -53,7 +48,7 @@ export const Route = createFileRoute("/_authenticated/account/producer-profile")
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 const PROFILE_TABS = [
-  "profile", "contracting", "documents", "banking", "background", "integrations",
+  "profile", "contracting", "documents", "background", "integrations",
 ] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
 
@@ -103,24 +98,19 @@ const BACKGROUND_QUESTIONS = [
 /**
  * The documents this profile can hold.
  *
- * Voided Check and the banking tab it belongs to are behind
- * `collect_contracting_pii` — see PII_DOC_CATEGORIES below. Agent Cloud does
- * not submit contracting paperwork, so by default there is nowhere for a bank
- * account to go and no reason to ask for one.
+ * No Government ID and no Voided Check, and no setting to bring them back.
+ * Agent Cloud does not submit contracting paperwork to carriers — SureLC and
+ * NIPR do — so it has no reason to hold a photograph of somebody's driving
+ * licence or their bank details, and no business being the place those
+ * accumulate.
  */
 const DOC_CATEGORIES = [
   { type: "pdb_report", label: "PDB Report", note: "Producer Database report from NIPR" },
-  { type: "government_id", label: "Government ID", note: "Driver's License or Passport" },
   { type: "eo_certificate", label: "E&O Certificate", note: "" },
   { type: "aml_certificate", label: "AML Certificate", note: "" },
   { type: "background_questionnaire", label: "Background Questionnaire", note: "" },
   { type: "w9", label: "W-9", note: "" },
   { type: "other_document", label: "Other", note: "" },
-] as const;
-
-/** Only offered when the agency has said it does its own contracting. */
-const PII_DOC_CATEGORIES = [
-  { type: "voided_check", label: "Voided Check", note: "For direct deposit setup" },
 ] as const;
 
 function ProducerProfilePage() {
@@ -135,18 +125,7 @@ function ProducerProfilePage() {
 
   const profile = data?.profile;
   const documents = data?.documents ?? [];
-  const banking = data?.banking;
 
-  // Whether this agency collects contracting PII at all. Off by default, so
-  // the SSN field, the driver's licence card and the whole Banking tab are
-  // absent unless an agency that does its own contracting has asked for them.
-  const orgSettingsFn = useServerFn(getOrgSettings);
-  const { data: orgSettings } = useQuery({
-    queryKey: ["org-settings"],
-    queryFn: () => orgSettingsFn(),
-    staleTime: 5 * 60_000,
-  });
-  const collectPii = Boolean((orgSettings as any)?.settings?.collect_contracting_pii);
   const background = data?.background ?? [];
   const agreement = data?.agreement;
   const completion = data?.completion ?? { pct: 0, missing: [] as string[] };
@@ -185,14 +164,13 @@ function ProducerProfilePage() {
             <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
             <TabsTrigger value="contracting" className="whitespace-nowrap">Contracting</TabsTrigger>
             <TabsTrigger value="documents" className="whitespace-nowrap">Documents</TabsTrigger>
-            {collectPii && <TabsTrigger value="banking" className="whitespace-nowrap">Banking</TabsTrigger>}
             <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
             <TabsTrigger value="integrations" className="whitespace-nowrap">Integrations</TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
-          <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} collectPii={collectPii} onSaved={invalidate} />
+          <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} onSaved={invalidate} />
         </TabsContent>
 
         <TabsContent value="contracting" className="mt-4">
@@ -200,14 +178,8 @@ function ProducerProfilePage() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
-          <DocumentsTab documents={documents} userId={user?.id ?? ""} collectPii={collectPii} onSaved={invalidate} />
+          <DocumentsTab documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
         </TabsContent>
-
-        {collectPii && (
-          <TabsContent value="banking" className="mt-4">
-            <BankingTab banking={banking} documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
-          </TabsContent>
-        )}
 
         <TabsContent value="background" className="mt-4">
           <BackgroundTab background={background} agreement={agreement} onSaved={invalidate} />
@@ -344,7 +316,7 @@ function NextStep({
 // ─────────────────────────────────────────────
 // Profile Information Tab
 // ─────────────────────────────────────────────
-function ProfileInfoTab({ profile, documents, agreement, collectPii, onSaved }: { profile: any; documents: any[]; agreement: any; collectPii: boolean; onSaved: () => void }) {
+function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: any; documents: any[]; agreement: any; onSaved: () => void }) {
   const profileFn = useServerFn(updateProducerProfile);
   const { isAdmin, isManager } = useRole();
   const save = (patch: Record<string, unknown>) => {
@@ -356,8 +328,7 @@ function ProfileInfoTab({ profile, documents, agreement, collectPii, onSaved }: 
 
   return (
     <div className="space-y-4">
-      <PersonalCard profile={profile} collectPii={collectPii} onSave={save} />
-      {collectPii && <DriversLicenseCard profile={profile} onSave={save} />}
+      <PersonalCard profile={profile} onSave={save} />
       <AddressCard profile={profile} onSave={save} />
       <ContactCard profile={profile} onSave={save} />
       <EoCard doc={eoDoc} onSaved={onSaved} />
@@ -392,15 +363,9 @@ function SaveInput({ label, defaultValue, field, onSave, type = "text", classNam
   );
 }
 
-function PersonalCard({ profile, collectPii, onSave }: { profile: any; collectPii: boolean; onSave: (p: Record<string, unknown>) => void }) {
+function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<string, unknown>) => void }) {
   const [npn, setNpn] = useState(profile?.npn_number ?? "");
-  const [showSsn, setShowSsn] = useState(false);
-  const [revealedSsn, setRevealedSsn] = useState<string | null>(null);
-  const [showSsnModal, setShowSsnModal] = useState(false);
-  const [newSsn, setNewSsn] = useState("");
   const [syncing, setSyncing] = useState(false);
-  const revealFn = useServerFn(revealSsn);
-  const setSsnFn = useServerFn(setSsn);
   const lookupFn = useServerFn(lookupNpnLicenses);
   const checkFn = useServerFn(checkAgentSyncStatus);
   const agentSyncFn = useServerFn(syncAgentByNpn);
@@ -412,16 +377,6 @@ function PersonalCard({ profile, collectPii, onSave }: { profile: any; collectPi
   });
   const agentSyncAvailable = asStatus?.available ?? false;
 
-  const revealMut = useMutation({
-    mutationFn: () => revealFn(),
-    onSuccess: (res: any) => { setRevealedSsn(res.ssn); setShowSsn(true); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-  const setSsnMut = useMutation({
-    mutationFn: () => setSsnFn({ data: { ssn: newSsn.replace(/\D/g, "") } }),
-    onSuccess: () => { toast.success("SSN updated"); setShowSsnModal(false); setNewSsn(""); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
   const lookupMut = useMutation({
     mutationFn: () => lookupFn({ data: { npn } }),
     onSuccess: (res: any) => toast.success(res.note ?? `NPN ${res.npn} verified`),
@@ -473,79 +428,8 @@ function PersonalCard({ profile, collectPii, onSave }: { profile: any; collectPi
           )}
         </div>
 
-        <SaveInput label="Date of Birth" defaultValue={profile?.date_of_birth} field="date_of_birth" onSave={onSave} type="date" />
-
-        <div className="space-y-1.5">
-          <Label className="text-xs">Gender</Label>
-          <Select value={profile?.gender ?? ""} onValueChange={(v) => onSave({ gender: v })}>
-            <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-            <SelectContent>
-              {["Male","Female","Non-binary","Prefer not to say"].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs">Marital Status</Label>
-          <Select value={profile?.marital_status ?? ""} onValueChange={(v) => onSave({ marital_status: v })}>
-            <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-            <SelectContent>
-              {["Single","Married","Divorced","Widowed"].map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {collectPii && (
-        <div className="space-y-1.5">
-          <Label className="text-xs">Social Security Number</Label>
-          <div className="flex gap-2">
-            <Input readOnly value={showSsn && revealedSsn ? revealedSsn : `***-**-${profile?.ssn_last4 ?? "?????"}`} className="font-mono" />
-            <Button variant="outline" size="icon" onClick={() => {
-              if (showSsn) { setShowSsn(false); setRevealedSsn(null); }
-              else revealMut.mutate();
-            }} disabled={revealMut.isPending}>
-              {showSsn ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setShowSsnModal(true)}>Update</Button>
-          </div>
-        </div>
-        )}
       </CardContent>
 
-      <Dialog open={showSsnModal} onOpenChange={setShowSsnModal}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Update SSN</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Enter your 9-digit Social Security Number. It will be stored encrypted.</p>
-            <Input type="password" value={newSsn} onChange={(e) => setNewSsn(e.target.value.replace(/\D/g, "").slice(0, 9))} placeholder="123456789" maxLength={9} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSsnModal(false)}>Cancel</Button>
-            <Button disabled={newSsn.length !== 9 || setSsnMut.isPending} onClick={() => setSsnMut.mutate()}>
-              {setSsnMut.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
-function DriversLicenseCard({ profile, onSave }: { profile: any; onSave: (p: Record<string, unknown>) => void }) {
-  return (
-    <Card>
-      <CardHeader><CardTitle>Driver's License</CardTitle></CardHeader>
-      <CardContent className="grid sm:grid-cols-3 gap-4">
-        <SaveInput label="License Number" defaultValue={profile?.drivers_license_number} field="drivers_license_number" onSave={onSave} />
-        <div className="space-y-1.5">
-          <Label className="text-xs">State</Label>
-          <Select value={profile?.drivers_license_state ?? ""} onValueChange={(v) => onSave({ drivers_license_state: v })}>
-            <SelectTrigger><SelectValue placeholder="State..." /></SelectTrigger>
-            <SelectContent>{US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-        <SaveInput label="Expiry Date" defaultValue={profile?.drivers_license_expiry} field="drivers_license_expiry" onSave={onSave} type="date" />
-      </CardContent>
     </Card>
   );
 }
@@ -814,7 +698,7 @@ function AgreementCard({ agreement }: { agreement: any }) {
 // ─────────────────────────────────────────────
 // Documents Tab
 // ─────────────────────────────────────────────
-function DocumentsTab({ documents, userId, collectPii, onSaved }: { documents: any[]; userId: string; collectPii: boolean; onSaved: () => void }) {
+function DocumentsTab({ documents, userId, onSaved }: { documents: any[]; userId: string; onSaved: () => void }) {
   const dlFn = useServerFn(getDocumentSignedUrl);
 
   function download(doc: any) {
@@ -827,7 +711,7 @@ function DocumentsTab({ documents, userId, collectPii, onSaved }: { documents: a
     <Card>
       <CardContent className="p-0">
         <div className="divide-y">
-          {[...DOC_CATEGORIES, ...(collectPii ? PII_DOC_CATEGORIES : [])].map(({ type, label, note }) => {
+          {DOC_CATEGORIES.map(({ type, label, note }) => {
             const doc = documents.find((d: any) => d.doc_type === type);
             return (
               <div key={type} className="flex items-center gap-4 p-4">
@@ -865,123 +749,6 @@ function DocumentsTab({ documents, userId, collectPii, onSaved }: { documents: a
     </Card>
   );
 }
-
-// ─────────────────────────────────────────────
-// Banking Tab
-// ─────────────────────────────────────────────
-function BankingTab({ banking, documents, userId, onSaved }: { banking: any; documents: any[]; userId: string; onSaved: () => void }) {
-  const [bankName, setBankName] = useState(banking?.bank_name ?? "");
-  const [accountType, setAccountType] = useState(banking?.account_type ?? "checking");
-  const [routing, setRouting] = useState(banking?.routing_number ?? "");
-  const [showAcct, setShowAcct] = useState(false);
-  const [revealedAcct, setRevealedAcct] = useState<string | null>(null);
-  const [newAcctOpen, setNewAcctOpen] = useState(false);
-  const [newAcct, setNewAcct] = useState("");
-
-  const upsertFn = useServerFn(upsertProducerBanking);
-  const revealFn = useServerFn(revealBankingAccount);
-
-  function save(patch: Record<string, unknown>) {
-    upsertFn({ data: patch as any }).then(onSaved).catch((e: any) => toast.error(e?.message ?? "Save failed"));
-  }
-
-  const revealMut = useMutation({
-    mutationFn: () => revealFn(),
-    onSuccess: (res: any) => { setRevealedAcct(res.account_number); setShowAcct(true); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-
-  const setAcctMut = useMutation({
-    mutationFn: () => upsertFn({ data: {
-      account_number_encrypted: newAcct,
-      account_last4: newAcct.slice(-4),
-    }}),
-    onSuccess: () => { toast.success("Account number saved"); setNewAcctOpen(false); setNewAcct(""); onSaved(); },
-    onError: (e: any) => toast.error(e?.message ?? "Failed"),
-  });
-
-  const voidedCheck = documents.find((d: any) => d.doc_type === "voided_check");
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm">
-        Direct deposit info is used for commission payments. Keep this current.
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>Direct Deposit Information</CardTitle></CardHeader>
-        <CardContent className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Bank Name</Label>
-            <Input value={bankName} onChange={(e) => setBankName(e.target.value)}
-              onBlur={() => { if (bankName !== (banking?.bank_name ?? "")) save({ bank_name: bankName || null }); }} />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Account Type</Label>
-            <Select value={accountType} onValueChange={(v) => { setAccountType(v); save({ account_type: v }); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="checking">Checking</SelectItem>
-                <SelectItem value="savings">Savings</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Routing Number</Label>
-            <Input value={routing} onChange={(e) => setRouting(e.target.value.replace(/\D/g, "").slice(0, 9))}
-              onBlur={() => { if (routing !== (banking?.routing_number ?? "")) save({ routing_number: routing || null }); }} placeholder="9 digits" />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Account Number</Label>
-            <div className="flex gap-2">
-              <Input readOnly value={showAcct && revealedAcct ? revealedAcct : `****${banking?.account_last4 ?? "????"}`} className="font-mono" />
-              <Button variant="outline" size="icon" onClick={() => {
-                if (showAcct) { setShowAcct(false); setRevealedAcct(null); }
-                else revealMut.mutate();
-              }} disabled={revealMut.isPending || !banking?.account_last4}>
-                {showAcct ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setNewAcctOpen(true)}>Update</Button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Voided Check</Label>
-            {voidedCheck ? (
-              <div className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>{voidedCheck.file_name}</span>
-                <DocUploadButton docType="voided_check" userId={userId} currentDoc={voidedCheck} onSaved={onSaved} label="Replace" />
-              </div>
-            ) : (
-              <DocUploadButton docType="voided_check" userId={userId} onSaved={onSaved} label="Upload Voided Check" />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={newAcctOpen} onOpenChange={setNewAcctOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Update Account Number</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">Enter your full account number.</p>
-            <Input type="password" value={newAcct} onChange={(e) => setNewAcct(e.target.value.replace(/\D/g, ""))} placeholder="Account number" />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNewAcctOpen(false)}>Cancel</Button>
-            <Button disabled={newAcct.length < 4 || setAcctMut.isPending} onClick={() => setAcctMut.mutate()}>
-              {setAcctMut.isPending ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
 // ─────────────────────────────────────────────
 // Background Questions Tab
 // ─────────────────────────────────────────────

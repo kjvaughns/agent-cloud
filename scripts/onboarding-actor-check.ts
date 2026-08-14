@@ -47,17 +47,25 @@ check("every step declares who may act", actors.length, keys.length);
 // The specific ones an owner must never do on somebody's behalf. An owner
 // filing a background disclosure under another name is a forged record, not a
 // convenience.
-const AGENT_ONLY = ["identity", "background", "banking"];
+const AGENT_ONLY = ["identity", "background"];
 for (const key of AGENT_ONLY) {
   const i = keys.indexOf(key);
   check(`${key} is agent-only`, i >= 0 ? actors[i] : "missing", "agent");
 }
 
 // The ones the agency legitimately holds and files.
-const OWNER_OK = ["documents", "aml", "identification"];
+const OWNER_OK = ["documents", "aml"];
 for (const key of OWNER_OK) {
   const i = keys.indexOf(key);
   check(`${key} is owner-actionable`, i >= 0 ? actors[i] : "missing", "owner");
+}
+
+// `banking` and `identification` used to be steps here — bank details and a
+// driver's licence. The product stopped asking for either, so the safest actor
+// rule is that there is no step to act on. The upload guard below still refuses
+// the document types, which is what actually protects them.
+for (const key of ["banking", "identification"]) {
+  check(`${key} is no longer a step anyone can be asked to complete`, keys.includes(key), false);
 }
 
 // The UI branch itself.

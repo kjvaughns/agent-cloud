@@ -6,13 +6,16 @@ export const getProducerProfile = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [profileRes, docsRes, bgRes, agreementRes, completionRes, bankingRes] = await Promise.all([
-      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,ssn_last4,street_address,city,state,zip_code,agent_slug,google_oauth_connected,avatar_url,marital_status,drivers_license_number,drivers_license_state,drivers_license_expiry").eq("id", userId).maybeSingle(),
+    const [profileRes, docsRes, bgRes, agreementRes, completionRes] = await Promise.all([
+      // Deliberately narrow. ssn_last4, date_of_birth, gender, marital_status and
+      // the drivers_license_* columns still exist and still hold whatever they
+      // held; they are simply not read. A value that reaches the browser is a
+      // value that can leak from it, and nothing displays these any more.
+      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,street_address,city,state,zip_code,agent_slug,google_oauth_connected,avatar_url").eq("id", userId).maybeSingle(),
       supabase.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,created_at,carrier_name,policy_number,coverage_amount,provider_name,certificate_number").eq("agent_id", userId),
       supabase.from("background_questions").select("question_number,answer,explanation").eq("agent_id", userId),
       supabase.from("producer_agreements").select("signature_name,signed_date,agreement_version").eq("agent_id", userId).maybeSingle(),
       supabase.rpc("agent_completion", { _agent: userId }),
-      (supabase as any).from("producer_banking").select("*").eq("agent_id", userId).maybeSingle(),
     ]);
     if (profileRes.error) throw new Error(profileRes.error.message);
     return {
@@ -21,26 +24,28 @@ export const getProducerProfile = createServerFn({ method: "GET" })
       background: bgRes.data ?? [],
       agreement: agreementRes.data,
       completion: (completionRes.data as { pct: number; missing: string[] } | null) ?? { pct: 0, missing: [] },
-      banking: bankingRes.data ?? null,
     };
   });
 
+/**
+ * What an agent may change about themselves.
+ *
+ * Date of birth, gender, marital status and the driver's licence fields were
+ * here and are gone: they are carrier-application data, and this platform does
+ * not submit applications. The columns remain, so anything captured before
+ * this change is still there for the one consumer that reads it — a
+ * contracting packet, when a carrier requirement explicitly asks.
+ */
 const ProfilePatch = z.object({
   first_name: z.string().trim().max(60).optional(),
   last_name: z.string().trim().max(60).optional(),
   email: z.string().trim().email().max(120).optional().or(z.literal("")),
   phone: z.string().trim().max(30).optional().or(z.literal("")),
   npn_number: z.string().trim().max(40).optional().or(z.literal("")),
-  date_of_birth: z.string().optional().nullable(),
-  gender: z.string().trim().max(40).optional().or(z.literal("")),
-  marital_status: z.string().trim().max(40).optional().or(z.literal("")),
   street_address: z.string().trim().max(160).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
   state: z.string().trim().max(2).optional().or(z.literal("")),
   zip_code: z.string().trim().max(10).optional().or(z.literal("")),
-  drivers_license_number: z.string().trim().max(40).optional().or(z.literal("")),
-  drivers_license_state: z.string().trim().max(2).optional().or(z.literal("")),
-  drivers_license_expiry: z.string().optional().nullable(),
 });
 
 export const updateProducerProfile = createServerFn({ method: "POST" })
@@ -59,25 +64,6 @@ export const updateProducerProfile = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const setSsn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ ssn: z.string().trim().min(9).max(11) }).parse(input))
-  .handler(async ({ context, data }) => {
-    const { supabase } = context;
-    const { error } = await supabase.rpc("ssn_set", { _ssn: data.ssn });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const revealSsn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase } = context;
-    const { data, error } = await supabase.rpc("ssn_reveal");
-    if (error) throw new Error(error.message);
-    return { ssn: (data as string | null) ?? null };
-  });
-
 const DocInput = z.object({
   // These names are the ops queue's vocabulary — `DOCUMENT_REQUIREMENTS` in
   // `@/lib/contracting-ops/types`. Producer Profile used to write
@@ -87,7 +73,7 @@ const DocInput = z.object({
   // first. Two vocabularies for one column, and the reviewer's was the one
   // nobody could write to.
   doc_type: z.enum([
-    "pdb_report", "eo_certificate", "banking", "drivers_license", "aml_certificate",
+    "pdb_report", "eo_certificate", "aml_certificate",
     "government_id", "voided_check", "background_questionnaire", "w9", "other_document",
   ]),
   file_path: z.string().trim().min(1).max(500).optional().nullable(),
@@ -191,38 +177,6 @@ export const signProducerAgreement = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---------- banking ----------
-export const upsertProducerBanking = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({
-    bank_name: z.string().trim().max(120).optional().or(z.literal("")),
-    account_type: z.enum(["checking", "savings"]).optional(),
-    routing_number: z.string().trim().max(9).optional().or(z.literal("")),
-    account_last4: z.string().trim().max(4).optional().or(z.literal("")),
-    account_number_encrypted: z.string().trim().max(500).optional().or(z.literal("")),
-  }).parse(input))
-  .handler(async ({ context, data }) => {
-    const { supabase, userId } = context;
-    const patch: Record<string, unknown> = { agent_id: userId, updated_at: new Date().toISOString() };
-    if (data.bank_name !== undefined) patch.bank_name = data.bank_name || null;
-    if (data.account_type !== undefined) patch.account_type = data.account_type;
-    if (data.routing_number !== undefined) patch.routing_number = data.routing_number || null;
-    if (data.account_last4 !== undefined) patch.account_last4 = data.account_last4 || null;
-    if (data.account_number_encrypted !== undefined) patch.account_number_encrypted = data.account_number_encrypted || null;
-    const { error } = await (supabase as any).from("producer_banking").upsert(patch, { onConflict: "agent_id" });
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
-
-export const revealBankingAccount = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const { data } = await (supabase as any).from("producer_banking").select("account_number_encrypted").eq("agent_id", userId).maybeSingle();
-    return { account_number: (data as any)?.account_number_encrypted ?? null };
-  });
-
-// ---------- background disclosure ----------
 export const signBackgroundDisclosure = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({

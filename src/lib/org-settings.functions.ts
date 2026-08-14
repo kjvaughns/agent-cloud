@@ -17,8 +17,6 @@ export type OrgSettings = {
   notify_new_agent: boolean;
   notify_new_ticket: boolean;
   notify_contract_request: boolean;
-  /** Does this agency submit contracting paperwork itself? Off by default. */
-  collect_contracting_pii: boolean;
 };
 
 const DEFAULTS = {
@@ -30,12 +28,6 @@ const DEFAULTS = {
   notify_new_agent: false,
   notify_new_ticket: false,
   notify_contract_request: false,
-  // Off by default, and the default is the point. Agent Cloud does not submit
-  // contracting paperwork, so it has no use for an SSN, a driver's licence or
-  // a bank account — and a product that asks for them anyway teaches agents
-  // that handing them over is routine. An agency that genuinely does its own
-  // contracting turns this on and the fields come back, scored.
-  collect_contracting_pii: false,
 };
 
 export const getOrgSettings = createServerFn({ method: "GET" })
@@ -64,7 +56,6 @@ const UpdateSchema = z.object({
   notify_new_agent: z.boolean().optional(),
   notify_new_ticket: z.boolean().optional(),
   notify_contract_request: z.boolean().optional(),
-  collect_contracting_pii: z.boolean().optional(),
   /**
    * The owner's own participation in the shared surfaces — whether their
    * personal deals hit the sales feed and whether their line appears on
@@ -76,7 +67,7 @@ const UpdateSchema = z.object({
 });
 
 /** Columns that may not exist yet, newest migration last. */
-const PENDING_COLUMNS = ["collect_contracting_pii", "show_own_sales_in_feed", "show_own_on_leaderboards"];
+const PENDING_COLUMNS = ["show_own_sales_in_feed", "show_own_on_leaderboards"];
 
 export const updateOrgSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -92,12 +83,10 @@ export const updateOrgSettings = createServerFn({ method: "POST" })
       if (v !== undefined) patch[k] = v === "" ? null : v;
     }
 
-    // `collect_contracting_pii` arrives with 20260805120000, and code reaches
-    // production before migrations apply. PostgREST rejects the WHOLE upsert
-    // with 42703 when it names a column that does not exist yet — so without
-    // this, saving any agency setting would fail outright in that window, not
-    // just the new one. Drop the key and retry; the toggle starts working when
-    // the column does.
+    // Code reaches production before migrations apply, and PostgREST rejects
+    // the WHOLE upsert with 42703 when it names a column that does not exist
+    // yet — so without this, saving any agency setting would fail outright in
+    // that window, not just the new one. Drop the pending keys and retry.
     let { error } = await supabaseAdmin
       .from("organization_settings")
       .upsert(patch, { onConflict: "organization_id" });
