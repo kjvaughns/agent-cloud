@@ -493,12 +493,29 @@ function ContactCard({ profile, onSave }: { profile: any; onSave: (p: Record<str
   );
 }
 
-function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, label = "Upload" }: {
-  docType: string; userId: string; currentDoc?: any; extraData?: Record<string, string | null>; onSaved: () => void; label?: string;
+/**
+ * Upload a document, and let the document fill in its own fields.
+ *
+ * The carrier, the policy number, the expiry — all of it is printed on the
+ * certificate being uploaded, and asking somebody to retype it is why these
+ * fields sit empty. So after the file is stored we read it (text layer first,
+ * page images only for scans), ask the model for the handful of fields this
+ * card holds, and save whatever came back.
+ *
+ * Reading is strictly a bonus. If it fails, or finds nothing, the document is
+ * already saved and the fields stay as the agent left them — an upload never
+ * fails because the reader could not make sense of the file. Anything typed by
+ * hand wins over anything read, because the person is right.
+ */
+function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, onExtracted, label = "Upload" }: {
+  docType: string; userId: string; currentDoc?: any; extraData?: Record<string, string | null>;
+  onSaved: () => void; onExtracted?: (fields: Record<string, string | null>) => void; label?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [reading, setReading] = useState(false);
   const upsertFn = useServerFn(upsertProducerDocument);
+  const readFn = useServerFn(readProducerDocument);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -511,10 +528,38 @@ function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, labe
       await upsertFn({ data: { doc_type: docType as any, file_path: path, file_name: file.name, ...extraData } });
       onSaved();
       toast.success("Document uploaded");
+      setUploading(false);
+
+      // Read it. Anything the agent already typed stays; only blanks get filled.
+      setReading(true);
+      try {
+        const doc = await extractDocument(file, { prefer: "text", maxPages: 4 });
+        const found: any = await readFn({
+          data: {
+            doc_type: docType as any,
+            text: doc.text || null,
+            images: doc.images?.length ? doc.images.slice(0, 4) : null,
+          },
+        });
+        const fill: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(found ?? {})) {
+          if (typeof v === "string" && v && !extraData?.[k]) fill[k] = v;
+        }
+        if (Object.keys(fill).length > 0) {
+          await upsertFn({ data: { doc_type: docType as any, ...extraData, ...fill } as any });
+          onExtracted?.(fill);
+          onSaved();
+          toast.success("Filled in what we could read — worth a quick check.");
+        }
+      } catch {
+        // Silent on purpose: the upload succeeded, which is what was asked for.
+      } finally {
+        setReading(false);
+      }
     } catch (err: any) {
       toast.error(err?.message ?? "Upload failed");
-    } finally {
       setUploading(false);
+    } finally {
       if (fileRef.current) fileRef.current.value = "";
     }
   }
@@ -522,8 +567,9 @@ function DocUploadButton({ docType, userId, currentDoc, extraData, onSaved, labe
   return (
     <>
       <input ref={fileRef} type="file" className="hidden" onChange={handleFile} accept=".pdf,.jpg,.jpeg,.png" />
-      <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
-        <Upload className="h-3 w-3 mr-1" /> {uploading ? "Uploading..." : label}
+      <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading || reading}>
+        <Upload className="h-3 w-3 mr-1" />
+        {uploading ? "Uploading..." : reading ? "Reading..." : label}
       </Button>
     </>
   );
