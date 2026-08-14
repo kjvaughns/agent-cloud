@@ -201,10 +201,22 @@ export function AppSidebar() {
                 "[&[data-active=true]_svg]:text-primary transition-colors",
               )}
             >
-              <Link to={it.url}>
+              {/* Clicking the tab itself also reveals its sub-pages, so you
+                  never have to hunt for the chevron to see what's inside. */}
+              <Link
+                to={it.url}
+                onClick={() =>
+                  setOpenHubs((prev) => {
+                    const next = { ...prev, [it.id!]: true };
+                    localStorage.setItem("nav-hubs", JSON.stringify(next));
+                    return next;
+                  })
+                }
+              >
                 <it.icon className="h-4 w-4" />
                 <span>{it.title}</span>
               </Link>
+
             </SidebarMenuButton>
             {/* Separate from the link so expanding does not navigate, and
                 navigating does not collapse. */}
