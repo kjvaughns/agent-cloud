@@ -15,59 +15,48 @@ import { useMyAccess } from "@/hooks/use-my-access";
 import { useScopeCapabilities } from "@/hooks/use-scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
+import {
+  PERIODS,
+  periodRanges,
+  rankBoard,
+  boardTotals,
+  trendOf,
+  type Period,
+} from "@/lib/leaderboard/board";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard — Agent Cloud" }] }),
   component: LeaderboardPage,
 });
 
-type Period = "week" | "month" | "last_month" | "ytd";
-const PERIODS: { value: Period; label: string }[] = [
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "last_month", label: "Last Month" },
-  { value: "ytd", label: "YTD" },
-];
-
-/** Current + prior same-length ranges for trend comparison. */
-function periodRanges(p: Period) {
-  const now = new Date();
-  const day = 86400000;
-  if (p === "week") {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
-    return { start, end: now, prevStart: new Date(start.getTime() - 7 * day), prevEnd: start };
-  }
-  if (p === "month") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), now.getHours());
-    return { start, end: now, prevStart, prevEnd };
-  }
-  if (p === "last_month") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { start, end, prevStart: new Date(now.getFullYear(), now.getMonth() - 2, 1), prevEnd: start };
-  }
-  const start = new Date(now.getFullYear(), 0, 1);
-  const prevStart = new Date(now.getFullYear() - 1, 0, 1);
-  const prevEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-  return { start, end: now, prevStart, prevEnd };
-}
+// Periods, ranking and trend live in `lib/leaderboard/board.ts`. They were
+// here, and the week comparison was quietly wrong: Sunday-to-now against a
+// complete prior week, so on six days out of seven every arrow pointed down.
+// Moved out so the arithmetic can be exercised on a Tuesday without waiting
+// for one.
 
 function initials(name: string) {
   return name.split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase() || "?";
 }
 
 function TrendIcon({ current, prior }: { current: number; prior: number | undefined }) {
-  if (prior === undefined || current === prior) return <Minus className="h-3.5 w-3.5 text-text-dim" />;
-  return current > prior
-    ? <ArrowUp className="h-3.5 w-3.5 text-success" />
-    : <ArrowDown className="h-3.5 w-3.5 text-destructive" />;
+  const t = trendOf(current, prior);
+  if (t === "up") return <ArrowUp className="h-3.5 w-3.5 text-success" />;
+  if (t === "down") return <ArrowDown className="h-3.5 w-3.5 text-destructive" />;
+  // Flat and unknown both draw a dash, but they are different facts and the
+  // title says which — an agent who was not on the prior board has not held
+  // steady.
+  return (
+    <Minus
+      className="h-3.5 w-3.5 text-text-dim"
+      aria-label={t === "flat" ? "No change" : "No figure for the prior period"}
+    />
+  );
 }
 
 function usePeriodData(period: Period, scope?: "agency" | "imo") {
   const fetchLeaderboard = useServerFn(getLeaderboardData);
-  const { start, end, prevStart, prevEnd } = useMemo(() => periodRanges(period), [period]);
+  const { start, end, prevStart, prevEnd } = useMemo(() => periodRanges(period, new Date()), [period]);
   const current = useQuery({
     queryKey: ["leaderboard", period, scope ?? "team", "current"],
     queryFn: () => fetchLeaderboard({ data: { rangeStart: start.toISOString(), rangeEnd: end.toISOString(), scope } }),
@@ -114,16 +103,28 @@ function LeaderboardPage() {
   const scope = caps.canImo ? board : undefined;
   const { current, prior } = usePeriodData(period, scope);
 
-  const rows = current.data?.agents ?? [];
   const selfId = current.data?.selfId ?? "";
-  const priorMap = new Map<string, number>((prior.data?.agents ?? []).map((a) => [a.id, a.premium]));
+  const priorMap = useMemo(
+    () => new Map<string, number>((prior.data?.agents ?? []).map((a) => [a.id, a.premium])),
+    [prior.data],
+  );
+  // Ranked here rather than trusting the query's order, because the viewer is
+  // added when they wrote nothing and ties share a rank. Both are decisions,
+  // and both live in the module.
+  const rows = useMemo(
+    () =>
+      current.data
+        ? rankBoard(current.data.agents ?? [], {
+            selfId,
+            selfName: (current.data as any).selfName ?? undefined,
+            prior: priorMap,
+          })
+        : [],
+    [current.data, selfId, priorMap],
+  );
   const label = PERIODS.find((x) => x.value === period)!.label;
 
-  const totals = useMemo(() => {
-    const alp = rows.reduce((a, r) => a + r.premium, 0);
-    const policies = rows.reduce((a, r) => a + r.policies, 0);
-    return { alp, policies, producing: rows.filter((r) => r.premium > 0).length, avg: policies > 0 ? alp / policies : 0 };
-  }, [rows]);
+  const totals = useMemo(() => boardTotals(rows), [rows]);
 
   const periodToggle = (
     <div className="flex gap-1.5 flex-wrap">
@@ -175,8 +176,9 @@ function LeaderboardPage() {
     );
   }
 
-  const myRow = rows.find((r) => r.id === selfId);
-  const myRank = myRow ? rows.indexOf(myRow) + 1 : null;
+  // Always present now: rankBoard places the viewer even at zero, which is
+  // the whole point of a footer whose job is to say where you stand.
+  const myRow = rows.find((r) => r.isYou);
 
   const boardToggle = caps.canImo ? (
     <div className="flex gap-1.5">
@@ -244,14 +246,14 @@ function LeaderboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((agent, i) => (
-                    <LeaderRow key={agent.id} agent={agent} rank={i + 1} isYou={agent.id === selfId} prior={priorMap.get(agent.id)} />
+                  {rows.map((agent) => (
+                    <LeaderRow key={agent.id} agent={agent} rank={agent.rank} isYou={agent.isYou} prior={agent.prior} />
                   ))}
                 </tbody>
                 {/* Sticky footer: your position, always visible */}
                 {myRow && (
                   <tfoot className="sticky bottom-0 z-10">
-                    <LeaderRow agent={myRow} rank={myRank!} isYou prior={priorMap.get(myRow.id)} sticky />
+                    <LeaderRow agent={myRow} rank={myRow.rank} isYou prior={myRow.prior} sticky />
                   </tfoot>
                 )}
               </table>

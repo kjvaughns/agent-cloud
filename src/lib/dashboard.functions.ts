@@ -434,7 +434,22 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
     const sorted = Array.from(tallyByAgent((agents ?? []) as ProductionRow[]).entries())
       .map(([id, t]) => ({ id, name: names.get(id) ?? "", premium: t.premium, policies: t.policies }))
       .sort((a, b) => b.premium - a.premium);
-    return { agents: sorted as LeaderboardAgent[], selfId: userId as string };
+    // The viewer's own name, so the board can place them even when they wrote
+    // nothing in the window. The rankings are built from policy rows, so an
+    // agent with no policies is not in `names` — and was, until now, simply
+    // absent from their own leaderboard rather than last on it.
+    let selfName = names.get(userId) ?? null;
+    if (!selfName) {
+      const { data: me } = await supabase
+        .from("profiles").select("first_name, last_name").eq("id", userId).maybeSingle();
+      selfName = `${(me as any)?.first_name ?? ""} ${(me as any)?.last_name ?? ""}`.trim() || null;
+    }
+
+    return {
+      agents: sorted as LeaderboardAgent[],
+      selfId: userId as string,
+      selfName,
+    };
   });
 
 /**
