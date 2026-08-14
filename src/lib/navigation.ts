@@ -46,6 +46,13 @@ export type Unlock =
   | "agency-admin"
   /** Somebody has people under them. A team page with no team is a dead end. */
   | "has-downline"
+  /**
+   * Has people under them OR administers the agency. Team needs both halves:
+   * a manager with a downline but no admin rights works that page daily, and
+   * an owner setting up before their first hire still needs the way in. Two
+   * rows with the same label pointing at the same URL is what this replaced.
+   */
+  | "leads-people"
   /** The agency has child agencies. A Sub-Agencies page with none is a concept lesson, not a page. */
   | "has-sub-agencies"
   /**
@@ -172,21 +179,32 @@ export const PAGES: Page[] = [
   // the one thing an agent gains by joining an agency, never reached them.
   //
   // Configuration went back to Settings. Agency is people.
-  { id: "agency", label: "Agency", path: "/leaderboard", icon: Building2, area: "Agency", unlock: "agency-member" },
+  { id: "agency", label: "Agency", path: "/team", icon: Building2, area: "Agency", unlock: "agency-member" },
 
+  // An owner has two jobs with people: get them selling, and keep them
+  // selling. Three rows serve those; there used to be five, and three of them
+  // opened the same URL.
+  //
+  //   "My Agents" and "Team management"  both /team, now one row
+  //   "Getting agents ready"             a section of Team, not a page
+  //   "Agency overview"                  deleted; its numbers are Team's header
+  //   "Recruiting"                       top-of-funnel, lives in the marketing
+  //                                      tool it belongs to rather than here
+  //
+  // Gated on having somebody under you OR administering the agency: a roster
+  // of nobody is a page that can only disappoint, but an owner setting up
+  // before their first hire still needs the way in.
+  { id: "team", label: "Team", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "leads-people" },
+  { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Agency", parent: "agency", unlock: "agency-member" },
+  // Only when they actually have children. Reuses the IMO work's unlock.
+  { id: "sub-agencies-nav", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Agency", parent: "agency", unlock: "has-sub-agencies" },
+
+  // Leaderboard is NOT in the spec's three-row list, and is kept deliberately.
+  // The spec accounts for every other old Agency row — where each one moves or
+  // why it dies — and never mentions this one, which reads as an oversight
+  // rather than an intent to hide it. Unlike Recruiting it has nowhere else to
+  // live. One line to remove if that is wrong.
   { id: "leaderboard", label: "Leaderboard", path: "/leaderboard", icon: Trophy, area: "Agency", parent: "agency", unlock: "agency-member", audience: ["core"] },
-  // The team command centre, which is the existing Team page. Gated on
-  // actually having somebody under you: most agents do not, and a roster of
-  // nobody is a page that can only disappoint.
-  { id: "my-agents", label: "My Agents", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "has-downline", audience: ["core"] },
-
-  { id: "agency-overview", label: "Agency overview", path: "/agency", icon: Building2, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  { id: "team", label: "Team management", path: "/team", icon: Users, area: "Agency", parent: "agency", unlock: "agency-admin" },
-  // Getting agents ready is a tab inside Team management now — it was a
-  // roster with a progress bar sitting one section away from the roster.
-  // Kept in the registry so search still finds it; it lands on the tab.
-  { id: "onboarding", label: "Getting agents ready", path: "/team?tab=onboarding", icon: UserPlus, area: "Agency", unlock: "agency-admin" },
-  { id: "recruiting", label: "Recruiting", path: "/back-office/recruiting-funnels", icon: Target, area: "Agency", parent: "agency", unlock: "agency-admin", permission: "mgr_access_recruiting" },
   // Document Intake was an agency-admin triage inbox that could classify a
   // carrier report and nothing else. It is Import now: a tool everybody has,
   // that reads a document and proposes what to do with it. Kept in the
@@ -278,7 +296,6 @@ export const PAGES: Page[] = [
   { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", parent: "settings", unlock: "has-sub-agencies" },
 
   // Updates
-  { id: "announcements", label: "Announcements", path: "/announcements", icon: Megaphone, area: "Updates" },
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
 
   // ── Settings ─────────────────────────────────────────────────────────────
@@ -409,6 +426,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-member") gates.push(ctx.inAgency);
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
+  if (p.unlock === "leads-people") gates.push(ctx.downlineCount > 0 || ctx.canSeeAgency);
   if (p.unlock === "has-sub-agencies") gates.push(ctx.hasSubAgencies && ctx.canSeeAgency);
   if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
   if (p.unlock === "resource-editor") gates.push(ctx.canEditResources);
@@ -481,8 +499,7 @@ const HUBS: Record<string, HubGroup[]> = {
   // Agency is people. Getting agents ready became a tab inside Team
   // management, where the roster it talks about already is.
   agency: [
-    { label: "", ids: ["leaderboard", "my-agents"] },
-    { label: "Run the agency", ids: ["agency-overview", "team", "recruiting"] },
+    { label: "", ids: ["team", "announcements", "sub-agencies-nav", "leaderboard"] },
   ],
 
   // Contracting is one place now.

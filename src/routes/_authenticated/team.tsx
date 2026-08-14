@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useEffect, useMemo, useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +13,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
-import { UserPlus, Mail, Phone, Eye, AlertTriangle, Trash2, Users, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { UserPlus, Mail, Phone, Eye, AlertTriangle, Trash2, Users, Loader2, LayoutList, Network, Clock, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { fmtCurrency } from "@/lib/format";
 import {
@@ -28,17 +28,17 @@ import {
   checkIsAdmin,
   getAllAgentsForHierarchy,
   setAgentPosition,
+  setAgentStatus,
   type TeamAgent,
 } from "@/lib/team.functions";
 import { listAgencyLevels } from "@/lib/contracting-records.functions";
 import { PositionCell, PositionPill } from "@/components/team/position-pill";
 import { needsPosition, positionLabel, sortPositions, type Position } from "@/lib/team/positions";
+import { gettingReady, goingQuiet, byQuietest, byLeastReady, QUIET_AFTER_DAYS } from "@/lib/team/needs-you";
 import { RANGE_LABELS, producedInRange, rangeBounds, type RangeKey } from "@/lib/team/production";
 import { adminMoveAgent } from "@/lib/admin.functions";
-import { OnboardingPage } from "@/components/onboarding/onboarding-panel";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { AgencyTeamPage } from "@/components/agency-team-page";
 import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";
@@ -71,15 +71,12 @@ function TeamPending() {
 }
 
 export const Route = createFileRoute("/_authenticated/team")({
-  head: () => ({ meta: [{ title: "Team Command Center — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Team — Agent Cloud" }] }),
   // ?agent= opens that person's drawer directly. Search results for an agent
   // used to land here on an unfiltered roster, which is a dead end dressed up
   // as a result — you searched for a name and got a list to search again.
-  // ?tab= so the palette entry for "Getting agents ready" and the old
-  // /onboarding bookmark land on that tab rather than on Overview.
-  validateSearch: (s: Record<string, unknown>): { agent?: string; tab?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { agent?: string } => ({
     ...(typeof s.agent === "string" && s.agent ? { agent: s.agent } : {}),
-    ...(typeof s.tab === "string" && s.tab ? { tab: s.tab } : {}),
   }),
   pendingComponent: TeamPending,
   loader: async ({ context }) => {
@@ -229,7 +226,7 @@ function TeamPage() {
   );
   const { data: adminCheck } = useQuery(isAdminQO);
   const isAdmin = adminCheck?.isAdmin ?? false;
-  const { agent: agentParam, tab } = Route.useSearch();
+  const { agent: agentParam } = Route.useSearch();
   const [openAgent, setOpenAgent] = useState<string | null>(agentParam ?? null);
 
   // Following a second search result while the drawer is already open should
@@ -238,21 +235,30 @@ function TeamPage() {
     if (agentParam) setOpenAgent(agentParam);
   }, [agentParam]);
 
-  // Roles and permissions belong on the Team page — it is where owners look
-  // for them. The tab only appears for the people who can actually change
-  // them; the page itself re-checks server-side regardless.
+  // Roles & Permissions moved to Settings; what is left of this here is the
+  // permission to assign positions from a roster row.
   const accessFn = useServerFn(getMyAccess);
   const { data: access } = useQuery({ queryKey: ["my-access"], queryFn: () => accessFn() });
-  // Computed server-side so this tab and the server's own check cannot
-  // disagree — gating the UI on isOwner alone hid it from owners whose
-  // account was never written into organizations.owner_id.
+  // Computed server-side so the row action and the server's own check cannot
+  // disagree — gating on isOwner alone hid it from owners whose account was
+  // never written into organizations.owner_id.
   const canManageRoles = Boolean(access?.canManageRoles);
+
+  // Which lens on the roster, remembered per person. An owner who thinks in
+  // legs and one who thinks in rows should each find the page as they left it.
+  const [view, setView] = useState<"table" | "org">(() => {
+    if (typeof window === "undefined") return "table";
+    return window.localStorage.getItem("team.view") === "org" ? "org" : "table";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") window.localStorage.setItem("team.view", view);
+  }, [view]);
 
   return (
     <PageShell>
       <div className="space-y-6">
       <HeroBand
-        title="Team Command Center"
+        title="Team"
         subtitle={
           <>
             <span className="tnum">{kpis.total}</span> agent{kpis.total === 1 ? "" : "s"} · <span className="tnum">{kpis.max_depth}</span> depth level{kpis.max_depth === 1 ? "" : "s"}
@@ -265,11 +271,7 @@ function TeamPage() {
         }
       />
 
-      {/* The empty state used to replace the whole tab block, which hid Roles
-          & Permissions from exactly the people who need it first: an owner
-          setting up staff before they have any downline. The team tabs now
-          show their own empty state and the tab bar always renders. */}
-      {downline.length === 0 && !canManageRoles ? (
+      {downline.length === 0 ? (
         <Panel>
           <div className="py-16 text-center space-y-4">
             <Users className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -277,77 +279,167 @@ function TeamPage() {
             <Button asChild><Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite Your First Agent</Link></Button>
           </div>
         </Panel>
-      ) : (
-        <Tabs defaultValue={tab ?? (downline.length === 0 ? "roles" : "overview")}>
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="roster">Roster</TabsTrigger>
-            {/* "Getting agents ready" was its own page, one section away from
-                the roster it is about. Same people, same question — how far
-                along is everyone — so it is a tab here. */}
-            {canManageRoles && <TabsTrigger value="onboarding">Getting Ready</TabsTrigger>}
-            <TabsTrigger value="org">Organization</TabsTrigger>
-            {canManageRoles && <TabsTrigger value="roles">Roles &amp; Permissions</TabsTrigger>}
-          </TabsList>
+      ) : (<>
+        <KpiRow />
 
-          <TabsContent value="overview" className="space-y-6 mt-4">
-            {downline.length === 0 ? (
-            <Panel>
-              <div className="py-14 text-center space-y-4">
-                <Users className="h-10 w-10 mx-auto text-muted-foreground" />
-                <p className="text-muted-foreground">No team members yet.</p>
-                <Button asChild><Link to="/contracting/invite"><UserPlus className="h-4 w-4 mr-2" />Invite Your First Agent</Link></Button>
-              </div>
-            </Panel>
-            ) : (<>
-            <KpiRow />
-            <DepthChart />
-            <TeamAlertsCard />
-            <ActivationQueue downline={downline} onOpen={setOpenAgent} />
-            <div className="grid md:grid-cols-2 gap-4">
-              <NewAgents downline={downline} onOpen={setOpenAgent} />
-              <RecentlyActive downline={downline} onOpen={setOpenAgent} />
-            </div>
-            </>)}
-          </TabsContent>
+        {/* Region A. The reason you opened the page: who is stuck, and who has
+            gone quiet. Everything below is reference material you go looking
+            for. */}
+        <NeedsYou rows={downlineForRoster} onOpen={setOpenAgent} />
+        {/* Renders nothing when there is nothing wrong. Kept because it
+            carries two warnings neither list above covers: lapse-pending
+            policies and contract requests stuck in Issue. */}
+        <TeamAlertsCard />
 
-          <TabsContent value="roster" className="space-y-6 mt-4">
-            <KpiRow />
-            <DepthChart />
-            <div data-tour="team-roster">
-              <RosterTable
-                downline={downlineForRoster}
-                onOpen={setOpenAgent}
-                canAssign={canManageRoles}
-                rangeKey={rangeKey}
-                onRangeKey={setRangeKey}
-                customRange={customRange}
-                onCustomRange={setCustomRange}
-              />
-            </div>
-          </TabsContent>
+        {/* Region B. The same people, two lenses. */}
+        <div data-tour="team-roster" className="space-y-3">
+          <div className="flex items-center gap-1 rounded-[10px] border border-border-soft bg-surface-2 p-1 w-fit">
+            {([["table", "Table", LayoutList], ["org", "Org", Network]] as const).map(([v, label, Ico]) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
+                  view === v ? "bg-surface-1 font-medium shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Ico className="h-3.5 w-3.5" /> {label}
+              </button>
+            ))}
+          </div>
 
-          {canManageRoles && (
-            <TabsContent value="onboarding" className="mt-4">
-              <OnboardingPage />
-            </TabsContent>
-          )}
-
-          <TabsContent value="org" className="mt-4">
+          {view === "table" ? (
+            <RosterTable
+              downline={downlineForRoster}
+              onOpen={setOpenAgent}
+              canAssign={canManageRoles}
+              rangeKey={rangeKey}
+              onRangeKey={setRangeKey}
+              customRange={customRange}
+              onCustomRange={setCustomRange}
+            />
+          ) : (
             <OrgList downline={downlineForRoster} onOpen={setOpenAgent} />
-          </TabsContent>
-
-          {canManageRoles && (
-            <TabsContent value="roles" className="mt-4">
-              <AgencyTeamPage embedded />
-            </TabsContent>
           )}
-        </Tabs>
-      )}
+        </div>
+      </>)}
 
       <AgentProfileDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
       </div>
     </PageShell>
+  );
+}
+
+// ============ Region A · Needs you ============
+/**
+ * Two short lists, derived from roster rows already on the wire.
+ *
+ * The split is deliberate and the two never overlap: `gettingReady` is people
+ * who cannot sell yet, `goingQuiet` is people who could and have stopped.
+ * Somebody who has never sold appears only in the first — calling them
+ * "slipping" would be wrong, and counting them twice would make both lists
+ * untrustworthy. See `lib/team/needs-you.ts` for the thresholds.
+ */
+function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) => void }) {
+  const ready = useMemo(() => byLeastReady(gettingReady(rows)), [rows]);
+  const quiet = useMemo(() => byQuietest(goingQuiet(rows)), [rows]);
+
+  const qc = useQueryClient();
+  const sendReminder = useServerFn(sendAgentReminder);
+  const remind = useMutation({
+    mutationFn: (agentId: string) => sendReminder({ data: { agentId } }),
+    onSuccess: (res, agentId) => {
+      const a = rows.find((r) => r.id === agentId);
+      const name = `${a?.first_name ?? ""} ${a?.last_name ?? ""}`.trim();
+      if (res.ok) toast.success(`Reminder sent to ${name}`);
+      else if (res.reason === "throttled") toast.info(`Already reminded ${name} in the last 24 hours`);
+      else toast.error("Couldn't send reminder");
+      qc.invalidateQueries({ queryKey: ["team"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Not an error state. Nothing needing attention is the goal, so it reads as
+  // the good news it is rather than as an empty table.
+  if (ready.length === 0 && quiet.length === 0) {
+    return (
+      <Panel title="Needs you">
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          Everyone's active and producing.
+        </p>
+      </Panel>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Panel
+        title="Getting ready"
+        action={ready.length > 0 ? <Badge variant="secondary" className="tnum">{ready.length}</Badge> : undefined}
+      >
+        {ready.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">Everyone can sell.</p>
+        ) : (
+          <div className="space-y-2">
+            {ready.slice(0, 8).map((a) => (
+              <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
+                <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
+                <div className="min-w-0 flex-1">
+                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
+                    {a.first_name} {a.last_name}
+                  </button>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {(a.missing ?? []).length > 0 ? `Needs ${(a.missing ?? []).join(", ")}` : STAGE_LABELS[a.stage]}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="shrink-0"
+                        onClick={() => remind.mutate(a.id)} disabled={remind.isPending}>
+                  <Mail className="mr-1 h-3 w-3" /> Remind
+                </Button>
+              </div>
+            ))}
+            {ready.length > 8 && (
+              <p className="pt-1 text-xs text-muted-foreground">and {ready.length - 8} more in the roster below</p>
+            )}
+          </div>
+        )}
+      </Panel>
+
+      <Panel
+        title="Going quiet"
+        action={quiet.length > 0 ? <Badge variant="secondary" className="tnum">{quiet.length}</Badge> : undefined}
+      >
+        {quiet.length === 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">Nobody has stopped selling.</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">No posted deal in {QUIET_AFTER_DAYS}+ days.</p>
+            {quiet.slice(0, 8).map((a) => (
+              <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
+                <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
+                <div className="min-w-0 flex-1">
+                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
+                    {a.first_name} {a.last_name}
+                  </button>
+                  <p className="truncate text-xs text-muted-foreground tnum">
+                    <Clock className="mr-1 inline h-3 w-3" />
+                    {a.days_since_sale} days since last deal
+                    {a.last_active_at ? ` · last seen ${timeAgo(a.last_active_at)}` : ""}
+                  </p>
+                </div>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onOpen(a.id)}>
+                  <Eye className="mr-1 h-3 w-3" /> Open
+                </Button>
+              </div>
+            ))}
+            {quiet.length > 8 && (
+              <p className="pt-1 text-xs text-muted-foreground">and {quiet.length - 8} more</p>
+            )}
+          </div>
+        )}
+      </Panel>
+    </div>
   );
 }
 
@@ -358,42 +450,19 @@ function KpiRow() {
     { value: kpis.total, label: "Total Agents", sub: `${kpis.direct} direct reports` },
     { value: kpis.active, label: "Active", sub: "Ready to sell", tone: "gold" },
     { value: kpis.active_writers, label: "Active Writers", sub: "Sold in last 30 days", tone: "gold" },
+    // Legacy only, and shrinking: nobody has started "pending" since new
+    // agents began landing active. Kept because agencies with people still in
+    // that state need to see them until they move on.
     { value: kpis.pending, label: "Pending", sub: "Awaiting review" },
-    { value: kpis.contracts_total, label: "Contracts", sub: `${kpis.contracts_active_pct}% active rate` },
   ];
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
       {tiles.map((t) => (
         <div key={t.label} className="rounded-[10px] border border-border-soft bg-surface-2 p-3.5">
           <StatTile label={t.label} value={t.value} tone={t.tone ?? "default"} delta={t.sub} />
         </div>
       ))}
     </div>
-  );
-}
-
-// ============ Depth Chart ============
-function DepthChart() {
-  const { data: kpis } = useSuspenseQuery(kpisQO);
-  const dist = kpis.depth_distribution ?? [];
-  const max = Math.max(1, ...dist.map((d) => d.count));
-  return (
-    <Panel title="Team Depth Distribution">
-      <div className="space-y-2">
-        {dist.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No agents yet.</p>
-        ) : dist.map((d) => (
-          <div key={d.level} className="flex items-center gap-3">
-            <div className="w-12 text-xs font-medium tnum">L{d.level}{d.level === 1 ? " (Direct)" : ""}</div>
-            <div className="flex-1 h-6 bg-surface-2 rounded overflow-hidden">
-              <div className="h-full bg-primary" style={{ width: `${(d.count / max) * 100}%` }} />
-            </div>
-            <div className="w-20 text-xs text-right tnum">{d.count} agent{d.count === 1 ? "" : "s"}</div>
-          </div>
-        ))}
-        <p className="text-xs text-muted-foreground pt-2">Levels deep in your organization</p>
-      </div>
-    </Panel>
   );
 }
 
@@ -419,115 +488,130 @@ function TeamAlertsCard() {
   );
 }
 
-// ============ Activation Queue ============
-function ActivationQueue({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
+// ============ Row Actions ============
+/**
+ * One menu per row, rather than the three naked icon buttons that were here.
+ *
+ * Status is the reason this exists. It goes through `setAgentStatus`, which is
+ * the one correct path — it archives the membership and blocks that org's
+ * login for a termination, which a direct `profiles` write would not. The
+ * confirm dialog is only on the two that take access away; making somebody
+ * active again is not worth a speed bump.
+ *
+ * Moving an agent to a different upline is deliberately NOT here. Reparenting
+ * runs through the hierarchy-change request flow, which keeps an approval
+ * trail; a menu item writing `upline_id` directly would quietly route around
+ * it.
+ */
+function RowActions({
+  agent, onOpen, canManage,
+}: { agent: RosterAgent; onOpen: (id: string) => void; canManage: boolean }) {
   const qc = useQueryClient();
-  const sendReminder = useServerFn(sendAgentReminder);
-  const incomplete = downline.filter((a) => a.completion_pct < 100);
-  const m = useMutation({
-    mutationFn: (agentId: string) => sendReminder({ data: { agentId } }),
-    onSuccess: (res, agentId) => {
-      const agent = downline.find((a) => a.id === agentId);
-      const name = `${agent?.first_name ?? ""} ${agent?.last_name ?? ""}`.trim();
-      if (res.ok) toast.success(`Reminder sent to ${name}`);
-      else if (res.reason === "throttled") toast.info(`Already reminded ${name} in the last 24 hours`);
-      else toast.error("Couldn't send reminder");
+  const statusFn = useServerFn(setAgentStatus);
+  const remindFn = useServerFn(sendAgentReminder);
+  const [confirming, setConfirming] = useState<null | "inactive" | "terminated">(null);
+  const name = `${agent.first_name ?? ""} ${agent.last_name ?? ""}`.trim() || "this agent";
+
+  const setStatus = useMutation({
+    mutationFn: (status: "active" | "inactive" | "terminated") =>
+      statusFn({ data: { agentId: agent.id, status } }),
+    onSuccess: (_r, status) => {
+      toast.success(status === "active" ? `${name} is active again` : `${name} is now ${status}`);
       qc.invalidateQueries({ queryKey: ["team"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return (
-    <Panel
-      title="Activation Queue"
-      action={incomplete.length > 0 ? <Badge variant="destructive" className="tnum">{incomplete.length} Needs Fix</Badge> : undefined}
-    >
-      {incomplete.length === 0 ? (
-        <p className="text-sm text-muted-foreground">All agents have complete profiles. Nice.</p>
-      ) : (
-        <>
-          <p className="text-xs text-muted-foreground mb-3">These agents have incomplete profiles and cannot be fully contracted.</p>
-          <div className="grid md:grid-cols-2 gap-3">
-            {incomplete.map((a) => (
-              <div key={a.id} className="rounded-lg border border-border bg-surface-2 p-3 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Avatar className="h-9 w-9"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{a.email}</div>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="bg-amber-500/15 text-amber-600 border-amber-500/30 shrink-0">Needs Fix</Badge>
-                </div>
-                <div className="text-xs">
-                  Profile: <span className="font-medium tnum">{a.completion_pct}% complete</span>
-                </div>
-                <Progress value={a.completion_pct} className="h-1.5" />
-                {a.missing.length > 0 && (
-                  <div className="text-xs text-muted-foreground">Missing: {a.missing.join(", ")}</div>
-                )}
-                <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" onClick={() => m.mutate(a.id)} disabled={m.isPending}>
-                    <Mail className="h-3 w-3 mr-1" /> Send Reminder
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => onOpen(a.id)}>
-                    <Eye className="h-3 w-3 mr-1" /> View Profile
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </Panel>
-  );
-}
+  const remind = useMutation({
+    mutationFn: () => remindFn({ data: { agentId: agent.id } }),
+    onSuccess: (res: any) => {
+      if (res?.ok) toast.success(`Reminder sent to ${name}`);
+      else if (res?.reason === "throttled") toast.info(`Already reminded ${name} in the last 24 hours`);
+      else toast.error("Couldn't send reminder");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
-// ============ New Agents / Recently Active ============
-function NewAgents({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
-  const cutoff = Date.now() - 7 * 86400000;
-  const recent = downline.filter((a) => new Date(a.created_at).getTime() > cutoff).slice(0, 5);
-  return (
-    <Panel title="New Agents (Last 7 Days)">
-      <div className="space-y-2">
-        {recent.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No new agents this week.</p>
-        ) : recent.map((a) => (
-          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-surface-2 text-left transition-colors">
-            <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
-            <div className="flex-1 min-w-0 text-sm">
-              <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-              <div className="text-xs text-muted-foreground tnum">Joined {new Date(a.created_at).toLocaleDateString()} · {a.contracts_count} contracts · {a.policies_count} policies</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </Panel>
-  );
-}
+  const COPY = {
+    inactive: {
+      title: `Make ${name} inactive?`,
+      body: "They keep their account and their book, and stop counting as an active agent. You can make them active again at any time.",
+      action: "Make inactive",
+    },
+    terminated: {
+      title: `Terminate ${name}?`,
+      body: "This archives their membership and blocks them from signing in to this agency. Their policies and history stay where they are.",
+      action: "Terminate",
+    },
+  } as const;
 
-function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (id: string) => void }) {
-  const sorted = [...downline]
-    .filter((a) => a.last_active_at)
-    .sort((a, b) => new Date(b.last_active_at!).getTime() - new Date(a.last_active_at!).getTime())
-    .slice(0, 5);
   return (
-    <Panel title="Recently Active">
-      <div className="space-y-2">
-        {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent activity yet.</p>
-        ) : sorted.map((a) => (
-          <button key={a.id} onClick={() => onOpen(a.id)} className="w-full flex items-center gap-3 p-2 rounded hover:bg-surface-2 text-left transition-colors">
-            <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
-            <div className="flex-1 min-w-0 text-sm">
-              <div className="font-medium truncate">{a.first_name} {a.last_name}</div>
-              <div className="text-xs text-muted-foreground tnum">Last active {timeAgo(a.last_active_at)} · {a.policies_count} policies · {fmtCurrency(Number(a.premium_total))}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </Panel>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label={`Actions for ${name}`}>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuItem onClick={() => onOpen(agent.id)}>
+            <Eye className="mr-2 h-4 w-4" /> Open dashboard
+          </DropdownMenuItem>
+          {agent.email && (
+            <DropdownMenuItem asChild>
+              <a href={`mailto:${agent.email}`}><Mail className="mr-2 h-4 w-4" /> Email</a>
+            </DropdownMenuItem>
+          )}
+          {agent.phone && (
+            <DropdownMenuItem asChild>
+              <a href={`tel:${agent.phone}`}><Phone className="mr-2 h-4 w-4" /> Call</a>
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={() => remind.mutate()} disabled={remind.isPending}>
+            <Clock className="mr-2 h-4 w-4" /> Send reminder
+          </DropdownMenuItem>
+          {canManage && (
+            <>
+              <DropdownMenuSeparator />
+              {agent.status !== "active" && (
+                <DropdownMenuItem onClick={() => setStatus.mutate("active")}>
+                  Set active
+                </DropdownMenuItem>
+              )}
+              {agent.status !== "inactive" && (
+                <DropdownMenuItem onClick={() => setConfirming("inactive")}>
+                  Set inactive
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem className="text-destructive" onClick={() => setConfirming("terminated")}>
+                <Trash2 className="mr-2 h-4 w-4" /> Terminate
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirming !== null} onOpenChange={(o) => !o && setConfirming(null)}>
+        <AlertDialogContent>
+          {confirming && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{COPY[confirming].title}</AlertDialogTitle>
+                <AlertDialogDescription>{COPY[confirming].body}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => { setStatus.mutate(confirming); setConfirming(null); }}
+                >
+                  {COPY[confirming].action}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -893,13 +977,7 @@ function RosterTable({
                       : <span className="text-muted-foreground">Never</span>}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => onOpen(a.id)}><Eye className="h-4 w-4" /></Button>
-                    {a.email && (
-                      <Button variant="ghost" size="icon" asChild><a href={`mailto:${a.email}`}><Mail className="h-4 w-4" /></a></Button>
-                    )}
-                    {a.phone && (
-                      <Button variant="ghost" size="icon" asChild><a href={`tel:${a.phone}`}><Phone className="h-4 w-4" /></a></Button>
-                    )}
+                    <RowActions agent={a} onOpen={onOpen} canManage={canAssign} />
                   </TableCell>
                 </TableRow>
               );})}
