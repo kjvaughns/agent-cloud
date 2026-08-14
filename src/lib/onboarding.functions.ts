@@ -392,6 +392,10 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
     password: z.string().min(8).max(100),
     phone: z.string().trim().min(7).max(30),
     npn_number: z.string().trim().max(40).optional().nullable(),
+    // Only meaningful on an agency-branded link, where the person joining says
+    // who they report to. Ignored on a personal link.
+    upline_id: z.string().uuid().optional().nullable(),
+
   }).parse(d))
   .handler(async ({ data }) => {
     // Read the row itself rather than get_invite_by_token. That RPC does not
