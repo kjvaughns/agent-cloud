@@ -654,7 +654,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     let query = supabase
       .from("invitation_links")
-      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,sent_on_behalf_of,surelc_agent_id")
+      .select("id,name,token,status,onboarding_step,carrier_assignments,created_at,agent_started_at,agent_completed_at,expires_at,linked_agent_id,new_agent_first_name,new_agent_last_name,new_agent_email,created_by,upline_id,sent_on_behalf_of,surelc_agent_id")
       .order("created_at", { ascending: false });
 
     if (data.scope === "mine") {
