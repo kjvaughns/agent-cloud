@@ -15,6 +15,18 @@ Delete a line once the migration is applied.
 
 - `20260814140000_contracting-settings-inheritance.sql`
 - `20260814150000_agency-relationships.sql`
+- `20260814160000_imo-scope.sql`
+
+`20260814160000` **depends on `20260814150000` — apply them in order.** It
+adds `imo_org_ids()`, the `imo` arm of `scope_agent_ids`, `can_imo` in
+`my_scopes()`, and the two owner visibility columns on
+`organization_settings`. In the window: `my_scopes()` returns no `can_imo`,
+so the Total IMO option simply never renders; the old `scope_agent_ids`
+resolves an `imo` ask to `team` via its else-arm; the leaderboard's opt-out
+filter and the feed's own-sales check catch the missing columns and treat
+everyone as participating; `announceDeal`'s parent walk catches the missing
+table and posts to the org's own channels only. Nothing breaks — the IMO
+features are invisible until this lands.
 
 `20260814150000` creates `agency_relationships` — the terms of each
 parent/child agency link (production rollup, sales-feed access, status) —

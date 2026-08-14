@@ -217,10 +217,56 @@ export async function announceDeal(policyId: string): Promise<void> {
     const { refusedForDemo } = await import("@/lib/demo.server");
     if (await refusedForDemo(policy.organization_id, "send a webhook")) return;
 
+    // The owner's own-feed toggle. If the writing agent owns this org and
+    // turned "show my own sales in the team sales feed" off, the deal is
+    // theirs to keep quiet — nothing posts, here or up the chain. Wrapped
+    // because the columns land with the imo-scope migration.
+    try {
+      const { data: org } = await supabaseAdmin
+        .from("organizations").select("owner_id").eq("id", policy.organization_id).maybeSingle();
+      if (org?.owner_id === policy.agent_id) {
+        const { data: os } = await supabaseAdmin
+          .from("organization_settings")
+          .select("show_own_sales_in_feed")
+          .eq("organization_id", policy.organization_id)
+          .maybeSingle();
+        if (os && os.show_own_sales_in_feed === false) return;
+      }
+    } catch {
+      // Column absent pre-migration: everyone participates, today's behaviour.
+    }
+
+    // The channels that hear about this deal: the org's own, plus every
+    // ancestor agency whose relationship row lets the child's sales flow up
+    // (active + allow_sales_feed). The walk is depth-capped and cycle-guarded;
+    // a parent that paused the child, or turned the feed off, simply is not
+    // in the list. Wrapped for the window before agency_relationships exists.
+    const feedOrgIds = [policy.organization_id];
+    try {
+      const seen = new Set<string>(feedOrgIds);
+      let cursor: string | null = policy.organization_id;
+      for (let depth = 0; cursor && depth < 10; depth++) {
+        const { data: rel }: { data: any } = await supabaseAdmin
+          .from("agency_relationships")
+          .select("parent_org_id")
+          .eq("child_org_id", cursor)
+          .eq("status", "active")
+          .eq("allow_sales_feed", true)
+          .maybeSingle();
+        const parent: string | null = rel?.parent_org_id ?? null;
+        if (!parent || seen.has(parent)) break;
+        seen.add(parent);
+        feedOrgIds.push(parent);
+        cursor = parent;
+      }
+    } catch {
+      // Table absent pre-migration: the org's own channels only.
+    }
+
     const { data: configs } = await supabaseAdmin
       .from("discord_integrations")
       .select("*")
-      .eq("organization_id", policy.organization_id)
+      .in("organization_id", feedOrgIds)
       .eq("enabled", true)
       .eq("post_deals", true);
 
@@ -269,7 +315,7 @@ export async function announceDeal(policyId: string): Promise<void> {
         try {
           if (annual < Number(cfg.min_annual_premium ?? 0)) {
             await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: policy.organization_id,
+              organization_id: cfg.organization_id,
               integration_id: cfg.id,
               event_type: "deal_posted",
               policy_id: policy.id,
@@ -285,7 +331,7 @@ export async function announceDeal(policyId: string): Promise<void> {
           // 'sent', so a retry or a double submit cannot announce the same deal
           // twice in the same channel.
           await supabaseAdmin.from("discord_deliveries").insert({
-            organization_id: policy.organization_id,
+            organization_id: cfg.organization_id,
             integration_id: cfg.id,
             event_type: "deal_posted",
             policy_id: policy.id,
@@ -300,7 +346,7 @@ export async function announceDeal(policyId: string): Promise<void> {
           const msg = String(e?.message ?? e).slice(0, 500);
           try {
             await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: policy.organization_id,
+              organization_id: cfg.organization_id,
               integration_id: cfg.id,
               event_type: "deal_posted",
               policy_id: policy.id,

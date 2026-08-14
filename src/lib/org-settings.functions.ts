@@ -65,7 +65,18 @@ const UpdateSchema = z.object({
   notify_new_ticket: z.boolean().optional(),
   notify_contract_request: z.boolean().optional(),
   collect_contracting_pii: z.boolean().optional(),
+  /**
+   * The owner's own participation in the shared surfaces — whether their
+   * personal deals hit the sales feed and whether their line appears on
+   * leaderboards. About the owner only; the per-child rollup terms live on
+   * agency_relationships.
+   */
+  show_own_sales_in_feed: z.boolean().optional(),
+  show_own_on_leaderboards: z.boolean().optional(),
 });
+
+/** Columns that may not exist yet, newest migration last. */
+const PENDING_COLUMNS = ["collect_contracting_pii", "show_own_sales_in_feed", "show_own_on_leaderboards"];
 
 export const updateOrgSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -93,8 +104,10 @@ export const updateOrgSettings = createServerFn({ method: "POST" })
 
     const missingColumn = error &&
       (error.code === "42703" || /column .* does not exist/i.test(error.message ?? ""));
-    if (missingColumn && "collect_contracting_pii" in patch) {
-      const { collect_contracting_pii: _dropped, ...rest } = patch;
+    if (missingColumn && PENDING_COLUMNS.some((k) => k in patch)) {
+      const rest = Object.fromEntries(
+        Object.entries(patch).filter(([k]) => !PENDING_COLUMNS.includes(k)),
+      );
       ({ error } = await supabaseAdmin
         .from("organization_settings")
         .upsert(rest, { onConflict: "organization_id" }));

@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
+import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
+
+const supabaseAdmin = _admin as any;
 
 const RangeSchema = z.object({
   rangeStart: z.string(),
@@ -340,15 +344,60 @@ export type LeaderboardAgent = {
   policies: number;
 };
 
+const LeaderboardSchema = RangeSchema.extend({
+  /**
+   * Which population to rank. Absent = the legacy behaviour: self plus
+   * recursive downline. "agency" and "imo" route through the scope layer,
+   * whose SQL narrows an unauthorized ask instead of erroring — so a caller
+   * without an opted-in child asking for "imo" gets their agency, labelled
+   * by whatever the UI offered them, which the UI only offers when canImo.
+   */
+  scope: z.enum(["agency", "imo"]).optional(),
+});
+
 export const getLeaderboardData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => RangeSchema.parse(d))
+  .inputValidator((d: unknown) => LeaderboardSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
-    // Explicit hierarchy scope: self + recursive downline. Without this,
-    // admin/manager RLS grants would leak every agency's producers.
-    const { data: downline } = await supabase.rpc("get_team_downline");
-    const teamIds: string[] = [userId, ...((downline ?? []) as { id: string }[]).map((a) => a.id)];
+    let teamIds: string[];
+    if (data.scope) {
+      teamIds = await resolveScopeAgentIdsOrNone(supabase, data.scope);
+      if (!teamIds.length) teamIds = [userId];
+    } else {
+      // Explicit hierarchy scope: self + recursive downline. Without this,
+      // admin/manager RLS grants would leak every agency's producers.
+      const { data: downline } = await supabase.rpc("get_team_downline");
+      teamIds = [userId, ...((downline ?? []) as { id: string }[]).map((a) => a.id)];
+    }
+
+    // Owners who turned "show my own numbers on leaderboards" off lose their
+    // OWN line and nothing else. Resolved via the admin client because a
+    // parent ranking an IMO cannot read a child org's settings row under RLS
+    // — and this is the one fact from it the rollup is entitled to.
+    try {
+      const { data: orgs } = await supabaseAdmin
+        .from("organizations").select("id, owner_id").in("owner_id", teamIds);
+      const orgIds = (orgs ?? []).map((o: any) => o.id);
+      if (orgIds.length) {
+        const { data: optedOut } = await supabaseAdmin
+          .from("organization_settings")
+          .select("organization_id, show_own_on_leaderboards")
+          .in("organization_id", orgIds)
+          .eq("show_own_on_leaderboards", false);
+        const hiddenOrgIds = new Set((optedOut ?? []).map((s: any) => s.organization_id));
+        const hiddenOwners = new Set(
+          (orgs ?? []).filter((o: any) => hiddenOrgIds.has(o.id)).map((o: any) => o.owner_id),
+        );
+        // Never hide the viewer from themselves — their own board saying they
+        // don't exist would read as data loss, not privacy.
+        hiddenOwners.delete(userId);
+        teamIds = teamIds.filter((id) => !hiddenOwners.has(id));
+      }
+    } catch {
+      // Column absent before the imo-scope migration: nobody has opted out.
+    }
+
     const { data: agents } = await supabase
       .from("policies")
       .select("agent_id, annual_premium, profiles!inner(first_name, last_name)")
@@ -371,6 +420,42 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       .map(([id, v]) => ({ id, ...v }))
       .sort((a, b) => b.premium - a.premium);
     return { agents: sorted as LeaderboardAgent[], selfId: userId as string };
+  });
+
+/**
+ * The three levels of production, for an owner whose agency has sub-agencies:
+ *
+ *   personal   scope mine — just their own writing
+ *   agency     scope agency — everyone in their direct org
+ *   imo        scope imo — their org plus every opted-in child, recursively
+ *
+ * One query per scope through the same resolver every scoped page uses, so
+ * these figures cannot disagree with the views behind them. Callers hide the
+ * IMO figure when caps.canImo is false; the resolver would narrow it to
+ * agency anyway, but showing two identical numbers helps nobody.
+ */
+export const getProductionByScope = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RangeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+
+    async function sumFor(scope: "mine" | "agency" | "imo") {
+      const ids = await resolveScopeAgentIdsOrNone(supabase, scope as any);
+      const agentIds = ids.length ? ids : [userId];
+      const { data: rows } = await supabase
+        .from("policies")
+        .select("annual_premium")
+        .in("agent_id", agentIds)
+        .gte("posted_at", data.rangeStart)
+        .lte("posted_at", data.rangeEnd);
+      return (rows ?? []).reduce((a: number, r: any) => a + Number(r.annual_premium ?? 0), 0);
+    }
+
+    const [personal, agency, imo] = await Promise.all([
+      sumFor("mine"), sumFor("agency"), sumFor("imo"),
+    ]);
+    return { personal, agency, imo };
   });
 
 // ── Range-scoped production series (drives the hero chart) ──────────────────

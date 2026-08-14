@@ -19,6 +19,8 @@ import { EmailsPage } from "@/components/settings/emails-panel";
 import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SampleDataPanel } from "@/components/settings/sample-data-panel";
+import { useMutation } from "@tanstack/react-query";
+import { getOrgSettings, updateOrgSettings } from "@/lib/org-settings.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/agency")({
   ssr: false,
@@ -84,6 +86,65 @@ function AgencySettingsRoute() {
   }
 
   return <AgencySettingsPage />;
+}
+
+/**
+ * The owner's own participation in the shared surfaces. Distinct from the
+ * per-child rollup terms on Sub-Agencies: those decide whether a CHILD's
+ * numbers flow up; these decide whether the OWNER's personal deals appear in
+ * the feed and on leaderboards at all. An IMO owner running the rollup can
+ * keep their personal production out of every downline's chat and off the
+ * rankings without touching anyone else's numbers.
+ */
+function VisibilityPanel() {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getOrgSettings);
+  const saveFn = useServerFn(updateOrgSettings);
+  const { data } = useQuery({ queryKey: ["org-settings"], queryFn: () => getFn() });
+
+  const save = useMutation({
+    mutationFn: (p: any) => saveFn({ data: p }),
+    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["org-settings"] }); },
+    onError: (e: any) => toast.error(e?.message ?? "Could not save that"),
+  });
+
+  const settings = (data as any)?.settings;
+  if (!settings || !(data as any)?.isOwner) return null;
+
+  const rows = [
+    {
+      key: "show_own_sales_in_feed",
+      label: "Show my own sales in the team sales feed",
+      help: "Off keeps your personal deals out of the Discord feed — yours and every agency's above you.",
+    },
+    {
+      key: "show_own_on_leaderboards",
+      label: "Show my own numbers on leaderboards",
+      help: "Off removes only your line from the rankings; your team's numbers are untouched.",
+    },
+  ] as const;
+
+  return (
+    <Panel title="Visibility" className="mt-4">
+      <div className="divide-y divide-border-soft">
+        {rows.map((r) => (
+          <label key={r.key} className="flex items-start gap-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={settings[r.key] !== false}
+              disabled={save.isPending}
+              onChange={(e) => save.mutate({ [r.key]: e.target.checked })}
+              className="mt-0.5 h-4 w-4 accent-[var(--gold)]"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm text-foreground">{r.label}</span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{r.help}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </Panel>
+  );
 }
 
 function GeneralTab() {
@@ -371,7 +432,7 @@ function AgencySettingsPage() {
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general" className="mt-4"><GeneralTab /></TabsContent>
+          <TabsContent value="general" className="mt-4"><GeneralTab /><VisibilityPanel /></TabsContent>
           <TabsContent value="emails" className="mt-4"><EmailsPage /></TabsContent>
           <TabsContent value="automations" className="mt-4"><AutomationsPage /></TabsContent>
           <TabsContent value="integrations" className="mt-4"><DiscordSettings /></TabsContent>

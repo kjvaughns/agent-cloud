@@ -8,10 +8,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { money, number } from "@/lib/format";
-import { getLeaderboardData, type LeaderboardAgent } from "@/lib/dashboard.functions";
+import { getLeaderboardData, getProductionByScope, type LeaderboardAgent } from "@/lib/dashboard.functions";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useMyAccess } from "@/hooks/use-my-access";
+import { useScopeCapabilities } from "@/hooks/use-scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 
@@ -64,24 +65,54 @@ function TrendIcon({ current, prior }: { current: number; prior: number | undefi
     : <ArrowDown className="h-3.5 w-3.5 text-destructive" />;
 }
 
-function usePeriodData(period: Period) {
+function usePeriodData(period: Period, scope?: "agency" | "imo") {
   const fetchLeaderboard = useServerFn(getLeaderboardData);
   const { start, end, prevStart, prevEnd } = useMemo(() => periodRanges(period), [period]);
   const current = useQuery({
-    queryKey: ["leaderboard", period, "current"],
-    queryFn: () => fetchLeaderboard({ data: { rangeStart: start.toISOString(), rangeEnd: end.toISOString() } }),
+    queryKey: ["leaderboard", period, scope ?? "team", "current"],
+    queryFn: () => fetchLeaderboard({ data: { rangeStart: start.toISOString(), rangeEnd: end.toISOString(), scope } }),
   });
   const prior = useQuery({
-    queryKey: ["leaderboard", period, "prior"],
-    queryFn: () => fetchLeaderboard({ data: { rangeStart: prevStart.toISOString(), rangeEnd: prevEnd.toISOString() } }),
+    queryKey: ["leaderboard", period, scope ?? "team", "prior"],
+    queryFn: () => fetchLeaderboard({ data: { rangeStart: prevStart.toISOString(), rangeEnd: prevEnd.toISOString(), scope } }),
   });
   return { current, prior };
 }
 
+/**
+ * Personal / My Agency / Total IMO, month to date. Rendered only for someone
+ * whose agency has sub-agencies opted into the rollup — a solo agency's three
+ * numbers would just be the same number three times. A child agency owner
+ * with their own children sees their own IMO here; never their parent's.
+ */
+function ThreeLevels() {
+  const fetchFn = useServerFn(getProductionByScope);
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const { data } = useQuery({
+    queryKey: ["production-by-scope", start.toISOString().slice(0, 10)],
+    queryFn: () => fetchFn({ data: { rangeStart: start.toISOString(), rangeEnd: now.toISOString() } }),
+  });
+  if (!data) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <StatTile label="Personal" value={money(data.personal)} />
+      <StatTile label="My Agency" value={money(data.agency)} />
+      <StatTile label="Total IMO" value={money(data.imo)} />
+    </div>
+  );
+}
+
 function LeaderboardPage() {
   const { access } = useMyAccess();
+  const { caps } = useScopeCapabilities();
   const [period, setPeriod] = useState<Period>("month");
-  const { current, prior } = usePeriodData(period);
+  // The board switch, for agencies with an IMO. "agency" ranks the direct
+  // org; "imo" adds every opted-in sub-agency. Without children the legacy
+  // team board stands and no switch renders.
+  const [board, setBoard] = useState<"agency" | "imo">("agency");
+  const scope = caps.canImo ? board : undefined;
+  const { current, prior } = usePeriodData(period, scope);
 
   const rows = current.data?.agents ?? [];
   const selfId = current.data?.selfId ?? "";
@@ -147,13 +178,38 @@ function LeaderboardPage() {
   const myRow = rows.find((r) => r.id === selfId);
   const myRank = myRow ? rows.indexOf(myRow) + 1 : null;
 
+  const boardToggle = caps.canImo ? (
+    <div className="flex gap-1.5">
+      {([["agency", "My Agency"], ["imo", "Total IMO"]] as const).map(([v, l]) => (
+        <button
+          key={v}
+          onClick={() => setBoard(v)}
+          className={cn(
+            "px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
+            board === v
+              ? "bg-gold-glow text-gold-bright border-primary/40"
+              : "bg-surface-2 text-muted-foreground border-border hover:text-foreground",
+          )}
+        >
+          {l}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
   return (
     <PageShell>
       <div className="max-w-[1100px] mx-auto flex flex-col gap-[var(--gap)]">
-        <HeroBand title="Leaderboard" subtitle="Agency production rankings" actions={periodToggle} />
+        <HeroBand
+          title="Leaderboard"
+          subtitle={scope === "imo" ? "Your agency plus every opted-in sub-agency" : "Agency production rankings"}
+          actions={<div className="flex flex-wrap items-center gap-2">{boardToggle}{periodToggle}</div>}
+        />
+
+        {caps.canImo && <ThreeLevels />}
 
         {/* Agency production summary */}
-        <Panel title={`Agency Production — ${label}`}>
+        <Panel title={`${scope === "imo" ? "Total IMO" : "Agency"} Production — ${label}`}>
           {current.isLoading ? <Skeleton className="h-16" /> : (
             <div className="flex items-baseline gap-4 flex-wrap">
               <div className="tnum font-bold text-gold-bright" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(28px,3.5vw,38px)", letterSpacing: "-0.02em" }}>
