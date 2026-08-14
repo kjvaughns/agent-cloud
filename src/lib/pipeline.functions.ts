@@ -85,6 +85,17 @@ export const listPipelineClients = createServerFn({ method: "POST" })
       }
     }
 
+    // How each sold client pays. One batched read rather than one per card —
+    // the same shape as the policy read above.
+    const bankingMap = new Map<string, any>();
+    if (soldIds.length) {
+      const { data: banks } = await supabase
+        .from("client_banking")
+        .select("client_id, payment_method, draft_date")
+        .in("client_id", soldIds);
+      for (const b of banks ?? []) bankingMap.set(b.client_id, b);
+    }
+
     // Whose lead it is, but only when that could be somebody else. A board of
     // cards with no owner on them is unreadable the moment it stops being
     // one person's board.
@@ -104,6 +115,7 @@ export const listPipelineClients = createServerFn({ method: "POST" })
       ...c,
       beneficiary_of: benefMap.get(c.id) ?? null,
       latest_policy: policyMap.get(c.id) ?? null,
+      banking: bankingMap.get(c.id) ?? null,
       agent_name: nameById.get(c.agent_id) ?? null,
     }));
   });

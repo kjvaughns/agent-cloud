@@ -1,4 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  PAYMENT_METHODS, PAYMENT_METHOD_LABELS, ordinalDay,
+  ssPayWeekFromDob, ssWeekLabel, suggestedDraftDay,
+} from "@/lib/deals/social-security";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -47,6 +51,8 @@ type FormData = {
   status: "issued_not_paid" | "in_review";
   beneficiaries: { first_name: string; last_name: string; relationship: string; dob: string; percentage: string }[];
   notes: string;
+  payment_method: string;
+  draft_date: string;
 };
 
 function PostDealPage() {
@@ -63,6 +69,8 @@ function PostDealPage() {
 
   const form = useForm<FormData>({
     defaultValues: {
+      payment_method: "",
+      draft_date: "",
       client_type: "new",
       first_name: "", last_name: "", phone: "", date_of_birth: "",
       carrier_id: "", product: "", policy_number: "", effective_date: "",
@@ -112,6 +120,11 @@ function PostDealPage() {
       setValue("status", prefill.policy.status);
     }
 
+    if (prefill.billing) {
+      setValue("payment_method", prefill.billing.payment_method);
+      setValue("draft_date", prefill.billing.draft_date);
+    }
+
     if (prefill.beneficiaries.length) {
       // replace() rather than append(), so a re-render cannot duplicate rows.
       replace(prefill.beneficiaries);
@@ -121,6 +134,26 @@ function PostDealPage() {
   const clientType = watch("client_type");
   const monthly = Number(watch("monthly_premium") || 0);
   const annual = monthly * 12;
+
+  /**
+   * When Social Security is the method, say when the deposit lands.
+   *
+   * A suggestion, not an assignment: anyone on benefits since before May 1997
+   * is paid on the 3rd whatever their birthday says, and this product has no
+   * way to know that. The agent stays in charge of the day.
+   */
+  const paymentMethod = watch("payment_method");
+  const clientDob = watch("date_of_birth");
+  const ssHint = useMemo(() => {
+    if (paymentMethod !== "social_security") return null;
+    const week = ssPayWeekFromDob(clientDob);
+    const day = suggestedDraftDay(clientDob);
+    if (!week || !day) return null;
+    return {
+      day,
+      text: `Social Security pays this client on the ${ssWeekLabel(week)} — the ${ordinalDay(day)} this month.`,
+    };
+  }, [paymentMethod, clientDob]);
   const selectedCarrierId = watch("carrier_id");
   const carrierMissing = selectedCarrierId && activeCarrierIds && !activeCarrierIds.includes(selectedCarrierId);
   const selectedCarrier = carriers?.find((c) => c.id === selectedCarrierId);
@@ -171,6 +204,12 @@ function PostDealPage() {
             percentage: Number(b.percentage || 0),
           })),
           notes: d.notes,
+          // Omitted entirely when the agent left both blank, so posting a deal
+          // before billing is arranged writes no client_banking row at all.
+          billing: {
+            payment_method: d.payment_method ? (d.payment_method as any) : undefined,
+            draft_date: d.draft_date ? Number(d.draft_date) : undefined,
+          },
         },
       }),
     onSuccess: () => {
@@ -299,6 +338,50 @@ function PostDealPage() {
             <div><Label>Effective Date *</Label><Input type="date" {...register("effective_date", { required: true })} /></div>
             <div><Label>Face Amount *</Label><Input type="number" {...register("face_amount", { required: true })} placeholder="e.g., 50000" /></div>
             <div><Label>Monthly Premium *</Label><Input type="number" step="0.01" {...register("monthly_premium", { required: true })} placeholder="e.g., 99.99" /></div>
+
+            {/* How the premium is paid. Both optional — a policy is often
+                posted before billing is arranged. Method and day only; the
+                platform has no reason to hold an account number. */}
+            <div>
+              <Label>Payment method</Label>
+              <Select value={watch("payment_method")} onValueChange={(v) => setValue("payment_method", v)}>
+                <SelectTrigger><SelectValue placeholder="Not set yet" /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Draft day</Label>
+              <Select value={watch("draft_date")} onValueChange={(v) => setValue("draft_date", v)}>
+                <SelectTrigger><SelectValue placeholder="Not set yet" /></SelectTrigger>
+                <SelectContent>
+                  {/* Capped at 28 so the day exists in February too — a draft
+                      that skips a month is a lapse waiting to happen. */}
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                    <SelectItem key={d} value={String(d)}>{ordinalDay(d)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {ssHint && (
+              <div className="col-span-2 -mt-1">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {ssHint.text}{" "}
+                  {ssHint.day !== Number(watch("draft_date")) && (
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => setValue("draft_date", String(ssHint.day))}
+                    >
+                      Use the {ordinalDay(ssHint.day)}
+                    </button>
+                  )}
+                </p>
+              </div>
+            )}
             <div className="col-span-2">
               <Label>Policy Status *</Label>
               <Select value={watch("status")} onValueChange={(v) => setValue("status", v as any)}>

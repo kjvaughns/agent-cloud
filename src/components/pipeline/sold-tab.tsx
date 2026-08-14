@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { draftSummary } from "@/lib/deals/social-security";
 import { CheckCircle2, Phone, Mail, MessageSquare, Search, Cake, Heart, AlertCircle, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -202,6 +203,7 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
   const initials = `${client.first_name?.[0] ?? ""}${client.last_name?.[0] ?? ""}`.toUpperCase();
   const totalFace = policies.reduce((s, p) => s + Number(p.face_amount ?? 0), 0);
   const totalMonthly = policies.reduce((s, p) => s + Number(p.monthly_premium ?? 0), 0);
+  const draftLine = draftSummary(client.banking?.payment_method, client.banking?.draft_date);
 
   return (
     <div className="bg-card border rounded-xl overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
@@ -250,6 +252,14 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
         ))}
         {policies.length > 3 && <div className="text-[10px] text-muted-foreground text-center">+ {policies.length - 3} more</div>}
       </button>
+
+      {/* When the premium is pulled. Rendered only when it is known — a card
+          that says nothing is honest; one that implies the 1st is not. */}
+      {draftLine && (
+        <div className="border-t px-3 py-1.5 text-[10px] text-muted-foreground">
+          <span className="font-medium text-foreground">Draft:</span> {draftLine}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="border-t bg-emerald-50/50 dark:bg-emerald-950/10 px-3 py-2 flex items-center justify-between text-[11px]">
