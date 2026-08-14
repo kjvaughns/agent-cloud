@@ -72,8 +72,12 @@ for (const key of ["banking", "identification"]) {
 check("get-ready distinguishes self from somebody else", /viewingSelf/.test(UI), true);
 check("get-ready branches on the actor", /step\.actor === "owner"/.test(UI), true);
 check("agent-only steps offer a reminder, not a destination", /Remind agent/.test(UI), true);
+// The destination moved to /team/agent/$agentId when the two owner-facing
+// agent pages became one. What this guards is unchanged: the link must carry
+// the agent id, because the bug it was written for was a CTA that computed an
+// id and then dropped it, sending the owner to their own profile.
 check("owner steps route with the agent id",
-  /to="\/agency\/agents\/\$agentId"[\s\S]{0,120}params=\{\{ agentId \}\}/.test(UI), true);
+  /to="\/team\/agent\/\$agentId"[\s\S]{0,120}params=\{\{ agentId \}\}/.test(UI), true);
 
 // No bare self-scoped link left in the component.
 const bareSelfLink = /<Link\s+to=\{(?:next|s)\.href\}/.test(UI);
