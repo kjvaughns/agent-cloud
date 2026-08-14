@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
+import { notifyPeople } from "@/lib/notify.server";
 import { recordAudit, diff, recordDocumentAccess } from "@/lib/contracting-ops/audit";
 import {
   evaluateReadiness,
@@ -717,8 +718,9 @@ export const reviewPdbReport = createServerFn({ method: "POST" })
     });
 
     if (data.status === "rejected") {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: data.agent_id,
+      await notifyPeople(supabaseAdmin, {
+        userIds: [data.agent_id],
+        category: "contract_updates",
         title: "Your PDB report needs replacing",
         description: data.rejection_reason ?? "Please upload a current PDB report.",
         type: "contracting",
@@ -866,8 +868,9 @@ export const reviewDocument = createServerFn({ method: "POST" })
     });
 
     if (data.review_status === "rejected") {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: before.agent_id,
+      await notifyPeople(supabaseAdmin, {
+        userIds: [before.agent_id],
+        category: "contract_updates",
         title: "A document needs replacing",
         description: data.rejection_reason ?? "Please upload a replacement.",
         type: "contracting",

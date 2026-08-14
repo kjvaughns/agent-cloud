@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
+import { notifyPeople } from "@/lib/notify.server";
 import { recordAudit } from "@/lib/contracting-ops/audit";
 import {
   HIERARCHY_CHANGE_LABELS,
@@ -288,14 +289,15 @@ export const createHierarchyChange = createServerFn({ method: "POST" })
 
     // Tell whoever the request is now sitting with.
     const notify = requireManager ? profile?.upline_id : requireOwner ? org?.owner_id : null;
-    if (notify && notify !== userId) {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: notify,
-        title: "Hierarchy change needs your review",
-        description: `${HIERARCHY_CHANGE_LABELS[data.change_type as HierarchyChangeType] ?? data.change_type} — ${created.reference}`,
-        type: "contracting",
-      });
-    }
+    await notifyPeople(supabaseAdmin, {
+      userIds: [notify],
+      category: "contract_updates",
+      title: "Hierarchy change needs your review",
+      description: `${HIERARCHY_CHANGE_LABELS[data.change_type as HierarchyChangeType] ?? data.change_type} — ${created.reference}`,
+      type: "contracting",
+      // Nobody is told to review something they raised themselves.
+      exceptUserId: userId,
+    });
 
     return { ok: true, id: created.id as string, reference: created.reference as string };
   });
@@ -433,8 +435,9 @@ export const decideHierarchyChange = createServerFn({ method: "POST" })
       }
     }
 
-    await supabaseAdmin.from("notifications").insert({
-      user_id: request.agent_id,
+    await notifyPeople(supabaseAdmin, {
+      userIds: [request.agent_id],
+      category: "contract_updates",
       title: data.decision === "declined" ? "Your hierarchy change was declined" : "Your hierarchy change moved forward",
       description: data.comment ?? `${request.reference}`,
       type: "contracting",
@@ -735,14 +738,14 @@ export const bulkAssignRequests = createServerFn({ method: "POST" })
       metadata: { count: data.ids.length, bulk: true },
     });
 
-    if (data.assigned_to && data.assigned_to !== userId) {
-      await supabaseAdmin.from("notifications").insert({
-        user_id: data.assigned_to,
-        title: `${data.ids.length} contracting request${data.ids.length === 1 ? "" : "s"} assigned to you`,
-        description: "They are waiting in your contracting queue.",
-        type: "contracting",
-      });
-    }
+    await notifyPeople(supabaseAdmin, {
+      userIds: [data.assigned_to],
+      category: "contract_updates",
+      title: `${data.ids.length} contracting request${data.ids.length === 1 ? "" : "s"} assigned to you`,
+      description: "They are waiting in your contracting queue.",
+      type: "contracting",
+      exceptUserId: userId,
+    });
     return { ok: true, count: data.ids.length };
   });
 

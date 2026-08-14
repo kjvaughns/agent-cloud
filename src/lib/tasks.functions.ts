@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { notifyPeople } from "@/lib/notify.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
@@ -199,8 +200,10 @@ export const createTask = createServerFn({ method: "POST" })
 
     // Tell the assignee, unless they assigned it to themselves.
     if (assignee !== userId) {
-      await supabase.from("notifications").insert({
-        user_id: assignee,
+      await notifyPeople(supabase, {
+        userIds: [assignee],
+        // Its own switch on the screen: "Tasks assigned to me".
+        category: "task_assigned",
         title: "New task assigned",
         description: data.title,
         type: "task",

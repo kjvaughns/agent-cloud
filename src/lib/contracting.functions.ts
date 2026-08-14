@@ -5,6 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds, resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 import { loadWritingNumbers, recordWritingNumber, writingNumberKey } from "@/lib/writing-numbers";
+import { notifyPeople } from "@/lib/notify.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { assignInviteCarriers } from "@/lib/onboarding.functions";
@@ -311,21 +312,20 @@ export const createContractRequest = createServerFn({ method: "POST" })
       const who = `${me?.first_name ?? ""} ${me?.last_name ?? ""}`.trim() || "An agent";
       const recipients = [...new Set([org?.owner_id, me?.upline_id].filter(Boolean))] as string[];
 
-      if (recipients.length) {
-        // Best effort. A notification that fails must not lose the request
-        // that has already been written.
-        const { error: notifyError } = await supabaseAdmin.from("notifications").insert(
-          recipients.map((id) => ({
-            user_id: id,
-            title: "New carrier request",
-            description: `${who} requested contracting with ${carrier.name}.`,
-            type: "contracting",
-          })),
-        );
-        if (notifyError) {
-          console.error("[contracting] request saved but notification failed:", notifyError.message);
-        }
-      }
+      // Best effort, and per person: `notifyPeople` asks may_notify first and
+      // logs its own failures, because a notification that fails must not lose
+      // the request that has already been written. Somebody who turned
+      // Contracting updates off is skipped rather than written to anyway,
+      // which is what that switch has always claimed to do.
+      await notifyPeople(supabaseAdmin, {
+        userIds: recipients,
+        category: "contract_updates",
+        title: "New carrier request",
+        description: `${who} requested contracting with ${carrier.name}.`,
+        type: "contracting",
+        // The requester does not need telling they made a request.
+        exceptUserId: userId,
+      });
     }
 
     return { ok: true };
@@ -1147,13 +1147,13 @@ export const submitTransferSheet = createServerFn({ method: "POST" })
       // `notifications`, so PostgREST rejected the row with PGRST204 and the
       // discarded result meant nothing surfaced. The upline was never told a
       // release request was waiting.
-      await supabase.from("notifications").insert({
-        user_id: profile.upline_id,
+      await notifyPeople(supabase, {
+        userIds: [profile.upline_id],
+        category: "contract_updates",
         title:   `Transfer Request from ${agentName}`,
         description: `${agentName} has submitted a carrier release request for ${data.rows.length} carrier${data.rows.length !== 1 ? "s" : ""}. Review in Transfer Requests.`,
         type:    "contracting",
-        read:    false,
-      }).catch(() => {});
+      });
     }
 
     return { ok: true, submitted: data.rows.length };
