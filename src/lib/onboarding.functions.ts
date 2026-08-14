@@ -1175,6 +1175,11 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // Who the invited agent reports to. Omitted means the creator, which is
     // what every link meant before this existed.
     upline_id: z.string().uuid().nullable().optional(),
+    // An agency-branded link: the page says the agency's name rather than the
+    // creator's, and the person joining chooses their own upline from the
+    // agency's agents. Any upline picked here is ignored for such a link.
+    is_agency_link: z.boolean().optional().default(false),
+
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
