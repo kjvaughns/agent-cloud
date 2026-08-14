@@ -7,7 +7,10 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import DOMPurify from "isomorphic-dompurify";
 import { format } from "date-fns";
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone, Plus, Mail, Users, Building2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link as RouterLink } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +22,9 @@ import { toast } from "sonner";
 import {
   listAnnouncements, canPostAnnouncements, createAnnouncement,
 } from "@/lib/announcements.functions";
+import {
+  AUDIENCE_LABELS, CHANNEL_LABELS, type Audience, type Channel,
+} from "@/lib/announcements/audience";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/announcements")({
@@ -45,7 +51,9 @@ function AnnouncementsPage() {
         <HeroBand
           title={<span className="flex items-center gap-2"><Megaphone className="h-6 w-6" /> Announcements</span>}
           subtitle="Updates from your agency"
-          actions={perm?.canPost ? <NewAnnouncementDialog /> : undefined}
+          actions={perm?.canPost
+            ? <NewAnnouncementDialog hasSubAgencies={Boolean(perm?.hasSubAgencies)} />
+            : undefined}
         >
           {isLoading ? (
             <div className="space-y-3 mt-2">
@@ -89,6 +97,22 @@ function AnnouncementCard({ a }: { a: any }) {
           {format(new Date(a.created_at), "MMM d, yyyy")}
         </div>
       </div>
+      {/* What actually happened to this post, from the delivery ledger — not
+          what was requested. A channel that failed does not get a badge. */}
+      {(a.audience === "agency_and_subs" || (a.channels ?? []).length > 1) && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {a.audience === "agency_and_subs" && (
+            <Badge variant="secondary" className="gap-1">
+              <Building2 className="h-3 w-3" /> Agency and sub-agencies
+            </Badge>
+          )}
+          {(a.channels ?? [])
+            .filter((c: string) => c !== "in_app")
+            .map((c: string) => (
+              <Badge key={c} variant="outline">{CHANNEL_LABELS[c as Channel] ?? c}</Badge>
+            ))}
+        </div>
+      )}
       <div
         className={isLong && !expanded ? "prose prose-sm dark:prose-invert max-w-none line-clamp-3" : "prose prose-sm dark:prose-invert max-w-none"}
         dangerouslySetInnerHTML={{ __html: clean }}
@@ -102,9 +126,12 @@ function AnnouncementCard({ a }: { a: any }) {
   );
 }
 
-function NewAnnouncementDialog() {
+function NewAnnouncementDialog({ hasSubAgencies }: { hasSubAgencies: boolean }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
+  const [audience, setAudience] = useState<Audience>("agency");
+  // In the app is the feed itself, so it is not a choice. The other two are.
+  const [channels, setChannels] = useState<Channel[]>(["in_app"]);
   const create = useServerFn(createAnnouncement);
   const qc = useQueryClient();
 
@@ -120,12 +147,19 @@ function NewAnnouncementDialog() {
 
   const mut = useMutation({
     mutationFn: () =>
-      create({ data: { title: title.trim(), bodyHtml: editor?.getHTML() ?? "" } }),
+      create({ data: {
+        title: title.trim(),
+        bodyHtml: editor?.getHTML() ?? "",
+        audience,
+        channels,
+      } }),
     onSuccess: () => {
       toast.success("Announcement published");
       qc.invalidateQueries({ queryKey: ["announcements"] });
       setOpen(false);
       setTitle("");
+      setAudience("agency");
+      setChannels(["in_app"]);
       editor?.commands.clearContent();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -158,6 +192,64 @@ function NewAnnouncementDialog() {
               }}>Link</Button>
             </div>
             <EditorContent editor={editor} />
+          </div>
+
+          {/* Who it reaches. The second option only exists for an agency that
+              actually has children — an audience picker offering a choice you
+              cannot make is a question with one answer. */}
+          {hasSubAgencies && (
+            <div>
+              <Label className="mb-2 block">Who sees this</Label>
+              <div className="space-y-1.5">
+                {(["agency", "agency_and_subs"] as Audience[]).map((a) => (
+                  <label key={a} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="announcement-audience"
+                      checked={audience === a}
+                      onChange={() => setAudience(a)}
+                      className="accent-primary"
+                    />
+                    {AUDIENCE_LABELS[a]}
+                  </label>
+                ))}
+              </div>
+              {audience === "agency_and_subs" && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Paused and terminated sub-agencies are skipped.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* How it goes out. In the app is the announcement itself, so it is
+              shown on and cannot be turned off. */}
+          <div>
+            <Label className="mb-2 block">How it goes out</Label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Checkbox checked disabled />
+                <Users className="h-3.5 w-3.5" /> {CHANNEL_LABELS.in_app} — always
+              </label>
+              {(["email", "discord"] as Channel[]).map((c) => (
+                <label key={c} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={channels.includes(c)}
+                    onCheckedChange={(v) =>
+                      setChannels((prev) => (v ? [...prev, c] : prev.filter((x) => x !== c)))}
+                  />
+                  {c === "email" ? <Mail className="h-3.5 w-3.5" /> : <Megaphone className="h-3.5 w-3.5" />}
+                  {CHANNEL_LABELS[c]}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Email respects each person's notification preferences.{" "}
+              <RouterLink to="/settings/agency" search={{ tab: "integrations" } as any} className="text-primary hover:underline">
+                Set up Discord
+              </RouterLink>
+              {" "}if you have not yet.
+            </p>
           </div>
         </div>
         <DialogFooter>
