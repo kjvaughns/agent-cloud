@@ -615,7 +615,10 @@ async function loadInviteForUser(supabase: any, token: string, userId: string) {
 
 export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ token: z.string().min(8).max(100) }).parse(d))
+  .inputValidator((d) => z.object({
+    token: z.string().min(8).max(100),
+    upline_id: z.string().uuid().optional().nullable(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const inv = await loadInviteForUser(supabase, data.token, userId);
@@ -627,9 +630,9 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
     );
 
-    // The link's chosen upline, falling back to whoever made it — links that
-    // predate the picker carry null and still mean their creator.
-    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+    // On an agency link, the upline they picked; otherwise the link's own.
+    const inviteUplineId: string = await resolveJoinUpline(inv, data.upline_id ?? null);
+
 
     // Set upline if not already set. Deliberately guarded: accepting a second
     // link must not move somebody out from under the upline they already have.
