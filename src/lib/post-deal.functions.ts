@@ -44,24 +44,34 @@ export const listCarriersForDeal = createServerFn({ method: "GET" })
     const orgId = await getMyPrimaryOrgId(context.userId);
     if (!orgId) return [];
 
+    // select("*") for the agency row: the post-deal controls arrive with
+    // 20260814210000 and PostgREST rejects the whole select when it names a
+    // column that does not exist yet.
     const { data, error } = await context.supabase
       .from("org_carriers")
-      .select("carrier_id, product_types, status, carriers ( id, name, active )")
+      .select("*, carriers ( id, name, active )")
       .eq("organization_id", orgId)
       .eq("status", "active");
     if (error) throw new Error(error.message);
 
-    return (data ?? [])
-      // A carrier retired from the shared catalog stays out even if the agency
-      // row is still active — the catalog is the authority on whether a carrier
-      // is writing business at all.
-      .filter((r: any) => r.carriers?.active !== false)
-      .map((r: any) => ({
-        id: r.carrier_id as string,
-        name: (r.carriers?.name ?? "Carrier") as string,
-        product_types: (r.product_types ?? []) as string[],
-      }))
-      .sort((a: any, b: any) => a.name.localeCompare(b.name));
+    return (
+      (data ?? [])
+        // A carrier retired from the shared catalog stays out even if the agency
+        // row is still active — the catalog is the authority on whether a carrier
+        // is writing business at all.
+        .filter((r: any) => r.carriers?.active !== false)
+        // Only carriers the agency has actually opened for selling. Before the
+        // migration these columns are absent and every active carrier shows,
+        // which is today's behaviour; after it, an owner who has not finished
+        // setting a carrier up cannot have an agent write on it by accident.
+        .filter((r: any) => r.enabled !== false && r.available_for_post_deal !== false)
+        .map((r: any) => ({
+          id: r.carrier_id as string,
+          name: (r.carriers?.name ?? "Carrier") as string,
+          product_types: (r.product_types ?? []) as string[],
+        }))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+    );
   });
 
 export const getMyActiveCarrierIds = createServerFn({ method: "GET" })
@@ -110,12 +120,14 @@ const PostDealSchema = z.object({
    * would make this table worth stealing, and the platform does not need one
    * to run: it neither drafts the premium nor submits the application.
    */
-  billing: z.object({
-    payment_method: z.enum(PAYMENT_METHODS).optional(),
-    // 1–28, matching the column's CHECK: a 30th does not exist in February,
-    // and a draft day that skips a month is a lapse waiting to happen.
-    draft_date: z.number().int().min(1).max(28).optional(),
-  }).optional(),
+  billing: z
+    .object({
+      payment_method: z.enum(PAYMENT_METHODS).optional(),
+      // 1–28, matching the column's CHECK: a 30th does not exist in February,
+      // and a draft day that skips a month is a lapse waiting to happen.
+      draft_date: z.number().int().min(1).max(28).optional(),
+    })
+    .optional(),
 });
 
 export const postDeal = createServerFn({ method: "POST" })
@@ -200,7 +212,11 @@ export const postDeal = createServerFn({ method: "POST" })
       if (bankErr) console.error("[post-deal] client_banking:", bankErr.message);
     }
 
-    // Fire-and-forget commission calculation (never block deal response)
+    // The commission calculation must not fail the deal — the policy is
+    // already written — but its OUTCOME is the agent's business. Silently
+    // swallowing it is how somebody posts a deal, earns nothing, and has no
+    // way to find out why.
+    let compensation: { ok: boolean; messages: string[] } = { ok: true, messages: [] };
     try {
       const clientName = `${data.client.first_name} ${data.client.last_name}`.trim();
       await calculateAndInsertAllCommissions(supabase, {
@@ -212,8 +228,23 @@ export const postDeal = createServerFn({ method: "POST" })
         effectiveDate: data.policy.effective_date,
         clientName,
       });
+      // The calculator records why it could not pay rather than throwing, so
+      // read that back rather than inferring from the absence of an exception.
+      // Cast: generated DB types predate 20260814210000. Same pattern the
+      // other modules use until they are regenerated.
+      const { data: issue } = await (supabase as any)
+        .from("commission_setup_issues")
+        .select("messages")
+        .eq("policy_id", policy.id)
+        .is("resolved_at", null)
+        .maybeSingle();
+      if (issue?.messages?.length) compensation = { ok: false, messages: issue.messages };
     } catch (e: any) {
       console.error("[commission-calculator] failed for policy", policy.id, e?.message);
+      compensation = {
+        ok: false,
+        messages: ["The commission could not be worked out. Your agency has been notified."],
+      };
     }
 
     // Beneficiaries
@@ -232,10 +263,7 @@ export const postDeal = createServerFn({ method: "POST" })
 
     // Notes -> client.notes (append)
     if (data.notes && data.notes.trim()) {
-      await supabase
-        .from("clients")
-        .update({ notes: data.notes })
-        .eq("id", clientId);
+      await supabase.from("clients").update({ notes: data.notes }).eq("id", clientId);
     }
 
     // Announce in the agency's Discord, if they've connected one. Never
@@ -244,7 +272,7 @@ export const postDeal = createServerFn({ method: "POST" })
     // records them for the owner to see.
     void announceDeal(policy.id);
 
-    return { policyId: policy.id, clientId };
+    return { policyId: policy.id, clientId, compensation };
   });
 
 // ── Prefill from the pipeline ───────────────────────────────────────────────
@@ -266,31 +294,34 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context as { supabase: any; userId: string };
 
-    const [{ data: client }, { data: policies }, { data: bens }, { data: banking }] = await Promise.all([
-      supabase
-        .from("clients")
-        .select("id, first_name, last_name, phone, date_of_birth")
-        .eq("id", data.client_id)
-        .maybeSingle(),
-      // Most recent policy entered on the client record — that is the one the
-      // agent is posting.
-      supabase
-        .from("policies")
-        .select("carrier_id, product, policy_number, effective_date, face_amount, monthly_premium, status")
-        .eq("client_id", data.client_id)
-        .order("posted_at", { ascending: false })
-        .limit(1),
-      supabase
-        .from("beneficiaries")
-        .select("first_name, last_name, relationship, dob, percentage")
-        .eq("client_id", data.client_id),
-      // Billing already on file, so re-posting a client does not ask again.
-      supabase
-        .from("client_banking")
-        .select("payment_method, draft_date")
-        .eq("client_id", data.client_id)
-        .maybeSingle(),
-    ]);
+    const [{ data: client }, { data: policies }, { data: bens }, { data: banking }] =
+      await Promise.all([
+        supabase
+          .from("clients")
+          .select("id, first_name, last_name, phone, date_of_birth")
+          .eq("id", data.client_id)
+          .maybeSingle(),
+        // Most recent policy entered on the client record — that is the one the
+        // agent is posting.
+        supabase
+          .from("policies")
+          .select(
+            "carrier_id, product, policy_number, effective_date, face_amount, monthly_premium, status",
+          )
+          .eq("client_id", data.client_id)
+          .order("posted_at", { ascending: false })
+          .limit(1),
+        supabase
+          .from("beneficiaries")
+          .select("first_name, last_name, relationship, dob, percentage")
+          .eq("client_id", data.client_id),
+        // Billing already on file, so re-posting a client does not ask again.
+        supabase
+          .from("client_banking")
+          .select("payment_method, draft_date")
+          .eq("client_id", data.client_id)
+          .maybeSingle(),
+      ]);
 
     if (!client) throw new Error("Client not found");
 
@@ -315,7 +346,8 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
             // Only the two statuses Post a Deal offers; anything else is a
             // policy already past submission and should not preselect.
             status: (policy.status === "in_review" ? "in_review" : "issued_not_paid") as
-              "issued_not_paid" | "in_review",
+              | "issued_not_paid"
+              | "in_review",
           }
         : null,
       beneficiaries: (bens ?? []).map((b: any) => ({

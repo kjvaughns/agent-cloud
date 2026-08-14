@@ -132,8 +132,10 @@ for (const m of PAYMENT_METHODS) {
 }
 
 const FNS = read("src/lib/post-deal.functions.ts");
+// Whitespace-tolerant: prettier wraps `z.object({` onto its own line once the
+// file is formatted, and what this guards is the schema, not the layout.
 check("the deal schema takes an optional billing block",
-  /billing: z\.object\(\{/.test(FNS) && /payment_method: z\.enum\(PAYMENT_METHODS\)\.optional\(\)/.test(FNS), true);
+  /billing: z\s*\.object\(\{/.test(FNS) && /payment_method: z\.enum\(PAYMENT_METHODS\)\.optional\(\)/.test(FNS), true);
 check("the draft day is capped at 28 on the way in",
   /draft_date: z\.number\(\)\.int\(\)\.min\(1\)\.max\(28\)\.optional\(\)/.test(FNS), true);
 // A row of nulls is indistinguishable from "we asked and they said none".
