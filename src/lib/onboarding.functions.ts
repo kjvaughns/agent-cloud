@@ -1294,7 +1294,8 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
       onboarding_step: 0,
       invited_role:    data.invited_role,
       agency_level_id: agencyLevelId,
-      upline_id:       uplineId,
+      upline_id:       data.is_agency_link ? null : uplineId,
+      is_agency_link:  data.is_agency_link,
       organization_id: inviterProfile?.organization_id ?? null,
     }).select("id,token").single();
 
