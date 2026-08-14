@@ -366,6 +366,60 @@ export type Database = {
           },
         ]
       }
+      agency_relationships: {
+        Row: {
+          allow_sales_feed: boolean
+          child_org_id: string
+          created_at: string
+          effective_date: string
+          id: string
+          include_production: boolean
+          parent_org_id: string
+          status: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          allow_sales_feed?: boolean
+          child_org_id: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          include_production?: boolean
+          parent_org_id: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          allow_sales_feed?: boolean
+          child_org_id?: string
+          created_at?: string
+          effective_date?: string
+          id?: string
+          include_production?: boolean
+          parent_org_id?: string
+          status?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_relationships_child_org_id_fkey"
+            columns: ["child_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_relationships_parent_org_id_fkey"
+            columns: ["parent_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_commission_levels: {
         Row: {
           agent_id: string
