@@ -530,7 +530,7 @@ function LinksTable({ rows }: { rows: any[] }) {
           return (
             <TableRow key={r.id}>
               <TableCell className="font-medium">{name}</TableCell>
-              <TableCell className="text-xs text-muted-foreground">{uplineName ?? "You"}</TableCell>
+              <TableCell className="text-xs text-muted-foreground">{r.is_agency_link ? "Chosen by agent" : uplineName ?? "You"}</TableCell>
               <TableCell>
                 {carriers.length === 0 ? (
                   <span className="text-xs text-muted-foreground">None</span>
