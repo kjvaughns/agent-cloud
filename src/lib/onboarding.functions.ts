@@ -472,6 +472,9 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       agentId: newUserId,
       organizationId: inv.organization_id ?? null,
       createdBy: inv.created_by,
+      // The carrier requests route to the upline the agent actually reports
+      // to, not to whoever pressed the button on the link.
+      directUplineId: inviteUplineId,
       assignments,
     });
     if (inv.organization_id) {
@@ -479,7 +482,7 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
         client: supabaseAdmin,
         organizationId: inv.organization_id,
         agentId: newUserId,
-        uplineId: inv.created_by ?? null,
+        uplineId: inviteUplineId ?? null,
         count: createdRequests.length,
       });
     }
