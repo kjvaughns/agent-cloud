@@ -112,11 +112,11 @@ export const PAGES: Page[] = [
   { id: "challenges", label: "Challenges", path: "/challenges", icon: Target, area: "Home", unlock: "agency-member" },
 
   // Clients — everyone you are working, sold, or about to lose.
-  { unlock: "activated", id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Clients", staffPermission: "staff_view_clients" },
-  { unlock: "activated", id: "pipeline", label: "Pipeline", path: "/pipeline", icon: KanbanSquare, area: "Clients", parent: "clients", staffPermission: "staff_view_clients" },
-  { unlock: "activated", id: "calendar", label: "Calendar", path: "/calendar", icon: Calendar, area: "Clients", parent: "clients" },
-  { unlock: "activated", id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
-  { unlock: "activated", id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
+  { id: "clients", label: "Clients", path: "/clients", icon: Contact, area: "Clients", staffPermission: "staff_view_clients" },
+  { id: "pipeline", label: "Pipeline", path: "/pipeline", icon: KanbanSquare, area: "Clients", parent: "clients", staffPermission: "staff_view_clients" },
+  { id: "calendar", label: "Calendar", path: "/calendar", icon: Calendar, area: "Clients", parent: "clients" },
+  { id: "book", label: "Book of Business", path: "/book-of-business", icon: BookOpen, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
+  { id: "retention", label: "Retention", path: "/retention", icon: Heart, area: "Clients", parent: "clients", staffPermission: "staff_view_policies" },
 
   // Contracting — becoming and staying appointed, and what it pays.
   // Post a Deal is deliberately NOT gated on being activated: posting the
@@ -135,11 +135,11 @@ export const PAGES: Page[] = [
   { id: "post-deal", label: "Post a Deal", path: "/post-deal", icon: FilePlus, area: "Contracting", staffPermission: "staff_post_policies" },
 
   // Money is its own answer to its own question, not a footnote to a contract.
-  { unlock: "activated", id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Finances", staffPermission: "staff_view_commissions" },
+  { id: "finances", label: "Finances", path: "/finances", icon: Wallet, area: "Finances", staffPermission: "staff_view_commissions" },
 
   // Reports — one page. How wide it looks is the scope toggle's job, not a
   // permission's, which is why the old manager gate is gone.
-  { unlock: "activated", id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reports", staffPermission: "staff_view_analytics" },
+  { id: "reports", label: "Reports", path: "/reports", icon: BarChart3, area: "Reports", staffPermission: "staff_view_analytics" },
 
   // Tools — the utility drawer.
   //
@@ -173,7 +173,7 @@ export const PAGES: Page[] = [
   // their agency had not authorised them to spend money. Nova Pro's actual
   // features are gated server-side by requireNovaPro, which is the only place
   // a subscription should decide anything.
-  { unlock: "activated", id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova" },
+  { id: "nova", label: "Nova", path: "/ai-assistant", icon: Sparkles, area: "Nova" },
 
   // ── Agency ───────────────────────────────────────────────────────────────
   //
