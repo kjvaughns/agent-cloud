@@ -91,6 +91,7 @@ export async function loadResolutionInputs(
           advance_option: isAdvanceOption((contractRes.data as any).advance_option)
             ? (contractRes.data as any).advance_option
             : null,
+          commission_level: (contractRes.data as any).commission_level ?? null,
           status: (contractRes.data as any).status ?? "active",
         }
       : null,
