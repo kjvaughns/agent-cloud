@@ -628,7 +628,14 @@ function EoCard({ doc, onSaved }: { doc: any; onSaved: () => void }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <DocUploadButton docType="eo_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ carrier_name: carrier || null, policy_number: policyNum || null, coverage_amount: coverage || null, start_date: startDate || null, expiration_date: expDate || null }} onSaved={onSaved} label="Upload Certificate (PDF)" />
+          <DocUploadButton docType="eo_certificate" userId={user?.id ?? ""} currentDoc={doc} extraData={{ carrier_name: carrier || null, policy_number: policyNum || null, coverage_amount: coverage || null, start_date: startDate || null, expiration_date: expDate || null }} onSaved={onSaved} label="Upload Certificate (PDF)"
+            onExtracted={(f) => {
+              if (f.carrier_name) setCarrier(f.carrier_name);
+              if (f.policy_number) setPolicyNum(f.policy_number);
+              if (f.coverage_amount) setCoverage(f.coverage_amount);
+              if (f.start_date) setStartDate(f.start_date);
+              if (f.expiration_date) setExpDate(f.expiration_date);
+            }} />
           {doc?.file_name && (
             <button onClick={download} className="text-xs text-primary flex items-center gap-1 hover:underline">
               <FileText className="h-3 w-3" /> {doc.file_name}
