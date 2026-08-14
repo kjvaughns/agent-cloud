@@ -31,16 +31,30 @@ type Webhook = {
   webhook_masked: string;
   enabled: boolean;
   post_deals: boolean;
-  post_milestones: boolean;
   post_new_agents: boolean;
+  post_announcements?: boolean;
   min_annual_premium: number;
   last_error: string | null;
 };
 
+/**
+ * Only switches that do something.
+ *
+ * "Milestones — production milestones and streaks" was offered here since
+ * Discord shipped. Nothing ever sent one, and there is no milestone or streak
+ * concept anywhere in the product for it to describe, so an owner could turn
+ * it on and wait forever. The column stays in the database, unused; the
+ * control is gone, because a switch that can never do anything is worse than
+ * no switch.
+ *
+ * "New agents" was in the same state and now has the sender it implied.
+ * "Announcements" is new: agency announcements have always gone to every
+ * enabled channel with no way to say no short of turning the channel off.
+ */
 const EVENTS = [
   ["post_deals", "Posted deals", "A message each time someone writes business."],
-  ["post_milestones", "Milestones", "Production milestones and streaks."],
   ["post_new_agents", "New agents", "When someone joins the agency."],
+  ["post_announcements", "Announcements", "Agency announcements posted from the Announcements page."],
 ] as const;
 
 export function DiscordSettings() {
@@ -188,7 +202,13 @@ export function DiscordSettings() {
                 </div>
                 <Switch
                   className="mt-0.5 shrink-0"
-                  checked={Boolean(w[key])}
+                  // `!== false`, not `Boolean(...)`. Before 20260814240000 the
+                  // announcements column is absent and reads as undefined —
+                  // and the truth in that window is that announcements DO go
+                  // to every enabled channel, so a switch showing "off" would
+                  // be describing the opposite of what happens. The other two
+                  // columns are real booleans and read identically either way.
+                  checked={w[key] !== false}
                   onCheckedChange={(v) => save.mutate({ id: w.id, [key]: v })}
                 />
               </div>

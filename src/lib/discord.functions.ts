@@ -39,8 +39,11 @@ function maskWebhook(url: string) {
 const money = (n: number) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
-const WEBHOOK_COLUMNS =
-  "id, channel_label, enabled, post_deals, post_milestones, post_new_agents, min_annual_premium, last_success_at, last_error, last_error_at, created_at";
+// `select("*")` rather than a column list: `post_announcements` arrives with
+// 20260814240000 and PostgREST rejects the whole select with 42703 when one
+// name is missing. The webhook URL is stripped in code below, which is where
+// that has always actually happened.
+const WEBHOOK_COLUMNS = "*";
 
 /** Somebody will paste the same channel twice; there is no limit worth arguing about beyond that. */
 const MAX_WEBHOOKS = 10;
@@ -89,8 +92,12 @@ const WebhookSchema = z.object({
   channel_label: z.string().trim().max(80).nullable().optional(),
   enabled: z.boolean().optional(),
   post_deals: z.boolean().optional(),
-  post_milestones: z.boolean().optional(),
   post_new_agents: z.boolean().optional(),
+  post_announcements: z.boolean().optional(),
+  // `post_milestones` is deliberately absent. The column stays, but there is
+  // no milestone or streak concept anywhere in the product for it to gate, so
+  // the control is gone from Settings rather than left as a switch a person
+  // can set that can never do anything.
   min_annual_premium: z.number().min(0).max(1_000_000).optional(),
 });
 
@@ -144,6 +151,12 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
 /** 23505 here can only be the one-webhook-per-channel index. */
 function friendlyError(error: { code?: string; message?: string }): string {
   if (error.code === "23505") return "That channel is already connected.";
+  // 42703 in this window means the announcements column has not been applied
+  // yet. Saying so beats relaying "column ... does not exist", and it tells
+  // the owner the honest state: announcements are still going out.
+  if (error.code === "42703") {
+    return "That setting isn't available yet — announcements are still posted to every connected channel until the next update.";
+  }
   return error.message ?? "Could not save that Discord channel.";
 }
 
@@ -179,6 +192,40 @@ async function postToDiscord(webhookUrl: string, body: unknown) {
     throw Object.assign(new Error(text || `Discord returned ${res.status}`), { status: res.status });
   }
   return res.status;
+}
+
+/**
+ * One line in `discord_deliveries` per channel per attempt.
+ *
+ * `announceDeal` has always written these; the announcement path wrote none,
+ * so the Deliveries list an owner opens to answer "did that go out?" showed
+ * deals and nothing else. Same ledger, same shape, one helper — and never
+ * fatal, because a delivery that succeeded and failed to be logged is still a
+ * delivery.
+ */
+async function recordDelivery(opts: {
+  orgId: string;
+  integrationId: string;
+  eventType: string;
+  status: "sent" | "failed" | "skipped";
+  httpStatus?: number | null;
+  error?: string | null;
+  policyId?: string | null;
+}): Promise<void> {
+  try {
+    await supabaseAdmin.from("discord_deliveries").insert({
+      organization_id: opts.orgId,
+      integration_id: opts.integrationId,
+      event_type: opts.eventType,
+      policy_id: opts.policyId ?? null,
+      status: opts.status,
+      http_status: opts.httpStatus ?? null,
+      error: opts.error ?? null,
+    });
+  } catch (e: any) {
+    // 23505 is the deal path's "already announced in this channel" guard.
+    if (e?.code !== "23505") console.error("[discord] delivery not recorded:", e?.message);
+  }
 }
 
 async function markSuccess(integrationId: string) {
@@ -366,6 +413,100 @@ export async function announceDeal(policyId: string): Promise<void> {
   }
 }
 
+/**
+ * Announce that somebody joined the agency.
+ *
+ * `post_new_agents` has been in Settings since Discord shipped, described as
+ * "When someone joins the agency", stored on every channel — and read by
+ * nothing. An owner could turn it on and wait forever. This is the sender it
+ * has always implied.
+ *
+ * Same contract as `announceDeal`: never throws. Somebody's account being
+ * created must not fail because a webhook is down, and the join has already
+ * happened by the time this runs.
+ *
+ * A name and nothing else. A Discord server often has wide membership, and
+ * the same reasoning that keeps client identity out of the deal post keeps a
+ * new agent's email and phone out of this one.
+ */
+export async function announceNewAgent(profileId: string): Promise<void> {
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, organization_id, first_name, last_name")
+      .eq("id", profileId)
+      .maybeSingle();
+    if (!profile?.organization_id) return;
+
+    const orgId = profile.organization_id as string;
+
+    const { refusedForDemo } = await import("@/lib/demo.server");
+    if (await refusedForDemo(orgId, "send a webhook")) return;
+
+    // The joining agent's own agency only. A new agent is the agency's news;
+    // a parent IMO's channels are not automatically told who a sub-agency
+    // hired, which is what the sales feed's opt-in relationship is for and
+    // this has no equivalent of.
+    const { data: configs } = await supabaseAdmin
+      .from("discord_integrations")
+      .select("*")
+      .eq("organization_id", orgId)
+      .eq("enabled", true)
+      .eq("post_new_agents", true);
+
+    const targets = (configs ?? []) as any[];
+    if (targets.length === 0) return;
+
+    const name = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
+    // No name yet means the profile row exists before onboarding filled it in.
+    // "Someone" is honest; a blank line in a Discord channel is not.
+    const who = name || "Someone new";
+
+    const body = {
+      username: "Agent Cloud",
+      embeds: [
+        {
+          title: "👋 New agent joined",
+          description: clamp(`**${who}** just joined the agency.`),
+          color: GOLD,
+          timestamp: new Date().toISOString(),
+          footer: { text: "Agent Cloud" },
+        },
+      ],
+    };
+
+    await Promise.all(
+      targets.map(async (cfg) => {
+        if (!cfg.webhook_url) return;
+        try {
+          const status = await postToDiscord(cfg.webhook_url, body);
+          await recordDelivery({
+            orgId,
+            integrationId: cfg.id,
+            eventType: "agent_joined",
+            status: "sent",
+            httpStatus: status,
+          });
+          await markSuccess(cfg.id);
+        } catch (e: any) {
+          const msg = String(e?.message ?? e).slice(0, 500);
+          await recordDelivery({
+            orgId,
+            integrationId: cfg.id,
+            eventType: "agent_joined",
+            status: "failed",
+            httpStatus: e?.status ?? null,
+            error: msg,
+          });
+          await markFailure(cfg.id, msg);
+        }
+      }),
+    );
+  } catch (e: any) {
+    console.error("[discord] announceNewAgent:", e?.message);
+  }
+}
+
 /** Owner-triggered test post, so each channel can be verified on its own. */
 export const sendDiscordTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -445,11 +586,22 @@ export async function announceToDiscord(
     const { refusedForDemo } = await import("@/lib/demo.server");
     if (await refusedForDemo(orgId, "send a webhook")) return { sent, failed };
 
-    const { data: hooks } = await supabaseAdmin
+    // Filtered on the channel's own preference, not on `enabled` alone. Before
+    // this, a channel an owner had set up purely for deal alerts received
+    // every agency-wide announcement too, and the only way to stop it was to
+    // turn the whole channel off.
+    //
+    // `!== false` rather than `=== true`, and read with select("*"): the
+    // column arrives with 20260814240000, and until it does every enabled
+    // channel keeps receiving announcements exactly as it does today.
+    const { data: allHooks } = await supabaseAdmin
       .from("discord_integrations")
-      .select("id, webhook_url, channel_label, enabled")
+      .select("*")
       .eq("organization_id", orgId)
       .eq("enabled", true);
+    const hooks = ((allHooks ?? []) as any[]).filter(
+      (h) => h.post_announcements !== false,
+    );
 
     // Discord renders markdown, not HTML. Tags out, entities back, and a cap
     // well under the 2000-character limit the API enforces.
@@ -465,16 +617,32 @@ export async function announceToDiscord(
       .trim()
       .slice(0, 1500);
 
-    for (const hook of hooks ?? []) {
+    for (const hook of hooks) {
       if (!hook.webhook_url) continue;
       try {
-        await postToDiscord(hook.webhook_url, {
-          embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: 0xd4af37 }],
+        const status = await postToDiscord(hook.webhook_url, {
+          embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: GOLD }],
+        });
+        await recordDelivery({
+          orgId,
+          integrationId: hook.id,
+          eventType: "announcement",
+          status: "sent",
+          httpStatus: status,
         });
         await markSuccess(hook.id);
         sent += 1;
       } catch (e: any) {
-        await markFailure(hook.id, e?.message ?? "unknown error");
+        const msg = String(e?.message ?? e).slice(0, 500);
+        await recordDelivery({
+          orgId,
+          integrationId: hook.id,
+          eventType: "announcement",
+          status: "failed",
+          httpStatus: e?.status ?? null,
+          error: msg,
+        });
+        await markFailure(hook.id, msg);
         failed += 1;
       }
     }
