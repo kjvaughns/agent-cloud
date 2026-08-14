@@ -26,6 +26,15 @@ Delete a line once the migration is applied.
 - `20260806130000_nova-usage-and-upsells.sql`
 - `20260806230000_self-activation-gate.sql`
 - `20260814100000_contracting-gateway-consolidation.sql`
+- `20260814120000_comp-grid-order.sql`
+
+`20260814120000` adds `commission_grids.sort_order` and `level_sort` — the
+grid editor's authored row/column order. In the window: `writeGridRows`
+retries without the two columns on `PGRST204`, so grids save (without their
+order) rather than refusing; both readers select `*` and treat the missing
+values as "no authored order", falling back to the old alphabetical /
+by-rate sorting. Nothing breaks; drag-reorder simply does not persist until
+the migration lands.
 
 `20260814100000` backfills `org_carrier_methods` from the three legacy
 `org_carriers` URL columns and promotes one default per carrier. Nothing breaks

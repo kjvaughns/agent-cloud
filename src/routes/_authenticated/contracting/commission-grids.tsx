@@ -227,18 +227,30 @@ function GridDetail({
 
   const hasAgeBands = rows.some((r) => r.age_group_min != null);
 
-  // Build level columns: level_name → max year_1_pct
+  // Build level columns: level_name → max year_1_pct, plus its authored
+  // position where one was saved.
   const levelMap = new Map<string, number>();
+  const levelPos = new Map<string, number>();
   rows.forEach((r) => {
     if (r.level_name) {
       const pct = Number(r.year_1_pct);
       if (!levelMap.has(r.level_name) || pct > levelMap.get(r.level_name)!) {
         levelMap.set(r.level_name, pct);
       }
+      if (r.level_sort != null) {
+        const cur = levelPos.get(r.level_name);
+        if (cur == null || r.level_sort < cur) levelPos.set(r.level_name, r.level_sort);
+      }
     }
   });
+  // Authored column order when the editor saved one; rate magnitude as the
+  // fallback for grids saved before the order columns existed. Legacy rows
+  // have no level_sort, so they sort to the back of an authored grid rather
+  // than scrambling it.
   const levels = Array.from(levelMap.entries())
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) =>
+      (levelPos.get(a[0]) ?? Number.MAX_SAFE_INTEGER) - (levelPos.get(b[0]) ?? Number.MAX_SAFE_INTEGER) ||
+      b[1] - a[1])
     .map(([name, pct]) => ({ name, pct }));
 
   if (levels.length === 0) {
@@ -251,17 +263,23 @@ function GridDetail({
     );
   }
 
-  // Group by age band
+  // Group by age band, presented youngest first. The rows arrive sorted by
+  // rate, so Map insertion order would put whichever band pays most on top —
+  // "Ages 60–80" above "Ages 18–59" reads like a mistake even when every
+  // number in it is right.
   const bands = new Map<string, any[]>();
   rows.forEach((r) => {
     const key = `${r.age_group_min ?? ""}–${r.age_group_max ?? ""}`;
     if (!bands.has(key)) bands.set(key, []);
     bands.get(key)!.push(r);
   });
+  const orderedBands = Array.from(bands.entries()).sort(
+    (a, b) => (a[1][0]?.age_group_min ?? -1) - (b[1][0]?.age_group_min ?? -1),
+  );
 
   return (
     <div className="space-y-6">
-      {Array.from(bands.entries()).map(([range, bandRows]) => (
+      {orderedBands.map(([range, bandRows]) => (
         <div key={range}>
           <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
             Ages {range}
@@ -289,10 +307,20 @@ function AgeBandTable({
   myLevelName: string | null;
   myPct: number | null;
 }) {
-  const products = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.product_name as string))).sort(),
-    [rows],
-  );
+  // Authored row order when the editor saved one — grids are arranged the way
+  // the carrier publishes them, and alphabetical was throwing that away.
+  // Alphabetical stays as the fallback for rows saved before sort_order.
+  const products = useMemo(() => {
+    const pos = new Map<string, number>();
+    for (const r of rows) {
+      if (r.sort_order == null) continue;
+      const cur = pos.get(r.product_name);
+      if (cur == null || r.sort_order < cur) pos.set(r.product_name, r.sort_order);
+    }
+    return Array.from(new Set(rows.map((r) => r.product_name as string))).sort((a, b) =>
+      (pos.get(a) ?? Number.MAX_SAFE_INTEGER) - (pos.get(b) ?? Number.MAX_SAFE_INTEGER) ||
+      a.localeCompare(b));
+  }, [rows]);
 
   const lookup = useMemo(() => {
     const m = new Map<string, any>();

@@ -5,7 +5,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CompGridMatrix, toMatrix, fromMatrix, type MatrixState } from "@/components/contracting/comp-grid-matrix";
+import { CompGridMatrix, toMatrix, fromMatrix, mergeMatrix, type MatrixState } from "@/components/contracting/comp-grid-matrix";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -80,37 +80,68 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
   const grids = (data as any)?.grids ?? [];
   const assignedLevels = (data as any)?.assignedLevels ?? [];
 
-  async function onFile(file: File) {
+  /**
+   * Read one or more files into the grid.
+   *
+   * Several files, one extraction: a paper grid photographed page by page is
+   * the normal phone case, and the model reads columns far better when it
+   * sees every page in one call than when each photo is extracted alone and
+   * the results glued together. All pages pool into a single `images[]`, up
+   * to the extraction cap of 8, and anything past the cap is named rather
+   * than silently dropped.
+   *
+   * And the result MERGES into the editor. `setRows(out.rows)` used to
+   * replace the whole editor state, so uploading a second document — the
+   * other comp level, the annuity addendum — discarded the first before the
+   * server was even involved. That was half of "uploading a different level
+   * changed my current one"; the other half was the save mode, fixed below.
+   */
+  async function onFiles(files: File[]) {
+    if (!files.length) return;
     setReading(true);
     setNotes(null);
     try {
-      // Every page, not just the first. A rate card that runs to three pages
-      // used to be read from page one and then saved with a mode that clears
-      // the carrier — so the products on the pages nobody read disappeared.
-      const doc = await extractDocument(file, { prefer: "image", maxPages: 8 });
-      const notice = truncationNotice(doc);
-      if (notice) toast.warning(notice);
+      const images: string[] = [];
+      const texts: string[] = [];
+      for (const file of files) {
+        const doc = await extractDocument(file, { prefer: "image", maxPages: 8 });
+        const notice = truncationNotice(doc);
+        if (notice) toast.warning(`${file.name}: ${notice}`);
+        if (doc.images?.length) images.push(...doc.images);
+        if (doc.text) texts.push(doc.text);
+      }
+      if (images.length > 8) {
+        toast.warning(`Reading the first 8 pages — ${images.length - 8} more were skipped. Upload the rest in a second batch; they'll merge in.`);
+        images.length = 8;
+      }
+
       const out: any = await extractFn({
         data: {
-          images: doc.images,
-          text: doc.text || null,
-          file_name: file.name,
+          images: images.length ? images : null,
+          text: texts.join("\n\n") || null,
+          file_name: files.map((f) => f.name).join(", ").slice(0, 255),
           carrier_id: carrierId || null,
           carrier_name: carriers.find((c: any) => c.id === carrierId)?.name ?? null,
         },
       });
+
       if (!out.rows?.length) {
         toast.error("Couldn't read any rows from that file");
       } else {
-        setRows(out.rows);
-        setMatrix(toMatrix(out.rows));
+        const { merged, addedProducts, addedLevels, changedCells } = mergeMatrix(matrix, toMatrix(out.rows));
+        setMatrix(merged);
+        setRows(fromMatrix(merged));
         setUploadId(out.upload_id);
         setSource("ai_extracted");
         setNotes(out.notes ?? null);
         const conf = out.confidence == null ? null : Math.round(out.confidence * 100);
+        const parts = [
+          addedLevels.length ? `added level${addedLevels.length === 1 ? "" : "s"} ${addedLevels.join(", ")}` : null,
+          addedProducts ? `${addedProducts} product row${addedProducts === 1 ? "" : "s"}` : null,
+          `${changedCells} rate${changedCells === 1 ? "" : "s"}`,
+        ].filter(Boolean);
         toast.success(
-          `Read ${out.rows.length} row${out.rows.length === 1 ? "" : "s"}` +
-          (conf != null ? ` · ${conf}% confidence` : ""),
+          `Read ${parts.join(" · ")}` + (conf != null ? ` · ${conf}% confidence` : ""),
         );
       }
     } catch (e: any) {
@@ -127,6 +158,13 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
         rows: rows.filter((r) => r.product_name.trim() && r.level_name.trim()),
         source,
         upload_id: uploadId,
+        // Explicit, and now truthful. The default is also `replace`, but that
+        // default is exactly how "upload the other level" wiped the first —
+        // the editor held only the new document, and replace cleared the
+        // carrier. The editor now loads the carrier's existing grid and
+        // merges uploads into it, so the screen IS the whole grid, which is
+        // the one situation replace is for.
+        mode: "replace" as const,
       },
     }),
     onSuccess: (r: any) => {
@@ -158,6 +196,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
       years_6_plus_pct: r.years_6_plus_pct,
       age_group_min: r.age_group_min ?? null,
       age_group_max: r.age_group_max ?? null,
+      is_estimated: Boolean(r.is_estimated),
     }));
     setRows(rows);
     setMatrix(toMatrix(rows));
@@ -165,6 +204,44 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
     setUploadId(null);
     setNotes(g.owned ? null : "This is the shared default. Saving creates your agency's own version of it.");
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
+   * Picking a carrier brings up what that carrier already has.
+   *
+   * The save is `replace` — the screen is the whole grid — so the screen has
+   * to actually hold the whole grid. Before this, picking Ethos gave you an
+   * empty matrix, and saving an upload wiped whatever Ethos rows existed but
+   * were never shown. An upload made before the carrier was picked survives:
+   * it merges on top of the loaded grid rather than being thrown away.
+   */
+  function selectCarrier(id: string) {
+    setCarrierId(id);
+    const existing = grids.find((g: any) => g.carrier_id === id);
+    const base = existing
+      ? toMatrix((existing.rows ?? []).map((r: any) => ({
+          product_name: r.product_name,
+          level_name: r.level_name,
+          year_1_pct: r.year_1_pct ?? 0,
+          years_2_5_pct: r.years_2_5_pct,
+          years_6_plus_pct: r.years_6_plus_pct,
+          age_group_min: r.age_group_min ?? null,
+          age_group_max: r.age_group_max ?? null,
+          is_estimated: Boolean(r.is_estimated),
+        })))
+      : toMatrix([]);
+
+    const unsavedUpload = source === "ai_extracted" && rows.length > 0;
+    const next = unsavedUpload ? mergeMatrix(base, matrix).merged : base;
+    setMatrix(next);
+    setRows(fromMatrix(next));
+    if (!unsavedUpload) {
+      setSource("manual");
+      setUploadId(null);
+      setNotes(existing && !existing.owned
+        ? "This is the shared default. Saving creates your agency's own version of it."
+        : null);
+    }
   }
 
   const addCarrierMut = useMutation({
@@ -205,7 +282,7 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Carrier</label>
                 <Select
                   value={carrierId}
-                  onValueChange={(v) => (v === NEW_CARRIER ? setAddingCarrier(true) : setCarrierId(v))}
+                  onValueChange={(v) => (v === NEW_CARRIER ? setAddingCarrier(true) : selectCarrier(v))}
                 >
                   <SelectTrigger><SelectValue placeholder="Select carrier…" /></SelectTrigger>
                   <SelectContent>
@@ -265,14 +342,19 @@ export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {
                   </span>
                   <input
                     type="file"
+                    // `multiple`: a paper grid photographed page by page is the
+                    // normal phone case, and picking the photos one at a time
+                    // used to mean each replaced the last.
+                    multiple
                     accept="application/pdf,image/*,.csv,.xlsx,.xls"
                     className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.currentTarget.value = ""; }}
+                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) onFiles(fs); e.currentTarget.value = ""; }}
                   />
                 </label>
                 <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                  Nothing is saved until you review it below. Check the numbers — a wrong rate
-                  here skews every forecast.
+                  Photograph every page — you can select several at once, and a later upload
+                  adds to the grid below rather than replacing it. Nothing is saved until you
+                  review it. Check the numbers — a wrong rate here skews every forecast.
                 </p>
               </div>
             </div>
