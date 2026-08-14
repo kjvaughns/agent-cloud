@@ -3,6 +3,16 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
+// One definition of production for every number on this page. The chart used
+// to bucket on a different date field from the tiles above it.
+import {
+  PRODUCTION_DATE_COLUMN,
+  productionDate,
+  premiumOf,
+  sumPremium,
+  tallyByAgent,
+  type ProductionRow,
+} from "@/lib/production/source";
 
 const supabaseAdmin = _admin as any;
 
@@ -174,19 +184,21 @@ export const getDashboardHero = createServerFn({ method: "GET" })
       .from("policies")
       .select("annual_premium, posted_at, status")
       .eq("agent_id", userId)
-      .gte("posted_at", fetchSince.toISOString());
-    const rows: { annual_premium: number; posted_at: string; status: string }[] = (pols ?? []).map((p: any) => ({
-      annual_premium: Number(p.annual_premium ?? 0),
-      posted_at: p.posted_at,
-      status: p.status,
-    }));
+      .gte(PRODUCTION_DATE_COLUMN, fetchSince.toISOString());
+    const rows: ProductionRow[] = (pols ?? []) as ProductionRow[];
 
+    // The upper bound is exclusive here — these are adjacent windows (today
+    // against yesterday, this week against last) and an inclusive end would
+    // count the boundary instant in both.
     const sumWhere = (from: Date, to?: Date) =>
-      rows.reduce((acc, r) => {
-        const t = new Date(r.posted_at).getTime();
-        if (t >= from.getTime() && (!to || t < to.getTime())) return acc + r.annual_premium;
-        return acc;
-      }, 0);
+      sumPremium(
+        rows.filter((r) => {
+          const d = productionDate(r);
+          if (!d) return false;
+          const t = new Date(d).getTime();
+          return t >= from.getTime() && (!to || t < to.getTime());
+        }),
+      );
 
     const todayAlp = sumWhere(startOfToday);
     const yesterdayAlp = sumWhere(yesterday, startOfToday);
@@ -195,16 +207,21 @@ export const getDashboardHero = createServerFn({ method: "GET" })
     const mtdAlp = sumWhere(startOfMonth);
     // Like-for-like MTD comparison: prior month through the same day-of-month.
     const priorMtdAlp = sumWhere(priorMonthStart, priorMonthSameDay);
-    const activeToday = rows.filter((r) => new Date(r.posted_at) >= startOfToday).length;
+    const activeToday = rows.filter((r) => {
+      const d = productionDate(r);
+      return d ? new Date(d) >= startOfToday : false;
+    }).length;
 
     // Daily cumulative MTD trend
     const daysSoFar = now.getDate();
     const dailyTotals = new Array(daysSoFar).fill(0);
     for (const r of rows) {
-      const d = new Date(r.posted_at);
+      const when = productionDate(r);
+      if (!when) continue;
+      const d = new Date(when);
       if (d >= startOfMonth) {
         const idx = d.getDate() - 1;
-        if (idx >= 0 && idx < daysSoFar) dailyTotals[idx] += r.annual_premium;
+        if (idx >= 0 && idx < daysSoFar) dailyTotals[idx] += premiumOf(r);
       }
     }
     let running = 0;
@@ -400,24 +417,22 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
 
     const { data: agents } = await supabase
       .from("policies")
-      .select("agent_id, annual_premium, profiles!inner(first_name, last_name)")
+      .select("agent_id, annual_premium, posted_at, profiles!inner(first_name, last_name)")
       .in("agent_id", teamIds)
-      .gte("posted_at", data.rangeStart)
-      .lte("posted_at", data.rangeEnd);
-    const agentMap = new Map<string, { name: string; premium: number; policies: number }>();
-    for (const row of agents ?? []) {
-      const id = row.agent_id;
-      if (!agentMap.has(id)) agentMap.set(id, {
-        name: `${row.profiles?.first_name ?? ""} ${row.profiles?.last_name ?? ""}`.trim(),
-        premium: 0,
-        policies: 0,
-      });
-      const entry = agentMap.get(id)!;
-      entry.premium += Number(row.annual_premium ?? 0);
-      entry.policies += 1;
+      .gte(PRODUCTION_DATE_COLUMN, data.rangeStart)
+      .lte(PRODUCTION_DATE_COLUMN, data.rangeEnd);
+
+    const names = new Map<string, string>();
+    for (const row of (agents ?? []) as any[]) {
+      if (row.agent_id && !names.has(row.agent_id)) {
+        names.set(
+          row.agent_id,
+          `${row.profiles?.first_name ?? ""} ${row.profiles?.last_name ?? ""}`.trim(),
+        );
+      }
     }
-    const sorted = Array.from(agentMap.entries())
-      .map(([id, v]) => ({ id, ...v }))
+    const sorted = Array.from(tallyByAgent((agents ?? []) as ProductionRow[]).entries())
+      .map(([id, t]) => ({ id, name: names.get(id) ?? "", premium: t.premium, policies: t.policies }))
       .sort((a, b) => b.premium - a.premium);
     return { agents: sorted as LeaderboardAgent[], selfId: userId as string };
   });
@@ -445,11 +460,11 @@ export const getProductionByScope = createServerFn({ method: "POST" })
       const agentIds = ids.length ? ids : [userId];
       const { data: rows } = await supabase
         .from("policies")
-        .select("annual_premium")
+        .select("annual_premium, posted_at")
         .in("agent_id", agentIds)
-        .gte("posted_at", data.rangeStart)
-        .lte("posted_at", data.rangeEnd);
-      return (rows ?? []).reduce((a: number, r: any) => a + Number(r.annual_premium ?? 0), 0);
+        .gte(PRODUCTION_DATE_COLUMN, data.rangeStart)
+        .lte(PRODUCTION_DATE_COLUMN, data.rangeEnd);
+      return sumPremium((rows ?? []) as ProductionRow[]);
     }
 
     const [personal, agency, imo] = await Promise.all([
@@ -489,16 +504,19 @@ export const getProductionSeries = createServerFn({ method: "POST" })
     const { data: downline } = await supabase.rpc("get_downline_agents");
     const ids = [userId, ...(downline ?? []).map((d: any) => d.id)];
 
-    // biz_date is COALESCE(effective_date, posted_at) to match the RPC. That
-    // cannot be filtered server-side through PostgREST, so the window is
-    // widened on posted_at and narrowed here.
-    const pad = new Date(start.getTime() - 400 * 86400000).toISOString();
+    // Windowed on `posted_at`, which is what production means everywhere else
+    // — see `lib/production/source.ts`. This used to bucket on
+    // COALESCE(effective_date, posted_at) and widen the fetch by 400 days to
+    // compensate, with a comment saying it matched the RPC. It had not matched
+    // since the July rewrite, so a deal posted today with next month's
+    // effective date was counted by the tiles above this chart and dropped by
+    // the chart itself.
     const { data: pols } = await supabase
       .from("policies")
-      .select("agent_id, annual_premium, posted_at, effective_date")
+      .select("agent_id, annual_premium, posted_at")
       .in("agent_id", ids.length ? ids : [userId])
-      .gte("posted_at", pad)
-      .lte("posted_at", end.toISOString())
+      .gte(PRODUCTION_DATE_COLUMN, start.toISOString())
+      .lte(PRODUCTION_DATE_COLUMN, end.toISOString())
       .limit(20000);
 
     type Bucket = "hour" | "day" | "week" | "month";
@@ -536,12 +554,11 @@ export const getProductionSeries = createServerFn({ method: "POST" })
     }
 
     for (const p of pols ?? []) {
-      const biz = new Date(p.effective_date ?? p.posted_at);
-      if (biz < start || biz > end) continue;
-      const k = keyOf(biz);
-      const b = buckets.get(k);
+      const when = productionDate(p);
+      if (!when) continue;
+      const b = buckets.get(keyOf(new Date(when)));
       if (!b) continue;
-      const alp = Number(p.annual_premium ?? 0);
+      const alp = premiumOf(p);
       b.team += alp;
       if (p.agent_id === userId) b.personal += alp;
     }

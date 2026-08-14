@@ -7,13 +7,13 @@
  * Two decisions worth stating, because both look like they could have gone the
  * other way:
  *
- * **The formula is the one already in use.** `get_dashboard_metrics` sums
- * `annual_premium` over `posted_at`, with no status filter — every policy
- * counts, whatever became of it. That is what production means everywhere else
- * in this product, so it is what it means here. (A superseded 2026-06-05
- * version of that function used `COALESCE(effective_date, posted_at)`; the
- * live one dropped it. Reintroducing a business date here would invent a
- * second answer to "how much did they write", which is the thing to avoid.)
+ * **The formula is the one already in use.** `annual_premium` over
+ * `posted_at`, with no status filter — every policy counts, whatever became of
+ * it. That definition now lives in `lib/production/source.ts`, which this
+ * module and the dashboard both read, so the roster cannot drift from the
+ * numbers an owner sees on their own front page. (The dashboard's production
+ * chart had drifted: it still bucketed on the `COALESCE(effective_date,
+ * posted_at)` of a superseded 2026-06-05 RPC.)
  *
  * **The team rollup needs no recursive SQL.** The roster already holds the
  * caller's whole downline, each row carrying its `upline_id`. An agent's team
@@ -23,9 +23,12 @@
  * replacing them with the depth-capped, cycle-guarded kind.
  */
 
-export type Tally = { premium: number; policies: number };
+import { inWindow, ZERO_TALLY, type Tally } from "@/lib/production/source";
 
-export const ZERO: Tally = { premium: 0, policies: 0 };
+export type { Tally };
+
+/** Re-exported under the roster's own name, which predates the shared module. */
+export const ZERO: Tally = ZERO_TALLY;
 
 export type RangeKey = "all" | "week" | "month" | "quarter" | "custom";
 
@@ -55,12 +58,16 @@ export function rangeBounds(key: RangeKey, now: number, custom?: { from?: string
   return { start: new Date(now - days * 86_400_000).toISOString(), end: null };
 }
 
-/** Is this policy inside the window? A null bound is open on that side. */
+/**
+ * Is this policy inside the window? A null bound is open on that side.
+ *
+ * Delegates to `production/source`, which now holds the definition this
+ * module's header describes. Kept as a named export because the roster passes
+ * a date rather than a row, and because the name reads better at the call
+ * site than `inWindow({ posted_at })` would.
+ */
 export function inRange(postedAt: string | null | undefined, start: string | null, end: string | null): boolean {
-  if (!postedAt) return false;
-  if (start && postedAt < start) return false;
-  if (end && postedAt > end) return false;
-  return true;
+  return inWindow({ posted_at: postedAt ?? null }, start, end);
 }
 
 /**
