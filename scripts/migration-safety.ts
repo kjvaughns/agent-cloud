@@ -258,6 +258,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/agency-relationships.functions.ts:agency_relationships":
+    "all three sites tolerate the table not existing. listSubAgencies catches 42P01 and returns children: [] with pendingMigration: true, which the Sub-Agencies page renders as a 'waiting on a workspace update' notice; getMyParentAgency treats 42P01 as 'no parent row' and returns parent: null; updateSubAgency can only be reached from rows those two returned, so before the migration there is nothing to update and no path to the error. The sidebar entry is additionally gated on organizations.parent_org_id, which exists regardless",
   "src/lib/contracting.functions.ts:org_contracting_settings.agents_may_self_activate_carriers":
     "the select is a plain maybeSingle() whose result is coerced with Boolean(), so a missing column yields false — and false is the gate's closed position. An agent reporting a writing number raises a request for staff to confirm instead of activating themselves. Failing open on a permission check would hand out the exact thing the check exists to withhold, and false is also the column's default, so applying the migration changes no behaviour",
   "src/lib/nova-gate.functions.ts:nova_feature_usage":

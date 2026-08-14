@@ -256,6 +256,12 @@ export type MyAccess = {
   isPending: boolean;
   isSolo: boolean;
   isOwner: boolean;
+  /**
+   * At least one organization names this one as its parent. Decides whether
+   * the Sub-Agencies settings page is offered — a solo agency should not see
+   * an empty tab explaining a concept it doesn't have.
+   */
+  hasSubAgencies: boolean;
   orgId: string | null;
   orgName: string | null;
   orgStatus: string;
@@ -421,6 +427,15 @@ export const getMyAccess = createServerFn({ method: "GET" })
     const { data: me } = await supabaseAdmin
       .from("profiles").select("status").eq("id", userId).maybeSingle();
 
+    // parent_org_id, not agency_relationships: the foreign key is the source
+    // of truth for "has children"; the relationship row carries the terms.
+    let hasSubAgencies = false;
+    if (org) {
+      const { data: child } = await supabaseAdmin
+        .from("organizations").select("id").eq("parent_org_id", org.id).limit(1);
+      hasSubAgencies = (child ?? []).length > 0;
+    }
+
     return {
       role: pick,
       canManageRoles,
@@ -436,6 +451,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
       isPending: me?.status === "pending" && org?.owner_id !== userId,
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
+      hasSubAgencies,
       orgId: org?.id ?? null,
       orgName: org?.name ?? null,
       orgStatus: org?.subscription_status ?? "inactive",
