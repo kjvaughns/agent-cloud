@@ -276,6 +276,8 @@ function findHits(missing: Objects): Hit[] {
  * fails the check, which is the whole mechanism.
  */
 const REVIEWED: Record<string, string> = {
+  "src/lib/post-deal.functions.ts:commission_setup_issues":
+    "read inside the same try/catch that wraps the commission calculation, whose catch sets compensation to a generic 'could not be worked out' message. The table arrives with 20260814210000; before it exists the read throws, the catch reports the honest fallback, and the deal — which is already written by this point — still posts. The window degrades to a vaguer sentence, never to a lost policy or a false success",
   "src/lib/compensation/lookup.server.ts:commission_setup_issues":
     "both sites are inside one try/catch in recordSetupIssue whose catch logs and returns. The table arrives with 20260814210000, but the guard is not really about migrations: recording WHY a deal could not be paid must never be the thing that stops the deal being recorded, and the policy is already written by the time this runs. In the window an unresolvable policy simply has no issue row, which is exactly today's behaviour — the old calculator wrote a console warning and nothing else",
   "src/lib/announcements.functions.ts:announcement_deliveries":
