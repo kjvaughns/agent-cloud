@@ -13,6 +13,22 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260814220000_commission-idempotency.sql`
+
+`20260814220000` gives `commission_schedule` a stable `idempotency_key`, a
+`superseded_at` and a `calc_run_id`, and backfills a key for every existing
+row using the same shape the calculator writes — so an existing policy's next
+recalculation recognises its own rows rather than duplicating them. Nothing is
+dropped and no row is deleted; a leg a recalculation no longer produces is
+marked superseded and stays readable.
+
+In the window the calculator's upsert names `idempotency_key` as its conflict
+target, which PostgREST cannot honour before the column and its unique index
+exist — so commission writes fail loudly rather than silently duplicating.
+That is deliberate: this migration and the calculator ship together, and a
+duplicated commission is far worse than a visible error. Apply it with
+20260814210000, not after a gap.
+
 - `20260814210000_compensation-single-source.sql`
 
 `20260814210000` gives the canonical compensation resolver the columns it

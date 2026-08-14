@@ -18,6 +18,38 @@
  *     mistake in a new place.
  */
 
+import {
+  resolveForAgent,
+  loadUplineChain,
+  recordSetupIssue,
+} from "@/lib/compensation/lookup.server";
+import { planYearOne, resolveOverrides, asFraction } from "@/lib/compensation/resolve";
+
+/**
+ * Names the payment, never the attempt that wrote it.
+ *
+ * Stable across recalculation so a retry writes the same keys and changes
+ * nothing, a run that died halfway completes on the next attempt, and a
+ * genuine recalculation updates amounts in place. The old guard — "skip if any
+ * row exists for this policy" — failed in both directions: a half-finished run
+ * stayed half-finished forever, and a corrected level could never be applied.
+ */
+function commissionKey(r: {
+  policy_id: string;
+  agent_id: string;
+  payment_type: string;
+  payment_date: string;
+  month_number?: number | null;
+}): string {
+  return [
+    r.policy_id,
+    r.agent_id,
+    r.payment_type,
+    r.payment_date,
+    String(r.month_number ?? 0),
+  ].join(":");
+}
+
 type CommissionInput = {
   policyId: string;
   agentId: string;
@@ -41,77 +73,25 @@ function ds(date: Date): string {
 
 async function resolveOrgId(supabase: any, agentId: string): Promise<string | null> {
   const { data } = await supabase
-    .from("profiles").select("organization_id").eq("id", agentId).maybeSingle();
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", agentId)
+    .maybeSingle();
   return data?.organization_id ?? null;
-}
-
-/**
- * How much of year one is advanced, and over how many months the rest pays.
- *
- * Comes from the comp level the agency configured in Compensation → Levels —
- * advance_pct and advance_months have been editable there since that page was
- * written and read by nothing, so every schedule in the system was built on a
- * hard-coded 75/25 regardless of what anybody set.
- *
- * Falls back to the old constants when there is no matching level, which is
- * also what happens if row-level security keeps this agent out of the ops
- * tables: the same numbers as before rather than an error at post-deal time.
- */
-async function advanceTerms(
-  supabase: any,
-  opts: {
-    orgId: string | null;
-    carrierId: string;
-    levelName: string | null;
-    fallbackPct: number;
-    fallbackMonths: number;
-  },
-): Promise<{ advancePct: number; advanceMonths: number }> {
-  const fallback = { advancePct: opts.fallbackPct, advanceMonths: opts.fallbackMonths };
-  if (!opts.orgId || !opts.levelName) return fallback;
-
-  const { data: orgCarrier } = await supabase
-    .from("org_carriers")
-    .select("id")
-    .eq("organization_id", opts.orgId)
-    .eq("carrier_id", opts.carrierId)
-    .maybeSingle();
-  if (!orgCarrier?.id) return fallback;
-
-  const { data: level } = await supabase
-    .from("carrier_comp_levels")
-    .select("advance_pct, advance_months")
-    .eq("org_carrier_id", orgCarrier.id)
-    .eq("level_name", opts.levelName)
-    .maybeSingle();
-  if (!level) return fallback;
-
-  let pct = level.advance_pct == null ? opts.fallbackPct : Number(level.advance_pct);
-  if (pct > 1) pct = pct / 100;
-  // A nonsensical configuration should not produce a nonsensical schedule.
-  if (!(pct > 0) || pct > 1) pct = opts.fallbackPct;
-
-  const months = Number(level.advance_months ?? 0);
-  return {
-    advancePct: pct,
-    advanceMonths: months > 0 ? months : opts.fallbackMonths,
-  };
 }
 
 export async function calculateAndInsertAllCommissions(
   supabase: any,
   input: CommissionInput,
 ): Promise<void> {
-  const { policyId, agentId, carrierId, product, monthlyPremium, effectiveDate, clientName } = input;
+  const { policyId, agentId, carrierId, product, monthlyPremium, effectiveDate, clientName } =
+    input;
   if (!carrierId || !effectiveDate) return;
 
-  // Idempotency: skip if rows already exist
-  const { data: existing } = await supabase
-    .from("commission_schedule")
-    .select("id")
-    .eq("policy_id", policyId)
-    .limit(1);
-  if (existing && existing.length > 0) return;
+  // No early return on existing rows. Idempotency is per intended payment now
+  // (see commissionKey), so this function is safe to run again and is the same
+  // path a recalculation takes.
+  const calcRunId = crypto.randomUUID();
 
   const annualPremium = Number((monthlyPremium * 12).toFixed(2));
   const effDate = new Date(effectiveDate);
@@ -124,83 +104,111 @@ export async function calculateAndInsertAllCommissions(
     .maybeSingle();
   const carrierName = carrier?.name ?? "Unknown";
   const isGtl = carrier?.advance_cap === "fixed";
-  const gtlCapAmount = Number(carrier?.advance_cap_amount ?? 600);
-  const gtlCapMonths = Number(carrier?.advance_cap_months ?? 6);
 
-  // Get agent's commission level
-  const { data: levelRow } = await supabase
-    .from("agent_commission_levels")
-    .select("assigned_pct, commission_level")
-    .eq("agent_id", agentId)
+  // The canonical resolution, and the only one. Contract override → level and
+  // carrier mapping → level base percentage → a named error. Nothing here may
+  // invent a percentage; that is the whole point of the module.
+  const orgIdEarly = await resolveOrgId(supabase, agentId);
+  const { data: orgCarrier } = await supabase
+    .from("org_carriers")
+    .select("id")
+    .eq("organization_id", orgIdEarly ?? "")
     .eq("carrier_id", carrierId)
     .maybeSingle();
 
-  // No assigned level means we do not know what this agent earns, and a
-  // schedule built on a number nobody chose is worse than no schedule. Queue
-  // the policy so the backfill picks it up once the level exists, and write
-  // nothing in the meantime.
-  if (!levelRow || levelRow.assigned_pct == null) {
-    await supabase
-      .from("commission_backfill_queue")
-      .insert({ policy_id: policyId })
-      .then(() => {}, () => {});
-    console.warn(
-      "[commissions] no assigned level — queued for backfill",
-      { policyId, agentId, carrierId },
-    );
+  const resolution = orgCarrier?.id
+    ? await resolveForAgent(supabase, agentId, orgCarrier.id)
+    : ({
+        ok: false,
+        failures: ["carrier_not_configured"],
+        messages: ["This carrier has not been set up for the agency yet."],
+      } as const);
+
+  // Whatever happens, the agent and the owner get told. The old code wrote a
+  // console warning and queued the policy silently, so an agent posted a deal,
+  // saw nothing, and had no way to find out why.
+  await recordSetupIssue(supabase, {
+    policyId,
+    agentId,
+    orgId: orgIdEarly,
+    orgCarrierId: orgCarrier?.id ?? null,
+    resolution: resolution as any,
+  });
+  if (!resolution.ok) {
+    console.warn("[commissions] unresolved compensation — issue recorded", {
+      policyId,
+      agentId,
+      carrierId,
+      failures: resolution.failures,
+    });
     return;
   }
 
-  let levelPct = Number(levelRow.assigned_pct);
-  if (levelPct > 1) levelPct = levelPct / 100;
-  const myLevelName: string | null = levelRow.commission_level ?? null;
+  const levelPct = asFraction(resolution.pct);
+  // The carrier's name for this level, not the agency's. Renewal grids are
+  // keyed by the carrier's vocabulary — matching them on "General Agent" would
+  // find nothing where the grid says "80%".
+  const myLevelName: string | null = resolution.carrierLevelName ?? null;
 
-  const orgId = await resolveOrgId(supabase, agentId);
-  const terms = await advanceTerms(supabase, {
-    orgId, carrierId, levelName: myLevelName,
-    fallbackPct: isGtl ? 0.5 : 0.75,
-    fallbackMonths: gtlCapMonths,
-  });
-
-  const yr1Total = annualPremium * levelPct;
+  const orgId = orgIdEarly;
 
   const rows: any[] = [];
 
-  // Writing agent rows
-  if (isGtl) {
-    const advance = Math.min(yr1Total * terms.advancePct, gtlCapAmount);
-    const balance = yr1Total - advance;
+  // Year one, from the pure planner. The advance is what the carrier fronts
+  // for `advanceMonths` of premium at this agent's rate; the rest falls to
+  // as-earned over the remainder. The old code split 75/25 into three fixed
+  // months regardless of what any agency had configured.
+  const plan = planYearOne(monthlyPremium, resolution.pct, resolution.advanceMonths);
+  const yr1Total = plan.yearOneTotal;
+
+  // A fixed-cap carrier is a configured fact, not a code constant. The old
+  // `?? 600` invented a cap for any carrier whose amount was never set, which
+  // is the same silent-default problem the resolver exists to remove.
+  const capAmount = carrier?.advance_cap_amount == null ? null : Number(carrier.advance_cap_amount);
+  const advanceAmount =
+    isGtl && capAmount != null ? Math.min(plan.advanceAmount, capAmount) : plan.advanceAmount;
+
+  if (advanceAmount > 0) {
     rows.push({
-      policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-      payment_date: ds(effDate), payment_type: "advance", amount: Number(advance.toFixed(2)),
-      carrier: carrierName, product, is_gtl: true, commission_pct: levelPct * 100,
-      client_name: clientName, status: "pending",
+      policy_id: policyId,
+      agent_id: agentId,
+      writing_agent_id: agentId,
+      payment_date: ds(effDate),
+      payment_type: "advance",
+      amount: advanceAmount,
+      carrier: carrierName,
+      product,
+      is_gtl: isGtl,
+      commission_pct: resolution.pct,
+      client_name: clientName,
+      status: "pending",
+      month_number: 0,
     });
-    const gtlMonths = terms.advanceMonths || gtlCapMonths;
-    for (let i = 7; i <= 6 + gtlMonths; i++) {
+  }
+
+  // Whatever was not advanced pays month by month. `as_earned` advances
+  // nothing, so the whole year lands here — that falls out of the arithmetic
+  // rather than needing its own branch.
+  const balance = Number((yr1Total - advanceAmount).toFixed(2));
+  const balanceMonths = plan.asEarnedMonths;
+  if (balance > 0 && balanceMonths > 0) {
+    const per = Number((balance / balanceMonths).toFixed(2));
+    for (let i = 1; i <= balanceMonths; i++) {
+      const month = resolution.advanceMonths + i;
       rows.push({
-        policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, i)), payment_type: "trail",
-        amount: Number((balance / gtlMonths).toFixed(2)),
-        carrier: carrierName, product, is_gtl: true, commission_pct: levelPct * 100,
-        client_name: clientName, status: "pending",
-      });
-    }
-  } else {
-    const advance = yr1Total * terms.advancePct;
-    rows.push({
-      policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-      payment_date: ds(effDate), payment_type: "advance", amount: Number(advance.toFixed(2)),
-      carrier: carrierName, product, is_gtl: false, commission_pct: levelPct * 100,
-      client_name: clientName, status: "pending",
-    });
-    const trailPer = Number(((yr1Total * (1 - terms.advancePct)) / 3).toFixed(2));
-    for (const offset of [9, 10, 11]) {
-      rows.push({
-        policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, offset)), payment_type: "trail",
-        amount: trailPer, carrier: carrierName, product, is_gtl: false,
-        commission_pct: levelPct * 100, client_name: clientName, status: "pending",
+        policy_id: policyId,
+        agent_id: agentId,
+        writing_agent_id: agentId,
+        payment_date: ds(addMonths(effDate, month)),
+        payment_type: "as_earned",
+        amount: per,
+        carrier: carrierName,
+        product,
+        is_gtl: isGtl,
+        commission_pct: resolution.pct,
+        client_name: clientName,
+        status: "pending",
+        month_number: month,
       });
     }
   }
@@ -236,14 +244,21 @@ export async function calculateAndInsertAllCommissions(
 
   if (gridError) {
     console.warn("[commissions] renewal grid lookup failed", {
-      policyId, carrierId, product, level: myLevelName, error: gridError.message,
+      policyId,
+      carrierId,
+      product,
+      level: myLevelName,
+      error: gridError.message,
     });
   }
 
   const gridRow = gridRows?.[0] ?? null;
   if (!gridRow) {
     console.warn("[commissions] no renewal grid row — advance and trail only", {
-      policyId, carrierId, product, level: myLevelName,
+      policyId,
+      carrierId,
+      product,
+      level: myLevelName,
     });
   }
 
@@ -254,11 +269,18 @@ export async function calculateAndInsertAllCommissions(
   if (yr25pct > 0) {
     for (const offset of [13, 25, 37, 49]) {
       rows.push({
-        policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, offset)), payment_type: "renewal",
+        policy_id: policyId,
+        agent_id: agentId,
+        writing_agent_id: agentId,
+        payment_date: ds(addMonths(effDate, offset)),
+        payment_type: "renewal",
         amount: Number((annualPremium * yr25pct).toFixed(2)),
-        carrier: carrierName, product, is_gtl: false,
-        commission_pct: yr25pct * 100, client_name: clientName, status: "pending",
+        carrier: carrierName,
+        product,
+        is_gtl: false,
+        commission_pct: yr25pct * 100,
+        client_name: clientName,
+        status: "pending",
       });
     }
   }
@@ -267,60 +289,79 @@ export async function calculateAndInsertAllCommissions(
   if (yr6pct > 0) {
     for (const offset of [61, 73, 85, 97, 109]) {
       rows.push({
-        policy_id: policyId, agent_id: agentId, writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, offset)), payment_type: "renewal",
+        policy_id: policyId,
+        agent_id: agentId,
+        writing_agent_id: agentId,
+        payment_date: ds(addMonths(effDate, offset)),
+        payment_type: "renewal",
         amount: Number((annualPremium * yr6pct).toFixed(2)),
-        carrier: carrierName, product, is_gtl: false,
-        commission_pct: yr6pct * 100, client_name: clientName, status: "pending",
+        carrier: carrierName,
+        product,
+        is_gtl: false,
+        commission_pct: yr6pct * 100,
+        client_name: clientName,
+        status: "pending",
       });
     }
   }
 
-  // Override chain: walk upline (max 5 levels)
-  let currentAgentId = agentId;
-  let currentPct = levelPct;
-  let depth = 0;
-
-  while (depth < 5) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("upline_id")
-      .eq("id", currentAgentId)
-      .maybeSingle();
-    if (!profile?.upline_id) break;
-
-    const uplineId: string = profile.upline_id;
-    const { data: uplineLevel } = await supabase
-      .from("agent_commission_levels")
-      .select("assigned_pct")
-      .eq("agent_id", uplineId)
-      .eq("carrier_id", carrierId)
-      .maybeSingle();
-
-    if (uplineLevel) {
-      let uplinePct = Number(uplineLevel.assigned_pct);
-      if (uplinePct > 1) uplinePct = uplinePct / 100;
-      const spread = uplinePct - currentPct;
-      if (spread > 0) {
-        const overrideAmt = annualPremium * spread;
-        rows.push({
-          policy_id: policyId, agent_id: uplineId, source_agent_id: agentId,
-          writing_agent_id: agentId,
-          payment_date: ds(effDate), payment_type: "override",
-          amount: Number(overrideAmt.toFixed(2)),
-          carrier: carrierName, product, is_gtl: false,
-          commission_pct: spread * 100, client_name: clientName, status: "pending",
-        });
-      }
-      currentPct = uplinePct;
-    }
-    currentAgentId = uplineId;
-    depth++;
+  // The whole chain, not the first five. An agency six levels deep simply did
+  // not pay its owner. Each link earns the difference from the highest
+  // percentage already paid below them, so the chain can never pay out more
+  // than the top contract, and a non-positive spread writes nothing rather
+  // than a payment of zero.
+  const chain = orgCarrier?.id ? await loadUplineChain(supabase, agentId, orgCarrier.id) : [];
+  for (const leg of resolveOverrides(resolution.pct, chain, annualPremium)) {
+    rows.push({
+      policy_id: policyId,
+      agent_id: leg.agentId,
+      source_agent_id: agentId,
+      writing_agent_id: agentId,
+      payment_date: ds(effDate),
+      payment_type: "override",
+      amount: leg.amount,
+      carrier: carrierName,
+      product,
+      is_gtl: false,
+      commission_pct: leg.spread,
+      client_name: clientName,
+      status: "pending",
+      month_number: 0,
+    });
   }
 
-  if (rows.length > 0) {
-    const { error } = await supabase.from("commission_schedule").insert(rows);
-    if (error) throw new Error(`Commission insert failed: ${error.message}`);
+  const keyed = rows.map((r) => ({
+    ...r,
+    organization_id: orgIdEarly,
+    idempotency_key: commissionKey(r),
+    calc_run_id: calcRunId,
+    superseded_at: null,
+  }));
+
+  if (keyed.length > 0) {
+    // Upsert on the key: a retry rewrites the same values, a recalculation
+    // corrects the amounts, and neither can duplicate a payment.
+    const { error } = await supabase
+      .from("commission_schedule")
+      .upsert(keyed, { onConflict: "idempotency_key" });
+    if (error) throw new Error(`Commission write failed: ${error.message}`);
+  }
+
+  // Any leg this run no longer produces is superseded rather than deleted. A
+  // commission that was promised and then withdrawn is something an agent will
+  // ask about, and "it is not in the table" is not an answer.
+  const liveKeys = keyed.map((r) => r.idempotency_key);
+  if (liveKeys.length > 0) {
+    await supabase
+      .from("commission_schedule")
+      .update({ superseded_at: new Date().toISOString() })
+      .eq("policy_id", policyId)
+      .is("superseded_at", null)
+      .not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`)
+      .then(
+        () => {},
+        (e: any) => console.error("[commissions] supersede failed:", e?.message),
+      );
   }
 }
 

@@ -94,6 +94,13 @@ export type LevelCarrierMapping = {
   org_carrier_id: string;
   carrier_pct: number | null;
   advance_option: AdvanceOption | null;
+  /**
+   * What this rung is called on the carrier's own schedule — "80%", "GA3".
+   * Distinct from the agency level's name, and the two are not
+   * interchangeable: commission grids are keyed by the carrier's vocabulary,
+   * so matching them on "General Agent" would find nothing.
+   */
+  carrier_level_name?: string | null;
 };
 
 /** One agent's own terms on one carrier, when the agency has granted them. */
@@ -102,6 +109,8 @@ export type ContractOverride = {
   org_carrier_id: string;
   assigned_pct: number | null;
   advance_option: AdvanceOption | null;
+  /** The carrier's own name for this contract's level. */
+  commission_level?: string | null;
   /** Only an active contract overrides anything. */
   status: string;
 };
@@ -162,6 +171,12 @@ export type Resolution =
       advanceMonths: number;
       levelId: string;
       levelName: string;
+      /**
+       * The carrier's name for this level, when anything supplies one. Renewal
+       * grids are keyed by it, so it follows the same precedence as the
+       * percentage rather than defaulting to the agency's own label.
+       */
+      carrierLevelName: string | null;
     }
   | { ok: false; failures: ResolveFailure[]; messages: string[] };
 
@@ -254,6 +269,11 @@ export function resolveCompensation(input: ResolveInput): Resolution {
     advanceMonths: ADVANCE_MONTHS[advance],
     levelId: pctSource === "contract" ? (level?.id ?? "") : level!.id,
     levelName: pctSource === "contract" ? (level?.name ?? "Contract override") : level!.name,
+    carrierLevelName:
+      (pctSource === "contract" ? contract?.commission_level : null) ??
+      mapping?.carrier_level_name ??
+      contract?.commission_level ??
+      null,
   };
 }
 
