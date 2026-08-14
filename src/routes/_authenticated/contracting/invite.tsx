@@ -298,7 +298,7 @@ function InvitePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setIsAgencyLink(true)}
+                onClick={() => { setIsAgencyLink(true); setAgencyLevelId(""); }}
                 className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
               >
                 <div className="font-medium text-sm flex items-center gap-1.5">
