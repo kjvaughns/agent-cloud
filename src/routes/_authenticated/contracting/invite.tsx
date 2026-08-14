@@ -271,7 +271,40 @@ function InvitePage() {
             which is all it could ever do before. Choosing somebody else is how
             one owner builds a link for a manager's team without handing that
             manager the invite screen. */}
+        {/* Two kinds of link. A personal one places everybody under one chosen
+            person; an agency one is branded by the agency and lets the person
+            joining say who they report to. */}
         {invitedRole !== "staff" && (
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Link Type</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAgencyLink(false)}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${!isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <User className="h-4 w-4" /> Personal invite
+                  {!isAgencyLink && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">"[Your name] invited you" — you set the upline</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAgencyLink(true)}
+                className={`rounded-lg border p-3 text-left transition-all space-y-0.5 ${isAgencyLink ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"}`}
+              >
+                <div className="font-medium text-sm flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4" /> Agency signup link
+                  {isAgencyLink && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
+                </div>
+                <div className="text-[11px] text-muted-foreground">"[Agency] invited you" — they pick their upline</div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {invitedRole !== "staff" && !isAgencyLink && (
           <div>
             <Label>Their Upline</Label>
             <Select value={uplineId || SELF} onValueChange={(v) => setUplineId(v === SELF ? "" : v)}>
@@ -291,6 +324,14 @@ function InvitePage() {
             </p>
           </div>
         )}
+
+        {invitedRole !== "staff" && isAgencyLink && (
+          <p className="text-xs text-muted-foreground">
+            The signup page will show your agency's name and ask the new agent to choose their
+            upline from the agents in your agency.
+          </p>
+        )}
+
 
         <div className="hidden rounded-[var(--radius)] border border-border overflow-hidden">
           <button
