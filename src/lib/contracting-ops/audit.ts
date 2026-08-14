@@ -36,6 +36,13 @@ export type AuditAction =
   | "pdb.reviewed" | "license.edited"
   | "hierarchy.changed" | "hierarchy_change.requested" | "hierarchy_change.decided"
   | "comp.changed"
+  // The agency's own ladder. `agency_levels.base_pct` is what the compensation
+  // resolver pays from, so editing a rung changes what every agent on it earns
+  // — and until now that edit was recorded nowhere at all. Separate from
+  // `comp_level.*`, which is the carrier-side grid.
+  | "agency_level.created" | "agency_level.updated"
+  // The per-agent override that outranks the ladder.
+  | "agent_comp.changed"
   | "spreadsheet.exported" | "packet.downloaded" | "email.generated"
   // Somebody left the platform for a carrier's own contracting flow. The
   // stretch between "ready to submit" and "submitted" happens entirely off

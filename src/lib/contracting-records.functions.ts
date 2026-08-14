@@ -245,6 +245,27 @@ export const saveAgencyLevel = createServerFn({ method: "POST" })
     const orgId = await requireCapability(userId, ["contracting_manage_comp_levels"],
       "You don't have permission to manage agency levels.");
     const { id, mappings, ...fields } = data;
+
+    // What the rung was, read before the write. `agency_levels.base_pct` is
+    // what the compensation resolver pays from, so an edit here changes what
+    // every agent on this rung earns — and the only way to answer "it used to
+    // be 80" afterwards is to have kept the number.
+    const before = id
+      ? (await supabaseAdmin
+          .from("agency_levels")
+          .select("*")
+          .eq("id", id)
+          .eq("organization_id", orgId)
+          .maybeSingle()).data
+      : null;
+    const mappingsBefore = id
+      ? (await supabaseAdmin
+          .from("agency_level_carrier_mappings")
+          .select("*")
+          .eq("agency_level_id", id)
+          .eq("organization_id", orgId)).data
+      : null;
+
     const q = id
       ? supabaseAdmin.from("agency_levels").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", id).eq("organization_id", orgId)
       : supabaseAdmin.from("agency_levels").insert({ ...fields, organization_id: orgId });
@@ -257,6 +278,28 @@ export const saveAgencyLevel = createServerFn({ method: "POST" })
       );
       if (mappingError) throw new Error(mappingError.message);
     }
+
+    // Recorded after the write succeeds, and never able to undo it — the same
+    // contract every other audit call in this codebase keeps.
+    await recordAudit({
+      organizationId: orgId,
+      actorId: userId,
+      action: id ? "agency_level.updated" : "agency_level.created",
+      recordType: "agency_levels",
+      recordId: saved.id as string,
+      previous: before
+        ? { level: before, mappings: mappingsBefore ?? [] }
+        : null,
+      next: { level: { ...fields, id: saved.id }, mappings },
+      // The number that decides the money, pulled out of the blob so a reader
+      // scanning the log sees the change without opening two JSON columns.
+      metadata: {
+        base_pct_from: (before as any)?.base_pct ?? null,
+        base_pct_to: fields.base_pct,
+        name: fields.name,
+      },
+    });
+
     return { ok: true, id: saved.id as string };
   });
 

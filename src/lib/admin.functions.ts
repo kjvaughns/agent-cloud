@@ -184,6 +184,53 @@ export const adminUpsertCommissionRow = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * One line in the contracting trail per change to what somebody is paid.
+ *
+ * `agent_commission_levels.assigned_pct` is the per-agent override that
+ * outranks the agency ladder in the compensation resolver, so a write here
+ * decides one person's money on one carrier. Both paths that set it — the
+ * admin assign and the comp-level editor — recorded nothing at all, which
+ * meant "who put me on 70?" had no answer anywhere in the product.
+ *
+ * Reads the prior row first, because the previous percentage is the whole
+ * point and it is gone the moment the upsert lands. Never fatal: an audit
+ * write must not undo a change the user already made.
+ */
+async function auditAgentComp(
+  client: any,
+  opts: { actorId: string; agentId: string; carrierId: string; nextPct: number; nextLevel?: string | null },
+) {
+  try {
+    const [{ data: before }, { data: agent }] = await Promise.all([
+      client
+        .from("agent_commission_levels")
+        .select("assigned_pct, commission_level")
+        .eq("agent_id", opts.agentId)
+        .eq("carrier_id", opts.carrierId)
+        .maybeSingle(),
+      client.from("profiles").select("organization_id").eq("id", opts.agentId).maybeSingle(),
+    ]);
+    const { recordAudit } = await import("@/lib/contracting-ops/audit");
+    await recordAudit({
+      organizationId: (agent as any)?.organization_id ?? null,
+      actorId: opts.actorId,
+      action: "agent_comp.changed",
+      recordType: "agent_commission_levels",
+      subjectAgentId: opts.agentId,
+      previous: before ?? null,
+      next: { assigned_pct: opts.nextPct, commission_level: opts.nextLevel ?? null },
+      metadata: {
+        carrier_id: opts.carrierId,
+        pct_from: (before as any)?.assigned_pct ?? null,
+        pct_to: opts.nextPct,
+      },
+    });
+  } catch (e: any) {
+    console.error("[admin] comp change not audited:", e?.message);
+  }
+}
+
 export const adminAssignAgentLevel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -197,6 +244,15 @@ export const adminAssignAgentLevel = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireAdmin(supabase, userId);
+    // Before the upsert: the prior percentage is the point of the record and
+    // it is gone the moment this lands.
+    await auditAgentComp(supabase, {
+      actorId: userId,
+      agentId: data.agent_id,
+      carrierId: data.carrier_id,
+      nextPct: data.level_pct,
+      nextLevel: data.level_name ?? null,
+    });
     await supabase.from("agent_commission_levels").upsert(
       {
         agent_id: data.agent_id,
@@ -854,6 +910,13 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     await requireManagerOrAdmin(supabase, userId);
+    await auditAgentComp(supabase, {
+      actorId: userId,
+      agentId: data.agent_id,
+      carrierId: data.carrier_id,
+      nextPct: data.assigned_pct,
+      nextLevel: data.commission_level ?? `${data.assigned_pct}%`,
+    });
     const { error } = await supabase.from("agent_commission_levels").upsert({
       agent_id: data.agent_id,
       carrier_id: data.carrier_id,
