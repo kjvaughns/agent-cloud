@@ -610,6 +610,16 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       console.error("[invite] accepted email failed", e);
     }
 
+    // The agency's Discord channels, for any that asked to hear about joins.
+    // `post_new_agents` has been a switch in Settings since Discord shipped
+    // and nothing has ever read it; this is the sender it always implied.
+    // Not awaited and it swallows its own errors — the account exists, and a
+    // webhook being down must not be the thing that fails a signup.
+    {
+      const { announceNewAgent } = await import("@/lib/discord.functions");
+      void announceNewAgent(newUserId);
+    }
+
     return { ok: true, userId: newUserId };
   });
 

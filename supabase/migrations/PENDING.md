@@ -13,6 +13,27 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260814240000_discord-announcement-channel.sql`
+
+`20260814240000` adds `post_announcements` to `discord_integrations`, so a
+Discord channel can say whether it wants agency announcements. Until now the
+announcement sender filtered on `enabled` alone: a channel set up purely for
+deal alerts also received every agency-wide announcement, and the only way to
+stop that was to turn the whole channel off.
+
+Defaults to true, so every existing channel keeps receiving exactly what it
+receives today. Nothing is dropped — including `post_milestones`, which is
+now unused (its control is gone from Settings, because nothing has ever sent
+a milestone and no milestone concept exists in the product for it to gate).
+
+In the window: the sender reads the row with `select("*")` and tests
+`post_announcements !== false`, so every enabled channel keeps receiving
+announcements. The Settings toggle shows on for the same reason — a switch
+reading "off" while announcements are in fact going out would describe the
+opposite of what happens. An owner who toggles it before the column exists
+gets a plain-English refusal saying announcements still go to every connected
+channel, rather than a relayed "column does not exist".
+
 - `20260814230000_policy-events.sql`
 
 `20260814230000` gives a policy a memory. `policies.status` is one column that
