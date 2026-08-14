@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Cloud, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +44,14 @@ function PublicInvitePage() {
 
   const invite = (initial as any)?.invite as any;
   const migrationMatch = (initial as any)?.migration_match;
+  // Present only on an agency-branded link. Its existence is what switches the
+  // page from "a person invited you" to "an agency invited you, tell us who
+  // your upline is".
+  const agencyLink = (initial as any)?.agency_link as
+    | { organization_name: string | null; upline_options: { id: string; name: string }[] }
+    | null
+    | undefined;
+  const [chosenUpline, setChosenUpline] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => { setAuthedUser(data.user); setCheckedAuth(true); });
@@ -69,6 +78,9 @@ function PublicInvitePage() {
 
   const carriers = Array.isArray(invite.carrier_assignments) ? invite.carrier_assignments : [];
   const uplineName = invite.upline_name?.trim() || "your upline";
+  const inviterLabel = agencyLink
+    ? agencyLink.organization_name?.trim() || "Your agency"
+    : uplineName;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
@@ -79,12 +91,12 @@ function PublicInvitePage() {
 
       <main className="mx-auto max-w-xl space-y-6 px-6 pb-16">
         {done ? (
-          <Welcome uplineName={uplineName} />
+          <Welcome uplineName={inviterLabel} />
         ) : (
           <>
             <div>
               <h1 className="text-2xl font-bold md:text-3xl">
-                You've been invited by {uplineName}
+                You've been invited by {inviterLabel}
               </h1>
               {carriers.length > 0 ? (
                 <>
@@ -120,15 +132,39 @@ function PublicInvitePage() {
               </div>
             )}
 
+            {agencyLink && (
+              <Card className="space-y-2 p-6">
+                <Label>Who is your upline? *</Label>
+                <Select value={chosenUpline} onValueChange={setChosenUpline}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select your upline" /></SelectTrigger>
+                  <SelectContent>
+                    {agencyLink.upline_options.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The person who recruited you, or whoever you report to at {inviterLabel}.
+                </p>
+              </Card>
+            )}
+
             {!checkedAuth ? (
               <Card className="p-6 text-center text-muted-foreground">Loading…</Card>
             ) : authedUser ? (
-              <JoinWithExistingAccount token={token} onDone={() => setDone(true)} />
+              <JoinWithExistingAccount
+                token={token}
+                uplineId={agencyLink ? chosenUpline : null}
+                requireUpline={Boolean(agencyLink)}
+                onDone={() => setDone(true)}
+              />
             ) : (
               <JoinForm
                 token={token}
                 invite={invite}
                 migrationMatch={migrationMatch}
+                uplineId={agencyLink ? chosenUpline : null}
+                requireUpline={Boolean(agencyLink)}
                 onDone={() => setDone(true)}
               />
             )}
@@ -148,9 +184,10 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 function JoinForm({
-  token, invite, migrationMatch, onDone,
+  token, invite, migrationMatch, uplineId, requireUpline, onDone,
 }: {
-  token: string; invite: any; migrationMatch?: any; onDone: () => void;
+  token: string; invite: any; migrationMatch?: any;
+  uplineId?: string | null; requireUpline?: boolean; onDone: () => void;
 }) {
   const [mode, setMode] = useState<"create" | "login">("create");
   const [showPassword, setShowPassword] = useState(false);
@@ -168,7 +205,7 @@ function JoinForm({
   const linkFn = useServerFn(linkInviteToCurrentUser);
 
   const create = useMutation({
-    mutationFn: () => createFn({ data: { token, ...form, npn_number: form.npn_number || null } }),
+    mutationFn: () => createFn({ data: { token, ...form, npn_number: form.npn_number || null, upline_id: uplineId || null } }),
     onSuccess: async () => {
       const { error } = await supabase.auth.signInWithPassword({
         email: form.email, password: form.password,
@@ -187,7 +224,7 @@ function JoinForm({
       if (error) throw new Error(error.message);
       // Signing in does not join the team on its own — the invite still has to
       // be attached to the account that just signed in.
-      await linkFn({ data: { token } });
+      await linkFn({ data: { token, upline_id: uplineId || null } });
     },
     onSuccess: () => onDone(),
     onError: (e: any) => toast.error(e?.message ?? "Could not sign you in"),
@@ -195,7 +232,8 @@ function JoinForm({
 
   const ready =
     form.first_name.trim() && form.last_name.trim() && form.email.trim() &&
-    form.phone.trim().length >= 7 && form.password.length >= 8;
+    form.phone.trim().length >= 7 && form.password.length >= 8 &&
+    (!requireUpline || Boolean(uplineId));
 
   return (
     <Card className="space-y-4 p-6">
@@ -270,7 +308,7 @@ function JoinForm({
             <Label>Password</Label>
             <Input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
           </div>
-          <Button className="w-full" disabled={login.isPending} onClick={() => login.mutate()}>
+          <Button className="w-full" disabled={login.isPending || (Boolean(requireUpline) && !uplineId)} onClick={() => login.mutate()}>
             {login.isPending ? "Signing in…" : "Sign in and join →"}
           </Button>
         </div>
@@ -280,10 +318,12 @@ function JoinForm({
 }
 
 /** Already signed in — one button, no forms they have already filled in once. */
-function JoinWithExistingAccount({ token, onDone }: { token: string; onDone: () => void }) {
+function JoinWithExistingAccount({ token, uplineId, requireUpline, onDone }: {
+  token: string; uplineId?: string | null; requireUpline?: boolean; onDone: () => void;
+}) {
   const linkFn = useServerFn(linkInviteToCurrentUser);
   const join = useMutation({
-    mutationFn: () => linkFn({ data: { token } }),
+    mutationFn: () => linkFn({ data: { token, upline_id: uplineId || null } }),
     onSuccess: () => onDone(),
     onError: (e: any) => toast.error(e?.message ?? "Could not join the team"),
   });
@@ -293,7 +333,7 @@ function JoinWithExistingAccount({ token, onDone }: { token: string; onDone: () 
       <p className="text-sm text-muted-foreground">
         You're already signed in to Agent Cloud. Joining adds you to this team.
       </p>
-      <Button className="w-full" disabled={join.isPending} onClick={() => join.mutate()}>
+      <Button className="w-full" disabled={join.isPending || (Boolean(requireUpline) && !uplineId)} onClick={() => join.mutate()}>
         {join.isPending ? "Joining…" : "Join the team →"}
       </Button>
     </Card>
