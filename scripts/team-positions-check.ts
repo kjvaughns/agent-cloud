@@ -123,13 +123,17 @@ check("…resolving only the positions in use",
   /const levelIds = Array\.from\(new Set\(/.test(TEAM_FNS), true);
 
 const TEAM_UI = read("src/routes/_authenticated/team.tsx");
-check("the roster renders a Position column", /<TableHead>Position<\/TableHead>/.test(TEAM_UI), true);
+// The header became sortable when the production columns landed; what this
+// asserts is that the column still exists and still says Position.
+check("the roster renders a Position column", /<SortHead k="position"[\s\S]{0,80}>Position<\/SortHead>/.test(TEAM_UI), true);
 check("…wired to the assignment mutation",
   /onAssign=\{\(agencyLevelId\) => assign\.mutate\(\{ agentId: a\.id, agencyLevelId \}\)\}/.test(TEAM_UI), true);
 check("the pending-positions quick view exists", /Pending positions/.test(TEAM_UI), true);
 check("only role-managers may reassign", /canAssign=\{canManageRoles\}/.test(TEAM_UI), true);
-check("the column count kept up with the new column",
-  /colSpan=\{10\}/.test(strip(TEAM_UI)) && !/colSpan=\{9\}/.test(strip(TEAM_UI)), true);
+// Eleven now: Agent, Position, Upline, Stage, Compliance, Own, Team,
+// At risk, Contracts, Last active, Actions.
+check("the empty-state row spans every column",
+  /colSpan=\{11\}/.test(strip(TEAM_UI)) && !/colSpan=\{(9|10)\}/.test(strip(TEAM_UI)), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

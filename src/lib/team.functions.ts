@@ -5,6 +5,7 @@ import {
   complianceLevel, daysSince, lifecycleStage, riskFlags,
   type AgentFacts, type ComplianceLevel, type LifecycleStage, type RiskFlag,
 } from "@/lib/team-roster";
+import { inRange, rollUpDownline, ZERO, type Tally } from "@/lib/team/production";
 
 export type TeamAgent = {
   id: string;
@@ -101,6 +102,21 @@ export type RosterAgent = TeamAgent & {
   agency_level_id: string | null;
   position_name: string | null;
   position_pct: number | null;
+  /** Production inside the requested range. Own is theirs; team is downline-only. */
+  own: Tally;
+  team: Tally;
+  /**
+   * Live retention exposure — NOT debt. Per-agent debt needs a carrier
+   * debt-report ingestion this product does not have, and a $0 "Debt" column
+   * with nothing behind it would read as "nobody owes anything", which is a
+   * wrong answer rather than a missing one.
+   *
+   * `premium_at_risk` on retention_cases is MONTHLY premium, so this number is
+   * deliberately not comparable with the annualised production columns; the UI
+   * labels it per month.
+   */
+  at_risk_monthly: number;
+  at_risk_cases: number;
 };
 
 /**
@@ -118,8 +134,13 @@ export type RosterAgent = TeamAgent & {
  */
 export const getTeamRoster = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { fullCompany?: boolean } | undefined) =>
-    z.object({ fullCompany: z.boolean().optional() }).parse(d ?? {}),
+  .inputValidator((d: { fullCompany?: boolean; rangeStart?: string | null; rangeEnd?: string | null } | undefined) =>
+    z.object({
+      fullCompany: z.boolean().optional(),
+      // Null on either side is an open bound; both null is all time.
+      rangeStart: z.string().nullable().optional(),
+      rangeEnd: z.string().nullable().optional(),
+    }).parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
@@ -150,7 +171,7 @@ export const getTeamRoster = createServerFn({ method: "GET" })
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const [licences, docs, policies, contracts, placements] = await Promise.all([
+    const [licences, docs, policies, contracts, placements, retention] = await Promise.all([
       supabase.from("state_licenses")
         .select("agent_id, expires_date, status").in("agent_id", ids),
       // Both spellings. `eo` predates `eo_certificate` and the vocabulary
@@ -160,13 +181,18 @@ export const getTeamRoster = createServerFn({ method: "GET" })
         .select("agent_id, doc_type, expiration_date")
         .in("agent_id", ids).in("doc_type", ["eo", "eo_certificate"]),
       supabase.from("policies")
-        .select("agent_id, posted_at").in("agent_id", ids)
+        .select("agent_id, posted_at, annual_premium").in("agent_id", ids)
         .order("posted_at", { ascending: false }),
       supabase.from("contract_requests")
         .select("agent_id, status, activated_at, requested_at").in("agent_id", ids),
       // `get_team_downline` does not carry the position, and the roster is
       // where positions are read and assigned, so it comes from profiles.
       supabase.from("profiles").select("id, agency_level_id").in("id", ids),
+      // Live retention exposure per agent. Open and working only — a saved or
+      // lost case is history, not a number anybody should be chasing today.
+      supabase.from("retention_cases")
+        .select("agent_id, premium_at_risk, status").in("agent_id", ids)
+        .in("status", ["open", "working"]),
     ]);
 
     // Resolve only the positions actually in use. The full catalog is a
@@ -225,6 +251,30 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       if (!held || when < held) firstContracted.set(c.agent_id, when);
     }
 
+    // Own production inside the range, from the same rows the last-sale scan
+    // already walks. Same formula as get_dashboard_metrics: annual_premium
+    // summed over posted_at, every status counted.
+    const ownTally = new Map<string, Tally>();
+    for (const p of (policies.data ?? []) as any[]) {
+      if (!inRange(p.posted_at, data.rangeStart ?? null, data.rangeEnd ?? null)) continue;
+      const held = ownTally.get(p.agent_id) ?? { premium: 0, policies: 0 };
+      held.premium += Number(p.annual_premium ?? 0);
+      held.policies += 1;
+      ownTally.set(p.agent_id, held);
+    }
+    const teamTally = rollUpDownline(
+      agents.map((a) => ({ id: a.id, upline_id: a.upline_id })),
+      ownTally,
+    );
+
+    const atRisk = new Map<string, { monthly: number; cases: number }>();
+    for (const r of (retention.data ?? []) as any[]) {
+      const held = atRisk.get(r.agent_id) ?? { monthly: 0, cases: 0 };
+      held.monthly += Number(r.premium_at_risk ?? 0);
+      held.cases += 1;
+      atRisk.set(r.agent_id, held);
+    }
+
     const now = Date.now();
     return {
       rows: agents.map((a): RosterAgent => {
@@ -257,6 +307,10 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           agency_level_id: levelId,
           position_name: level?.name ?? null,
           position_pct: level ? level.base_pct : null,
+          own: ownTally.get(a.id) ?? ZERO,
+          team: teamTally.get(a.id) ?? ZERO,
+          at_risk_monthly: atRisk.get(a.id)?.monthly ?? 0,
+          at_risk_cases: atRisk.get(a.id)?.cases ?? 0,
         };
       }),
     };
