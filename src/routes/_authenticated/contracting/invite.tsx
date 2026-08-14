@@ -89,6 +89,9 @@ function InvitePage() {
   const [carriersOpen, setCarriersOpen] = useState(false);
   const [invitedRole, setInvitedRole] = useState<"agent" | "manager" | "agency_owner" | "staff">("agent");
   const [agencyLevelId, setAgencyLevelId] = useState("");
+  // "" means the link creator, which is what upline_id being null means on the
+  // row. A sentinel is needed because Radix Select cannot hold an empty value.
+  const [uplineId, setUplineId] = useState("");
   const { canInviteAgencyOwner, canInviteManager } = useRole();
 
   const { data: myCarriers } = useQuery({
@@ -101,6 +104,15 @@ function InvitePage() {
   });
   const levelsFn = useServerFn(listAgencyLevels);
   const { data: agencyLevels } = useQuery({ queryKey: ["agency-levels"], queryFn: () => levelsFn() });
+
+  // The people this person may place agents under. `get_scope_agents`
+  // authorizes inside SQL, so an owner sees the agency and a manager sees only
+  // their own downline — the same narrowing the server enforces on save.
+  const scopeAgentsFn = useServerFn(listScopeAgents);
+  const { data: uplineOptions } = useQuery({
+    queryKey: ["scope-agents", "agency"],
+    queryFn: () => scopeAgentsFn({ data: { scope: "agency" } }),
+  });
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
