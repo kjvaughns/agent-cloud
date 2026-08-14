@@ -9,6 +9,7 @@ import {
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
   Shield,
   Loader2,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,8 @@ import { cn } from "@/lib/utils";
 import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
 import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
+import { buildTimeline } from "@/lib/timeline/build";
+import { TimelineList } from "@/components/timeline/timeline-list";
 import {
   getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
@@ -59,6 +62,10 @@ const detailQO = (id: string) => queryOptions({
 
 // Notes tab visible on mobile only (right panel handles it on desktop)
 const DRAWER_TABS = [
+  // First, because "what has happened with this client" is the question the
+  // record is opened to answer, and until now it took four tabs and a merge
+  // by eye.
+  { key: "timeline",      label: "Timeline",       icon: History,      desktopHide: false },
   { key: "contact",       label: "Contact",        icon: User,         desktopHide: false },
   { key: "needs",         label: "Needs Analysis", icon: ClipboardList,desktopHide: false },
   { key: "notes",         label: "Notes",          icon: MessageSquare,desktopHide: true  },
@@ -102,7 +109,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 
 // ============ Body ============
 function DrawerBody({ clientId }: { clientId: string }) {
-  const [activeTab, setActiveTab] = useState("contact");
+  const [activeTab, setActiveTab] = useState("timeline");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
   if (isLoading || !data?.client) {
@@ -134,7 +141,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
           <DrawerTabBar activeTab={activeTab} onTabChange={setActiveTab} />
           <div className="flex-1 overflow-y-auto">
             <div className="p-4">
-              <DrawerTabContent tab={activeTab} detail={data} />
+              <DrawerTabContent tab={activeTab} detail={data} onTabChange={setActiveTab} />
             </div>
           </div>
         </div>
@@ -281,9 +288,46 @@ function DrawerTabBar({ activeTab, onTabChange }: { activeTab: string; onTabChan
   );
 }
 
+// ============ Timeline ============
+/**
+ * Everything that has happened with this client, in one order.
+ *
+ * The five sources were already recorded and were shown in four tabs: contact
+ * history and life events sat in two lists side by side inside Contact, notes
+ * and referrals were the same table filtered differently in two more tabs, and
+ * what happened to a policy was not shown anywhere because nothing kept it.
+ *
+ * The merging is in `lib/timeline/build.ts` so it can be checked; this only
+ * hands it the rows.
+ */
+function TimelineTab({ detail }: { detail: any }) {
+  const entries = useMemo(
+    () =>
+      buildTimeline({
+        contactHistory: detail.contact_history ?? [],
+        lifeEvents: detail.life_events ?? [],
+        policyEvents: detail.policy_events ?? [],
+        calendarEvents: detail.events ?? [],
+        retentionCases: detail.retention_cases ?? [],
+        policies: detail.policies ?? [],
+      }),
+    [detail],
+  );
+
+  return (
+    <div className="space-y-3">
+      <TimelineList
+        entries={entries}
+        emptyMessage="Nothing recorded for this client yet. Logging a contact or writing a policy starts the record."
+      />
+    </div>
+  );
+}
+
 // ============ Tab content router ============
-function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
+function DrawerTabContent({ tab, detail, onTabChange }: { tab: string; detail: any; onTabChange: (t: string) => void }) {
   switch (tab) {
+    case "timeline":      return <TimelineTab detail={detail} />;
     case "contact":       return <ContactTab detail={detail} />;
     case "needs":         return <NeedsAnalysisTab detail={detail} />;
     case "notes":         return <NotesTab clientId={detail.client.id} entries={detail.contact_history.filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note")} />;
@@ -292,7 +336,7 @@ function DrawerTabContent({ tab, detail }: { tab: string; detail: any }) {
     case "referrals":     return <ReferralsTab detail={detail} />;
     case "financials":    return <FinancialsTab detail={detail} />;
     case "policies":      return <PoliciesTab detail={detail} />;
-    case "care":          return <ClientCareTab detail={detail} />;
+    case "care":          return <ClientCareTab detail={detail} onTabChange={onTabChange} />;
     case "email":         return <EmailTab detail={detail} />;
     default:              return <ContactTab detail={detail} />;
   }
@@ -1495,7 +1539,7 @@ function FinancialsTab({ detail }: { detail: any }) {
 }
 
 // ============ Client Care ============
-function ClientCareTab({ detail }: { detail: any }) {
+function ClientCareTab({ detail, onTabChange }: { detail: any; onTabChange: (t: string) => void }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
   const logFn = useServerFn(logContact);
@@ -1527,12 +1571,6 @@ function ClientCareTab({ detail }: { detail: any }) {
     onError: (e: any) => toast.error(e?.message ?? "Couldn't delete that life event"),
   });
 
-  const filtered = (detail.contact_history ?? []).filter((h: any) => {
-    if (filter === "all") return true;
-    if (filter === "auto") return h.is_auto;
-    return h.contact_type === filter;
-  });
-
   return (
     <div className="space-y-5">
       <div>
@@ -1555,37 +1593,33 @@ function ClientCareTab({ detail }: { detail: any }) {
           <Field label="Communication Notes"><Textarea defaultValue={c.communication_notes ?? ""} onBlur={(e) => updMut.mutate({ communication_notes: e.target.value })} /></Field>
         </div>
       </div>
+      {/* The two dated lists that used to sit here — contact history and life
+          events — sorted independently, so a life event and the call about it
+          appeared in unrelated places on the same screen. Both are in the
+          Timeline now, in one order and alongside what happened to the
+          client's policies. The actions that create them stay here in Client
+          Care, beside the communication preferences they belong with. */}
       <div>
-        <div className="flex justify-between items-center mb-2">
-          <div className="text-sm font-semibold">Contact History</div>
+        <div className="text-sm font-semibold mb-2">Record something</div>
+        <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={() => setLogOpen(true)}><Plus className="h-3 w-3" /> Log Contact</Button>
+          <Button size="sm" variant="outline" onClick={() => setLifeOpen(true)}><Plus className="h-3 w-3" /> Add Life Event</Button>
+          <Button size="sm" variant="ghost" onClick={() => onTabChange("timeline")}>
+            <History className="h-3 w-3 mr-1" /> See the timeline
+          </Button>
         </div>
-        <div className="flex gap-1 mb-2 flex-wrap">
-          {(["all","call","sms","note","auto"] as const).map((f) => (
-            <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="h-7 text-xs capitalize">{f}</Button>
-          ))}
-        </div>
-        {filtered.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No contact history yet.</div>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((h: any) => (
-              <div key={h.id} className="border rounded-md p-3 text-sm">
-                <div className="text-xs text-muted-foreground uppercase">{h.is_auto ? "AUTO" : "MANUAL"} · {h.contact_type} — {new Date(h.created_at).toLocaleDateString()}</div>
-                <div className="mt-1">{h.note}</div>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          {detail.life_events?.length > 0 || detail.contact_history?.length > 0
+            ? "Everything logged here appears in the Timeline, in order with policy activity."
+            : "Nothing recorded yet. Anything logged here appears in the Timeline."}
+        </p>
       </div>
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <div className="text-sm font-semibold">Life Events</div>
-          <Button size="sm" onClick={() => setLifeOpen(true)}><Plus className="h-3 w-3" /> Add Event</Button>
-        </div>
-        {detail.life_events.length === 0 ? (
-          <div className="text-sm text-muted-foreground">Add events to identify insurance opportunities!</div>
-        ) : (
+      {detail.life_events?.length > 0 && (
+        <div>
+          <div className="text-sm font-semibold mb-2">Life Events</div>
+          {/* Kept as an editable list rather than folded away entirely: the
+              Timeline is a record and does not delete, and a life event
+              entered by mistake has to be removable somewhere. */}
           <div className="space-y-2">
             {detail.life_events.map((e: any) => (
               <div key={e.id} className="border rounded-md p-3 text-sm flex justify-between items-start">
@@ -1598,8 +1632,8 @@ function ClientCareTab({ detail }: { detail: any }) {
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
       <Dialog open={logOpen} onOpenChange={setLogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Log Contact</DialogTitle></DialogHeader>

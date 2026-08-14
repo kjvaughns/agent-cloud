@@ -279,7 +279,37 @@ export const getClientDetail = createServerFn({ method: "GET" })
       supabase.from("client_health").select("*").eq("client_id", data.id).maybeSingle(),
       supabase.from("client_banking").select("*").eq("client_id", data.id).maybeSingle(),
     ]);
-    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: contact_history ?? [], life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [], health: health ?? null, banking: banking ?? null };
+
+    // What has happened to this client's policies, and which of them were at
+    // risk. Both are dated records that the drawer had no way to show, so a
+    // policy that lapsed and was recovered looked the same as one that never
+    // moved. Read after the batch above because both are keyed on the policies
+    // it returns.
+    //
+    // Cast and caught: `policy_events` arrives with 20260814230000, and a
+    // timeline missing one of its five sources is worth far more than a client
+    // record that will not open at all.
+    let policy_events: any[] = [];
+    let retention_cases: any[] = [];
+    const policyIds = (policies ?? []).map((p: any) => p.id);
+    if (policyIds.length > 0) {
+      try {
+        const [{ data: pe }, { data: rc }] = await Promise.all([
+          (supabase as any)
+            .from("policy_events")
+            .select("*")
+            .in("policy_id", policyIds)
+            .order("occurred_at", { ascending: false }),
+          supabase.from("retention_cases").select("*").in("policy_id", policyIds),
+        ]);
+        policy_events = pe ?? [];
+        retention_cases = rc ?? [];
+      } catch (e: any) {
+        console.error("[pipeline] timeline sources unavailable:", e?.message);
+      }
+    }
+
+    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: contact_history ?? [], life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [], health: health ?? null, banking: banking ?? null, policy_events, retention_cases };
   });
 
 export const touchLastOpened = createServerFn({ method: "POST" })

@@ -13,6 +13,30 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260814230000_policy-events.sql`
+
+`20260814230000` gives a policy a memory. `policies.status` is one column that
+three paths overwrite — the book-of-business detail sheet, the bulk carrier CSV
+sync, and the pipeline drawer's policy patch — and none of them recorded what
+the status was before, who changed it, or when. A trigger on the column does
+it now, because a trigger is the only place that cannot be forgotten by a
+fourth writer.
+
+Nothing is dropped and no existing row is modified. Every existing policy is
+seeded with the two events its own columns already record — when it was posted
+and when it took effect — so opening a policy written last year shows a history
+rather than a blank that reads as "nothing has happened". The seed is guarded
+by a partial unique index, so applying this twice adds nothing.
+
+In the window: the client record and the policy detail sheet both read
+`policy_events` inside a try/catch and fall back to the rest of the timeline.
+A client whose record will not open is far worse than a timeline missing one of
+its five sources, and the policy sheet says "Policy history isn't available
+yet" rather than showing an empty list as though nothing had happened. Status
+changes made before this applies are simply not recorded — there is no way to
+recover them afterwards, which is a reason to apply it promptly rather than a
+reason to hold it.
+
 - `20260814220000_commission-idempotency.sql`
 
 `20260814220000` gives `commission_schedule` a stable `idempotency_key`, a

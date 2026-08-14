@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { draftSummary } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -12,7 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { money, phone as fmtPhone } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
-import { updatePolicyStatus, getPolicyCommissionTotal } from "@/lib/book-of-business.functions";
+import { updatePolicyStatus, getPolicyCommissionTotal, listPolicyEvents } from "@/lib/book-of-business.functions";
+import { buildTimeline } from "@/lib/timeline/build";
+import { TimelineList } from "@/components/timeline/timeline-list";
 import { supabase } from "@/integrations/supabase/client";
 import { PolicyAiPanel } from "@/components/ai/policy-ai-panel";
 
@@ -30,6 +33,7 @@ export function PolicyDetailSheet({
   const qc = useQueryClient();
   const updateStatusFn = useServerFn(updatePolicyStatus);
   const commFn = useServerFn(getPolicyCommissionTotal);
+  const eventsFn = useServerFn(listPolicyEvents);
 
   const clientQ = useQuery({
     enabled: !!row?.client_id,
@@ -66,6 +70,25 @@ export function PolicyDetailSheet({
     queryFn: () => commFn({ data: { policyId: row!.id } }),
   });
 
+  // What has actually happened to this policy. The sheet could set a status
+  // and show the new one and nothing else — the column holds one value, so a
+  // policy that lapsed and was recovered read the same as one that never
+  // moved.
+  const eventsQ = useQuery({
+    enabled: !!row?.id,
+    queryKey: ["bob", "events", row?.id],
+    queryFn: () => eventsFn({ data: { policyId: row!.id } }),
+  });
+
+  const history = useMemo(
+    () =>
+      buildTimeline({
+        policyEvents: eventsQ.data?.rows ?? [],
+        policies: row ? [{ id: row.id, product: row.product, carrier_name: row.carrier_name }] : [],
+      }),
+    [eventsQ.data, row],
+  );
+
   const statusMut = useMutation({
     mutationFn: (status: PolicyStatus) => updateStatusFn({ data: { policyId: row!.id, status } }),
     onMutate: async (status) => {
@@ -81,7 +104,11 @@ export function PolicyDetailSheet({
       toast.error("Failed to update status");
     },
     onSuccess: () => toast.success("Status updated"),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["bob", "list"] }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      // The change just made is part of the history now.
+      qc.invalidateQueries({ queryKey: ["bob", "events", row?.id] });
+    },
   });
 
   return (
@@ -172,6 +199,23 @@ export function PolicyDetailSheet({
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">No commission data.</p>
+                )}
+              </div>
+
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <h3 className="font-semibold">History</h3>
+                {eventsQ.isLoading ? (
+                  <Skeleton className="h-16 w-full" />
+                ) : (
+                  <TimelineList
+                    entries={history}
+                    showFilters={false}
+                    emptyMessage={
+                      eventsQ.data?.available === false
+                        ? "Policy history isn't available yet."
+                        : "Nothing recorded for this policy yet. Status changes from here on are kept."
+                    }
+                  />
                 )}
               </div>
 
