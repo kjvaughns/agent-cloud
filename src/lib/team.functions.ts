@@ -5,7 +5,8 @@ import {
   complianceLevel, daysSince, lifecycleStage, riskFlags,
   type AgentFacts, type ComplianceLevel, type LifecycleStage, type RiskFlag,
 } from "@/lib/team-roster";
-import { inRange, rollUpDownline, ZERO, type Tally } from "@/lib/team/production";
+import { rollUpDownline, ZERO, type Tally } from "@/lib/team/production";
+import { inWindow, tallyByAgent } from "@/lib/production/source";
 
 export type TeamAgent = {
   id: string;
@@ -180,8 +181,14 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       supabase.from("producer_documents")
         .select("agent_id, doc_type, expiration_date")
         .in("agent_id", ids).in("doc_type", ["eo", "eo_certificate"]),
+      // `*` rather than a column list: `production_date` arrives with
+      // 20260814250000, and naming a column PostgREST does not know yet fails
+      // the whole select with 42703 — which would empty the roster's
+      // production column rather than degrade it. The windowing happens in
+      // TypeScript here, and `productionDate()` already falls back to
+      // `posted_at` for a row that has no production date yet.
       supabase.from("policies")
-        .select("agent_id, posted_at, annual_premium").in("agent_id", ids)
+        .select("*").in("agent_id", ids)
         .order("posted_at", { ascending: false }),
       supabase.from("contract_requests")
         .select("agent_id, status, activated_at, requested_at").in("agent_id", ids),
@@ -252,16 +259,15 @@ export const getTeamRoster = createServerFn({ method: "GET" })
     }
 
     // Own production inside the range, from the same rows the last-sale scan
-    // already walks. Same formula as get_dashboard_metrics: annual_premium
-    // summed over posted_at, every status counted.
-    const ownTally = new Map<string, Tally>();
-    for (const p of (policies.data ?? []) as any[]) {
-      if (!inRange(p.posted_at, data.rangeStart ?? null, data.rangeEnd ?? null)) continue;
-      const held = ownTally.get(p.agent_id) ?? { premium: 0, policies: 0 };
-      held.premium += Number(p.annual_premium ?? 0);
-      held.policies += 1;
-      ownTally.set(p.agent_id, held);
-    }
+    // already walks — through the shared source, so the roster gets the same
+    // date column, the same status rule and the same placed premium as
+    // get_dashboard_metrics and the leaderboard. Summing it here by hand is
+    // how the roster used to be able to disagree with both.
+    const ownTally = tallyByAgent(
+      ((policies.data ?? []) as any[]).filter((p) =>
+        inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null),
+      ),
+    );
     const teamTally = rollUpDownline(
       agents.map((a) => ({ id: a.id, upline_id: a.upline_id })),
       ownTally,

@@ -31,6 +31,7 @@ import {
   boardTotals,
   trendOf,
   PERIODS,
+  BOARD_SCOPES,
 } from "../src/lib/leaderboard/board";
 
 const ROOT = process.cwd();
@@ -100,16 +101,45 @@ check("…and the comparison is still the same length",
   hours(sundayWeek.start, sundayWeek.end),
   hours(sundayWeek.prevStart, sundayWeek.prevEnd));
 
-check("every period offered has a range", PERIODS.every((p) => Boolean(periodRanges(p.value, TUESDAY))), true);
+check("every period offered has a range",
+  PERIODS.every((p) => Boolean(periodRanges(p.value, TUESDAY))), true);
+// The brief names six.
+check("the six periods the brief asks for are all offered",
+  PERIODS.map((p) => p.value),
+  ["today", "week", "month", "last_month", "ytd", "custom"]);
+
+const today = periodRanges("today", TUESDAY);
+check("today starts at midnight", [today.start.getHours(), today.start.getDate()],
+  [0, TUESDAY.getDate()]);
+// Yesterday to the same time of day, so a comparison at 2pm is against
+// yesterday's 2pm rather than the whole of yesterday.
+check("…and compares against the same slice of yesterday",
+  hours(today.start, today.end), hours(today.prevStart, today.prevEnd));
+check("…which began exactly a day earlier", hours(today.prevStart, today.start), 24);
+
+const range = periodRanges("custom", TUESDAY, { from: "2026-06-01", to: "2026-06-30" });
+check("a custom range is what was picked",
+  [range.start.toISOString().slice(0, 10), range.end.toISOString().slice(0, 10)],
+  ["2026-06-01", "2026-06-30"]);
+check("…and its comparison is the same length, ending where it starts",
+  [
+    range.end.getTime() - range.start.getTime(),
+    range.prevEnd.getTime() - range.prevStart.getTime(),
+  ][0] === range.prevEnd.getTime() - range.prevStart.getTime() &&
+    range.prevEnd.getTime() === range.start.getTime(),
+  true);
+
+check("the four views the brief asks for are all offered",
+  BOARD_SCOPES.map((s) => s.value), ["mine", "team", "agency", "imo"]);
 
 // ── You are on the board ────────────────────────────────────────────────────
 
 console.log("");
 
 const AGENTS = [
-  { id: "a", name: "Ada", premium: 5000, policies: 4 },
-  { id: "b", name: "Bo", premium: 3000, policies: 2 },
-  { id: "c", name: "Cy", premium: 3000, policies: 3 },
+  { id: "a", name: "Ada", premium: 5000, policies: 4, placed: 4000 },
+  { id: "b", name: "Bo", premium: 3000, policies: 2, placed: 3000 },
+  { id: "c", name: "Cy", premium: 3000, policies: 3, placed: 1500 },
 ];
 
 // The defect: an agent who wrote nothing never appeared in the rows the query
@@ -155,6 +185,10 @@ console.log("");
 
 const totals = boardTotals(withMe);
 check("the totals count what is on the board", [totals.alp, totals.policies], [11000, 9]);
+// The brief asks for placed premium beside annual premium.
+check("…including placed premium", totals.placed, 8500);
+check("somebody added at zero has nothing placed either",
+  withMe.find((r) => r.id === "z")?.placed, 0);
 // Adding the viewer at zero must not make it look like one more agent produced.
 check("…and adding somebody at zero does not inflate 'producing'", totals.producing, 3);
 check("average is per policy, not per agent", Math.round(totals.avg), Math.round(11000 / 9));
@@ -173,13 +207,22 @@ check("no prior figure is not the same as no change", trendOf(50, undefined), "u
 console.log("");
 
 const PAGE = strip(read("src/routes/_authenticated/leaderboard.tsx"));
+check("the page offers the scope switch", /availableScopes/.test(PAGE), true);
+// A team view for somebody with nobody under them is a guaranteed empty board.
+check("…hiding Team for somebody with no downline",
+  /s\.value !== "team" \|\| caps\.downlineCount > 0/.test(PAGE), true);
+check("the page shows placed premium", /agent\.placed/.test(PAGE), true);
+check("a custom range has two date inputs",
+  (PAGE.match(/type="date"/g) ?? []).length, 2);
+
 check("the page takes its periods from the module",
   /from "@\/lib\/leaderboard\/board"/.test(PAGE), true);
 // The arithmetic that was wrong must not still be here.
 check("…and keeps no copy of the range arithmetic",
   /prevEnd: start/.test(PAGE), false);
+// Still passed in; the call now also carries the custom range.
 check("the clock is passed in, not read inside",
-  /periodRanges\(period, new Date\(\)\)/.test(PAGE), true);
+  /periodRanges\(period, new Date\(\), custom\)/.test(PAGE), true);
 check("rows are ranked by the module", /rankBoard\(/.test(PAGE), true);
 // Rendering the array index would undo the tie handling.
 check("…and the row renders that rank, not its index",

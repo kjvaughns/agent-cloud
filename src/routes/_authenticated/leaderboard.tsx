@@ -17,11 +17,13 @@ import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 import {
   PERIODS,
+  BOARD_SCOPES,
   periodRanges,
   rankBoard,
   boardTotals,
   trendOf,
   type Period,
+  type BoardScope,
 } from "@/lib/leaderboard/board";
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
@@ -54,15 +56,18 @@ function TrendIcon({ current, prior }: { current: number; prior: number | undefi
   );
 }
 
-function usePeriodData(period: Period, scope?: "agency" | "imo") {
+function usePeriodData(period: Period, scope?: BoardScope, custom?: { from?: string; to?: string }) {
   const fetchLeaderboard = useServerFn(getLeaderboardData);
-  const { start, end, prevStart, prevEnd } = useMemo(() => periodRanges(period, new Date()), [period]);
+  const { start, end, prevStart, prevEnd } = useMemo(
+    () => periodRanges(period, new Date(), custom),
+    [period, custom?.from, custom?.to],
+  );
   const current = useQuery({
-    queryKey: ["leaderboard", period, scope ?? "team", "current"],
+    queryKey: ["leaderboard", period, scope ?? "team", custom?.from ?? "", custom?.to ?? "", "current"],
     queryFn: () => fetchLeaderboard({ data: { rangeStart: start.toISOString(), rangeEnd: end.toISOString(), scope } }),
   });
   const prior = useQuery({
-    queryKey: ["leaderboard", period, scope ?? "team", "prior"],
+    queryKey: ["leaderboard", period, scope ?? "team", custom?.from ?? "", custom?.to ?? "", "prior"],
     queryFn: () => fetchLeaderboard({ data: { rangeStart: prevStart.toISOString(), rangeEnd: prevEnd.toISOString(), scope } }),
   });
   return { current, prior };
@@ -99,9 +104,18 @@ function LeaderboardPage() {
   // The board switch, for agencies with an IMO. "agency" ranks the direct
   // org; "imo" adds every opted-in sub-agency. Without children the legacy
   // team board stands and no switch renders.
-  const [board, setBoard] = useState<"agency" | "imo">("agency");
-  const scope = caps.canImo ? board : undefined;
-  const { current, prior } = usePeriodData(period, scope);
+  // Personal, team, agency, and IMO where the agency has opted-in children.
+  // Only the last two existed; "how am I doing" and "how is my team doing"
+  // were questions the board could not answer.
+  const [board, setBoard] = useState<BoardScope>("agency");
+  const [custom, setCustom] = useState<{ from?: string; to?: string }>({});
+  const availableScopes = BOARD_SCOPES.filter(
+    (s) =>
+      (s.value !== "imo" || caps.canImo) &&
+      (s.value !== "team" || caps.downlineCount > 0),
+  );
+  const scope: BoardScope = availableScopes.some((s) => s.value === board) ? board : "agency";
+  const { current, prior } = usePeriodData(period, scope, custom);
 
   const selfId = current.data?.selfId ?? "";
   const priorMap = useMemo(
@@ -142,6 +156,25 @@ function LeaderboardPage() {
           {p.label}
         </button>
       ))}
+      {period === "custom" && (
+        <span className="flex items-center gap-1.5">
+          <input
+            type="date"
+            aria-label="From"
+            value={custom.from ?? ""}
+            onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
+            className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs"
+          />
+          <span className="text-xs text-muted-foreground">to</span>
+          <input
+            type="date"
+            aria-label="To"
+            value={custom.to ?? ""}
+            onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
+            className="rounded-full border border-border bg-surface-2 px-2.5 py-1 text-xs"
+          />
+        </span>
+      )}
     </div>
   );
 
@@ -180,15 +213,15 @@ function LeaderboardPage() {
   // the whole point of a footer whose job is to say where you stand.
   const myRow = rows.find((r) => r.isYou);
 
-  const boardToggle = caps.canImo ? (
-    <div className="flex gap-1.5">
-      {([["agency", "My Agency"], ["imo", "Total IMO"]] as const).map(([v, l]) => (
+  const boardToggle = availableScopes.length > 1 ? (
+    <div className="flex gap-1.5 flex-wrap">
+      {availableScopes.map(({ value: v, label: l }) => (
         <button
           key={v}
           onClick={() => setBoard(v)}
           className={cn(
             "px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors",
-            board === v
+            scope === v
               ? "bg-gold-glow text-gold-bright border-primary/40"
               : "bg-surface-2 text-muted-foreground border-border hover:text-foreground",
           )}
@@ -218,7 +251,7 @@ function LeaderboardPage() {
                 {money(totals.alp)} <span className="text-base font-semibold text-foreground">ALP</span>
               </div>
               <div className="text-sm text-muted-foreground tnum">
-                {totals.producing} agent{totals.producing === 1 ? "" : "s"} producing · {number(totals.policies)} polic{totals.policies === 1 ? "y" : "ies"} written · Avg {money(totals.avg)}/policy
+                {totals.producing} agent{totals.producing === 1 ? "" : "s"} producing · {number(totals.policies)} polic{totals.policies === 1 ? "y" : "ies"} written · {money(totals.placed)} placed · Avg {money(totals.avg)}/policy
               </div>
             </div>
           )}
@@ -240,7 +273,7 @@ function LeaderboardPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-surface-2 z-10">
                   <tr>
-                    {["Rank", "Agent", "ALP", "Policies", "Avg/Policy", "Trend"].map((h, i) => (
+                    {["Rank", "Agent", "ALP", "Placed", "Policies", "Avg/Policy", "Trend"].map((h, i) => (
                       <th key={h} className={cn("px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground", i >= 2 ? "text-right" : "text-left", h === "Trend" && "text-center")}>{h}</th>
                     ))}
                   </tr>
@@ -292,6 +325,18 @@ function LeaderRow({ agent, rank, isYou, prior, sticky }: { agent: LeaderboardAg
         </div>
       </td>
       <td className="px-4 py-3 text-right tnum font-semibold font-display" style={{ fontFamily: "var(--font-display)" }}>{money(agent.premium)}</td>
+      {/* What of that is on the books. The gap between the two is how much of
+          what somebody wrote is still standing. */}
+      <td className="px-4 py-3 text-right tnum text-muted-foreground">
+        {agent.premium > 0 ? (
+          <>
+            {money(agent.placed)}
+            <span className="ml-1 text-[11px]">
+              {Math.round((agent.placed / agent.premium) * 100)}%
+            </span>
+          </>
+        ) : "—"}
+      </td>
       <td className="px-4 py-3 text-right tnum">{agent.policies}</td>
       <td className="px-4 py-3 text-right tnum">{money(avg)}</td>
       <td className="px-4 py-3 text-center"><span className="inline-flex"><TrendIcon current={agent.premium} prior={prior} /></span></td>

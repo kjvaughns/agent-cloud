@@ -1,39 +1,43 @@
 /**
  * What "production" means, decided once.
  *
- * Every screen in the product that answers "how much did they write" was
- * answering it separately, and one of them was answering it differently.
+ * Every screen that answers "how much did they write" reads this, and until
+ * this module existed each answered separately.
  *
  * ── The rule ──
  *
- *   Production = SUM(policies.annual_premium) over `posted_at`,
- *                with no status filter.
+ *   Production = SUM(annual_premium) over `production_date`,
+ *                for policies whose status counts.
  *
- * Two halves, both deliberate.
+ * ── The date ──
  *
- * **The date is `posted_at`, not `effective_date`.** The live
- * `get_dashboard_metrics` (migration 20260715120000) windows on `posted_at`,
- * and so does the roster, the leaderboard and the scope rollup. A superseded
- * 2026-06-05 version of that function used `COALESCE(effective_date,
- * posted_at)` and called it `biz_date`; the July rewrite dropped it, but the
- * dashboard's production chart kept a hand-written copy of the old formula,
- * with a comment saying it matched the RPC. It had not matched since July.
+ * `policies.production_date`, added by 20260814250000: `effective_date` when
+ * it precedes `posted_at`, and `posted_at` otherwise.
  *
- * The consequence was visible and wrong: an agent posts a deal today with an
- * effective date next month. The KPI tiles count it today. The chart directly
- * beneath them puts it in next month's bucket — and if that is past the end of
- * the range, drops it entirely. Two numbers, one screen, same agent, same
- * window, disagreeing. A back-dated policy fell the other way.
+ * It exists because `posted_at` is right for a deal posted through the product
+ * and nonsense for an imported one. Two import paths stamp
+ * `posted_at = now()`, so an agency importing four hundred policies written
+ * over three years got four hundred policies dated the afternoon of the
+ * import: every one of those months read zero on the leaderboard while the
+ * book of business — which has no date window — showed them correctly the
+ * whole time. That is the contradiction this repairs.
  *
- * Whether `effective_date` is the *better* business date is a real question
- * and not this module's to answer. What is not defensible is one screen using
- * each. If it ever changes, it changes here and every surface moves together.
+ * A policy whose effective date comes AFTER it was posted is an ordinary
+ * forward-dated sale and keeps `posted_at`. Windowing those on effective_date
+ * is the separate bug that made the dashboard chart disagree with the tiles
+ * above it; the rule only ever moves a date backwards, so it cannot return.
  *
- * **No status filter.** A policy counts whatever became of it. Production is
- * what somebody wrote, not what survived — retention is a separate number with
- * its own screen, and quietly netting lapses out of production would make the
- * two impossible to reconcile. `get_dashboard_metrics` has always worked this
- * way; the book of business totals the same way for the same reason.
+ * ── Which statuses count ──
+ *
+ * A policy that was withdrawn, never taken, or that the carrier does not write
+ * is not production: no business was placed and none ever will be. Those three
+ * are excluded everywhere.
+ *
+ * Everything else counts, including lapsed and cancelled. Those policies were
+ * genuinely written — the premium was real and the commission was advanced —
+ * and quietly netting them out of production would make production and
+ * retention impossible to reconcile. Retention is the separate number for what
+ * survived, with its own screen.
  *
  * Pure, so the definition can be exercised without a database, and so no
  * caller can drift from it by accident.
@@ -41,15 +45,27 @@
 
 export type ProductionRow = {
   annual_premium?: number | string | null;
+  /** The canonical date. See the header. */
+  production_date?: string | null;
+  /**
+   * Read only as a fallback for a row loaded before 20260814250000 applied.
+   * Never preferred over `production_date`, and never over `posted_at` for a
+   * forward-dated sale — the migration already decided that.
+   */
   posted_at?: string | null;
-  /** Present on some reads. Deliberately unused — see the note above. */
   effective_date?: string | null;
   agent_id?: string | null;
+  status?: string | null;
 };
 
-export type Tally = { premium: number; policies: number };
+export type Tally = {
+  premium: number;
+  policies: number;
+  /** Of that premium, how much is on the books. */
+  placed: number;
+};
 
-export const ZERO_TALLY: Tally = { premium: 0, policies: 0 };
+export const ZERO_TALLY: Tally = { premium: 0, policies: 0, placed: 0 };
 
 /**
  * The column every production window filters on.
@@ -57,7 +73,39 @@ export const ZERO_TALLY: Tally = { premium: 0, policies: 0 };
  * Exported as a string so a server function can name it in a PostgREST filter
  * and a check script can assert that nothing filters on anything else.
  */
-export const PRODUCTION_DATE_COLUMN = "posted_at" as const;
+export const PRODUCTION_DATE_COLUMN = "production_date" as const;
+
+/**
+ * Statuses that are not production, and never will be.
+ *
+ * `withdrawn` — the application was pulled before it was placed.
+ * `not_taken`  — issued, and the client declined to take it.
+ * `carrier_na` — the carrier does not write this; there is no policy.
+ *
+ * Deliberately NOT here: `lapsed` and `cancelled`. Those were placed, the
+ * premium was real and the commission was advanced. Netting them out would
+ * make production and retention impossible to reconcile.
+ */
+export const NON_PRODUCTION_STATUSES = ["withdrawn", "not_taken", "carrier_na"] as const;
+
+/** Does this policy count towards production at all? */
+export function countsAsProduction(row: ProductionRow): boolean {
+  const s = row.status;
+  if (!s) return true;
+  return !(NON_PRODUCTION_STATUSES as readonly string[]).includes(s);
+}
+
+/**
+ * Placed premium: production that actually made it onto the books.
+ *
+ * A separate figure from production, and both are wanted side by side — the
+ * gap between them is how much of what somebody wrote is still standing.
+ */
+export const PLACED_STATUSES = ["active", "issued_not_paid"] as const;
+
+export function isPlaced(row: ProductionRow): boolean {
+  return (PLACED_STATUSES as readonly string[]).includes(row.status ?? "");
+}
 
 /**
  * When a policy counted as production.
@@ -67,7 +115,10 @@ export const PRODUCTION_DATE_COLUMN = "posted_at" as const;
  * in whatever the earliest bucket happens to be.
  */
 export function productionDate(row: ProductionRow): string | null {
-  return row.posted_at ?? null;
+  // `posted_at` is the fallback for a row read before the column existed, not
+  // an alternative definition: the migration's rule is already baked into
+  // `production_date` for every row that has one.
+  return row.production_date ?? row.posted_at ?? null;
 }
 
 /** One policy's contribution. Missing or unparseable premium is zero, not NaN. */
@@ -88,6 +139,8 @@ export function premiumOf(row: ProductionRow): number {
  * last instant of a day must include that day.
  */
 export function inWindow(row: ProductionRow, start: string | null, end: string | null): boolean {
+  // An ineligible status is in no window: it is not production at any date.
+  if (!countsAsProduction(row)) return false;
   const d = productionDate(row);
   if (!d) return false;
   if (start && d < start) return false;
@@ -95,15 +148,36 @@ export function inWindow(row: ProductionRow, start: string | null, end: string |
   return true;
 }
 
-/** Total premium across rows, with no windowing. */
+/** Total premium across rows, with no windowing. Ineligible rows count zero. */
 export function sumPremium(rows: ProductionRow[]): number {
-  return rows.reduce((acc, r) => acc + premiumOf(r), 0);
+  return rows.reduce((acc, r) => acc + (countsAsProduction(r) ? premiumOf(r) : 0), 0);
+}
+
+/** Premium that actually placed, for the figure beside production. */
+export function sumPlaced(rows: ProductionRow[]): number {
+  return rows.reduce((acc, r) => acc + (isPlaced(r) ? premiumOf(r) : 0), 0);
+}
+
+/**
+ * Placed premium as a share of production.
+ *
+ * Null rather than zero when nothing was produced: a person who wrote nothing
+ * has no retention rate, and drawing 0% would read as "everything lapsed".
+ */
+export function placementRate(rows: ProductionRow[]): number | null {
+  const produced = sumPremium(rows);
+  if (produced <= 0) return null;
+  return sumPlaced(rows) / produced;
 }
 
 /** Premium and policy count together, which is what every KPI tile wants. */
 export function tally(rows: ProductionRow[]): Tally {
-  return rows.reduce<Tally>(
-    (acc, r) => ({ premium: acc.premium + premiumOf(r), policies: acc.policies + 1 }),
+  return rows.filter(countsAsProduction).reduce<Tally>(
+    (acc, r) => ({
+      premium: acc.premium + premiumOf(r),
+      policies: acc.policies + 1,
+      placed: acc.placed + (isPlaced(r) ? premiumOf(r) : 0),
+    }),
     { ...ZERO_TALLY },
   );
 }
@@ -129,8 +203,13 @@ export function tallyByAgent(rows: ProductionRow[]): Map<string, Tally> {
   for (const r of rows) {
     const id = r.agent_id;
     if (!id) continue;
+    if (!countsAsProduction(r)) continue;
     const prev = out.get(id) ?? { ...ZERO_TALLY };
-    out.set(id, { premium: prev.premium + premiumOf(r), policies: prev.policies + 1 });
+    out.set(id, {
+      premium: prev.premium + premiumOf(r),
+      policies: prev.policies + 1,
+      placed: prev.placed + (isPlaced(r) ? premiumOf(r) : 0),
+    });
   }
   return out;
 }

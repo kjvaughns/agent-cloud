@@ -44,6 +44,8 @@ export type BoardAgent = {
   name: string;
   premium: number;
   policies: number;
+  /** Of that premium, how much is on the books. */
+  placed: number;
 };
 
 export type RankedAgent = BoardAgent & {
@@ -53,13 +55,32 @@ export type RankedAgent = BoardAgent & {
   prior: number | undefined;
 };
 
-export type Period = "week" | "month" | "last_month" | "ytd";
+export type Period = "today" | "week" | "month" | "last_month" | "ytd" | "custom";
 
 export const PERIODS: { value: Period; label: string }[] = [
+  { value: "today", label: "Today" },
   { value: "week", label: "This Week" },
   { value: "month", label: "This Month" },
   { value: "last_month", label: "Last Month" },
   { value: "ytd", label: "YTD" },
+  { value: "custom", label: "Custom" },
+];
+
+/**
+ * Which agents a board covers.
+ *
+ * Three, because "how am I doing" and "how is my team doing" and "how is the
+ * agency doing" are three different questions and the board answered only the
+ * last. `imo` is the fourth, and appears only for an agency that has opted-in
+ * children.
+ */
+export type BoardScope = "mine" | "team" | "agency" | "imo";
+
+export const BOARD_SCOPES: { value: BoardScope; label: string }[] = [
+  { value: "mine", label: "Personal" },
+  { value: "team", label: "My Team" },
+  { value: "agency", label: "My Agency" },
+  { value: "imo", label: "Total IMO" },
 ];
 
 export type Range = { start: Date; end: Date; prevStart: Date; prevEnd: Date };
@@ -70,8 +91,36 @@ export type Range = { start: Date; end: Date; prevStart: Date; prevEnd: Date };
  * `now` is a parameter rather than read from the clock so this can be tested
  * on a Tuesday and a Sunday without waiting for either.
  */
-export function periodRanges(p: Period, now: Date): Range {
+export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?: string }): Range {
   const day = 86_400_000;
+
+  if (p === "today") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Yesterday to the same time of day, so a comparison at 9am is against
+    // yesterday's 9am rather than the whole of yesterday.
+    const prevStart = new Date(start.getTime() - day);
+    return {
+      start,
+      end: now,
+      prevStart,
+      prevEnd: new Date(prevStart.getTime() + (now.getTime() - start.getTime())),
+    };
+  }
+
+  if (p === "custom") {
+    // Whatever the person picked. The prior window is the same length ending
+    // where this one starts, which is the only comparison a custom range can
+    // sensibly have.
+    const start = custom?.from ? new Date(custom.from) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = custom?.to ? new Date(custom.to) : now;
+    const span = Math.max(0, end.getTime() - start.getTime());
+    return {
+      start,
+      end,
+      prevStart: new Date(start.getTime() - span),
+      prevEnd: start,
+    };
+  }
 
   if (p === "week") {
     // Sunday of the current week, local midnight.
@@ -136,7 +185,7 @@ export function rankBoard(
   // Absent, not last: an agent with no policies in the window never appears in
   // the rows the query returns.
   if (selfId && !rows.some((a) => a.id === selfId)) {
-    rows.push({ id: selfId, name: selfName ?? "You", premium: 0, policies: 0 });
+    rows.push({ id: selfId, name: selfName ?? "You", premium: 0, policies: 0, placed: 0 });
   }
 
   rows.sort((a, b) =>
@@ -161,6 +210,7 @@ export function rankBoard(
 export function boardTotals(rows: BoardAgent[]): {
   alp: number;
   policies: number;
+  placed: number;
   producing: number;
   avg: number;
 } {
@@ -169,6 +219,7 @@ export function boardTotals(rows: BoardAgent[]): {
   return {
     alp,
     policies,
+    placed: rows.reduce((a, r) => a + r.placed, 0),
     // "Producing" means wrote something. Adding the viewer at zero must not
     // inflate this.
     producing: rows.filter((r) => r.premium > 0).length,

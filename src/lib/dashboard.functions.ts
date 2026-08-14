@@ -6,13 +6,15 @@ import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 // One definition of production for every number on this page. The chart used
 // to bucket on a different date field from the tiles above it.
 import {
-  PRODUCTION_DATE_COLUMN,
   productionDate,
   premiumOf,
   sumPremium,
   tallyByAgent,
   type ProductionRow,
 } from "@/lib/production/source";
+// Every window on this page goes through this, so the pending-column fallback
+// is written once instead of four times. See the module header.
+import { selectProduction } from "@/lib/production/source.server";
 
 const supabaseAdmin = _admin as any;
 
@@ -180,12 +182,13 @@ export const getDashboardHero = createServerFn({ method: "GET" })
       now.getHours(), now.getMinutes());
     const fetchSince = new Date(Math.min(priorMonthStart.getTime(), twoWeeksAgo.getTime()));
 
-    const { data: pols } = await supabase
-      .from("policies")
-      .select("annual_premium, posted_at, status")
-      .eq("agent_id", userId)
-      .gte(PRODUCTION_DATE_COLUMN, fetchSince.toISOString());
-    const rows: ProductionRow[] = (pols ?? []) as ProductionRow[];
+    const rows: ProductionRow[] = await selectProduction<ProductionRow>((col) =>
+      supabase
+        .from("policies")
+        .select("*")
+        .eq("agent_id", userId)
+        .gte(col, fetchSince.toISOString()),
+    );
 
     // The upper bound is exclusive here — these are adjacent windows (today
     // against yesterday, this week against last) and an inclusive end would
@@ -359,6 +362,8 @@ export type LeaderboardAgent = {
   name: string;
   premium: number;
   policies: number;
+  /** Of that premium, how much is on the books. */
+  placed: number;
 };
 
 const LeaderboardSchema = RangeSchema.extend({
@@ -369,7 +374,10 @@ const LeaderboardSchema = RangeSchema.extend({
    * without an opted-in child asking for "imo" gets their agency, labelled
    * by whatever the UI offered them, which the UI only offers when canImo.
    */
-  scope: z.enum(["agency", "imo"]).optional(),
+  // Four now. "mine" is the agent's own row, "team" their recursive downline,
+  // and both were unreachable — the board answered only "the whole agency",
+  // which is one of the three questions people bring to it.
+  scope: z.enum(["mine", "team", "agency", "imo"]).optional(),
 });
 
 export const getLeaderboardData = createServerFn({ method: "POST" })
@@ -378,8 +386,12 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
     let teamIds: string[];
-    if (data.scope) {
-      teamIds = await resolveScopeAgentIdsOrNone(supabase, data.scope);
+    if (data.scope === "mine") {
+      // Just this person. A board of one is still a board: it carries their
+      // own figures for the period and the same trend against the last.
+      teamIds = [userId];
+    } else if (data.scope) {
+      teamIds = await resolveScopeAgentIdsOrNone(supabase, data.scope as any);
       if (!teamIds.length) teamIds = [userId];
     } else {
       // Explicit hierarchy scope: self + recursive downline. Without this,
@@ -415,12 +427,16 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       // Column absent before the imo-scope migration: nobody has opted out.
     }
 
-    const { data: agents } = await supabase
-      .from("policies")
-      .select("agent_id, annual_premium, posted_at, profiles!inner(first_name, last_name)")
-      .in("agent_id", teamIds)
-      .gte(PRODUCTION_DATE_COLUMN, data.rangeStart)
-      .lte(PRODUCTION_DATE_COLUMN, data.rangeEnd);
+    const agents = await selectProduction<any>((col) =>
+      supabase
+        .from("policies")
+        // `*` plus the embed: naming the date column in the projection is the
+        // same 42703 as naming it in a filter. See source.server.ts.
+        .select("*, profiles!inner(first_name, last_name)")
+        .in("agent_id", teamIds)
+        .gte(col, data.rangeStart)
+        .lte(col, data.rangeEnd),
+    );
 
     const names = new Map<string, string>();
     for (const row of (agents ?? []) as any[]) {
@@ -432,7 +448,13 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       }
     }
     const sorted = Array.from(tallyByAgent((agents ?? []) as ProductionRow[]).entries())
-      .map(([id, t]) => ({ id, name: names.get(id) ?? "", premium: t.premium, policies: t.policies }))
+      .map(([id, t]) => ({
+        id,
+        name: names.get(id) ?? "",
+        premium: t.premium,
+        policies: t.policies,
+        placed: t.placed,
+      }))
       .sort((a, b) => b.premium - a.premium);
     // The viewer's own name, so the board can place them even when they wrote
     // nothing in the window. The rankings are built from policy rows, so an
@@ -473,12 +495,14 @@ export const getProductionByScope = createServerFn({ method: "POST" })
     async function sumFor(scope: "mine" | "agency" | "imo") {
       const ids = await resolveScopeAgentIdsOrNone(supabase, scope as any);
       const agentIds = ids.length ? ids : [userId];
-      const { data: rows } = await supabase
-        .from("policies")
-        .select("annual_premium, posted_at")
-        .in("agent_id", agentIds)
-        .gte(PRODUCTION_DATE_COLUMN, data.rangeStart)
-        .lte(PRODUCTION_DATE_COLUMN, data.rangeEnd);
+      const rows = await selectProduction<ProductionRow>((col) =>
+        supabase
+          .from("policies")
+          .select("*")
+          .in("agent_id", agentIds)
+          .gte(col, data.rangeStart)
+          .lte(col, data.rangeEnd),
+      );
       return sumPremium((rows ?? []) as ProductionRow[]);
     }
 
@@ -526,13 +550,15 @@ export const getProductionSeries = createServerFn({ method: "POST" })
     // since the July rewrite, so a deal posted today with next month's
     // effective date was counted by the tiles above this chart and dropped by
     // the chart itself.
-    const { data: pols } = await supabase
-      .from("policies")
-      .select("agent_id, annual_premium, posted_at")
-      .in("agent_id", ids.length ? ids : [userId])
-      .gte(PRODUCTION_DATE_COLUMN, start.toISOString())
-      .lte(PRODUCTION_DATE_COLUMN, end.toISOString())
-      .limit(20000);
+    const pols = await selectProduction<ProductionRow>((col) =>
+      supabase
+        .from("policies")
+        .select("*")
+        .in("agent_id", ids.length ? ids : [userId])
+        .gte(col, start.toISOString())
+        .lte(col, end.toISOString())
+        .limit(20000),
+    );
 
     type Bucket = "hour" | "day" | "week" | "month";
     const bucket: Bucket =

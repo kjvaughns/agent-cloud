@@ -78,9 +78,12 @@ check("the migration names its dependency", /depends on agency_relationships \(2
 console.log("");
 
 const DASH = read("src/lib/dashboard.functions.ts");
+// Personal and Team joined agency/imo when the board gained the four views the
+// brief asks for. Everything beyond Personal still goes through the scope
+// layer — Personal is the one case that resolves to a single id without it.
 check("the leaderboard routes agency/imo through the scope layer",
-  /scope: z\.enum\(\["agency", "imo"\]\)\.optional\(\)/.test(DASH) &&
-  /resolveScopeAgentIdsOrNone\(supabase, data\.scope\)/.test(DASH), true);
+  /scope: z\.enum\(\["mine", "team", "agency", "imo"\]\)\.optional\(\)/.test(DASH) &&
+  /resolveScopeAgentIdsOrNone\(supabase, data\.scope as any\)/.test(DASH), true);
 check("opted-out owners lose their own line only",
   /eq\("show_own_on_leaderboards", false\)/.test(DASH) && /hiddenOwners\.delete\(userId\)/.test(DASH), true);
 check("…inside a catch for the pre-migration window",
@@ -89,9 +92,18 @@ check("the three levels come from the same resolver as every scoped page",
   /getProductionByScope/.test(DASH) && /sumFor\("mine"\), sumFor\("agency"\), sumFor\("imo"\)/.test(DASH), true);
 
 const BOARD = read("src/routes/_authenticated/leaderboard.tsx");
-check("the board switch is My Agency vs Total IMO",
-  /\["agency", "My Agency"\], \["imo", "Total IMO"\]/.test(BOARD), true);
-check("…rendered only when the rollup applies", /caps\.canImo \? \(/.test(BOARD), true);
+const BOARDMOD = read("src/lib/leaderboard/board.ts");
+// The switch grew from two options to the four the brief names, so the labels
+// moved into the shared module. What must not change is which of them an
+// agency without an IMO is offered.
+check("the board switch offers My Agency and Total IMO",
+  /\{ value: "agency", label: "My Agency" \}/.test(BOARDMOD) &&
+  /\{ value: "imo", label: "Total IMO" \}/.test(BOARDMOD), true);
+check("…with Total IMO only when the rollup applies",
+  /s\.value !== "imo" \|\| caps\.canImo/.test(BOARD), true);
+// A team view for somebody with nobody under them is a guaranteed empty board.
+check("…and My Team only for somebody who has one",
+  /s\.value !== "team" \|\| caps\.downlineCount > 0/.test(BOARD), true);
 check("the three-figure strip labels read Personal / My Agency / Total IMO",
   /label="Personal"/.test(BOARD) && /label="My Agency"/.test(BOARD) && /label="Total IMO"/.test(BOARD), true);
 check("…and hides without an IMO", /\{caps\.canImo && <ThreeLevels \/>\}/.test(BOARD), true);
