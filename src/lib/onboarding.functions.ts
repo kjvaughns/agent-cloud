@@ -699,6 +699,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
       rows: (rows ?? []).map((r: any) => ({
         ...r,
         linked_agent: r.linked_agent_id ? agentMap.get(r.linked_agent_id) ?? null : null,
+        upline: r.upline_id ? agentMap.get(r.upline_id) ?? null : null,
         accepted_count: accepted.get(r.id) ?? 0,
         expired: r.expires_at ? new Date(r.expires_at).getTime() < now : false,
         days_left: r.expires_at
