@@ -27,8 +27,12 @@ import {
   getAgentDetail,
   checkIsAdmin,
   getAllAgentsForHierarchy,
+  setAgentPosition,
   type TeamAgent,
 } from "@/lib/team.functions";
+import { listAgencyLevels } from "@/lib/contracting-records.functions";
+import { PositionCell } from "@/components/team/position-pill";
+import { needsPosition, type Position } from "@/lib/team/positions";
 import { adminMoveAgent } from "@/lib/admin.functions";
 import { OnboardingPage } from "@/components/onboarding/onboarding-panel";
 import { AgentProfileDrawer } from "@/components/team/agent-profile-drawer";
@@ -296,7 +300,7 @@ function TeamPage() {
           <TabsContent value="roster" className="space-y-6 mt-4">
             <KpiRow />
             <DepthChart />
-            <div data-tour="team-roster"><RosterTable downline={downlineForRoster} onOpen={setOpenAgent} /></div>
+            <div data-tour="team-roster"><RosterTable downline={downlineForRoster} onOpen={setOpenAgent} canAssign={canManageRoles} /></div>
           </TabsContent>
 
           {canManageRoles && (
@@ -504,16 +508,43 @@ function RecentlyActive({ downline, onOpen }: { downline: TeamAgent[]; onOpen: (
 }
 
 // ============ Roster Table ============
-function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (id: string) => void }) {
+function RosterTable({ downline, onOpen, canAssign }: {
+  downline: RosterAgent[]; onOpen: (id: string) => void; canAssign: boolean;
+}) {
+  const qc = useQueryClient();
+  const levelsFn = useServerFn(listAgencyLevels);
+  const assignFn = useServerFn(setAgentPosition);
+  const { data: levelData } = useQuery({ queryKey: ["agency-levels"], queryFn: () => levelsFn() });
+
+  // The catalog, in the shape the pill model wants. base_pct IS the ladder
+  // number — see lib/team/positions.ts for why there is no separate integer.
+  const positions: Position[] = useMemo(
+    () => (((levelData as any)?.rows ?? []) as any[])
+      .filter((r) => r.active !== false)
+      .map((r) => ({ id: r.id, name: r.name, pct: Number(r.base_pct) })),
+    [levelData],
+  );
+
+  const assign = useMutation({
+    mutationFn: (v: { agentId: string; agencyLevelId: string | null }) => assignFn({ data: v }),
+    onSuccess: () => {
+      toast.success("Position updated");
+      qc.invalidateQueries({ queryKey: ["team", "roster"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not change that position"),
+  });
+
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all_except_imported");
   const [depth, setDepth] = useState("all");
   const [stage, setStage] = useState<"all" | LifecycleStage>("all");
   const [sort, setSort] = useState<"name" | "stale" | "production" | "compliance">("name");
+  const [pendingOnly, setPendingOnly] = useState(false);
   const [page, setPage] = useState(0);
   const perPage = 25;
 
   const agentById = useMemo(() => new Map(downline.map((a) => [a.id, a])), [downline]);
+  const awaitingPosition = useMemo(() => needsPosition(downline, positions), [downline, positions]);
 
   const filtered = useMemo(() => downline.filter((a) => {
     const q = search.toLowerCase();
@@ -522,8 +553,9 @@ function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (i
     if (status !== "all" && status !== "all_except_imported" && a.status !== status) return false;
     if (depth !== "all" && a.depth_level !== Number(depth)) return false;
     if (stage !== "all" && a.stage !== stage) return false;
+    if (pendingOnly && a.agency_level_id) return false;
     return true;
-  }), [downline, search, status, depth, stage]);
+  }), [downline, search, status, depth, stage, pendingOnly]);
 
   // At-risk first regardless of the chosen sort. A flag you have to scroll to
   // find is the same dead end as no flag at all.
@@ -570,6 +602,24 @@ function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (i
               </button>
             );
           })}
+
+          {/* Pending positions: the queue of people nobody has placed yet.
+              Only offered once a catalog exists — with no positions defined,
+              every agent is unassigned and the chip would just say "all". */}
+          {awaitingPosition.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setPendingOnly((v) => !v); setPage(0); }}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                pendingOnly
+                  ? "border-warning/50 bg-warning/10 text-warning"
+                  : "border-border bg-surface-2 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Pending positions <span className="tnum">{awaitingPosition.length}</span>
+            </button>
+          )}
         </div>
 
         <div className="flex gap-2 flex-wrap">
@@ -608,6 +658,7 @@ function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (i
             <TableHeader>
               <TableRow>
                 <TableHead>Agent</TableHead>
+                <TableHead>Position</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead className="text-center">Compliance</TableHead>
                 <TableHead>Upline</TableHead>
@@ -620,7 +671,7 @@ function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (i
             </TableHeader>
             <TableBody>
               {pageRows.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">No agents match.</TableCell></TableRow>
               ) : pageRows.map((a) => {
                 const upline = a.upline_id ? agentById.get(a.upline_id) : null;
                 return (
@@ -633,6 +684,17 @@ function RosterTable({ downline, onOpen }: { downline: RosterAgent[]; onOpen: (i
                         <div className="text-xs text-muted-foreground">{a.email}</div>
                       </div>
                     </button>
+                  </TableCell>
+                  <TableCell>
+                    <PositionCell
+                      positionName={a.position_name}
+                      positionPct={a.position_pct}
+                      agencyLevelId={a.agency_level_id}
+                      positions={positions}
+                      canAssign={canAssign}
+                      pending={assign.isPending}
+                      onAssign={(agencyLevelId) => assign.mutate({ agentId: a.id, agencyLevelId })}
+                    />
                   </TableCell>
                   <TableCell><StageBadge stage={a.stage} flags={a.flags} /></TableCell>
                   <TableCell className="text-center"><ComplianceDot level={a.compliance} /></TableCell>
