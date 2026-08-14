@@ -56,6 +56,11 @@ export type Unlock =
   /** The agency has child agencies. A Sub-Agencies page with none is a concept lesson, not a page. */
   | "has-sub-agencies"
   /**
+   * May send invite links. Their ladder position allows recruiting — see
+   * MyAccess.canInvite. Not a role question: plenty of agents recruit.
+   */
+  | "can-invite"
+  /**
    * Somebody whose job includes answering tickets. Not the same set as
    * "administers the agency": a client-services staffer or a manager the
    * owner has ticked "respond to support tickets" for works the queue
@@ -234,7 +239,7 @@ export const PAGES: Page[] = [
   // could open the builder that places agents in a downline with carriers and
   // comp levels pre-assigned. The server function is the real gate (see
   // createOnboardingInvite); this stops offering what it will now refuse.
-  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "agency-admin" },
+  { id: "invite", label: "Invite an agent", path: "/contracting/invite", icon: UserPlus, area: "Contracting", parent: "my-contracts", unlock: "can-invite" },
 
   // ── Back office — staff's own product ────────────────────────────────────
   // These serve two audiences from one set of entries: staff, for whom they
@@ -389,6 +394,8 @@ export type NavContext = {
   canEditResources: boolean;
   /** At least one organization names theirs as parent. Drives has-sub-agencies. */
   hasSubAgencies: boolean;
+  /** Their ladder position allows sending invite links. Drives can-invite. */
+  canInvite: boolean;
   /**
    * They have never posted a policy. Gates nothing — it only lets Nova open
    * with something useful to somebody who has no book yet.
@@ -427,6 +434,7 @@ function allowed(p: Page, ctx: NavContext): boolean {
   if (p.unlock === "agency-admin") gates.push(ctx.canSeeAgency);
   if (p.unlock === "has-downline") gates.push(ctx.downlineCount > 0);
   if (p.unlock === "leads-people") gates.push(ctx.downlineCount > 0 || ctx.canSeeAgency);
+  if (p.unlock === "can-invite") gates.push(ctx.canInvite || ctx.canSeeAgency);
   if (p.unlock === "has-sub-agencies") gates.push(ctx.hasSubAgencies && ctx.canSeeAgency);
   if (p.unlock === "ticket-responder") gates.push(ctx.canWorkTickets);
   if (p.unlock === "resource-editor") gates.push(ctx.canEditResources);

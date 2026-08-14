@@ -266,6 +266,16 @@ export type MyAccess = {
    * an empty tab explaining a concept it doesn't have.
    */
   hasSubAgencies: boolean;
+  /**
+   * May mint invite links for new agents.
+   *
+   * Inviting is no longer a manager-and-above privilege: an ordinary agent
+   * recruits too. What decides it is their position on the agency's ladder —
+   * `agency_levels.can_invite` — so an agency can close it off at the bottom
+   * rung without touching roles. Owners and admins always may; somebody with
+   * no position yet may, because there is no rung saying otherwise.
+   */
+  canInvite: boolean;
   orgId: string | null;
   orgName: string | null;
   orgStatus: string;
@@ -441,6 +451,21 @@ export const getMyAccess = createServerFn({ method: "GET" })
       hasSubAgencies = (child ?? []).length > 0;
     }
 
+    // Same question createOnboardingInvite asks, so the row that offers the
+    // builder and the server that backs it cannot disagree.
+    let canInvite = true;
+    {
+      const { data: prof } = await supabaseAdmin
+        .from("profiles").select("agency_level_id").eq("id", userId).maybeSingle();
+      const levelId = (prof as any)?.agency_level_id ?? null;
+      if (levelId) {
+        const { data: lvl } = await supabaseAdmin
+          .from("agency_levels").select("can_invite").eq("id", levelId).maybeSingle();
+        if (lvl && (lvl as any).can_invite === false) canInvite = false;
+      }
+    }
+    if (pick && ["super_admin", "agency_owner", "admin", "manager"].includes(pick)) canInvite = true;
+
     return {
       role: pick,
       canManageRoles,
@@ -454,6 +479,7 @@ export const getMyAccess = createServerFn({ method: "GET" })
       isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       hasSubAgencies,
+      canInvite,
       orgId: org?.id ?? null,
       orgName: org?.name ?? null,
       orgStatus: org?.subscription_status ?? "inactive",

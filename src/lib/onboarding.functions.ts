@@ -1213,13 +1213,30 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     //
     // Manager and above, because inviting into your own downline is a
     // manager's job. A plain agent or staff member is not building a team.
-    const mayInviteAnyone = inviterRoleList.some((r: string) =>
+    // Manager and above always may. An ordinary agent may too — recruiting is
+    // part of the job — unless their position on the agency's ladder says
+    // otherwise: `agency_levels.can_invite` is how an agency closes inviting
+    // off at the bottom rung. Somebody with no position yet may, because there
+    // is no rung saying they cannot.
+    let mayInviteAnyone = inviterRoleList.some((r: string) =>
       ["super_admin", "agency_owner", "admin", "manager"].includes(r),
     );
     if (!mayInviteAnyone) {
+      const { data: myProfile } = await (supabase as any)
+        .from("profiles").select("agency_level_id").eq("id", userId).maybeSingle();
+      const myLevelId = myProfile?.agency_level_id ?? null;
+      if (!myLevelId) {
+        mayInviteAnyone = true;
+      } else {
+        const { data: myLevel } = await (supabase as any)
+          .from("agency_levels").select("can_invite").eq("id", myLevelId).maybeSingle();
+        mayInviteAnyone = myLevel ? myLevel.can_invite !== false : true;
+      }
+    }
+    if (!mayInviteAnyone) {
       throw new Error(
-        "Creating invite links is limited to agency owners and managers. " +
-        "Ask yours to send the link, or to grant you a manager role.",
+        "Your position in the agency can't send invite links yet. " +
+        "Ask your upline or agency owner to send it, or to move you up a level.",
       );
     }
     const canInviteAgencyOwner = inviterRoleList.includes("super_admin") || inviterRoleList.includes("agency_owner");
