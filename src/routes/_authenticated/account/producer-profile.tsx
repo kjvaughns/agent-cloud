@@ -252,11 +252,14 @@ function NextStep({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
-              Next
+              Suggested next
             </div>
             <div className="mt-1 text-base font-bold">{next}</div>
             <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-              {WHY[next] ?? "Carriers ask for this before they will appoint you."}
+              {WHY[next] ?? "Worth keeping here so you only ever type it once."}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              Nothing here is required — the rest of Agent Cloud is open either way.
             </div>
             <Button size="sm" className="mt-3" onClick={() => onGo(where.tab)}>
               {where.action}
@@ -265,7 +268,7 @@ function NextStep({
           <div className="shrink-0 text-right">
             <div className="tnum text-3xl font-bold text-foreground">{pct}%</div>
             <div className="text-xs text-muted-foreground">
-              {missing.length} left
+              {missing.length} to go
             </div>
           </div>
         </div>
