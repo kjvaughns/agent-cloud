@@ -816,9 +816,15 @@ export const getCommissionGrid = createServerFn({ method: "POST" })
       return { myLevelName: null, myPct: null, rows: [], noLevelAssigned: true, isSuperAdmin: false };
     }
 
+    // `*` rather than a column list: the reader now consults `sort_order` and
+    // `level_sort` (authored grid order), which arrive with a hand-applied
+    // migration — and PostgREST fails a whole select that names a column the
+    // table does not have yet. Ordering by the pending columns is likewise
+    // left to the page, where a missing value reads as undefined instead of
+    // failing the query.
     let query = supabase
       .from("commission_grids")
-      .select("id,product_name,age_group_min,age_group_max,level_name,year_1_pct,years_2_5_pct,years_6_plus_pct")
+      .select("*")
       .eq("carrier_id", data.carrier_id)
       .order("year_1_pct", { ascending: false })
       .order("age_group_min", { ascending: true, nullsFirst: true })
