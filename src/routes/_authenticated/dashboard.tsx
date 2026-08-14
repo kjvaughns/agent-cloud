@@ -22,8 +22,6 @@ import { WorkQueue } from "@/components/work-queue";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel } from "@/components/page-shell";
-import { PendingAgentNotice } from "@/components/pending-agent-notice";
-import { MyOnboarding } from "@/components/onboarding/my-onboarding";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkAction } from "@/components/ui/section-label";
 import { Icon } from "@/components/ui/icon";
@@ -220,14 +218,6 @@ function Dashboard() {
           against four of six — and named different next actions, which is
           worse than merely repeating each other. Its items are steps in the
           checklist below now. */}
-      {/* First, for somebody who has just accepted an invite: why half the
-          app is not here yet, and the two things that end that. */}
-      <div className="mb-[var(--gap)] empty:mb-0"><PendingAgentNotice /></div>
-      {/* Renders only for an agency owner with unfinished setup. */}
-      {/* And only for an agent who is not yet ready to sell. A new agent's
-          first question is "what do I do now"; this answers it with one step
-          rather than five pages. */}
-      <div className="mb-[var(--gap)] empty:mb-0"><MyOnboarding /></div>
       {/* Actions first, scoreboard second. The numbers below say how the
           agency is doing; this says what to do about it, and that is the
           question somebody actually has when they open the app. */}

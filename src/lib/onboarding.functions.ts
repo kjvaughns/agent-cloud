@@ -392,11 +392,13 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       npn_number: data.npn_number || null,
       first_name: data.first_name,
       last_name: data.last_name,
-      // Pending, not active. Choosing a password is not the same as being an
-      // agent — a licence, an appointment and a first sale still sit between
-      // the two. The agency owner can activate them at any point, and posting
-      // a first policy does it automatically.
-      status: "pending",
+      // Active from the moment they accept. There used to be a "pending"
+      // state here, gating the selling half of the app until an agency
+      // activated them — but that activation was never a real, discoverable
+      // action, so people sat behind a wall with nothing to click. A licence
+      // and an appointment still sit between signing up and selling; they are
+      // just no longer reasons to hide the app.
+      status: "active",
       // The invite carries the agency level the owner picked, so the new agent
       // lands on the ladder rather than nowhere.
       agency_level_id: (inv as any).agency_level_id ?? null,

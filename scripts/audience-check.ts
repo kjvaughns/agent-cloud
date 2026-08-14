@@ -90,8 +90,12 @@ const NOVA = readFileSync(join(ROOT, "src/routes/_authenticated/ai-assistant.tsx
 
 check("there is a starter greeting", /STARTER_GREETING/.test(NOVA), true);
 check("there is a starter chip set", /STARTER_CHIPS/.test(NOVA), true);
-check("the page branches on whether there is a book", /noBookYet/.test(NOVA), true);
-check("it reuses the existing activation signal, not a new query",
+// This used to read the pending-agent flag under the local name `noBookYet`.
+// The flag meant membership status, not book size, so it went false the moment
+// an owner ticked somebody active — and it disappeared entirely with the
+// activation gate. `hasNoBookYet` is the real thing: no posted policies.
+check("the page branches on whether there is a book", /hasNoBookYet/.test(NOVA), true);
+check("it reads that through the shared nav context, not its own fetch",
   /useNavContext\(\)/.test(NOVA), true);
 
 // The starter greeting must not claim to see things that are not there — that

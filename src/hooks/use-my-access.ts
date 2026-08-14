@@ -40,7 +40,7 @@ export function useNavContext(): NavContext {
     inAgency: Boolean(access?.inAgency),
     canSeeAgency: Boolean(access?.canSeeAgency),
     downlineCount: caps.downlineCount,
-    isPending: Boolean(access?.isPending),
+    hasNoBookYet: Boolean(access?.hasNoBookYet),
     // The same four keys can_work_tickets() checks in the database, plus the
     // administrator path it folds in via is_org_admin().
     canWorkTickets:
