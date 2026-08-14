@@ -44,17 +44,19 @@ const MANAGE = read("src/components/contracting/manage-grids.tsx");
 check("the grid editor lives with the components", /export function ManageGridsPage/.test(MANAGE), true);
 check("…and declares no route of its own", /createFileRoute|beforeLoad/.test(MANAGE), false);
 
-for (const [name, p] of [
-  ["the settings page", "src/routes/_authenticated/settings.comp-grids.tsx"],
-  ["the grid reader", "src/routes/_authenticated/contracting/commission-grids.tsx"],
-] as const) {
-  check(`${name} imports the editor from components`,
-    read(p).includes('from "@/components/contracting/manage-grids"'), true);
-}
+// The grid reader used to be checked here too, because it carried a "Manage
+// grids" toggle into the editor. It no longer mounts the editor at all: the
+// standalone reader page became a redirect into the Contracts tab, leaving
+// Settings ▸ Comp Grids as the editor's only door. One mount, not two.
+check("the settings page imports the editor from components",
+  read("src/routes/_authenticated/settings.comp-grids.tsx")
+    .includes('from "@/components/contracting/manage-grids"'), true);
+check("the grid reader no longer mounts a second copy of it",
+  read("src/components/contracting/comp-grids-content.tsx")
+    .includes("ManageGridsPage"), false);
 check("nothing imports the editor from the old route file",
   /from "@\/routes\/_authenticated\/contracting\.comp-grids-manage"/.test(
-    ["src/routes/_authenticated/settings.comp-grids.tsx",
-     "src/routes/_authenticated/contracting/commission-grids.tsx"].map(read).join("")), false);
+    read("src/routes/_authenticated/settings.comp-grids.tsx")), false);
 
 // ── Redirects land in one hop ───────────────────────────────────────────────
 

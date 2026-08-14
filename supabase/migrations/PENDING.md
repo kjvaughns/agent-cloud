@@ -51,3 +51,12 @@ visible (today's behaviour) and reports `no_advance_option` — which is honest,
 because until an owner chooses one there is no advance to apply. Writing to
 `commission_setup_issues` is caught and logged rather than thrown, so a
 missing table cannot fail a posted deal.
+
+One consequence worth stating plainly, because it is loud rather than subtle:
+My Contracts now shows each row's resolved percentage and advance, and marks a
+row **Comp not set up** when nothing resolves. Until this migration applies,
+`default_advance_option` does not exist on any carrier, so *every* contract row
+carries that mark. The statement is true — those carriers will not produce a
+commission schedule — but during the window it points at a control that is not
+there yet, and no owner can clear it. That is the strongest reason to apply
+this promptly rather than leave it queued.

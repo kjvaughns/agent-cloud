@@ -122,6 +122,130 @@ export async function resolveForAgent(
 }
 
 /**
+ * The same resolution, for a list, in a fixed number of queries.
+ *
+ * `resolveForAgent` is four round trips. A contract list is one row per
+ * carrier, and in Team or Agency scope one row per carrier per agent — calling
+ * it per row would be four hundred queries to paint a page, so this loads each
+ * fact once and resolves in memory. It calls `resolveCompensation`, the same
+ * pure function, so there is no second copy of the rules to drift.
+ *
+ * Keyed by `(agentId, carrierId)` rather than org_carrier_id because that is
+ * what a contract row carries. Agents from more than one agency are handled:
+ * a sub-agency has its own carriers, its own ladder and its own mappings, and
+ * resolving its agents against the parent's would quietly hand them the
+ * parent's percentages.
+ */
+export async function loadCompensationIndex(
+  supabase: Client,
+  agentIds: string[],
+): Promise<{
+  resolve(agentId: string, carrierId: string): Resolution;
+  orgCarrierIdFor(agentId: string, carrierId: string): string | null;
+}> {
+  const empty = {
+    resolve: () =>
+      resolveCompensation({
+        agentId: "",
+        orgCarrierId: "",
+        level: null,
+        mapping: null,
+        contract: null,
+        carrier: null,
+      }),
+    orgCarrierIdFor: () => null,
+  };
+  if (agentIds.length === 0) return empty;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, agency_level_id, organization_id")
+    .in("id", agentIds);
+
+  const orgIds = Array.from(
+    new Set(((profiles ?? []) as any[]).map((p) => p.organization_id).filter(Boolean)),
+  );
+  if (orgIds.length === 0) return empty;
+
+  const [{ data: carriers }, { data: levels }, { data: mappings }, { data: contracts }] =
+    await Promise.all([
+      // Same pending-column tolerance as everywhere else that reads this table.
+      supabase.from("org_carriers").select("*").in("organization_id", orgIds),
+      supabase
+        .from("agency_levels")
+        .select("id, name, base_pct, sort_order, can_invite, active")
+        .in("organization_id", orgIds),
+      supabase.from("agency_level_carrier_mappings").select("*").in("organization_id", orgIds),
+      supabase.from("agent_commission_levels").select("*").in("agent_id", agentIds),
+    ]);
+
+  const profileById = new Map(((profiles ?? []) as any[]).map((p) => [p.id as string, p]));
+  const levelById = new Map(((levels ?? []) as any[]).map((l) => [l.id as string, l]));
+  // One carrier appears once per agency, so the key has to carry both.
+  const carrierByOrgAndCarrier = new Map<string, any>();
+  for (const c of (carriers ?? []) as any[]) {
+    carrierByOrgAndCarrier.set(`${c.organization_id}:${c.carrier_id}`, c);
+  }
+  const mappingByLevelAndCarrier = new Map<string, any>();
+  for (const m of (mappings ?? []) as any[]) {
+    mappingByLevelAndCarrier.set(`${m.agency_level_id}:${m.org_carrier_id}`, m);
+  }
+  const contractByAgentAndCarrier = new Map<string, any>();
+  for (const c of (contracts ?? []) as any[]) {
+    contractByAgentAndCarrier.set(`${c.agent_id}:${c.carrier_id}`, c);
+  }
+
+  const orgCarrierFor = (agentId: string, carrierId: string) => {
+    const orgId = profileById.get(agentId)?.organization_id ?? null;
+    return orgId ? (carrierByOrgAndCarrier.get(`${orgId}:${carrierId}`) ?? null) : null;
+  };
+
+  return {
+    orgCarrierIdFor: (agentId, carrierId) => orgCarrierFor(agentId, carrierId)?.id ?? null,
+    resolve(agentId, carrierId) {
+      const oc = orgCarrierFor(agentId, carrierId);
+      const levelId = profileById.get(agentId)?.agency_level_id ?? null;
+      const contract = contractByAgentAndCarrier.get(`${agentId}:${carrierId}`) ?? null;
+      return resolveCompensation({
+        agentId,
+        orgCarrierId: oc?.id ?? "",
+        level: levelId ? ((levelById.get(levelId) as AgencyLevel) ?? null) : null,
+        mapping:
+          oc && levelId
+            ? ((mappingByLevelAndCarrier.get(`${levelId}:${oc.id}`) as LevelCarrierMapping) ?? null)
+            : null,
+        // Reshaped exactly as loadResolutionInputs does: the legacy row is
+        // keyed on carrier_id and the resolver must never learn that.
+        contract: contract
+          ? {
+              agent_id: agentId,
+              org_carrier_id: oc?.id ?? "",
+              assigned_pct: contract.assigned_pct ?? null,
+              advance_option: isAdvanceOption(contract.advance_option)
+                ? contract.advance_option
+                : null,
+              commission_level: contract.commission_level ?? null,
+              status: contract.status ?? "active",
+            }
+          : null,
+        carrier: oc
+          ? {
+              org_carrier_id: oc.id,
+              enabled: oc.enabled !== false,
+              visible_to_agents: oc.visible_to_agents !== false,
+              requestable_by_agents: oc.requestable_by_agents !== false,
+              available_for_post_deal: oc.available_for_post_deal !== false,
+              default_advance_option: isAdvanceOption(oc.default_advance_option)
+                ? oc.default_advance_option
+                : null,
+            }
+          : null,
+      });
+    },
+  };
+}
+
+/**
  * Which of an agency's carriers are set up well enough to offer agents.
  *
  * One batched pass rather than a resolution per carrier per level: an agency

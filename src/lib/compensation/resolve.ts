@@ -66,6 +66,30 @@ export const ADVANCE_LABELS: Record<AdvanceOption, string> = {
   "12_months": "12 months",
 };
 
+/**
+ * Where a resolved number came from, in words.
+ *
+ * Deliberately neutral rather than second-person: these render on a contract
+ * list that shows somebody else's rows in Team and Agency scope, where "your
+ * agency level" would be describing the wrong person's.
+ *
+ * They exist because a percentage with no provenance is unanswerable. An agent
+ * told they are on 80% and disagreeing has nowhere to go; an agent told the
+ * 80% comes from their agency level knows to ask about their level, and one
+ * told it comes from their own contract knows it was set for them specifically.
+ */
+export const PCT_SOURCE_LABELS: Record<PctSource, string> = {
+  contract: "set on this contract",
+  level_carrier: "from the agency level's terms for this carrier",
+  level_base: "from the agency level",
+};
+
+export const ADVANCE_SOURCE_LABELS: Record<AdvanceSource, string> = {
+  contract: "set on this contract",
+  level_carrier: "from the agency level's terms for this carrier",
+  carrier_default: "the agency's default for this carrier",
+};
+
 export function isAdvanceOption(v: unknown): v is AdvanceOption {
   return typeof v === "string" && (ADVANCE_OPTIONS as readonly string[]).includes(v);
 }

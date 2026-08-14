@@ -194,7 +194,11 @@ const PAGE = readFileSync(join(ROOT, "src/components/contracting/manage-grids.ts
 const MATRIX = readFileSync(join(ROOT, "src/components/contracting/comp-grid-matrix.tsx"), "utf8");
 const MODEL = readFileSync(join(ROOT, "src/lib/comp-grid-model.ts"), "utf8");
 const FNS = readFileSync(join(ROOT, "src/lib/comp-grid.functions.ts"), "utf8");
-const READER = readFileSync(join(ROOT, "src/routes/_authenticated/contracting/commission-grids.tsx"), "utf8");
+// The reader moved out of its route: `/contracting/commission-grids` now
+// redirects into the Contracts tab that was already rendering this same
+// component, and the component lives with the components. What is asserted
+// below — that authored order survives to the screen — is unchanged.
+const READER = readFileSync(join(ROOT, "src/components/contracting/comp-grids-content.tsx"), "utf8");
 
 // Multi-file.
 check("the file input accepts several files", /multiple\s*\n?\s*accept=/.test(PAGE) || /multiple\b/.test(strip(PAGE).match(/<input[\s\S]{0,400}?\/>/)?.[0] ?? ""), true);
