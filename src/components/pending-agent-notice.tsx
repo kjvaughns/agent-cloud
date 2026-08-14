@@ -1,40 +1,68 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Lock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, Sparkles, X } from "lucide-react";
 import { useNavContext } from "@/hooks/use-my-access";
+import { getProducerProfile } from "@/lib/account.functions";
 
 /**
- * Why half the app is missing.
+ * A nudge, not a gate.
  *
- * Somebody who has just accepted an invite opens a workspace with no Clients,
- * no Book, no Finances and no Reports. Without a word of explanation that
- * reads as a broken account or a product that does less than they were told.
+ * This used to explain why half the app was missing — Clients, Book, Finances
+ * and Reports were hidden until an agency activated you. They aren't anymore.
+ * Nothing in Agent Cloud waits on a producer profile; the profile is a place to
+ * keep the things carriers ask for so you only ever type them once.
  *
- * So it says the two things worth knowing: what ends this, and what they can
- * get on with meanwhile. Both routes out are real — the agency can activate
- * them at any moment, and posting a policy does it on its own.
- *
- * Renders nothing for everybody else, which is nearly everybody.
+ * So it says what is still worth filling in and how far along it is, and it can
+ * be dismissed. A suggestion you cannot close is a demand.
  */
 export function PendingAgentNotice() {
   const { isPending } = useNavContext();
-  if (!isPending) return null;
+  const [dismissed, setDismissed] = useState(false);
+
+  // Same key the Producer Profile page uses, so this reads from cache when the
+  // agent has already been there rather than asking again.
+  const { data } = useQuery({
+    queryKey: ["account", "producerProfile"],
+    queryFn: () => getProducerProfile(),
+    enabled: isPending && !dismissed,
+    staleTime: 60_000,
+  });
+
+  const pct = Number((data as any)?.completion?.pct ?? 0);
+
+  if (!isPending || dismissed || pct >= 100) return null;
 
   return (
-    <div className="rounded-[var(--radius)] border border-primary/40 bg-gold-glow p-4">
+    <div className="relative rounded-[var(--radius)] border border-primary/40 bg-gold-glow p-4">
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        className="absolute right-2 top-2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+
       <div className="flex items-start gap-3">
-        <Lock className="mt-0.5 h-4 w-4 shrink-0 text-gold-bright" />
+        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-gold-bright" />
         <div className="min-w-0 space-y-2">
           <p className="text-sm font-semibold text-foreground">
-            Your account is set up. Selling opens once you're active.
+            Everything's open — a few details are still worth adding.
           </p>
           <p className="text-sm text-muted-foreground">
-            Clients, your book, commissions and reports appear the moment your agency activates
-            you — or as soon as you post your first policy, whichever happens first.
+            Your producer profile is where the things carriers keep asking for live: your licence,
+            your E&amp;O, your AML certificate. None of it is required to use Agent Cloud — filling
+            it in just means you never dig for it again.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Until then, everything you need to get there is open: finish your producer profile,
-            get contracted with carriers, and work through the academy.
-          </p>
+          {pct > 0 && (
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-2">
+                <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+              </span>
+              <span className="tnum text-xs text-muted-foreground">{pct}% on file</span>
+            </div>
+          )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 pt-0.5">
             <Link
               to="/account/producer-profile"
