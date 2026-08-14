@@ -559,9 +559,13 @@ export const linkInviteToCurrentUser = createServerFn({ method: "POST" })
       { onConflict: "invitation_id,profile_id", ignoreDuplicates: true },
     );
 
+    // The link's chosen upline, falling back to whoever made it — links that
+    // predate the picker carry null and still mean their creator.
+    const inviteUplineId: string = (inv as any).upline_id ?? inv.created_by;
+
     // Set upline if not already set. Deliberately guarded: accepting a second
     // link must not move somebody out from under the upline they already have.
-    await supabase.from("profiles").update({ upline_id: inv.created_by }).eq("id", userId).is("upline_id", null);
+    await supabase.from("profiles").update({ upline_id: inviteUplineId }).eq("id", userId).is("upline_id", null);
 
     // The position is a separate write, and separately guarded, because the two
     // answer different questions. Folded into the update above, an agent who
