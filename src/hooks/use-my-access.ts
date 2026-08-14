@@ -55,6 +55,7 @@ export function useNavContext(): NavContext {
       Boolean(perms.mgr_manage_resources) ||
       Boolean(perms.staff_manage_resources),
     hasSubAgencies: Boolean(access?.hasSubAgencies),
+    canInvite: Boolean(access?.canInvite),
     perms,
   };
 }
