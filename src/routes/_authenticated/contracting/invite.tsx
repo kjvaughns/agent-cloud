@@ -250,6 +250,31 @@ function InvitePage() {
           </div>
         )}
 
+        {/* Who they report to. Left alone, the link places people under you —
+            which is all it could ever do before. Choosing somebody else is how
+            one owner builds a link for a manager's team without handing that
+            manager the invite screen. */}
+        {invitedRole !== "staff" && (
+          <div>
+            <Label>Their Upline</Label>
+            <Select value={uplineId || SELF} onValueChange={(v) => setUplineId(v === SELF ? "" : v)}>
+              <SelectTrigger className="mt-1 max-w-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELF}>Me (default)</SelectItem>
+                {(uplineOptions ?? []).map((a: any) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed agent"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Anyone joining through this link is placed under whoever you pick here, and their
+              carrier requests go to that person.
+            </p>
+          </div>
+        )}
+
         <div className="hidden rounded-[var(--radius)] border border-border overflow-hidden">
           <button
             type="button"
