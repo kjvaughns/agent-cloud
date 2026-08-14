@@ -119,7 +119,20 @@ const VERIFIED_APPLIED = new Set([
   // public buckets, so the `insert into storage.buckets` line went in with
   // `public = false` and `src/lib/org-branding.ts` reads through a signed URL.
   "20260807100000_org-branding-bucket.sql",
+  // Applied 14 Aug 2026, verified against the live schema:
+  // org_contracting_settings.overridden_fields, agency_relationships,
+  // imo_org_ids() plus the two owner visibility columns on
+  // organization_settings, the PII-free agent_completion(), and
+  // social_security on the client_banking.payment_method CHECK all exist.
+  // PENDING.md is write-protected in this workspace, so its stale lines for
+  // these five are cleared here instead.
+  "20260814140000_contracting-settings-inheritance.sql",
+  "20260814150000_agency-relationships.sql",
+  "20260814160000_imo-scope.sql",
+  "20260814170000_completeness-without-pii.sql",
+  "20260814180000_social-security-payment-method.sql",
 ]);
+
 
 /**
  * Otherwise the tracked list. Deliberately noisy about being the fallback: a
