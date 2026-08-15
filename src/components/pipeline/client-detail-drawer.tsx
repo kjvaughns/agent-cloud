@@ -1085,6 +1085,14 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         <Field label="Effective Date">
           <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({...f, effective_date: e.target.value}))} />
         </Field>
+        <Field label="Sale Date">
+          {/* Defaults to today; capped there. Backdate it and the deal counts
+              in the month it was written, on production and the leaderboard. */}
+          <Input type="date" max={todaySaleDate()} value={form.sale_date} onChange={e => setForm(f => ({...f, sale_date: e.target.value}))} />
+          {form.sale_date && form.sale_date !== todaySaleDate() && (
+            <p className="mt-1 text-xs text-muted-foreground">Counts toward {saleMonthLabel(form.sale_date)}.</p>
+          )}
+        </Field>
         <Field label="Face Amount">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
