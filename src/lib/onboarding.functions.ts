@@ -1271,13 +1271,9 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     // creator's, and the person joining chooses their own upline from the
     // agency's agents. Any upline picked here is ignored for such a link.
     is_agency_link: z.boolean().optional().default(false),
-    // How long the link stays good for. `invitation_links.expires_at` is not
-    // null and has always defaulted to thirty days, so links have been quietly
-    // dying at a month for as long as the column has existed and nothing ever
-    // said so. Thirty stays the default; the point of naming it is that the
-    // page can now show the date, and somebody handing a link to a room can
-    // ask for longer instead of finding out from a recruit.
-    expires_in_days: z.number().int().min(1).max(365).optional().default(30),
+    // Accepted for compatibility with older clients and ignored: invite links
+    // do not expire. They stay good until they are revoked or deleted.
+    expires_in_days: z.number().int().min(1).max(365).optional(),
 
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
@@ -1324,7 +1320,8 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     }
 
     const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + data.expires_in_days * 86400000).toISOString();
+    // No expiry. A link dies when somebody revokes or deletes it, not on a clock.
+    const expiresAt: string | null = null;
     // Checked above against the agency's own ladder, so an id from elsewhere
     // has already been refused by name rather than silently dropped.
     const agencyLevelId: string | null = data.agency_level_id ?? null;

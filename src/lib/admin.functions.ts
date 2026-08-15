@@ -511,7 +511,7 @@ export const adminBatchInvite = createServerFn({ method: "POST" })
         new_agent_email: agent.email,
         new_agent_first_name: agent.first_name,
         new_agent_last_name: agent.last_name,
-        expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+        expires_at: null,
         carrier_assignments: carrierAssignments,
         is_reusable: false,
         organization_id: organizationId,
