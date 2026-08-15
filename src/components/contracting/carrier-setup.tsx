@@ -490,10 +490,12 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
                 onEdit={() => setEditingId(c.id)}
                 onRemove={() => setRemovingId(c.id)}
                 onEditGrid={() => setGridForId(c.id)}
-                onFinish={() => setWizardId(c.id)}
+                onSetup={() => setWizardId(c.id)}
                 onRestore={() => restore.mutate(c.id)}
                 onToggle={(on) => toggle.mutate({ id: c.id, on })}
-                toggling={toggle.isPending}
+                // Only the row being changed waits. One shared flag disabled
+                // every switch on the page for the length of a save.
+                toggling={toggle.isPending && toggle.variables?.id === c.id}
               />
             ))
           )}
