@@ -849,8 +849,13 @@ export type Database = {
           body_html: string | null
           created_at: string
           created_by: string | null
+          expires_at: string | null
           id: string
           organization_id: string | null
+          publish_at: string | null
+          status: string
+          target_roles: string[]
+          target_upline_id: string | null
           title: string
         }
         Insert: {
@@ -859,8 +864,13 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string | null
+          publish_at?: string | null
+          status?: string
+          target_roles?: string[]
+          target_upline_id?: string | null
           title: string
         }
         Update: {
@@ -869,8 +879,13 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string | null
+          publish_at?: string | null
+          status?: string
+          target_roles?: string[]
+          target_upline_id?: string | null
           title?: string
         }
         Relationships: [
@@ -886,6 +901,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_target_upline_id_fkey"
+            columns: ["target_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
