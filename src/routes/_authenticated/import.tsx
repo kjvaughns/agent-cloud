@@ -768,24 +768,28 @@ function ImportPage() {
                   }}
                 />
                 {busy ? (
-                  <>
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <span className="text-sm font-medium">
-                      {progress ? `Reading ${progress.done} of ${progress.total}…` : "Reading…"}
-                    </span>
-                    {/* A count alone gives no sense of how much is left. Files
-                        differ wildly in size, so this is deliberately a
-                        file-count bar and not a time estimate we cannot keep. */}
-                    {progress && progress.total > 1 && (
-                      <Progress
-                        value={(progress.done / progress.total) * 100}
-                        className="mt-1 h-1.5 w-full max-w-xs"
-                      />
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      Nothing is saved yet — you'll see what we found first.
-                    </span>
-                  </>
+                  <div className="w-full max-w-md space-y-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="inline-flex items-center gap-2 text-sm font-medium">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        {progress
+                          ? `Reading ${progress.total} file${progress.total === 1 ? "" : "s"}`
+                          : "Reading…"}
+                      </span>
+                      {/* The number people came for. Tabular so it doesn't
+                          jitter as it counts up. */}
+                      <span className="font-mono text-2xl font-semibold leading-none tabular-nums text-primary">
+                        {overallPct}%
+                      </span>
+                    </div>
+                    <Progress value={overallPct} className="h-2 w-full" />
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {progress ? `${progress.done} of ${progress.total} done` : ""}
+                      </span>
+                      <span>Nothing is saved yet — you'll see what we found first.</span>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <UploadCloud className={cn("h-6 w-6 text-muted-foreground", dragging && "text-primary")} />
@@ -797,6 +801,7 @@ function ImportPage() {
                     </span>
                   </>
                 )}
+
               </label>
 
             </div>
