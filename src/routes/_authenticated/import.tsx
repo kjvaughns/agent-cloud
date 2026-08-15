@@ -564,6 +564,27 @@ function ImportPage() {
   const unreadable = docs.filter((d) => d.status === "failed").length;
 
   /*
+    One number for the whole batch.
+
+    Files finished is the trustworthy part; the files still in flight contribute
+    their own reported phase so a single large file doesn't sit at 0% for a
+    minute and then jump to done. Capped below 100 until everything is in, so
+    the bar never claims to be finished while work is still running.
+  */
+  const livePhases = Object.values(live);
+  const liveAvg = livePhases.length
+    ? livePhases.reduce((n, p) => n + p.pct, 0) / livePhases.length / 100
+    : 0;
+  const overallPct = (() => {
+    if (!progress) return 0;
+    if (progress.done >= progress.total) return 100;
+    const inFlight = Math.min(CONCURRENCY, progress.total - progress.done);
+    const value = ((progress.done + liveAvg * inFlight) / progress.total) * 100;
+    return Math.max(1, Math.min(99, Math.round(value)));
+  })();
+
+
+  /*
     A workbook and its tabs are one thing, so they are drawn as one thing.
 
     Flat, a four-tab migration export produced five sibling rows — the workbook
