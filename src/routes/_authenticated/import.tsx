@@ -93,6 +93,10 @@ const CONCURRENCY = 3;
 /** Rows per reconcile call. Matches the server's cap. */
 const RECONCILE_CHUNK = 500;
 
+/** A file's live client-side phase: what it is doing, and how far along. */
+type LivePhase = { label: string; pct: number };
+
+
 function ImportPage() {
   const qc = useQueryClient();
   const nav = useNavContext();
