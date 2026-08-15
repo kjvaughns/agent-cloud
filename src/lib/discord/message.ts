@@ -77,6 +77,28 @@ const money = (n: number) =>
   `$${Math.round(n).toLocaleString("en-US")}`;
 
 /**
+ * A coarse category for a specific plan name.
+ *
+ * A channel hears "Final Expense", not "Golden Eagle FE 10-Pay Plan B" — the
+ * specific plan a named client bought is a detail about that client, and the
+ * category is all a sales feed needs to be useful.
+ */
+export function productCategory(product: string | null | undefined): string | null {
+  const p = (product ?? "").toLowerCase();
+  if (!p.trim()) return null;
+  if (/final\s*expense|\bfex\b|burial/.test(p)) return "Final Expense";
+  if (/\biul\b|indexed universal/.test(p)) return "IUL";
+  if (/\bul\b|universal life/.test(p)) return "Universal Life";
+  if (/whole\s*life|\bwl\b/.test(p)) return "Whole Life";
+  if (/\bterm\b/.test(p)) return "Term Life";
+  if (/annuit/.test(p)) return "Annuity";
+  if (/medicare|med\s*supp|advantage/.test(p)) return "Medicare";
+  if (/accident|hospital|critical|cancer|health/.test(p)) return "Accident & Health";
+  if (/mortgage\s*protect/.test(p)) return "Mortgage Protection";
+  return "Life";
+}
+
+/**
  * A sale, with nobody's client in it.
  *
  * The insured is absent by construction: this function is not given them. That
