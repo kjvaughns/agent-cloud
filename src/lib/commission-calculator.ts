@@ -11,11 +11,31 @@
  *     carrier and product alone, against a table unique on carrier, product,
  *     level and age band — so any carrier with more than one level returned
  *     several rows, maybeSingle() errored, the error was discarded, and every
- *     renewal was silently dropped. It matches the agent's own level now.
+ *     renewal was silently dropped. It goes through `selectGridRule` now.
  *  3. Move a payment date. Advance percentages come from the comp level you
  *     configured; the months they land in stay fixed, because carrier draft
  *     calendars are not in this schema and inventing them would be the same
  *     mistake in a new place.
+ *
+ * ── The grid tier, which used to be dead ──
+ *
+ * `commission_grids` has carried age bands, state exceptions and risk classes
+ * since the first schema, `selectGridRule` knows how to choose between them,
+ * and `resolveCompensation` has a whole branch for it. Nothing ever reached
+ * that branch: `CommissionInput` had no age, no state and no risk class on it,
+ * so every caller resolved from flat percentages and an 82 year old was paid
+ * the 55 year old's rate. The renewal lookup below said as much in its own
+ * comment — "age-banded rows need the client's age, which this function is not
+ * given" — and took the band-less row.
+ *
+ * It is given them now, and did not need to ask: Pipeline already collects the
+ * date of birth, the state and tobacco use on the client, and `loadDealFacts`
+ * reads them from the policy's own client record.
+ *
+ * One consequence worth stating plainly. Renewals no longer run their own
+ * hand-written query against `commission_grids`. Two selectors over one table
+ * is exactly the duplication this codebase keeps removing, and the hand-written
+ * one could not see age bands, state exceptions or risk classes at all.
  */
 
 import {
@@ -24,6 +44,8 @@ import {
   recordSetupIssue,
 } from "@/lib/compensation/lookup.server";
 import { planYearOne, resolveOverrides, asFraction } from "@/lib/compensation/resolve";
+import { loadGridRows, loadDealFacts } from "@/lib/compensation/deal-pricing.server";
+import { selectGridRule } from "@/lib/compensation/grid-rule";
 
 /**
  * Names the payment, never the attempt that wrote it.
@@ -116,8 +138,25 @@ export async function calculateAndInsertAllCommissions(
     .eq("carrier_id", carrierId)
     .maybeSingle();
 
+  // The three facts a grid rates on, read from the policy's own client rather
+  // than asked for: Pipeline already holds the date of birth, the state and
+  // tobacco use. Age is taken on the effective date, which is what a carrier
+  // rates, not today — otherwise a policy would silently change bands on the
+  // insured's birthday and every remaining renewal would repay at a new rate.
+  const facts = await loadDealFacts(supabase, policyId, effectiveDate);
+  const grid = orgIdEarly ? await loadGridRows(supabase, orgIdEarly, carrierId) : [];
+
   const resolution = orgCarrier?.id
-    ? await resolveForAgent(supabase, agentId, orgCarrier.id)
+    ? await resolveForAgent(supabase, agentId, orgCarrier.id, {
+        grid,
+        deal: {
+          productName: product,
+          age: facts.age,
+          policyYear: 1,
+          state: facts.state,
+          riskClass: facts.riskClass,
+        },
+      })
     : ({
         ok: false,
         failures: ["carrier_not_configured"],
@@ -150,7 +189,6 @@ export async function calculateAndInsertAllCommissions(
   // find nothing where the grid says "80%".
   const myLevelName: string | null = resolution.carrierLevelName ?? null;
 
-  const orgId = orgIdEarly;
 
   const rows: any[] = [];
 
@@ -213,57 +251,41 @@ export async function calculateAndInsertAllCommissions(
     }
   }
 
-  // Renewal rows from commission_grids (years 2-5 and 6+).
+  // Renewal rows (years 2-5 and 6+), through the same selector year one used.
   //
-  // The grid is unique on (carrier, product, level, age band). This used to
-  // match on carrier and product alone and call maybeSingle(), so any carrier
-  // with more than one level returned several rows, maybeSingle() errored, the
-  // error went unread — only `data` was destructured — and every renewal was
-  // dropped without a trace. Renewals only ever worked for carriers that
-  // happened to have exactly one grid row.
+  // This was a second hand-written query over `commission_grids`, and it could
+  // not see the things the grid is written to express. It matched on carrier,
+  // product and level, then ordered age bands `nullsFirst` to take the
+  // band-less row deliberately — because the age was not available here. State
+  // exceptions and risk classes it did not consider at all, so a Florida policy
+  // renewed at the national rate and a tobacco policy at the non-tobacco one.
   //
-  // Now: the agent's own level, this agency's grid ahead of the shared
-  // default, and one row taken deliberately rather than by accident.
-  let gridQuery = supabase
-    .from("commission_grids")
-    .select("years_2_5_pct, years_6_plus_pct, level_name, organization_id, age_group_min")
-    .eq("carrier_id", carrierId)
-    .eq("product_name", product);
+  // `selectGridRule` already scores all of that, and it is what prices year
+  // one, so using it here is what makes a renewal agree with the first year of
+  // the same policy. The age is available now, so a banded row is chosen on its
+  // merits rather than avoided.
+  const renewalQuery = {
+    levelName: myLevelName,
+    productName: product,
+    age: facts.age,
+    state: facts.state,
+    riskClass: facts.riskClass,
+  };
+  const yr25 = selectGridRule(grid, { ...renewalQuery, policyYear: 2 });
+  const yr6 = selectGridRule(grid, { ...renewalQuery, policyYear: 6 });
 
-  if (myLevelName) gridQuery = gridQuery.eq("level_name", myLevelName);
-  if (orgId) gridQuery = gridQuery.or(`organization_id.eq.${orgId},organization_id.is.null`);
-
-  const { data: gridRows, error: gridError } = await gridQuery
-    // An agency's own grid beats the shared default.
-    .order("organization_id", { nullsFirst: false })
-    // Age-banded rows need the client's age, which this function is not given.
-    // The band-less row is the honest choice; ordering makes that a decision
-    // rather than whatever the planner happened to return first.
-    .order("age_group_min", { nullsFirst: true })
-    .limit(1);
-
-  if (gridError) {
-    console.warn("[commissions] renewal grid lookup failed", {
-      policyId,
-      carrierId,
-      product,
-      level: myLevelName,
-      error: gridError.message,
-    });
-  }
-
-  const gridRow = gridRows?.[0] ?? null;
-  if (!gridRow) {
+  if (!yr25 && !yr6) {
     console.warn("[commissions] no renewal grid row — advance and trail only", {
       policyId,
       carrierId,
       product,
       level: myLevelName,
+      age: facts.age,
     });
   }
 
-  const yr25pct = gridRow ? Number(gridRow.years_2_5_pct ?? 0) / 100 : 0;
-  const yr6pct = gridRow ? Number(gridRow.years_6_plus_pct ?? 0) / 100 : 0;
+  const yr25pct = yr25 ? asFraction(yr25.pct) : 0;
+  const yr6pct = yr6 ? asFraction(yr6.pct) : 0;
 
   // Yr 2-5: months 13, 25, 37, 49 (one payment per year)
   if (yr25pct > 0) {

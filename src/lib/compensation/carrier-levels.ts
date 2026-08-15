@@ -55,6 +55,17 @@ export type CarrierLevelOption = {
   pct: number | null;
   minPct: number | null;
   maxPct: number | null;
+  /**
+   * The contract number the level's NAME states, when it states one.
+   *
+   * "RK1 (50)", "Level 50", "50%" all mean the fifty contract. This is not the
+   * same number as `pct` and the difference matters: a grid rate is what a
+   * product pays at that level, and final expense routinely pays well above
+   * street — Transamerica's RK1 can be the 50 contract and still pay 65% on FE
+   * Express. Matching an agency position on 50% against "65–80%" compares two
+   * different things and picks the wrong rung.
+   */
+  contractPct: number | null;
   source: LevelSource;
   /** How many distinct products on the grid publish a rate for this level. */
   productCount: number;
@@ -62,6 +73,41 @@ export type CarrierLevelOption = {
 
 const norm = (s: unknown) => String(s ?? "").trim().toLowerCase();
 const num = (v: unknown) => (v == null || v === "" ? null : Number(v));
+
+/**
+ * The contract number written into a level's name, if there is one.
+ *
+ * Carriers name levels every way there is — "RK1 (50)", "Level 50", "50%",
+ * "GA 80" — and an agency naming its columns "RK1 (50)" is telling us the thing
+ * an agency position is actually comparable to. Reading it is what lets the
+ * suggestion match a 50% position to the 50 contract instead of to whichever
+ * column happens to pay closest to 50 on one product.
+ *
+ * Three patterns, most explicit first, and nothing else. Guessing is worse than
+ * declining here: a wrong number silently maps a rung to the wrong contract,
+ * and every agent on it is paid from that mapping.
+ *
+ *   "55%"        an explicit percent
+ *   "RK1 (50)"   parenthesised
+ *   "Level 50"   a standalone number token
+ *
+ * A number glued to letters is deliberately NOT read. "RK10" is the tenth code
+ * in a series, not the ten contract, and reading it as 10 would map every
+ * position to the wrong rung on exactly the grids this was written for.
+ */
+export function contractPctFromName(name: string): number | null {
+  const s = String(name ?? "");
+  const ok = (raw: string | undefined) => {
+    if (raw == null) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 && n <= 500 ? n : null;
+  };
+  return (
+    ok(s.match(/(\d+(?:\.\d+)?)\s*%/)?.[1]) ??
+    ok(s.match(/\((\d+(?:\.\d+)?)\s*%?\)/)?.[1]) ??
+    ok(s.match(/(?:^|\s)(\d+(?:\.\d+)?)(?=$|\s)/)?.[1])
+  );
+}
 
 /** Raw shapes, as the two tables come back from PostgREST. */
 export type CompLevelRow = {
@@ -104,6 +150,7 @@ export function carrierLevelOptions(carrier: {
         pct: null,
         minPct: null,
         maxPct: null,
+        contractPct: contractPctFromName(rawName),
         source: "grid",
         productCount: 0,
         products: new Set<string>(),
@@ -154,8 +201,10 @@ export function carrierLevelOptions(carrier: {
   return [...byKey.values()]
     .map(({ products, ...o }) => ({ ...o, productCount: products.size }))
     .sort((a, b) => {
-      const ap = a.pct ?? a.maxPct;
-      const bp = b.pct ?? b.maxPct;
+      // Ordered by the same number the matching compares, so the list an owner
+      // reads top-down agrees with the suggestion underneath it.
+      const ap = a.contractPct ?? a.pct ?? a.maxPct;
+      const bp = b.contractPct ?? b.pct ?? b.maxPct;
       if (ap != null && bp != null && ap !== bp) return bp - ap;
       if (ap != null && bp == null) return -1;
       if (ap == null && bp != null) return 1;
@@ -163,36 +212,59 @@ export function carrierLevelOptions(carrier: {
     });
 }
 
-/** "Level 40 — 100%", or "Level 40 — 85–100%" when the grid varies by product. */
+/**
+ * "RK1 (50) — pays 65–80%".
+ *
+ * "pays" rather than a bare percentage because two different numbers can appear
+ * in one label: the contract the name states, and what its products actually
+ * pay. `RK1 (50) — 65–80%` invites the reading that something is inconsistent;
+ * `RK1 (50) — pays 65–80%` says plainly that they are different facts.
+ */
 export function levelLabel(o: CarrierLevelOption): string {
-  if (o.pct != null) return `${o.name} — ${o.pct}%`;
+  if (o.pct != null) return `${o.name} — pays ${o.pct}%`;
   if (o.minPct != null && o.maxPct != null) {
     return o.minPct === o.maxPct
-      ? `${o.name} — ${o.minPct}%`
-      : `${o.name} — ${o.minPct}–${o.maxPct}%`;
+      ? `${o.name} — pays ${o.minPct}%`
+      : `${o.name} — pays ${o.minPct}–${o.maxPct}%`;
   }
   return o.name;
 }
 
-/** "from the comp grid, 4 products" — why this name is on the list. */
+/** "the 50 contract · from the comp grid, 4 products" — why this name is here. */
 export function levelOrigin(o: CarrierLevelOption): string {
   const products = o.productCount === 1 ? "1 product" : `${o.productCount} products`;
-  if (o.source === "comp_level") return "carrier level";
-  if (o.source === "both") return `carrier level, on the grid for ${products}`;
-  return `from the comp grid, ${products}`;
+  const where =
+    o.source === "comp_level" ? "carrier level"
+      : o.source === "both" ? `carrier level, on the grid for ${products}`
+      : `from the comp grid, ${products}`;
+  // Named when the level's own name states it, so an owner can see WHY this
+  // rung was suggested rather than being handed a match to take on trust.
+  return o.contractPct != null ? `the ${o.contractPct} contract · ${where}` : where;
 }
 
 /**
  * How far a level sits from a position's own percentage.
  *
+ * ── Which number is being compared ──
+ *
+ * The contract number in the name wins whenever the name states one. An agency
+ * position is a contract percentage, and so is "RK1 (50)" — those are the same
+ * kind of thing. A grid rate is not: it is what one product pays at that level,
+ * and final expense routinely pays above street, so RK1 can be the 50 contract
+ * and still show 65–80% across its products. Comparing 50 against 65–80 puts
+ * the position on the wrong rung, and every agent on it is then paid from that
+ * mapping. Only when the name says nothing do the rates get used, because a
+ * rough comparison beats none.
+ *
  * A level that pays a range covers everything inside it, so a position at 90%
- * on a level paying 85–100% is a distance of zero — it is genuinely that level.
- * Outside the range it is the distance to the nearer edge. A level with no
- * percentage anywhere cannot be compared and returns null rather than sorting
+ * against a level paying 85–100% is a distance of zero — it is genuinely that
+ * level. Outside the range it is the distance to the nearer edge. A level with
+ * no number of any kind cannot be compared and returns null rather than sorting
  * as if it were zero.
  */
 export function levelDistance(o: CarrierLevelOption, basePct: number): number | null {
   if (!Number.isFinite(basePct)) return null;
+  if (o.contractPct != null) return Math.abs(o.contractPct - basePct);
   const lo = o.pct ?? o.minPct;
   const hi = o.pct ?? o.maxPct;
   if (lo == null || hi == null) return null;
@@ -230,6 +302,12 @@ export function suggestLevel(
  * level whose grid rates vary by product saves null, and the grid prices each
  * deal from the name. Writing a flat number there would silently outrank the
  * grid for every product except the one it came from.
+ *
+ * `contractPct` is deliberately NOT used here even though it is a number and
+ * this field wants one. "RK1 (50)" names the contract; what the carrier pays on
+ * it is 65% on FE Express. Storing 50 would make every deal that misses the
+ * grid pay 50% on a product the carrier settles at 65 — an underpayment with a
+ * plausible-looking number behind it, which is the hardest kind to notice.
  */
 export function mappingFor(o: CarrierLevelOption): {
   carrier_level_name: string;

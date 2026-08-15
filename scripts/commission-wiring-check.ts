@@ -50,7 +50,11 @@ const CODE = strip(CALC);
 
 check(
   "the writing agent's rate comes from the canonical resolver",
-  /resolveForAgent\(supabase, agentId, orgCarrier\.id\)/.test(CODE),
+  // The requirement is that the rate comes from `resolveForAgent`, not that the
+  // call has three arguments. Pinning the exact argument list made this fail
+  // when the grid and the deal were added to it — a passing test breaking on an
+  // improvement to the thing it guards, which teaches people to edit the test.
+  /resolveForAgent\(supabase, agentId, orgCarrier\.id[,)]/.test(CODE),
   true,
 );
 check(
@@ -122,6 +126,66 @@ check(
   true,
 );
 check("one run is traceable", /calc_run_id: calcRunId/.test(CODE), true);
+
+// ── The grid tier, which was dead ───────────────────────────────────────────
+//
+// `commission_grids` has carried age bands, state exceptions and risk classes
+// since the first schema. `selectGridRule` scores between them. `resolveCompensation`
+// has a whole `pctSource: "grid"` branch. None of it ran: `CommissionInput`
+// carried no age, no state and no risk class, so the branch condition
+// `input.grid?.length && input.deal` was never true anywhere in production and
+// an 82 year old was paid the 55 year old's rate.
+//
+// None of it needed asking for. Pipeline already stores all three on the client.
+
+console.log("");
+
+check("the calculator reads the deal's own facts",
+  /const facts = await loadDealFacts\(supabase, policyId, effectiveDate\)/.test(CALC), true);
+check("…and the carrier's grid",
+  /const grid = orgIdEarly \? await loadGridRows\(supabase, orgIdEarly, carrierId\) : \[\]/.test(CALC), true);
+check("…and hands both to the resolver",
+  /resolveForAgent\(supabase, agentId, orgCarrier\.id, \{\s*grid,\s*deal: \{/.test(CALC), true);
+check("…with the three the grid rates on",
+  /age: facts\.age/.test(CALC) && /state: facts\.state/.test(CALC) &&
+  /riskClass: facts\.riskClass/.test(CALC), true);
+
+const PRICING = read("src/lib/compensation/deal-pricing.server.ts");
+// Age on the effective date, not today. Using today's would move a policy into
+// a different band on the insured's birthday and repay every remaining renewal
+// at a rate nobody changed.
+check("age is taken on the effective date",
+  /ageOn\(client\.date_of_birth, effectiveDate\)/.test(PRICING), true);
+check("the facts come from Pipeline's own columns, not a new form",
+  /\.from\("clients"\)\.select\("date_of_birth, state"\)/.test(PRICING) &&
+  /\.from\("client_health"\)\.select\("tobacco_use"\)/.test(PRICING), true);
+check("…mapped to the vocabulary the grid is written in",
+  /health\.tobacco_use \? "tobacco" : "non_tobacco"/.test(PRICING), true);
+// This runs inside the commission calculator. A table that is missing must not
+// take a policy write down with it.
+check("a missing client_health does not fail the calculation",
+  /try \{[\s\S]{0,400}client_health[\s\S]{0,300}\} catch \{/.test(PRICING), true);
+
+// The renewal path was a SECOND hand-written query over the same table, and it
+// could not see age bands, state exceptions or risk classes at all — it ordered
+// `nullsFirst` to take the band-less row on purpose, because the age was not
+// available. Two selectors over one table is the duplication this codebase
+// keeps removing, and it made a renewal disagree with year one of its own policy.
+check("renewals go through the same selector as year one",
+  /const yr25 = selectGridRule\(grid, \{ \.\.\.renewalQuery, policyYear: 2 \}\)/.test(CALC) &&
+  /const yr6 = selectGridRule\(grid, \{ \.\.\.renewalQuery, policyYear: 6 \}\)/.test(CALC), true);
+check("…keyed on the carrier's level name, not the agency's",
+  /levelName: myLevelName/.test(CALC), true);
+check("…and the hand-written renewal query is gone",
+  /\.from\("commission_grids"\)/.test(CALC), false);
+check("…including its deliberate band-less ordering",
+  /age_group_min", \{ nullsFirst: true \}/.test(CALC), false);
+// Stored form is 0–500 where 80 means 80%. The old renewal code divided by 100
+// inline; `asFraction` is the one place that conversion is allowed to live.
+check("the renewal rate converts through asFraction, not by hand",
+  /const yr25pct = yr25 \? asFraction\(yr25\.pct\) : 0/.test(CALC), true);
+check("…with no second /100 left behind",
+  /years_2_5_pct \?\? 0\) \/ 100/.test(CALC), false);
 
 // ── The migration ───────────────────────────────────────────────────────────
 

@@ -26,7 +26,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
-import { requirementsFor, type GridRow } from "@/lib/compensation/grid-rule";
+import { ageOn, requirementsFor, type GridRow } from "@/lib/compensation/grid-rule";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -61,6 +61,68 @@ export async function loadGridRows(
     stateCode: r.state_code ?? null,
     riskClass: r.risk_class ?? null,
   }));
+}
+
+/**
+ * The three facts a grid rates on, for a policy that already exists.
+ *
+ * ── Why they are read here rather than asked for ──
+ *
+ * A carrier grid varies by age, state and tobacco. None of the three were ever
+ * reaching the pricing: `commission_grids` carried the age bands, `selectGridRule`
+ * knew how to use them, and the one function that writes commission schedules
+ * took a `CommissionInput` with no age, no state and no risk class on it. So
+ * the grid tier was fully built and fully dead — an 82 year old was paid the
+ * band-less rate, and the calculator's own comment said so.
+ *
+ * They did not need to be asked for. Pipeline already collects all three on the
+ * client: `clients.date_of_birth`, `clients.state`, and `client_health.tobacco_use`.
+ * Reading them from the policy's own client is the difference between a form
+ * that asks an agent for facts the agency already holds, and one that does not.
+ *
+ * ── Age on the effective date, not today ──
+ *
+ * A carrier rates the age the insured was when the policy was written. Using
+ * today's age would move a deal into a different band on its own birthday and
+ * silently repay every renewal from then on at a different rate.
+ *
+ * Every field is optional and null is a legitimate answer: a client with no
+ * date of birth simply matches no age-banded row, which is `selectGridRule`'s
+ * existing behaviour and leaves the flat percentage in charge.
+ */
+export async function loadDealFacts(
+  supabase: any,
+  policyId: string,
+  effectiveDate: string,
+): Promise<{ age: number | null; state: string | null; riskClass: string | null }> {
+  const none = { age: null, state: null, riskClass: null };
+
+  const { data: policy } = await supabase
+    .from("policies").select("client_id").eq("id", policyId).maybeSingle();
+  if (!policy?.client_id) return none;
+
+  const { data: client } = await supabase
+    .from("clients").select("date_of_birth, state").eq("id", policy.client_id).maybeSingle();
+
+  // `client_health` is not in the generated types and may predate a migration
+  // on some projects. A missing table means "we do not know", not a failed
+  // policy write — this runs inside the commission calculator.
+  let riskClass: string | null = null;
+  try {
+    const { data: health, error } = await supabase
+      .from("client_health").select("tobacco_use").eq("client_id", policy.client_id).maybeSingle();
+    if (!error && health?.tobacco_use != null) {
+      riskClass = health.tobacco_use ? "tobacco" : "non_tobacco";
+    }
+  } catch {
+    riskClass = null;
+  }
+
+  return {
+    age: client?.date_of_birth ? ageOn(client.date_of_birth, effectiveDate) : null,
+    state: client?.state ?? null,
+    riskClass,
+  };
 }
 
 export const getCarrierDealOptions = createServerFn({ method: "GET" })
