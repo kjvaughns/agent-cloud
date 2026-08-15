@@ -399,6 +399,28 @@ function ImportPage() {
   const imported = docs.filter((d) => d.status === "applied").length;
   const unreadable = docs.filter((d) => d.status === "failed").length;
 
+  /*
+    A workbook and its tabs are one thing, so they are drawn as one thing.
+
+    Flat, a four-tab migration export produced five sibling rows — the workbook
+    plus each tab, every one of them titled with the same filename and a dash —
+    and nothing on screen said the tabs came out of the file above them. Tabs
+    are nested under their parent, and a parent's own row stops being a card
+    that looks reviewable when it is only a container.
+  */
+  const groups = (() => {
+    const children = new Map<string, ImportDoc[]>();
+    for (const d of docs) {
+      if (!d.parent_id) continue;
+      const b = children.get(d.parent_id);
+      if (b) b.push(d);
+      else children.set(d.parent_id, [d]);
+    }
+    return docs
+      .filter((d) => !d.parent_id || !docs.some((p) => p.id === d.parent_id))
+      .map((doc) => ({ doc, sheets: children.get(doc.id) ?? [] }));
+  })();
+
   return (
     <PageShell>
       {/*
@@ -562,9 +584,21 @@ function ImportPage() {
                 />
                 {busy ? (
                   <>
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-sm font-medium">
                       {progress ? `Reading ${progress.done} of ${progress.total}…` : "Reading…"}
+                    </span>
+                    {/* A count alone gives no sense of how much is left. Files
+                        differ wildly in size, so this is deliberately a
+                        file-count bar and not a time estimate we cannot keep. */}
+                    {progress && progress.total > 1 && (
+                      <Progress
+                        value={(progress.done / progress.total) * 100}
+                        className="mt-1 h-1.5 w-full max-w-xs"
+                      />
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      Nothing is saved yet — you'll see what we found first.
                     </span>
                   </>
                 ) : (
@@ -591,23 +625,27 @@ function ImportPage() {
             <Panel><Skeleton className="h-32 w-full" /></Panel>
           ) : docs.length === 0 ? null : (
             <div className="space-y-[var(--gap)]">
-              {docs.map((d) => (
-                <DocRow
-                  key={d.id}
-                  doc={d}
-                  onDescribe={describeAgain}
-                  open={openDoc === d.id}
-                  onToggle={() => setOpenDoc(openDoc === d.id ? null : d.id)}
-                  onDismiss={async () => {
-                    try {
-                      await dismissFn({ data: { id: d.id } });
-                      qc.invalidateQueries({ queryKey: ["imports"] });
-                    } catch (e: any) {
-                      toast.error(e?.message ?? "Couldn't dismiss that");
-                    }
-                  }}
-                />
-              ))}
+              {groups.map((g) => {
+                const dismiss = async (id: string) => {
+                  try {
+                    await dismissFn({ data: { id } });
+                    qc.invalidateQueries({ queryKey: ["imports"] });
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Couldn't dismiss that");
+                  }
+                };
+                return (
+                  <DocCard
+                    key={g.doc.id}
+                    doc={g.doc}
+                    sheets={g.sheets}
+                    onDescribe={describeAgain}
+                    openDoc={openDoc}
+                    onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
+                    onDismiss={dismiss}
+                  />
+                );
+              })}
             </div>
           )}
         </>
