@@ -404,40 +404,169 @@ function GeneralTab() {
   );
 }
 
-const TABS = ["general", "emails", "automations", "integrations"] as const;
+const TABS = [
+  "general",
+  "roles",
+  "levels",
+  "carriers",
+  "contracting",
+  "notifications",
+  "automations",
+  "integrations",
+] as const;
 type Tab = (typeof TABS)[number];
 
+/** Old bookmarks and palette entries that named a tab we no longer have. */
+const TAB_ALIASES: Record<string, Tab> = {
+  emails: "general",
+  "comp-grids": "carriers",
+  templates: "contracting",
+  grids: "carriers",
+};
+
+export function normalizeTab(raw: unknown): Tab | undefined {
+  if (typeof raw !== "string") return undefined;
+  if ((TABS as readonly string[]).includes(raw)) return raw as Tab;
+  return TAB_ALIASES[raw];
+}
+
 /**
- * Everything about how the agency itself runs.
+ * Everything about how the agency itself runs, in eight tabs.
  *
- * Emails, Automations and Integrations were three sidebar rows of their own,
- * which made Settings nine deep and buried the two things people actually
- * open. They are the same subject as the name and logo above them — how this
- * workspace behaves — so they are tabs of it now.
+ * Settings listed nineteen rows, of which ten were agency configuration
+ * screens sitting at the same level as "Security" and "Nova Pro". An owner
+ * looking for where compensation is set up had to read all nineteen and guess
+ * between "Carriers", "Comp Grids", "Levels & Positions" and "How contracting
+ * works" — four rows for one job.
+ *
+ * They are one page now, in the order the work actually happens: who you are,
+ * who may do what, the ladder, the carriers, the rules, then how the workspace
+ * talks to people and to other software. Levels comes before Carriers because
+ * the ladder is what carrier levels get mapped onto.
  */
 function AgencySettingsPage() {
   const { tab } = Route.useSearch();
   const [active, setActive] = useState<Tab>(tab ?? "general");
+  const { access } = useMyAccess();
 
   return (
     <PageShell>
       <div className="space-y-[var(--gap)]">
-        <HeroBand title="Agency settings" subtitle="How your workspace looks, sends, and connects" />
+        <HeroBand
+          title="Agency settings"
+          subtitle="Your agency, your ladder, your carriers, and how this workspace connects"
+        />
+
+        <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
 
         <Tabs value={active} onValueChange={(v) => setActive(v as Tab)}>
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="emails">Emails</TabsTrigger>
+            <TabsTrigger value="roles">Roles &amp; Permissions</TabsTrigger>
+            <TabsTrigger value="levels">Levels &amp; Positions</TabsTrigger>
+            <TabsTrigger value="carriers">Carriers</TabsTrigger>
+            <TabsTrigger value="contracting">Contracting</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="automations">Automations</TabsTrigger>
             <TabsTrigger value="integrations">Integrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="mt-4"><GeneralTab /><VisibilityPanel /></TabsContent>
-          <TabsContent value="emails" className="mt-4"><EmailsPage /></TabsContent>
-          <TabsContent value="automations" className="mt-4"><AutomationsPage /></TabsContent>
-          <TabsContent value="integrations" className="mt-4"><DiscordSettings /></TabsContent>
+
+          <TabsContent value="roles" className="mt-4">
+            {access?.canManageRoles ? (
+              <AgencyTeamPage embedded />
+            ) : (
+              <Panel title="Roles are limited to administrators">
+                <p className="text-sm text-muted-foreground">
+                  Changing who can do what is reserved for the agency owner and the admins they
+                  have granted access to.
+                </p>
+              </Panel>
+            )}
+          </TabsContent>
+
+          <TabsContent value="levels" className="mt-4">
+            <SectionHead
+              title="Levels & Positions"
+              blurb="Your ladder. Each position has a base percentage and a mapping to every active carrier's own levels."
+            />
+            <LevelsPanel />
+          </TabsContent>
+
+          <TabsContent value="carriers" className="mt-4 space-y-6">
+            <div>
+              <SectionHead
+                title="Carriers"
+                blurb="The carriers your agency writes with. A carrier only becomes visible to agents once its setup can pay a deal."
+              />
+              <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
+            </div>
+            <div>
+              <SectionHead
+                title="Comp grids"
+                blurb="What each carrier pays, by level, product and age band. Every payout forecast reads these numbers."
+              />
+              <ManageGridsPage embedded />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="contracting" className="mt-4 space-y-6">
+            <ContractingTab />
+          </TabsContent>
+
+          <TabsContent value="notifications" className="mt-4"><NotificationsPanel /></TabsContent>
+          <TabsContent value="automations" className="mt-4 space-y-6">
+            <AutomationsPage />
+            <DiscordSettings />
+          </TabsContent>
+          <TabsContent value="integrations" className="mt-4">
+            <IntegrationsCatalog onOpenTab={(t) => setActive((normalizeTab(t) ?? "automations"))} />
+          </TabsContent>
         </Tabs>
       </div>
     </PageShell>
   );
 }
+
+function SectionHead({ title, blurb }: { title: string; blurb: string }) {
+  return (
+    <div className="mb-3">
+      <h2 className="text-lg font-bold tracking-tight text-foreground">{title}</h2>
+      <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{blurb}</p>
+    </div>
+  );
+}
+
+/** The contracting policy, its checklist, and the packets it generates. */
+function ContractingTab() {
+  const { data: setup } = useQuery({
+    queryKey: ["settings", "contracting-setup"],
+    queryFn: () => getContractingSetupStatus(),
+  });
+
+  return (
+    <>
+      <div>
+        <SectionHead
+          title="How contracting works"
+          blurb="Who can request, what needs approval, and how fast requests should move."
+        />
+        {setup?.available && (
+          <div className="mb-4">
+            <SetupChecklist steps={setup.steps} progress={setup.progress} ready={setup.ready} />
+          </div>
+        )}
+        <ContractingSettingsPanel />
+      </div>
+      <div>
+        <SectionHead
+          title="Submission templates"
+          blurb="The email bodies and spreadsheet layouts submission packets are generated from."
+        />
+        <TemplatesPanel />
+      </div>
+    </>
+  );
+}
+
