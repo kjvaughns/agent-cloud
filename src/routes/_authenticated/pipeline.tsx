@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useEffect, useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDroppable, useDraggable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Search, Plus, Upload, Download, Flame, Thermometer, Snowflake, Heart, Phone, MapPin, Calendar, CheckCircle2, DollarSign } from "lucide-react";
+import { Search, Plus, Upload, Download, Heart, Phone, MapPin, Calendar, CheckCircle2, DollarSign } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 
@@ -30,19 +30,12 @@ import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
-type Temp = "hot" | "warm" | "cold";
 
 const STAGE_COLS: { key: Stage; label: string; tint: string; header: string; badgeCls: string }[] = [
   { key: "new", label: "New / Cold", tint: "bg-surface-2", header: "text-muted-foreground", badgeCls: "bg-surface-2 text-muted-foreground border-border-soft" },
   { key: "callback", label: "Callback", tint: "bg-surface-2", header: "text-warning", badgeCls: "bg-warning text-warning border-warning" },
   { key: "almost_there", label: "Almost There", tint: "bg-surface-2", header: "text-success", badgeCls: "bg-success text-success border-success" },
 ];
-
-const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot: { cls: "bg-destructive text-destructive border-destructive", Icon: Flame, label: "Hot" },
-  warm: { cls: "bg-warning text-warning border-warning", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-info text-info border-info", Icon: Snowflake, label: "Cold" },
-};
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
   validateSearch: (s: Record<string, unknown>): { tab?: "sold" | "pipeline"; client?: string; scope?: Scope } => ({
@@ -306,7 +299,6 @@ function KanbanColumn({ stage, label, tint, header, count, children }: { stage: 
 function LeadCard({ client, draggable = true, onClick }: { client: any; draggable?: boolean; onClick: () => void }) {
   const nav = useNavigate();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: client.id, disabled: !draggable });
-  const t = tempPill[(client.temperature ?? "cold") as Temp];
   const pol = client.latest_policy;
   const location = [client.city, client.state].filter(Boolean).join(", ");
   const age = client.date_of_birth
@@ -330,7 +322,7 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
         isDragging && "opacity-50 shadow-xl rotate-1",
       )}
     >
-      {/* Row 1: Avatar + Name + Temp badge */}
+      {/* Row 1: Avatar + Name */}
       <div className="flex items-start gap-2.5">
         <div className="h-9 w-9 rounded-full bg-primary/10 grid place-items-center shrink-0 text-xs font-bold text-primary">
           {initials}
@@ -345,9 +337,6 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
             <div className="truncate text-[11px] text-muted-foreground">{client.agent_name}</div>
           )}
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={cn("inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", t.cls)}>
-              <t.Icon className="h-2.5 w-2.5" /> {t.label}
-            </span>
             {(client.score_pct != null && client.score_pct > 0) && (
               <span className="text-[10px] text-muted-foreground">{client.score_pct}%</span>
             )}
@@ -460,7 +449,7 @@ function AddClientDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
         phone_type: "Mobile",
         email: "", date_of_birth: "", street_address: "",
         city: "", state: "", zip_code: "",
-        temperature: "cold", stage: "new",
+        stage: "new",
       },
     }),
     onSuccess: () => {
@@ -546,7 +535,6 @@ function ImportClientsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             email: r.email ? String(r.email).trim() : "",
             date_of_birth: r.date_of_birth ? String(r.date_of_birth).trim() : "",
             stage: r.stage ? String(r.stage).trim() : undefined,
-            temperature: r.temperature ? String(r.temperature).trim() : undefined,
           }))
           .filter((r) => r.first_name && r.last_name && r.phone);
         setRows(cleaned);
@@ -569,7 +557,7 @@ function ImportClientsDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>Import Clients</DialogTitle></DialogHeader>
-        <p className="text-sm text-muted-foreground">CSV columns: <code>first_name, last_name, phone</code> (required), <code>email, date_of_birth, stage, temperature</code> (optional).</p>
+        <p className="text-sm text-muted-foreground">CSV columns: <code>first_name, last_name, phone</code> (required), <code>email, date_of_birth, stage</code> (optional).</p>
         <Input type="file" accept=".csv" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
         {filename && <div className="text-xs text-muted-foreground">{filename} — {rows.length} valid rows</div>}
         {rows.length > 0 && (
