@@ -336,7 +336,9 @@ function ImportPage() {
     // Either nothing recognisable, or the note and the columns disagree —
     // and a disagreement is never resolved by picking one. Ask the model,
     // and give it the user's own words as evidence.
+    mark(id, "Asking the assistant to identify it", 55);
     await classifyFn({
+
       data: {
         id,
         text: doc.text || null,
