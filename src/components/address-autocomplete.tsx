@@ -1,7 +1,9 @@
 import * as React from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ensureMaps, parseAddressComponents, type AddressParts } from "@/lib/google-maps";
+import type { AddressParts } from "@/lib/google-maps";
+import { placesAutocomplete, placeDetails, type PlaceSuggestion } from "@/lib/places.functions";
 
 type Props = Omit<React.ComponentProps<"input">, "onChange" | "value" | "onSelect"> & {
   value: string;
@@ -9,41 +11,23 @@ type Props = Omit<React.ComponentProps<"input">, "onChange" | "value" | "onSelec
   onSelect?: (parts: AddressParts) => void;
 };
 
-type Suggestion = {
-  placeId: string;
-  primary: string;
-  secondary: string;
-};
-
+/**
+ * Suggestions come from the server, not the Maps JS SDK: the browser key is
+ * referrer-restricted to the production domain, so in-browser calls were
+ * rejected on preview.
+ */
 export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
   ({ value, onChange, onSelect, className, onBlur, ...rest }, ref) => {
-    const [ready, setReady] = React.useState(false);
     const [open, setOpen] = React.useState(false);
-    const [suggestions, setSuggestions] = React.useState<Suggestion[]>([]);
-    const placesRef = React.useRef<any>(null);
-    const sessionRef = React.useRef<any>(null);
+    const [suggestions, setSuggestions] = React.useState<PlaceSuggestion[]>([]);
     const debounceRef = React.useRef<number | null>(null);
     const wrapRef = React.useRef<HTMLDivElement>(null);
+    const sessionRef = React.useRef<string>(
+      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now()),
+    );
 
-    React.useEffect(() => {
-      let cancelled = false;
-      ensureMaps()
-        .then(async (g) => {
-          const places = await g.maps.importLibrary("places");
-          if (cancelled) return;
-          placesRef.current = places;
-          sessionRef.current = new places.AutocompleteSessionToken();
-          setReady(true);
-        })
-        .catch((e) => {
-          // Degrade to a plain text input, but make the cause visible.
-          console.error("[address-autocomplete] Google Places unavailable:", e);
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    }, []);
+    const fetchSuggestionsFn = useServerFn(placesAutocomplete);
+    const fetchDetailsFn = useServerFn(placeDetails);
 
     React.useEffect(() => {
       const onClick = (e: MouseEvent) => {
@@ -53,60 +37,48 @@ export const AddressAutocomplete = React.forwardRef<HTMLInputElement, Props>(
       return () => document.removeEventListener("mousedown", onClick);
     }, []);
 
-    const fetchSuggestions = React.useCallback((q: string) => {
-      if (!ready || !placesRef.current || !q || q.length < 3) {
-        setSuggestions([]);
-        return;
-      }
-      const places = placesRef.current;
-      places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-        input: q,
-        sessionToken: sessionRef.current,
-        includedRegionCodes: ["us"],
-      })
-        .then((res: any) => {
-          const list: Suggestion[] = (res.suggestions ?? [])
-            .map((s: any) => s.placePrediction)
-            .filter(Boolean)
-            .slice(0, 5)
-            .map((p: any) => ({
-              placeId: p.placeId,
-              primary: p.mainText?.text ?? p.text?.text ?? "",
-              secondary: p.secondaryText?.text ?? "",
-            }));
-          setSuggestions(list);
-          setOpen(list.length > 0);
-        })
-        .catch((e: unknown) => {
-          console.error("[address-autocomplete] suggestion fetch failed:", e);
+    const fetchSuggestions = React.useCallback(
+      (q: string) => {
+        if (!q || q.trim().length < 3) {
           setSuggestions([]);
-        });
-
-    }, [ready]);
+          setOpen(false);
+          return;
+        }
+        fetchSuggestionsFn({ data: { input: q, sessionToken: sessionRef.current } })
+          .then((list) => {
+            setSuggestions(list);
+            setOpen(list.length > 0);
+          })
+          .catch((e: unknown) => {
+            console.error("[address-autocomplete] suggestion fetch failed:", e);
+            setSuggestions([]);
+          });
+      },
+      [fetchSuggestionsFn],
+    );
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = e.target.value;
       onChange(v);
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
-      debounceRef.current = window.setTimeout(() => fetchSuggestions(v), 200);
+      debounceRef.current = window.setTimeout(() => fetchSuggestions(v), 250);
     };
 
-    const handlePick = async (s: Suggestion) => {
+    const handlePick = async (s: PlaceSuggestion) => {
       setOpen(false);
-      const places = placesRef.current;
-      if (!places) return;
       try {
-        const place = new places.Place({ id: s.placeId });
-        await place.fetchFields({ fields: ["addressComponents", "formattedAddress"] });
-        const comps = (place.addressComponents ?? []) as any[];
-        const parts = parseAddressComponents(comps);
-        onChange(parts.street || s.primary);
-        onSelect?.(parts);
-        // new session after selection per Places New billing semantics
-        sessionRef.current = new places.AutocompleteSessionToken();
+        const parts = await fetchDetailsFn({ data: { placeId: s.placeId } });
+        if (parts) {
+          onChange(parts.street || s.primary);
+          onSelect?.(parts);
+        } else {
+          onChange(s.primary);
+        }
       } catch {
         onChange(`${s.primary}${s.secondary ? ", " + s.secondary : ""}`);
       }
+      sessionRef.current =
+        typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now());
     };
 
     return (
