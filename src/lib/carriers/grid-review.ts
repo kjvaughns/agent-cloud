@@ -163,7 +163,11 @@ export function reviewGrid(rows: ReviewRow[]): GridIssue[] {
     const banded = idx
       .map((i) => ({ i, band: bandOf(rows[i]) }))
       .filter((x): x is { i: number; band: { min: number; max: number } } => x.band != null)
+      // A band that runs backwards is already reported, and reasoning about
+      // coverage from it would invent a second complaint about the same typo.
+      .filter((x) => x.band.min <= x.band.max)
       .sort((a, b) => a.band.min - b.band.min);
+
 
     // Two rows for the same product and level with no bands at all is a
     // duplicate, not a band problem — same rate twice, or worse, two different
