@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
  * SureLC for a new contract, email for a hierarchy change. `applies_to` says
  * which kinds of work a method covers, and leaving it empty means all of them.
  */
-function MethodsEditor({ carrier }: { carrier: any }) {
+export function MethodsEditor({ carrier }: { carrier: any }) {
   const qc = useQueryClient();
   const saveFn = useServerFn(saveOrgCarrierMethod);
   const deleteFn = useServerFn(deleteOrgCarrierMethod);
