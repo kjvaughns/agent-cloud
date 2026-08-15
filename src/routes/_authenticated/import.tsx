@@ -249,6 +249,7 @@ function ImportPage() {
 
 
     if (plan && plan.streams.length > 1) {
+      mark(id, `Splitting ${plan.sheets.length} tabs`, 32);
       await markParentFn({
         data: { id, summary: describePlan(plan), sheet_count: plan.sheets.length },
       });
@@ -267,11 +268,17 @@ function ImportPage() {
         },
       });
       qc.invalidateQueries({ queryKey: ["imports"] });
+      for (const rec of children.documents ?? []) {
+        if (rec?.id) mark(rec.id, "Waiting its turn", 2);
+      }
 
       for (let i = 0; i < plan.streams.length; i++) {
         const st = plan.streams[i];
         const rec = children.documents?.[i];
         if (!rec) continue;
+        // The parent's bar tracks tabs finished; each tab's own bar tracks rows.
+        mark(id, `Tab ${i + 1} of ${plan.streams.length} — ${st.sheetLabel}`, 32 + (i / plan.streams.length) * 60);
+        mark(rec.id, "Reading columns", 20);
         await setKindFn({
           data: {
             id: rec.id,
@@ -281,6 +288,7 @@ function ImportPage() {
           },
         });
         await sendRows(rec.id, st.kind, st.rows, file.name);
+        clearMark(rec.id);
         qc.invalidateQueries({ queryKey: ["imports"] });
       }
       if (plan.notesJoined || plan.policiesJoined) {
@@ -290,6 +298,7 @@ function ImportPage() {
       }
       return;
     }
+
 
     // A single recognisable sheet still goes through the planner, so a one-tab
     // book gets the same column reading and the same joins as a four-tab one.
