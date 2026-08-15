@@ -1,33 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
-import { ConfigPageGuard } from "@/components/settings/config-guard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-/**
- * Settings ▸ Carriers — which carriers the agency works with and how each
- * takes submissions. Configuration lives in Settings; the daily contracting
- * work (requests, licensing, documents) stays in Contracting Ops.
- */
+// Carriers is a tab of Agency settings now — the carrier directory and the comp
+// grids that pay it sit on one screen, because setting one up without the other
+// is how a carrier ends up active and unable to price a deal. Path kept: it is
+// bookmarked and named by the setup checklist.
 export const Route = createFileRoute("/_authenticated/settings/carriers")({
-  component: CarriersSettingsPage,
-  head: () => ({ meta: [{ title: "Carriers | Settings | Agent Cloud" }] }),
+  beforeLoad: () => { throw redirect({ to: "/settings/agency", search: { tab: "carriers" } as any }); },
 });
-
-function CarriersSettingsPage() {
-  const navigate = useNavigate();
-  return (
-    <ConfigPageGuard>
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">Carriers</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The carriers your agency works with. Set each one up here, then its{" "}
-            <Link to="/settings/levels" data-tour="carrier-comp" className="text-primary hover:underline">levels</Link>
-            {" "}and{" "}
-            <Link to="/settings/comp-grids" className="text-primary hover:underline">commission grid</Link>.
-          </p>
-        </div>
-        <CarrierDirectoryPage onConfigureLevels={() => navigate({ to: "/settings/levels" })} />
-      </div>
-    </ConfigPageGuard>
-  );
-}
