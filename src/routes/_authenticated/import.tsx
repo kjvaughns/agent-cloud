@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check, ArrowRight } from "lucide-react";
+import {
+  UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check, ArrowRight,
+  Users, BookOpen, StickyNote, Table2, IdCard, ScrollText, Percent, CornerDownRight,
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNavContext } from "@/hooks/use-my-access";
@@ -32,16 +36,41 @@ export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
 });
 
-const STATUS_STYLE: Record<string, { label: string; variant: any }> = {
-  queued: { label: "Queued", variant: "secondary" },
-  analyzing: { label: "Reading", variant: "info" },
-  needs_review: { label: "Review", variant: "warning" },
-  applied: { label: "Imported", variant: "success" },
-  dismissed: { label: "Dismissed", variant: "secondary" },
-  failed: { label: "Couldn't read", variant: "destructive" },
+/**
+ * One row of the result list has to answer "what happened to my file" from
+ * across the desk, so status carries a colour as well as a word: a dot for the
+ * glance, the word for the certainty.
+ */
+const STATUS_STYLE: Record<string, { label: string; variant: any; dot: string }> = {
+  queued: { label: "Queued", variant: "secondary", dot: "bg-muted-foreground/50" },
+  analyzing: { label: "Reading", variant: "info", dot: "bg-primary animate-pulse" },
+  needs_review: { label: "Needs you", variant: "warning", dot: "bg-warning" },
+  applied: { label: "Imported", variant: "success", dot: "bg-success" },
+  dismissed: { label: "Dismissed", variant: "secondary", dot: "bg-muted-foreground/40" },
+  failed: { label: "Couldn't read", variant: "destructive", dot: "bg-destructive" },
   // A workbook is not reviewed itself — its tabs are, and they are listed
   // under it as their own rows.
-  split: { label: "Split by tab", variant: "info" },
+  split: { label: "Split by tab", variant: "info", dot: "bg-primary/60" },
+};
+
+/**
+ * The file type, as a picture.
+ *
+ * Every row used to open with the same generic page icon, so a stack of eight
+ * rows from one workbook was eight identical lines distinguishable only by
+ * reading the filename to its end. The icon is the fastest way to see that the
+ * roster tab and the book tab are different things.
+ */
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  book_of_business: BookOpen,
+  clients: Users,
+  client_notes: StickyNote,
+  agent_roster: Users,
+  commission_grid: Percent,
+  commission_statement: Table2,
+  writing_numbers: IdCard,
+  state_licenses: ScrollText,
+  policy_status_report: Table2,
 };
 
 /**
