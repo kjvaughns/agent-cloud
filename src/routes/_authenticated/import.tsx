@@ -1014,13 +1014,16 @@ function DocCard({
 
 /** One tab of a workbook: same information, one level quieter. */
 function SheetRow({
-  doc, open, onToggle, onDismiss,
+  doc, open, onToggle, onDismiss, phase,
 }: {
   doc: ImportDoc;
   open: boolean;
   onToggle: () => void;
   onDismiss: () => void;
+  /** Live client-side phase for this tab, while it is being read. */
+  phase?: LivePhase;
 }) {
+
   const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
