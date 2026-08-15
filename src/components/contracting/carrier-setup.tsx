@@ -236,15 +236,22 @@ function CarrierRow({
                         ?? `${c.name} is not set up enough to switch on yet.`,
                     );
                   }}
-                  className={cn("inline-flex", !mayToggle && "cursor-not-allowed")}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-lg border border-border-soft px-2 py-1.5",
+                    !mayToggle && "cursor-not-allowed",
+                  )}
+                  title={isActive ? "Carrier is live" : "Carrier is paused"}
                 >
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {isActive ? "Live" : "Off"}
+                  </span>
                   <Switch
                     checked={isActive}
                     disabled={toggling}
                     aria-label={`${isActive ? "Switch off" : "Switch on"} ${c.name}`}
                     onCheckedChange={(v) => onToggle(v)}
                     className={cn(
-                      "data-[state=checked]:bg-success data-[state=unchecked]:bg-surface-3",
+                      "scale-125 data-[state=checked]:bg-success data-[state=unchecked]:bg-surface-3",
                       !mayToggle && "opacity-50",
                     )}
                   />
