@@ -29,6 +29,23 @@ import type { ChatPart } from "./ai-gateway";
 /** Enough to read grid digits, small enough to send. */
 const MAX_EDGE = 2000;
 
+/**
+ * The most one page image may weigh, as a data-URI string.
+ *
+ * Not a server limit copied down: it is the budget that keeps a normal upload —
+ * several photographed pages in one request — inside what a request can carry.
+ * `MAX_REQUEST_IMAGE_CHARS` below is the whole-request version of the same
+ * budget, and callers that batch pages use it.
+ */
+export const MAX_IMAGE_CHARS = 1_400_000;
+
+/**
+ * The most one extraction request may carry in page images, all pages summed.
+ * Callers sending several pages split into batches on this rather than posting
+ * everything and getting the browser's unexplained "Load failed".
+ */
+export const MAX_REQUEST_IMAGE_CHARS = 4_000_000;
+
 /** Past this, we are sending a book rather than reading a document. */
 const DEFAULT_MAX_PAGES = 8;
 
@@ -97,7 +114,7 @@ export async function extractDocument(
   if (isImage(file)) {
     return {
       text: "",
-      images: [await readAsDataUrl(file)],
+      images: [await downscaleImage(file)],
       pageCount: 1,
       pagesRead: 1,
       truncated: false,
@@ -259,6 +276,68 @@ async function renderPage(page: any): Promise<string> {
 
   await page.render({ canvasContext: ctx, viewport, canvas }).promise;
   return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+/**
+ * Bring a photograph down to something that can actually be sent.
+ *
+ * A phone camera writes an 8-megapixel JPEG; base64 inflates it by a third, so
+ * one page arrived as roughly 6 MB of string and three pages exceeded what the
+ * request could carry. The browser reported that as a bare "Load failed" — the
+ * fetch never completed, so there was no server error to show — and an owner
+ * photographing a paper comp grid, which is the normal case, could not upload
+ * at all.
+ *
+ * Re-encoded to the same ceiling the PDF rasterizer already uses, because that
+ * ceiling was chosen for exactly this content: 2000px on the long edge is
+ * enough to read rate digits, and anything beyond it is detail the model cannot
+ * use. An image already inside the ceiling and already a JPEG is passed
+ * through untouched rather than re-compressed.
+ *
+ * Falls back to the original bytes if anything here fails: a slightly-too-large
+ * upload that might work is better than a hard failure on a browser whose
+ * canvas or decoder behaved unexpectedly.
+ */
+async function downscaleImage(file: File): Promise<string> {
+  const original = await readAsDataUrl(file);
+  const isJpeg = /^data:image\/jpe?g/i.test(original);
+  if (isJpeg && original.length <= MAX_IMAGE_CHARS) return original;
+
+  try {
+    const img = await loadImage(original);
+    const longest = Math.max(img.width, img.height);
+    const scale = longest > MAX_EDGE ? MAX_EDGE / longest : 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return original;
+    // White behind it, for the same reason the PDF renderer does: a
+    // transparent PNG flattened to JPEG turns dark text into a black block.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    // Step the quality down rather than settle for one guess: a dense grid
+    // photographed at close range can still be large at 0.85, and the rates
+    // stay legible well below it.
+    for (const quality of [0.85, 0.7, 0.55]) {
+      const out = canvas.toDataURL("image/jpeg", quality);
+      if (out.length <= MAX_IMAGE_CHARS) return out;
+    }
+    return canvas.toDataURL("image/jpeg", 0.45);
+  } catch {
+    return original;
+  }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Couldn't read that image"));
+    img.src = src;
+  });
 }
 
 function readAsDataUrl(file: File): Promise<string> {
