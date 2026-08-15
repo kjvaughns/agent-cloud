@@ -45,9 +45,14 @@ const SELECT =
  * different labels.
  */
 async function narrowByScope(supabase: any, q: any, userId: string, scope: Scope) {
+  // NOTE: a PostgREST builder is thenable, so it must not be awaited here —
+  // awaiting it would run the query and hand back a response object instead of
+  // a builder the caller can keep chaining filters onto.
   if (scope === "mine") return q.eq("agent_id", userId);
-  return q.in("agent_id", await resolveScopeAgentIds(supabase, scope));
+  const ids = await resolveScopeAgentIds(supabase, scope);
+  return q.in("agent_id", ids);
 }
+
 
 export const listRetentionCases = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
