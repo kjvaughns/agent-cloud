@@ -103,9 +103,6 @@ function InvitePage({ options }: { options: any }) {
   const [uplineId, setUplineId] = useState("");
   // An agency-branded link: the joining agent picks their own upline.
   const [isAgencyLink, setIsAgencyLink] = useState(false);
-  // Thirty days is what the column has always defaulted to. The point of the
-  // control is that the number is now visible before the link is handed out.
-  const [expiresInDays, setExpiresInDays] = useState("30");
   const { canInviteAgencyOwner, canInviteManager } = options;
 
   const { data: myCarriers } = useQuery({
@@ -128,7 +125,7 @@ function InvitePage({ options }: { options: any }) {
 
   const createFn = useServerFn(createOnboardingInvite);
   const create = useMutation({
-    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, expires_in_days: Number(expiresInDays), assignments: [] } }),
+    mutationFn: () => createFn({ data: { link_name: linkName, invited_role: invitedRole, agency_level_id: agencyLevelId || null, upline_id: uplineId || null, is_agency_link: isAgencyLink, assignments: [] } }),
     onSuccess: (res: any) => {
       setSuccess({ token: res.token, linkName });
       qc.invalidateQueries({ queryKey: ["onb", "invites"] });
@@ -154,7 +151,6 @@ function InvitePage({ options }: { options: any }) {
     setAgencyLevelId("");
     setUplineId("");
     setIsAgencyLink(false);
-    setExpiresInDays("30");
   }
 
   if (success) {
@@ -302,24 +298,8 @@ function InvitePage({ options }: { options: any }) {
           </div>
         )}
 
-        {/* Links have always died after thirty days — the column is not null
-            and has defaulted to it since it was added. Nothing said so, so an
-            owner found out from a recruit on a dead link. */}
-        <div>
-          <Label>Link Expires</Label>
-          <Select value={expiresInDays} onValueChange={setExpiresInDays}>
-            <SelectTrigger className="mt-1 max-w-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">In 7 days</SelectItem>
-              <SelectItem value="30">In 30 days (default)</SelectItem>
-              <SelectItem value="90">In 90 days</SelectItem>
-              <SelectItem value="365">In a year</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            After this the link stops working. You can revoke it sooner from the list below.
-          </p>
-        </div>
+        {/* Links do not expire. They stay good until somebody revokes them
+            from the list below. */}
 
 
         {/* Who they report to. Left alone, the link places people under you —
@@ -626,14 +606,6 @@ function LinksTable({ rows }: { rows: any[] }) {
                   // Before this, revoking deleted the row and the link simply
                   // vanished from the list. It stays, saying what happened.
                   <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">Revoked</span>
-                ) : r.expired ? (
-                  <span className="rounded bg-destructive/15 px-2 py-0.5 text-xs text-destructive">Expired</span>
-                ) : r.days_left != null && r.days_left <= 7 ? (
-                  // Says it before it happens, rather than leaving the agent to
-                  // discover it on a dead link.
-                  <span className="rounded bg-warning/15 px-2 py-0.5 text-xs text-warning">
-                    {r.days_left}d left
-                  </span>
                 ) : (
                   <span className="rounded bg-success/15 px-2 py-0.5 text-xs text-success">Active</span>
                 )}

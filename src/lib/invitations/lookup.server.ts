@@ -116,7 +116,9 @@ export async function hasOpenInvitation(
     .ilike("new_agent_email", email)
     .is("linked_agent_id", null)
     .not("status", "in", "(revoked,completed)")
-    .gt("expires_at", new Date().toISOString())
+    // Links no longer expire; legacy rows with a date still count as open
+    // only while that date is in the future.
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .limit(1);
 
   q = args.organizationId
