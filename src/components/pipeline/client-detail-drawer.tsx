@@ -1137,6 +1137,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
     monthly_premium: pol.monthly_premium != null ? String(pol.monthly_premium) : "",
     face_amount: pol.face_amount != null ? String(pol.face_amount) : "",
     effective_date: pol.effective_date ?? "",
+    sale_date: timestampToSaleDate(pol.production_date),
   });
 
   const listCarriersFn = useServerFn(listCarriers);
