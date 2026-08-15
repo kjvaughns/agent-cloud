@@ -170,7 +170,7 @@ export function PolicyDetailSheet({
                   <Row k="Annual premium" v={<span className="font-semibold text-success">{row.annual_premium ? money(row.annual_premium, { maximumFractionDigits: 2 }) : "—"}</span>} />
                   <Row k="Agent" v={`${row.agent_first_name ?? ""} ${row.agent_last_name ?? ""}`.trim() || "—"} />
                   {/* Em dash when there is nothing on file, never a made-up day. */}
-                  <Row k="Draft" v={draftSummary(bankingQ.data?.payment_method, bankingQ.data?.draft_date) ?? "—"} />
+                  <Row k="Draft" v={draftSummary(bankingQ.data?.payment_method, bankingQ.data?.draft_date, (bankingQ.data as any)?.draft_schedule, (bankingQ.data as any)?.draft_wednesday) ?? "—"} />
                 </dl>
               </div>
 

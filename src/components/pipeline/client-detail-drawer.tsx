@@ -1,11 +1,11 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { draftSummary } from "@/lib/deals/social-security";
+import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
-  AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
+  AlertTriangle, Heart, Eye, EyeOff,
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
   Shield,
   Loader2,
@@ -21,8 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
-import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
+import { productsForCarrier } from "@/lib/products";
+import { phone as fmtPhone, money, formatPhone, formatRouting, formatDob } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
@@ -38,13 +38,6 @@ import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
-type Temp = "hot" | "warm" | "cold";
-
-const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot:  { cls: "bg-destructive text-destructive border-destructive",    Icon: Flame,       label: "Hot"  },
-  warm: { cls: "bg-warning text-warning border-warning", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-info text-info border-info", Icon: Snowflake,   label: "Cold" },
-};
 
 const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
   new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-border text-muted-foreground",   label: "New / Initial" },
@@ -109,7 +102,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 
 // ============ Body ============
 function DrawerBody({ clientId }: { clientId: string }) {
-  const [activeTab, setActiveTab] = useState("timeline");
+  const [activeTab, setActiveTab] = useState("contact");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
   if (isLoading || !data?.client) {
@@ -123,13 +116,12 @@ function DrawerBody({ clientId }: { clientId: string }) {
   }
 
   const c = data.client;
-  const t = tempPill[(c.temperature ?? "cold") as Temp];
   const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Compact header */}
-      <DrawerHeader client={c} t={t} />
+      <DrawerHeader client={c} />
 
       {/* Stage bar */}
       <StageBar client={c} />
@@ -164,7 +156,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 }
 
 // ============ Header ============
-function DrawerHeader({ client, t }: { client: any; t: any }) {
+function DrawerHeader({ client }: { client: any }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const markSoldFn = useServerFn(markClientSold);
@@ -183,9 +175,6 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-lg leading-tight">{client.first_name} {client.last_name}</span>
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shrink-0", t.cls)}>
-              <t.Icon className="h-3 w-3" /> {t.label}
-            </span>
           </div>
           {client.phone && (
             <a href={`tel:${client.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 mt-0.5">
@@ -359,24 +348,69 @@ function SectionCard({ icon: Icon, title, children }: { icon: any; title: string
   );
 }
 
+// ============ Shared: dates ============
+/** "1954-03-07" → "03/07/1954". Parsed off the string so no timezone shift. */
+function dobToDisplay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso).trim());
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
+}
+
+/** "03/07/1954" → "1954-03-07", or null while the entry is incomplete. */
+function displayToIso(display: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
+  if (!m) return null;
+  const [, mm, dd, yyyy] = m;
+  const month = Number(mm), day = Number(dd), year = Number(yyyy);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) return null;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Whole years since the date, from the string so it never drifts a day. */
+function ageFromDob(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso).trim());
+  if (!m) return null;
+  const [, y, mo, d] = m.map(Number) as unknown as [string, number, number, number];
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  const beforeBirthday =
+    now.getMonth() + 1 < mo || (now.getMonth() + 1 === mo && now.getDate() < d);
+  if (beforeBirthday) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+}
+
 // ============ Shared: EditableField ============
-function EditableField({ label, client, field, type, select, address }: { label: string; client: any; field: string; type?: string; select?: string[]; address?: boolean }) {
+function EditableField({ label, client, field, type, select, address, phone, dob }: { label: string; client: any; field: string; type?: string; select?: string[]; address?: boolean; phone?: boolean; dob?: boolean }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
   const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState<string>(client[field] ?? "");
-  useEffect(() => setVal(client[field] ?? ""), [client, field]);
+  const raw = client[field] ?? "";
+  const display = dob ? dobToDisplay(raw) : phone ? formatPhone(String(raw)) : String(raw);
+  const [val, setVal] = useState<string>(display);
+  useEffect(() => {
+    setVal(dob ? dobToDisplay(client[field]) : phone ? formatPhone(String(client[field] ?? "")) : (client[field] ?? ""));
+  }, [client, field, dob, phone]);
 
   const mut = useMutation({
-    mutationFn: (patch: Record<string, string>) => updateFn({ data: { id: client.id, patch } }),
+    mutationFn: (patch: Record<string, string | null>) => updateFn({ data: { id: client.id, patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
     onError: (e: any) => toast.error(e?.message ?? "Update failed"),
   });
 
   const save = () => {
     setEditing(false);
-    if (val !== (client[field] ?? "")) mut.mutate({ [field]: val });
+    if (dob) {
+      const iso = val.trim() ? displayToIso(val) : null;
+      if (val.trim() && !iso) { toast.error("Enter the date of birth as MM/DD/YYYY"); return; }
+      if (iso !== (raw || null)) mut.mutate({ [field]: iso });
+      return;
+    }
+    const next = val.trim() || null;
+    if ((next ?? "") !== (raw ?? "")) mut.mutate({ [field]: next });
   };
+
+  const age = dob ? ageFromDob(raw) : null;
 
   if (editing) {
     if (select) {
@@ -413,6 +447,30 @@ function EditableField({ label, client, field, type, select, address }: { label:
         </div>
       );
     }
+    if (dob || phone) {
+      const liveAge = dob ? ageFromDob(displayToIso(val)) : null;
+      return (
+        <div className="min-w-0 space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              autoFocus
+              inputMode="numeric"
+              placeholder={dob ? "MM/DD/YYYY" : "(555) 123-4567"}
+              value={val}
+              onChange={(e) => setVal(dob ? formatDob(e.target.value) : formatPhone(e.target.value))}
+              onBlur={save}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+            />
+            {dob && liveAge !== null && (
+              <span className="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                Age {liveAge}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-w-0 space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
@@ -425,9 +483,14 @@ function EditableField({ label, client, field, type, select, address }: { label:
     <button type="button" onClick={() => setEditing(true)} className="min-w-0 text-left space-y-1.5 group w-full">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <div className="flex items-start justify-between gap-2 min-h-[2.25rem] px-3 py-2 rounded-md bg-muted/40 border border-transparent group-hover:border-border group-hover:bg-muted/60 transition-colors">
-        <span className={cn("min-w-0 flex-1 text-sm break-words", !client[field] && "text-muted-foreground/50 italic")}>
-          {client[field] || "—"}
+        <span className={cn("min-w-0 flex-1 text-sm break-words", !raw && "text-muted-foreground/50 italic")}>
+          {display || "—"}
         </span>
+        {age !== null && (
+          <span className="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            Age {age}
+          </span>
+        )}
         <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
       </div>
     </button>
@@ -443,13 +506,10 @@ function ContactTab({ detail }: { detail: any }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <EditableField label="First Name" client={client} field="first_name" />
           <EditableField label="Last Name" client={client} field="last_name" />
-          <EditableField label="Phone" client={client} field="phone" />
+          <EditableField label="Phone" client={client} field="phone" phone />
           <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
           <EditableField label="Email" client={client} field="email" />
-          <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
-        </div>
-        <div className="mt-3 pt-3 border-t">
-          <TemperatureSelector client={client} />
+          <EditableField label="Date of Birth" client={client} field="date_of_birth" dob />
         </div>
       </SectionCard>
 
@@ -480,39 +540,6 @@ function ContactTab({ detail }: { detail: any }) {
       <SectionCard icon={Users} title="Beneficiaries">
         <BeneficiariesInline detail={detail} />
       </SectionCard>
-    </div>
-  );
-}
-
-// ============ Temperature ============
-function TemperatureSelector({ client }: { client: any }) {
-  const qc = useQueryClient();
-  const updateFn = useServerFn(updateClient);
-  const mut = useMutation({
-    mutationFn: (temperature: Temp) => updateFn({ data: { id: client.id, patch: { temperature } } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
-  });
-
-  return (
-    <div className="space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Temperature</div>
-      <div className="flex gap-2">
-        {(["hot", "warm", "cold"] as const).map((temp) => {
-          const p = tempPill[temp];
-          return (
-            <button
-              key={temp}
-              onClick={() => mut.mutate(temp)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition",
-                client.temperature === temp ? p.cls : "border-border text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <p.Icon className="h-3 w-3" /> {p.label}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -557,6 +584,106 @@ function luhnValid(num: string): boolean {
     dbl = !dbl;
   }
   return sum % 10 === 0;
+}
+
+// ============ Draft Date (day of month, or the Social Security Wednesday) ============
+/**
+ * Most clients draft on a calendar day. Social Security recipients are paid on
+ * the 2nd, 3rd, or 4th Wednesday, and drafting on a fixed day either misses the
+ * deposit or bounces — so the schedule itself is what gets recorded, and the
+ * calendar day is derived for the current month.
+ */
+function DraftDateField({
+  form,
+  setForm,
+  saveMany,
+  dob,
+}: {
+  form: Record<string, any>;
+  setForm: (fn: (f: Record<string, any>) => Record<string, any>) => void;
+  saveMany: (patch: Record<string, any>) => void;
+  dob?: string | null;
+}) {
+  const schedule: "day_of_month" | "ss_wednesday" =
+    form.draft_schedule === "ss_wednesday" ? "ss_wednesday" : "day_of_month";
+  const suggested = ssPayWeekFromDob(dob ?? null);
+
+  const setSchedule = (next: "day_of_month" | "ss_wednesday") => {
+    if (next === "ss_wednesday") {
+      const week = (form.draft_wednesday as 2 | 3 | 4 | undefined) ?? suggested ?? 3;
+      const now = new Date();
+      const patch = {
+        draft_schedule: "ss_wednesday",
+        draft_wednesday: week,
+        draft_date: nthWednesday(now.getUTCFullYear(), now.getUTCMonth(), week),
+      };
+      setForm(f => ({ ...f, ...patch }));
+      saveMany(patch);
+    } else {
+      const patch = { draft_schedule: "day_of_month", draft_wednesday: null };
+      setForm(f => ({ ...f, ...patch }));
+      saveMany(patch);
+    }
+  };
+
+  const setWeek = (week: 2 | 3 | 4) => {
+    const now = new Date();
+    const patch = {
+      draft_schedule: "ss_wednesday",
+      draft_wednesday: week,
+      draft_date: nthWednesday(now.getUTCFullYear(), now.getUTCMonth(), week),
+    };
+    setForm(f => ({ ...f, ...patch }));
+    saveMany(patch);
+  };
+
+  return (
+    <>
+      <Field label="Draft Schedule">
+        <Select value={schedule} onValueChange={v => setSchedule(v as "day_of_month" | "ss_wednesday")}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day_of_month">Day of month</SelectItem>
+            <SelectItem value="ss_wednesday">Social Security (Wednesday)</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {schedule === "ss_wednesday" ? (
+        <Field label="Social Security Payday">
+          <Select
+            value={form.draft_wednesday ? String(form.draft_wednesday) : ""}
+            onValueChange={v => setWeek(Number(v) as 2 | 3 | 4)}
+          >
+            <SelectTrigger><SelectValue placeholder="Select Wednesday" /></SelectTrigger>
+            <SelectContent>
+              {([2, 3, 4] as const).map(w => (
+                <SelectItem key={w} value={String(w)}>
+                  {ssWeekLabel(w)}{suggested === w ? " · suggested from DOB" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {form.draft_date ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">Lands on the {form.draft_date} this month.</p>
+          ) : null}
+        </Field>
+      ) : (
+        <Field label="Draft Date">
+          <Select
+            value={String(form.draft_date ?? "")}
+            onValueChange={v => { setForm(f => ({ ...f, draft_date: Number(v) })); saveMany({ draft_date: Number(v), draft_schedule: "day_of_month", draft_wednesday: null }); }}
+          >
+            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+    </>
+  );
 }
 
 function BankingFields({ detail }: { detail: any }) {
@@ -708,19 +835,7 @@ function BankingFields({ detail }: { detail: any }) {
           </Select>
         </Field>
 
-        <Field label="Draft Date">
-          <Select
-            value={String(bankingForm.draft_date ?? "")}
-            onValueChange={v => { setBankingForm(f => ({ ...f, draft_date: Number(v) })); save("draft_date", Number(v)); }}
-          >
-            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
 
         <p className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
           Only the card brand and last four digits are saved. The full number and CVC stay on
@@ -756,14 +871,7 @@ function BankingFields({ detail }: { detail: any }) {
           </button>
         </div>
       </Field>
-      <Field label="Draft Date">
-        <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); save("draft_date", Number(v)); }}>
-          <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-          <SelectContent>
-            {Array.from({length: 28}, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
+      <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
       {methodField}
     </div>
   );
@@ -890,6 +998,10 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+  // Only the products the agency configured for the selected carrier.
+  const carrierProducts = productsForCarrier(
+    (carriers as any[]).find((c: any) => c.id === form.carrier_id)?.product_types,
+  );
 
   const addPolicyFn = useServerFn(addPolicy);
   const mut = useMutation({
@@ -929,7 +1041,7 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
         <Field label="Product Sold">
           <Select value={form.product} onValueChange={v => setForm(f => ({...f, product: v}))}>
             <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
-            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            <SelectContent>{carrierProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </Field>
         <Field label="Policy Number">
@@ -986,6 +1098,10 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+  // Only the products the agency configured for the selected carrier.
+  const carrierProducts = productsForCarrier(
+    (carriers as any[]).find((c: any) => c.id === form.carrier_id)?.product_types,
+  );
 
   const updateFn = useServerFn(updatePolicy);
   const mut = useMutation({
@@ -1036,7 +1152,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
               would read as "it drafts on the 1st". */}
           <div className="col-span-2">
             <span className="font-medium text-foreground">Draft:</span>{" "}
-            {draftSummary(banking?.payment_method, banking?.draft_date) ?? "—"}
+            {draftSummary(banking?.payment_method, banking?.draft_date, banking?.draft_schedule, banking?.draft_wednesday) ?? "—"}
           </div>
         </div>
       </div>
@@ -1058,7 +1174,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <Label className="text-xs mb-1 block">Product</Label>
           <Select value={form.product} onValueChange={(v) => setForm(f => ({ ...f, product: v }))}>
             <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Product" /></SelectTrigger>
-            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            <SelectContent>{carrierProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div>

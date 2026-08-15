@@ -203,7 +203,7 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
   const initials = `${client.first_name?.[0] ?? ""}${client.last_name?.[0] ?? ""}`.toUpperCase();
   const totalFace = policies.reduce((s, p) => s + Number(p.face_amount ?? 0), 0);
   const totalMonthly = policies.reduce((s, p) => s + Number(p.monthly_premium ?? 0), 0);
-  const draftLine = draftSummary(client.banking?.payment_method, client.banking?.draft_date);
+  const draftLine = draftSummary(client.banking?.payment_method, client.banking?.draft_date, client.banking?.draft_schedule, client.banking?.draft_wednesday);
 
   return (
     <div className="bg-card border rounded-xl overflow-hidden hover:border-primary/40 hover:shadow-md transition-all">
