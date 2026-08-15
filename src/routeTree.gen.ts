@@ -175,6 +175,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as ApiPublicHooksProcessImportsRouteImport } from './routes/api/public/hooks/process-imports'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as ApiPublicHooksDispatchAnnouncementsRouteImport } from './routes/api/public/hooks/dispatch-announcements'
 import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
@@ -1099,6 +1100,12 @@ const ApiPublicHooksRunAutomationsRoute =
     path: '/api/public/hooks/run-automations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksProcessImportsRoute =
+  ApiPublicHooksProcessImportsRouteImport.update({
+    id: '/api/public/hooks/process-imports',
+    path: '/api/public/hooks/process-imports',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   id: '/api/public/hooks/fetch-news',
   path: '/api/public/hooks/fetch-news',
@@ -1299,6 +1306,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1467,6 +1475,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1642,6 +1651,7 @@ export interface FileRoutesById {
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
+  '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -1817,6 +1827,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1985,6 +1996,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -2159,6 +2171,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
+    | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -2206,6 +2219,7 @@ export interface RootRouteChildren {
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
   ApiPublicHooksDispatchAnnouncementsRoute: typeof ApiPublicHooksDispatchAnnouncementsRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
+  ApiPublicHooksProcessImportsRoute: typeof ApiPublicHooksProcessImportsRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
@@ -3378,6 +3392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/process-imports': {
+      id: '/api/public/hooks/process-imports'
+      path: '/api/public/hooks/process-imports'
+      fullPath: '/api/public/hooks/process-imports'
+      preLoaderRoute: typeof ApiPublicHooksProcessImportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/fetch-news': {
       id: '/api/public/hooks/fetch-news'
       path: '/api/public/hooks/fetch-news'
@@ -3865,6 +3886,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksDispatchAnnouncementsRoute:
     ApiPublicHooksDispatchAnnouncementsRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
+  ApiPublicHooksProcessImportsRoute: ApiPublicHooksProcessImportsRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,

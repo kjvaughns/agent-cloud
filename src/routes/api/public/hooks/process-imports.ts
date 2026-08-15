@@ -74,9 +74,11 @@ export const Route = createFileRoute("/api/public/hooks/process-imports")({
             .select("id")
             .maybeSingle();
           if (!claimed) continue;
+          if (!doc.uploaded_by) continue;
 
           try {
             const out = await readStoredImport(supabaseAdmin, doc.uploaded_by, doc as any);
+
             if (out.status === "failed") {
               await supabaseAdmin.from("document_intake")
                 .update({ status: "failed", error: out.reason, updated_at: new Date().toISOString() })
