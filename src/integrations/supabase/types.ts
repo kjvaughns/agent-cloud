@@ -9848,6 +9848,11 @@ export type Database = {
         Args: { _key: string; _max: number; _window_seconds: number }
         Returns: boolean
       }
+      claim_my_assigned_records: { Args: never; Returns: Json }
+      claim_records_for: {
+        Args: { _email_lower: string; _user_id: string }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -9964,6 +9969,16 @@ export type Database = {
         Returns: boolean
       }
       imo_org_ids: { Args: never; Returns: string[] }
+      import_duplicate_scan: {
+        Args: {
+          _emails?: string[]
+          _name_dobs?: string[]
+          _names?: string[]
+          _phones?: string[]
+          _policy_numbers?: string[]
+        }
+        Returns: Json
+      }
       increment_funnel_applications: {
         Args: { _slug: string }
         Returns: undefined
