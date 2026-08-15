@@ -9,6 +9,10 @@ import { notifyPeople } from "@/lib/notify.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { assignInviteCarriers } from "@/lib/onboarding.functions";
+import { CONTRACT_STATUSES } from "@/lib/contracting/status";
+// Audit and notification together, so a change to a contract cannot be
+// recorded without the agent whose contract it is being told.
+import { recordContractChange } from "@/lib/contracting/trail.server";
 
 // ---------- helpers ----------
 type Ctx = { supabase: any; userId: string };
@@ -331,7 +335,10 @@ export const createContractRequest = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-const StatusEnum = z.enum(["requested","submitted","processing","issue","active","rejected"]);
+// From the shared list, so this cannot omit a value the database accepts. It
+// used to omit `assigned`, which meant a contract could be moved out of that
+// state and never back into it.
+const StatusEnum = z.enum(CONTRACT_STATUSES);
 
 export const updateContractStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -352,11 +359,18 @@ export const updateContractStatus = createServerFn({ method: "POST" })
     if (data.writing_number !== undefined) update.writing_number = data.writing_number;
     if (data.issue_description !== undefined) update.issue_description = data.issue_description;
 
+    // Read the status first, so the trail can say what it changed FROM. After
+    // the update it is gone, and "status changed to rejected" without the
+    // previous value is half a record.
+    const { data: before } = await supabase
+      .from("contract_requests").select("status").eq("id", data.id).maybeSingle();
+
     // .select() so a row row-level security hides reports as a refusal rather
     // than as success — an update that matches nothing is not an error in
     // Postgres, and this one used to return { ok: true } either way.
     const { data: touched, error } = await supabase
-      .from("contract_requests").update(update).eq("id", data.id).select("id,agent_id,carrier_id");
+      .from("contract_requests").update(update).eq("id", data.id)
+      .select("id,agent_id,carrier_id,organization_id");
     if (error) throw new Error(error.message);
     if (!touched?.length) throw new Error("You don't have permission to change that contract.");
 
@@ -375,6 +389,23 @@ export const updateContractStatus = createServerFn({ method: "POST" })
         source: row.agent_id === userId ? "self_reported" : "manual_entry",
       });
     }
+
+    // The trail, after the change is known to have landed. An agent finding
+    // their carrier marked Rejected used to have no way to see who did it,
+    // when, or why — and nothing had told them at all.
+    const row = touched[0] as any;
+    await recordContractChange({
+      client: supabase,
+      contractId: row.id,
+      agentId: row.agent_id,
+      carrierId: row.carrier_id,
+      organizationId: row.organization_id ?? null,
+      actorId: userId,
+      change: { kind: "status", from: (before as any)?.status ?? null, to: data.status },
+      // The issue text is the whole point of the `issue` status: "needs
+      // something from you" without saying what is not actionable.
+      reason: data.issue_description ?? null,
+    });
     return { ok: true };
   });
 
@@ -988,7 +1019,7 @@ export const activateContract = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     const { data: contract } = await supabase
       .from("contract_requests")
-      .select("id, status, carrier_id")
+      .select("id, status, carrier_id, organization_id")
       .eq("id", data.contract_id)
       .eq("agent_id", userId)
       .single();
@@ -1008,6 +1039,19 @@ export const activateContract = createServerFn({ method: "POST" })
       writingNumber: data.writing_number,
       source: "self_reported",
     });
+
+    // Recorded even though the agent did it to themselves: the notification is
+    // suppressed by `exceptUserId`, but an appointment going live is exactly
+    // the event an owner reconstructing a commission dispute needs to find.
+    await recordContractChange({
+      client: supabase,
+      contractId: contract.id,
+      agentId: userId,
+      carrierId: contract.carrier_id,
+      organizationId: (contract as any).organization_id ?? null,
+      actorId: userId,
+      change: { kind: "activated", writingNumber: data.writing_number },
+    });
     return { ok: true };
   });
 
@@ -1017,7 +1061,7 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const { data: row } = await supabase.from("contract_requests")
-      .select("agent_id, status").eq("id", data.id).maybeSingle();
+      .select("agent_id, status, carrier_id, organization_id").eq("id", data.id).maybeSingle();
     if (!row) throw new Error("That contract request no longer exists.");
     if (row.agent_id !== userId) {
       // An upline or admin removing somebody else's request is legitimate; only
@@ -1062,6 +1106,20 @@ export const deleteContractRequest = createServerFn({ method: "POST" })
         "That contract couldn't be removed — your account doesn't have permission to delete this one.",
       );
     }
+
+    // The one change where the trail is the only surviving evidence: the row
+    // is gone, so without this there is nothing anywhere to say the request
+    // ever existed. An upline clearing somebody else's queue is exactly the
+    // case where that matters.
+    await recordContractChange({
+      client: supabase,
+      contractId: data.id,
+      agentId: (row as any).agent_id,
+      carrierId: (row as any).carrier_id ?? null,
+      organizationId: (row as any).organization_id ?? null,
+      actorId: userId,
+      change: { kind: "removed", previousStatus: (row as any).status ?? null },
+    });
     return { ok: true };
   });
 

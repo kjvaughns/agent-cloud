@@ -5,6 +5,8 @@ import { detectDuplicate } from "@/lib/import-helpers";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadWritingNumbers, recordWritingNumber, writingNumberKey } from "@/lib/writing-numbers";
+import { CONTRACT_STATUSES } from "@/lib/contracting/status";
+import { recordContractChange } from "@/lib/contracting/trail.server";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -124,7 +126,12 @@ export const adminUpdateContract = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       id: z.string().uuid(),
-      status: z.string().optional(),
+      // Was `z.string()`, which let the admin table's dropdown send `in_review`
+      // and `declined` — neither is a `contract_status` value — straight to
+      // Postgres, where they failed as a raw enum error. Validating here turns
+      // a driver message into a refusal at the boundary, and the shared list
+      // means this cannot drift from the enum again.
+      status: z.enum(CONTRACT_STATUSES).optional(),
       writing_number: z.string().optional(),
       issue_description: z.string().optional(),
       activated_at: z.string().optional(),
@@ -137,8 +144,32 @@ export const adminUpdateContract = createServerFn({ method: "POST" })
     if (patch.status === "active" && !patch.activated_at) {
       (patch as any).activated_at = new Date().toISOString();
     }
+
+    // Read first: after the update the previous status is gone, and a trail
+    // that cannot say what a contract changed from is half a record.
+    const { data: before } = await supabase
+      .from("contract_requests")
+      .select("agent_id, status, carrier_id, organization_id")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabase.from("contract_requests").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
+
+    // Platform admins changing somebody else's contract is the case this
+    // matters most for: the agent has no other way to learn it happened.
+    if (before && patch.status) {
+      await recordContractChange({
+        client: supabase,
+        contractId: id,
+        agentId: (before as any).agent_id,
+        carrierId: (before as any).carrier_id ?? null,
+        organizationId: (before as any).organization_id ?? null,
+        actorId: userId,
+        change: { kind: "status", from: (before as any).status ?? null, to: patch.status },
+        reason: patch.issue_description ?? null,
+      });
+    }
     return { ok: true };
   });
 

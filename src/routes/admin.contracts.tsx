@@ -10,21 +10,32 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
+import {
+  CONTRACT_STATUSES,
+  CONTRACT_STATUS_LABELS,
+  type ContractStatus,
+} from "@/lib/contracting/status";
 
 export const Route = createFileRoute("/admin/contracts")({
   component: AdminContracts,
   head: () => ({ meta: [{ title: "Contracts — Agent Cloud Admin" }] }),
 });
 
-const STATUSES = ["all", "requested", "submitted", "in_review", "active", "issue", "declined"];
+// From the shared list, because this one was wrong in both directions: it
+// offered `in_review` and `declined`, neither of which is a `contract_status`
+// value, so picking either failed at Postgres — and it omitted `assigned`,
+// `processing` and `rejected`, which are real and could not be set from here
+// at all.
+const STATUSES = ["all", ...CONTRACT_STATUSES];
 
-const STATUS_COLORS: Record<string, string> = {
+const STATUS_COLORS: Record<ContractStatus, string> = {
+  assigned: "bg-primary/15 text-primary",
   requested: "bg-yellow-500/15 text-yellow-600",
   submitted: "bg-primary/15 text-primary",
-  in_review: "bg-purple-500/15 text-purple-600",
+  processing: "bg-purple-500/15 text-purple-600",
   active: "bg-emerald-500/15 text-emerald-600",
   issue: "bg-red-500/15 text-red-600",
-  declined: "bg-slate-500/15 text-slate-500",
+  rejected: "bg-slate-500/15 text-slate-500",
 };
 
 function AdminContracts() {
@@ -111,8 +122,10 @@ function AdminContracts() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {STATUSES.filter((s) => s !== "all").map((s) => (
-                          <SelectItem key={s} value={s} className="text-xs capitalize">{s.replace("_", " ")}</SelectItem>
+                        {CONTRACT_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s} className="text-xs">
+                            {CONTRACT_STATUS_LABELS[s]}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -160,8 +173,8 @@ function AdminContracts() {
                         size="sm"
                         variant="ghost"
                         className="h-7 text-xs text-red-600 hover:text-red-600 hover:bg-red-500/10"
-                        disabled={saving[c.id] || c.status === "declined"}
-                        onClick={() => update(c.id, { status: "declined" })}
+                        disabled={saving[c.id] || c.status === "rejected"}
+                        onClick={() => update(c.id, { status: "rejected" })}
                       >
                         <X className="h-3 w-3" />
                       </Button>
