@@ -708,7 +708,13 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
                 ))}
               </SelectContent>
             </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {(data?.carriers ?? []).filter((c: any) => !c.my_active).length === 0
+                ? "Your agency has no other carriers set up yet — add them in Settings ▸ Carriers."
+                : "Only carriers your agency has set up appear here."}
+            </p>
           </div>
+
 
           {mode === "active" ? (
             <>
