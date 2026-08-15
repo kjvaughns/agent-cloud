@@ -3,6 +3,9 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
+// Backoff, health, and the two patches a send outcome writes. One place, so
+// the ladder can be exercised without a database.
+import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
 
 const supabaseAdmin = _admin as any;
 
@@ -89,6 +92,11 @@ const WebhookSchema = z.object({
       message: "That is not a Discord webhook URL.",
     })
     .optional(),
+  // What this integration is FOR — Sales Bot, Recruiting Bot. Distinct from
+  // channel_label, which is where it posts: an agency may send deals and new
+  // agents to the same channel through two integrations with different
+  // thresholds, and a list of three identical rows cannot be managed.
+  name: z.string().trim().min(1).max(60).optional(),
   channel_label: z.string().trim().max(80).nullable().optional(),
   enabled: z.boolean().optional(),
   post_deals: z.boolean().optional(),
@@ -117,13 +125,31 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
     if (id) {
       // Scoped by organization_id as well as id: an owner may only edit their
       // own agency's channels, even holding somebody else's row id.
-      const { data: row, error } = await supabaseAdmin
+      let { data: row, error } = await supabaseAdmin
         .from("discord_integrations")
         .update(patch)
         .eq("id", id)
         .eq("organization_id", orgId)
         .select("id")
         .maybeSingle();
+      // `name` arrives with 20260815020000. Naming it before it exists fails
+      // the whole update, which would take the event toggles down with it —
+      // so the rest of the edit still lands and only the name is refused.
+      if (error?.code === "42703" && patch.name !== undefined) {
+        const { name: _dropped, ...rest } = patch;
+        ({ data: row, error } = await supabaseAdmin
+          .from("discord_integrations")
+          .update(rest)
+          .eq("id", id)
+          .eq("organization_id", orgId)
+          .select("id")
+          .maybeSingle());
+        if (!error) {
+          throw new Error(
+            "Your other changes were saved. Naming a channel isn't available until the next update.",
+          );
+        }
+      }
       if (error) throw new Error(friendlyError(error));
       if (!row) throw new Error("That Discord channel no longer exists.");
       return { ok: true, id: row.id };
@@ -139,11 +165,21 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
       throw new Error(`You can connect up to ${MAX_WEBHOOKS} Discord channels.`);
     }
 
-    const { data: row, error } = await supabaseAdmin
+    let { data: row, error } = await supabaseAdmin
       .from("discord_integrations")
       .insert({ ...patch, organization_id: orgId, created_by: userId })
       .select("id")
       .maybeSingle();
+    // Same window: connecting a channel must keep working before the column
+    // exists, so the name is dropped rather than the connection refused.
+    if (error?.code === "42703" && patch.name !== undefined) {
+      const { name: _dropped, ...rest } = patch;
+      ({ data: row, error } = await supabaseAdmin
+        .from("discord_integrations")
+        .insert({ ...rest, organization_id: orgId, created_by: userId })
+        .select("id")
+        .maybeSingle());
+    }
     if (error) throw new Error(friendlyError(error));
     return { ok: true, id: row?.id };
   });
@@ -211,35 +247,71 @@ async function recordDelivery(opts: {
   httpStatus?: number | null;
   error?: string | null;
   policyId?: string | null;
+  /** Why a skip was a skip. Absent for sent and failed. */
+  skipReason?: string | null;
 }): Promise<void> {
+  const row = {
+    organization_id: opts.orgId,
+    integration_id: opts.integrationId,
+    event_type: opts.eventType,
+    policy_id: opts.policyId ?? null,
+    status: opts.status,
+    http_status: opts.httpStatus ?? null,
+    error: opts.error ?? null,
+  };
   try {
-    await supabaseAdmin.from("discord_deliveries").insert({
-      organization_id: opts.orgId,
-      integration_id: opts.integrationId,
-      event_type: opts.eventType,
-      policy_id: opts.policyId ?? null,
-      status: opts.status,
-      http_status: opts.httpStatus ?? null,
-      error: opts.error ?? null,
-    });
+    const { error } = await supabaseAdmin
+      .from("discord_deliveries")
+      .insert({ ...row, skip_reason: opts.skipReason ?? null });
+    // `skip_reason` arrives with 20260815020000. Naming it before it exists
+    // fails the whole insert — which would stop the ledger recording ANY
+    // delivery, sent ones included, and the ledger is what an owner opens to
+    // answer "did that go out". So the reason is dropped rather than the row.
+    if (error) {
+      if (error.code !== "42703") throw error;
+      const retry = await supabaseAdmin.from("discord_deliveries").insert(row);
+      if (retry.error) throw retry.error;
+    }
   } catch (e: any) {
     // 23505 is the deal path's "already announced in this channel" guard.
     if (e?.code !== "23505") console.error("[discord] delivery not recorded:", e?.message);
   }
 }
 
+/**
+ * Both marks write the retry counters as well as the timestamps.
+ *
+ * The patches come from `discord/retry.ts` so the backoff ladder is decided in
+ * one place and can be exercised without a database. Each is wrapped: before
+ * 20260815020000 applies, `consecutive_failures` and `next_retry_at` do not
+ * exist and PostgREST rejects the whole update — which would lose the
+ * `last_error` an owner reads, so the fallback writes the columns that have
+ * always been there.
+ */
 async function markSuccess(integrationId: string) {
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("discord_integrations")
-    .update({ last_success_at: new Date().toISOString(), last_error: null, last_error_at: null })
+    .update(successPatch())
     .eq("id", integrationId);
+  if (error) {
+    await supabaseAdmin
+      .from("discord_integrations")
+      .update({ last_success_at: new Date().toISOString(), last_error: null, last_error_at: null })
+      .eq("id", integrationId);
+  }
 }
 
-async function markFailure(integrationId: string, message: string) {
-  await supabaseAdmin
+async function markFailure(integrationId: string, message: string, previousFailures = 0) {
+  const { error } = await supabaseAdmin
     .from("discord_integrations")
-    .update({ last_error: message.slice(0, 500), last_error_at: new Date().toISOString() })
+    .update(failurePatch(previousFailures, message))
     .eq("id", integrationId);
+  if (error) {
+    await supabaseAdmin
+      .from("discord_integrations")
+      .update({ last_error: message.slice(0, 500), last_error_at: new Date().toISOString() })
+      .eq("id", integrationId);
+  }
 }
 
 /**
@@ -317,7 +389,18 @@ export async function announceDeal(policyId: string): Promise<void> {
       .eq("enabled", true)
       .eq("post_deals", true);
 
-    const targets = (configs ?? []) as any[];
+    // A channel whose webhook has been failing is rested rather than retried on
+    // every deal. Skipping is recorded below, so the gap is visible instead of
+    // silent, and it recovers by itself the moment the webhook works again.
+    const eligible = (configs ?? []) as any[];
+    const resting = eligible.filter((c) => !shouldAttempt(c));
+    const targets = eligible.filter((c) => shouldAttempt(c));
+    for (const c of resting) {
+      await recordDelivery({
+        orgId: c.organization_id, integrationId: c.id, eventType: "deal_posted",
+        status: "skipped", policyId: policy.id, skipReason: "in_backoff",
+      });
+    }
     if (targets.length === 0) return;
 
     const annual = Number(policy.annual_premium ?? 0);
@@ -401,7 +484,7 @@ export async function announceDeal(policyId: string): Promise<void> {
               http_status: e?.status ?? null,
               error: msg,
             });
-            await markFailure(cfg.id, msg);
+            await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
           } catch {
             // Logging the failure must not itself throw.
           }
@@ -454,7 +537,7 @@ export async function announceNewAgent(profileId: string): Promise<void> {
       .eq("enabled", true)
       .eq("post_new_agents", true);
 
-    const targets = (configs ?? []) as any[];
+    const targets = ((configs ?? []) as any[]).filter((c) => shouldAttempt(c));
     if (targets.length === 0) return;
 
     const name = `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim();
@@ -498,7 +581,7 @@ export async function announceNewAgent(profileId: string): Promise<void> {
             httpStatus: e?.status ?? null,
             error: msg,
           });
-          await markFailure(cfg.id, msg);
+          await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
         }
       }),
     );
@@ -542,7 +625,7 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
       return { ok: true, status };
     } catch (e: any) {
       const msg = String(e?.message ?? e).slice(0, 500);
-      await markFailure(cfg.id, msg);
+      await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
       throw new Error(
         e?.status === 404
           ? "Discord rejected that webhook — it may have been deleted. Create a new one and paste it again."
@@ -600,7 +683,7 @@ export async function announceToDiscord(
       .eq("organization_id", orgId)
       .eq("enabled", true);
     const hooks = ((allHooks ?? []) as any[]).filter(
-      (h) => h.post_announcements !== false,
+      (h) => h.post_announcements !== false && shouldAttempt(h),
     );
 
     // Discord renders markdown, not HTML. Tags out, entities back, and a cap
@@ -642,7 +725,7 @@ export async function announceToDiscord(
           httpStatus: e?.status ?? null,
           error: msg,
         });
-        await markFailure(hook.id, msg);
+        await markFailure(hook.id, msg, hook.consecutive_failures ?? 0);
         failed += 1;
       }
     }

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MessageSquare, Send, Trash2, Loader2, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { healthState, healthDetail, HEALTH_LABELS } from "@/lib/discord/retry";
 import {
   getDiscordSettings, saveDiscordSettings, disconnectDiscord,
   sendDiscordTest, listDiscordDeliveries,
@@ -27,6 +28,8 @@ import {
 
 type Webhook = {
   id: string;
+  /** What this integration is for. Arrives with 20260815020000. */
+  name?: string | null;
   channel_label: string | null;
   webhook_masked: string;
   enabled: boolean;
@@ -35,7 +38,30 @@ type Webhook = {
   post_announcements?: boolean;
   min_annual_premium: number;
   last_error: string | null;
+  last_error_at?: string | null;
+  last_success_at?: string | null;
+  consecutive_failures?: number | null;
+  next_retry_at?: string | null;
 };
+
+/**
+ * One word for whether this channel is actually delivering.
+ *
+ * "Retrying" and "Not delivering" are deliberately different. One failure is
+ * usually Discord having a moment; several in a row means somebody deleted the
+ * webhook, and those want different reactions from whoever is reading.
+ */
+function HealthBadge({ webhook }: { webhook: Webhook }) {
+  const state = healthState(webhook);
+  // A working channel needs no badge — a row of green "Working" pills teaches
+  // an owner to stop reading them, which is exactly when the red one appears.
+  if (state === "healthy" || state === "off") return null;
+  return (
+    <Badge variant={state === "broken" ? "destructive" : "secondary"}>
+      {HEALTH_LABELS[state]}
+    </Badge>
+  );
+}
 
 /**
  * Only switches that do something.
@@ -151,14 +177,34 @@ export function DiscordSettings() {
       {webhooks.map((w) => (
         <Panel
           key={w.id}
-          title={w.channel_label || "Discord channel"}
-          action={<Badge variant={w.enabled ? "success" : "secondary"}>{w.enabled ? "Live" : "Paused"}</Badge>}
+          title={w.name || w.channel_label || "Discord channel"}
+          action={
+            <div className="flex items-center gap-1.5">
+              <HealthBadge webhook={w} />
+              <Badge variant={w.enabled ? "success" : "secondary"}>{w.enabled ? "Live" : "Paused"}</Badge>
+            </div>
+          }
         >
           <p className="font-mono text-[11px] text-text-dim">{w.webhook_masked}</p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Channel name (for your reference)</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">What this is for</label>
+              <Input
+                defaultValue={w.name ?? ""}
+                placeholder="Sales Bot"
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v && v !== (w.name ?? "")) save.mutate({ id: w.id, name: v });
+                }}
+              />
+              <p className="mt-1 text-[11px] text-text-dim">
+                Two integrations can post to the same channel with different rules, so this is
+                what tells them apart in this list.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Which Discord channel</label>
               <Input
                 defaultValue={w.channel_label ?? ""}
                 placeholder="#sales"
@@ -230,10 +276,18 @@ export function DiscordSettings() {
             </Button>
           </div>
 
-          {w.last_error && (
-            <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              Last attempt failed: {w.last_error}
-            </p>
+          {healthDetail(w) && (
+            <div className={cn(
+              "mt-3 rounded-lg border px-3 py-2 text-xs",
+              healthState(w) === "broken"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : "border-border bg-surface-2 text-muted-foreground",
+            )}>
+              <p>{healthDetail(w)}</p>
+              {w.last_error && (
+                <p className="mt-1 font-mono text-[11px] opacity-80">{w.last_error}</p>
+              )}
+            </div>
           )}
         </Panel>
       ))}
