@@ -310,27 +310,33 @@ export const PAGES: Page[] = [
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
 
   // ── Settings ─────────────────────────────────────────────────────────────
-  // Yours, plus the workspace's if you run it. Agency is people; Settings is
-  // setup — which is the line that makes both of them short.
+  // Five rows, and one of them has eight tabs.
+  //
+  // This listed nineteen. Ten of them were agency configuration screens sitting
+  // at the same level as "Security" and "Nova Pro", and four of those ten were
+  // the same job split four ways — Carriers, Comp Grids, Levels & Positions and
+  // "How contracting works". An owner asking "where do I set up what a deal
+  // pays" had to read all nineteen and then guess. The configuration is one
+  // page with tabs now (`/settings/agency`); what stays here is the handful of
+  // things that are genuinely separate subjects.
   { id: "settings", label: "Settings", path: "/settings", icon: Settings, area: "Settings" },
-  { id: "notif-settings", label: "Notification settings", path: "/settings/notifications", icon: Megaphone, area: "Settings", parent: "settings" },
-  { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
-  { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings", staffPermission: "staff_nova_pro_enabled" },
-  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
-
   { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  // Tabs of Agency settings now, not rows of their own. Kept in the registry
-  // so the palette still finds them by name and lands on the right tab.
+  { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
+  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
+  { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings", staffPermission: "staff_nova_pro_enabled" },
+  // The support desk answers tickets, so the page itself is a tab in Help,
+  // beside them — but this is where somebody goes looking when something about
+  // their account is wrong, so the row stays in Settings.
+  { id: "support-desk", label: "Support desk", path: "/account/help?tab=desk", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "ticket-responder" },
+
+  // Tabs of Agency settings, not rows of their own. Kept in the registry so the
+  // command palette still finds them by the names people know them by, and
+  // lands on the tab that owns each one.
+  { id: "agency-roles", label: "Roles & permissions", path: "/settings/agency?tab=roles", icon: ShieldCheck, area: "Settings", unlock: "agency-admin" },
+  { id: "notif-settings", label: "Notification settings", path: "/settings/agency?tab=notifications", icon: Megaphone, area: "Settings" },
   { id: "agency-automations", label: "Automations", path: "/settings/agency?tab=automations", icon: Bot, area: "Settings", unlock: "agency-admin" },
-  { id: "agency-emails", label: "Emails", path: "/settings/agency?tab=emails", icon: Mail, area: "Settings", unlock: "agency-admin" },
   { id: "integrations", label: "Integrations", path: "/settings/agency?tab=integrations", icon: Bot, area: "Settings", unlock: "agency-admin" },
-  // White label is a plan, not a setting — it lives with the other things you
-  // pay for.
-  { id: "white-label", label: "White label", path: "/settings/billing?tab=white-label", icon: Palette, area: "Settings", unlock: "agency-admin" },
-  // The support desk answers tickets, so it sits with the tickets — a tab in
-  // Help rather than a row in Settings two sections away from them.
-  { id: "support-desk", label: "Support desk", path: "/account/help?tab=desk", icon: LifeBuoy, area: "Settings", unlock: "ticket-responder" },
+
   // Editing the handbook belongs with reading it. A button in the Resources
   // header, for the people who may.
   { id: "agency-resources", label: "Edit resources", path: "/resources/edit", icon: BookOpen, area: "Tools", unlock: "resource-editor" },
