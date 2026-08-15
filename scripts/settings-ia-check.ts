@@ -112,8 +112,12 @@ for (const site of LINK_SITES) {
 console.log("");
 
 const NAV = read("src/lib/navigation.ts");
-check("Settings hub carries the agency configuration group",
-  /"agency-settings", "carriers-setup", "comp-grids-setup", "agency-levels",\s*\n\s*"contracting-settings", "agency-roles", "contracting-templates",/.test(NAV), true);
+// The one "Your agency" run became the brief's six named groups. What must
+// stay true is that the contracting configuration screens are together and in
+// the order the guided checklist walks them.
+check("Settings hub carries the contracting configuration group",
+  /label: "Contracting Setup",\s*\n\s*ids: \[\s*\n\s*"carriers-setup", "agency-levels", "comp-grids-setup",\s*\n\s*"contracting-settings", "contracting-templates",/.test(NAV),
+  true);
 check("the ops hub is daily work only", /label: "Set up contracting"/.test(NAV), false);
 for (const [id, path] of [
   ["carriers-setup", "/settings/carriers"],

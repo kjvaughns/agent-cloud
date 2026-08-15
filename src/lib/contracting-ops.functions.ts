@@ -10,6 +10,7 @@ import {
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
 import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
+import { ADVANCE_OPTIONS } from "@/lib/compensation/resolve";
 import { resolveHandoffMethod, legacyFallbackUrl } from "@/lib/contracting-ops/handoff";
 import { INHERITABLE_FIELDS } from "@/lib/contracting-ops/effective-settings";
 import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
@@ -312,6 +313,30 @@ const OrgCarrierSchema = z.object({
   min_production_requirements: z.string().max(2000).nullable().optional(),
   internal_instructions: z.string().max(5000).nullable().optional(),
   staff_notes: z.string().max(5000).nullable().optional(),
+
+  // ── The five the resolver reads and nothing could write ──
+  //
+  // 20260814210000 added these columns and the compensation resolver has read
+  // them since; `z.object` strips unknown keys, so every one of them was
+  // silently dropped on the way in. The consequences were not subtle:
+  //
+  //   * `default_advance_option` could never be set, and the resolver refuses
+  //     to guess an advance term — so every carrier reported
+  //     `no_advance_option` forever and My Contracts marked every row "Comp
+  //     not set up", with no control anywhere that could clear it
+  //   * `visible_to_agents` and `available_for_post_deal` had no way to be
+  //     turned off, so "publish to agents" was not a thing an owner could do
+  //
+  // Nullable on advance because "not chosen yet" is a real and different state
+  // from any of the options — that distinction is what makes the setup
+  // checklist able to say the thing is outstanding.
+  enabled: z.boolean().optional(),
+  visible_to_agents: z.boolean().optional(),
+  requestable_by_agents: z.boolean().optional(),
+  available_for_post_deal: z.boolean().optional(),
+  // The enum's own five values, imported rather than retyped — a literal list
+  // here would be a second place for them to drift from the database.
+  default_advance_option: z.enum(ADVANCE_OPTIONS).nullable().optional(),
 });
 
 export const saveOrgCarrier = createServerFn({ method: "POST" })

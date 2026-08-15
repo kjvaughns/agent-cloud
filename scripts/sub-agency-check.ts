@@ -81,7 +81,10 @@ const NAV = read("src/lib/navigation.ts");
 check("the nav gate exists", /"has-sub-agencies"/.test(NAV), true);
 check("…and requires children AND agency admin",
   /ctx\.hasSubAgencies && ctx\.canSeeAgency/.test(NAV), true);
-check("the Settings hub lists the page", /"contracting-templates", "sub-agencies"/.test(NAV), true);
+// Moved out of the flat "Your agency" run into Team and Access, where a
+// sub-agency belongs: it is who else is in the org, not how contracting runs.
+check("the Settings hub lists the page",
+  /label: "Team and Access", ids: \["agency-roles", "sub-agencies", "security"\]/.test(NAV), true);
 
 const ACCESS = read("src/lib/permissions.functions.ts");
 check("hasSubAgencies is computed from parent_org_id",

@@ -81,3 +81,39 @@ answering as they do today — which is the disagreement this fixes, so Reports
 stays inconsistent with the dashboard until it is applied. Nothing breaks. The
 TypeScript half of this change is already correct on its own, because
 `selectProduction` falls back to `posted_at` when the column is missing.
+
+- `20260815040000_integrity-constraints.sql`
+
+`20260815040000` tells the database the rules the application already assumes,
+and opens a review queue for the one thing it refuses to guess.
+
+Four constraints, each turning a class of silently-wrong state into a refused
+write: two active rungs cannot share a non-zero rank order; a level-carrier
+mapping cannot point at another agency's rung; an agent cannot sit on another
+agency's rung; and a child agency cannot have two active parents, which would
+have counted its production under both.
+
+Checked first and deliberately not re-added, because they already exist:
+`base_pct` 0–500, `sort_order >= 0`, the `advance_option` enum, the
+`agent_commission_levels.status` check, and the parent/child uniqueness on
+`agency_relationships`. Also checked: `20260813232512` is not a conflicting
+duplicate of `20260813220000` — it re-runs the same `create table if not
+exists` and then drops and recreates the four policies with `to authenticated`
+added, so the later definition is the correct one and there is nothing to
+consolidate.
+
+The two cross-agency checks are added NOT VALID, so applying this cannot
+reject rows already stored; it stops new ones. Validating them against existing
+data is a deliberate follow-up rather than something that could fail a
+migration halfway through.
+
+`agency_level_review` is the queue. `agency_level_id` is backfilled only for
+the unambiguous case — an agency with exactly one active rung, where there is
+nothing to choose between — and everybody else is listed for a person to
+decide, with the candidate rungs spelled out. Nothing is inferred from a
+percentage that happens to match: an agent's rung decides what they are paid,
+and a guess would quietly put somebody on a level nobody chose. Terminated
+agents are not queued.
+
+In the window: nothing reads `agency_level_review` yet, and no constraint
+exists to be violated, so the product behaves exactly as it does today.
