@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { PRODUCT_TYPES as PRODUCTS, productsForCarrier } from "@/lib/products";
+import { productsForCarrier } from "@/lib/products";
 import { phone as fmtPhone, money, formatPhone, formatRouting, formatDob } from "@/lib/format";
 import { supabase } from "@/integrations/supabase/client";
 import { buildTimeline } from "@/lib/timeline/build";
