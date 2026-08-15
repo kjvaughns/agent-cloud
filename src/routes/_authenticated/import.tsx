@@ -103,6 +103,29 @@ function ImportPage() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
+  /**
+   * What each file is doing *right now*.
+   *
+   * The row's status column comes from the database, and the database only
+   * learns a file's outcome once the client has finished reading it — so a file
+   * being actively parsed read "Queued" for the whole minute it was working.
+   * This is the client's own view of the same file: a phase in words and a
+   * percentage, kept only while the work is in flight.
+   */
+  const [live, setLive] = useState<Record<string, LivePhase>>({});
+
+  function mark(id: string, label: string, pct: number) {
+    setLive((prev) => ({ ...prev, [id]: { label, pct: Math.max(0, Math.min(99, Math.round(pct))) } }));
+  }
+  function clearMark(id: string) {
+    setLive((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
 
   const batchFn = useServerFn(createImportBatch);
   const classifyFn = useServerFn(classifyImportDoc);
