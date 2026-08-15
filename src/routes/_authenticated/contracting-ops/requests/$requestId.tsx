@@ -14,7 +14,7 @@ import { beginContractingHandoff } from "@/lib/contracting-handoff.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 import {
   CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
-  type ContractType, type ContractingMethod,
+  type ContractType, type ContractingMethod, type RequestStatus,
 } from "@/lib/contracting-ops/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { agentBlock, fullBlock, hierarchyBlock } from "@/lib/contracting-ops/packet";
@@ -81,6 +81,26 @@ function RequestDetailPage() {
   // because a request that reached "writing number issued" without the number
   // is the exact dead end this workflow had before.
   const [issuingNumber, setIssuingNumber] = useState<string | null>(null);
+  /**
+   * The status being composed, before it is sent.
+   *
+   * `StatusSchema` has always accepted `agent_visible_message`,
+   * `internal_message`, `next_action` and `decline_reason`, and no control
+   * supplied any of them. The consequence people actually met: choosing
+   * Declined from the dropdown sent `{ status: "declined" }` with nothing
+   * else, so every decline in the system was recorded with no reason — the
+   * agent got "Declined" and no explanation, and `decline_reason` stayed null
+   * on a column that exists precisely to hold it.
+   */
+  const [composing, setComposing] = useState<null | {
+    status: RequestStatus;
+    message: string;
+    internal: string;
+    nextAction: string;
+    reason: string;
+  }>(null);
+  const compose = (status: RequestStatus) =>
+    setComposing({ status, message: "", internal: "", nextAction: "", reason: "" });
 
   const { data, isLoading } = useQuery({
     queryKey: ["contracting-ops", "request", requestId],
@@ -494,11 +514,15 @@ function RequestDetailPage() {
                   </label>
                   <Select
                     value=""
-                    onValueChange={(v) =>
-                      v === "writing_number_issued"
-                        ? setIssuingNumber("")
-                        : setStatus.mutate({ status: v as any })
-                    }
+                    onValueChange={(v) => {
+                      if (v === "writing_number_issued") setIssuingNumber("");
+                      // Everything else goes through the compose step, so a
+                      // status change can carry the explanation the server has
+                      // always been willing to store. Sending it bare is still
+                      // one click away — the compose panel's fields are all
+                      // optional except a decline's reason.
+                      else compose(v as RequestStatus);
+                    }}
                     disabled={setStatus.isPending}
                   >
                     <SelectTrigger className="h-8 text-xs">
@@ -517,6 +541,122 @@ function RequestDetailPage() {
                     carrier decisions need contracting rights. The server says
                     so plainly if a move isn't allowed.
                   </p>
+
+                  {composing && (
+                    <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-2 p-2">
+                      <p className="text-xs font-medium text-foreground">
+                        {REQUEST_STATUS_META[composing.status].label}
+                      </p>
+
+                      {composing.status === "declined" && (
+                        <div>
+                          <label htmlFor="decline-reason" className="mb-1 block text-xs font-medium">
+                            Why the carrier declined
+                          </label>
+                          <textarea
+                            id="decline-reason"
+                            autoFocus
+                            rows={2}
+                            value={composing.reason}
+                            onChange={(e) =>
+                              setComposing({ ...composing, reason: e.target.value })
+                            }
+                            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                            placeholder="e.g. Open debt with a prior carrier"
+                          />
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            Required. A decline with no reason gives the agent nothing to act on
+                            and nothing to appeal.
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <label htmlFor="agent-msg" className="mb-1 block text-xs font-medium">
+                          What the agent sees
+                        </label>
+                        <textarea
+                          id="agent-msg"
+                          rows={2}
+                          value={composing.message}
+                          onChange={(e) => setComposing({ ...composing, message: e.target.value })}
+                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                          placeholder="Optional — shown on their Contracts page"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="next-action" className="mb-1 block text-xs font-medium">
+                          What happens next
+                        </label>
+                        <input
+                          id="next-action"
+                          value={composing.nextAction}
+                          onChange={(e) =>
+                            setComposing({ ...composing, nextAction: e.target.value })
+                          }
+                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                          placeholder="Optional — e.g. Upload a current licence"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="internal-note" className="mb-1 block text-xs font-medium">
+                          Internal note
+                        </label>
+                        <textarea
+                          id="internal-note"
+                          rows={2}
+                          value={composing.internal}
+                          onChange={(e) => setComposing({ ...composing, internal: e.target.value })}
+                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                          placeholder="Optional — staff only, never shown to the agent"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={
+                            setStatus.isPending ||
+                            (composing.status === "declined" && !composing.reason.trim())
+                          }
+                          onClick={() => {
+                            setStatus.mutate({
+                              status: composing.status,
+                              // Empty strings are omitted rather than sent, so
+                              // a blank field does not overwrite anything or
+                              // create a history row that says nothing.
+                              ...(composing.message.trim()
+                                ? { agent_visible_message: composing.message.trim() }
+                                : {}),
+                              ...(composing.internal.trim()
+                                ? { internal_message: composing.internal.trim() }
+                                : {}),
+                              ...(composing.nextAction.trim()
+                                ? { next_action: composing.nextAction.trim() }
+                                : {}),
+                              ...(composing.reason.trim()
+                                ? { decline_reason: composing.reason.trim() }
+                                : {}),
+                            } as any);
+                            setComposing(null);
+                          }}
+                        >
+                          Save status
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setComposing(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
 
                   {issuingNumber !== null && (
                     <div className="mt-2 rounded-md border border-border bg-surface-2 p-2">
