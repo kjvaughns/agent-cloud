@@ -18,6 +18,9 @@ import {
 } from "@/lib/comp-grid.functions";
 import { addCarrier } from "@/lib/contracting.functions";
 import { extractDocument, truncationNotice } from "@/lib/document-extract";
+import {
+  reviewGrid, canSaveGrid, reviewSummary, type ReviewRow,
+} from "@/lib/carriers/grid-review";
 
 /** Sentinel for the "add a carrier" row in the carrier Select. */
 const NEW_CARRIER = "__new__";
@@ -67,6 +70,9 @@ export function ManageGridsPage({
   const [source, setSource] = useState<"manual" | "ai_extracted">("manual");
   const [reading, setReading] = useState(false);
   const [notes, setNotes] = useState<string | null>(null);
+  // What the extraction thought of its own reading, kept so the review below
+  // can say "check these" rather than only reporting it once in a toast.
+  const [confidence, setConfidence] = useState<number | null>(null);
 
   const extractFn = useServerFn(extractGrid);
   const saveFn = useServerFn(saveGrid);
@@ -131,6 +137,7 @@ export function ManageGridsPage({
         setUploadId(out.upload_id);
         setSource("ai_extracted");
         setNotes(out.notes ?? null);
+        setConfidence(typeof out.confidence === "number" ? out.confidence : null);
         const conf = out.confidence == null ? null : Math.round(out.confidence * 100);
         const parts = [
           addedLevels.length ? `added level${addedLevels.length === 1 ? "" : "s"} ${addedLevels.join(", ")}` : null,
@@ -171,6 +178,7 @@ export function ManageGridsPage({
       setUploadId(null);
       setSource("manual");
       setNotes(null);
+      setConfidence(null);
       qc.invalidateQueries({ queryKey: ["comp-grids"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Couldn't save the grid"),
@@ -261,7 +269,34 @@ export function ManageGridsPage({
     onError: (e: any) => toast.error(e?.message ?? "Couldn't remove it"),
   });
 
-  const valid = carrierId && rows.some((r) => r.product_name.trim() && r.level_name.trim());
+  /**
+   * The review, which is the whole reason an upload is not saved straight to
+   * the database.
+   *
+   * Extraction reads a photograph, and its failures — a rate read as 8 instead
+   * of 80, an age band whose upper bound was cut off, two bands both claiming
+   * age 70 — all look like ordinary numbers in a table. The rules live in
+   * `grid-review` so the same checks can be run in a test; the confidence the
+   * extraction reported is attached to every row it produced, because it was
+   * reported for the reading as a whole.
+   */
+  const reviewRows: ReviewRow[] = rows.map((r) => ({
+    product_name: r.product_name,
+    level_name: r.level_name,
+    year_1_pct: r.year_1_pct,
+    years_2_5_pct: r.years_2_5_pct,
+    years_6_plus_pct: r.years_6_plus_pct,
+    age_group_min: r.age_group_min,
+    age_group_max: r.age_group_max,
+    confidence: source === "ai_extracted" ? confidence : null,
+    is_estimated: r.is_estimated,
+  }));
+  const issues = reviewGrid(reviewRows);
+  const savable = canSaveGrid(issues);
+
+  const valid = Boolean(carrierId)
+    && rows.some((r) => r.product_name.trim() && r.level_name.trim())
+    && savable;
 
   return (
     <Wrap embedded={embedded}>
@@ -363,6 +398,27 @@ export function ManageGridsPage({
                   <p className="text-xs text-muted-foreground">
                     Read from your upload. {notes ? notes : "Edit anything that looks off, then save."}
                   </p>
+                </div>
+              )}
+
+              {rows.length > 0 && (
+                <div className="mb-3 space-y-1.5">
+                  <p className={cn("text-xs", savable ? "text-muted-foreground" : "text-danger")}>
+                    {reviewSummary(reviewRows, issues)}
+                  </p>
+                  {issues.map((issue, i) => (
+                    <p
+                      key={`${issue.code}-${i}`}
+                      className={cn(
+                        "rounded-md border px-2.5 py-1.5 text-[11px] leading-snug",
+                        issue.severity === "blocking"
+                          ? "border-danger/40 bg-danger/[0.06] text-danger"
+                          : "border-warning/40 bg-warning/[0.06] text-warning",
+                      )}
+                    >
+                      {issue.message}
+                    </p>
+                  ))}
                 </div>
               )}
 
