@@ -280,9 +280,15 @@ export const PAGES: Page[] = [
   // and the contracting policy are set up occasionally by an owner and then
   // left alone, which is what Settings is for. The Contracting tab keeps the
   // daily work. The old /contracting-ops/* paths redirect.
-  { id: "carriers-setup", label: "Carriers", path: "/settings/carriers", icon: Building2, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
-  { id: "comp-grids-setup", label: "Comp Grids", path: "/settings/comp-grids", icon: Percent, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
-  { id: "agency-levels", label: "Levels & Positions", path: "/settings/levels", icon: Target, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  // …and Settings itself is now one page with tabs rather than ten rows. These
+  // entries keep their ids so the palette, the setup checklist and every
+  // existing link still find them by name — they just land on the tab that owns
+  // the concept instead of a page of its own. No `parent`, so the sidebar's
+  // Settings entry stays short.
+  { id: "carriers-setup", label: "Carriers", path: "/settings/agency?tab=carriers", icon: Building2, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "comp-grids-setup", label: "Comp Grids", path: "/settings/agency?tab=carriers", icon: Percent, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "agency-levels", label: "Levels & Positions", path: "/settings/agency?tab=levels", icon: Target, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+
 
   // The rest of the back office. Every one of these pages already existed and
   // was reachable only by typing its URL or finding a tile on the overview —
