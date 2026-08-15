@@ -52,6 +52,10 @@
   --color-gold-glow: var(--gold-glow);
   --color-gold-foreground: var(--gold-foreground);
   --color-text-dim: var(--text-dim);
+  /* Foreground for a saturated filled surface (status badge, stage pill).
+     Constant across themes on purpose: a filled --destructive block needs the
+     same light text on paper as on near-black. */
+  --color-on-solid: var(--on-solid);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -147,6 +151,7 @@
   --sidebar-border: #E3DFD3;
   --sidebar-ring: var(--gold);
 
+  --on-solid: #FFFFFF;
   --shadow-pop: 0 12px 32px rgba(60,50,30,0.16);
 }
 
@@ -214,6 +219,7 @@
   --sidebar-border: #26262C;
   --sidebar-ring: var(--gold);
 
+  --on-solid: #FFFFFF;
   --shadow-pop: 0 12px 32px rgba(0,0,0,0.35);
 }
 
