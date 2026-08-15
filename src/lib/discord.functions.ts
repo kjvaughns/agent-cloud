@@ -169,6 +169,17 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
 
     if (!data.webhook_url) throw new Error("Add your Discord webhook URL to connect.");
 
+    // A new bot sends exactly what was ticked, and nothing else. The database
+    // defaults say deals-and-announcements-on, which is how a "sales" webhook
+    // ended up posting announcements too — so every event is written
+    // explicitly here rather than left to the column default.
+    patch.post_deals = data.post_deals === true;
+    patch.post_announcements = data.post_announcements === true;
+    patch.post_new_agents = data.post_new_agents === true;
+    if (!patch.post_deals && !patch.post_announcements && !patch.post_new_agents) {
+      throw new Error("Pick at least one event for this bot to post.");
+    }
+
     const { count } = await supabaseAdmin
       .from("discord_integrations")
       .select("id", { count: "exact", head: true })
