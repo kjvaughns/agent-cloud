@@ -30,25 +30,58 @@ function check(name: string, got: unknown, want: unknown) {
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const strip = (s: string) => s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-// ── One file per concept, mounted from Settings ─────────────────────────────
+// ── One file per concept, mounted as a tab of Agency settings ───────────────
+
+const AGENCY = read("src/routes/_authenticated/settings.agency.tsx");
 
 const CONCEPTS: [string, string, string, string][] = [
-  // [concept, component file, exported name, settings route file]
-  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "src/routes/_authenticated/settings.carriers.tsx"],
-  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "src/routes/_authenticated/settings.comp-grids.tsx"],
-  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "src/routes/_authenticated/settings.levels.tsx"],
-  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "src/routes/_authenticated/settings.contracting.tsx"],
-  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "src/routes/_authenticated/settings.templates.tsx"],
+  // [concept, component file, exported name, tab it renders under]
+  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "carriers"],
+  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "carriers"],
+  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "levels"],
+  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "contracting"],
+  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "contracting"],
+  ["roles & permissions", "src/components/agency-team-page.tsx", "AgencyTeamPage", "roles"],
+  ["notification prefs", "src/components/settings/notifications-panel.tsx", "NotificationsPanel", "notifications"],
+  ["integrations catalogue", "src/components/settings/integrations-catalog.tsx", "IntegrationsCatalog", "integrations"],
 ];
 
-for (const [concept, compFile, exported, routeFile] of CONCEPTS) {
+for (const [concept, compFile, exported, tab] of CONCEPTS) {
   const comp = read(compFile);
-  const route = read(routeFile);
   check(`${concept}: component exports ${exported}`, comp.includes(`export function ${exported}`), true);
   check(`${concept}: component declares no route`, /createFileRoute/.test(comp), false);
-  check(`${concept}: settings route mounts it`, route.includes(exported), true);
-  check(`${concept}: settings route is guarded`, /ConfigPageGuard/.test(route), true);
+  check(`${concept}: Agency settings mounts it`, AGENCY.includes(`<${exported}`), true);
+  check(`${concept}: its tab exists`, AGENCY.includes(`"${tab}"`), true);
 }
+
+// The eight tabs, in the order the work happens.
+check("Agency settings declares the eight tabs in order",
+  /"general",\s*\n\s*"roles",\s*\n\s*"levels",\s*\n\s*"carriers",\s*\n\s*"contracting",\s*\n\s*"notifications",\s*\n\s*"automations",\s*\n\s*"integrations",/.test(AGENCY),
+  true);
+check("the setup strip is above the tabs", /<AgencySetupProgress/.test(AGENCY), true);
+
+// ── The pages that became tabs redirect into them, in one hop ───────────────
+
+console.log("");
+
+const TAB_REDIRECTS: [string, string][] = [
+  ["src/routes/_authenticated/settings.carriers.tsx", "carriers"],
+  ["src/routes/_authenticated/settings.comp-grids.tsx", "carriers"],
+  ["src/routes/_authenticated/settings.levels.tsx", "levels"],
+  ["src/routes/_authenticated/settings.contracting.tsx", "contracting"],
+  ["src/routes/_authenticated/settings.templates.tsx", "contracting"],
+  ["src/routes/_authenticated/settings.notifications.tsx", "notifications"],
+  ["src/routes/_authenticated/settings.roles.tsx", "roles"],
+  ["src/routes/_authenticated/settings.automations.tsx", "automations"],
+  ["src/routes/_authenticated/settings.integrations.tsx", "integrations"],
+];
+for (const [file, tab] of TAB_REDIRECTS) {
+  const s = read(file);
+  check(`${file.split("/").pop()} → ?tab=${tab}`,
+    s.includes(`"/settings/agency"`) && s.includes(`tab: "${tab}"`) && /beforeLoad/.test(s), true);
+  check(`${file.split("/").pop()} renders nothing itself`, /component:/.test(s), false);
+}
+
 
 // ── The old homes redirect, in one hop ──────────────────────────────────────
 
