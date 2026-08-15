@@ -121,11 +121,21 @@ export function ordinalDay(day: number): string {
 export function draftSummary(
   paymentMethod: string | null | undefined,
   draftDate: number | null | undefined,
+  draftSchedule?: string | null,
+  draftWednesday?: number | null,
 ): string | null {
   const method = paymentMethod
     ? PAYMENT_METHOD_LABELS[paymentMethod as PaymentMethod] ?? paymentMethod
     : null;
-  const day = typeof draftDate === "number" && draftDate >= 1 && draftDate <= 31
+  // A Social Security schedule follows the weekday, so it reads as the
+  // Wednesday itself rather than whatever day of the month that lands on.
+  const ssWeek =
+    draftSchedule === "ss_wednesday" && (draftWednesday === 2 || draftWednesday === 3 || draftWednesday === 4)
+      ? (draftWednesday as SsWeek)
+      : null;
+  const day = ssWeek
+    ? `${ssWeekLabel(ssWeek)} (SS)`
+    : typeof draftDate === "number" && draftDate >= 1 && draftDate <= 31
     ? `${ordinalDay(draftDate)} of the month`
     : null;
   if (day && method) return `${day} · ${method}`;
