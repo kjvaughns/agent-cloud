@@ -50,6 +50,31 @@ const POLICY_STATUS: Record<string, string> = {
   w: "withdrawn", withdrawn: "withdrawn", nt: "not_taken", "not taken": "not_taken",
   "not taken out": "not_taken", nto: "not_taken", declined: "not_taken",
   postponed: "postponed", pp: "postponed",
+
+  /*
+    Carrier contract vocabulary.
+
+    Royal Neighbors (and every carrier built on the same admin system) prints a
+    contract status and a status *reason*, and the reason is where the meaning
+    is: "CONTRACT TERMINATED" alone cannot tell production from a chargeback,
+    while "CON TERM NT NO PAY" says the policy never paid and "CON TERM
+    WITHDRAWN" says the application was pulled. Left unmapped, every one of
+    these fell through to `active` and a terminated book counted as production.
+  */
+  "contract active": "active",
+  "con active": "active",
+  "contract terminated": "lapsed",
+  "con term lapsed": "lapsed",
+  "con term nt no pay": "not_taken",
+  "con term not taken": "not_taken",
+  "con term declined": "not_taken",
+  "con term withdrawn": "withdrawn",
+  "con term incomplete": "withdrawn",
+  "contract suspended": "in_review",
+  "con sus home office": "in_review",
+  "contract pending": "in_review",
+  "con pend submitted": "in_review",
+  "con pend": "in_review",
 };
 
 export function normalizePolicyStatus(raw: string | null | undefined): string | null {
