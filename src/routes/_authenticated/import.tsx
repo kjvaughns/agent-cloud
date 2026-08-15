@@ -829,11 +829,13 @@ function ImportPage() {
                     key={g.doc.id}
                     doc={g.doc}
                     sheets={g.sheets}
+                    live={live}
                     onDescribe={describeAgain}
                     openDoc={openDoc}
                     onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
                     onDismiss={dismiss}
                   />
+
                 );
               })}
             </div>
