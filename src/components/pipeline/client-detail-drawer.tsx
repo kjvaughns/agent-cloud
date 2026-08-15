@@ -1202,6 +1202,9 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <div><span className="font-medium text-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
           <div><span className="font-medium text-foreground">Annual:</span> {money(pol.annual_premium)}</div>
           <div><span className="font-medium text-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+          {/* Which month this deal counts in — the number agents reconcile
+              against their production and the leaderboard. */}
+          <div><span className="font-medium text-foreground">Sold:</span> {timestampToSaleDate(pol.production_date) || "—"}</div>
           {/* An em dash when nothing is on file — never a default day, which
               would read as "it drafts on the 1st". */}
           <div className="col-span-2">
