@@ -338,8 +338,8 @@ function WeekView({
               key={e.id}
               onClick={() => onEventClick(e)}
               className={cn(
-                "absolute rounded-md px-2 py-1 text-[11px] text-white text-left overflow-hidden hover:opacity-90",
-                meta.bg,
+                "absolute rounded-md px-2 py-1 text-[11px] text-left overflow-hidden hover:opacity-90",
+                meta.chip,
               )}
               style={{
                 top: top + 28, // header height adjustment
@@ -402,7 +402,7 @@ function DayView({
                     <button
                       key={e.id}
                       onClick={() => onEventClick(e)}
-                      className={cn("w-full rounded-md px-3 py-2 text-left text-white text-sm hover:opacity-90", meta.bg)}
+                      className={cn("w-full rounded-md px-3 py-2 text-left text-sm hover:opacity-90", meta.chip)}
                     >
                       <div className="flex items-center gap-2">
                         <meta.icon className="h-4 w-4" />
@@ -441,13 +441,13 @@ function EventPill({
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] text-white truncate text-left hover:opacity-90",
-        meta.bg,
+        "w-full flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px] truncate text-left hover:opacity-90",
+        meta.chip,
         expanded && "py-1 text-xs",
       )}
       title={event.title}
     >
-      {isLapse && <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse shrink-0" />}
+      {isLapse && <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse shrink-0" />}
       <span className="shrink-0">{meta.emoji}</span>
       <span className="truncate">{event.title.replace(/^[^\w]+\s*/, "")}</span>
     </button>
