@@ -582,7 +582,6 @@ export const listCarriers = createServerFn({ method: "GET" })
     const { data: gridRows } = await supabase
       .from("commission_grids")
       .select("carrier_id, product_name, organization_id")
-      .in("organization_id", [orgId])
       .or(`organization_id.eq.${orgId},organization_id.is.null`);
     const byCarrier = new Map<string, { own: Set<string>; shared: Set<string> }>();
     for (const g of (gridRows ?? []) as any[]) {
