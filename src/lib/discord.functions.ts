@@ -742,6 +742,7 @@ export async function announceToDiscord(
   orgId: string,
   title: string,
   bodyHtml: string,
+  subjectId?: string,
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
@@ -749,21 +750,16 @@ export async function announceToDiscord(
     const { refusedForDemo } = await import("@/lib/demo.server");
     if (await refusedForDemo(orgId, "send a webhook")) return { sent, failed };
 
-    // Filtered on the channel's own preference, not on `enabled` alone. Before
-    // this, a channel an owner had set up purely for deal alerts received
-    // every agency-wide announcement too, and the only way to stop it was to
-    // turn the whole channel off.
-    //
-    // `!== false` rather than `=== true`, and read with select("*"): the
-    // column arrives with 20260814240000, and until it does every enabled
-    // channel keeps receiving announcements exactly as it does today.
+    // A bot posts announcements only if it was ticked for announcements. This
+    // used to read `!== false`, which meant a bot created for sales alone —
+    // and landing on the column default — also received every agency notice.
     const { data: allHooks } = await supabaseAdmin
       .from("discord_integrations")
       .select("*")
       .eq("organization_id", orgId)
       .eq("enabled", true);
     const hooks = ((allHooks ?? []) as any[]).filter(
-      (h) => h.post_announcements !== false && shouldAttempt(h),
+      (h) => h.post_announcements === true && shouldAttempt(h),
     );
 
     // Discord renders markdown, not HTML. Tags out, entities back, and a cap
@@ -782,7 +778,11 @@ export async function announceToDiscord(
 
     for (const hook of hooks) {
       if (!hook.webhook_url) continue;
+      // Identity is the announcement itself, so re-dispatching the same notice
+      // cannot post it twice into one channel.
+      const key = eventKey(hook.id, "announcements", subjectId ?? title.slice(0, 80));
       try {
+        if (await alreadySent(hook.id, key)) continue;
         const status = await postToDiscord(hook.webhook_url, {
           embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: GOLD }],
         });
@@ -792,10 +792,12 @@ export async function announceToDiscord(
           eventType: "announcement",
           status: "sent",
           httpStatus: status,
+          eventKey: key,
         });
         await markSuccess(hook.id);
         sent += 1;
       } catch (e: any) {
+        if (e?.code === "23505") continue;
         const msg = String(e?.message ?? e).slice(0, 500);
         await recordDelivery({
           orgId,
@@ -804,6 +806,7 @@ export async function announceToDiscord(
           status: "failed",
           httpStatus: e?.status ?? null,
           error: msg,
+          eventKey: key,
         });
         await markFailure(hook.id, msg, hook.consecutive_failures ?? 0);
         failed += 1;
