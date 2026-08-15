@@ -251,10 +251,9 @@ function CarrierRow({
                     aria-label={`${isActive ? "Switch off" : "Switch on"} ${c.name}`}
                     onCheckedChange={(v) => onToggle(v)}
                     className={cn(
-                      "h-6 w-11 data-[state=checked]:bg-success data-[state=unchecked]:bg-surface-3",
+                      "scale-125 data-[state=checked]:bg-success data-[state=unchecked]:bg-surface-3",
                       !mayToggle && "opacity-50",
                     )}
-                    thumbClassName="h-5 w-5 data-[state=checked]:translate-x-5"
                   />
                 </span>
                 <button
