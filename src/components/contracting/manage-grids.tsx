@@ -248,8 +248,10 @@ export function ManageGridsPage({
     }),
     onSuccess: (r: any) => {
       toast.success(`Saved ${r.count} rows`);
-      setRows([]);
-      setMatrix(toMatrix([]));
+      // The saved grid stays on screen. Emptying it here was the other half of
+      // "it didn't save" — the numbers were written and the table went blank,
+      // which looks exactly like a discarded edit. Only the one-off extraction
+      // state is cleared, because that upload has now been accepted.
       setUploadId(null);
       setSource("manual");
       setNotes(null);
