@@ -4627,6 +4627,7 @@ export type Database = {
       }
       document_intake: {
         Row: {
+          attempts: number
           batch_id: string
           carrier_name: string | null
           confidence: number | null
@@ -4636,6 +4637,7 @@ export type Database = {
           extracted: Json | null
           file_name: string
           file_url: string | null
+          heartbeat_at: string | null
           id: string
           mime_type: string | null
           organization_id: string | null
@@ -4653,6 +4655,7 @@ export type Database = {
           user_note: string | null
         }
         Insert: {
+          attempts?: number
           batch_id: string
           carrier_name?: string | null
           confidence?: number | null
@@ -4662,6 +4665,7 @@ export type Database = {
           extracted?: Json | null
           file_name: string
           file_url?: string | null
+          heartbeat_at?: string | null
           id?: string
           mime_type?: string | null
           organization_id?: string | null
@@ -4679,6 +4683,7 @@ export type Database = {
           user_note?: string | null
         }
         Update: {
+          attempts?: number
           batch_id?: string
           carrier_name?: string | null
           confidence?: number | null
@@ -4688,6 +4693,7 @@ export type Database = {
           extracted?: Json | null
           file_name?: string
           file_url?: string | null
+          heartbeat_at?: string | null
           id?: string
           mime_type?: string | null
           organization_id?: string | null
