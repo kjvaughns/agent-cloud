@@ -28,6 +28,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { ageOn, requirementsFor, type GridRow } from "@/lib/compensation/grid-rule";
 
+import { preferOwnGridRows } from "@/lib/compensation/own-grid";
+
 type Ctx = { supabase: any; userId: string };
 
 /**
@@ -49,7 +51,9 @@ export async function loadGridRows(
     .eq("carrier_id", carrierId)
     .or(`organization_id.eq.${orgId},organization_id.is.null`);
 
-  return ((data ?? []) as any[]).map((r) => ({
+  // The agency's own rows shadow the shared defaults for that carrier, so a
+  // grid edited in the editor prices deals with the edited numbers.
+  return (preferOwnGridRows((data ?? []) as any[])).map((r) => ({
     id: String(r.id),
     levelName: r.level_name ?? null,
     productName: r.product_name ?? "",
