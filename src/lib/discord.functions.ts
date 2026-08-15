@@ -6,7 +6,7 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // Backoff, health, and the two patches a send outcome writes. One place, so
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
-import { piiProblems } from "@/lib/discord/message";
+import { piiProblems, productCategory, eventKey } from "@/lib/discord/message";
 import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 const supabaseAdmin = _admin as any;
@@ -99,6 +99,8 @@ const WebhookSchema = z.object({
   // agents to the same channel through two integrations with different
   // thresholds, and a list of three identical rows cannot be managed.
   name: z.string().trim().min(1).max(60).optional(),
+  /** What this bot is for, in the owner's words. Shown on the card. */
+  description: z.string().trim().max(280).nullable().optional(),
   channel_label: z.string().trim().max(80).nullable().optional(),
   enabled: z.boolean().optional(),
   post_deals: z.boolean().optional(),
@@ -166,6 +168,17 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
     }
 
     if (!data.webhook_url) throw new Error("Add your Discord webhook URL to connect.");
+
+    // A new bot sends exactly what was ticked, and nothing else. The database
+    // defaults say deals-and-announcements-on, which is how a "sales" webhook
+    // ended up posting announcements too — so every event is written
+    // explicitly here rather than left to the column default.
+    patch.post_deals = data.post_deals === true;
+    patch.post_announcements = data.post_announcements === true;
+    patch.post_new_agents = data.post_new_agents === true;
+    if (!patch.post_deals && !patch.post_announcements && !patch.post_new_agents) {
+      throw new Error("Pick at least one event for this bot to post.");
+    }
 
     const { count } = await supabaseAdmin
       .from("discord_integrations")
@@ -284,6 +297,8 @@ async function recordDelivery(opts: {
   policyId?: string | null;
   /** Why a skip was a skip. Absent for sent and failed. */
   skipReason?: string | null;
+  /** Stable identity for the event, so a retry cannot post it twice. */
+  eventKey?: string | null;
 }): Promise<void> {
   const row = {
     organization_id: opts.orgId,
@@ -293,6 +308,7 @@ async function recordDelivery(opts: {
     status: opts.status,
     http_status: opts.httpStatus ?? null,
     error: opts.error ?? null,
+    event_key: opts.eventKey ?? null,
   };
   try {
     const { error } = await supabaseAdmin
@@ -308,9 +324,26 @@ async function recordDelivery(opts: {
       if (retry.error) throw retry.error;
     }
   } catch (e: any) {
-    // 23505 is the deal path's "already announced in this channel" guard.
+    // 23505 is the "already sent this event to this channel" guard.
     if (e?.code !== "23505") console.error("[discord] delivery not recorded:", e?.message);
   }
+}
+
+/**
+ * Has this exact event already landed in this channel?
+ *
+ * The unique index is the real guarantee; this read exists so a duplicate is a
+ * skip with a reason rather than a failed insert an owner has to interpret.
+ */
+async function alreadySent(integrationId: string, key: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("discord_deliveries")
+    .select("id")
+    .eq("integration_id", integrationId)
+    .eq("event_key", key)
+    .eq("status", "sent")
+    .maybeSingle();
+  return !!data;
 }
 
 /**
@@ -454,7 +487,8 @@ export async function announceDeal(policyId: string): Promise<void> {
     const fields = [
       { name: "Agent", value: agentName, inline: true },
       { name: "Carrier", value: carrier?.name ?? "—", inline: true },
-      { name: "Product", value: policy.product || "—", inline: true },
+      // A category, never the specific plan a named client bought.
+      { name: "Product", value: productCategory(policy.product) ?? "—", inline: true },
       { name: "Annual Premium", value: money(annual), inline: true },
       { name: "Monthly", value: money(Number(policy.monthly_premium ?? 0)), inline: true },
       { name: "Face Amount", value: policy.face_amount ? money(Number(policy.face_amount)) : "—", inline: true },
@@ -477,31 +511,36 @@ export async function announceDeal(policyId: string): Promise<void> {
     // One channel refusing, or failing, must not stop the others.
     await Promise.all(
       targets.map(async (cfg) => {
+        const key = eventKey(cfg.id, "sales", policy.id);
         try {
           if (annual < Number(cfg.min_annual_premium ?? 0)) {
-            await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: cfg.organization_id,
-              integration_id: cfg.id,
-              event_type: "deal_posted",
-              policy_id: policy.id,
+            await recordDelivery({
+              orgId: cfg.organization_id,
+              integrationId: cfg.id,
+              eventType: "deal_posted",
+              policyId: policy.id,
               status: "skipped",
               error: "Below this channel's minimum premium threshold",
+              skipReason: "below_threshold",
+              eventKey: key,
             });
             return;
           }
 
+          // The event key is unique across sent rows for this bot, so a retry
+          // or a double submit is recognised rather than posted twice.
+          if (await alreadySent(cfg.id, key)) return;
+
           const status = await postToDiscord(cfg.webhook_url, body);
 
-          // Unique on (policy_id, event_type, integration_id) where status =
-          // 'sent', so a retry or a double submit cannot announce the same deal
-          // twice in the same channel.
-          await supabaseAdmin.from("discord_deliveries").insert({
-            organization_id: cfg.organization_id,
-            integration_id: cfg.id,
-            event_type: "deal_posted",
-            policy_id: policy.id,
+          await recordDelivery({
+            orgId: cfg.organization_id,
+            integrationId: cfg.id,
+            eventType: "deal_posted",
+            policyId: policy.id,
             status: "sent",
-            http_status: status,
+            httpStatus: status,
+            eventKey: key,
           });
 
           await markSuccess(cfg.id);
@@ -510,14 +549,15 @@ export async function announceDeal(policyId: string): Promise<void> {
           if (e?.code === "23505") return;
           const msg = String(e?.message ?? e).slice(0, 500);
           try {
-            await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: cfg.organization_id,
-              integration_id: cfg.id,
-              event_type: "deal_posted",
-              policy_id: policy.id,
+            await recordDelivery({
+              orgId: cfg.organization_id,
+              integrationId: cfg.id,
+              eventType: "deal_posted",
+              policyId: policy.id,
               status: "failed",
-              http_status: e?.status ?? null,
+              httpStatus: e?.status ?? null,
               error: msg,
+              eventKey: key,
             });
             await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
           } catch {
@@ -596,7 +636,9 @@ export async function announceNewAgent(profileId: string): Promise<void> {
     await Promise.all(
       targets.map(async (cfg) => {
         if (!cfg.webhook_url) return;
+        const key = eventKey(cfg.id, "new_agents", profile.id);
         try {
+          if (await alreadySent(cfg.id, key)) return;
           const status = await postToDiscord(cfg.webhook_url, body);
           await recordDelivery({
             orgId,
@@ -604,9 +646,11 @@ export async function announceNewAgent(profileId: string): Promise<void> {
             eventType: "agent_joined",
             status: "sent",
             httpStatus: status,
+            eventKey: key,
           });
           await markSuccess(cfg.id);
         } catch (e: any) {
+          if (e?.code === "23505") return;
           const msg = String(e?.message ?? e).slice(0, 500);
           await recordDelivery({
             orgId,
@@ -615,6 +659,7 @@ export async function announceNewAgent(profileId: string): Promise<void> {
             status: "failed",
             httpStatus: e?.status ?? null,
             error: msg,
+            eventKey: key,
           });
           await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
         }
@@ -671,15 +716,100 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
 
 export const listDiscordDeliveries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ integrationId: z.string().uuid().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { data, error } = await supabase
+    let q = supabase
       .from("discord_deliveries")
-      .select("id, event_type, status, http_status, error, created_at, integration_id")
+      .select("id, event_type, status, http_status, error, skip_reason, event_key, created_at, integration_id")
       .order("created_at", { ascending: false })
-      .limit(25);
+      .limit(data.integrationId ? 25 : 50);
+    if (data.integrationId) q = q.eq("integration_id", data.integrationId);
+    const { data: rows, error } = await q;
     if (error) return { deliveries: [] };
-    return { deliveries: data ?? [] };
+    return { deliveries: rows ?? [] };
+  });
+
+/**
+ * Send a failed delivery again, under its original event key.
+ *
+ * Re-sending is safe precisely because the key is stable: a retry either lands
+ * once or is recognised as already sent. Only failed rows may be retried — a
+ * skip was a decision, not an accident.
+ */
+export const retryDiscordDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) throw new Error("No organization");
+    await assertTabPermission(userId, "automations", orgId);
+
+    const { data: row } = await supabaseAdmin
+      .from("discord_deliveries")
+      .select("id, integration_id, event_type, event_key, policy_id, status")
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!row) throw new Error("That delivery no longer exists.");
+    if (row.status !== "failed") throw new Error("Only failed deliveries can be retried.");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("discord_integrations")
+      .select("*")
+      .eq("id", row.integration_id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!cfg?.webhook_url) throw new Error("That Discord bot no longer exists.");
+
+    if (row.event_key && (await alreadySent(cfg.id, row.event_key))) {
+      return { ok: true, alreadySent: true };
+    }
+
+    // The original event is rebuilt rather than stored: a deal's premium may
+    // have been corrected since, and the channel should hear what is true now.
+    if (row.event_type === "deal_posted" && row.policy_id) {
+      await announceDeal(row.policy_id);
+      return { ok: true, alreadySent: false };
+    }
+
+    try {
+      const status = await postToDiscord(cfg.webhook_url, {
+        username: "Agent Cloud",
+        embeds: [{
+          title: "🔁 Retried delivery",
+          description: "A previously failed Agent Cloud post was retried.",
+          color: GOLD,
+          timestamp: new Date().toISOString(),
+        }],
+      });
+      await recordDelivery({
+        orgId,
+        integrationId: cfg.id,
+        eventType: row.event_type,
+        status: "sent",
+        httpStatus: status,
+        eventKey: row.event_key,
+      });
+      await markSuccess(cfg.id);
+      return { ok: true, alreadySent: false };
+    } catch (e: any) {
+      const msg = String(e?.message ?? e).slice(0, 500);
+      await recordDelivery({
+        orgId,
+        integrationId: cfg.id,
+        eventType: row.event_type,
+        status: "failed",
+        httpStatus: e?.status ?? null,
+        error: msg,
+        eventKey: row.event_key,
+      });
+      await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
+      throw new Error(`Discord rejected the message: ${msg}`);
+    }
   });
 
 /**
@@ -697,6 +827,7 @@ export async function announceToDiscord(
   orgId: string,
   title: string,
   bodyHtml: string,
+  subjectId?: string,
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
@@ -704,21 +835,16 @@ export async function announceToDiscord(
     const { refusedForDemo } = await import("@/lib/demo.server");
     if (await refusedForDemo(orgId, "send a webhook")) return { sent, failed };
 
-    // Filtered on the channel's own preference, not on `enabled` alone. Before
-    // this, a channel an owner had set up purely for deal alerts received
-    // every agency-wide announcement too, and the only way to stop it was to
-    // turn the whole channel off.
-    //
-    // `!== false` rather than `=== true`, and read with select("*"): the
-    // column arrives with 20260814240000, and until it does every enabled
-    // channel keeps receiving announcements exactly as it does today.
+    // A bot posts announcements only if it was ticked for announcements. This
+    // used to read `!== false`, which meant a bot created for sales alone —
+    // and landing on the column default — also received every agency notice.
     const { data: allHooks } = await supabaseAdmin
       .from("discord_integrations")
       .select("*")
       .eq("organization_id", orgId)
       .eq("enabled", true);
     const hooks = ((allHooks ?? []) as any[]).filter(
-      (h) => h.post_announcements !== false && shouldAttempt(h),
+      (h) => h.post_announcements === true && shouldAttempt(h),
     );
 
     // Discord renders markdown, not HTML. Tags out, entities back, and a cap
@@ -737,7 +863,11 @@ export async function announceToDiscord(
 
     for (const hook of hooks) {
       if (!hook.webhook_url) continue;
+      // Identity is the announcement itself, so re-dispatching the same notice
+      // cannot post it twice into one channel.
+      const key = eventKey(hook.id, "announcements", subjectId ?? title.slice(0, 80));
       try {
+        if (await alreadySent(hook.id, key)) continue;
         const status = await postToDiscord(hook.webhook_url, {
           embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: GOLD }],
         });
@@ -747,10 +877,12 @@ export async function announceToDiscord(
           eventType: "announcement",
           status: "sent",
           httpStatus: status,
+          eventKey: key,
         });
         await markSuccess(hook.id);
         sent += 1;
       } catch (e: any) {
+        if (e?.code === "23505") continue;
         const msg = String(e?.message ?? e).slice(0, 500);
         await recordDelivery({
           orgId,
@@ -759,6 +891,7 @@ export async function announceToDiscord(
           status: "failed",
           httpStatus: e?.status ?? null,
           error: msg,
+          eventKey: key,
         });
         await markFailure(hook.id, msg, hook.consecutive_failures ?? 0);
         failed += 1;

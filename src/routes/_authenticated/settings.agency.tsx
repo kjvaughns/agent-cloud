@@ -20,7 +20,6 @@ import {
   type SettingsTab, type AccessContext,
 } from "@/lib/settings/tab-access";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
@@ -546,7 +545,6 @@ function AgencySettingsPage() {
           </TabsContent>
 
           <TabsContent value="automations" className="mt-4 space-y-6">
-            <AutomationsPage />
             <DiscordSettings />
           </TabsContent>
           <TabsContent value="integrations" className="mt-4">

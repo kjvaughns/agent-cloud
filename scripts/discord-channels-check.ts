@@ -63,13 +63,13 @@ const MIG = stripSql(read("supabase/migrations/20260814240000_discord-announceme
 
 // The whole point. Each key offered in Settings must be read by something
 // that actually posts.
-const OFFERED = Array.from(UI.matchAll(/\["(post_[a-z_]+)",/g)).map((m) => m[1]);
-check("the settings screen offers three switches", OFFERED.sort(),
+const OFFERED = Array.from(new Set(Array.from(UI.matchAll(/"(post_[a-z_]+)"/g)).map((m) => m[1]!)));
+check("the settings screen offers three event choices", OFFERED.sort(),
   ["post_announcements", "post_deals", "post_new_agents"]);
 
 for (const key of OFFERED) {
   check(`${key} is read by a sender`,
-    new RegExp(`\\.eq\\("${key}", true\\)|${key} !== false`).test(DISCORD), true);
+    new RegExp(`\\.eq\\("${key}", true\\)|${key} === true`).test(DISCORD), true);
 }
 
 // The switch that never could: gone from the screen, gone from what the save
@@ -109,16 +109,29 @@ check("a join post carries a name and nothing else",
 
 console.log("");
 
-check("announcements are filtered on the channel's switch",
-  /h\.post_announcements !== false/.test(DISCORD), true);
-// `!== false` rather than `=== true`: before the migration the column is
-// absent, and every enabled channel must keep receiving announcements exactly
-// as it does today.
-check("…tolerantly, so nothing goes quiet in the pending window",
-  /post_announcements === true/.test(DISCORD), false);
-check("…reading the row with select(*) for the same reason",
+// Strictly `=== true` now: a bot ticked for sales alone must not receive
+// announcements because a column default said so. That default is exactly how
+// a "sales" webhook ended up posting agency notices.
+check("announcements are filtered strictly on the bot's own switch",
+  /h\.post_announcements === true/.test(DISCORD), true);
+check("…so a permissive read is gone",
+  /post_announcements !== false/.test(DISCORD), false);
+check("…and a new bot writes every event explicitly",
+  /patch\.post_deals = data\.post_deals === true/.test(DISCORD), true);
+check("…refusing a bot with no events",
+  /Pick at least one event/.test(DISCORD), true);
+check("…reading the row with select(*) so a missing column can't fail it",
   /\.from\("discord_integrations"\)\s*\.select\("\*"\)\s*\.eq\("organization_id", orgId\)/.test(DISCORD),
   true);
+
+// ── One event, one post, however many retries ───────────────────────────────
+
+check("every send carries a stable event key", /eventKey\(cfg\.id, "sales"/.test(DISCORD), true);
+check("…for announcements too", /eventKey\(hook\.id, "announcements"/.test(DISCORD), true);
+check("…and for joins", /eventKey\(cfg\.id, "new_agents"/.test(DISCORD), true);
+check("a duplicate is recognised before posting", /alreadySent\(/.test(DISCORD), true);
+check("a failed delivery can be retried", /export const retryDiscordDelivery/.test(DISCORD), true);
+check("…only when it failed", /Only failed deliveries can be retried/.test(DISCORD), true);
 
 check("one recorder writes the ledger", /async function recordDelivery/.test(DISCORD), true);
 check("…and an announcement is recorded through it",
@@ -142,9 +155,10 @@ check("the schema cache is reloaded", /notify pgrst, 'reload schema'/.test(MIG),
 check("a save in the pending window explains itself",
   /42703/.test(DISCORD) && /announcements are still posted to every connected channel/.test(DISCORD),
   true);
-// The switch must not claim "off" while announcements are in fact going out.
-check("the toggle reads as on before the column exists",
-  /checked=\{w\[key\] !== false\}/.test(UI), true);
+// Each bot is created with its events chosen up front, not defaulted.
+check("the add form asks which events the bot posts",
+  /DISCORD_EVENTS\.map/.test(UI), true);
+check("…and a failed delivery offers a retry", /retry\.mutate\(d\.id\)/.test(UI), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
