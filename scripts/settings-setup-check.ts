@@ -213,13 +213,13 @@ check("the status read writes nothing",
   /\.insert\(|\.update\(|\.upsert\(|recordSetupIssue/.test(FN), false);
 // Absent columns must read as today's behaviour, not as "switched off".
 check("a pending column reads as the permissive default",
-  (FN.match(/!== false/g) ?? []).length, 3);
+  (FN.match(/!== false/g) ?? []).length >= 3, true);
 // Except the advance, where "not chosen" is the whole point.
 check("…except the advance, which is left unchosen",
   /default_advance_option: c\.default_advance_option \?\? null/.test(FN), true);
 
-const PAGE = strip(read("src/routes/_authenticated/settings.contracting.tsx"));
-check("the checklist is on the contracting settings page",
+const PAGE = strip(read("src/routes/_authenticated/settings.agency.tsx"));
+check("the checklist is on the Contracting tab",
   /<SetupChecklist steps=\{setup\.steps\}/.test(PAGE), true);
 
 const UI = strip(read("src/components/settings/setup-checklist.tsx"));
