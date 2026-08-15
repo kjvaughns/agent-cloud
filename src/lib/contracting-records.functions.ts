@@ -218,13 +218,35 @@ export const listAgencyLevels = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
-    if (!orgId) return { rows: [] };
+    if (!orgId) return { rows: [], canManage: false, myLevelId: null as string | null };
     const { data, error } = await supabaseAdmin.from("agency_levels")
       .select("*, agency_level_carrier_mappings(*, org_carriers(id, carriers(name)))")
       .eq("organization_id", orgId).order("sort_order").order("base_pct");
     if (error) throw new Error(error.message);
-    return { rows: data ?? [] };
+
+    // Who is allowed to see the whole ladder. An owner or anybody holding the
+    // comp-level capability manages it, so they see every rung. Everyone else
+    // is an agent looking at a promotion ladder, and the rungs above theirs
+    // are other people's pay — they see their own position and the ones below.
+    const access = await resolveAccess(userId);
+    const canManage = access.isOrgAdmin || Boolean((access.perms as any).contracting_manage_comp_levels);
+    const { data: me } = await supabaseAdmin
+      .from("profiles").select("agency_level_id").eq("id", userId).maybeSingle();
+    const myLevelId = (me?.agency_level_id as string | null) ?? null;
+    const rows = (data ?? []) as any[];
+    if (canManage) return { rows, canManage, myLevelId };
+
+    const mine = rows.find((r) => r.id === myLevelId);
+    // No rung yet: nothing to compare against, so show nothing rather than
+    // guessing — the roster still tells them they are unassigned.
+    if (!mine) return { rows: [], canManage, myLevelId };
+    const visible = rows.filter(
+      (r) => Number(r.sort_order) < Number(mine.sort_order)
+        || (Number(r.sort_order) === Number(mine.sort_order) && Number(r.base_pct) <= Number(mine.base_pct)),
+    );
+    return { rows: visible, canManage, myLevelId };
   });
+
 
 export const saveAgencyLevel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -279,6 +301,19 @@ export const saveAgencyLevel = createServerFn({ method: "POST" })
       );
       if (mappingError) throw new Error(mappingError.message);
     }
+    // Reverting a carrier to "use the position percentage" has to remove the
+    // row, not blank it: the resolver treats any mapping as an override, so a
+    // half-empty one keeps winning over the level's base percentage. The
+    // submitted list is the whole truth for this rung, so anything absent goes.
+    if (id) {
+      const keep = mappings.map((m) => m.org_carrier_id);
+      let del = supabaseAdmin.from("agency_level_carrier_mappings")
+        .delete().eq("agency_level_id", saved.id).eq("organization_id", orgId);
+      if (keep.length) del = del.not("org_carrier_id", "in", `(${keep.join(",")})`);
+      const { error: delError } = await del;
+      if (delError) throw new Error(delError.message);
+    }
+
 
     // Recorded after the write succeeds, and never able to undo it — the same
     // contract every other audit call in this codebase keeps.
