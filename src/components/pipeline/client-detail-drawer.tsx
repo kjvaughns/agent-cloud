@@ -23,7 +23,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { PRODUCT_TYPES as PRODUCTS, productsForCarrier } from "@/lib/products";
 import { phone as fmtPhone, money, formatPhone, formatRouting, formatDob } from "@/lib/format";
-import { listCarriersForDeal } from "@/lib/post-deal.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
@@ -999,6 +998,10 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+  // Only the products the agency configured for the selected carrier.
+  const carrierProducts = productsForCarrier(
+    (carriers as any[]).find((c: any) => c.id === form.carrier_id)?.product_types,
+  );
 
   const addPolicyFn = useServerFn(addPolicy);
   const mut = useMutation({
@@ -1038,7 +1041,7 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
         <Field label="Product Sold">
           <Select value={form.product} onValueChange={v => setForm(f => ({...f, product: v}))}>
             <SelectTrigger><SelectValue placeholder="Select product..." /></SelectTrigger>
-            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            <SelectContent>{carrierProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </Field>
         <Field label="Policy Number">
@@ -1095,6 +1098,10 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
+  // Only the products the agency configured for the selected carrier.
+  const carrierProducts = productsForCarrier(
+    (carriers as any[]).find((c: any) => c.id === form.carrier_id)?.product_types,
+  );
 
   const updateFn = useServerFn(updatePolicy);
   const mut = useMutation({
@@ -1167,7 +1174,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <Label className="text-xs mb-1 block">Product</Label>
           <Select value={form.product} onValueChange={(v) => setForm(f => ({ ...f, product: v }))}>
             <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Product" /></SelectTrigger>
-            <SelectContent>{PRODUCTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+            <SelectContent>{carrierProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div>
