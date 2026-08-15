@@ -997,7 +997,7 @@ function PolicyFields({ detail }: { detail: any }) {
 function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client: any; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
   const qc = useQueryClient();
   const clientId = client.id as string;
-  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
+  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "", sale_date: todaySaleDate() });
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
