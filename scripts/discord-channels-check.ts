@@ -63,8 +63,8 @@ const MIG = stripSql(read("supabase/migrations/20260814240000_discord-announceme
 
 // The whole point. Each key offered in Settings must be read by something
 // that actually posts.
-const OFFERED = Array.from(UI.matchAll(/\["(post_[a-z_]+)",/g)).map((m) => m[1]);
-check("the settings screen offers three switches", OFFERED.sort(),
+const OFFERED = Array.from(new Set(Array.from(UI.matchAll(/"(post_[a-z_]+)"/g)).map((m) => m[1]!)));
+check("the settings screen offers three event choices", OFFERED.sort(),
   ["post_announcements", "post_deals", "post_new_agents"]);
 
 for (const key of OFFERED) {
