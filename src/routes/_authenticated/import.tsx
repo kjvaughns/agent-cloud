@@ -357,7 +357,11 @@ function ImportPage() {
    */
   async function processOne(file: File, id: string, userNote: string | null, batchId: string) {
     mark(id, "Opening the file", 8);
+    // Say we're on it, so the background sweep leaves this one alone while a
+    // browser is genuinely reading it.
+    heartbeatFn({ data: { id } }).catch(() => {});
     const doc = await extractDocument(file);
+
 
     const notice = truncationNotice(doc);
     if (notice) toast.warning(`${file.name}: ${notice}`);
