@@ -118,7 +118,10 @@ export type RosterAgent = TeamAgent & {
    */
   at_risk_monthly: number;
   at_risk_cases: number;
+  /** True on the caller's own row, which the downline RPC never returns. */
+  is_self?: boolean;
 };
+
 
 /**
  * The roster, with the two things the RPC does not carry.
