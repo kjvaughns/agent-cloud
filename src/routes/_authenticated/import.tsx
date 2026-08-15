@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -36,6 +36,10 @@ import {
 import { normalizePolicyStatus } from "@/lib/import-normalize";
 import { extractCarrierReport } from "@/lib/import-carrier-reports.functions";
 import { carrierFromLabel } from "@/lib/sheet-shape";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  claimStaleImports, processStoredImport, retryImportDoc, failImportDoc, heartbeatImport,
+} from "@/lib/import-resume.functions";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -145,6 +149,11 @@ function ImportPage() {
   const carrierIndexFn = useServerFn(listCarrierIndex);
   const markParentFn = useServerFn(markWorkbookParent);
   const carrierReportFn = useServerFn(extractCarrierReport);
+  const claimStaleFn = useServerFn(claimStaleImports);
+  const processStoredFn = useServerFn(processStoredImport);
+  const retryFn = useServerFn(retryImportDoc);
+  const failFn = useServerFn(failImportDoc);
+  const heartbeatFn = useServerFn(heartbeatImport);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
@@ -161,6 +170,34 @@ function ImportPage() {
   });
   const carriers = ((carrierData as any)?.carriers ?? []) as CarrierRecord[];
 
+  /**
+   * Keep a copy of the file before reading it.
+   *
+   * Reading happens in the browser, so until now the bytes existed nowhere else:
+   * closing the tab mid-import left a row saying "queued" that nothing on earth
+   * could finish. Storing the file first means the file is readable again — by
+   * this page on your next visit, or by the server with no page open at all.
+   */
+  async function storeFile(file: File, batchId: string): Promise<string | null> {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) return null;
+      const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-120);
+      const path = `${uid}/${batchId}/${crypto.randomUUID()}-${safe}`;
+      const { error } = await supabase.storage.from("imports").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (error) return null;
+      return path;
+    } catch {
+      // A file we couldn't store is still a file we can read right now. The
+      // upload must not fail over its own safety net.
+      return null;
+    }
+  }
+
   async function handleFiles(files: FileList) {
     const list = Array.from(files).slice(0, 100);
     if (!list.length) return;
@@ -170,12 +207,18 @@ function ImportPage() {
     const trimmed = note.trim() || null;
 
     try {
+      const batchId = crypto.randomUUID();
+
+      const paths = await Promise.all(list.map((f) => storeFile(f, batchId)));
+
       const batch: any = await batchFn({
         data: {
-          files: list.map((f) => ({
+          batch_id: batchId,
+          files: list.map((f, i) => ({
             file_name: f.name,
             mime_type: f.type || null,
             size_bytes: f.size,
+            storage_path: paths[i],
           })),
           user_note: trimmed,
         },
@@ -199,8 +242,17 @@ function ImportPage() {
             await processOne(item.file, item.rec.id, trimmed, batch.batch_id);
           } catch (e: any) {
             // Every file reports its own outcome on its row. One that cannot be
-            // read must not take the rest of the batch down with it.
+            // read must not take the rest of the batch down with it — and it must
+            // say so on its own row instead of sitting on "queued" forever.
             console.error("Import failed for", item.file.name, e);
+            try {
+              await failFn({
+                data: {
+                  id: item.rec.id,
+                  reason: e?.message ? String(e.message).slice(0, 400) : "We couldn't read this file.",
+                },
+              });
+            } catch { /* the sweep will pick it up */ }
           }
           clearMark(item.rec.id);
           done++;
@@ -222,6 +274,79 @@ function ImportPage() {
     }
   }
 
+  /**
+   * Finish what an earlier visit started.
+   *
+   * On arrival, anything of mine left unread is claimed and read: spreadsheets
+   * and CSVs on the server, where no page is needed, and anything that has to be
+   * rendered — a scanned PDF, a photograph of a grid — here in the browser from
+   * the stored copy. Runs once per mount, and never while an upload is in
+   * flight, so it cannot race the batch the person is watching.
+   */
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || busy) return;
+    resumedRef.current = true;
+
+    (async () => {
+      let claim: any;
+      try {
+        claim = await claimStaleFn({ data: undefined as any });
+      } catch {
+        return;
+      }
+      const files = (claim?.files ?? []) as any[];
+      if (!files.length) return;
+
+      toast.info(
+        `Finishing ${files.length} file${files.length === 1 ? "" : "s"} left over from before.`,
+      );
+
+      for (const f of files) {
+        mark(f.id, "Picking up where we left off", 10);
+        try {
+          if (!f.needs_browser) {
+            const out: any = await processStoredFn({ data: { id: f.id } });
+            if (out?.status !== "deferred") {
+              clearMark(f.id);
+              qc.invalidateQueries({ queryKey: ["imports"] });
+              continue;
+            }
+          }
+          // Only a browser can render this one. Pull the stored copy back and
+          // read it exactly as if it had just been dropped on the page.
+          if (!f.signed_url) {
+            await failFn({
+              data: { id: f.id, reason: "We don't have a copy of this file — upload it again to finish it." },
+            });
+            clearMark(f.id);
+            continue;
+          }
+          mark(f.id, "Fetching the stored copy", 20);
+          const res = await fetch(f.signed_url);
+          if (!res.ok) throw new Error("The stored copy couldn't be fetched.");
+          const blob = await res.blob();
+          const file = new File([blob], f.file_name, { type: f.mime_type || blob.type });
+          await processOne(file, f.id, f.user_note ?? null, f.batch_id);
+        } catch (e: any) {
+          console.error("Resume failed for", f.file_name, e);
+          try {
+            await failFn({
+              data: {
+                id: f.id,
+                reason: e?.message ? String(e.message).slice(0, 400) : "We couldn't read this file.",
+              },
+            });
+          } catch { /* the sweep will pick it up */ }
+        }
+        clearMark(f.id);
+        qc.invalidateQueries({ queryKey: ["imports"] });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
 
   /**
    * Read one file and work out what it is.
@@ -232,7 +357,11 @@ function ImportPage() {
    */
   async function processOne(file: File, id: string, userNote: string | null, batchId: string) {
     mark(id, "Opening the file", 8);
+    // Say we're on it, so the background sweep leaves this one alone while a
+    // browser is genuinely reading it.
+    heartbeatFn({ data: { id } }).catch(() => {});
     const doc = await extractDocument(file);
+
 
     const notice = truncationNotice(doc);
     if (notice) toast.warning(`${file.name}: ${notice}`);
@@ -828,6 +957,18 @@ function ImportPage() {
                     toast.error(e?.message ?? "Couldn't dismiss that");
                   }
                 };
+                const readAgain = async (id: string) => {
+                  try {
+                    await retryFn({ data: { id } });
+                    const out: any = await processStoredFn({ data: { id } });
+                    if (out?.status === "read") toast.success("Read it this time.");
+                    else if (out?.status === "deferred") toast.info("Reload this page and it'll finish here.");
+                    else toast.error(out?.reason ?? "Still couldn't read it.");
+                    qc.invalidateQueries({ queryKey: ["imports"] });
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Couldn't read that again");
+                  }
+                };
                 return (
                   <DocCard
                     key={g.doc.id}
@@ -838,7 +979,9 @@ function ImportPage() {
                     openDoc={openDoc}
                     onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
                     onDismiss={dismiss}
+                    onReadAgain={readAgain}
                   />
+
 
                 );
               })}
@@ -874,13 +1017,16 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
  * a phone a name long enough to matter pushed everything else off the row.
  */
 function DocCard({
-  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live,
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live, onReadAgain,
 }: {
   doc: ImportDoc;
   sheets: ImportDoc[];
   openDoc: string | null;
   onToggle: (id: string) => void;
   onDismiss: (id: string) => void;
+  /** Puts a file we couldn't read back in line, from its stored copy. */
+  onReadAgain: (id: string) => void;
+
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
   /** Live client-side phase per document id, while a batch is running. */
@@ -952,6 +1098,11 @@ function DocCard({
                 {open ? "Hide" : "Review"}
               </Button>
             )}
+            {/* A file that failed is not a dead end: we kept the file. */}
+            {doc.status === "failed" && (
+              <Button size="sm" variant="outline" onClick={() => onReadAgain(doc.id)}>Read again</Button>
+            )}
+
             {doc.status !== "applied" && doc.status !== "dismissed" && !isParent && (
               <Button size="sm" variant="ghost" onClick={() => onDismiss(doc.id)}>Dismiss</Button>
             )}
