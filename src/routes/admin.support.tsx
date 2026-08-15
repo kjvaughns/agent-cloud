@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Loader2, Search, Send, LifeBuoy, ArrowLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { toast } from "sonner";
 import { draftUwResponse } from "@/lib/ai-features.functions";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -182,7 +182,7 @@ function AdminSupport() {
                 </Badge>
               )}
               <p className="text-xs text-muted-foreground">{t.profiles?.first_name} {t.profiles?.last_name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{formatDistanceToNow(new Date(t.created_at), { addSuffix: true })}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(t.created_at)}</p>
             </button>
           ))}
         </div>
@@ -240,7 +240,7 @@ function AdminSupport() {
                       {m.profiles?.first_name} {m.profiles?.last_name} · {m.sender_role}
                     </p>
                     <p className="whitespace-pre-wrap">{m.body}</p>
-                    <p className="text-xs mt-1 opacity-60">{formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}</p>
+                    <p className="text-xs mt-1 opacity-60">{timeAgo(m.created_at)}</p>
                   </div>
                 </div>
               ))}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Check, X, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 import {
@@ -147,7 +147,7 @@ function AdminContracts() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">
-                    {c.requested_at ? formatDistanceToNow(new Date(c.requested_at), { addSuffix: true }) : "—"}
+                    {c.requested_at ? timeAgo(c.requested_at) : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1 justify-end">

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Loader2, RefreshCw, Search, User, UserCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 
@@ -205,7 +205,7 @@ function AdminAgents() {
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">{getContractCount(a.id)}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden xl:table-cell">
-                    {a.last_active_at ? formatDistanceToNow(new Date(a.last_active_at), { addSuffix: true }) : "—"}
+                    {a.last_active_at ? timeAgo(a.last_active_at) : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Button

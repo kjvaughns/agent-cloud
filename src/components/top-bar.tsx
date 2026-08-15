@@ -13,7 +13,7 @@ import { useRole } from "@/hooks/use-role";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { listNotifications } from "@/lib/notifications.functions";
 import { OPEN_COMMAND_PALETTE } from "@/components/command-palette";
 import { AppearanceControls } from "@/components/appearance-controls";
@@ -185,7 +185,7 @@ export function TopBar() {
                 <div className="flex w-full items-center justify-between gap-2">
                   <span className={`font-medium text-sm ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>{n.title}</span>
                   <span className="text-xs text-muted-foreground shrink-0">
-                    {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                    {timeAgo(n.created_at)}
                   </span>
                 </div>
                 {n.description && <span className="text-xs text-muted-foreground">{n.description}</span>}
