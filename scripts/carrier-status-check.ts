@@ -264,8 +264,11 @@ check("…and problems only when there are problems",
   /\(state\?\.problems \?\? \[\]\)\.length > 0 &&/.test(UI), true);
 // The switch is what makes a carrier real to agents, so it must not flip when
 // the setup cannot pay a deal — and must say why rather than doing nothing.
-check("the row has an activation switch", /role="switch"/.test(UI), true);
-check("…that refuses when setup is outstanding", /if \(!mayToggle\) \{/.test(UI), true);
+// The shared <Switch>, so the toggle looks and behaves like every other one in
+// the app; the gate sits on its wrapper rather than on `disabled`, which would
+// swallow the click and explain nothing.
+check("the row has an activation switch", /<Switch\s+checked=\{isActive\}/.test(UI), true);
+check("…that refuses when setup is outstanding", /if \(mayToggle \|\| toggling\) return;/.test(UI), true);
 check("…explaining what is missing rather than failing silently",
   /toast\.error\(\s*state\?\.problems\[0\]/.test(UI), true);
 check("…and switching off keeps the carrier",
