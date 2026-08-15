@@ -24,7 +24,10 @@ export type TeamAgent = {
   premium_total: number;
   completion_pct: number;
   missing: string[];
+  /** True on the caller's own row, which the downline RPC never returns. */
+  is_self?: boolean;
 };
+
 
 export type TeamKpis = {
   total: number;
