@@ -306,6 +306,27 @@ export function rowKey(kind: string, record: Record<string, any>): string {
       return `wn:${(record.carrier_name ?? "").toLowerCase()}|${(record.writing_number ?? "").toLowerCase()}`;
     case "state_licenses":
       return `lic:${(record.state_code ?? "").toLowerCase()}|${(record.loa ?? "").toLowerCase()}|${(record.agent_email ?? "").toLowerCase()}`;
+    /*
+      A debt report is one balance per agent per carrier as of a date. Downline
+      reports habitually repeat the same agent under two uplines, and a second
+      copy of a $2,700 balance is a $5,400 problem.
+    */
+    case "agent_debt_balances":
+      return [
+        "debt",
+        normName(record.agent_name),
+        (record.carrier_name ?? "").toString().toLowerCase(),
+        record.as_of_date ?? "",
+      ].join("|");
+    // One statement per carrier, per period — its lines travel inside it.
+    case "commission_statements":
+      return [
+        "stmt",
+        (record.carrier_name ?? "").toString().toLowerCase(),
+        record.period_start ?? "",
+        record.period_end ?? "",
+        record.statement_date ?? "",
+      ].join("|");
     case "pending_agents":
       return `agent:${normalizeEmail(record.email) || normName(record.first_name) + "|" + normName(record.last_name)}`;
     default:
