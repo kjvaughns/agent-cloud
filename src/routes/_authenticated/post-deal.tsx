@@ -13,6 +13,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { productsForCarrier } from "@/lib/products";
+import { saleMonthLabel, todaySaleDate } from "@/lib/sale-date";
 import { getCarrierDealOptions } from "@/lib/compensation/deal-pricing.server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
