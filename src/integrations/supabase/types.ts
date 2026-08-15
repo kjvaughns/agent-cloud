@@ -325,6 +325,64 @@ export type Database = {
           },
         ]
       }
+      agency_level_review: {
+        Row: {
+          candidate_level_ids: string[]
+          created_at: string
+          id: string
+          observed_pct: number | null
+          organization_id: string
+          profile_id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          candidate_level_ids?: string[]
+          created_at?: string
+          id?: string
+          observed_pct?: number | null
+          organization_id: string
+          profile_id: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          candidate_level_ids?: string[]
+          created_at?: string
+          id?: string
+          observed_pct?: number | null
+          organization_id?: string
+          profile_id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_level_review_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_review_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_review_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_levels: {
         Row: {
           active: boolean
@@ -4131,6 +4189,7 @@ export type Database = {
       }
       discord_deliveries: {
         Row: {
+          attempt: number
           created_at: string
           error: string | null
           event_type: string
@@ -4139,9 +4198,11 @@ export type Database = {
           integration_id: string | null
           organization_id: string | null
           policy_id: string | null
+          skip_reason: string | null
           status: string
         }
         Insert: {
+          attempt?: number
           created_at?: string
           error?: string | null
           event_type: string
@@ -4150,9 +4211,11 @@ export type Database = {
           integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
+          skip_reason?: string | null
           status?: string
         }
         Update: {
+          attempt?: number
           created_at?: string
           error?: string | null
           event_type?: string
@@ -4161,6 +4224,7 @@ export type Database = {
           integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
+          skip_reason?: string | null
           status?: string
         }
         Relationships: [
@@ -4190,6 +4254,7 @@ export type Database = {
       discord_integrations: {
         Row: {
           channel_label: string | null
+          consecutive_failures: number
           created_at: string
           created_by: string | null
           enabled: boolean
@@ -4198,6 +4263,8 @@ export type Database = {
           last_error_at: string | null
           last_success_at: string | null
           min_annual_premium: number
+          name: string
+          next_retry_at: string | null
           organization_id: string
           post_announcements: boolean
           post_deals: boolean
@@ -4208,6 +4275,7 @@ export type Database = {
         }
         Insert: {
           channel_label?: string | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           enabled?: boolean
@@ -4216,6 +4284,8 @@ export type Database = {
           last_error_at?: string | null
           last_success_at?: string | null
           min_annual_premium?: number
+          name?: string
+          next_retry_at?: string | null
           organization_id: string
           post_announcements?: boolean
           post_deals?: boolean
@@ -4226,6 +4296,7 @@ export type Database = {
         }
         Update: {
           channel_label?: string | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           enabled?: boolean
@@ -4234,6 +4305,8 @@ export type Database = {
           last_error_at?: string | null
           last_success_at?: string | null
           min_annual_premium?: number
+          name?: string
+          next_retry_at?: string | null
           organization_id?: string
           post_announcements?: boolean
           post_deals?: boolean
@@ -9722,6 +9795,8 @@ export type Database = {
       }
       increment_funnel_views: { Args: { _slug: string }; Returns: undefined }
       increment_landing_leads: { Args: { _id: string }; Returns: undefined }
+      is_admin_of_agent: { Args: { _agent: string }; Returns: boolean }
+      is_admin_of_agent_folder: { Args: { _folder: string }; Returns: boolean }
       is_in_downline: {
         Args: { _target: string; _upline: string }
         Returns: boolean
@@ -9736,6 +9811,10 @@ export type Database = {
           name: string
           version: string
         }[]
+      }
+      mapping_level_same_org: {
+        Args: { _level_id: string; _mapping_org: string }
+        Returns: boolean
       }
       may_notify: {
         Args: { _category: string; _profile: string }
@@ -9757,6 +9836,10 @@ export type Database = {
       normalize_policy_number: { Args: { _s: string }; Returns: string }
       policy_counts_as_production: {
         Args: { _status: string }
+        Returns: boolean
+      }
+      profile_level_same_org: {
+        Args: { _level_id: string; _profile_org: string }
         Returns: boolean
       }
       prune_rate_limits: { Args: never; Returns: undefined }
