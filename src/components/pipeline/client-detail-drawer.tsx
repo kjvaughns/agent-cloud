@@ -1064,7 +1064,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
               would read as "it drafts on the 1st". */}
           <div className="col-span-2">
             <span className="font-medium text-foreground">Draft:</span>{" "}
-            {draftSummary(banking?.payment_method, banking?.draft_date) ?? "—"}
+            {draftSummary(banking?.payment_method, banking?.draft_date, banking?.draft_schedule, banking?.draft_wednesday) ?? "—"}
           </div>
         </div>
       </div>
