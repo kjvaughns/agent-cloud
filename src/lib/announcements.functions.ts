@@ -535,7 +535,7 @@ async function deliver(opts: {
   if (channels.includes("discord")) {
     try {
       const { announceToDiscord } = await import("@/lib/discord.functions");
-      const result = await announceToDiscord(orgId, title, bodyHtml);
+      const result = await announceToDiscord(orgId, title, bodyHtml, announcementId);
       await log("discord", result.sent > 0 ? "sent" : "skipped", `${result.sent} channel(s)`);
     } catch (e: any) {
       await log("discord", "failed", undefined, e?.message);
