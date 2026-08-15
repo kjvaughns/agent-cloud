@@ -525,6 +525,49 @@ export const setAgentHidden = createServerFn({ method: "POST" })
  * them out of their own agency), and returns a row count.
  */
 /**
+ * The caller's own placement, and whether they may set it themselves.
+ *
+ * An owner of a top-level agency (no parent organisation) has nobody above them
+ * to place them, so their own position would otherwise stay unassigned and
+ * their own deals would price off nothing.
+ */
+export const getMyPlacement = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, agency_level_id, organization_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!me) return { canSelfAssign: false, agencyLevelId: null, name: null, pct: null };
+
+    let isRootAgency = false;
+    if (me.organization_id) {
+      const { data: org } = await (supabase as any)
+        .from("organizations").select("id, parent_org_id").eq("id", me.organization_id).maybeSingle();
+      isRootAgency = Boolean(org) && !org.parent_org_id;
+    }
+
+    let name: string | null = null;
+    let pct: number | null = null;
+    if (me.agency_level_id) {
+      const { data: level } = await (supabase as any)
+        .from("agency_levels").select("name, base_pct").eq("id", me.agency_level_id).maybeSingle();
+      name = level?.name ?? null;
+      pct = level?.base_pct != null ? Number(level.base_pct) : null;
+    }
+
+    return {
+      canSelfAssign: isRootAgency,
+      agencyLevelId: (me.agency_level_id ?? null) as string | null,
+      name,
+      pct,
+    };
+  });
+
+/**
+
  * Put an agent on a position from the agency's catalog, or take them off it.
  *
  * The catalog is configuration (Settings ▸ Levels & Positions); this is the
