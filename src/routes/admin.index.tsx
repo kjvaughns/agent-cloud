@@ -9,6 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+
+/** A missing or unparseable timestamp must render as a dash, not crash the page. */
+function ago(value: string | null | undefined) {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "—" : formatDistanceToNow(d, { addSuffix: true });
+}
 import { toast } from "sonner";
 import { runCommissionBackfill } from "@/lib/admin.functions";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -202,7 +209,7 @@ function AdminOverview() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={cn("text-xs font-medium", STATUS_COLORS[c.status] ?? "bg-muted/15 text-muted-foreground")}>{c.status}</Badge>
-                    <span className="text-xs text-muted-foreground tnum">{formatDistanceToNow(new Date(c.updated_at), { addSuffix: true })}</span>
+                    <span className="text-xs text-muted-foreground tnum">{ago(c.updated_at)}</span>
                   </div>
                 </div>
               ))}
@@ -243,7 +250,7 @@ function AdminOverview() {
                   <div key={a.id} className="space-y-1">
                     <p className="text-sm font-medium">{a.first_name} {a.last_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{a.email}</p>
-                    <p className="text-xs text-muted-foreground tnum">{formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</p>
+                    <p className="text-xs text-muted-foreground tnum">{ago(a.created_at)}</p>
                   </div>
                 ))}
               </div>
