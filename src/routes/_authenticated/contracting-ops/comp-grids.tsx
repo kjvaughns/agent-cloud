@@ -10,6 +10,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
  */
 export const Route = createFileRoute("/_authenticated/contracting-ops/comp-grids")({
   beforeLoad: () => {
-    throw redirect({ to: "/settings/comp-grids" });
+    throw redirect({ to: "/settings/agency", search: { tab: "carriers" } as any });
   },
 });

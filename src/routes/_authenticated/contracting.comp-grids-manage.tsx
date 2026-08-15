@@ -5,6 +5,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // delete: this path is bookmarked and referenced by the setup checklist.
 export const Route = createFileRoute("/_authenticated/contracting/comp-grids-manage")({
   beforeLoad: () => {
-    throw redirect({ to: "/settings/comp-grids" });
+    throw redirect({ to: "/settings/agency", search: { tab: "carriers" } as any });
   },
 });
