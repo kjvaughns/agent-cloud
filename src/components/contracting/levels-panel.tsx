@@ -77,7 +77,12 @@ export function LevelsPanel() {
   const rows = (data?.rows ?? []) as any[];
   const canManage = (data as any)?.canManage !== false;
   const myLevelId = (data as any)?.myLevelId ?? null;
-  const carriers = ((carrierData?.carriers ?? []) as any[]).filter((c) => (c.status ? c.status === "active" : true));
+  // Everything except what has been filed away. This used to keep only
+  // `status === "active"`, so a carrier still being set up — which is exactly
+  // when its levels need mapping — never appeared here at all, and the mapping
+  // section looked broken.
+  const carriers = ((carrierData?.carriers ?? []) as any[])
+    .filter((c) => c.state?.status !== "archived" && c.status !== "archived");
   const dialog = <AgencyLevelDialog open={adding || Boolean(editing)} record={editing} carriers={carriers} pending={save.isPending} onClose={() => { setAdding(false); setEditing(null); }} onSave={(p) => save.mutate(p)} />;
 
   if (!isLoading && rows.length === 0) return <>
