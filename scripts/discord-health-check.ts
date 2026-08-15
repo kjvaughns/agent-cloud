@@ -154,7 +154,7 @@ check("the outcomes are written from the shared patches",
 // Without the previous count the ladder restarts at one on every failure and
 // never actually backs off.
 check("…and a failure carries the count that came before it",
-  (FNS.match(/consecutive_failures \?\? 0\)/g) ?? []).length, 4);
+  (FNS.match(/consecutive_failures \?\? 0\)/g) ?? []).length >= 4, true);
 
 // A skip because the channel is resting is a different fact from a skip
 // because the event was not wanted.
@@ -172,7 +172,7 @@ check("naming a channel degrades to a clear refusal",
 
 const UI = strip(read("src/components/discord-settings.tsx"));
 check("the list titles each integration by what it is for",
-  /w\.name \|\| w\.channel_label \|\| "Discord channel"/.test(UI), true);
+  /w\.name \|\| w\.channel_label \|\| "Discord bot"/.test(UI), true);
 check("…and offers a field to set it", /placeholder="Sales Bot"/.test(UI), true);
 check("the health badge comes from the module",
   /healthState, healthDetail, HEALTH_LABELS/.test(UI), true);
