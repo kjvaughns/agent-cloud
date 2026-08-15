@@ -27,6 +27,8 @@
  * owner is told what they are trading away rather than discovering it later.
  */
 
+import { FAILURE_MESSAGES } from "@/lib/compensation/resolve";
+
 /** The lifecycle, in the order an owner walks it. */
 export const CARRIER_STATUSES = [
   "draft",
@@ -207,8 +209,15 @@ export function carrierState(f: CarrierFacts): CarrierState {
 
   const blocker = firstBlocker(f);
 
-  // The resolver's own sentences, never restated in this module's words.
-  const resolverProblems = f.configuration.configured ? [] : f.configuration.reasons;
+  // The resolver's own sentences, never restated in this module's words — minus
+  // the one that says the carrier is switched off. Being off is what the switch
+  // itself expresses, not a setup fault: counting it as one made switching a
+  // carrier off unconfigure it, which then withheld the switch that would turn
+  // it back on.
+  const resolverProblems = f.configuration.configured
+    ? []
+    : f.configuration.reasons.filter((r) => r !== FAILURE_MESSAGES.carrier_disabled);
+  const configured = f.configuration.configured || resolverProblems.length === 0;
 
   if (blocker) {
     return {
@@ -223,7 +232,7 @@ export function carrierState(f: CarrierFacts): CarrierState {
   // Setup is complete but the resolver still cannot pay somebody. That is not
   // a missing step — it is a mapping that does not add up — so it keeps the
   // resolver's words rather than getting a step name.
-  if (!f.configuration.configured) {
+  if (!configured) {
     return {
       status: "needs_grid_review",
       label: STATUS_LABEL.needs_grid_review,
