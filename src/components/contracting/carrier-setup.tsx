@@ -210,14 +210,14 @@ function CarrierRow({
               </Button>
             ) : (
               <>
-                {/* The way back into the guided flow. A carrier that cannot be
-                    switched on has a named next step, and this opens the step
-                    rather than leaving an owner to guess which field it was. */}
-                {!isActive && !state?.canActivate && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onFinish}>
-                    Finish setup
-                  </Button>
-                )}
+                {/* The way back into the guided flow — always, not only while
+                    the carrier is unfinished. Setup used to disappear the moment
+                    a carrier went live, so an owner who needed to change the
+                    grid, the levels, the advance or the submission method had
+                    nowhere to go back to. */}
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onSetup}>
+                  {isActive || state?.canActivate ? "Setup" : "Finish setup"}
+                </Button>
                 {/* Off until the setup can pay a deal. A switch that flips and
                     then does nothing is worse than one that explains itself. */}
                 <button
