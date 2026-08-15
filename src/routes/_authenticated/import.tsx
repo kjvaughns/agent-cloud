@@ -1041,12 +1041,26 @@ function SheetRow({
           <div className="min-w-0">
             <div className="truncate text-sm font-medium leading-tight">{label}</div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                {style.label}
-              </span>
+              {phase ? (
+                <span className="inline-flex items-center gap-1.5 font-medium text-primary">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {phase.label}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                  {style.label}
+                </span>
+              )}
               {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
             </div>
+            {phase && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <Progress value={phase.pct} className="h-1 flex-1" />
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{phase.pct}%</span>
+              </div>
+            )}
+
             {doc.summary && (
               <p className="mt-1 text-xs text-muted-foreground">{doc.summary}</p>
             )}
