@@ -13,6 +13,40 @@ without credentials.
 
 Delete a line once the migration is applied.
 
+- `20260815010000_announcement-lifecycle-and-targeting.sql`
+
+`20260815010000` gives an announcement a life beyond "posted, and visible to
+everybody forever". It adds `status` (draft / scheduled / published),
+`publish_at`, `expires_at`, `target_roles` and `target_upline_id`, and
+replaces `announcements_read` so the feed honours all five.
+
+Whether a post is visible *right now* is derived from those columns on every
+read, never stored. That is deliberate: a stored status is wrong for as long as
+whatever updates it is down, and there is no scheduler this repository can
+create — the one pg_cron job the product uses is applied through the Supabase
+Management API by an external tool and calls an Edge Function that does not
+live here. Deriving it means a scheduled announcement appears on time because
+time passed, and an expired one drops out for the same reason.
+
+Nothing is dropped. Every existing announcement defaults to `published` with
+an empty role list and no upline, which is exactly what it is today. The author
+and the agency owner keep seeing everything at every stage, including expired
+posts — taking one down is an expiry, never a delete, because a delete destroys
+the only record that the message ever went out.
+
+Proven on scratch Postgres, applied twice, with the read policy asserted from
+four seats: an agent inside a targeted team, the manager it is aimed through,
+an unrelated agent, and the owner.
+
+In the window: posting to the whole agency, now, keeps working exactly as it
+does today — `createAnnouncement` retries without the new columns when
+PostgREST reports them missing. Anything that actually needs them says so:
+scheduling, expiry or targeting gets a plain refusal naming what is
+unavailable, rather than silently publishing immediately to everybody, which
+is the opposite of what was asked for and cannot be taken back. Reading the
+feed is unaffected, and `dispatchDueAnnouncements` returns zero rather than
+throwing.
+
 - `20260814250000_production-date.sql`
 
 `20260814250000` gives every policy a `production_date` — the date every

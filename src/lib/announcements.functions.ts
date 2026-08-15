@@ -7,11 +7,24 @@ import {
   AUDIENCES, resolveAudience, normalizeChannels, collapseGroups,
   type Audience, type Channel,
 } from "@/lib/announcements/audience";
+import {
+  ANNOUNCEMENT_STATUSES, validate, dueForDispatch,
+} from "@/lib/announcements/lifecycle";
 
 // Generated DB types predate the audience migration; cast until regenerated.
 const supabaseAdmin = _admin as any;
 
 type Ctx = { supabase: any; userId: string };
+
+/** Postgres `undefined_column`, which is how PostgREST reports a pending one. */
+function isMissingColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  if (!e) return false;
+  return e.code === "42703" ||
+    (typeof e.message === "string" &&
+      /(status|publish_at|expires_at|target_roles|target_upline_id)/.test(e.message) &&
+      /column/i.test(e.message));
+}
 
 /**
  * Posting an announcement was rejected for every agency owner.
@@ -95,6 +108,13 @@ const CreateSchema = z.object({
   bodyHtml: z.string().min(1).max(50000),
   audience: z.enum(AUDIENCES).default("agency"),
   channels: z.array(z.string()).default([]),
+  // Everything below defaults to exactly today's behaviour: published now, to
+  // everybody, forever.
+  status: z.enum(ANNOUNCEMENT_STATUSES).default("published"),
+  publishAt: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+  targetRoles: z.array(z.string().max(40)).max(10).default([]),
+  targetUplineId: z.string().uuid().nullable().optional(),
 });
 
 export const createAnnouncement = createServerFn({ method: "POST" })
@@ -110,6 +130,15 @@ export const createAnnouncement = createServerFn({ method: "POST" })
     if (org?.owner_id !== userId) {
       throw new Error("Only the agency owner can post announcements.");
     }
+
+    // Refuse before the round trip, so an owner gets "that time has already
+    // passed" rather than a relayed check-constraint violation.
+    const problem = validate({
+      status: data.status,
+      publishAt: data.publishAt ?? null,
+      expiresAt: data.expiresAt ?? null,
+    });
+    if (problem) throw new Error(problem);
 
     const channels = normalizeChannels(data.channels);
 
@@ -130,36 +159,283 @@ export const createAnnouncement = createServerFn({ method: "POST" })
     // One row per agency so each one's feed shows it under the RLS that
     // already works; the group id ties them back together for the sender.
     const groupId = targets.length > 1 ? crypto.randomUUID() : null;
-    const { data: inserted, error } = await supabaseAdmin
+    const base = targets.map((target) => ({
+      title: data.title,
+      body_html: data.bodyHtml,
+      created_by: userId,
+      organization_id: target,
+      audience: data.audience,
+      announcement_group_id: groupId,
+    }));
+
+    let { data: inserted, error } = await supabaseAdmin
       .from("announcements")
-      .insert(targets.map((target) => ({
-        title: data.title,
-        body_html: data.bodyHtml,
-        created_by: userId,
-        organization_id: target,
-        audience: data.audience,
-        announcement_group_id: groupId,
+      .insert(base.map((row) => ({
+        ...row,
+        status: data.status,
+        publish_at: data.publishAt ?? null,
+        expires_at: data.expiresAt ?? null,
+        target_roles: data.targetRoles,
+        target_upline_id: data.targetUplineId ?? null,
       })))
-      .select("id, organization_id");
+      .select("id, organization_id, status, publish_at, expires_at");
+
+    // Before 20260815010000 applies, PostgREST does not know these columns and
+    // rejects the whole insert. Posting must not break in that window — but
+    // quietly dropping a schedule or a targeting rule would publish
+    // immediately to everybody, which is the opposite of what was asked for
+    // and cannot be taken back. So: today's behaviour still works, and
+    // anything that needs the new columns says plainly that it cannot yet.
+    if (error && isMissingColumn(error)) {
+      const wantsNewBehaviour =
+        data.status !== "published" ||
+        Boolean(data.publishAt) ||
+        Boolean(data.expiresAt) ||
+        data.targetRoles.length > 0 ||
+        Boolean(data.targetUplineId);
+      if (wantsNewBehaviour) {
+        throw new Error(
+          "Scheduling, expiry and targeting aren't available on this database yet. " +
+          "You can post this to the whole agency now, or wait until the update is applied.",
+        );
+      }
+      ({ data: inserted, error } = await supabaseAdmin
+        .from("announcements").insert(base).select("id, organization_id"));
+    }
     if (error) throw new Error(error.message);
 
-    // Delivery is best-effort and deliberately non-fatal. The post is already
-    // persisted and readable; losing it because a webhook timed out would be a
-    // worse outcome than a post that reached one channel instead of three.
-    for (const row of inserted ?? []) {
-      await deliver({
-        announcementId: row.id,
-        orgId: row.organization_id,
+    // Every send is on the record, because "who told the whole agency that"
+    // is a question that gets asked afterwards and the post itself does not
+    // answer it — a deleted announcement leaves nothing at all.
+    await recordAnnouncementAudit({
+      orgId,
+      actorId: userId,
+      action: data.status === "published" ? "announcement.published" : "announcement.created",
+      announcementIds: (inserted ?? []).map((r: any) => r.id),
+      detail: {
         title: data.title,
-        bodyHtml: data.bodyHtml,
-        fromName: org?.name ?? "Your agency",
+        status: data.status,
+        audience: data.audience,
         channels,
-      }).catch((e: any) =>
-        console.error("[announcements] delivery failed:", e?.message));
+        publish_at: data.publishAt ?? null,
+        expires_at: data.expiresAt ?? null,
+        target_roles: data.targetRoles,
+        target_upline_id: data.targetUplineId ?? null,
+        agencies: targets.length,
+      },
+    });
+
+    // A draft goes nowhere, and a scheduled post goes nowhere yet. Delivering
+    // either immediately would make "schedule" mean "send now and pretend".
+    if (data.status === "published") {
+      // Delivery is best-effort and deliberately non-fatal. The post is
+      // already persisted and readable; losing it because a webhook timed out
+      // would be worse than a post that reached one channel instead of three.
+      for (const row of inserted ?? []) {
+        await deliver({
+          announcementId: row.id,
+          orgId: row.organization_id,
+          title: data.title,
+          bodyHtml: data.bodyHtml,
+          fromName: org?.name ?? "Your agency",
+          channels,
+        }).catch((e: any) =>
+          console.error("[announcements] delivery failed:", e?.message));
+      }
     }
 
     return { ok: true as const, count: (inserted ?? []).length, groupId };
   });
+
+/**
+ * Publish a draft, reschedule, or take a post down.
+ *
+ * Taking one down sets an expiry rather than deleting it. A delete destroys
+ * the only record that the message ever went out, which is exactly the thing
+ * somebody asks about three weeks later.
+ */
+const UpdateSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(ANNOUNCEMENT_STATUSES).optional(),
+  publishAt: z.string().nullable().optional(),
+  expiresAt: z.string().nullable().optional(),
+});
+
+export const updateAnnouncement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) throw new Error("You are not in an agency.");
+
+    const { data: before } = await supabaseAdmin
+      .from("announcements")
+      .select("*")
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!before) throw new Error("That announcement is not available to you.");
+
+    const { data: org } = await supabaseAdmin
+      .from("organizations").select("owner_id, name").eq("id", orgId).maybeSingle();
+    if (org?.owner_id !== userId) {
+      throw new Error("Only the agency owner can change an announcement.");
+    }
+
+    const next = {
+      status: data.status ?? before.status ?? "published",
+      publishAt: data.publishAt !== undefined ? data.publishAt : before.publish_at,
+      expiresAt: data.expiresAt !== undefined ? data.expiresAt : before.expires_at,
+    };
+    // Expiring something is the one case where a past date is the point.
+    const problem = data.expiresAt !== undefined && data.status === undefined
+      ? null
+      : validate(next as any);
+    if (problem) throw new Error(problem);
+
+    const patch: Record<string, unknown> = {};
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.publishAt !== undefined) patch.publish_at = data.publishAt;
+    if (data.expiresAt !== undefined) patch.expires_at = data.expiresAt;
+
+    // The whole group moves together, or a post sent to a parent and its
+    // children would be live in one agency and expired in another.
+    let q = supabaseAdmin.from("announcements").update(patch);
+    q = before.announcement_group_id
+      ? q.eq("announcement_group_id", before.announcement_group_id)
+      : q.eq("id", data.id);
+    const { data: touched, error } = await q.select("id");
+    if (error) throw new Error(error.message);
+
+    await recordAnnouncementAudit({
+      orgId,
+      actorId: userId,
+      action:
+        data.status === "published" ? "announcement.published"
+        : data.expiresAt !== undefined && data.status === undefined ? "announcement.expired"
+        : "announcement.updated",
+      announcementIds: (touched ?? []).map((r: any) => r.id),
+      detail: {
+        title: before.title,
+        previous: { status: before.status, publish_at: before.publish_at, expires_at: before.expires_at },
+        next: patch,
+      },
+    });
+
+    // A draft becoming published is the moment its channels are owed a send.
+    if (data.status === "published" && before.status !== "published") {
+      for (const row of touched ?? []) {
+        await deliver({
+          announcementId: row.id,
+          orgId,
+          title: before.title,
+          bodyHtml: before.body_html ?? "",
+          fromName: org?.name ?? "Your agency",
+          channels: normalizeChannels(["in_app"]),
+        }).catch((e: any) => console.error("[announcements] delivery failed:", e?.message));
+      }
+    }
+
+    return { ok: true as const, count: (touched ?? []).length };
+  });
+
+/**
+ * Send the channels for scheduled posts whose time has come.
+ *
+ * A scheduled announcement becomes readable in the app the instant its time
+ * passes, because visibility is derived rather than stored — nothing has to
+ * run. Email and Discord are the part that genuinely needs something to reach
+ * out, and this repository has no scheduler it can create: the one pg_cron job
+ * the product uses is applied through the Supabase Management API by an
+ * external tool and calls an Edge Function that does not live here.
+ *
+ * So this is called opportunistically, when an owner opens the announcements
+ * page. Safe to call as often as anybody likes: `announcement_deliveries`
+ * records every attempt and the email sender keeps an event-level idempotency
+ * key, so a second pass sends nothing twice.
+ *
+ * Being honest about the limit: delivery to Discord and email is punctual only
+ * to the extent that somebody visits. Pointing a cron at this is the follow-up,
+ * and it needs dashboard access this session does not have.
+ */
+export const dispatchDueAnnouncements = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) return { dispatched: 0 };
+
+    const { data: org } = await supabaseAdmin
+      .from("organizations").select("owner_id, name").eq("id", orgId).maybeSingle();
+    if (org?.owner_id !== userId) return { dispatched: 0 };
+
+    const { data: scheduled, error } = await supabaseAdmin
+      .from("announcements")
+      .select("*")
+      .eq("organization_id", orgId)
+      .eq("status", "scheduled")
+      .limit(50);
+    // Before the migration there is no `status` column and nothing is
+    // scheduled, so there is nothing to dispatch and nothing to report.
+    if (error) return { dispatched: 0 };
+
+    const ids = (scheduled ?? []).map((r: any) => r.id);
+    if (!ids.length) return { dispatched: 0 };
+
+    const { data: already } = await supabaseAdmin
+      .from("announcement_deliveries")
+      .select("announcement_id")
+      .in("announcement_id", ids);
+    const delivered = new Set<string>((already ?? []).map((d: any) => String(d.announcement_id)));
+
+    const due = dueForDispatch(scheduled as any[], delivered);
+    for (const row of due) {
+      await deliver({
+        announcementId: row.id,
+        orgId,
+        title: row.title,
+        bodyHtml: row.body_html ?? "",
+        fromName: org?.name ?? "Your agency",
+        channels: normalizeChannels(["in_app"]),
+      }).catch((e: any) => console.error("[announcements] dispatch failed:", e?.message));
+    }
+    return { dispatched: due.length };
+  });
+
+/**
+ * One row per agency the announcement went to.
+ *
+ * Reuses `contracting_audit_log`, which is the only audit table this schema
+ * has. Its `record_type` is what tells announcements apart from contracting
+ * rows, exactly as `contract_request` does in trail.server.ts. Swallowed, for
+ * the same reason every other audit write here is: the post has already been
+ * saved, and losing it over a log line would be the worse trade.
+ */
+async function recordAnnouncementAudit(input: {
+  orgId: string;
+  actorId: string;
+  action: string;
+  announcementIds: string[];
+  detail: Record<string, unknown>;
+}) {
+  try {
+    if (!input.announcementIds.length) return;
+    await supabaseAdmin.from("contracting_audit_log").insert(
+      input.announcementIds.map((id) => ({
+        organization_id: input.orgId,
+        actor_id: input.actorId,
+        action: input.action,
+        record_type: "announcement",
+        record_id: id,
+        new_value: input.detail,
+        metadata: {},
+      })),
+    );
+  } catch (err: any) {
+    console.error("[announcements] audit write failed:", err?.message);
+  }
+}
 
 /**
  * Fan one announcement out to the channels an agency asked for.
