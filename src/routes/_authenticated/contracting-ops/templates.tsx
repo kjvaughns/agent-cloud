@@ -4,6 +4,6 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 // now. The path stays for bookmarks.
 export const Route = createFileRoute("/_authenticated/contracting-ops/templates")({
   beforeLoad: () => {
-    throw redirect({ to: "/settings/templates" });
+    throw redirect({ to: "/settings/agency", search: { tab: "contracting" } as any });
   },
 });

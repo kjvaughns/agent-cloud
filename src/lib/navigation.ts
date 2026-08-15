@@ -280,9 +280,15 @@ export const PAGES: Page[] = [
   // and the contracting policy are set up occasionally by an owner and then
   // left alone, which is what Settings is for. The Contracting tab keeps the
   // daily work. The old /contracting-ops/* paths redirect.
-  { id: "carriers-setup", label: "Carriers", path: "/settings/carriers", icon: Building2, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
-  { id: "comp-grids-setup", label: "Comp Grids", path: "/settings/comp-grids", icon: Percent, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
-  { id: "agency-levels", label: "Levels & Positions", path: "/settings/levels", icon: Target, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  // …and Settings itself is now one page with tabs rather than ten rows. These
+  // entries keep their ids so the palette, the setup checklist and every
+  // existing link still find them by name — they just land on the tab that owns
+  // the concept instead of a page of its own. No `parent`, so the sidebar's
+  // Settings entry stays short.
+  { id: "carriers-setup", label: "Carriers", path: "/settings/agency?tab=carriers", icon: Building2, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "comp-grids-setup", label: "Comp Grids", path: "/settings/agency?tab=carriers", icon: Percent, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+  { id: "agency-levels", label: "Levels & Positions", path: "/settings/agency?tab=levels", icon: Target, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts" },
+
 
   // The rest of the back office. Every one of these pages already existed and
   // was reachable only by typing its URL or finding a tile on the overview —
@@ -291,39 +297,46 @@ export const PAGES: Page[] = [
   { id: "ops-licensing", label: "Licensing & PDB", path: "/contracting-ops/licensing", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "writing-numbers", label: "Writing numbers", path: "/contracting-ops/requests?tab=numbers", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "ops-import", label: "Import records", path: "/contracting-ops/import", icon: UploadCloud, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "contracting-templates", label: "Submission templates", path: "/settings/templates", icon: FileSignature, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "contracting-templates", label: "Submission templates", path: "/settings/agency?tab=contracting", icon: FileSignature, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   // Agency-level configuration rather than daily work, so it keeps the
   // administrator gate and takes no staff permission.
-  { id: "contracting-settings", label: "How contracting works", path: "/settings/contracting", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin", permission: "staff_is_admin" },
+  { id: "contracting-settings", label: "How contracting works", path: "/settings/agency?tab=contracting", icon: Settings, area: "Settings", unlock: "agency-admin", permission: "staff_is_admin" },
   // Only offered to an agency that actually has children — the gate keeps a
   // solo agency from seeing an empty tab about a concept it doesn't have.
-  { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", parent: "settings", unlock: "has-sub-agencies" },
+  { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", unlock: "has-sub-agencies" },
+
 
   // Updates
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
 
   // ── Settings ─────────────────────────────────────────────────────────────
-  // Yours, plus the workspace's if you run it. Agency is people; Settings is
-  // setup — which is the line that makes both of them short.
+  // Five rows, and one of them has eight tabs.
+  //
+  // This listed nineteen. Ten of them were agency configuration screens sitting
+  // at the same level as "Security" and "Nova Pro", and four of those ten were
+  // the same job split four ways — Carriers, Comp Grids, Levels & Positions and
+  // "How contracting works". An owner asking "where do I set up what a deal
+  // pays" had to read all nineteen and then guess. The configuration is one
+  // page with tabs now (`/settings/agency`); what stays here is the handful of
+  // things that are genuinely separate subjects.
   { id: "settings", label: "Settings", path: "/settings", icon: Settings, area: "Settings" },
-  { id: "notif-settings", label: "Notification settings", path: "/settings/notifications", icon: Megaphone, area: "Settings", parent: "settings" },
-  { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
-  { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings", staffPermission: "staff_nova_pro_enabled" },
-  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
-
   { id: "agency-settings", label: "Agency settings", path: "/settings/agency", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  { id: "agency-roles", label: "Roles & permissions", path: "/settings/roles", icon: ShieldCheck, area: "Settings", parent: "settings", unlock: "agency-admin" },
-  // Tabs of Agency settings now, not rows of their own. Kept in the registry
-  // so the palette still finds them by name and lands on the right tab.
+  { id: "security", label: "Security", path: "/settings/security", icon: ShieldCheck, area: "Settings", parent: "settings" },
+  { id: "billing", label: "Billing", path: "/settings/billing", icon: Wallet, area: "Settings", parent: "settings" },
+  { id: "nova-pro", label: "Nova Pro", path: "/settings/nova-pro", icon: Sparkles, area: "Settings", parent: "settings", staffPermission: "staff_nova_pro_enabled" },
+  // The support desk answers tickets, so the page itself is a tab in Help,
+  // beside them — but this is where somebody goes looking when something about
+  // their account is wrong, so the row stays in Settings.
+  { id: "support-desk", label: "Support desk", path: "/account/help?tab=desk", icon: LifeBuoy, area: "Settings", parent: "settings", unlock: "ticket-responder" },
+
+  // Tabs of Agency settings, not rows of their own. Kept in the registry so the
+  // command palette still finds them by the names people know them by, and
+  // lands on the tab that owns each one.
+  { id: "agency-roles", label: "Roles & permissions", path: "/settings/agency?tab=roles", icon: ShieldCheck, area: "Settings", unlock: "agency-admin" },
+  { id: "notif-settings", label: "Notification settings", path: "/settings/agency?tab=notifications", icon: Megaphone, area: "Settings" },
   { id: "agency-automations", label: "Automations", path: "/settings/agency?tab=automations", icon: Bot, area: "Settings", unlock: "agency-admin" },
-  { id: "agency-emails", label: "Emails", path: "/settings/agency?tab=emails", icon: Mail, area: "Settings", unlock: "agency-admin" },
   { id: "integrations", label: "Integrations", path: "/settings/agency?tab=integrations", icon: Bot, area: "Settings", unlock: "agency-admin" },
-  // White label is a plan, not a setting — it lives with the other things you
-  // pay for.
-  { id: "white-label", label: "White label", path: "/settings/billing?tab=white-label", icon: Palette, area: "Settings", unlock: "agency-admin" },
-  // The support desk answers tickets, so it sits with the tickets — a tab in
-  // Help rather than a row in Settings two sections away from them.
-  { id: "support-desk", label: "Support desk", path: "/account/help?tab=desk", icon: LifeBuoy, area: "Settings", unlock: "ticket-responder" },
+
   // Editing the handbook belongs with reading it. A button in the Resources
   // header, for the people who may.
   { id: "agency-resources", label: "Edit resources", path: "/resources/edit", icon: BookOpen, area: "Tools", unlock: "resource-editor" },
@@ -545,33 +558,15 @@ const HUBS: Record<string, HubGroup[]> = {
     { label: "", ids: ["import", "documents-tools", "resources", "quoter", "marketing"] },
   ],
 
-  // Was nine rows, nearly all of them a page that belonged inside something
-  // else. Emails, Automations and Integrations are tabs of Agency settings;
-  // White label is the upgrade it always was, inside Billing; the support desk
-  // sits in Help beside the tickets it answers; Edit resources lives with the
-  // resources it edits. What people use is gone.
-  // The six groups the product's settings actually divide into, named in
-  // `lib/settings/groups.ts`. This was one flat run of nineteen entries plus a
-  // "Your agency" heading, so Levels & Positions, Nova Pro and Security sat at
-  // the same level as each other and an owner looking for where compensation
-  // is configured had to read all nineteen.
-  //
-  // Contracting Setup is listed in the order the guided checklist walks it:
-  // carriers, positions, grids, then how contracting runs.
+  // Five rows now, in the order somebody needs them: set the agency up, then
+  // lock it down, then pay for it. The ten configuration screens that used to be
+  // listed here are tabs of Agency settings; grouping nineteen rows was an
+  // improvement on listing nineteen rows, but the rows themselves were the
+  // problem.
   settings: [
-    { label: "Agency Profile", ids: ["agency-settings", "white-label"] },
-    { label: "Team and Access", ids: ["agency-roles", "sub-agencies", "security"] },
-    {
-      label: "Contracting Setup",
-      ids: [
-        "carriers-setup", "agency-levels", "comp-grids-setup",
-        "contracting-settings", "contracting-templates",
-      ],
-    },
-    { label: "Communications", ids: ["notif-settings", "agency-emails"] },
-    { label: "Integrations", ids: ["integrations", "agency-automations"] },
-    { label: "Billing", ids: ["billing", "nova-pro", "support-desk"] },
+    { label: "", ids: ["agency-settings", "security", "billing", "nova-pro", "support-desk"] },
   ],
+
 };
 
 export function isHub(id: string): boolean {

@@ -1,25 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ManageGridsPage } from "@/components/contracting/manage-grids";
-import { ConfigPageGuard } from "@/components/settings/config-guard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-/** Settings ▸ Comp Grids — what each carrier pays, by level, by product. */
+// Comp Grids is no longer a page of its own: what a carrier pays is part of
+// setting that carrier up, so it renders under Agency settings ▸ Carriers.
 export const Route = createFileRoute("/_authenticated/settings/comp-grids")({
-  component: CompGridsSettingsPage,
-  head: () => ({ meta: [{ title: "Comp Grids | Settings | Agent Cloud" }] }),
+  beforeLoad: () => { throw redirect({ to: "/settings/agency", search: { tab: "carriers" } as any }); },
 });
-
-function CompGridsSettingsPage() {
-  return (
-    <ConfigPageGuard>
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">Comp Grids</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            What each carrier pays, by level and product. Every payout forecast reads these numbers.
-          </p>
-        </div>
-        <ManageGridsPage embedded />
-      </div>
-    </ConfigPageGuard>
-  );
-}

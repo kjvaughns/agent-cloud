@@ -30,50 +30,87 @@ function check(name: string, got: unknown, want: unknown) {
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const strip = (s: string) => s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-// ── One file per concept, mounted from Settings ─────────────────────────────
+// ── One file per concept, mounted as a tab of Agency settings ───────────────
+
+const AGENCY = read("src/routes/_authenticated/settings.agency.tsx");
 
 const CONCEPTS: [string, string, string, string][] = [
-  // [concept, component file, exported name, settings route file]
-  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "src/routes/_authenticated/settings.carriers.tsx"],
-  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "src/routes/_authenticated/settings.comp-grids.tsx"],
-  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "src/routes/_authenticated/settings.levels.tsx"],
-  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "src/routes/_authenticated/settings.contracting.tsx"],
-  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "src/routes/_authenticated/settings.templates.tsx"],
+  // [concept, component file, exported name, tab it renders under]
+  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "carriers"],
+  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "carriers"],
+  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "levels"],
+  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "contracting"],
+  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "contracting"],
+  ["roles & permissions", "src/components/agency-team-page.tsx", "AgencyTeamPage", "roles"],
+  ["notification prefs", "src/components/settings/notifications-panel.tsx", "NotificationsPanel", "notifications"],
+  ["integrations catalogue", "src/components/settings/integrations-catalog.tsx", "IntegrationsCatalog", "integrations"],
 ];
 
-for (const [concept, compFile, exported, routeFile] of CONCEPTS) {
+for (const [concept, compFile, exported, tab] of CONCEPTS) {
   const comp = read(compFile);
-  const route = read(routeFile);
   check(`${concept}: component exports ${exported}`, comp.includes(`export function ${exported}`), true);
   check(`${concept}: component declares no route`, /createFileRoute/.test(comp), false);
-  check(`${concept}: settings route mounts it`, route.includes(exported), true);
-  check(`${concept}: settings route is guarded`, /ConfigPageGuard/.test(route), true);
+  check(`${concept}: Agency settings mounts it`, AGENCY.includes(`<${exported}`), true);
+  check(`${concept}: its tab exists`, AGENCY.includes(`"${tab}"`), true);
 }
 
-// ── The old homes redirect, in one hop ──────────────────────────────────────
+// The eight tabs, in the order the work happens.
+check("Agency settings declares the eight tabs in order",
+  /"general",\s*\n\s*"roles",\s*\n\s*"levels",\s*\n\s*"carriers",\s*\n\s*"contracting",\s*\n\s*"notifications",\s*\n\s*"automations",\s*\n\s*"integrations",/.test(AGENCY),
+  true);
+check("the setup strip is above the tabs", /<AgencySetupProgress/.test(AGENCY), true);
+
+// ── The pages that became tabs redirect into them, in one hop ───────────────
+
+console.log("");
+
+const TAB_REDIRECTS: [string, string][] = [
+  ["src/routes/_authenticated/settings.carriers.tsx", "carriers"],
+  ["src/routes/_authenticated/settings.comp-grids.tsx", "carriers"],
+  ["src/routes/_authenticated/settings.levels.tsx", "levels"],
+  ["src/routes/_authenticated/settings.contracting.tsx", "contracting"],
+  ["src/routes/_authenticated/settings.templates.tsx", "contracting"],
+  ["src/routes/_authenticated/settings.notifications.tsx", "notifications"],
+  ["src/routes/_authenticated/settings.roles.tsx", "roles"],
+  ["src/routes/_authenticated/settings.automations.tsx", "automations"],
+  ["src/routes/_authenticated/settings.integrations.tsx", "integrations"],
+];
+for (const [file, tab] of TAB_REDIRECTS) {
+  const s = read(file);
+  check(`${file.split("/").pop()} → ?tab=${tab}`,
+    s.includes(`"/settings/agency"`) && s.includes(`tab: "${tab}"`) && /beforeLoad/.test(s), true);
+  check(`${file.split("/").pop()} renders nothing itself`, /component:/.test(s), false);
+}
+
+
+// ── The old ops homes land on the right tab, in one hop ─────────────────────
 
 console.log("");
 
 const REDIRECTS: [string, string, string][] = [
-  ["src/routes/_authenticated/contracting-ops/settings.tsx", "/settings/contracting", "ops contracting settings"],
-  ["src/routes/_authenticated/contracting-ops/templates.tsx", "/settings/templates", "ops templates"],
-  ["src/routes/_authenticated/contracting-ops/comp-grids.tsx", "/settings/comp-grids", "ops comp-grids"],
-  ["src/routes/_authenticated/contracting-ops/commission-levels.tsx", "/settings/levels", "ops commission-levels"],
-  ["src/routes/_authenticated/contracting.comp-grids-manage.tsx", "/settings/comp-grids", "comp-grids-manage"],
+  ["src/routes/_authenticated/contracting-ops/settings.tsx", "contracting", "ops contracting settings"],
+  ["src/routes/_authenticated/contracting-ops/templates.tsx", "contracting", "ops templates"],
+  ["src/routes/_authenticated/contracting-ops/comp-grids.tsx", "carriers", "ops comp-grids"],
+  ["src/routes/_authenticated/contracting-ops/commission-levels.tsx", "levels", "ops commission-levels"],
+  ["src/routes/_authenticated/contracting.comp-grids-manage.tsx", "carriers", "comp-grids-manage"],
 ];
-for (const [file, target, name] of REDIRECTS) {
+for (const [file, tab, name] of REDIRECTS) {
   const s = read(file);
-  check(`${name} redirects to ${target}`, s.includes(`"${target}"`) && /beforeLoad/.test(s), true);
-  check(`${name} does not hop through another stub`, /contracting-ops\/(carriers|compensation)/.test(strip(s)), false);
+  check(`${name} redirects to ?tab=${tab}`,
+    s.includes(`"/settings/agency"`) && s.includes(`tab: "${tab}"`) && /beforeLoad/.test(s), true);
+  // Two hops is how a link rots silently: the first stub keeps working while
+  // the second one's target moves.
+  check(`${name} does not hop through another stub`,
+    /"\/settings\/(carriers|levels|comp-grids|contracting|templates|roles|notifications)"/.test(strip(s)), false);
 }
 
-// The tabbed ones map their tab to the right home.
 const CARRIERS_STUB = read("src/routes/_authenticated/contracting-ops/carriers.tsx");
 check("ops carriers stub maps carriers/levels/grids tabs",
-  ["/settings/carriers", "/settings/levels", "/settings/comp-grids"].every((p) => CARRIERS_STUB.includes(`"${p}"`)), true);
+  CARRIERS_STUB.includes(`"/settings/agency"`) &&
+  ["carriers: \"carriers\"", "levels: \"levels\"", "grids: \"carriers\""].every((p) => CARRIERS_STUB.includes(p)), true);
 const COMPENSATION_STUB = read("src/routes/_authenticated/contracting-ops/compensation.tsx");
 check("compensation stub maps grids vs levels",
-  COMPENSATION_STUB.includes("/settings/comp-grids") && COMPENSATION_STUB.includes("/settings/levels"), true);
+  COMPENSATION_STUB.includes('"carriers" : "levels"'), true);
 
 // ── Nothing outside the stubs names the old homes ───────────────────────────
 
@@ -107,27 +144,30 @@ for (const site of LINK_SITES) {
   check(`${site} names no moved config path`, hits, []);
 }
 
-// ── The Settings hub lists the configuration in order ───────────────────────
+// ── Settings itself is five rows ────────────────────────────────────────────
 
 console.log("");
 
 const NAV = read("src/lib/navigation.ts");
-// The one "Your agency" run became the brief's six named groups. What must
-// stay true is that the contracting configuration screens are together and in
-// the order the guided checklist walks them.
-check("Settings hub carries the contracting configuration group",
-  /label: "Contracting Setup",\s*\n\s*ids: \[\s*\n\s*"carriers-setup", "agency-levels", "comp-grids-setup",\s*\n\s*"contracting-settings", "contracting-templates",/.test(NAV),
+check("Settings lists five rows and no groups",
+  /settings: \[\s*\n\s*\{ label: "", ids: \["agency-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\n\s*\],/.test(NAV),
   true);
 check("the ops hub is daily work only", /label: "Set up contracting"/.test(NAV), false);
-for (const [id, path] of [
-  ["carriers-setup", "/settings/carriers"],
-  ["comp-grids-setup", "/settings/comp-grids"],
-  ["agency-levels", "/settings/levels"],
-  ["contracting-settings", "/settings/contracting"],
-  ["contracting-templates", "/settings/templates"],
-] as const) {
-  check(`nav entry ${id} points at ${path}`, NAV.includes(`path: "${path}"`), true);
+// The configuration entries stay in the registry — the palette still knows
+// those names — but they resolve to a tab, and none of them is a sidebar child
+// of Settings any more.
+for (const id of [
+  "carriers-setup", "comp-grids-setup", "agency-levels",
+  "contracting-settings", "contracting-templates",
+  "agency-roles", "notif-settings", "agency-automations", "integrations",
+]) {
+  const line = NAV.split("\n").find((l) => l.includes(`id: "${id}"`)) ?? "";
+  check(`nav entry ${id} resolves to an Agency settings tab`, /path: "\/settings\/agency\?tab=/.test(line), true);
+  check(`nav entry ${id} is not a Settings sidebar row`, /parent: "settings"/.test(line), false);
 }
+check("White label is gone from navigation", /id: "white-label"/.test(NAV), false);
+check("the Emails page is gone from navigation", /id: "agency-emails"/.test(NAV), false);
+
 
 // ── The policy page finally renders its stored toggle ───────────────────────
 

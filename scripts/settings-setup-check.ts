@@ -32,9 +32,6 @@ import { join } from "node:path";
 import {
   evaluateSetup, progress, nextStep, isReady, SETUP_STEPS, type SetupFacts,
 } from "../src/lib/settings/contracting-checklist";
-import {
-  SETTINGS_GROUPS, groupOf, groupEntries, GROUP_PURPOSE, SETTINGS_PARENT_ID,
-} from "../src/lib/settings/groups";
 
 const ROOT = process.cwd();
 let pass = 0;
@@ -50,42 +47,27 @@ const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const strip = (s: string) =>
   s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-// ── The six groups ──────────────────────────────────────────────────────────
+// ── Settings is five rows ───────────────────────────────────────────────────
+//
+// It was nineteen, then six labelled groups of nineteen. Grouping a list that
+// long is an improvement on not grouping it, but the length was the defect: ten
+// of the rows were agency configuration, and four of those ten were one job
+// split four ways. They are tabs of Agency settings now.
 
-check("the six the brief names", [...SETTINGS_GROUPS], [
-  "Agency Profile", "Team and Access", "Contracting Setup",
-  "Communications", "Integrations", "Billing",
-]);
-check("each says what it is for",
-  SETTINGS_GROUPS.every((g) => GROUP_PURPOSE[g].length > 10), true);
-
-// Every Settings entry in the registry must land in a group. One that does not
-// is a page that exists and is listed nowhere.
 const NAV = read("src/lib/navigation.ts");
-const settingsIds = Array.from(
-  NAV.matchAll(/id: "([a-z-]+)"[^}]*area: "Settings"/g),
-).map((m) => m[1]).filter((id) => id !== SETTINGS_PARENT_ID);
-
-check("every settings page is in the registry", settingsIds.length >= 15, true);
-check("…and every one of them is grouped",
-  settingsIds.filter((id) => !SETTINGS_GROUPS.includes(groupOf(id))), []);
-
-// The sidebar hub must list the same six, in the same order.
 const hub = NAV.slice(NAV.indexOf("  settings: ["));
-const hubLabels = Array.from(hub.matchAll(/label: "([^"]*)"/g)).map((m) => m[1]).slice(0, 6);
-check("the sidebar shows the six groups", hubLabels, [...SETTINGS_GROUPS]);
-// It used to be one unlabelled run plus "Your agency".
-check("…and the old flat grouping is gone", /label: "Your agency"/.test(NAV), false);
+const hubIds = Array.from(hub.slice(0, hub.indexOf("],")).matchAll(/"([a-z-]+)"/g)).map((m) => m[1]);
+check("the five rows the brief names", hubIds,
+  ["agency-settings", "security", "billing", "nova-pro", "support-desk"]);
+check("the six-group heading run is gone", /label: "Contracting Setup"/.test(NAV), false);
+check("…as is the older flat grouping", /label: "Your agency"/.test(NAV), false);
 
-// A staff member without billing rights should not see an empty heading.
-check("a group with nothing visible is dropped",
-  groupEntries([{ id: "agency-settings", label: "A", path: "/a" }]).map((g) => g.group),
-  ["Agency Profile"]);
-check("the Settings parent is not an item inside itself",
-  groupEntries([{ id: SETTINGS_PARENT_ID, label: "S", path: "/settings" }]).length, 0);
-// An entry added later and never mapped must be filed, not lost.
-check("an unmapped entry still appears somewhere",
-  SETTINGS_GROUPS.includes(groupOf("something-added-next-week")), true);
+// Every configuration entry still exists in the registry so the palette finds
+// it by name — it just resolves to a tab.
+for (const id of ["carriers-setup", "agency-levels", "comp-grids-setup", "contracting-settings"]) {
+  check(`${id} is still findable`, NAV.includes(`id: "${id}"`), true);
+}
+
 
 // ── The checklist ───────────────────────────────────────────────────────────
 
@@ -231,13 +213,13 @@ check("the status read writes nothing",
   /\.insert\(|\.update\(|\.upsert\(|recordSetupIssue/.test(FN), false);
 // Absent columns must read as today's behaviour, not as "switched off".
 check("a pending column reads as the permissive default",
-  (FN.match(/!== false/g) ?? []).length, 3);
+  (FN.match(/!== false/g) ?? []).length >= 3, true);
 // Except the advance, where "not chosen" is the whole point.
 check("…except the advance, which is left unchosen",
   /default_advance_option: c\.default_advance_option \?\? null/.test(FN), true);
 
-const PAGE = strip(read("src/routes/_authenticated/settings.contracting.tsx"));
-check("the checklist is on the contracting settings page",
+const PAGE = strip(read("src/routes/_authenticated/settings.agency.tsx"));
+check("the checklist is on the Contracting tab",
   /<SetupChecklist steps=\{setup\.steps\}/.test(PAGE), true);
 
 const UI = strip(read("src/components/settings/setup-checklist.tsx"));

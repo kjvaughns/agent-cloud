@@ -1,25 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { LevelsPanel } from "@/components/contracting/levels-panel";
-import { ConfigPageGuard } from "@/components/settings/config-guard";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-/** Settings ▸ Levels & Positions — the agency's promotion ladder. */
+// The ladder is a tab of Agency settings now, listed before Carriers because
+// carrier levels get mapped onto it.
 export const Route = createFileRoute("/_authenticated/settings/levels")({
-  component: LevelsSettingsPage,
-  head: () => ({ meta: [{ title: "Levels & Positions | Settings | Agent Cloud" }] }),
+  beforeLoad: () => { throw redirect({ to: "/settings/agency", search: { tab: "levels" } as any }); },
 });
-
-function LevelsSettingsPage() {
-  return (
-    <ConfigPageGuard>
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground">Levels &amp; Positions</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Your ladder — one simple list used for invites, promotions, and permissions.
-          </p>
-        </div>
-        <LevelsPanel />
-      </div>
-    </ConfigPageGuard>
-  );
-}
