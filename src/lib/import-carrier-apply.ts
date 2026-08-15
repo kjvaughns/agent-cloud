@@ -125,78 +125,73 @@ export async function applyAgentDebt(
   let agentId: string | null = null;
   if (email) {
     const { data } = await supabase
-      .from("profiles").select("id").eq("email", email).maybeSingle();
+      .from("profiles").select("id").ilike("email", email).limit(1).maybeSingle();
     agentId = data?.id ?? null;
   }
   if (!agentId && npn) {
     const { data } = await supabase
-      .from("profiles").select("id").eq("npn", npn).maybeSingle();
+      .from("profiles").select("id").eq("npn_number", npn).limit(1).maybeSingle();
     agentId = data?.id ?? null;
   }
 
   const carrierId = await resolveCarrierId(supabase, payload.carrier_name);
 
-  const { data: row, error } = await supabase
-    .from("agent_debt_balances")
-    .upsert(
-      {
-        organization_id: orgId,
-        agent_id: agentId,
-        agent_name: payload.agent_name,
-        agent_number: payload.agent_number ?? null,
-        agent_email: payload.agent_email ?? null,
-        npn: payload.npn ?? null,
-        upline_name: payload.upline_name ?? null,
-        commission_level: payload.commission_level ?? null,
-        carrier_id: carrierId,
-        carrier_name: payload.carrier_name ?? null,
-        balance: Number(payload.balance ?? 0),
-        unsecured_advance: payload.unsecured_advance ?? null,
-        unpaid_commission: payload.unpaid_commission ?? null,
-        age_of_debt: payload.age_of_debt ?? null,
-        pending_policies: payload.pending_policies ?? null,
-        agent_status: payload.agent_status ?? null,
-        source_line: payload.source_line ?? null,
-        as_of_date: payload.as_of_date ?? null,
-        source_document_id: payload.source_document_id ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      // Matches the unique index: same agent, same carrier, same report date is
-      // the same fact stated twice.
-      { onConflict: "organization_id,agent_name,carrier_name,as_of_date", ignoreDuplicates: false },
-    )
-    .select("id")
-    .single();
+  const fields = {
+    organization_id: orgId,
+    agent_id: agentId,
+    agent_name: payload.agent_name,
+    agent_number: payload.agent_number ?? null,
+    agent_email: payload.agent_email ?? null,
+    npn: payload.npn ?? null,
+    upline_name: payload.upline_name ?? null,
+    commission_level: payload.commission_level ?? null,
+    carrier_id: carrierId,
+    carrier_name: payload.carrier_name ?? null,
+    balance: Number(payload.balance ?? 0),
+    unsecured_advance: payload.unsecured_advance ?? null,
+    unpaid_commission: payload.unpaid_commission ?? null,
+    age_of_debt: payload.age_of_debt ?? null,
+    pending_policies: payload.pending_policies ?? null,
+    agent_status: payload.agent_status ?? null,
+    source_line: payload.source_line ?? null,
+    as_of_date: payload.as_of_date ?? null,
+    source_document_id: payload.source_document_id ?? null,
+  };
 
-  if (error) {
-    // The index is on lowered/coalesced expressions, which PostgREST cannot
-    // name in `onConflict`. When it refuses the upsert, fall back to finding
-    // the existing row and updating it — the outcome the upsert wanted.
-    const { data: existing } = await supabase
+  /*
+    Find, then write — rather than an upsert.
+
+    The unique index is on lowered and coalesced expressions, which PostgREST
+    cannot name in `onConflict`, so an upsert here fails on the constraint it is
+    trying to respect. Matching the same three things the index does keeps the
+    behaviour identical without asking the API to do something it cannot.
+  */
+  let q = supabase
+    .from("agent_debt_balances")
+    .select("id")
+    .eq("organization_id", orgId)
+    .ilike("agent_name", payload.agent_name);
+  q = payload.carrier_name
+    ? q.ilike("carrier_name", payload.carrier_name)
+    : q.is("carrier_name", null);
+  q = payload.as_of_date ? q.eq("as_of_date", payload.as_of_date) : q.is("as_of_date", null);
+
+  const { data: existing } = await q.limit(1).maybeSingle();
+
+  if (existing?.id) {
+    const { error } = await supabase
       .from("agent_debt_balances")
-      .select("id")
-      .eq("organization_id", orgId)
-      .ilike("agent_name", payload.agent_name)
-      .limit(1)
-      .maybeSingle();
-    if (!existing) throw new Error(error.message);
-    const { error: updErr } = await supabase
-      .from("agent_debt_balances")
-      .update({
-        balance: Number(payload.balance ?? 0),
-        unsecured_advance: payload.unsecured_advance ?? null,
-        unpaid_commission: payload.unpaid_commission ?? null,
-        age_of_debt: payload.age_of_debt ?? null,
-        pending_policies: payload.pending_policies ?? null,
-        agent_status: payload.agent_status ?? null,
-        as_of_date: payload.as_of_date ?? null,
-        agent_id: agentId,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ ...fields, updated_at: new Date().toISOString() })
       .eq("id", existing.id);
-    if (updErr) throw new Error(updErr.message);
+    if (error) throw new Error(error.message);
     return existing.id as string;
   }
 
+  const { data: row, error } = await supabase
+    .from("agent_debt_balances")
+    .insert(fields)
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
   return row.id as string;
 }
