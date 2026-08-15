@@ -23,12 +23,13 @@
  * Everything is deterministic and free. No model is consulted.
  */
 
-import { readDocument, type SheetBlock } from "./sheet-shape";
+import { readDocument, carrierFromLabel, type SheetBlock } from "./sheet-shape";
 import { resolveKind, KIND_LABEL, type ImportKind } from "./import-router";
 import {
   clientsFromBlock, rosterFromBlock, contractingRowsFromBlock, notesFromBlock,
   type ExtractedClient, type ExtractedNote,
 } from "./import-extract-rows";
+import { certificatesFromBlock, debtFromBlock, statementLinesFromBlock } from "./import-carrier-reports";
 import type { CarrierRecord } from "./carrier-match";
 
 /** One stream of rows to reconcile, and what it came from. */
@@ -139,6 +140,9 @@ export function planWorkbook(
   const rosterBlocks: SheetBlock[] = [];
   const writingBlocks: SheetBlock[] = [];
   const licenseBlocks: SheetBlock[] = [];
+  const certBlocks: SheetBlock[] = [];
+  const debtBlocks: SheetBlock[] = [];
+  const statementBlocks: SheetBlock[] = [];
   const otherKinds: ImportKind[] = [];
 
   for (const b of blocks) {
@@ -162,6 +166,13 @@ export function planWorkbook(
       case "agent_roster": rosterBlocks.push(b); break;
       case "writing_numbers": writingBlocks.push(b); break;
       case "state_licenses": licenseBlocks.push(b); break;
+      // A certificate listing is a book of business written by the carrier, so
+      // it joins the client stream rather than becoming a parallel one: the
+      // policies in it are the same policies the CRM export describes, and
+      // keeping them apart is how the same sale gets counted twice.
+      case "policy_status_report": certBlocks.push(b); break;
+      case "agent_debt": debtBlocks.push(b); break;
+      case "commission_statement": statementBlocks.push(b); break;
       default: otherKinds.push(guess.kind);
     }
   }
@@ -172,8 +183,29 @@ export function planWorkbook(
   const contributing: string[] = [];
   let policiesJoined = 0;
 
-  for (const b of clientBlocks) {
-    const rows = clientsFromBlock(b, carriers);
+  /*
+    Carrier certificate tabs are read as clients too.
+
+    A certificate row names the insured and the policy, so it produces the same
+    record shape a book-of-business row does — which means the merge below joins
+    a carrier's copy of a policy onto the client the CRM export described,
+    instead of creating a second Sheryl Smith holding a duplicate certificate.
+  */
+  const clientLike: { block: SheetBlock; rows: ExtractedClient[] }[] = [
+    ...clientBlocks.map((b) => ({ block: b, rows: clientsFromBlock(b, carriers) })),
+    ...certBlocks.map((b) => ({
+      block: b,
+      rows: certificatesFromBlock(
+        b,
+        // The tab or file name is the only place a carrier report says whose
+        // report it is, and `carrierFromLabel` returns nothing rather than a
+        // guess — a wrongly stamped carrier is written across every row.
+        carrierFromLabel(b.label ?? note, carriers)?.cleaned ?? null,
+      ) as ExtractedClient[],
+    })),
+  ];
+
+  for (const { block: b, rows } of clientLike) {
     if (rows.length) contributing.push(b.label ?? "sheet");
     for (const r of rows) {
       const phone = digits10(r.phone);
@@ -246,6 +278,32 @@ export function planWorkbook(
   for (const b of licenseBlocks) {
     const rows = contractingRowsFromBlock(b, "licenses");
     if (rows.length) streams.push({ kind: "state_licenses", rows, sheetLabel: b.label ?? "Licenses" });
+  }
+
+  for (const b of debtBlocks) {
+    const rows = debtFromBlock(b);
+    if (rows.length) streams.push({ kind: "agent_debt", rows, sheetLabel: b.label ?? "Agent debt" });
+  }
+  /*
+    A statement is one record, not a row per line.
+
+    Its lines only mean anything under the header they were paid against — a
+    period, a carrier and a stated total — so the whole tab becomes a single
+    proposal carrying its lines, and approving it creates one statement the
+    existing reconciliation screen can work through.
+  */
+  for (const b of statementBlocks) {
+    const lines = statementLinesFromBlock(b);
+    if (!lines.length) continue;
+    streams.push({
+      kind: "commission_statement",
+      rows: [{
+        carrier_name: carrierFromLabel(b.label ?? note, carriers)?.cleaned ?? null,
+        file_name: b.label ?? null,
+        lines,
+      }],
+      sheetLabel: b.label ?? "Commission statement",
+    });
   }
 
   return { sheets, streams, notesJoined, notesOrphaned, policiesJoined };

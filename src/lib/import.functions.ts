@@ -7,6 +7,7 @@ import { buildMatchIndex, classifyClient, policyExists, policyOnFile, rowKey, me
 import { saveClientFullRecord, resolveCarrierId, upsertPendingAgent, resolveAgentOwners } from "@/lib/import-helpers";
 import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
 import { runContractingImport } from "@/lib/contracting-import.functions";
+import { applyStatementImport, applyAgentDebt } from "@/lib/import-carrier-apply";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -958,6 +959,15 @@ export const applyProposals = createServerFn({ method: "POST" })
           // success — the worst kind of half-undo, because the person believes
           // it worked.
           ref = res.pendingAgentId ?? null;
+        } else if (p.target_table === "commission_statements") {
+          // Statements land unmatched on purpose. Reconciliation is its own
+          // screen with a human applying the matches; pairing a paid amount to
+          // a policy at import time is a guess nobody approved.
+          const orgId = await requireOrgId(supabase, userId);
+          ref = await applyStatementImport(supabase, userId, orgId, p.payload ?? {});
+        } else if (p.target_table === "agent_debt_balances") {
+          const orgId = await requireOrgId(supabase, userId);
+          ref = await applyAgentDebt(supabase, orgId, p.payload ?? {});
         } else if (CONTRACTING_TABLES[p.target_table]) {
           // Straight through to the contracting importer, which owns the
           // permission check, the agent and carrier resolution, and the rule

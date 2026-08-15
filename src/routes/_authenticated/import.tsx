@@ -30,6 +30,12 @@ import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } 
 import { readDocument } from "@/lib/sheet-shape";
 import { MigrationGuide } from "@/components/import/migration-guide";
 import { planWorkbook, describePlan } from "@/lib/import-workbook";
+import {
+  certificatesFromDocument, debtFromDocument, statementLinesFromDocument, splitName,
+} from "@/lib/import-carrier-reports";
+import { normalizePolicyStatus } from "@/lib/import-normalize";
+import { extractCarrierReport } from "@/lib/import-carrier-reports.functions";
+import { carrierFromLabel } from "@/lib/sheet-shape";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -71,6 +77,8 @@ const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   writing_numbers: IdCard,
   state_licenses: ScrollText,
   policy_status_report: Table2,
+  agent_debt: Table2,
+  agent_debt_balances: Table2,
 };
 
 /**
@@ -105,6 +113,7 @@ function ImportPage() {
   const extractGridFn = useServerFn(extractGrid);
   const carrierIndexFn = useServerFn(listCarrierIndex);
   const markParentFn = useServerFn(markWorkbookParent);
+  const carrierReportFn = useServerFn(extractCarrierReport);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
@@ -325,10 +334,11 @@ function ImportPage() {
         : [];
     } else if (kind === "agent_roster") {
       rows = doc.text ? rosterFromDocument(doc.text) : [];
+    } else if (
+      kind === "policy_status_report" || kind === "agent_debt" || kind === "commission_statement"
+    ) {
+      rows = await carrierReportRows(kind, doc, file);
     } else {
-      // Commission statements and policy status reports are classified and
-      // listed; they route to `createStatement` and `applyCarrierSync`, both of
-      // which already have their own screens.
       return;
     }
 
@@ -353,6 +363,96 @@ function ImportPage() {
     }
 
     await sendRows(id, kind, rows, file.name);
+  }
+
+  /**
+   * The three reports a carrier sends, read whichever way the file allows.
+   *
+   * A spreadsheet export has columns, so it is read for free and exactly. A PDF
+   * printed from the carrier's admin system does not: its text layer comes out as
+   * one column of words with the table gone, so an amount cannot be tied to the
+   * agent it was printed beside. Those pages go to the model as images, where the
+   * layout is still visible — the same reason comp grids do.
+   *
+   * Deterministic first, always. The model is the fallback, not the default.
+   */
+  async function carrierReportRows(
+    kind: ImportKind,
+    doc: ExtractedDoc,
+    file: File,
+  ): Promise<Record<string, any>[]> {
+    // The carrier is usually only named in the filename on these reports.
+    const carrierName = carrierFromLabel(file.name, carriers)?.cleaned ?? null;
+
+    if (doc.text) {
+      if (kind === "policy_status_report") {
+        const rows = certificatesFromDocument(doc.text, carrierName);
+        if (rows.length) return rows;
+      } else if (kind === "agent_debt") {
+        const rows = debtFromDocument(doc.text);
+        if (rows.length) return rows;
+      } else {
+        const lines = statementLinesFromDocument(doc.text);
+        if (lines.length) {
+          return [{ carrier_name: carrierName, file_name: file.name, lines }];
+        }
+      }
+    }
+
+    const pages = doc.images.length
+      ? doc.images
+      : (await extractDocument(file, { prefer: "image", maxPages: 12 })).images;
+    if (!pages.length) return [];
+
+    const out: any = await carrierReportFn({
+      data: { images: pages, file_name: file.name, expected_kind: kind },
+    });
+
+    if (out?.dropped) {
+      toast.warning(
+        `${file.name}: ${out.dropped} row${out.dropped === 1 ? "" : "s"} weren't legible enough to import.`,
+      );
+    }
+
+    const readCarrier = out?.carrier_name ?? carrierName;
+
+    if (kind === "agent_debt") {
+      return (out?.debts ?? []).map((d: any) => ({ ...d, carrier_name: d.carrier_name ?? readCarrier }));
+    }
+    if (kind === "commission_statement") {
+      if (!out?.lines?.length) return [];
+      return [{
+        carrier_name: readCarrier,
+        file_name: file.name,
+        statement_date: out.statement?.statement_date ?? null,
+        period_start: out.statement?.period_start ?? null,
+        period_end: out.statement?.period_end ?? null,
+        stated_total: out.statement?.stated_total ?? null,
+        lines: out.lines,
+      }];
+    }
+    // Certificates become client records, so a carrier's copy of a policy lands
+    // on the client already on file instead of a second copy of the person.
+    return (out?.certificates ?? []).map((c: any) => {
+      const { first_name, last_name } = splitName(String(c.insured_name ?? ""));
+      return {
+        first_name,
+        last_name,
+        stage_raw: "sold",
+        policies: [{
+          policy_number: c.policy_number,
+          carrier_name: readCarrier,
+          product: c.product ?? null,
+          effective_date: c.effective_date ?? null,
+          // The carrier's own wording, mapped by the same table the
+          // spreadsheet path uses — never coerced to "active" on a guess.
+          status: normalizePolicyStatus(c.status_text ?? "") ?? null,
+          status_raw: c.status_text ?? null,
+          face_amount: c.face_amount ?? null,
+          monthly_premium: c.monthly_premium ?? null,
+        }],
+      };
+    });
   }
 
   /** Chunked reconcile. Shared by the per-sheet path and the single-file path. */
