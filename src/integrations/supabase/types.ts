@@ -6738,6 +6738,8 @@ export type Database = {
           premium_mode: string | null
           product: string | null
           production_date: string
+          production_date_set_at: string | null
+          production_date_set_by: string | null
           status: Database["public"]["Enums"]["policy_status"]
           sync_source: string | null
         }
@@ -6761,6 +6763,8 @@ export type Database = {
           premium_mode?: string | null
           product?: string | null
           production_date: string
+          production_date_set_at?: string | null
+          production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -6784,6 +6788,8 @@ export type Database = {
           premium_mode?: string | null
           product?: string | null
           production_date?: string
+          production_date_set_at?: string | null
+          production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -6814,6 +6820,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policies_production_date_set_by_fkey"
+            columns: ["production_date_set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

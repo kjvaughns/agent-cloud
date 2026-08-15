@@ -13,6 +13,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { productsForCarrier } from "@/lib/products";
+import { saleMonthLabel, todaySaleDate } from "@/lib/sale-date";
 import { getCarrierDealOptions } from "@/lib/compensation/deal-pricing.server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +61,7 @@ type FormData = {
   product: string;
   policy_number: string;
   effective_date: string;
+  sale_date: string;
   face_amount: string;
   monthly_premium: string;
   status: "issued_not_paid" | "in_review";
@@ -106,6 +108,9 @@ function PostDealPage() {
       product: "",
       policy_number: "",
       effective_date: "",
+      // Defaults to today, so the common case — a deal written today — needs no
+      // thought and behaves exactly as it always has.
+      sale_date: todaySaleDate(),
       face_amount: "",
       monthly_premium: "",
       status: "issued_not_paid",
@@ -263,6 +268,7 @@ function PostDealPage() {
             product: d.product,
             policy_number: d.policy_number,
             effective_date: d.effective_date,
+            sale_date: d.sale_date,
             face_amount: Number(d.face_amount || 0),
             monthly_premium: Number(d.monthly_premium || 0),
             status: d.status,
@@ -521,6 +527,21 @@ function PostDealPage() {
               <div>
                 <Label>Effective Date *</Label>
                 <Input type="date" {...register("effective_date", { required: true })} />
+              </div>
+              <div>
+                <Label>Sale Date *</Label>
+                {/* Capped at today: production cannot be claimed forward, and
+                    the database rejects it anyway. */}
+                <Input
+                  type="date"
+                  max={todaySaleDate()}
+                  {...register("sale_date", { required: true })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {watch("sale_date") === todaySaleDate()
+                    ? "Counts toward this month. Change it to log an older sale."
+                    : `Counts toward ${saleMonthLabel(watch("sale_date"))} on production and the leaderboard.`}
+                </p>
               </div>
               <div>
                 <Label>Face Amount *</Label>

@@ -33,6 +33,7 @@ import {
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
+import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
 import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
@@ -997,7 +998,7 @@ function PolicyFields({ detail }: { detail: any }) {
 function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client: any; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
   const qc = useQueryClient();
   const clientId = client.id as string;
-  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
+  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "", sale_date: todaySaleDate() });
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
@@ -1023,6 +1024,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         product: form.product,
         policy_number: form.policy_number,
         effective_date: form.effective_date,
+        sale_date: form.sale_date,
         face_amount: form.face_amount ? Number(form.face_amount) : 0,
         monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : 0,
         status: "issued_not_paid" as const,
@@ -1083,6 +1085,14 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         <Field label="Effective Date">
           <Input type="date" value={form.effective_date} onChange={e => setForm(f => ({...f, effective_date: e.target.value}))} />
         </Field>
+        <Field label="Sale Date">
+          {/* Defaults to today; capped there. Backdate it and the deal counts
+              in the month it was written, on production and the leaderboard. */}
+          <Input type="date" max={todaySaleDate()} value={form.sale_date} onChange={e => setForm(f => ({...f, sale_date: e.target.value}))} />
+          {form.sale_date && form.sale_date !== todaySaleDate() && (
+            <p className="mt-1 text-xs text-muted-foreground">Counts toward {saleMonthLabel(form.sale_date)}.</p>
+          )}
+        </Field>
         <Field label="Face Amount">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
@@ -1127,6 +1137,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
     monthly_premium: pol.monthly_premium != null ? String(pol.monthly_premium) : "",
     face_amount: pol.face_amount != null ? String(pol.face_amount) : "",
     effective_date: pol.effective_date ?? "",
+    sale_date: timestampToSaleDate(pol.production_date),
   });
 
   const listCarriersFn = useServerFn(listCarriers);
@@ -1148,12 +1159,22 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
       face_amount: form.face_amount ? Number(form.face_amount) : null,
       effective_date: form.effective_date || null,
+      sale_date: form.sale_date || null,
     }}),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
       qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      toast.success("Policy updated");
+      // Moving the sale date moves production, the leaderboard and the
+      // commission schedule with it, so those views must not keep stale numbers.
+      if (res?.saleDateChanged) {
+        qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+        qc.invalidateQueries({ queryKey: ["leaderboard"] });
+        qc.invalidateQueries({ queryKey: ["finances"] });
+        toast.success(`Policy updated — now counts toward ${saleMonthLabel(form.sale_date)}`);
+      } else {
+        toast.success("Policy updated");
+      }
       setEditing(false);
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to update policy"),
@@ -1181,6 +1202,9 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <div><span className="font-medium text-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
           <div><span className="font-medium text-foreground">Annual:</span> {money(pol.annual_premium)}</div>
           <div><span className="font-medium text-foreground">Effective:</span> {pol.effective_date ?? "—"}</div>
+          {/* Which month this deal counts in — the number agents reconcile
+              against their production and the leaderboard. */}
+          <div><span className="font-medium text-foreground">Sold:</span> {timestampToSaleDate(pol.production_date) || "—"}</div>
           {/* An em dash when nothing is on file — never a default day, which
               would read as "it drafts on the 1st". */}
           <div className="col-span-2">
@@ -1226,6 +1250,13 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
         <div>
           <Label className="text-xs mb-1 block">Effective Date</Label>
           <Input type="date" className="h-8 text-xs" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
+        </div>
+        <div>
+          <Label className="text-xs mb-1 block">Sale Date</Label>
+          {/* Editable so an imported or mis-dated policy can be moved into the
+              month it was written; the commission schedule is rebuilt with it. */}
+          <Input type="date" max={todaySaleDate()} className="h-8 text-xs" value={form.sale_date} onChange={e => setForm(f => ({ ...f, sale_date: e.target.value }))} />
+          <p className="mt-1 text-[10px] text-muted-foreground">Counts toward {saleMonthLabel(form.sale_date)}</p>
         </div>
         <div>
           <Label className="text-xs mb-1 block">Monthly Premium</Label>
