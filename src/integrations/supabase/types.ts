@@ -4131,6 +4131,7 @@ export type Database = {
       }
       discord_deliveries: {
         Row: {
+          attempt: number
           created_at: string
           error: string | null
           event_type: string
@@ -4139,9 +4140,11 @@ export type Database = {
           integration_id: string | null
           organization_id: string | null
           policy_id: string | null
+          skip_reason: string | null
           status: string
         }
         Insert: {
+          attempt?: number
           created_at?: string
           error?: string | null
           event_type: string
@@ -4150,9 +4153,11 @@ export type Database = {
           integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
+          skip_reason?: string | null
           status?: string
         }
         Update: {
+          attempt?: number
           created_at?: string
           error?: string | null
           event_type?: string
@@ -4161,6 +4166,7 @@ export type Database = {
           integration_id?: string | null
           organization_id?: string | null
           policy_id?: string | null
+          skip_reason?: string | null
           status?: string
         }
         Relationships: [
@@ -4190,6 +4196,7 @@ export type Database = {
       discord_integrations: {
         Row: {
           channel_label: string | null
+          consecutive_failures: number
           created_at: string
           created_by: string | null
           enabled: boolean
@@ -4198,6 +4205,8 @@ export type Database = {
           last_error_at: string | null
           last_success_at: string | null
           min_annual_premium: number
+          name: string
+          next_retry_at: string | null
           organization_id: string
           post_announcements: boolean
           post_deals: boolean
@@ -4208,6 +4217,7 @@ export type Database = {
         }
         Insert: {
           channel_label?: string | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           enabled?: boolean
@@ -4216,6 +4226,8 @@ export type Database = {
           last_error_at?: string | null
           last_success_at?: string | null
           min_annual_premium?: number
+          name?: string
+          next_retry_at?: string | null
           organization_id: string
           post_announcements?: boolean
           post_deals?: boolean
@@ -4226,6 +4238,7 @@ export type Database = {
         }
         Update: {
           channel_label?: string | null
+          consecutive_failures?: number
           created_at?: string
           created_by?: string | null
           enabled?: boolean
@@ -4234,6 +4247,8 @@ export type Database = {
           last_error_at?: string | null
           last_success_at?: string | null
           min_annual_premium?: number
+          name?: string
+          next_retry_at?: string | null
           organization_id?: string
           post_announcements?: boolean
           post_deals?: boolean
