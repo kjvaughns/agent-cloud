@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { draftSummary } from "@/lib/deals/social-security";
+import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -587,6 +587,106 @@ function luhnValid(num: string): boolean {
   return sum % 10 === 0;
 }
 
+// ============ Draft Date (day of month, or the Social Security Wednesday) ============
+/**
+ * Most clients draft on a calendar day. Social Security recipients are paid on
+ * the 2nd, 3rd, or 4th Wednesday, and drafting on a fixed day either misses the
+ * deposit or bounces — so the schedule itself is what gets recorded, and the
+ * calendar day is derived for the current month.
+ */
+function DraftDateField({
+  form,
+  setForm,
+  saveMany,
+  dob,
+}: {
+  form: Record<string, any>;
+  setForm: (fn: (f: Record<string, any>) => Record<string, any>) => void;
+  saveMany: (patch: Record<string, any>) => void;
+  dob?: string | null;
+}) {
+  const schedule: "day_of_month" | "ss_wednesday" =
+    form.draft_schedule === "ss_wednesday" ? "ss_wednesday" : "day_of_month";
+  const suggested = ssPayWeekFromDob(dob ?? null);
+
+  const setSchedule = (next: "day_of_month" | "ss_wednesday") => {
+    if (next === "ss_wednesday") {
+      const week = (form.draft_wednesday as 2 | 3 | 4 | undefined) ?? suggested ?? 3;
+      const now = new Date();
+      const patch = {
+        draft_schedule: "ss_wednesday",
+        draft_wednesday: week,
+        draft_date: nthWednesday(now.getUTCFullYear(), now.getUTCMonth(), week),
+      };
+      setForm(f => ({ ...f, ...patch }));
+      saveMany(patch);
+    } else {
+      const patch = { draft_schedule: "day_of_month", draft_wednesday: null };
+      setForm(f => ({ ...f, ...patch }));
+      saveMany(patch);
+    }
+  };
+
+  const setWeek = (week: 2 | 3 | 4) => {
+    const now = new Date();
+    const patch = {
+      draft_schedule: "ss_wednesday",
+      draft_wednesday: week,
+      draft_date: nthWednesday(now.getUTCFullYear(), now.getUTCMonth(), week),
+    };
+    setForm(f => ({ ...f, ...patch }));
+    saveMany(patch);
+  };
+
+  return (
+    <>
+      <Field label="Draft Schedule">
+        <Select value={schedule} onValueChange={v => setSchedule(v as "day_of_month" | "ss_wednesday")}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="day_of_month">Day of month</SelectItem>
+            <SelectItem value="ss_wednesday">Social Security (Wednesday)</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {schedule === "ss_wednesday" ? (
+        <Field label="Social Security Payday">
+          <Select
+            value={form.draft_wednesday ? String(form.draft_wednesday) : ""}
+            onValueChange={v => setWeek(Number(v) as 2 | 3 | 4)}
+          >
+            <SelectTrigger><SelectValue placeholder="Select Wednesday" /></SelectTrigger>
+            <SelectContent>
+              {([2, 3, 4] as const).map(w => (
+                <SelectItem key={w} value={String(w)}>
+                  {ssWeekLabel(w)}{suggested === w ? " · suggested from DOB" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {form.draft_date ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">Lands on the {form.draft_date} this month.</p>
+          ) : null}
+        </Field>
+      ) : (
+        <Field label="Draft Date">
+          <Select
+            value={String(form.draft_date ?? "")}
+            onValueChange={v => { setForm(f => ({ ...f, draft_date: Number(v) })); saveMany({ draft_date: Number(v), draft_schedule: "day_of_month", draft_wednesday: null }); }}
+          >
+            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
+            <SelectContent>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
+    </>
+  );
+}
+
 function BankingFields({ detail }: { detail: any }) {
   const qc = useQueryClient();
   const [bankingForm, setBankingForm] = useState<Record<string, any>>(detail?.banking ?? {});
@@ -736,19 +836,7 @@ function BankingFields({ detail }: { detail: any }) {
           </Select>
         </Field>
 
-        <Field label="Draft Date">
-          <Select
-            value={String(bankingForm.draft_date ?? "")}
-            onValueChange={v => { setBankingForm(f => ({ ...f, draft_date: Number(v) })); save("draft_date", Number(v)); }}
-          >
-            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-            <SelectContent>
-              {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
-                <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
 
         <p className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
           Only the card brand and last four digits are saved. The full number and CVC stay on
@@ -784,14 +872,7 @@ function BankingFields({ detail }: { detail: any }) {
           </button>
         </div>
       </Field>
-      <Field label="Draft Date">
-        <Select value={String(bankingForm.draft_date ?? "")} onValueChange={v => { setBankingForm(f => ({...f, draft_date: Number(v)})); save("draft_date", Number(v)); }}>
-          <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-          <SelectContent>
-            {Array.from({length: 28}, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </Field>
+      <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
       {methodField}
     </div>
   );
