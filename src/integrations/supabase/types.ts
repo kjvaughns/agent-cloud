@@ -9722,6 +9722,8 @@ export type Database = {
       }
       increment_funnel_views: { Args: { _slug: string }; Returns: undefined }
       increment_landing_leads: { Args: { _id: string }; Returns: undefined }
+      is_admin_of_agent: { Args: { _agent: string }; Returns: boolean }
+      is_admin_of_agent_folder: { Args: { _folder: string }; Returns: boolean }
       is_in_downline: {
         Args: { _target: string; _upline: string }
         Returns: boolean
