@@ -28,6 +28,11 @@ export type AuditAction =
   | "writing_number.created" | "writing_number.updated" | "writing_number.deleted"
   | "request.created" | "request.status_changed" | "request.assigned"
   | "request.submitted" | "request.approved" | "request.declined"
+  // A request that was taken back off the board. Distinct from `declined`:
+  // declined is an answer, removed is the question being withdrawn, and an
+  // agent chasing a carrier appointment needs to be able to tell which
+  // happened to theirs.
+  | "request.removed"
   | "document.uploaded" | "document.reviewed" | "document.downloaded"
   // Distinct from `document.uploaded`: staff filing a document they hold on an
   // agent's behalf is a different act from the agent uploading their own, and
