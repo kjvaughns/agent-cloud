@@ -186,6 +186,8 @@ export function LevelsPanel() {
         <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button>
       </div>}
     </div>
+    <MyPositionCard rows={rows} />
+
     <div className="space-y-2">{rows.map((level) => {
       const maps = (level.agency_level_carrier_mappings ?? []) as any[];
       return <Panel key={level.id} className="p-4"><div className="flex items-center gap-3">
