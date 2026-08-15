@@ -113,7 +113,7 @@ export function LevelsPanel() {
       return <Panel key={level.id} className="p-4"><div className="flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-bold text-primary tnum">{Number(level.base_pct)}%</div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 font-semibold text-foreground">{level.name}{level.id === myLevelId && <Badge variant="secondary" className="text-[10px]">Your position</Badge>}</h3>
+          <h3 className="font-semibold text-foreground">{level.name}</h3>
           <p className="text-xs text-muted-foreground">
             {level.can_invite ? "Can build a downline" : "Cannot create invite links"} ·{" "}
             {maps.length === 0
