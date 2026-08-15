@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Trophy, ArrowUp, ArrowDown, Minus, TrendingUp } from "lucide-react";
@@ -213,6 +213,24 @@ function LeaderboardPage() {
   // the whole point of a footer whose job is to say where you stand.
   const myRow = rows.find((r) => r.isYou);
 
+  // Your row lives in the list already. The sticky footer is only useful once
+  // that row has scrolled out of sight — drawing both at once made people
+  // read it as being listed twice.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const youRef = useRef<HTMLTableRowElement | null>(null);
+  const [youVisible, setYouVisible] = useState(true);
+  useEffect(() => {
+    const root = scrollRef.current;
+    const el = youRef.current;
+    if (!root || !el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setYouVisible(entry.isIntersecting),
+      { root, threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [rows.length, myRow?.id]);
+
   const boardToggle = availableScopes.length > 1 ? (
     <div className="flex gap-1.5 flex-wrap">
       {availableScopes.map(({ value: v, label: l }) => (
@@ -269,7 +287,7 @@ function LeaderboardPage() {
           />
         ) : (
           <Panel pad={false} className="overflow-hidden">
-            <div className="max-h-[560px] overflow-y-auto relative">
+            <div ref={scrollRef} className="max-h-[560px] overflow-y-auto relative">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-surface-2 z-10">
                   <tr>
@@ -280,11 +298,18 @@ function LeaderboardPage() {
                 </thead>
                 <tbody>
                   {rows.map((agent) => (
-                    <LeaderRow key={agent.id} agent={agent} rank={agent.rank} isYou={agent.isYou} prior={agent.prior} />
+                    <LeaderRow
+                      key={agent.id}
+                      agent={agent}
+                      rank={agent.rank}
+                      isYou={agent.isYou}
+                      prior={agent.prior}
+                      rowRef={agent.isYou ? youRef : undefined}
+                    />
                   ))}
                 </tbody>
                 {/* Sticky footer: your position, always visible */}
-                {myRow && (
+                {myRow && !youVisible && (
                   <tfoot className="sticky bottom-0 z-10">
                     <LeaderRow agent={myRow} rank={myRow.rank} isYou prior={myRow.prior} sticky />
                   </tfoot>
@@ -298,10 +323,11 @@ function LeaderboardPage() {
   );
 }
 
-function LeaderRow({ agent, rank, isYou, prior, sticky }: { agent: LeaderboardAgent; rank: number; isYou: boolean; prior: number | undefined; sticky?: boolean }) {
+function LeaderRow({ agent, rank, isYou, prior, sticky, rowRef }: { agent: LeaderboardAgent; rank: number; isYou: boolean; prior: number | undefined; sticky?: boolean; rowRef?: React.Ref<HTMLTableRowElement> }) {
   const avg = agent.policies > 0 ? agent.premium / agent.policies : 0;
   return (
     <tr
+      ref={rowRef}
       className={cn(
         "border-t",
         sticky ? "bg-card border-primary/40" : "border-border-soft hover:bg-surface-2 transition-colors",
