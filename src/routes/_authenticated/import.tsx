@@ -48,7 +48,11 @@ export const Route = createFileRoute("/_authenticated/import")({
  * glance, the word for the certainty.
  */
 const STATUS_STYLE: Record<string, { label: string; variant: any; dot: string }> = {
-  queued: { label: "Queued", variant: "secondary", dot: "bg-muted-foreground/50" },
+  // "Queued" is a machine's word for a file nobody is looking at yet, and it
+  // was the label people saw for the whole time a file was actually being read.
+  // The reading itself now labels itself; this is only the genuine wait.
+  queued: { label: "Waiting to be read", variant: "secondary", dot: "bg-muted-foreground/50 animate-pulse" },
+
   analyzing: { label: "Reading", variant: "info", dot: "bg-primary animate-pulse" },
   needs_review: { label: "Needs you", variant: "warning", dot: "bg-warning" },
   applied: { label: "Imported", variant: "success", dot: "bg-success" },
