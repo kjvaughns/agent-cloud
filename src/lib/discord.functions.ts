@@ -487,7 +487,8 @@ export async function announceDeal(policyId: string): Promise<void> {
     const fields = [
       { name: "Agent", value: agentName, inline: true },
       { name: "Carrier", value: carrier?.name ?? "—", inline: true },
-      { name: "Product", value: policy.product || "—", inline: true },
+      // A category, never the specific plan a named client bought.
+      { name: "Product", value: productCategory(policy.product) ?? "—", inline: true },
       { name: "Annual Premium", value: money(annual), inline: true },
       { name: "Monthly", value: money(Number(policy.monthly_premium ?? 0)), inline: true },
       { name: "Face Amount", value: policy.face_amount ? money(Number(policy.face_amount)) : "—", inline: true },
