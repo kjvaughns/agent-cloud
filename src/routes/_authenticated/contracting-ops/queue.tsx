@@ -10,6 +10,7 @@ import { bulkAssignRequests, getStaffQueue } from "@/lib/contracting-workflow.fu
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import { Column, Pill, RecordTable, Stacked } from "@/components/contracting/table";
 import { AgePill, StatusBadge } from "@/components/contracting/shared";
+import { CONTRACT_TYPE_LABELS, type ContractType } from "@/lib/contracting-ops/types";
 import { cn } from "@/lib/utils";
 import { ghostFor } from "@/lib/empty-states";
 
@@ -70,6 +71,16 @@ function StaffQueuePage() {
   const columns: Column<any>[] = [
     { key: "ref", header: "Request", className: "flex-[2]",
       render: (r) => <Stacked top={r.agent_name} bottom={`${r.reference ?? ""} · ${r.carrier_name}`} /> },
+    // `contract_type` has always been on the row `getStaffQueue` returns and
+    // was never rendered, so a level change and a brand-new appointment — very
+    // different pieces of work — looked identical in the queue somebody picks
+    // their next task from.
+    { key: "type", header: "Type", className: "flex-1", secondary: true,
+      render: (r) => (
+        <span className="truncate text-xs text-muted-foreground">
+          {CONTRACT_TYPE_LABELS[r.contract_type as ContractType] ?? r.contract_type}
+        </span>
+      ) },
     { key: "status", header: "Status", className: "flex-1", render: (r) => <StatusBadge status={r.status} /> },
     { key: "ready", header: "Readiness", className: "w-24",
       render: (r) => (
