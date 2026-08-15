@@ -332,7 +332,17 @@ export const updateAnnouncement = createServerFn({ method: "POST" })
           title: before.title,
           bodyHtml: before.body_html ?? "",
           fromName: org?.name ?? "Your agency",
-          channels: normalizeChannels(["in_app"]),
+          // Every channel the agency has, not just the feed. This passed
+          // `["in_app"]`, which made publishing a draft deliver nothing but
+          // the in-app entry — and that entry is what the row itself already
+          // is, so the email and Discord an owner expected never went.
+          //
+          // Passing all three is safe rather than indiscriminate: `deliver`
+          // checks both consent layers for email and posts to Discord only
+          // where a channel exists with announcements enabled, so an agency
+          // that configured neither gets two skip rows in the ledger and
+          // nothing else.
+          channels: normalizeChannels(["in_app", "email", "discord"]),
         }).catch((e: any) => console.error("[announcements] delivery failed:", e?.message));
       }
     }
@@ -340,68 +350,6 @@ export const updateAnnouncement = createServerFn({ method: "POST" })
     return { ok: true as const, count: (touched ?? []).length };
   });
 
-/**
- * Send the channels for scheduled posts whose time has come.
- *
- * A scheduled announcement becomes readable in the app the instant its time
- * passes, because visibility is derived rather than stored — nothing has to
- * run. Email and Discord are the part that genuinely needs something to reach
- * out, and this repository has no scheduler it can create: the one pg_cron job
- * the product uses is applied through the Supabase Management API by an
- * external tool and calls an Edge Function that does not live here.
- *
- * So this is called opportunistically, when an owner opens the announcements
- * page. Safe to call as often as anybody likes: `announcement_deliveries`
- * records every attempt and the email sender keeps an event-level idempotency
- * key, so a second pass sends nothing twice.
- *
- * Being honest about the limit: delivery to Discord and email is punctual only
- * to the extent that somebody visits. Pointing a cron at this is the follow-up,
- * and it needs dashboard access this session does not have.
- */
-export const dispatchDueAnnouncements = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { userId } = context as Ctx;
-    const orgId = await getMyPrimaryOrgId(userId);
-    if (!orgId) return { dispatched: 0 };
-
-    const { data: org } = await supabaseAdmin
-      .from("organizations").select("owner_id, name").eq("id", orgId).maybeSingle();
-    if (org?.owner_id !== userId) return { dispatched: 0 };
-
-    const { data: scheduled, error } = await supabaseAdmin
-      .from("announcements")
-      .select("*")
-      .eq("organization_id", orgId)
-      .eq("status", "scheduled")
-      .limit(50);
-    // Before the migration there is no `status` column and nothing is
-    // scheduled, so there is nothing to dispatch and nothing to report.
-    if (error) return { dispatched: 0 };
-
-    const ids = (scheduled ?? []).map((r: any) => r.id);
-    if (!ids.length) return { dispatched: 0 };
-
-    const { data: already } = await supabaseAdmin
-      .from("announcement_deliveries")
-      .select("announcement_id")
-      .in("announcement_id", ids);
-    const delivered = new Set<string>((already ?? []).map((d: any) => String(d.announcement_id)));
-
-    const due = dueForDispatch(scheduled as any[], delivered);
-    for (const row of due) {
-      await deliver({
-        announcementId: row.id,
-        orgId,
-        title: row.title,
-        bodyHtml: row.body_html ?? "",
-        fromName: org?.name ?? "Your agency",
-        channels: normalizeChannels(["in_app"]),
-      }).catch((e: any) => console.error("[announcements] dispatch failed:", e?.message));
-    }
-    return { dispatched: due.length };
-  });
 
 /**
  * The same sweep, for every agency, with nobody logged in.

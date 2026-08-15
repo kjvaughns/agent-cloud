@@ -308,8 +308,17 @@ const definers = readdirSync(join(ROOT, "supabase/migrations"))
   .filter((f) => /CREATE OR REPLACE FUNCTION public\.get_dashboard_metrics/i
     .test(read(`supabase/migrations/${f}`)))
   .sort();
-check("the last migration to define the dashboard RPC is this one",
-  definers.at(-1), "20260814250000_production-date.sql");
+// Assert the BEHAVIOUR of whichever file defines it last, not its name.
+// Applying a migration by hand records it under a generated filename, so the
+// last definer is legitimately not always the one written here — but whatever
+// it is, it must still window on the production date.
+const lastDefiner = read(`supabase/migrations/${definers.at(-1)}`);
+check("the last migration to define the dashboard RPC windows on production_date",
+  /pol\.production_date >= _range_start/.test(lastDefiner), true);
+check("…and not on posted_at",
+  /pol\.posted_at >= _range_start/.test(lastDefiner), false);
+check("…and its twelve-month chart agrees",
+  /ON pol\.production_date >= m\.m_start/.test(lastDefiner), true);
 
 // One list of statuses, on both sides of the wire.
 const fnBody = RPC.match(
