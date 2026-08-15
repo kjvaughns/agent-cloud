@@ -30,7 +30,7 @@ import {
   getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
-  listCarriers, addPolicy, updatePolicy, markClientSold,
+  listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
