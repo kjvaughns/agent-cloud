@@ -1013,13 +1013,16 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
  * a phone a name long enough to matter pushed everything else off the row.
  */
 function DocCard({
-  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live,
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live, onReadAgain,
 }: {
   doc: ImportDoc;
   sheets: ImportDoc[];
   openDoc: string | null;
   onToggle: (id: string) => void;
   onDismiss: (id: string) => void;
+  /** Puts a file we couldn't read back in line, from its stored copy. */
+  onReadAgain: (id: string) => void;
+
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
   /** Live client-side phase per document id, while a batch is running. */
