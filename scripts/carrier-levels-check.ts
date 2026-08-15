@@ -21,6 +21,7 @@ import { join } from "node:path";
 
 import {
   carrierLevelOptions,
+  contractPctFromName,
   levelLabel,
   levelOrigin,
   levelDistance,
@@ -62,9 +63,9 @@ check("a carrier with only a comp grid still lists its levels",
 check("…highest first, the way a comp ladder reads",
   carrierLevelOptions(GRIDDED)[0].name, "Level 55");
 check("…and a level whose rates vary shows the range, not one of them",
-  levelLabel(carrierLevelOptions(GRIDDED)[1]), "Level 40 — 85–100%");
-check("…naming where it came from",
-  levelOrigin(carrierLevelOptions(GRIDDED)[1]), "from the comp grid, 2 products");
+  levelLabel(carrierLevelOptions(GRIDDED)[1]), "Level 40 — pays 85–100%");
+check("…naming where it came from, and the contract its name states",
+  levelOrigin(carrierLevelOptions(GRIDDED)[1]), "the 40 contract · from the comp grid, 2 products");
 
 // The hand-entered table is still authoritative where it has an opinion: it
 // carries one deliberate percentage, and a grid row is an extraction.
@@ -106,20 +107,98 @@ const flat = carrierLevelOptions(GRIDDED).find((o) => o.name === "Level 55")!;
 check("a level that pays one rate everywhere does store it",
   mappingFor(flat), { carrier_level_name: "Level 55", carrier_pct: 115 });
 
-// ── Suggestion, and what "closest" means for a range ────────────────────────
+// ── The contract a level's NAME states ──────────────────────────────────────
+//
+// A grid rate and a contract number are different things, and the difference
+// decides which rung a position lands on. Final expense routinely pays above
+// street, so a carrier's 50 contract can show 65–80% across its products.
+// Matching an agency position on 50% against 65–80 puts it on the wrong rung,
+// and every agent there is then paid from that mapping.
+//
+// Naming a column "RK1 (50)" says which contract it is. This reads that.
 
 console.log("");
 
-// A position at 90% sits inside Level 40's 85–100 band. It is that level, not
-// "20 away from 115" and not "10 away from 85".
-check("a percentage inside a level's range is a distance of zero",
-  levelDistance(varying, 90), 0);
-check("…and outside it, the distance to the nearer edge",
-  levelDistance(varying, 80), 5);
-check("the suggestion picks the level the position actually falls in",
-  suggestLevel(carrierLevelOptions(GRIDDED), 90)!.name, "Level 40");
+check("a parenthesised contract is read", contractPctFromName("RK1 (50)"), 50);
+check("…with or without a space before it", contractPctFromName("RK1(75)"), 75);
+check("…and with or without a percent inside", contractPctFromName("RK1 (50%)"), 50);
+check("an explicit percent is read", contractPctFromName("55%"), 55);
+check("a standalone number token is read", contractPctFromName("Level 50"), 50);
+check("…including after a code", contractPctFromName("GA 80"), 80);
+// The case that makes guessing dangerous, and the reason this declines rather
+// than tries harder. RK10 is the tenth code in a series, not the 10 contract;
+// reading it as 10 would map every position to the bottom rung on exactly the
+// grids this was written for.
+check("a number glued to letters is NOT a contract", contractPctFromName("RK10"), null);
+check("…nor is one inside a product name", contractPctFromName("Trendsetter LB 10y"), null);
+check("a name stating no number reads as none", contractPctFromName("SGA"), null);
+check("…and nothing out of range is accepted", contractPctFromName("Plan 900"), null);
+
+// ── Suggestion: contract number first, rates only when there is none ─────────
+
+console.log("");
+
+// Named columns with a contract in the name. This is the shape an owner gets
+// after labelling their grid "RK1 (50)" — the rates say 65–80, the name says 50,
+// and 50 is the number an agency position is comparable to.
+const NAMED = {
+  carrier_comp_levels: [],
+  carrier_grid_levels: [
+    { level_name: "RK1 (50)", product_name: "FE Express", year_1_pct: 65 },
+    { level_name: "RK1 (50)", product_name: "Term", year_1_pct: 80 },
+    { level_name: "RK12 (110)", product_name: "FE Express", year_1_pct: 120 },
+  ],
+};
+const rk1 = carrierLevelOptions(NAMED).find((o) => o.name === "RK1 (50)")!;
+check("a level carries the contract its name states", rk1.contractPct, 50);
+check("…while its rates stay what the products pay",
+  [rk1.minPct, rk1.maxPct], [65, 80]);
+check("…and the label distinguishes the two",
+  levelLabel(rk1), "RK1 (50) — pays 65–80%");
+check("…saying which contract it is",
+  /^the 50 contract · /.test(levelOrigin(rk1)), true);
+// The whole reason the number is read. On rates alone, a 50% position is 15
+// away from RK1 and 70 away from RK12 — it would still pick RK1 here, but a
+// grid where the bottom column pays 100+ flips that. On contract numbers it is
+// exact.
+check("a 50% position matches the 50 contract exactly",
+  levelDistance(rk1, 50), 0);
+check("…and the suggestion picks it",
+  suggestLevel(carrierLevelOptions(NAMED), 50)!.name, "RK1 (50)");
+check("…while a 110% position picks the 110",
+  suggestLevel(carrierLevelOptions(NAMED), 110)!.name, "RK12 (110)");
+// Ordered by the same number the matching uses, so the list agrees with the
+// suggestion under it.
+check("the list is ordered by contract, highest first",
+  carrierLevelOptions(NAMED).map((o) => o.name), ["RK12 (110)", "RK1 (50)"]);
+// The contract number is NOT what gets stored. "RK1 (50)" names the contract;
+// what the carrier settles on FE Express is 65%. Storing 50 underpays every
+// deal that misses the grid, with a plausible number behind it.
+check("saving it still stores the name and no flat percentage",
+  mappingFor(rk1), { carrier_level_name: "RK1 (50)", carrier_pct: null });
+
+// Rates are the fallback, for a grid whose columns state no contract.
+const UNNAMED = {
+  carrier_comp_levels: [],
+  carrier_grid_levels: [
+    { level_name: "Bronze", product_name: "Final Expense", year_1_pct: 100 },
+    { level_name: "Bronze", product_name: "Term", year_1_pct: 85 },
+    { level_name: "Gold", product_name: "Final Expense", year_1_pct: 115 },
+  ],
+};
+const bronze = carrierLevelOptions(UNNAMED).find((o) => o.name === "Bronze")!;
+check("with no contract in the name, the rates are compared", bronze.contractPct, null);
+// A position at 90% sits inside Bronze's 85–100 band. It is that level, not
+// "25 away from 115" and not "10 away from 85".
+check("…and a percentage inside the range is a distance of zero",
+  levelDistance(bronze, 90), 0);
+check("…with the distance to the nearer edge outside it",
+  levelDistance(bronze, 80), 5);
+check("…so the suggestion picks the level it falls in",
+  suggestLevel(carrierLevelOptions(UNNAMED), 90)!.name, "Bronze");
 check("…and the nearest one when it falls in none",
-  suggestLevel(carrierLevelOptions(GRIDDED), 130)!.name, "Level 55");
+  suggestLevel(carrierLevelOptions(UNNAMED), 130)!.name, "Gold");
+
 // A grid whose percentages failed to extract still names its levels, and those
 // names are worth offering. They just cannot be ranked.
 const NAMES_ONLY = { carrier_comp_levels: [], carrier_grid_levels: [{ level_name: "SGA", product_name: "Term" }] };

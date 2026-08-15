@@ -116,9 +116,31 @@ export async function resolveForAgent(
   supabase: Client,
   agentId: string,
   orgCarrierId: string,
+  /**
+   * The carrier's published grid and the deal to price against it.
+   *
+   * Optional, and every caller that omits it resolves exactly as before — from
+   * the flat contract and level percentages. Supplied, a matching grid row
+   * wins, which is the carrier's actual rate for this product at this age in
+   * this state rather than one number for every deal on the carrier.
+   *
+   * The caller passes the grid rather than this loading it, because the one
+   * caller that has a deal — the commission calculator — needs the same rows
+   * again for the renewal years and must not read them twice.
+   */
+  priced?: {
+    grid: Parameters<typeof resolveCompensation>[0]["grid"];
+    deal: Parameters<typeof resolveCompensation>[0]["deal"];
+  },
 ): Promise<Resolution> {
   const inputs = await loadResolutionInputs(supabase, agentId, orgCarrierId);
-  return resolveCompensation({ agentId, orgCarrierId, ...inputs });
+  return resolveCompensation({
+    agentId,
+    orgCarrierId,
+    ...inputs,
+    grid: priced?.grid,
+    deal: priced?.deal,
+  });
 }
 
 /**
