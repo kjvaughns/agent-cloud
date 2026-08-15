@@ -1159,6 +1159,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
       face_amount: form.face_amount ? Number(form.face_amount) : null,
       effective_date: form.effective_date || null,
+      sale_date: form.sale_date || null,
     }}),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
