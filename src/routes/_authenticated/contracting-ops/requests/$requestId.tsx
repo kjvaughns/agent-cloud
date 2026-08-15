@@ -19,6 +19,7 @@ import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
   ADVANCE_OPTIONS, ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
+  isAgentActionStatus,
   CONTRACT_TYPE_LABELS, METHOD_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
 } from "@/lib/contracting-ops/types";
@@ -86,6 +87,16 @@ function Field({ label, value, masked }: { label: string; value: string | null; 
  * one step. Approval marks the level pending; a writing number makes it live,
  * because approval is an internal clearance and appointment is the carrier's.
  */
+/**
+ * The statuses staff pick by hand.
+ *
+ * "Active" is missing on purpose: activating a contract needs a level, an
+ * advance and a writing number in the same act, so it belongs to the Carrier
+ * decision panel rather than a bare status dropdown that would let a contract
+ * go live pricing from nothing.
+ */
+const PICKABLE_STATUSES = PRIMARY_REQUEST_STATUSES.filter((s) => s !== "active");
+
 function DecisionPanel({
   requested,
   compLevels,
@@ -304,7 +315,6 @@ function RequestDetailPage() {
   // Selecting it opens this rather than moving straight to the final state,
   // because a request that reached "writing number issued" without the number
   // is the exact dead end this workflow had before.
-  const [issuingNumber, setIssuingNumber] = useState<string | null>(null);
   /**
    * The status being composed, before it is sent.
    *
@@ -811,22 +821,19 @@ function RequestDetailPage() {
                   </label>
                   <Select
                     value=""
-                    onValueChange={(v) => {
-                      if (v === "writing_number_issued") setIssuingNumber("");
-                      // Everything else goes through the compose step, so a
-                      // status change can carry the explanation the server has
-                      // always been willing to store. Sending it bare is still
-                      // one click away — the compose panel's fields are all
-                      // optional except a decline's reason.
-                      else compose(v as RequestStatus);
-                    }}
+                    // Every move goes through the compose step, so a status
+                    // change can carry the explanation the server has always
+                    // been willing to store. Sending it bare is still one click
+                    // away — the fields are optional except a decline's reason
+                    // and an agent-action note.
+                    onValueChange={(v) => compose(v as RequestStatus)}
                     disabled={setStatus.isPending}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Choose a status…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {REQUEST_STATUSES.map((s) => (
+                      {PICKABLE_STATUSES.map((s) => (
                         <SelectItem key={s} value={s} className="text-xs">
                           {REQUEST_STATUS_META[s].label}
                         </SelectItem>
@@ -835,8 +842,9 @@ function RequestDetailPage() {
                   </Select>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                     Ready to submit and Submitted are gated on readiness; the
-                    carrier decisions need contracting rights. The server says
-                    so plainly if a move isn't allowed.
+                    carrier decisions need contracting rights. Activating a
+                    contract happens in Carrier decision above, because it needs
+                    a level, an advance and a writing number together.
                   </p>
 
                   {composing && (
@@ -871,6 +879,9 @@ function RequestDetailPage() {
                       <div>
                         <label htmlFor="agent-msg" className="mb-1 block text-xs font-medium">
                           What the agent sees
+                          {isAgentActionStatus(composing.status) && (
+                            <span className="ml-1 text-danger">required</span>
+                          )}
                         </label>
                         <textarea
                           id="agent-msg"
@@ -878,8 +889,18 @@ function RequestDetailPage() {
                           value={composing.message}
                           onChange={(e) => setComposing({ ...composing, message: e.target.value })}
                           className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                          placeholder="Optional — shown on their Contracts page"
+                          placeholder={
+                            isAgentActionStatus(composing.status)
+                              ? "e.g. Upload your current resident licence — the carrier rejected the expired one"
+                              : "Optional — shown on their Contracts page"
+                          }
                         />
+                        {isAgentActionStatus(composing.status) && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            Required. "Agent action needed" puts this on the agent's desk, so it
+                            has to say exactly what they must do.
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -917,7 +938,8 @@ function RequestDetailPage() {
                           className="h-7 text-xs"
                           disabled={
                             setStatus.isPending ||
-                            (composing.status === "declined" && !composing.reason.trim())
+                            (composing.status === "declined" && !composing.reason.trim()) ||
+                            (isAgentActionStatus(composing.status) && !composing.message.trim())
                           }
                           onClick={() => {
                             setStatus.mutate({
@@ -955,52 +977,6 @@ function RequestDetailPage() {
                     </div>
                   )}
 
-                  {issuingNumber !== null && (
-                    <div className="mt-2 rounded-md border border-border bg-surface-2 p-2">
-                      <label
-                        htmlFor="wn-issued"
-                        className="mb-1 block text-xs font-medium text-foreground"
-                      >
-                        Writing number the carrier issued
-                      </label>
-                      <input
-                        id="wn-issued"
-                        autoFocus
-                        value={issuingNumber}
-                        onChange={(e) => setIssuingNumber(e.target.value)}
-                        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                        placeholder="e.g. 4471902"
-                      />
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                        Recorded against the agent and this carrier, and shown
-                        on their Contracts page and in the team matrix.
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={!issuingNumber.trim() || setStatus.isPending}
-                          onClick={() => {
-                            setStatus.mutate({
-                              status: "writing_number_issued",
-                              writing_number: issuingNumber.trim(),
-                            } as any);
-                            setIssuingNumber(null);
-                          }}
-                        >
-                          Record and close
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          onClick={() => setIssuingNumber(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
