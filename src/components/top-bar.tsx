@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { useRole } from "@/hooks/use-role";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { formatDistanceToNow } from "date-fns";
@@ -18,6 +18,7 @@ import { listNotifications } from "@/lib/notifications.functions";
 import { OPEN_COMMAND_PALETTE } from "@/components/command-palette";
 import { AppearanceControls } from "@/components/appearance-controls";
 import { StarPage } from "@/components/star-page";
+import { hubForPath, pageByPath, pageById } from "@/lib/navigation";
 
 function greeting() {
   const h = new Date().getHours();
@@ -74,18 +75,51 @@ export function TopBar() {
 
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const onDashboard = pathname === "/dashboard" || pathname === "/";
+  const currentPage = pageByPath(pathname);
+  const hubId = hubForPath(pathname);
+  const hub = hubId ? pageById(hubId) : undefined;
+  // A hub's own page repeating itself ("Contracting / Contracting") is worse
+  // than no breadcrumb, so the section is dropped when it is the page.
+  const hubLabel = hub && hub.id !== currentPage?.id ? hub.label : null;
+  const pageLabel = currentPage?.label ?? "Agent Cloud";
+
   const openPalette = () => window.dispatchEvent(new CustomEvent(OPEN_COMMAND_PALETTE));
 
   return (
     <header className="h-[60px] border-b border-border bg-background/95 backdrop-blur flex items-center px-3 gap-2 sticky top-0 z-30">
       <SidebarTrigger />
 
-      {/* Greeting + date + attention */}
+      {/*
+        On the dashboard this is a greeting, because the dashboard has no other
+        title and "Good afternoon, Kaeden" is the right first line of a day.
+
+        Everywhere else it was *also* a greeting — so /settings/agency read
+        "Good afternoon, kjvaughns13" above a page whose own heading said
+        "Settings", and the one piece of chrome that is on every screen told you
+        nothing about where you were. Off the dashboard it is now the location:
+        the section, then the page.
+      */}
       <div className="min-w-0 hidden sm:block">
         <div className="flex items-center gap-2 leading-tight">
-          <span className="font-display font-semibold text-[15px] truncate" style={{ fontFamily: "var(--font-display)" }}>
-            {greeting()}{firstName ? `, ${firstName}` : ""}
-          </span>
+          {onDashboard ? (
+            <span className="font-display font-semibold text-[15px] truncate" style={{ fontFamily: "var(--font-display)" }}>
+              {greeting()}{firstName ? `, ${firstName}` : ""}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 min-w-0 text-[15px]">
+              {hubLabel && (
+                <>
+                  <span className="text-muted-foreground truncate">{hubLabel}</span>
+                  <span className="text-text-dim" aria-hidden>/</span>
+                </>
+              )}
+              <span className="font-display font-semibold truncate" style={{ fontFamily: "var(--font-display)" }}>
+                {pageLabel}
+              </span>
+            </span>
+          )}
           {unreadCount > 0 && (
             <span className="hidden md:inline-flex items-center gap-1 text-xs text-warning">
               <AlertTriangle className="h-3 w-3" />
@@ -93,7 +127,8 @@ export function TopBar() {
             </span>
           )}
         </div>
-        <div className="text-[11px] text-muted-foreground leading-none">{today}</div>
+        {/* The date belongs to the greeting. Under a breadcrumb it is noise. */}
+        {onDashboard && <div className="text-[11px] text-muted-foreground leading-none">{today}</div>}
       </div>
 
       <div className="flex-1" />
