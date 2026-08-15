@@ -164,7 +164,6 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
     });
   };
   const suggestionFor = (c: any) => suggestLevel(levelsFor(c), basePct);
-  const suggestable = carriers.filter((c) => rowFor(c.id).mode === "fallback" && suggestionFor(c));
   /**
    * Detect every carrier at once.
    *
