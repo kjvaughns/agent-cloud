@@ -85,3 +85,91 @@ export const getContractingSetupStatus = createServerFn({ method: "GET" })
       ready: isReady(steps),
     };
   });
+
+/**
+ * The five things an owner is asked at the top of Agency settings.
+ *
+ * Coarser than the contracting checklist on purpose: this answers "can my
+ * agents use this yet", and each unfinished line names the tab that fixes it.
+ * It reuses the same facts the checklist reads, so the strip and the list
+ * cannot disagree about whether the agency is ready.
+ */
+export const getAgencySetupProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) return { available: false as const, items: [] };
+
+    const [{ data: org }, { data: levels }, { data: carriers }, { data: methods }] =
+      await Promise.all([
+        supabase.from("organizations").select("name, logo_url, accent_color").eq("id", orgId).limit(1),
+        supabase.from("agency_levels").select("id, base_pct").eq("organization_id", orgId).eq("active", true),
+        supabase.from("org_carriers").select("*").eq("organization_id", orgId),
+        supabase.from("org_carrier_methods").select("id").eq("organization_id", orgId),
+      ]);
+
+    const orgRow = (org ?? [])[0] as any;
+    const levelRows = (levels ?? []) as any[];
+    const carrierRows = (carriers ?? []) as any[];
+    const enabled = carrierRows.filter((c) => c.enabled !== false);
+
+    const profileDone = Boolean(orgRow?.name) && Boolean(orgRow?.logo_url);
+    const levelsDone = levelRows.length > 0 && levelRows.every((l) => l.base_pct != null);
+    const carrierDone = enabled.length > 0;
+    const methodDone = ((methods ?? []) as any[]).length > 0;
+    const advancesDone =
+      carrierDone && enabled.every((c) => Boolean(c.default_advance_option));
+    const readyForAgents =
+      profileDone && levelsDone && carrierDone && methodDone && advancesDone &&
+      enabled.some((c) => c.visible_to_agents !== false);
+
+    const items = [
+      {
+        id: "profile",
+        label: "Agency profile complete",
+        done: profileDone,
+        tab: "general",
+        missing: !orgRow?.name
+          ? "Your agency still needs a name."
+          : "Add a logo so your agents see your brand, not ours.",
+      },
+      {
+        id: "levels",
+        label: "Levels created",
+        done: levelsDone,
+        tab: "levels",
+        missing: levelRows.length === 0
+          ? "No positions yet, so nobody has a rung to be paid from."
+          : "One or more positions have no base percentage.",
+      },
+      {
+        id: "carriers",
+        label: "At least one carrier configured",
+        done: carrierDone,
+        tab: "carriers",
+        missing: carrierRows.length === 0
+          ? "No carriers added yet."
+          : "Every carrier you have added is switched off.",
+      },
+      {
+        id: "method",
+        label: "Contracting method ready",
+        done: methodDone && advancesDone,
+        tab: "carriers",
+        missing: !methodDone
+          ? "No carrier has a submission method, so staff have no route to send a contract."
+          : "One or more active carriers have no advance option chosen.",
+      },
+      {
+        id: "ready",
+        label: "Agency ready for agents",
+        done: readyForAgents,
+        tab: "contracting",
+        missing: "Finish the steps above, and make at least one carrier visible to agents.",
+      },
+    ];
+
+    return { available: true as const, items };
+  });
+
