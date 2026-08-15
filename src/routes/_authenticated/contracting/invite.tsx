@@ -302,24 +302,8 @@ function InvitePage({ options }: { options: any }) {
           </div>
         )}
 
-        {/* Links have always died after thirty days — the column is not null
-            and has defaulted to it since it was added. Nothing said so, so an
-            owner found out from a recruit on a dead link. */}
-        <div>
-          <Label>Link Expires</Label>
-          <Select value={expiresInDays} onValueChange={setExpiresInDays}>
-            <SelectTrigger className="mt-1 max-w-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">In 7 days</SelectItem>
-              <SelectItem value="30">In 30 days (default)</SelectItem>
-              <SelectItem value="90">In 90 days</SelectItem>
-              <SelectItem value="365">In a year</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="mt-1 text-xs text-muted-foreground">
-            After this the link stops working. You can revoke it sooner from the list below.
-          </p>
-        </div>
+        {/* Links do not expire. They stay good until somebody revokes them
+            from the list below. */}
 
 
         {/* Who they report to. Left alone, the link places people under you —
