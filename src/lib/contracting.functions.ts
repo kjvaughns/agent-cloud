@@ -10,6 +10,8 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { assignInviteCarriers } from "@/lib/onboarding.functions";
 import { CONTRACT_STATUSES } from "@/lib/contracting/status";
+// Merges the duplicate row every status change writes, and labels the rest.
+import { forAgent } from "@/lib/contracting/history";
 // Audit and notification together, so a change to a contract cannot be
 // recorded without the agent whose contract it is being told.
 import { recordContractChange } from "@/lib/contracting/trail.server";
@@ -162,6 +164,85 @@ export const requestCommissionLevel = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * The agent's own view of where their contracting requests stand.
+ *
+ * The rows and the RLS to read them have existed since the ops workflow was
+ * built. What did not exist was any route an agent could reach that showed
+ * them: the only screen rendering `contracting_status_history` sits under
+ * `/contracting-ops`, whose layout guard sends anybody without a staff role or
+ * permission flag to `/licensing`. So the person whose contract it is was the
+ * one person who could not watch it move — they saw only the appointment's
+ * final status on My Contracts, with no way to tell "submitted last Tuesday,
+ * carrier reviewing" from "nothing has happened in three weeks".
+ *
+ * Read through `context.supabase`, not the service role. Both policies already
+ * say `agent_id = auth.uid()`, so RLS is the check — and a request belonging to
+ * somebody else returns nothing rather than being filtered in TypeScript.
+ */
+export const listMyRequestHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+
+    const { data: requests, error } = await supabase
+      .from("contracting_requests")
+      // `*` because this table gained columns after the generated types were
+      // last written, and naming one PostgREST does not know fails the whole
+      // select rather than omitting a field.
+      .select("*, org_carriers(carrier_id, carriers(name))")
+      .eq("agent_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(100);
+    // A missing table or a policy change must not take down My Contracts,
+    // which works perfectly well without this section.
+    if (error) return { rows: [] as any[], available: false };
+
+    const ids = (requests ?? []).map((r: any) => r.id);
+    if (!ids.length) return { rows: [] as any[], available: true };
+
+    const { data: history } = await supabase
+      .from("contracting_status_history")
+      .select("*")
+      .in("request_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const byRequest = new Map<string, any[]>();
+    for (const h of (history ?? []) as any[]) {
+      const list = byRequest.get(h.request_id);
+      if (list) list.push(h);
+      else byRequest.set(h.request_id, [h]);
+    }
+
+    return {
+      available: true,
+      rows: (requests ?? []).map((r: any) => ({
+        id: r.id,
+        reference: r.reference ?? null,
+        status: r.status,
+        contract_type: r.contract_type,
+        carrier_id: r.org_carriers?.carrier_id ?? null,
+        carrier_name: r.org_carriers?.carriers?.name ?? null,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        // Internal notes are staff-only and are not selected into this shape
+        // at all, so there is nothing to strip: the field never leaves the
+        // server. The same is true of each history row's `internal_message`.
+        history: forAgent((byRequest.get(r.id) ?? []).map((h) => ({
+          id: h.id,
+          from_status: h.from_status,
+          to_status: h.to_status,
+          changed_by: h.changed_by,
+          agent_visible_message: h.agent_visible_message,
+          next_action: h.next_action,
+          due_date: h.due_date,
+          created_at: h.created_at,
+        }))),
+      })),
+    };
   });
 
 // ---------- my contracts ----------

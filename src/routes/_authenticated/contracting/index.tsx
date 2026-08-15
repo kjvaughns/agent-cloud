@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import {
-  listMyContracts, addAgentCarrier, requestCommissionLevel, listCarriers,
+  listMyContracts, listMyRequestHistory, addAgentCarrier, requestCommissionLevel, listCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
   listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
   resolveCommissionLevelRequest,
@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ContractStatusBadge, CONTRACT_STATUSES, statusDot, type ContractStatus } from "@/components/contracting/contract-status-badge";
+import { RequestHistory } from "@/components/contracting/request-history";
 import { Plus, AlertTriangle, ExternalLink, CheckCircle2, Inbox, AlertCircle, Trash2, RefreshCw, Send, Loader2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -269,6 +270,14 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
   const syncFn = useServerFn(syncSureLcStatuses);
   const getSsoFn = useServerFn(getSureLcSsoUrl);
   const submitToSureLcFn = useServerFn(submitToSureLc);
+
+  // Own requests and their steps. Only fetched for the personal scope, since
+  // that is the only scope it describes.
+  const { data: myRequests } = useQuery({
+    queryKey: ["contracting", "my-request-history"],
+    queryFn: () => listMyRequestHistory(),
+    enabled: scopeReady && scope === "mine",
+  });
 
   const { data: sureLcStatus } = useQuery({
     queryKey: ["surelc", "status"],
@@ -576,6 +585,27 @@ function MyContractsTab({ onViewGrid, onRequestTransfer }: { onViewGrid: () => v
           ))}
         </div>
       )}
+      {/*
+        Where the requests behind these contracts actually stand. The steps
+        have always been recorded; the only screen that showed them was under
+        /contracting-ops, which redirects anybody who is not staff — so the
+        agent waiting on a carrier could see the end state and nothing else.
+
+        Own requests only: `listMyRequestHistory` reads `agent_id = auth.uid()`,
+        so switching the scope toggle to a team view leaves this showing the
+        viewer's own, which would be misleading beside a team-scoped list.
+      */}
+      {scope === "mine" && (myRequests?.rows?.length ?? 0) > 0 && (
+        <Panel>
+          <h3 className="text-sm font-semibold">Request progress</h3>
+          <p className="mt-0.5 mb-3 text-xs text-muted-foreground">
+            Every step your contracting requests have been through. Open one to see what happened
+            and who it is waiting on.
+          </p>
+          <RequestHistory rows={myRequests!.rows} />
+        </Panel>
+      )}
+
       {requestLevelFor && (
         <RequestLevelDialog
           contract={requestLevelFor}
