@@ -133,11 +133,11 @@ function RemoveCarrierDialog({
  * in a different place on every card.
  */
 function CarrierRow({
-  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onFinish, onToggle, toggling,
+  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onSetup, onToggle, toggling,
 }: {
   carrier: any; first: boolean; canManage: boolean;
   onEdit: () => void; onRemove: () => void; onRestore: () => void; onEditGrid: () => void;
-  onFinish: () => void; onToggle: (on: boolean) => void; toggling: boolean;
+  onSetup: () => void; onToggle: (on: boolean) => void; toggling: boolean;
 }) {
   const state = c.state as CarrierState | undefined;
   const isActive = state?.status === "active";
@@ -210,14 +210,14 @@ function CarrierRow({
               </Button>
             ) : (
               <>
-                {/* The way back into the guided flow. A carrier that cannot be
-                    switched on has a named next step, and this opens the step
-                    rather than leaving an owner to guess which field it was. */}
-                {!isActive && !state?.canActivate && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onFinish}>
-                    Finish setup
-                  </Button>
-                )}
+                {/* The way back into the guided flow — always, not only while
+                    the carrier is unfinished. Setup used to disappear the moment
+                    a carrier went live, so an owner who needed to change the
+                    grid, the levels, the advance or the submission method had
+                    nowhere to go back to. */}
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onSetup}>
+                  {isActive || state?.canActivate ? "Setup" : "Finish setup"}
+                </Button>
                 {/* Off until the setup can pay a deal. A switch that flips and
                     then does nothing is worse than one that explains itself. */}
                 <button
@@ -250,7 +250,8 @@ function CarrierRow({
                 </button>
                 <button
                   onClick={onEdit}
-                  aria-label={`Edit ${c.name}`}
+                  aria-label={`Edit ${c.name} details`}
+                  title="Edit contact details and advance"
                   className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
@@ -312,8 +313,10 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   // carrier real to them. `carrierState.canActivate` decides whether it may be
   // turned on; the row explains the refusal rather than disabling silently.
   const toggle = useMutation({
+    // `enabled` as well as `status`: the lifecycle reads both, so writing only
+    // one left a carrier that said "active" and still behaved as switched off.
     mutationFn: ({ id, on }: { id: string; on: boolean }) =>
-      saveFn({ data: { id, status: on ? "active" : "paused" } }),
+      saveFn({ data: { id, status: on ? "active" : "paused", enabled: on } }),
     onSuccess: (_r, v) => {
       toast.success(v.on
         ? "Carrier is live. Agents can select it now."
@@ -488,10 +491,12 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
                 onEdit={() => setEditingId(c.id)}
                 onRemove={() => setRemovingId(c.id)}
                 onEditGrid={() => setGridForId(c.id)}
-                onFinish={() => setWizardId(c.id)}
+                onSetup={() => setWizardId(c.id)}
                 onRestore={() => restore.mutate(c.id)}
                 onToggle={(on) => toggle.mutate({ id: c.id, on })}
-                toggling={toggle.isPending}
+                // Only the row being changed waits. One shared flag disabled
+                // every switch on the page for the length of a save.
+                toggling={toggle.isPending && toggle.variables?.id === c.id}
               />
             ))
           )}
