@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { preferOwnGridRows } from "@/lib/compensation/own-grid";
 import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -1184,7 +1185,10 @@ export const getCommissionGrid = createServerFn({ method: "POST" })
     return {
       myLevelName,
       myPct,
-      rows: rows ?? [],
+      // Own rows shadow the shared library defaults for the same carrier —
+      // without this an edited grid shows the agency's numbers and the stock
+      // ones side by side.
+      rows: preferOwnGridRows((rows ?? []) as any[]),
       noLevelAssigned: false,
       isSuperAdmin,
     };
