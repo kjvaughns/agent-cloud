@@ -697,6 +697,8 @@ const updatePolicySchema = z.object({
   monthly_premium: z.number().nullable().optional(),
   face_amount: z.number().nullable().optional(),
   effective_date: z.string().nullable().optional().or(z.literal("")),
+  /** See `addPolicy`: the month this policy counts in. */
+  sale_date: z.string().nullable().optional().or(z.literal("")),
 });
 
 export const updatePolicy = createServerFn({ method: "POST" })
@@ -704,18 +706,77 @@ export const updatePolicy = createServerFn({ method: "POST" })
   .inputValidator((d) => updatePolicySchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const { id, ...fields } = data;
+    const { id, sale_date, ...fields } = data;
     const payload: any = { ...fields };
     for (const k of ["policy_number", "product", "effective_date"]) {
       if (payload[k] === "") payload[k] = null;
     }
+
+    // What the sale date is now, so a no-op edit does not pointlessly rebuild
+    // a commission schedule.
+    const { data: before } = await supabase
+      .from("policies")
+      .select("production_date, effective_date, carrier_id, product, monthly_premium, client_id")
+      .eq("id", id)
+      .eq("agent_id", userId)
+      .maybeSingle();
+
+    let saleDateChanged = false;
+    if (sale_date) {
+      const next = saleDateToTimestamp(sale_date);
+      saleDateChanged = next !== (before?.production_date ?? null);
+      if (saleDateChanged) {
+        payload.production_date = next;
+        // Pinned by hand from here on: the derived rule must stop overwriting
+        // it the next time somebody edits the effective date.
+        payload.production_date_set_by = userId;
+        payload.production_date_set_at = new Date().toISOString();
+      }
+    }
+
     const { error } = await supabase
       .from("policies")
       .update(payload)
       .eq("id", id)
       .eq("agent_id", userId);
     if (error) throw new Error(error.message);
-    return { ok: true };
+
+    // Moving the sale date moves the money with it: the advance and the trail
+    // belong on the months the business was actually written. The calculator
+    // supersedes the legs it no longer produces, so this corrects rather than
+    // duplicates. Non-fatal — the date change itself is already saved.
+    const effChanged =
+      payload.effective_date !== undefined &&
+      payload.effective_date !== (before?.effective_date ?? null);
+    if (saleDateChanged || effChanged) {
+      try {
+        const { data: clientRow } = await supabase
+          .from("clients")
+          .select("first_name, last_name")
+          .eq("id", before?.client_id)
+          .maybeSingle();
+        await calculateAndInsertAllCommissions(supabase, {
+          policyId: id,
+          agentId: userId,
+          carrierId: payload.carrier_id ?? before?.carrier_id ?? null,
+          product: payload.product ?? before?.product ?? "",
+          monthlyPremium: Number(payload.monthly_premium ?? before?.monthly_premium ?? 0),
+          // The schedule is anchored on the effective date when there is one;
+          // a policy backdated with no effective date falls back to the sale
+          // date rather than producing nothing.
+          effectiveDate:
+            (payload.effective_date ?? before?.effective_date) ||
+            (sale_date ? sale_date : null),
+          clientName: clientRow
+            ? `${clientRow.first_name ?? ""} ${clientRow.last_name ?? ""}`.trim()
+            : "",
+        });
+      } catch (e: any) {
+        console.error("[commissions] recalc after date change failed for", id, e?.message);
+      }
+    }
+
+    return { ok: true, saleDateChanged };
   });
 
 // ---------- Calendar events ----------
