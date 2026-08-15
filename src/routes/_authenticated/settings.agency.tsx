@@ -545,7 +545,6 @@ function AgencySettingsPage() {
           </TabsContent>
 
           <TabsContent value="automations" className="mt-4 space-y-6">
-            <AutomationsPage />
             <DiscordSettings />
           </TabsContent>
           <TabsContent value="integrations" className="mt-4">
