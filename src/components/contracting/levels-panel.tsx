@@ -14,24 +14,32 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { listAgencyLevels, saveAgencyLevel } from "@/lib/contracting-records.functions";
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { EmptyState } from "@/components/contracting/shared";
+import {
+  carrierLevelOptions, levelLabel, levelOrigin, suggestLevel, mappingFor, findLevel,
+  type CarrierLevelOption,
+} from "@/lib/compensation/carrier-levels";
 
 /** One carrier's mapping for the rung being edited. */
 type Row = { mode: "fallback" | "level" | "custom"; carrier_level_name: string; carrier_pct: string };
 const FALLBACK: Row = { mode: "fallback", carrier_level_name: "", carrier_pct: "" };
 
-/** Active comp levels for a carrier, in the carrier's own vocabulary. */
-function carrierLevels(carrier: any) {
-  return ((carrier?.carrier_comp_levels ?? []) as any[])
-    .filter((l) => l.status === "active" || !l.status)
-    .sort((a, b) => Number(b.commission_pct ?? 0) - Number(a.commission_pct ?? 0));
-}
-
-/** The carrier level whose percentage sits closest to the position's own. */
-function suggestFor(carrier: any, basePct: number) {
-  const levels = carrierLevels(carrier).filter((l) => l.commission_pct != null);
-  if (!levels.length || !Number.isFinite(basePct)) return null;
-  return levels.reduce((best, l) =>
-    Math.abs(Number(l.commission_pct) - basePct) < Math.abs(Number(best.commission_pct) - basePct) ? l : best);
+/**
+ * Every level a carrier is known to go by, named.
+ *
+ * The list used to be built from `carrier_comp_levels` alone — hand-entered,
+ * and so empty for nearly every carrier — which is why this dropdown offered
+ * no level names at all. `carrierLevelOptions` reads the uploaded comp grid
+ * too, where the carrier's own vocabulary already lives. The server ships the
+ * merged list; falling back to computing it here keeps the panel working
+ * against a cached response from before that shipped.
+ */
+function levelsFor(carrier: any): CarrierLevelOption[] {
+  const shipped = carrier?.level_options as CarrierLevelOption[] | undefined;
+  if (Array.isArray(shipped)) return shipped;
+  return carrierLevelOptions({
+    carrier_comp_levels: carrier?.carrier_comp_levels ?? [],
+    carrier_grid_levels: carrier?.carrier_grid_levels ?? [],
+  });
 }
 
 export function LevelsPanel() {
@@ -107,12 +115,19 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
   const basePct = Number(pct);
   const rowFor = (id: string) => mappings[id] ?? FALLBACK;
   const set = (id: string, row: Row) => setMappings((x) => ({ ...x, [id]: row }));
-  const applySuggestion = (carrier: any) => {
-    const s = suggestFor(carrier, basePct);
-    if (!s) return;
-    set(carrier.id, { mode: "level", carrier_level_name: s.level_name, carrier_pct: s.commission_pct != null ? String(s.commission_pct) : "" });
+  const pick = (carrierId: string, o: CarrierLevelOption) => {
+    // `mappingFor` decides whether a percentage is stored beside the name. A
+    // level whose grid rates vary by product stores the name only, so the grid
+    // keeps pricing each product rather than being outranked by one figure.
+    const m = mappingFor(o);
+    set(carrierId, {
+      mode: "level",
+      carrier_level_name: m.carrier_level_name,
+      carrier_pct: m.carrier_pct != null ? String(m.carrier_pct) : "",
+    });
   };
-  const suggestable = carriers.filter((c) => rowFor(c.id).mode === "fallback" && suggestFor(c, basePct));
+  const suggestionFor = (c: any) => suggestLevel(levelsFor(c), basePct);
+  const suggestable = carriers.filter((c) => rowFor(c.id).mode === "fallback" && suggestionFor(c));
 
   const submit = () => onSave({
     id: record?.id, name: name.trim(), base_pct: basePct, sort_order: basePct, can_invite: canInvite, active: true,
@@ -134,14 +149,15 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
     {showOverrides && <div className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs text-muted-foreground">Pick the carrier's own level for this position. Leave a carrier on the position percentage and it pays {pct || "this"}% there.</p>
-        {suggestable.length > 0 && <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => suggestable.forEach(applySuggestion)}><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Use {suggestable.length} suggestion{suggestable.length === 1 ? "" : "s"}</Button>}
+        {suggestable.length > 0 && <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => suggestable.forEach((c) => { const s = suggestionFor(c); if (s) pick(c.id, s); })}><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Use {suggestable.length} suggestion{suggestable.length === 1 ? "" : "s"}</Button>}
       </div>
       {carriers.length === 0 && <p className="text-xs text-muted-foreground">Add carriers first and their levels will appear here.</p>}
       {carriers.map((c) => {
         const row = rowFor(c.id);
-        const levels = carrierLevels(c);
-        const suggestion = suggestFor(c, basePct);
-        const value = row.mode === "fallback" ? "__fallback" : row.mode === "custom" ? "__custom" : (levels.find((l) => l.level_name === row.carrier_level_name)?.id ?? "__custom");
+        const levels = levelsFor(c);
+        const suggestion = suggestLevel(levels, basePct);
+        const chosen = findLevel(levels, row.carrier_level_name);
+        const value = row.mode === "fallback" ? "__fallback" : row.mode === "custom" ? "__custom" : (chosen?.id ?? "__custom");
         return <div key={c.id} className="space-y-1.5 border-t border-border pt-3 first:border-0 first:pt-0">
           <div className="flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate text-xs font-medium">{c.name}</span>
@@ -149,23 +165,32 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
               if (v === "__fallback") return set(c.id, FALLBACK);
               if (v === "__custom") return set(c.id, { ...row, mode: "custom" });
               const l = levels.find((x) => x.id === v);
-              set(c.id, { mode: "level", carrier_level_name: l?.level_name ?? "", carrier_pct: l?.commission_pct != null ? String(l.commission_pct) : "" });
+              if (l) pick(c.id, l);
             }}>
               <SelectTrigger className="h-9 w-[210px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__fallback">Use position percentage{pct ? ` (${pct}%)` : ""}</SelectItem>
-                {levels.map((l) => <SelectItem key={l.id} value={l.id}>{l.level_name}{l.commission_pct != null ? ` — ${Number(l.commission_pct)}%` : ""}</SelectItem>)}
+                {/* The carrier's own names. A level appearing here from the comp
+                    grid is not a lesser entry — a grid is written in exactly
+                    this vocabulary, which is why it can be matched at all. */}
+                {levels.map((l) => <SelectItem key={l.id} value={l.id}>{levelLabel(l)}</SelectItem>)}
                 <SelectItem value="__custom">Enter it manually…</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {/* Named rather than counted: an owner picking between "Level 40" and
+              "Level 55" wants to know one came from the grid they uploaded. */}
+          {chosen && row.mode === "level" && <p className="text-[11px] text-muted-foreground">{levelOrigin(chosen)}{chosen.pct == null && chosen.minPct !== chosen.maxPct ? " — rates vary by product, so each deal prices from the grid" : ""}</p>}
           {row.mode === "custom" && <div className="grid grid-cols-[1fr_90px] gap-2">
             <Input value={row.carrier_level_name} onChange={(e) => set(c.id, { ...row, mode: "custom", carrier_level_name: e.target.value })} placeholder="Carrier level name" />
             <Input type="number" value={row.carrier_pct} onChange={(e) => set(c.id, { ...row, mode: "custom", carrier_pct: e.target.value })} placeholder={pct || "%"} />
           </div>}
-          {row.mode === "fallback" && suggestion && <button type="button" onClick={() => applySuggestion(c)} className="text-[11px] text-primary">
-            Suggested: {suggestion.level_name}{suggestion.commission_pct != null ? ` (${Number(suggestion.commission_pct)}%)` : ""} — use it
+          {row.mode === "fallback" && suggestion && <button type="button" onClick={() => pick(c.id, suggestion)} className="text-[11px] text-primary">
+            Suggested: {levelLabel(suggestion)} — use it
           </button>}
+          {/* The state the screenshot was stuck in. Saying which screens define
+              a level beats an empty dropdown that looks like a fault. */}
+          {levels.length === 0 && <p className="text-[11px] text-muted-foreground">No levels recorded for {c.name} yet — add them on the carrier, or upload its comp grid, and they will appear here by name.</p>}
         </div>;
       })}
     </div>}

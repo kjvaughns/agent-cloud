@@ -65,7 +65,15 @@ export type CarrierFacts = {
   /** The owner's on/off switch. Not the same as "ready". */
   enabled: boolean;
   archived: boolean;
-  /** Carrier contract levels defined for this carrier, active ones only. */
+  /**
+   * How many levels this carrier is known to have, by name.
+   *
+   * Counted from either source: an active row in `carrier_comp_levels`, or a
+   * level named on the uploaded comp grid. A grid is keyed by the carrier's own
+   * level vocabulary, so an agency that has uploaded one has already said what
+   * the levels are — requiring them to be retyped into a second table before
+   * the carrier may be activated asks for the same fact twice.
+   */
   levelCount: number;
   /** Grid rows — product/age-band rates. Zero is allowed; see `usesFallback`. */
   gridRowCount: number;
@@ -120,7 +128,8 @@ function firstBlocker(f: CarrierFacts): { status: CarrierStatus; problem: string
       status: "needs_levels",
       problem:
         `${f.carrierName} has no contract levels yet. Add the levels this carrier ` +
-        `offers — they are what an agency position gets mapped to.`,
+        `offers, or upload its comp grid — either names them, and they are what ` +
+        `an agency position gets mapped to.`,
     };
   }
   if (f.unreviewedGridRowCount > 0) {

@@ -19,6 +19,7 @@ import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effectiv
 import { loadWritingNumbers, writingNumberKey } from "@/lib/writing-numbers";
 import { agencyCarrierConfiguration } from "@/lib/compensation/lookup.server";
 import { carrierState, removalMode } from "@/lib/carriers/status";
+import { carrierLevelOptions } from "@/lib/compensation/carrier-levels";
 import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 // Generated DB types predate this module's tables; cast until regenerated.
@@ -270,18 +271,38 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
     const configuration = await agencyCarrierConfiguration(supabase, access.orgId);
 
     // Grid rows are keyed on `carrier_id`, not on the org_carrier row.
+    //
+    // `level_name` comes back too, and not only for counting: it is the
+    // carrier's own vocabulary for its comp ladder, which is what "Match
+    // carrier levels" on an agency position has to offer. That screen used to
+    // read `carrier_comp_levels` alone — a table filled in by hand and
+    // therefore usually empty — so the dropdown listed no levels at all even
+    // for carriers whose grid names every one of them.
     const { data: gridRows } = await supabase
       .from("commission_grids")
-      .select("carrier_id, product_name")
+      .select("carrier_id, product_name, level_name, level_sort, year_1_pct")
       .eq("organization_id", access.orgId);
     const gridCount = new Map<string, number>();
     // Distinct products, not rows. One product with three age bands is three
     // rows and one product, and "3 products" on a carrier that sells one is
     // the kind of number an owner stops trusting the rest of the screen over.
     const gridProducts = new Map<string, Set<string>>();
+    // Kept as rows rather than collapsed here: one level pays different rates
+    // on different products, and `carrierLevelOptions` is the one place that
+    // knows a level's percentage may be a range instead of a number.
+    const gridLevels = new Map<string, any[]>();
     for (const g of (gridRows ?? []) as any[]) {
       const k = String(g.carrier_id);
       gridCount.set(k, (gridCount.get(k) ?? 0) + 1);
+      if (String(g.level_name ?? "").trim()) {
+        if (!gridLevels.has(k)) gridLevels.set(k, []);
+        gridLevels.get(k)!.push({
+          level_name: g.level_name,
+          level_sort: g.level_sort ?? null,
+          product_name: g.product_name ?? null,
+          year_1_pct: g.year_1_pct ?? null,
+        });
+      }
       const name = String(g.product_name ?? "").trim().toLowerCase();
       if (!name) continue;
       if (!gridProducts.has(k)) gridProducts.set(k, new Set());
@@ -310,13 +331,24 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
       access,
       carriers: (data ?? []).map((c: any) => {
         const activeLevels = (c.carrier_comp_levels ?? []).filter((l: any) => l.status === "active");
+        const carrier_grid_levels = gridLevels.get(String(c.carrier_id)) ?? [];
+        // Every name this carrier goes by, from either source, deduped. This is
+        // what "Match carrier levels" offers and what `needs_levels` counts: an
+        // agency that has uploaded a grid naming Level 40 and Level 55 has told
+        // us this carrier's levels, and asking them to retype the two names
+        // into a second table before the carrier may be activated is asking for
+        // the same fact twice.
+        const levelOptions = carrierLevelOptions({
+          carrier_comp_levels: c.carrier_comp_levels ?? [],
+          carrier_grid_levels,
+        });
         const name = c.carriers?.name ?? "Unnamed carrier";
         const state = carrierState({
           orgCarrierId: c.id,
           carrierName: name,
           enabled: c.enabled !== false && c.status === "active",
           archived: c.status === "archived",
-          levelCount: activeLevels.length,
+          levelCount: levelOptions.length,
           gridRowCount: gridCount.get(String(c.carrier_id)) ?? 0,
           // No review queue exists yet; extraction review lands with the Add
           // Carrier wizard. Reporting zero here is today's behaviour rather
@@ -332,11 +364,18 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
         return {
           ...c,
           name,
+          carrier_grid_levels,
+          level_options: levelOptions,
           logo_url: c.carriers?.logo_url ?? null,
           is_private: c.carriers?.is_private ?? false,
           open_requests: open.get(c.id) ?? 0,
           requirement_count: (c.carrier_requirements ?? []).filter((r: any) => r.active).length,
-          comp_level_count: activeLevels.length,
+          // The Levels fact on the carrier row counts every name the carrier
+          // goes by, matching what the mapping dropdown offers. Showing the
+          // hand-entered count there while the dropdown listed grid levels too
+          // would be two numbers for one thing.
+          comp_level_count: levelOptions.length,
+          hand_entered_level_count: activeLevels.length,
           grid_row_count: gridCount.get(String(c.carrier_id)) ?? 0,
           product_count: gridProducts.get(String(c.carrier_id))?.size ?? 0,
           state,
