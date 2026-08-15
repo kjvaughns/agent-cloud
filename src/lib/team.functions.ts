@@ -24,7 +24,10 @@ export type TeamAgent = {
   premium_total: number;
   completion_pct: number;
   missing: string[];
+  /** True on the caller's own row, which the downline RPC never returns. */
+  is_self?: boolean;
 };
+
 
 export type TeamKpis = {
   total: number;
@@ -120,6 +123,7 @@ export type RosterAgent = TeamAgent & {
   at_risk_cases: number;
 };
 
+
 /**
  * The roster, with the two things the RPC does not carry.
  *
@@ -166,9 +170,36 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       source = own;
     }
 
-    const agents = (source ?? []) as TeamAgent[];
+    const downlineAgents = (source ?? []) as TeamAgent[];
+
+    // The caller's own row. `get_team_downline` starts at the children of
+    // auth.uid(), so an agency owner never appeared on their own roster and had
+    // nowhere to read or set their own position. Included as depth 0 and
+    // flagged, so the UI can label it and the team roll-up can treat it as the
+    // root of the tree.
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, phone, upline_id, status, last_active_at, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const selfAgent: TeamAgent | null = me
+      ? {
+          ...(me as any),
+          depth_level: 0,
+          contracts_count: 0,
+          policies_count: 0,
+          premium_total: 0,
+          completion_pct: 0,
+          missing: [],
+          is_self: true,
+        }
+      : null;
+
+    const agents = selfAgent ? [selfAgent, ...downlineAgents] : downlineAgents;
     const ids = agents.map((a) => a.id);
     if (ids.length === 0) return { rows: [] as RosterAgent[] };
+
 
     const today = new Date().toISOString().slice(0, 10);
 
@@ -281,9 +312,23 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       atRisk.set(r.agent_id, held);
     }
 
+    // The self row arrives without the RPC's aggregates, so its counts come
+    // from the rows already fetched above rather than reading as zero.
+    const policyCount = new Map<string, number>();
+    for (const p of (policies.data ?? []) as any[]) {
+      policyCount.set(p.agent_id, (policyCount.get(p.agent_id) ?? 0) + 1);
+    }
+    const contractCount = new Map<string, number>();
+    for (const c of (contracts.data ?? []) as any[]) {
+      contractCount.set(c.agent_id, (contractCount.get(c.agent_id) ?? 0) + 1);
+    }
+
     const now = Date.now();
     return {
       rows: agents.map((a): RosterAgent => {
+        const policiesCount = a.is_self
+          ? (policyCount.get(a.id) ?? 0)
+          : Number(a.policies_count ?? 0);
         const facts: AgentFacts = {
           status: a.status,
           liveLicences: liveLicences.get(a.id) ?? 0,
@@ -291,7 +336,8 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           eoExpiry: eoExpiry.get(a.id) ?? null,
           eoPresent: eoPresent.has(a.id),
           activeCarriers: activeCarriers.get(a.id) ?? 0,
-          policiesCount: Number(a.policies_count ?? 0),
+          policiesCount,
+
           lastSaleAt: lastSale.get(a.id) ?? null,
           firstContractedAt: firstContracted.get(a.id) ?? null,
           // Persistency is a per-agent computation over the whole book and is
@@ -305,7 +351,10 @@ export const getTeamRoster = createServerFn({ method: "GET" })
         const level = levelId ? levelById.get(levelId) ?? null : null;
         return {
           ...a,
+          policies_count: policiesCount,
+          contracts_count: a.is_self ? (contractCount.get(a.id) ?? 0) : Number(a.contracts_count ?? 0),
           stage: lifecycleStage(facts, flags),
+
           compliance: complianceLevel(facts, now),
           flags,
           active_carriers: facts.activeCarriers,
@@ -476,6 +525,50 @@ export const setAgentHidden = createServerFn({ method: "POST" })
  * them out of their own agency), and returns a row count.
  */
 /**
+ * The caller's own placement, and whether they may set it themselves.
+ *
+ * An owner of a top-level agency (no parent organisation) has nobody above them
+ * to place them, so their own position would otherwise stay unassigned and
+ * their own deals would price off nothing.
+ */
+export const getMyPlacement = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, agency_level_id, organization_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!me) return { agentId: null, canSelfAssign: false, agencyLevelId: null, name: null, pct: null };
+
+    let isRootAgency = false;
+    if (me.organization_id) {
+      const { data: org } = await (supabase as any)
+        .from("organizations").select("id, parent_org_id").eq("id", me.organization_id).maybeSingle();
+      isRootAgency = Boolean(org) && !org.parent_org_id;
+    }
+
+    let name: string | null = null;
+    let pct: number | null = null;
+    if (me.agency_level_id) {
+      const { data: level } = await (supabase as any)
+        .from("agency_levels").select("name, base_pct").eq("id", me.agency_level_id).maybeSingle();
+      name = level?.name ?? null;
+      pct = level?.base_pct != null ? Number(level.base_pct) : null;
+    }
+
+    return {
+      agentId: me.id as string,
+      canSelfAssign: isRootAgency,
+      agencyLevelId: (me.agency_level_id ?? null) as string | null,
+      name,
+      pct,
+    };
+  });
+
+/**
+
  * Put an agent on a position from the agency's catalog, or take them off it.
  *
  * The catalog is configuration (Settings ▸ Levels & Positions); this is the
