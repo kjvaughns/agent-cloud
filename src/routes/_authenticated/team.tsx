@@ -911,9 +911,13 @@ function RosterTable({
                     <button onClick={() => onOpen(a.id)} className="flex items-center gap-2 text-left hover:underline">
                       <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                       <div>
-                        <div className="font-medium">{a.first_name} {a.last_name}</div>
+                        <div className="font-medium">
+                          {a.first_name} {a.last_name}
+                          {(a as any).is_self && <span className="ml-2 rounded-full border border-border-soft px-1.5 py-0.5 text-[10px] text-muted-foreground">You</span>}
+                        </div>
                         <div className="text-xs text-muted-foreground">{a.email}</div>
                       </div>
+
                     </button>
                   </TableCell>
                   <TableCell>
