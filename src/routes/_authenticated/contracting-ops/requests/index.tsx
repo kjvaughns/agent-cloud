@@ -203,7 +203,8 @@ function RequestsPage() {
               <span className="flex-1">Type</span>
               <span className="flex-1">Status</span>
               <span className="w-20">Waiting on</span>
-              <span className="w-24">Readiness</span>
+              <span className="w-32">Outstanding</span>
+              <span className="w-24">Owner</span>
               <span className="w-24">Age</span>
               <span className="w-5" />
             </div>
@@ -221,9 +222,32 @@ function RequestsPage() {
                       <span className="tnum block truncate text-[11px] text-muted-foreground">
                         {r.reference ?? "—"}{r.agent_npn ? ` · NPN ${r.agent_npn}` : ""}
                       </span>
+                      {/* Who the agent sits under for this carrier. A hierarchy
+                          that is wrong is the commonest reason a carrier sends
+                          a submission back, and it was only visible by opening
+                          the request. */}
+                      {r.upline_name && (
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          under {r.upline_name}
+                        </span>
+                      )}
                     </span>
 
-                    <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{r.carrier_name}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm text-muted-foreground">{r.carrier_name}</span>
+                      {/* The writing number once there is one, the level being
+                          asked for until then — the two facts that say what
+                          this request is actually about. */}
+                      {r.writing_number ? (
+                        <span className="tnum block truncate text-[11px] text-success">
+                          {r.writing_number}
+                        </span>
+                      ) : r.requested_level_name ? (
+                        <span className="block truncate text-[11px] text-muted-foreground">
+                          {r.requested_level_name}
+                        </span>
+                      ) : null}
+                    </span>
 
                     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                       {CONTRACT_TYPE_LABELS[r.contract_type as ContractType] ?? r.contract_type}
@@ -233,7 +257,7 @@ function RequestsPage() {
 
                     <span className="w-20"><OwnerChip status={r.status} /></span>
 
-                    <span className="w-24">
+                    <span className="w-32">
                       <span className="flex items-center gap-1.5">
                         <span className="h-1.5 w-12 overflow-hidden rounded-full bg-surface-2">
                           <span
@@ -243,6 +267,25 @@ function RequestsPage() {
                         </span>
                         <span className="tnum text-[11px] text-muted-foreground">{r.readiness_pct}%</span>
                       </span>
+                      {/* The percentage says how far along a request is. It
+                          does not say what to chase, which is the only thing
+                          somebody working this list needs — so the first
+                          outstanding item is named, with a count when there
+                          are more. */}
+                      {(r.blockers?.length ?? 0) > 0 && (
+                        <span className="block truncate text-[11px] text-warning" title={r.blockers.join(", ")}>
+                          {r.blockers[0]}
+                          {r.blockers.length > 1 ? ` +${r.blockers.length - 1}` : ""}
+                        </span>
+                      )}
+                    </span>
+
+                    {/* Who is working it. Assignment already existed on the
+                        queue; this list showed "waiting on" — a role — and
+                        never the person, so the same request looked unowned
+                        here and claimed there. */}
+                    <span className="w-24 truncate text-[11px] text-muted-foreground">
+                      {r.assignee_name ?? <span className="text-text-dim">Unassigned</span>}
                     </span>
 
                     <span className="w-24"><AgePill days={r.days_open} overdue={r.is_overdue} /></span>

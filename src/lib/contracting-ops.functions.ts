@@ -13,6 +13,9 @@ import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@
 import { resolveHandoffMethod, legacyFallbackUrl } from "@/lib/contracting-ops/handoff";
 import { INHERITABLE_FIELDS } from "@/lib/contracting-ops/effective-settings";
 import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effective-settings.server";
+// `writing_numbers` is authoritative; the column on `contract_requests` is
+// deprecated. Same loader the Contracts page and the team matrix already use.
+import { loadWritingNumbers, writingNumberKey } from "@/lib/writing-numbers";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -799,12 +802,20 @@ export const listContractingRequests = createServerFn({ method: "GET" })
     // for that, deliberately: duplicating the rule invites the two to drift.
     let q = supabase
       .from("contracting_requests")
+      // The inbox is meant to be workable without opening every row. It was
+      // missing the requested level, the upline, what is actually outstanding
+      // and the writing number — so deciding what to do next meant clicking
+      // into each request in turn. All of it was already on the row or one
+      // join away.
       .select(`
         id, reference, status, contract_type, priority, readiness_state, readiness_pct,
-        due_date, created_at, updated_at, submitted_at, assigned_to, agent_id, org_carrier_id,
+        readiness_blockers, due_date, created_at, updated_at, submitted_at,
+        assigned_to, agent_id, org_carrier_id, direct_upline_id, requested_comp_level_id,
         profiles:agent_id ( id, first_name, last_name, email, npn_number ),
         assignee:assigned_to ( id, first_name, last_name ),
-        org_carriers ( id, carriers ( name, logo_url ) )
+        upline:direct_upline_id ( id, first_name, last_name ),
+        requested_level:requested_comp_level_id ( id, name ),
+        org_carriers ( id, carrier_id, carriers ( name, logo_url ) )
       `)
       .order("updated_at", { ascending: false })
       .limit(500);
@@ -817,12 +828,31 @@ export const listContractingRequests = createServerFn({ method: "GET" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
+    // One batched lookup rather than a join: writing numbers live in their own
+    // table keyed by agent and carrier, and `writing_numbers` is authoritative
+    // — the column on `contract_requests` is deprecated.
+    const numbers = await loadWritingNumbers(
+      supabase,
+      Array.from(new Set((rows ?? []).map((r: any) => r.agent_id).filter(Boolean))),
+    );
+
     let out = (rows ?? []).map((r: any) => ({
       ...r,
       agent_name: `${r.profiles?.first_name ?? ""} ${r.profiles?.last_name ?? ""}`.trim() || "Unnamed agent",
       agent_npn: r.profiles?.npn_number ?? null,
       carrier_name: r.org_carriers?.carriers?.name ?? "Carrier",
       assignee_name: r.assignee ? `${r.assignee.first_name ?? ""} ${r.assignee.last_name ?? ""}`.trim() : null,
+      upline_name: r.upline ? `${r.upline.first_name ?? ""} ${r.upline.last_name ?? ""}`.trim() : null,
+      requested_level_name: r.requested_level?.name ?? null,
+      writing_number: r.org_carriers?.carrier_id
+        ? (numbers.get(writingNumberKey(r.agent_id, r.org_carriers.carrier_id)) ?? null)
+        : null,
+      // What is outstanding, in words. The readiness percentage says how far
+      // along a request is; it does not say what to chase, which is the only
+      // thing a staff member reading this list wants to know.
+      blockers: Array.isArray(r.readiness_blockers)
+        ? r.readiness_blockers.map((b: any) => b?.label).filter(Boolean)
+        : [],
       days_open: Math.max(0, Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86_400_000)),
       is_overdue: Boolean(r.due_date && r.due_date < new Date().toISOString().slice(0, 10)
         && REQUEST_STATUS_META[r.status as keyof typeof REQUEST_STATUS_META]?.open),
