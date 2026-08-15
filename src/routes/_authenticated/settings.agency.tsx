@@ -15,22 +15,34 @@ import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { EmailsPage } from "@/components/settings/emails-panel";
 import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SampleDataPanel } from "@/components/settings/sample-data-panel";
+import { NotificationsPanel } from "@/components/settings/notifications-panel";
+import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
+import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
+import { AgencyTeamPage } from "@/components/agency-team-page";
+import { LevelsPanel } from "@/components/contracting/levels-panel";
+import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
+import { ManageGridsPage } from "@/components/contracting/manage-grids";
+import { SetupChecklist } from "@/components/settings/setup-checklist";
+import { ContractingSettingsPanel } from "@/components/settings/contracting-settings-panel";
+import { TemplatesPanel } from "@/components/settings/templates-panel";
+import { getContractingSetupStatus } from "@/lib/settings/setup.functions";
 import { useMutation } from "@tanstack/react-query";
 import { getOrgSettings, updateOrgSettings } from "@/lib/org-settings.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/agency")({
   ssr: false,
   head: () => ({ meta: [{ title: "Agency Settings — Agent Cloud" }] }),
-  // ?tab= so the palette and the old /settings/emails bookmark can land on
-  // the right one rather than dumping you on General.
+  // ?tab= so the palette, the setup checklist and the pages that used to be
+  // rows of their own can land on the right tab rather than dumping you on
+  // General. Old names are aliased, not dropped.
   validateSearch: (s: Record<string, unknown>): { tab?: Tab } => {
-    const t = s.tab;
-    return TABS.includes(t as Tab) ? { tab: t as Tab } : {};
+    const t = normalizeTab(s.tab);
+    return t ? { tab: t } : {};
   },
+
   // The guard moved into the component. It used to live here and check
   // `user_roles` alone, which was wrong twice over: it ignored
   // `organizations.owner_id`, so an owner whose org row predates their account
