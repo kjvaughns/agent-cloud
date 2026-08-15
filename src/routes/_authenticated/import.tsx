@@ -149,6 +149,11 @@ function ImportPage() {
   const carrierIndexFn = useServerFn(listCarrierIndex);
   const markParentFn = useServerFn(markWorkbookParent);
   const carrierReportFn = useServerFn(extractCarrierReport);
+  const claimStaleFn = useServerFn(claimStaleImports);
+  const processStoredFn = useServerFn(processStoredImport);
+  const retryFn = useServerFn(retryImportDoc);
+  const failFn = useServerFn(failImportDoc);
+  const heartbeatFn = useServerFn(heartbeatImport);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
