@@ -257,7 +257,7 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
     let left = 0;
     for (const c of carriers) {
       if (rowFor(c.id).mode === "custom") continue;
-      const s = suggestionFor(c);
+      const s = autoMatchLevel(levelsFor(c), basePct);
       if (!s) { next[c.id] = FALLBACK; left++; continue; }
       const m = mappingFor(s);
       next[c.id] = {
