@@ -48,7 +48,11 @@ export const Route = createFileRoute("/_authenticated/import")({
  * glance, the word for the certainty.
  */
 const STATUS_STYLE: Record<string, { label: string; variant: any; dot: string }> = {
-  queued: { label: "Queued", variant: "secondary", dot: "bg-muted-foreground/50" },
+  // "Queued" is a machine's word for a file nobody is looking at yet, and it
+  // was the label people saw for the whole time a file was actually being read.
+  // The reading itself now labels itself; this is only the genuine wait.
+  queued: { label: "Waiting to be read", variant: "secondary", dot: "bg-muted-foreground/50 animate-pulse" },
+
   analyzing: { label: "Reading", variant: "info", dot: "bg-primary animate-pulse" },
   needs_review: { label: "Needs you", variant: "warning", dot: "bg-warning" },
   applied: { label: "Imported", variant: "success", dot: "bg-success" },
@@ -93,6 +97,10 @@ const CONCURRENCY = 3;
 /** Rows per reconcile call. Matches the server's cap. */
 const RECONCILE_CHUNK = 500;
 
+/** A file's live client-side phase: what it is doing, and how far along. */
+type LivePhase = { label: string; pct: number };
+
+
 function ImportPage() {
   const qc = useQueryClient();
   const nav = useNavContext();
@@ -103,6 +111,29 @@ function ImportPage() {
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
+  /**
+   * What each file is doing *right now*.
+   *
+   * The row's status column comes from the database, and the database only
+   * learns a file's outcome once the client has finished reading it — so a file
+   * being actively parsed read "Queued" for the whole minute it was working.
+   * This is the client's own view of the same file: a phase in words and a
+   * percentage, kept only while the work is in flight.
+   */
+  const [live, setLive] = useState<Record<string, LivePhase>>({});
+
+  function mark(id: string, label: string, pct: number) {
+    setLive((prev) => ({ ...prev, [id]: { label, pct: Math.max(0, Math.min(99, Math.round(pct))) } }));
+  }
+  function clearMark(id: string) {
+    setLive((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
 
   const batchFn = useServerFn(createImportBatch);
   const classifyFn = useServerFn(classifyImportDoc);
@@ -151,6 +182,12 @@ function ImportPage() {
       });
       qc.invalidateQueries({ queryKey: ["imports"] });
 
+      // Every file in the batch is waiting on a worker, and says so, rather
+      // than looking idle until its turn comes.
+      for (const rec of batch.documents ?? []) {
+        if (rec?.id) mark(rec.id, "Waiting its turn", 2);
+      }
+
       let done = 0;
       const queue = list.map((file, i) => ({ file, rec: batch.documents[i] }));
 
@@ -165,6 +202,7 @@ function ImportPage() {
             // read must not take the rest of the batch down with it.
             console.error("Import failed for", item.file.name, e);
           }
+          clearMark(item.rec.id);
           done++;
           setProgress({ done, total: list.length });
           qc.invalidateQueries({ queryKey: ["imports"] });
@@ -179,9 +217,11 @@ function ImportPage() {
     } finally {
       setBusy(false);
       setProgress(null);
+      setLive({});
       qc.invalidateQueries({ queryKey: ["imports"] });
     }
   }
+
 
   /**
    * Read one file and work out what it is.
@@ -191,6 +231,7 @@ function ImportPage() {
    * reaches the model.
    */
   async function processOne(file: File, id: string, userNote: string | null, batchId: string) {
+    mark(id, "Opening the file", 8);
     const doc = await extractDocument(file);
 
     const notice = truncationNotice(doc);
@@ -207,9 +248,12 @@ function ImportPage() {
       anything is proposed, so a policy lands on the client it belongs to
       instead of inventing a second copy of them.
     */
+    mark(id, "Working out what it is", 24);
     const plan = doc.text ? planWorkbook(doc.text, carriers, userNote) : null;
 
+
     if (plan && plan.streams.length > 1) {
+      mark(id, `Splitting ${plan.sheets.length} tabs`, 32);
       await markParentFn({
         data: { id, summary: describePlan(plan), sheet_count: plan.sheets.length },
       });
@@ -228,11 +272,17 @@ function ImportPage() {
         },
       });
       qc.invalidateQueries({ queryKey: ["imports"] });
+      for (const rec of children.documents ?? []) {
+        if (rec?.id) mark(rec.id, "Waiting its turn", 2);
+      }
 
       for (let i = 0; i < plan.streams.length; i++) {
         const st = plan.streams[i];
         const rec = children.documents?.[i];
         if (!rec) continue;
+        // The parent's bar tracks tabs finished; each tab's own bar tracks rows.
+        mark(id, `Tab ${i + 1} of ${plan.streams.length} — ${st.sheetLabel}`, 32 + (i / plan.streams.length) * 60);
+        mark(rec.id, "Reading columns", 20);
         await setKindFn({
           data: {
             id: rec.id,
@@ -242,6 +292,7 @@ function ImportPage() {
           },
         });
         await sendRows(rec.id, st.kind, st.rows, file.name);
+        clearMark(rec.id);
         qc.invalidateQueries({ queryKey: ["imports"] });
       }
       if (plan.notesJoined || plan.policiesJoined) {
@@ -251,6 +302,7 @@ function ImportPage() {
       }
       return;
     }
+
 
     // A single recognisable sheet still goes through the planner, so a one-tab
     // book gets the same column reading and the same joins as a four-tab one.
@@ -288,7 +340,9 @@ function ImportPage() {
     // Either nothing recognisable, or the note and the columns disagree —
     // and a disagreement is never resolved by picking one. Ask the model,
     // and give it the user's own words as evidence.
+    mark(id, "Asking the assistant to identify it", 55);
     await classifyFn({
+
       data: {
         id,
         text: doc.text || null,
@@ -314,18 +368,22 @@ function ImportPage() {
     let rows: Record<string, any>[] = [];
 
     if (kind === "book_of_business") {
+      mark(id, "Reading your book", 40);
       rows = doc.text ? clientsFromDocument(doc.text, carriers) : [];
     } else if (kind === "commission_grid") {
       // A rate table's meaning is in its layout — which column a number sits
       // under is the level it pays. The text layer gives the numbers in
       // reading order with the columns gone, so grids go to the model as
       // pictures even when the PDF has perfectly good text.
+      mark(id, "Turning pages into images", 34);
       const pages = doc.images.length
         ? doc.images
         : (await extractDocument(file, { prefer: "image", maxPages: 8 })).images;
       if (!pages.length) return;
+      mark(id, `Reading the rate table (${pages.length} page${pages.length === 1 ? "" : "s"})`, 50);
       const out: any = await extractGridFn({ data: { images: pages, file_name: file.name } });
       rows = (out?.rows ?? []).map((r: any) => ({ ...r, carrier_name: out.carrier_name ?? null }));
+
     } else if (kind === "writing_numbers" || kind === "state_licenses") {
       // Straight to the contracting importer's own column vocabulary. It does
       // the resolution and the validation; mapping is all that is needed here.
@@ -337,7 +395,9 @@ function ImportPage() {
     } else if (
       kind === "policy_status_report" || kind === "agent_debt" || kind === "commission_statement"
     ) {
+      mark(id, "Reading the carrier report", 40);
       rows = await carrierReportRows(kind, doc, file);
+
     } else {
       return;
     }
@@ -467,6 +527,13 @@ function ImportPage() {
       return;
     }
     for (let i = 0; i < rows.length; i += RECONCILE_CHUNK) {
+      // Rows matched, out of rows read — the honest number, since this is the
+      // slow half of an import and it is measured in rows, not files.
+      mark(
+        id,
+        `Matching against your book — ${Math.min(i + RECONCILE_CHUNK, rows.length).toLocaleString()} of ${rows.length.toLocaleString()} rows`,
+        60 + (i / rows.length) * 38,
+      );
       const res: any = await reconcileFn({
         data: { document_id: id, kind, rows: rows.slice(i, i + RECONCILE_CHUNK) },
       });
@@ -477,6 +544,7 @@ function ImportPage() {
         break;
       }
     }
+
   }
 
   /**
@@ -498,6 +566,27 @@ function ImportPage() {
   const needsReview = docs.filter((d) => d.status === "needs_review").length;
   const imported = docs.filter((d) => d.status === "applied").length;
   const unreadable = docs.filter((d) => d.status === "failed").length;
+
+  /*
+    One number for the whole batch.
+
+    Files finished is the trustworthy part; the files still in flight contribute
+    their own reported phase so a single large file doesn't sit at 0% for a
+    minute and then jump to done. Capped below 100 until everything is in, so
+    the bar never claims to be finished while work is still running.
+  */
+  const livePhases = Object.values(live);
+  const liveAvg = livePhases.length
+    ? livePhases.reduce((n, p) => n + p.pct, 0) / livePhases.length / 100
+    : 0;
+  const overallPct = (() => {
+    if (!progress) return 0;
+    if (progress.done >= progress.total) return 100;
+    const inFlight = Math.min(CONCURRENCY, progress.total - progress.done);
+    const value = ((progress.done + liveAvg * inFlight) / progress.total) * 100;
+    return Math.max(1, Math.min(99, Math.round(value)));
+  })();
+
 
   /*
     A workbook and its tabs are one thing, so they are drawn as one thing.
@@ -683,24 +772,28 @@ function ImportPage() {
                   }}
                 />
                 {busy ? (
-                  <>
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <span className="text-sm font-medium">
-                      {progress ? `Reading ${progress.done} of ${progress.total}…` : "Reading…"}
-                    </span>
-                    {/* A count alone gives no sense of how much is left. Files
-                        differ wildly in size, so this is deliberately a
-                        file-count bar and not a time estimate we cannot keep. */}
-                    {progress && progress.total > 1 && (
-                      <Progress
-                        value={(progress.done / progress.total) * 100}
-                        className="mt-1 h-1.5 w-full max-w-xs"
-                      />
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      Nothing is saved yet — you'll see what we found first.
-                    </span>
-                  </>
+                  <div className="w-full max-w-md space-y-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="inline-flex items-center gap-2 text-sm font-medium">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        {progress
+                          ? `Reading ${progress.total} file${progress.total === 1 ? "" : "s"}`
+                          : "Reading…"}
+                      </span>
+                      {/* The number people came for. Tabular so it doesn't
+                          jitter as it counts up. */}
+                      <span className="font-mono text-2xl font-semibold leading-none tabular-nums text-primary">
+                        {overallPct}%
+                      </span>
+                    </div>
+                    <Progress value={overallPct} className="h-2 w-full" />
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {progress ? `${progress.done} of ${progress.total} done` : ""}
+                      </span>
+                      <span>Nothing is saved yet — you'll see what we found first.</span>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <UploadCloud className={cn("h-6 w-6 text-muted-foreground", dragging && "text-primary")} />
@@ -712,6 +805,7 @@ function ImportPage() {
                     </span>
                   </>
                 )}
+
               </label>
 
             </div>
@@ -739,11 +833,13 @@ function ImportPage() {
                     key={g.doc.id}
                     doc={g.doc}
                     sheets={g.sheets}
+                    live={live}
                     onDescribe={describeAgain}
                     openDoc={openDoc}
                     onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
                     onDismiss={dismiss}
                   />
+
                 );
               })}
             </div>
@@ -778,7 +874,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
  * a phone a name long enough to matter pushed everything else off the row.
  */
 function DocCard({
-  doc, sheets, openDoc, onToggle, onDismiss, onDescribe,
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live,
 }: {
   doc: ImportDoc;
   sheets: ImportDoc[];
@@ -787,13 +883,17 @@ function DocCard({
   onDismiss: (id: string) => void;
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
+  /** Live client-side phase per document id, while a batch is running. */
+  live: Record<string, LivePhase>;
 }) {
+  const phase = live[doc.id];
   const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
   const Icon = KIND_ICON[kind] ?? FileText;
   const open = openDoc === doc.id;
   const isParent = sheets.length > 0;
+
 
   return (
     <Panel
@@ -822,10 +922,20 @@ function DocCard({
             <div className="min-w-0">
               <div className="truncate font-medium leading-tight">{doc.file_name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                  <span className="font-medium text-foreground">{style.label}</span>
-                </span>
+                {/* While the file is being read the client knows more than the
+                    database does, so its phase wins over the stored status —
+                    otherwise a file actively being parsed reads "Queued". */}
+                {phase ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-primary">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {phase.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                    <span className="font-medium text-foreground">{style.label}</span>
+                  </span>
+                )}
                 {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
                 {doc.carrier_name && <span>· {doc.carrier_name}</span>}
                 {doc.period_label && <span>· {doc.period_label}</span>}
@@ -834,6 +944,7 @@ function DocCard({
                 )}
               </div>
             </div>
+
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {target && doc.status === "needs_review" && (
@@ -849,6 +960,15 @@ function DocCard({
             {doc.status === "applied" && <UndoImport batchId={doc.batch_id} />}
           </div>
         </div>
+
+        {phase && (
+          <div className="flex items-center gap-3">
+            <Progress value={phase.pct} className="h-1.5 flex-1" />
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{phase.pct}%</span>
+          </div>
+        )}
+
+
 
         {doc.summary && <p className="text-sm text-muted-foreground">{doc.summary}</p>}
         {doc.error && (
@@ -882,10 +1002,12 @@ function DocCard({
               <SheetRow
                 key={sh.id}
                 doc={sh}
+                phase={live[sh.id]}
                 open={openDoc === sh.id}
                 onToggle={() => onToggle(sh.id)}
                 onDismiss={() => onDismiss(sh.id)}
               />
+
             ))}
           </div>
         )}
@@ -896,13 +1018,16 @@ function DocCard({
 
 /** One tab of a workbook: same information, one level quieter. */
 function SheetRow({
-  doc, open, onToggle, onDismiss,
+  doc, open, onToggle, onDismiss, phase,
 }: {
   doc: ImportDoc;
   open: boolean;
   onToggle: () => void;
   onDismiss: () => void;
+  /** Live client-side phase for this tab, while it is being read. */
+  phase?: LivePhase;
 }) {
+
   const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
@@ -920,12 +1045,26 @@ function SheetRow({
           <div className="min-w-0">
             <div className="truncate text-sm font-medium leading-tight">{label}</div>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                {style.label}
-              </span>
+              {phase ? (
+                <span className="inline-flex items-center gap-1.5 font-medium text-primary">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {phase.label}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                  {style.label}
+                </span>
+              )}
               {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
             </div>
+            {phase && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <Progress value={phase.pct} className="h-1 flex-1" />
+                <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{phase.pct}%</span>
+              </div>
+            )}
+
             {doc.summary && (
               <p className="mt-1 text-xs text-muted-foreground">{doc.summary}</p>
             )}
