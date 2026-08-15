@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 // The advance vocabulary from the resolver, not a second copy of it.
 import { ADVANCE_OPTIONS, ADVANCE_LABELS, type AdvanceOption } from "@/lib/compensation/resolve";
+import { advanceOptionsUpTo, advanceWithinCarrierMax } from "@/lib/carriers/wizard";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -544,6 +545,10 @@ function CarrierDialog({
   const [newName, setNewName] = useState("");
   const [form, setForm] = useState<Record<string, string>>({});
   const [advance, setAdvance] = useState<AdvanceOption | null>(null);
+  // The ceiling the carrier itself permits. Separate from the agency default
+  // because they are different facts, and the server refuses a default that
+  // exceeds it — so the form has to be able to raise it.
+  const [maxAdvance, setMaxAdvance] = useState<AdvanceOption | null>(null);
   const [publish, setPublish] = useState({
     visible_to_agents: true,
     available_for_post_deal: true,
@@ -570,6 +575,8 @@ function CarrierDialog({
     // `?? null` on the advance, `!== false` on the booleans: absent means
     // "never chosen" for one and "on, as it always has been" for the others.
     setAdvance((carrier?.default_advance_option as AdvanceOption | null) ?? null);
+    setMaxAdvance((carrier?.max_advance_option as AdvanceOption | null)
+      ?? (carrier?.default_advance_option as AdvanceOption | null) ?? null);
     setPublish({
       visible_to_agents: carrier?.visible_to_agents !== false,
       available_for_post_deal: carrier?.available_for_post_deal !== false,
@@ -614,6 +621,7 @@ function CarrierDialog({
       // be published — while the resolver refused to guess either, leaving
       // every contract marked "Comp not set up" with no control that could
       // clear it.
+      max_advance_option: maxAdvance,
       default_advance_option: advance,
       visible_to_agents: publish.visible_to_agents,
       available_for_post_deal: publish.available_for_post_deal,
@@ -692,7 +700,30 @@ function CarrierDialog({
           ))}
 
           <div>
-            <Label htmlFor="advance-option">How much of year one this carrier advances</Label>
+            <Label htmlFor="max-advance-option">The most this carrier advances</Label>
+            <select
+              id="max-advance-option"
+              value={maxAdvance ?? ""}
+              onChange={(e) => {
+                const v = (e.target.value || null) as AdvanceOption | null;
+                setMaxAdvance(v);
+                if (advance && !advanceWithinCarrierMax(advance, v)) setAdvance(null);
+              }}
+              className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+            >
+              <option value="">Not chosen yet</option>
+              {ADVANCE_OPTIONS.map((o) => (
+                <option key={o} value={o}>{ADVANCE_LABELS[o]}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-text-dim">
+              A fact about the carrier. Your own default sits inside it, and staff can assign an
+              individual agent less — never more.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="advance-option">Your agency's default advance</Label>
             <select
               id="advance-option"
               value={advance ?? ""}
@@ -703,8 +734,8 @@ function CarrierDialog({
                   guessing an agency's advance terms is the silent default the
                   compensation rewrite exists to remove. */}
               <option value="">Not chosen yet</option>
-              {ADVANCE_OPTIONS.map((o) => (
-                <option key={o} value={o}>{ADVANCE_LABELS[o]}</option>
+              {advanceOptionsUpTo(maxAdvance).map((o) => (
+                <option key={o} value={o}>{ADVANCE_LABELS[o as AdvanceOption]}</option>
               ))}
             </select>
             {!advance && (
