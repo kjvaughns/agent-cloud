@@ -636,7 +636,9 @@ export async function announceNewAgent(profileId: string): Promise<void> {
     await Promise.all(
       targets.map(async (cfg) => {
         if (!cfg.webhook_url) return;
+        const key = eventKey(cfg.id, "new_agents", profile.id);
         try {
+          if (await alreadySent(cfg.id, key)) return;
           const status = await postToDiscord(cfg.webhook_url, body);
           await recordDelivery({
             orgId,
@@ -644,9 +646,11 @@ export async function announceNewAgent(profileId: string): Promise<void> {
             eventType: "agent_joined",
             status: "sent",
             httpStatus: status,
+            eventKey: key,
           });
           await markSuccess(cfg.id);
         } catch (e: any) {
+          if (e?.code === "23505") return;
           const msg = String(e?.message ?? e).slice(0, 500);
           await recordDelivery({
             orgId,
@@ -655,6 +659,7 @@ export async function announceNewAgent(profileId: string): Promise<void> {
             status: "failed",
             httpStatus: e?.status ?? null,
             error: msg,
+            eventKey: key,
           });
           await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
         }
