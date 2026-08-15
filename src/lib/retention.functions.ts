@@ -44,9 +44,19 @@ const SELECT =
  * would make their Team view and their Agency view the same rows under
  * different labels.
  */
-async function narrowByScope(supabase: any, q: any, userId: string, scope: Scope) {
-  if (scope === "mine") return q.eq("agent_id", userId);
-  return q.in("agent_id", await resolveScopeAgentIds(supabase, scope));
+/**
+ * The agent ids a scope covers, or null for "mine" (filter on the caller).
+ * Returns ids rather than a builder: a PostgREST builder is thenable, so
+ * `await`ing a promise that resolves to one runs the query and yields a
+ * response object whose `.in`/`.eq` no longer exist.
+ */
+async function scopeAgentIds(supabase: any, scope: Scope): Promise<string[] | null> {
+  if (scope === "mine") return null;
+  return resolveScopeAgentIds(supabase, scope);
+}
+
+function applyScope(q: any, userId: string, ids: string[] | null) {
+  return ids ? q.in("agent_id", ids) : q.eq("agent_id", userId);
 }
 
 export const listRetentionCases = createServerFn({ method: "POST" })
@@ -67,7 +77,7 @@ export const listRetentionCases = createServerFn({ method: "POST" })
     // The page already has its own assigned filter; if scope narrowed on the
     // same column the two controls would mean the same thing in one
     // combination and different things in another.
-    q = await narrowByScope(supabase, q, userId, data.scope);
+    q = applyScope(q, userId, await scopeAgentIds(supabase, data.scope));
 
     if (data.status === "live") q = q.in("status", ["open", "working"]);
     else if (data.status !== "all") q = q.eq("status", data.status);
@@ -120,11 +130,10 @@ export const getRetentionStats = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     // Same scope as the list below it, or the tiles describe a different set
     // of cases than the rows they sit above.
-    const { data: rows, error } = await narrowByScope(
-      supabase,
+    const { data: rows, error } = await applyScope(
       supabase.from("retention_cases").select("status, premium_at_risk, resolved_at"),
       userId,
-      data.scope,
+      await scopeAgentIds(supabase, data.scope),
     );
     if (error) return { live: 0, atRisk: 0, saved: 0, lost: 0, saveRate: null as number | null };
 
