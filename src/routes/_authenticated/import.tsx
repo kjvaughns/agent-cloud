@@ -870,7 +870,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
  * a phone a name long enough to matter pushed everything else off the row.
  */
 function DocCard({
-  doc, sheets, openDoc, onToggle, onDismiss, onDescribe,
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe, live,
 }: {
   doc: ImportDoc;
   sheets: ImportDoc[];
@@ -879,13 +879,17 @@ function DocCard({
   onDismiss: (id: string) => void;
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
+  /** Live client-side phase per document id, while a batch is running. */
+  live: Record<string, LivePhase>;
 }) {
+  const phase = live[doc.id];
   const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
   const Icon = KIND_ICON[kind] ?? FileText;
   const open = openDoc === doc.id;
   const isParent = sheets.length > 0;
+
 
   return (
     <Panel
