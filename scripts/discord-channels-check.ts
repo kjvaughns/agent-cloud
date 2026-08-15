@@ -109,16 +109,29 @@ check("a join post carries a name and nothing else",
 
 console.log("");
 
-check("announcements are filtered on the channel's switch",
-  /h\.post_announcements !== false/.test(DISCORD), true);
-// `!== false` rather than `=== true`: before the migration the column is
-// absent, and every enabled channel must keep receiving announcements exactly
-// as it does today.
-check("…tolerantly, so nothing goes quiet in the pending window",
-  /post_announcements === true/.test(DISCORD), false);
-check("…reading the row with select(*) for the same reason",
+// Strictly `=== true` now: a bot ticked for sales alone must not receive
+// announcements because a column default said so. That default is exactly how
+// a "sales" webhook ended up posting agency notices.
+check("announcements are filtered strictly on the bot's own switch",
+  /h\.post_announcements === true/.test(DISCORD), true);
+check("…so a permissive read is gone",
+  /post_announcements !== false/.test(DISCORD), false);
+check("…and a new bot writes every event explicitly",
+  /patch\.post_deals = data\.post_deals === true/.test(DISCORD), true);
+check("…refusing a bot with no events",
+  /Pick at least one event/.test(DISCORD), true);
+check("…reading the row with select(*) so a missing column can't fail it",
   /\.from\("discord_integrations"\)\s*\.select\("\*"\)\s*\.eq\("organization_id", orgId\)/.test(DISCORD),
   true);
+
+// ── One event, one post, however many retries ───────────────────────────────
+
+check("every send carries a stable event key", /eventKey\(cfg\.id, "sales"/.test(DISCORD), true);
+check("…for announcements too", /eventKey\(hook\.id, "announcements"/.test(DISCORD), true);
+check("…and for joins", /eventKey\(cfg\.id, "new_agents"/.test(DISCORD), true);
+check("a duplicate is recognised before posting", /alreadySent\(/.test(DISCORD), true);
+check("a failed delivery can be retried", /export const retryDiscordDelivery/.test(DISCORD), true);
+check("…only when it failed", /Only failed deliveries can be retried/.test(DISCORD), true);
 
 check("one recorder writes the ledger", /async function recordDelivery/.test(DISCORD), true);
 check("…and an announcement is recorded through it",
