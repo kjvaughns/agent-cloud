@@ -1403,6 +1403,19 @@ export const getContractingRequest = createServerFn({ method: "GET" })
         .eq("request_id", data.id).order("generated_at", { ascending: false }).limit(20),
     ]);
 
+    // One read for every author in the trail.
+    const actorIds = Array.from(new Set(
+      (history ?? []).map((h: any) => h.changed_by).filter(Boolean),
+    )) as string[];
+    const actorNames = new Map<string, string>();
+    if (actorIds.length) {
+      const { data: actorRows } = await supabaseAdmin
+        .from("profiles").select("id, first_name, last_name, email").in("id", actorIds);
+      for (const r of (actorRows ?? []) as any[]) {
+        actorNames.set(r.id, `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.email || "Staff");
+      }
+    }
+
     const agent = facts.agentProfile;
     const upline = facts.uplineProfile;
     const owner = facts.ownerProfile;
@@ -1493,9 +1506,12 @@ export const getContractingRequest = createServerFn({ method: "GET" })
       })),
       carrier_levels: carrierLevels,
       granted: grantedRow ?? null,
+      // Who did it, by name. "Changed at 14:02" with no author is exactly the
+      // half of an audit trail that cannot settle an argument.
       history: (history ?? []).map((h: any) => ({
         ...h,
         internal_message: isStaff ? h.internal_message : null,
+        changed_by_name: h.changed_by ? actorNames.get(h.changed_by) ?? null : null,
       })),
     };
   });
