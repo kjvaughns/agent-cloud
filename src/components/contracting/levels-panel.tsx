@@ -164,7 +164,39 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
     });
   };
   const suggestionFor = (c: any) => suggestLevel(levelsFor(c), basePct);
-  const suggestable = carriers.filter((c) => rowFor(c.id).mode === "fallback" && suggestionFor(c));
+  /**
+   * Detect every carrier at once.
+   *
+   * One pass over every carrier that is not hand-entered: where a level matches
+   * this position it is mapped, and where nothing matches the carrier is left on
+   * the position percentage rather than forced onto the nearest column. A
+   * carrier typed in manually is a deliberate answer, so it is not overwritten.
+   */
+  const detectAll = () => {
+    if (!Number.isFinite(basePct)) { toast.error("Enter the headline commission first"); return; }
+    const next: Record<string, Row> = { ...mappings };
+    let mapped = 0;
+    let left = 0;
+    for (const c of carriers) {
+      if (rowFor(c.id).mode === "custom") continue;
+      const s = suggestionFor(c);
+      if (!s) { next[c.id] = FALLBACK; left++; continue; }
+      const m = mappingFor(s);
+      next[c.id] = {
+        mode: "level",
+        carrier_level_name: m.carrier_level_name,
+        carrier_pct: m.carrier_pct != null ? String(m.carrier_pct) : "",
+      };
+      mapped++;
+    }
+    setMappings(next);
+    toast.success(
+      left === 0
+        ? `Matched ${mapped} carrier${mapped === 1 ? "" : "s"}.`
+        : `Matched ${mapped} carrier${mapped === 1 ? "" : "s"} · ${left} left on ${basePct}%.`,
+    );
+  };
+
 
   const submit = () => onSave({
     id: record?.id, name: name.trim(), base_pct: basePct, sort_order: basePct, can_invite: canInvite, active: true,
@@ -185,9 +217,10 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
     <button type="button" onClick={() => setShowOverrides((v) => !v)} className="text-sm font-medium text-primary">{showOverrides ? "Hide" : "Match"} carrier levels</button>
     {showOverrides && <div className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs text-muted-foreground">Pick the carrier's own level for this position. Leave a carrier on the position percentage and it pays {pct || "this"}% there.</p>
-        {suggestable.length > 0 && <Button type="button" size="sm" variant="outline" className="shrink-0" onClick={() => suggestable.forEach((c) => { const s = suggestionFor(c); if (s) pick(c.id, s); })}><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Use {suggestable.length} suggestion{suggestable.length === 1 ? "" : "s"}</Button>}
+        <p className="text-xs text-muted-foreground">Pick the carrier's own level for this position, or detect them all. Anything without a match stays on the position percentage and pays {pct || "this"}% there.</p>
+        <Button type="button" size="sm" variant="outline" className="shrink-0" disabled={carriers.length === 0} onClick={detectAll}><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Detect all</Button>
       </div>
+
       {carriers.length === 0 && <p className="text-xs text-muted-foreground">Add carriers first and their levels will appear here.</p>}
       {carriers.map((c) => {
         const row = rowFor(c.id);
