@@ -1247,7 +1247,8 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       </div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="flex-1">Cancel</Button>
-        <Button size="sm" onClick={post} disabled={mut.isPending} className="flex-1">
+        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+
           {mut.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
