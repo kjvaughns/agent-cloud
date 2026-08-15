@@ -312,8 +312,10 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   // carrier real to them. `carrierState.canActivate` decides whether it may be
   // turned on; the row explains the refusal rather than disabling silently.
   const toggle = useMutation({
+    // `enabled` as well as `status`: the lifecycle reads both, so writing only
+    // one left a carrier that said "active" and still behaved as switched off.
     mutationFn: ({ id, on }: { id: string; on: boolean }) =>
-      saveFn({ data: { id, status: on ? "active" : "paused" } }),
+      saveFn({ data: { id, status: on ? "active" : "paused", enabled: on } }),
     onSuccess: (_r, v) => {
       toast.success(v.on
         ? "Carrier is live. Agents can select it now."
