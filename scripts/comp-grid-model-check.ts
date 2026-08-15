@@ -229,7 +229,7 @@ check("extraction output can no longer be truncated at 4000 tokens", /maxTokens:
 
 // Reordering.
 check("product rows are sortable", /verticalListSortingStrategy/.test(MATRIX), true);
-check("level columns are sortable", /horizontalListSortingStrategy/.test(MATRIX), true);
+check("level columns are auto-sorted descending", /sortLevelsDesc/.test(MODEL), true);
 check("the reader honours authored row order", /r\.sort_order/.test(READER), true);
 check("the reader honours authored column order", /level_sort/.test(READER), true);
 check("the editor list is no longer heap-ordered", /entry\.rows\.sort/.test(FNS), true);
