@@ -439,7 +439,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
           every carrier and every rate at once and neither was findable. */}
       {gridFor && (
         <Dialog open onOpenChange={(o) => !o && setGridForId(null)}>
-          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+          <DialogContent className="max-h-[90vh] w-[96vw] max-w-6xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{gridFor.name} — compensation grid</DialogTitle>
               <DialogDescription>
