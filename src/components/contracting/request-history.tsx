@@ -10,7 +10,10 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { currentStanding, type HistoryEntry } from "@/lib/contracting/history";
-import { CONTRACT_TYPE_LABELS, type ContractType } from "@/lib/contracting-ops/types";
+import {
+  CONTRACT_TYPE_LABELS, type ContractType, isAgentActionStatus, requestStatusLabel,
+} from "@/lib/contracting-ops/types";
+import { AlertTriangle } from "lucide-react";
 
 export type RequestRow = {
   id: string;
@@ -58,6 +61,20 @@ export function RequestHistory({ rows }: { rows: RequestRow[] }) {
 
   if (rows.length === 0) return null;
 
+  // ── Anything waiting on the agent, said once and said first ──────────────
+  //
+  // The note explaining what to do was three clicks down, inside a collapsed
+  // request, in a list ordered by recency. So a request could sit in "agent
+  // action needed" for a week with the answer on screen the whole time and
+  // nobody reading it.
+  const needsMe = rows
+    .filter((r) => isAgentActionStatus(r.status))
+    .map((r) => ({
+      row: r,
+      ask: r.history.find((h) => h.message)?.message ?? null,
+      next: r.history.find((h) => h.nextAction)?.nextAction ?? null,
+    }));
+
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);
@@ -68,10 +85,50 @@ export function RequestHistory({ rows }: { rows: RequestRow[] }) {
 
   return (
     <div className="space-y-2">
+      {needsMe.length > 0 && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-3">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-warning">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {needsMe.length === 1
+              ? "One contracting request needs you"
+              : `${needsMe.length} contracting requests need you`}
+          </p>
+          <ul className="mt-2 space-y-2">
+            {needsMe.map(({ row, ask, next }) => (
+              <li key={row.id} className="text-sm">
+                <span className="font-medium">{row.carrier_name ?? "Carrier"}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {requestStatusLabel(row.status)}
+                </span>
+                {ask ? (
+                  <p className="mt-0.5">{ask}</p>
+                ) : (
+                  <p className="mt-0.5 text-muted-foreground">
+                    Your agency is waiting on something from you — they'll add the detail here.
+                  </p>
+                )}
+                {next && (
+                  <p className="mt-0.5 flex items-start gap-1.5 text-xs text-warning">
+                    <Clock className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>Next: {next}</span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {rows.map((r) => {
         const isOpen = open.has(r.id);
         return (
-          <div key={r.id} className="rounded-md border">
+          <div
+            key={r.id}
+            className={cn(
+              "rounded-md border",
+              isAgentActionStatus(r.status) && "border-warning/40",
+            )}
+          >
             <button
               type="button"
               onClick={() => toggle(r.id)}
