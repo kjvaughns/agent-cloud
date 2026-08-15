@@ -227,6 +227,7 @@ function ImportPage() {
    * reaches the model.
    */
   async function processOne(file: File, id: string, userNote: string | null, batchId: string) {
+    mark(id, "Opening the file", 8);
     const doc = await extractDocument(file);
 
     const notice = truncationNotice(doc);
@@ -243,7 +244,9 @@ function ImportPage() {
       anything is proposed, so a policy lands on the client it belongs to
       instead of inventing a second copy of them.
     */
+    mark(id, "Working out what it is", 24);
     const plan = doc.text ? planWorkbook(doc.text, carriers, userNote) : null;
+
 
     if (plan && plan.streams.length > 1) {
       await markParentFn({
