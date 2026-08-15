@@ -529,6 +529,21 @@ function PostDealPage() {
                 <Input type="date" {...register("effective_date", { required: true })} />
               </div>
               <div>
+                <Label>Sale Date *</Label>
+                {/* Capped at today: production cannot be claimed forward, and
+                    the database rejects it anyway. */}
+                <Input
+                  type="date"
+                  max={todaySaleDate()}
+                  {...register("sale_date", { required: true })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {watch("sale_date") === todaySaleDate()
+                    ? "Counts toward this month. Change it to log an older sale."
+                    : `Counts toward ${saleMonthLabel(watch("sale_date"))} on production and the leaderboard.`}
+                </p>
+              </div>
+              <div>
                 <Label>Face Amount *</Label>
                 <Input
                   type="number"
