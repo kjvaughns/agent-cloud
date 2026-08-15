@@ -81,10 +81,26 @@ const NAV = read("src/lib/navigation.ts");
 check("the nav gate exists", /"has-sub-agencies"/.test(NAV), true);
 check("…and requires children AND agency admin",
   /ctx\.hasSubAgencies && ctx\.canSeeAgency/.test(NAV), true);
-// Moved out of the flat "Your agency" run into Team and Access, where a
-// sub-agency belongs: it is who else is in the org, not how contracting runs.
-check("the Settings hub lists the page",
-  /label: "Team and Access", ids: \["agency-roles", "sub-agencies", "security"\]/.test(NAV), true);
+// Moved twice. First out of the flat "Your agency" run into Team and Access,
+// where a sub-agency belongs: it is who else is in the org, not how
+// contracting runs. Then out of Settings entirely, when the Settings hub was
+// cut to five destinations — a sub-agency is people, so it sits under Agency
+// beside the roster rather than under Settings beside billing.
+//
+// What matters either way is that it is reachable and still gated, which is
+// what these assert. Pinning the hub it happened to live in is what made this
+// fail on a move that improved it.
+check("the page is still in the registry",
+  /id: "sub-agencies-nav", label: "Sub-Agencies"/.test(NAV), true);
+check("…under Agency, with the roster",
+  /id: "sub-agencies-nav"[^}]*area: "Agency"/.test(NAV), true);
+check("…still gated on actually having children",
+  /id: "sub-agencies-nav"[^}]*unlock: "has-sub-agencies"/.test(NAV), true);
+// The five the Settings hub is allowed to show. A sixth creeping back in is
+// the thing the consolidation was for.
+check("the Settings hub stays at five",
+  /settings: \[\s*\{ label: "", ids: \["agency-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\]/
+    .test(NAV), true);
 
 const ACCESS = read("src/lib/permissions.functions.ts");
 check("hasSubAgencies is computed from parent_org_id",

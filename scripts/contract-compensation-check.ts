@@ -68,8 +68,13 @@ const fromLevel = resolveCompensation({
 });
 check("a resolution names where its percentage came from",
   fromLevel.ok && fromLevel.pctSource, "level_base");
+// `grid` joined the other three when the carrier's published product and age
+// band rates started being selected from. It is the only source that can
+// differ between two deals the same agent writes on the same carrier, so it
+// needs a sentence as much as the rest — an agent seeing 80% on one deal and
+// 60% on the next has to be able to find out why.
 check("…and every source has a sentence",
-  Object.keys(PCT_SOURCE_LABELS).sort(), ["contract", "level_base", "level_carrier"]);
+  Object.keys(PCT_SOURCE_LABELS).sort(), ["contract", "grid", "level_base", "level_carrier"]);
 check("…as does every advance source",
   Object.keys(ADVANCE_SOURCE_LABELS).sort(), ["carrier_default", "contract", "level_carrier"]);
 // The page shows these on rows belonging to other people in Team and Agency
@@ -164,9 +169,17 @@ check("the component it used to hold lives on its own",
 const NAV = strip(read("src/lib/navigation.ts"));
 check("the duplicate nav row is gone",
   /path: "\/contracting\/commission-grids"/.test(NAV), false);
-// The owner's editor keeps its own home; only the agent's duplicate went.
-check("the settings editor keeps its row",
-  /path: "\/settings\/comp-grids"/.test(NAV), true);
+// The owner's editor keeps a home; only the agent's duplicate went. That home
+// is now the Carriers tab of Agency Settings rather than a page of its own —
+// what a carrier pays is part of setting that carrier up, so Comp Grids
+// stopped being a separate destination and `/settings/comp-grids` became a
+// redirect into the tab.
+check("the editor still has exactly one home",
+  read("src/routes/_authenticated/settings.agency.tsx")
+    .includes("<ManageGridsPage embedded />"), true);
+check("…and the old standalone page is a redirect, not a second mount",
+  /redirect\(\{ to: "\/settings\/agency", search: \{ tab: "carriers" \}/.test(
+    read("src/routes/_authenticated/settings.comp-grids.tsx")), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

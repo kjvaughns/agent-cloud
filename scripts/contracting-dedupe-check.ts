@@ -45,31 +45,45 @@ check("the grid editor lives with the components", /export function ManageGridsP
 check("…and declares no route of its own", /createFileRoute|beforeLoad/.test(MANAGE), false);
 
 // The grid reader used to be checked here too, because it carried a "Manage
-// grids" toggle into the editor. It no longer mounts the editor at all: the
-// standalone reader page became a redirect into the Contracts tab, leaving
-// Settings ▸ Comp Grids as the editor's only door. One mount, not two.
-check("the settings page imports the editor from components",
-  read("src/routes/_authenticated/settings.comp-grids.tsx")
+// grids" toggle into the editor. It no longer mounts the editor at all.
+//
+// The editor's one door moved again since: Settings ▸ Comp Grids stopped being
+// a page and became a redirect into Agency Settings ▸ Carriers, because what a
+// carrier pays is part of setting that carrier up. The requirement is
+// unchanged and is what this asserts — one mount, not two.
+check("the agency settings page mounts the editor",
+  read("src/routes/_authenticated/settings.agency.tsx")
     .includes('from "@/components/contracting/manage-grids"'), true);
+check("…and the old comp-grids page mounts nothing",
+  read("src/routes/_authenticated/settings.comp-grids.tsx")
+    .includes("ManageGridsPage"), false);
 check("the grid reader no longer mounts a second copy of it",
   read("src/components/contracting/comp-grids-content.tsx")
     .includes("ManageGridsPage"), false);
 check("nothing imports the editor from the old route file",
   /from "@\/routes\/_authenticated\/contracting\.comp-grids-manage"/.test(
-    read("src/routes/_authenticated/settings.comp-grids.tsx")), false);
+    read("src/routes/_authenticated/settings.agency.tsx")), false);
 
 // ── Redirects land in one hop ───────────────────────────────────────────────
 
 console.log("");
 
-// Phase 2 moved the grids editor's home from Carrier Setup to Settings ▸
-// Comp Grids; the requirement is unchanged — one hop, no stub-to-stub chains.
+// Phase 2 moved the grids editor's home from Carrier Setup to Settings ▸ Comp
+// Grids, and the settings consolidation moved it once more into Agency
+// Settings ▸ Carriers. The requirement is unchanged across both moves — one
+// hop, no stub-to-stub chains — so these follow the destination rather than
+// pinning the old one.
 const STUB_MANAGE = read("src/routes/_authenticated/contracting.comp-grids-manage.tsx");
 const STUB_GRIDS = read("src/routes/_authenticated/contracting-ops/comp-grids.tsx");
+const EDITOR_HOME = /to: "\/settings\/agency", search: \{ tab: "carriers" \}/;
 check("/contracting/comp-grids-manage goes straight to the editor's home",
-  /to: "\/settings\/comp-grids"/.test(STUB_MANAGE), true);
+  EDITOR_HOME.test(STUB_MANAGE), true);
 check("/contracting-ops/comp-grids goes straight to the editor's home",
-  /to: "\/settings\/comp-grids"/.test(STUB_GRIDS), true);
+  EDITOR_HOME.test(STUB_GRIDS), true);
+// The page that used to BE the home is now a stub like the others, and must
+// land in the same place rather than bouncing through one of them.
+check("…and so does the page that used to be the home",
+  EDITOR_HOME.test(read("src/routes/_authenticated/settings.comp-grids.tsx")), true);
 check("neither hops through another stub",
   /contracting-ops\/(compensation|carriers)/.test(strip(STUB_MANAGE) + strip(STUB_GRIDS)), false);
 
