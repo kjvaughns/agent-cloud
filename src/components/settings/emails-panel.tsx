@@ -188,7 +188,7 @@ export function EmailsPage() {
               <iframe
                 title="Email preview"
                 srcDoc={preview.html}
-                className="h-[600px] w-full rounded-md border bg-white"
+                className="h-[600px] w-full rounded-md border bg-card"
               />
             </div>
           )}

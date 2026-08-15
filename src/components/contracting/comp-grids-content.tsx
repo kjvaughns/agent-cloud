@@ -105,7 +105,7 @@ export function CompGridsContent() {
                     </div>
                     {r.commission_level ? (
                       <span className="flex items-center gap-1.5 shrink-0">
-                        <Badge className="bg-warning text-white">
+                        <Badge className="bg-warning text-on-solid">
                           Your Level: {r.commission_level} ({Number(r.assigned_pct)}%)
                         </Badge>
                         {canSeeAgency && (

@@ -204,7 +204,7 @@ function AgentGuide() {
                   done ? "border-success/40 bg-success/5" : "border-border bg-card hover:bg-surface-2",
                 )}
               >
-                <div className={cn("shrink-0 w-9 h-9 rounded-full grid place-items-center", done ? "bg-success text-white" : "bg-surface-2 text-text-dim")}>
+                <div className={cn("shrink-0 w-9 h-9 rounded-full grid place-items-center", done ? "bg-success text-on-solid" : "bg-surface-2 text-text-dim")}>
                   {done ? <Check className="h-5 w-5" /> : <span className="text-sm font-semibold tnum">{i + 1}</span>}
                 </div>
                 <div className="flex-1">

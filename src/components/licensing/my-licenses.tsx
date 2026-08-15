@@ -444,8 +444,8 @@ export function MyLicensesView() {
     const in90 = new Date(); in90.setDate(in90.getDate() + 90);
     const exp = new Date(expires);
     if (exp < today) return <Badge variant="destructive">Expired</Badge>;
-    if (exp < in90) return <Badge className="bg-warning text-white">Expiring soon</Badge>;
-    return <Badge className="bg-success text-white">Active</Badge>;
+    if (exp < in90) return <Badge className="bg-warning text-on-solid">Expiring soon</Badge>;
+    return <Badge className="bg-success text-on-solid">Active</Badge>;
   }
 
   return (

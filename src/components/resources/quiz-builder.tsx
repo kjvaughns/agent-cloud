@@ -208,7 +208,7 @@ function QuestionCard({ index, question, onChange, onRemove, onMove, first, last
                       question.kind === "single" ? "rounded-full" : "rounded",
                       "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
                       correct
-                        ? "border-success bg-success text-white"
+                        ? "border-success bg-success text-on-solid"
                         : "border-border hover:border-primary",
                     )}
                   >

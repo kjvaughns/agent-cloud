@@ -228,16 +228,16 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
         ) : (
           <>
             {/* Gradient header */}
-            <div className="bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 p-6 text-white">
+            <div className="bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 p-6 text-on-solid">
               <div className="flex items-start gap-4">
                 <Avatar className="h-16 w-16 ring-2 ring-white/30">
-                  <AvatarFallback className="text-lg font-semibold bg-white/20 text-white">
+                  <AvatarFallback className="text-lg font-semibold bg-card/20 text-on-solid">
                     {initials(p.first_name, p.last_name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="text-xl font-bold leading-tight truncate">{fullName}</div>
-                  <div className="text-sm text-white/90 truncate">{p.email}</div>
+                  <div className="text-sm text-on-solid/90 truncate">{p.email}</div>
                   <div className="mt-2">
                     <StatusPill status={status} />
                   </div>

@@ -140,7 +140,7 @@ export function SecurityPage() {
                 <img
                   src={enrolling.qr}
                   alt="Two-factor QR code"
-                  className="h-44 w-44 rounded-lg bg-white p-2"
+                  className="h-44 w-44 rounded-lg bg-card p-2"
                 />
               </div>
               <div className="text-center">

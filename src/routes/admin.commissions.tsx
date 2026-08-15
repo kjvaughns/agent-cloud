@@ -441,7 +441,7 @@ function AdminCompGridsTab({
                   {levels.map((l: any) => (
                     <Badge
                       key={l.name}
-                      className={cn(l.pct === topPct ? "bg-warning text-white" : "bg-secondary text-secondary-foreground")}
+                      className={cn(l.pct === topPct ? "bg-warning text-on-solid" : "bg-secondary text-secondary-foreground")}
                     >
                       {l.pct === topPct ? "★ " : ""}{l.name} ({l.pct}%)
                     </Badge>

@@ -48,9 +48,9 @@ const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
 
 const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
   new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-border text-muted-foreground",   label: "New / Initial" },
-  callback:     { active: "bg-warning text-white border-warning",                    inactive: "border-warning text-warning",   label: "Callback"      },
-  almost_there: { active: "bg-warning text-white border-warning",                  inactive: "border-warning text-warning", label: "Almost There" },
-  sold:         { active: "bg-success text-white border-success",                inactive: "border-success text-success", label: "Sold"     },
+  callback:     { active: "bg-warning text-on-solid border-warning",                    inactive: "border-warning text-warning",   label: "Callback"      },
+  almost_there: { active: "bg-warning text-on-solid border-warning",                  inactive: "border-warning text-warning", label: "Almost There" },
+  sold:         { active: "bg-success text-on-solid border-success",                inactive: "border-success text-success", label: "Sold"     },
 };
 
 
@@ -208,7 +208,7 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
           {client.stage !== "sold" ? (
             <Button
               size="sm"
-              className="bg-success hover:bg-success text-white gap-1.5"
+              className="bg-success hover:bg-success text-on-solid gap-1.5"
               onClick={() => soldMut.mutate()}
               disabled={soldMut.isPending}
             >

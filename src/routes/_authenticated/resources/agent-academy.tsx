@@ -181,7 +181,7 @@ function CourseList({ onOpen }: { onOpen: (id: string) => void }) {
                     ? <img src={c.thumbnail_url} alt="" className="h-full w-full object-cover" />
                     : <GraduationCap className="h-9 w-9 text-gold-bright/60" />}
                   {done && (
-                    <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-success text-white">
+                    <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-success text-on-solid">
                       <Check className="h-3.5 w-3.5" />
                     </span>
                   )}
