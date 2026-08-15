@@ -155,9 +155,10 @@ check("the schema cache is reloaded", /notify pgrst, 'reload schema'/.test(MIG),
 check("a save in the pending window explains itself",
   /42703/.test(DISCORD) && /announcements are still posted to every connected channel/.test(DISCORD),
   true);
-// The switch must not claim "off" while announcements are in fact going out.
-check("the toggle reads as on before the column exists",
-  /checked=\{w\[key\] !== false\}/.test(UI), true);
+// Each bot is created with its events chosen up front, not defaulted.
+check("the add form asks which events the bot posts",
+  /DISCORD_EVENTS\.map/.test(UI), true);
+check("…and a failed delivery offers a retry", /retry\.mutate\(d\.id\)/.test(UI), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
