@@ -314,6 +314,12 @@ export function rowKey(kind: string, record: Record<string, any>): string {
 }
 
 
+/** Already on file for somebody — whoever that is. */
+export function policyOnFile(index: MatchIndex, policyNumber: string | null | undefined): boolean {
+  const n = (policyNumber ?? "").trim().toLowerCase();
+  return n !== "" && index.policyOwners.has(n);
+}
+
 /** Add one existing client to every lookup it belongs in. */
 function addClient(index: MatchIndex, c: ExistingClient): void {
   const phone = normalizePhone10(c.phone);

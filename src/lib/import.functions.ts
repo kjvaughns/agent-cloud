@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
 import { IMPORT_KINDS, KIND_TARGET, KIND_LABEL, type ImportKind } from "@/lib/import-router";
-import { buildMatchIndex, classifyClient, policyExists, rowKey } from "@/lib/import-match";
+import { buildMatchIndex, classifyClient, policyExists, policyOnFile, rowKey, mergeAgencyMatches } from "@/lib/import-match";
 import { saveClientFullRecord, resolveCarrierId, upsertPendingAgent, resolveAgentOwners } from "@/lib/import-helpers";
 import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
 import { runContractingImport } from "@/lib/contracting-import.functions";
@@ -417,9 +417,27 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
 
     // Client rows are the only kind we match against existing records so far;
     // the others land as straightforward proposals until their slice is built.
+    /*
+      Pick up anything parked against this person's email first.
+
+      An agency imports a book before its agents have accounts, so those rows
+      carry `assigned_to_email` instead of an owner. Signing up claims what
+      existed then; this claims what has been imported since — and it has to
+      happen before matching, or the agent's own sales are invisible to the
+      matcher and get created a second time.
+    */
+    if (target.table === "clients") {
+      const { error: claimErr } = await supabase.rpc("claim_my_assigned_records", {});
+      if (claimErr) console.error("Import: claim failed", claimErr.message);
+    }
+
     const index = target.table === "clients"
       ? await buildMatchIndex(supabase, [userId])
       : null;
+
+    // Then widen it to the agency, key by key, so a sale the upline already
+    // imported is recognised rather than duplicated.
+    if (index) await mergeAgencyMatches(supabase, index, data.rows);
 
     /**
      * Who owns each row.
@@ -568,27 +586,51 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
       }
 
       if (index) {
+        /*
+          Policies are filtered before the client verdict is acted on, because
+          the verdict depends on what is left.
+
+          A policy number already on file anywhere in the agency is dropped: the
+          commonest shape of this import is an agent uploading their own copy of
+          a book their upline already loaded, and re-inserting those policies is
+          exactly the doubled production this is meant to prevent.
+        */
+        if (Array.isArray(row.policies)) {
+          row.policies = row.policies.filter(
+            (p: any) =>
+              !policyExists(index, userId, p?.policy_number) &&
+              !policyOnFile(index, p?.policy_number),
+          );
+        }
+        const bringsPolicies = Array.isArray(row.policies) && row.policies.length > 0;
+
         const v = classifyClient(index, row);
         match_id = v.matchId;
         match_reason = v.reason;
         confidence = v.confidence;
         if (v.verdict === "exact") {
           match_kind = "exact";
-          operation = "skip";
-          // Counted in the summary, never shown. Nobody wants to click through
-          // six hundred rows that a unique index would have refused anyway.
-          decision = "skipped";
-          exact++;
+          if (bringsPolicies) {
+            /*
+              The person is already here, the sale is not.
+
+              This used to skip the whole row, which reads as "no duplicates,
+              nothing to do" and quietly loses every policy and note attached to
+              a client we happen to already have — the second upload of a
+              growing book is nothing but rows like this.
+            */
+            operation = "update";
+            match_reason = `${v.reason ?? "already on file"} — adding ${row.policies.length} new polic${row.policies.length === 1 ? "y" : "ies"}`;
+          } else {
+            operation = "skip";
+            // Counted in the summary, never shown. Nobody wants to click through
+            // six hundred rows that a unique index would have refused anyway.
+            decision = "skipped";
+            exact++;
+          }
         } else if (v.verdict === "fuzzy") {
           match_kind = "fuzzy";
           fuzzy++;
-        }
-
-        // Drop policies already on file even when the client is new to us.
-        if (Array.isArray(row.policies)) {
-          row.policies = row.policies.filter(
-            (p: any) => !policyExists(index, userId, p?.policy_number),
-          );
         }
       }
 
