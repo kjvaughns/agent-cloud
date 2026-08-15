@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check, ArrowRight } from "lucide-react";
+import {
+  UploadCloud, Loader2, Sparkles, FileText, AlertTriangle, Check, ArrowRight,
+  Users, BookOpen, StickyNote, Table2, IdCard, ScrollText, Percent, CornerDownRight,
+} from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useNavContext } from "@/hooks/use-my-access";
@@ -32,16 +36,41 @@ export const Route = createFileRoute("/_authenticated/import")({
   component: ImportPage,
 });
 
-const STATUS_STYLE: Record<string, { label: string; variant: any }> = {
-  queued: { label: "Queued", variant: "secondary" },
-  analyzing: { label: "Reading", variant: "info" },
-  needs_review: { label: "Review", variant: "warning" },
-  applied: { label: "Imported", variant: "success" },
-  dismissed: { label: "Dismissed", variant: "secondary" },
-  failed: { label: "Couldn't read", variant: "destructive" },
+/**
+ * One row of the result list has to answer "what happened to my file" from
+ * across the desk, so status carries a colour as well as a word: a dot for the
+ * glance, the word for the certainty.
+ */
+const STATUS_STYLE: Record<string, { label: string; variant: any; dot: string }> = {
+  queued: { label: "Queued", variant: "secondary", dot: "bg-muted-foreground/50" },
+  analyzing: { label: "Reading", variant: "info", dot: "bg-primary animate-pulse" },
+  needs_review: { label: "Needs you", variant: "warning", dot: "bg-warning" },
+  applied: { label: "Imported", variant: "success", dot: "bg-success" },
+  dismissed: { label: "Dismissed", variant: "secondary", dot: "bg-muted-foreground/40" },
+  failed: { label: "Couldn't read", variant: "destructive", dot: "bg-destructive" },
   // A workbook is not reviewed itself — its tabs are, and they are listed
   // under it as their own rows.
-  split: { label: "Split by tab", variant: "info" },
+  split: { label: "Split by tab", variant: "info", dot: "bg-primary/60" },
+};
+
+/**
+ * The file type, as a picture.
+ *
+ * Every row used to open with the same generic page icon, so a stack of eight
+ * rows from one workbook was eight identical lines distinguishable only by
+ * reading the filename to its end. The icon is the fastest way to see that the
+ * roster tab and the book tab are different things.
+ */
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  book_of_business: BookOpen,
+  clients: Users,
+  client_notes: StickyNote,
+  agent_roster: Users,
+  commission_grid: Percent,
+  commission_statement: Table2,
+  writing_numbers: IdCard,
+  state_licenses: ScrollText,
+  policy_status_report: Table2,
 };
 
 /**
@@ -370,6 +399,28 @@ function ImportPage() {
   const imported = docs.filter((d) => d.status === "applied").length;
   const unreadable = docs.filter((d) => d.status === "failed").length;
 
+  /*
+    A workbook and its tabs are one thing, so they are drawn as one thing.
+
+    Flat, a four-tab migration export produced five sibling rows — the workbook
+    plus each tab, every one of them titled with the same filename and a dash —
+    and nothing on screen said the tabs came out of the file above them. Tabs
+    are nested under their parent, and a parent's own row stops being a card
+    that looks reviewable when it is only a container.
+  */
+  const groups = (() => {
+    const children = new Map<string, ImportDoc[]>();
+    for (const d of docs) {
+      if (!d.parent_id) continue;
+      const b = children.get(d.parent_id);
+      if (b) b.push(d);
+      else children.set(d.parent_id, [d]);
+    }
+    return docs
+      .filter((d) => !d.parent_id || !docs.some((p) => p.id === d.parent_id))
+      .map((doc) => ({ doc, sheets: children.get(doc.id) ?? [] }));
+  })();
+
   return (
     <PageShell>
       {/*
@@ -533,9 +584,21 @@ function ImportPage() {
                 />
                 {busy ? (
                   <>
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-sm font-medium">
                       {progress ? `Reading ${progress.done} of ${progress.total}…` : "Reading…"}
+                    </span>
+                    {/* A count alone gives no sense of how much is left. Files
+                        differ wildly in size, so this is deliberately a
+                        file-count bar and not a time estimate we cannot keep. */}
+                    {progress && progress.total > 1 && (
+                      <Progress
+                        value={(progress.done / progress.total) * 100}
+                        className="mt-1 h-1.5 w-full max-w-xs"
+                      />
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      Nothing is saved yet — you'll see what we found first.
                     </span>
                   </>
                 ) : (
@@ -562,23 +625,27 @@ function ImportPage() {
             <Panel><Skeleton className="h-32 w-full" /></Panel>
           ) : docs.length === 0 ? null : (
             <div className="space-y-[var(--gap)]">
-              {docs.map((d) => (
-                <DocRow
-                  key={d.id}
-                  doc={d}
-                  onDescribe={describeAgain}
-                  open={openDoc === d.id}
-                  onToggle={() => setOpenDoc(openDoc === d.id ? null : d.id)}
-                  onDismiss={async () => {
-                    try {
-                      await dismissFn({ data: { id: d.id } });
-                      qc.invalidateQueries({ queryKey: ["imports"] });
-                    } catch (e: any) {
-                      toast.error(e?.message ?? "Couldn't dismiss that");
-                    }
-                  }}
-                />
-              ))}
+              {groups.map((g) => {
+                const dismiss = async (id: string) => {
+                  try {
+                    await dismissFn({ data: { id } });
+                    qc.invalidateQueries({ queryKey: ["imports"] });
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Couldn't dismiss that");
+                  }
+                };
+                return (
+                  <DocCard
+                    key={g.doc.id}
+                    doc={g.doc}
+                    sheets={g.sheets}
+                    onDescribe={describeAgain}
+                    openDoc={openDoc}
+                    onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
+                    onDismiss={dismiss}
+                  />
+                );
+              })}
             </div>
           )}
         </>
@@ -603,42 +670,79 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function DocRow({
-  doc, open, onToggle, onDismiss, onDescribe,
+/**
+ * One uploaded file, and its tabs if it had any.
+ *
+ * Header, then whatever the file has to say, then the review. The status word
+ * and the type sit on one line under the name rather than beside it, because on
+ * a phone a name long enough to matter pushed everything else off the row.
+ */
+function DocCard({
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe,
 }: {
   doc: ImportDoc;
-  open: boolean;
-  onToggle: () => void;
-  onDismiss: () => void;
+  sheets: ImportDoc[];
+  openDoc: string | null;
+  onToggle: (id: string) => void;
+  onDismiss: (id: string) => void;
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
 }) {
-  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary" };
+  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
+  const Icon = KIND_ICON[kind] ?? FileText;
+  const open = openDoc === doc.id;
+  const isParent = sheets.length > 0;
 
   return (
-    <Panel>
+    <Panel
+      className={cn(
+        // The one row that wants something from you is the one that gets the
+        // accent. Everything else stays quiet.
+        doc.status === "needs_review" && "border-warning/40",
+        doc.status === "failed" && "border-destructive/40",
+      )}
+    >
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div
+              className={cn(
+                "grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius)] border",
+                doc.status === "applied" && "border-success/30 bg-success/10 text-success",
+                doc.status === "failed" && "border-destructive/30 bg-destructive/10 text-destructive",
+                doc.status === "needs_review" && "border-warning/30 bg-warning/10 text-warning",
+                !["applied", "failed", "needs_review"].includes(doc.status) &&
+                  "border-border bg-surface-2 text-muted-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </div>
             <div className="min-w-0">
-              <div className="truncate font-medium">{doc.file_name}</div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant={style.variant}>{style.label}</Badge>
-                {doc.doc_type && <span>{KIND_LABEL[kind] ?? doc.doc_type}</span>}
+              <div className="truncate font-medium leading-tight">{doc.file_name}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                  <span className="font-medium text-foreground">{style.label}</span>
+                </span>
+                {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
                 {doc.carrier_name && <span>· {doc.carrier_name}</span>}
                 {doc.period_label && <span>· {doc.period_label}</span>}
+                {isParent && (
+                  <span>· {sheets.length} tab{sheets.length === 1 ? "" : "s"}</span>
+                )}
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {target && doc.status === "needs_review" && (
-              <Button size="sm" onClick={onToggle}>{open ? "Hide" : "Review"}</Button>
+              <Button size="sm" onClick={() => onToggle(doc.id)}>
+                {open ? "Hide" : "Review"}
+              </Button>
             )}
-            {doc.status !== "applied" && doc.status !== "dismissed" && (
-              <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+            {doc.status !== "applied" && doc.status !== "dismissed" && !isParent && (
+              <Button size="sm" variant="ghost" onClick={() => onDismiss(doc.id)}>Dismiss</Button>
             )}
             {/* On the finished import, not behind a menu: the fear an undo
                 answers peaks in the minute after the import completes. */}
@@ -648,7 +752,7 @@ function DocRow({
 
         {doc.summary && <p className="text-sm text-muted-foreground">{doc.summary}</p>}
         {doc.error && (
-          <p className="flex items-start gap-2 text-sm text-destructive">
+          <p className="flex items-start gap-2 rounded-[var(--radius)] border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {doc.error}
           </p>
@@ -669,8 +773,84 @@ function DocRow({
         )}
 
         {open && target && <ReviewPanel documentId={doc.id} />}
+
+        {isParent && (
+          // Indented against a rail, so the tabs read as contents of the file
+          // above rather than as more uploads.
+          <div className="space-y-2 border-l border-border pl-3 sm:pl-4">
+            {sheets.map((sh) => (
+              <SheetRow
+                key={sh.id}
+                doc={sh}
+                open={openDoc === sh.id}
+                onToggle={() => onToggle(sh.id)}
+                onDismiss={() => onDismiss(sh.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </Panel>
+  );
+}
+
+/** One tab of a workbook: same information, one level quieter. */
+function SheetRow({
+  doc, open, onToggle, onDismiss,
+}: {
+  doc: ImportDoc;
+  open: boolean;
+  onToggle: () => void;
+  onDismiss: () => void;
+}) {
+  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
+  const kind = (doc.doc_type ?? "unknown") as ImportKind;
+  const target = KIND_TARGET[kind];
+  const Icon = KIND_ICON[kind] ?? FileText;
+  // The tab's own name, not "workbook.xlsx — Book of Business" repeated down the
+  // list. The filename is already on the card this sits inside.
+  const label = doc.sheet_label ?? doc.file_name.split(" — ").slice(-1)[0] ?? doc.file_name;
+
+  return (
+    <div className="rounded-[var(--radius)] border border-border bg-surface-2/50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <CornerDownRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium leading-tight">{label}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                {style.label}
+              </span>
+              {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
+            </div>
+            {doc.summary && (
+              <p className="mt-1 text-xs text-muted-foreground">{doc.summary}</p>
+            )}
+            {doc.error && (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {doc.error}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {target && doc.status === "needs_review" && (
+            <Button size="sm" variant={open ? "outline" : "default"} onClick={onToggle}>
+              {open ? "Hide" : "Review"}
+            </Button>
+          )}
+          {doc.status !== "applied" && doc.status !== "dismissed" && (
+            <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+          )}
+        </div>
+      </div>
+
+      {open && target && <ReviewPanel documentId={doc.id} />}
+    </div>
   );
 }
 
@@ -743,54 +923,135 @@ function ReviewPanel({ documentId }: { documentId: string }) {
     }
   }
 
+  const newCount = s?.newRecords ?? 0;
+  const skipped = s?.autoSkipped ?? 0;
+  const needsYou = s?.needsYou ?? 0;
+  const applied = s?.applied ?? 0;
+  const total = newCount + skipped + needsYou;
+  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+
   return (
-    <div className="space-y-4 border-t border-border pt-4">
-      <div className="flex flex-wrap gap-4 text-sm">
-        <Count n={s?.newRecords ?? 0} label="new" tone="text-foreground" />
-        <Count n={s?.autoSkipped ?? 0} label="already on file — skipped" tone="text-muted-foreground" />
-        <Count n={s?.needsYou ?? 0} label="need you" tone="text-warning" />
-        {(s?.applied ?? 0) > 0 && <Count n={s.applied} label="imported" tone="text-success" />}
+    <div className="mt-3 space-y-4 border-t border-border pt-4">
+      {/*
+        What is in the file, as one bar and three labels.
+
+        Four numbers on a line of running text made the person do the
+        arithmetic — how much of this book is new? — and the answer is the
+        single thing they want before pressing import. The bar answers it
+        without being read.
+      */}
+      <div className="space-y-2.5">
+        {total > 0 && (
+          <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-2">
+            <div className="bg-primary" style={{ width: `${pct(newCount)}%` }} />
+            <div className="bg-warning" style={{ width: `${pct(needsYou)}%` }} />
+            <div className="bg-muted-foreground/30" style={{ width: `${pct(skipped)}%` }} />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+          <Count n={newCount} label="new" tone="text-foreground" swatch="bg-primary" />
+          {needsYou > 0 && (
+            <Count n={needsYou} label="need you" tone="text-warning" swatch="bg-warning" />
+          )}
+          <Count
+            n={skipped}
+            label="already on file — skipped"
+            tone="text-muted-foreground"
+            swatch="bg-muted-foreground/30"
+          />
+          {applied > 0 && <Count n={applied} label="imported" tone="text-success" swatch="bg-success" />}
+        </div>
       </div>
 
       {rows.length > 0 && (
         <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-warning">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {rows.length} we won't guess on
+            </p>
+            {/* One decision for the whole list, for the common case where the
+                answer is the same every time. Individual rows still win. */}
+            <button
+              type="button"
+              onClick={() => decide(rows.map((r) => r.id), "skipped")}
+              className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Skip all
+            </button>
+          </div>
           <p className="text-sm text-muted-foreground">
-            These look like people you might already have. We won't guess.
+            These look like people you might already have.
           </p>
-          {rows.map((p) => (
-            <div key={p.id} className="rounded-[var(--radius)] border border-border p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium">
-                    {[p.payload?.first_name, p.payload?.last_name].filter(Boolean).join(" ") || "Unnamed record"}
+          {rows.map((p) => {
+            const name =
+              [p.payload?.first_name, p.payload?.last_name].filter(Boolean).join(" ") || "Unnamed record";
+            const initials = name
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w: string) => w[0]?.toUpperCase())
+              .join("");
+            return (
+              <div
+                key={p.id}
+                className="rounded-[var(--radius)] border border-warning/30 bg-warning/[0.04] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-surface-2 text-[11px] font-semibold text-muted-foreground">
+                      {initials || "?"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium leading-tight">{name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                        {p.payload?.phone && <span>{p.payload.phone}</span>}
+                        {p.payload?.email && <span className="truncate">· {p.payload.email}</span>}
+                      </div>
+                      {p.match_reason && (
+                        <div className="mt-1 text-xs text-warning">{p.match_reason}</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.match_reason}
-                    {p.payload?.phone ? ` · ${p.payload.phone}` : ""}
-                    {p.payload?.email ? ` · ${p.payload.email}` : ""}
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => decide([p.id], "skipped")}>
-                    Already have them
-                  </Button>
-                  <Button size="sm" onClick={() => decide([p.id], "approved", null)}>
-                    Add as new
-                  </Button>
-                  {p.match_id && (
-                    <Button size="sm" variant="secondary" onClick={() => decide([p.id], "approved", p.match_id)}>
-                      Merge into existing
+                  {/* Full width and wrapping on a phone: three buttons on one
+                      line at 375px put "Merge into existing" off the edge, and
+                      that is the option a duplicate usually wants. */}
+                  <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
+                    {p.match_id && (
+                      <Button size="sm" onClick={() => decide([p.id], "approved", p.match_id)}>
+                        Merge into existing
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={p.match_id ? "outline" : "default"}
+                      onClick={() => decide([p.id], "approved", null)}
+                    >
+                      Add as new
                     </Button>
-                  )}
+                    <Button size="sm" variant="ghost" onClick={() => decide([p.id], "skipped")}>
+                      Already have them
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Nothing left to import reads as a result, not as a disabled button. */}
+      {newCount === 0 && needsYou === 0 ? (
+        <p className="flex items-center gap-2 rounded-[var(--radius)] border border-success/30 bg-success/5 p-3 text-sm text-success">
+          <Check className="h-4 w-4 shrink-0" />
+          {applied > 0
+            ? `Imported ${applied.toLocaleString()} record${applied === 1 ? "" : "s"}. Everything else was already on file.`
+            : "Everything in this file is already on file — nothing to add."}
+        </p>
+      ) : (
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Button
+          className="w-full sm:w-auto"
           onClick={async () => {
             const ids = ((await proposalsFn({
               data: { document_id: documentId, filter: "new", limit: 200, offset: 0 },
@@ -809,14 +1070,16 @@ function ReviewPanel({ documentId }: { documentId: string }) {
           </span>
         )}
       </div>
+      )}
     </div>
   );
 }
 
-function Count({ n, label, tone }: { n: number; label: string; tone: string }) {
+function Count({ n, label, tone, swatch }: { n: number; label: string; tone: string; swatch?: string }) {
   return (
-    <span className={tone}>
-      <span className="tnum font-semibold">{n.toLocaleString()}</span>{" "}
+    <span className={cn("inline-flex items-center gap-1.5", tone)}>
+      {swatch && <span className={cn("h-2 w-2 shrink-0 rounded-full", swatch)} />}
+      <span className="tnum font-semibold">{n.toLocaleString()}</span>
       <span className="text-muted-foreground">{label}</span>
     </span>
   );
