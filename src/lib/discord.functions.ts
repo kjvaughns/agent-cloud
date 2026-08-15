@@ -7,6 +7,7 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
 import { piiProblems } from "@/lib/discord/message";
+import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 const supabaseAdmin = _admin as any;
 
@@ -117,7 +118,15 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
-    await assertOrgOwner(userId, orgId);
+    // Was owner-only. The brief puts Discord under the Automations tab, which
+    // staff may hold, so this widens to that permission — `assertTabPermission`
+    // still returns true for the owner, so nobody who could do this before
+    // loses it.
+    //
+    // A webhook URL is a bearer credential: anyone holding it can post to that
+    // channel as the agency. So this is a real grant, not a formality, and it
+    // is checked here rather than only in the tab that renders the form.
+    await assertTabPermission(userId, "automations", orgId);
 
     const { id, ...fields } = data;
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };

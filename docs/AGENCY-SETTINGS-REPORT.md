@@ -204,10 +204,18 @@ yet.
 invitation went out. The stage exists so the UI and the eventual column agree
 on the name; nothing maps to it, deliberately.
 
-**Server-side and RLS enforcement of the six new permissions is not written.**
-The prompt is explicit that hiding a button is not enough, and what shipped is
-the interface layer. The keys exist and the tab gate uses them; the server
-functions behind each tab do not check them yet.
+**RLS enforcement of the six new permissions is not written.** Server-side is
+done — `assertTabPermission` and `assertCanEditGrids` refuse
+`saveOrgCarrier`, `saveGrid` and `saveDiscordSettings` at the endpoint, reusing
+the same decision function the interface renders from so the two cannot drift.
+`saveAgencyLevel` already had a capability check. What is missing is the third
+layer: the database does not yet know about these six keys, so a service-role
+path would not be stopped by a policy.
+
+Saving a Discord channel moved from owner-only to the Automations permission,
+which is what the prompt asks for. Nobody who could do it before loses it —
+`assertTabPermission` returns true for the owner — but it is a real widening,
+because a webhook URL is a bearer credential.
 
 **The three RLS tables are unverified against production.** I did not query
 your database — the only Supabase project visible was named `readysupport`,

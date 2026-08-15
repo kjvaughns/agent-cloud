@@ -174,5 +174,43 @@ check("…moving them if a permission changes underneath them",
 check("the labels are not retyped in the page",
   /TAB_LABEL\.carriers/.test(PAGE), true);
 
+// ── Hiding a button is not enough ───────────────────────────────────────────
+//
+// Anybody can post to a server function with a fetch. Until the guard existed
+// the six permissions were advisory: somebody without `admin_manage_carriers`
+// could still save a carrier by calling the endpoint directly.
+
+console.log("");
+
+const GUARD = strip(readFileSync(join(process.cwd(), "src/lib/settings/tab-guard.server.ts"), "utf8"));
+// The decision lives in one place; the server imports it rather than restating
+// it, or the two drift and the interface starts lying.
+check("the server reuses the same decision function",
+  /import \{[\s\S]*?canOpenTab[\s\S]*?\} from "\.\/tab-access"/.test(GUARD), true);
+check("…and the same refusal wording", /refusalReason\(tab\)/.test(GUARD), true);
+// `agency_owner` alone names no organization — that is what 20260815050000 was
+// about — so it only counts alongside an active membership in THIS org.
+check("owner status requires membership in this org, not a bare role",
+  /membership\?\.status === "active" &&/.test(GUARD), true);
+
+const CARRIERS = strip(readFileSync(join(process.cwd(), "src/lib/contracting-ops.functions.ts"), "utf8"));
+check("saving a carrier is refused without the permission",
+  /await assertTabPermission\(userId, "carriers", orgId\)/.test(CARRIERS), true);
+
+const GRIDS = strip(readFileSync(join(process.cwd(), "src/lib/comp-grid.functions.ts"), "utf8"));
+check("saving a grid needs the grid permission, not the carrier one",
+  /await assertCanEditGrids\(userId, orgId\)/.test(GRIDS), true);
+// Before the write, or it is not a guard.
+check("…checked before the rows are written",
+  GRIDS.indexOf("assertCanEditGrids") < GRIDS.indexOf("writeGridRows(supabase"), true);
+
+const DISCORD = strip(readFileSync(join(process.cwd(), "src/lib/discord.functions.ts"), "utf8"));
+check("saving a Discord channel needs the automations permission",
+  /await assertTabPermission\(userId, "automations", orgId\)/.test(DISCORD), true);
+// A webhook URL is a bearer credential. Widening from owner-only to a
+// permission must not accidentally drop the check entirely.
+check("…and the old owner-only check is not simply gone",
+  /assertOrgOwner/.test(DISCORD), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

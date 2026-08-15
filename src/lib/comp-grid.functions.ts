@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
+import { assertCanEditGrids } from "@/lib/settings/tab-guard.server";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -443,6 +444,9 @@ export const saveGrid = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
     const orgId = await requireOrgId(supabase, userId);
+    // Hiding the editor is not enough: this endpoint rewrites what every agent
+    // on this carrier is paid, including on deals already written against it.
+    await assertCanEditGrids(userId, orgId);
 
     const { count } = await writeGridRows(supabase, userId, orgId, {
       carrier_id: data.carrier_id,
