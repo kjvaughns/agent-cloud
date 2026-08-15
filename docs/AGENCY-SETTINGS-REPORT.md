@@ -79,6 +79,7 @@ stale assertions from the settings consolidation rather than broken code.
 |---|---|
 | `20260815060000_import-tooling-org-bound.sql` | The three tables the re-record missed |
 | `20260815070000_grid-rules-state-risk-and-bands.sql` | State and risk columns, the index fix, age-band and vocabulary checks, Discord delivery uniqueness |
+| `20260815080000_agency-settings-permissions.sql` | The six permission columns, and the database's own capability function |
 
 Both forward-only and idempotent. The age-band check is `NOT VALID`, so
 applying it cannot reject rows already stored; the header carries the query to
@@ -149,7 +150,7 @@ existing check scripts had no `package.json` entry** and nothing ever ran them.
 | Lint | 0 errors |
 | Build | clean |
 | Check scripts | **59 of 59** |
-| Integration harness | passes, 208 migrations applied |
+| Integration harness | passes, 209 migrations applied |
 
 One honest note: one commit was pushed with a red check
 (`contract-compensation-check`, from a new enum member) and fixed in the next.
@@ -204,8 +205,10 @@ yet.
 invitation went out. The stage exists so the UI and the eventual column agree
 on the name; nothing maps to it, deliberately.
 
-**RLS enforcement of the six new permissions is not written.** Server-side is
-done — `assertTabPermission` and `assertCanEditGrids` refuse
+**RLS policies do not yet consult the six permissions.** The function they
+would call — `can_manage_agency_settings(_org, _key)` — exists and is proven,
+and the columns exist, so this is now a matter of pointing policies at it
+rather than of building anything. Server-side is done — `assertTabPermission` and `assertCanEditGrids` refuse
 `saveOrgCarrier`, `saveGrid` and `saveDiscordSettings` at the endpoint, reusing
 the same decision function the interface renders from so the two cannot drift.
 `saveAgencyLevel` already had a capability check. What is missing is the third
