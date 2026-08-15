@@ -351,7 +351,10 @@ export const getTeamRoster = createServerFn({ method: "GET" })
         const level = levelId ? levelById.get(levelId) ?? null : null;
         return {
           ...a,
+          policies_count: policiesCount,
+          contracts_count: a.is_self ? (contractCount.get(a.id) ?? 0) : Number(a.contracts_count ?? 0),
           stage: lifecycleStage(facts, flags),
+
           compliance: complianceLevel(facts, now),
           flags,
           active_carriers: facts.activeCarriers,
