@@ -533,6 +533,8 @@ function RequestDetailPage() {
       granted_comp_level_id?: string | null;
       granted_level_name?: string | null;
       granted_pct?: number | null;
+      granted_advance_option?: string | null;
+      granted_effective_date?: string | null;
     }) =>
       statusFn({ data: { id: requestId, ...vars } as any }),
     onSuccess: () => {
@@ -542,6 +544,26 @@ function RequestDetailPage() {
     // The readiness gate throws with the outstanding items named, which is
     // exactly the message the operator needs — surface it verbatim.
     onError: (e: any) => toast.error(e?.message ?? "Could not update the request"),
+  });
+
+  const addNote = useMutation({
+    mutationFn: (vars: { agent_visible_message?: string | null; internal_message?: string | null }) =>
+      noteFn({ data: { id: requestId, ...vars } as any }),
+    onSuccess: () => {
+      toast.success("Note added");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not add the note"),
+  });
+
+  const recordInvite = useMutation({
+    mutationFn: (vars: { method: "surelc" | "carrier_direct"; reference: string | null }) =>
+      inviteFn({ data: { id: requestId, ...vars } as any }),
+    onSuccess: () => {
+      toast.success("Invitation recorded");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not record the invitation"),
   });
 
   if (isLoading) {
