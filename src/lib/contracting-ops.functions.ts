@@ -496,16 +496,19 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
     // that happens. The database has the same rule as a constraint; this is
     // what turns it into a sentence somebody can act on.
     if (fields.default_advance_option !== undefined && fields.default_advance_option !== null) {
-      let ceiling = fields.max_advance_option ?? null;
-      if (ceiling === undefined || (ceiling === null && id)) {
+      let ceiling: string | null = fields.max_advance_option ?? null;
+      // Not sent, or sent empty on an existing row: the ceiling to check
+      // against is the one already stored, not "none".
+      if (fields.max_advance_option == null && id) {
         const { data: existing } = await supabaseAdmin
-          .from("org_carriers").select("max_advance_option").eq("id", id!).maybeSingle();
+          .from("org_carriers").select("max_advance_option").eq("id", id).maybeSingle();
         ceiling = (existing?.max_advance_option as string | null) ?? null;
       }
       if (!advanceWithinCarrierMax(fields.default_advance_option, ceiling)) {
         throw new Error(advanceRefusal(fields.default_advance_option, ceiling));
       }
     }
+
 
     let resolvedCarrierId = carrier_id ?? null;
 
