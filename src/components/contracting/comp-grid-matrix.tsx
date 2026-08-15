@@ -106,32 +106,28 @@ export function CompGridMatrix({
       <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLevelDragEnd}>
-              <SortableContext items={value.levels.map((l) => l.uid)} strategy={horizontalListSortingStrategy}>
-                <tr className="bg-surface-2">
-                  <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[300px]">
-                    Product
-                  </th>
-                  {value.levels.map((lvl) => (
-                    <LevelHeader
-                      key={lvl.uid}
-                      level={lvl}
-                      onRename={(name) => onChange(renameLevel(value, lvl.uid, name))}
-                      onRemove={() => onChange(removeLevel(value, lvl.uid))}
-                    />
-                  ))}
-                  <th className="p-1.5 w-[110px]">
-                    <Button
-                      type="button" size="sm" variant="ghost"
-                      className="w-full text-xs"
-                      onClick={() => onChange(addLevel(value))}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Level
-                    </Button>
-                  </th>
-                </tr>
-              </SortableContext>
-            </DndContext>
+            <tr className="bg-surface-2">
+              <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[300px]">
+                Product
+              </th>
+              {value.levels.map((lvl) => (
+                <LevelHeader
+                  key={lvl.uid}
+                  level={lvl}
+                  onRename={(name) => onChange(renameLevel(value, lvl.uid, name))}
+                  onRemove={() => onChange(removeLevel(value, lvl.uid))}
+                />
+              ))}
+              <th className="p-1.5 w-[110px]">
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="w-full text-xs"
+                  onClick={() => onChange(addLevel(value))}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Level
+                </Button>
+              </th>
+            </tr>
           </thead>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onProductDragEnd}>
             <SortableContext items={value.products.map((p) => p.uid)} strategy={verticalListSortingStrategy}>
