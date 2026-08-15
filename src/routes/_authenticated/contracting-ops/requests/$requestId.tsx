@@ -12,6 +12,11 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
 import { beginContractingHandoff } from "@/lib/contracting-handoff.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
+// The same server function the queue's bulk assign calls, with one id. It
+// already audits and notifies the assignee; a second single-request endpoint
+// would be a second place for those to be forgotten.
+import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
+import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
   CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
@@ -162,6 +167,25 @@ function RequestDetailPage() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["contracting-ops", "request", requestId] }),
     onError: (e: any) => toast.error(e?.message ?? "Could not open the carrier's contracting flow"),
+  });
+
+  const assignFn = useServerFn(bulkAssignRequests);
+  const agentsFn = useServerFn(listOrgAgents);
+  // Only fetched for staff, who are the only people offered the control.
+  const { data: staff } = useQuery({
+    queryKey: ["contracting-ops", "org-agents"],
+    queryFn: () => agentsFn({}),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const assign = useMutation({
+    mutationFn: (assigned_to: string | null) =>
+      assignFn({ data: { ids: [requestId], assigned_to } }),
+    onSuccess: (_r, assigned_to) => {
+      toast.success(assigned_to ? "Assigned." : "Unassigned.");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not assign that request."),
   });
 
   const setStatus = useMutation({
@@ -508,6 +532,36 @@ function RequestDetailPage() {
                     be recorded. The server has accepted all seventeen since
                     the workflow was built, with its own permission and
                     readiness gates; only the buttons were missing. */}
+                {/* Assignment existed only in bulk, on the queue. So a staff
+                    member reading one request could not take it — they had to
+                    go back to the list, find it again, and tick it. */}
+                <div className="pt-2">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Assigned to
+                  </label>
+                  <Select
+                    value={data.request.assigned_to ?? "none"}
+                    onValueChange={(v) => assign.mutate(v === "none" ? null : v)}
+                    disabled={assign.isPending}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none" className="text-xs">Unassigned</SelectItem>
+                      {((staff as any)?.rows ?? (staff as any) ?? []).map((p: any) => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">
+                          {`${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "Unnamed"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    The person assigned is told, and the change is audited — the same server
+                    function the queue's bulk assign uses.
+                  </p>
+                </div>
+
                 <div className="pt-2">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
                     Set status

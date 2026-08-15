@@ -422,5 +422,62 @@ check("every eligible policy in the book counts exactly once",
 check("…and the periods do not double-count it",
   tallyInWindow(BOOK, "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z").policies, 1);
 
+// ── Every screen, not just the dashboard ────────────────────────────────────
+//
+// Reports is the screen somebody opens to ask "how much did we write", and it
+// was the last one still answering differently: windowed on `posted_at`, so an
+// imported book read zero for the months it was written in, and no status
+// filter at all, so withdrawn and not-taken premium was in the headline.
+
+console.log("");
+
+const REPORTS = strip(read("src/lib/reports.functions.ts"));
+check("reports go through the shared source",
+  /from "@\/lib\/production\/source"/.test(REPORTS), true);
+check("…windowing on the shared column, not posted_at",
+  /\.gte\("posted_at"/.test(REPORTS), false);
+check("…and excluding what is not production",
+  /if \(!countsAsProduction\(p\)\) continue;/.test(REPORTS), true);
+check("…while the status breakdown still shows every status",
+  /byStatus\.set\(p\.status[\s\S]{0,80}?if \(!countsAsProduction/.test(REPORTS), true);
+check("…and reports placed premium beside production",
+  /placed: sumPlaced\(eligible\)/.test(REPORTS), true);
+
+// The chart drawn under a KPI tile must not count what the tile excludes.
+check("the MTD sparkline applies the status rule",
+  (DASH.match(/if \(!countsAsProduction\(/g) ?? []).length, 2);
+
+const RECRUIT = strip(read("src/lib/recruiting.functions.ts"));
+// This was a lifetime sum of every policy whatever became of it.
+check("recruited production excludes what never placed",
+  /if \(!countsAsProduction\(pol\)\) continue;/.test(RECRUIT), true);
+
+// ── The analytics RPCs ──────────────────────────────────────────────────────
+
+console.log("");
+
+const ANALYTICS = sql(read("supabase/migrations/20260815030000_analytics-production-source.sql"));
+for (const fn of [
+  "get_carrier_breakdown", "get_agent_analytics", "get_team_leaderboard",
+  "get_analytics_overview", "get_trends_12mo",
+]) {
+  check(`${fn} is redefined`,
+    new RegExp(`create or replace function public\\.${fn}\\b`, "i").test(ANALYTICS), true);
+}
+// Fourteen windows across the five, each gaining the same status guard.
+check("every window moved to the production date",
+  (ANALYTICS.match(/production_date >= /g) ?? []).length, 14);
+check("…and each gained the eligibility guard",
+  (ANALYTICS.match(/public\.policy_counts_as_production\(/g) ?? []).length, 14);
+check("no window is left on posted_at",
+  /posted_at\s*(>=|<)/.test(ANALYTICS), false);
+// The activity feed shows when a deal was ENTERED, which is a real fact and a
+// different question from when the business was written.
+check("…but the activity feed keeps its posted timestamp",
+  /pol\.posted_at AS at/.test(ANALYTICS), true);
+// Behaviour only: no schema change hiding in a behavioural migration.
+check("nothing structural changes",
+  /alter table|create table|drop /i.test(ANALYTICS), false);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

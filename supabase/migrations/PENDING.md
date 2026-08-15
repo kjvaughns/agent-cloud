@@ -49,3 +49,35 @@ and the rest of that edit still saves. The delivery ledger drops the skip
 reason rather than the row, so a send is still recorded. `shouldAttempt` reads
 `next_retry_at` off a row that does not have it yet and returns true, which is
 today's behaviour: every enabled channel is tried every time.
+
+- `20260815030000_analytics-production-source.sql`
+
+`20260815030000` moves the five analytics functions onto the same production
+rule the dashboard uses: `get_carrier_breakdown`, `get_agent_analytics`,
+`get_team_leaderboard`, `get_analytics_overview`, `get_trends_12mo`.
+
+They are what the Reports page is built from, so an owner could read one figure
+on the dashboard and a different one on the screen named "how the agency is
+doing" — from the same policies. Both halves were wrong for the same reasons
+the dashboard's were: windowed on `posted_at`, so an imported book read zero
+for the months it was written in, and no status filter at all, so withdrawn and
+not-taken premium counted as production.
+
+Each body was taken verbatim from its most recent definition and transformed
+mechanically — fourteen `posted_at >= A AND posted_at < B` pairs became the
+same pairs on `production_date` plus `policy_counts_as_production(status)`.
+Nothing else in any body was touched. The activity feed's `pol.posted_at AS at`
+is deliberately unchanged: that is a timestamp being displayed, not a window.
+
+Behaviour only. No table, column, index or policy changes, and every statement
+is a `create or replace`, so a rollback is re-running the migration that
+defined it before.
+
+Proven on scratch Postgres, applied twice, with an imported policy landing in
+the month it was written and a withdrawn one excluded from the same window.
+
+In the window: these functions keep their current definitions and keep
+answering as they do today — which is the disagreement this fixes, so Reports
+stays inconsistent with the dashboard until it is applied. Nothing breaks. The
+TypeScript half of this change is already correct on its own, because
+`selectProduction` falls back to `posted_at` when the column is missing.

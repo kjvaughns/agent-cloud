@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { countsAsProduction, premiumOf, type ProductionRow } from "@/lib/production/source";
 
 const slugRe = /^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/;
 
@@ -33,13 +34,18 @@ export const listFunnels = createServerFn({ method: "GET" })
         }
       }
       if (agentIds.length) {
+        // `*` and the shared rule: this was a lifetime sum of every policy
+        // whatever became of it, so a funnel's "production" counted premium
+        // that was withdrawn or never taken — a recruiting figure that
+        // flattered the funnel and disagreed with every other screen.
         const { data: pols } = await supabase
           .from("policies")
-          .select("agent_id,annual_premium")
+          .select("*")
           .in("agent_id", agentIds);
-        for (const pol of pols ?? []) {
-          const fid = byAgent[pol.agent_id];
-          if (fid) production[fid] = (production[fid] ?? 0) + Number(pol.annual_premium ?? 0);
+        for (const pol of (pols ?? []) as ProductionRow[]) {
+          if (!countsAsProduction(pol)) continue;
+          const fid = byAgent[(pol as any).agent_id];
+          if (fid) production[fid] = (production[fid] ?? 0) + premiumOf(pol);
         }
       }
     }

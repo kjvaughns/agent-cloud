@@ -1,6 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+// One definition of production for every screen that answers "how much did we
+// write". Reports was the last one still answering differently.
+import {
+  countsAsProduction, isPlaced, premiumOf, productionDate, sumPremium, sumPlaced,
+  type ProductionRow,
+} from "@/lib/production/source";
+import { selectProduction } from "@/lib/production/source.server";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 
@@ -77,27 +84,45 @@ export const getProductionReport = createServerFn({ method: "POST" })
     const { supabase } = context as Ctx;
     const { fromIso, toIso } = rangeBounds(data);
 
-    const { data: rows, error } = await supabase
-      .from("policies")
-      .select("id, agent_id, annual_premium, monthly_premium, status, product, carrier_id, posted_at")
-      .gte("posted_at", fromIso)
-      .lte("posted_at", toIso)
-      .limit(20000);
-    if (error) throw new Error(error.message);
+    // Through the canonical source, like the dashboard and the leaderboard.
+    // This is the screen somebody opens to ask "how much did we write", and it
+    // was the last one still answering differently: it windowed on `posted_at`,
+    // so an imported book read zero for every month it was actually written in,
+    // and it counted every status, so withdrawn and not-taken premium was in
+    // the headline figure.
+    const all = await selectProduction<ProductionRow & Record<string, any>>((col) =>
+      supabase
+        .from("policies")
+        // `*` rather than a column list: `production_date` is newer than the
+        // generated types, and naming a column PostgREST does not know fails
+        // the whole select rather than omitting a field.
+        .select("*")
+        .gte(col, fromIso)
+        .lte(col, toIso)
+        .limit(20000),
+    );
 
-    const all = rows ?? [];
-    const byAgent = new Map<string, { policies: number; alp: number }>();
+    const byAgent = new Map<string, { policies: number; alp: number; placed: number }>();
     const byProduct = new Map<string, { policies: number; alp: number }>();
     const byStatus = new Map<string, number>();
 
-    for (const p of all) {
-      const alp = Number(p.annual_premium ?? 0);
-      const a = byAgent.get(p.agent_id) ?? { policies: 0, alp: 0 };
-      byAgent.set(p.agent_id, { policies: a.policies + 1, alp: a.alp + alp });
+    for (const p of all as any[]) {
+      // Every status is counted in the status breakdown — that panel exists to
+      // show what happened to the book, and hiding withdrawn there would be
+      // hiding the work. It is only the money figures that exclude it.
+      byStatus.set(p.status, (byStatus.get(p.status) ?? 0) + 1);
+      if (!countsAsProduction(p)) continue;
+
+      const alp = premiumOf(p);
+      const a = byAgent.get(p.agent_id) ?? { policies: 0, alp: 0, placed: 0 };
+      byAgent.set(p.agent_id, {
+        policies: a.policies + 1,
+        alp: a.alp + alp,
+        placed: a.placed + (isPlaced(p) ? alp : 0),
+      });
       const key = p.product || "Unspecified";
       const pr = byProduct.get(key) ?? { policies: 0, alp: 0 };
       byProduct.set(key, { policies: pr.policies + 1, alp: pr.alp + alp });
-      byStatus.set(p.status, (byStatus.get(p.status) ?? 0) + 1);
     }
 
     const ids = Array.from(byAgent.keys());
@@ -107,14 +132,18 @@ export const getProductionReport = createServerFn({ method: "POST" })
       for (const p of people ?? []) nameById.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim());
     }
 
-    const totalAlp = all.reduce((a: number, p: any) => a + Number(p.annual_premium ?? 0), 0);
+    const eligible = (all as any[]).filter(countsAsProduction);
+    const totalAlp = sumPremium(eligible);
 
     return {
       totals: {
-        policies: all.length,
+        policies: eligible.length,
         alp: totalAlp,
-        avgPolicy: all.length ? totalAlp / all.length : 0,
+        avgPolicy: eligible.length ? totalAlp / eligible.length : 0,
         producingAgents: byAgent.size,
+        // The figure the brief asks for beside production, and the same one
+        // the leaderboard shows.
+        placed: sumPlaced(eligible),
       },
       byAgent: Array.from(byAgent.entries())
         .map(([id, v]) => ({ id, name: nameById.get(id) || "—", ...v }))
@@ -199,20 +228,32 @@ export const exportCsv = createServerFn({ method: "POST" })
     }
 
     if (data.type === "policies") {
-      const { data: rows, error } = await supabase
-        .from("policies")
-        .select("policy_number, product, status, monthly_premium, annual_premium, face_amount, effective_date, posted_at, clients(first_name, last_name), carriers(name)")
-        .gte("posted_at", fromIso)
-        .lte("posted_at", toIso)
-        .limit(LIMIT);
-      if (error) throw new Error(error.message);
-      headers = ["Policy Number", "Client", "Carrier", "Product", "Status", "Monthly Premium", "Annual Premium", "Face Amount", "Effective Date", "Posted"];
+      // Same window as the report above it. Exporting a different set from the
+      // one on screen is the version of this bug somebody only finds after
+      // reconciling a spreadsheet against the page they exported it from.
+      const rows = await selectProduction<any>((col) =>
+        supabase
+          .from("policies")
+          .select("*, clients(first_name, last_name), carriers(name)")
+          .gte(col, fromIso)
+          .lte(col, toIso)
+          .limit(LIMIT),
+      );
+      // Both dates are exported. "Written" is what every figure in the product
+      // counts on; "Posted" is when it was entered, and the gap between them
+      // is exactly what an imported book has — so a reader reconciling a total
+      // can see why a policy falls where it does.
+      headers = ["Policy Number", "Client", "Carrier", "Product", "Status", "Counts as production", "Monthly Premium", "Annual Premium", "Face Amount", "Effective Date", "Written", "Posted"];
       body = (rows ?? []).map((p: any) => [
         p.policy_number,
         p.clients ? `${p.clients.first_name ?? ""} ${p.clients.last_name ?? ""}`.trim() : "",
         p.carriers?.name ?? "",
-        p.product, p.status, p.monthly_premium, p.annual_premium, p.face_amount,
-        p.effective_date, p.posted_at?.slice(0, 10),
+        p.product, p.status,
+        countsAsProduction(p) ? "yes" : "no",
+        p.monthly_premium, p.annual_premium, p.face_amount,
+        p.effective_date,
+        (productionDate(p) ?? "")?.slice(0, 10),
+        p.posted_at?.slice(0, 10),
       ]);
       filename = "policies.csv";
     }
