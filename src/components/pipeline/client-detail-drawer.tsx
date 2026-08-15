@@ -30,8 +30,9 @@ import {
   getClientDetail, touchLastOpened, updateClient, upsertFinancials,
   saveBeneficiary, deleteBeneficiary, addLifeEvent, deleteLifeEvent,
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
-  listCarriers, addPolicy, updatePolicy, markClientSold,
+  listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
+import { postDeal } from "@/lib/post-deal.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
 import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
@@ -979,8 +980,9 @@ function PolicyFields({ detail }: { detail: any }) {
         <Button size="sm" variant="outline" onClick={() => setShowForm(true)}><Plus className="h-4 w-4 mr-1" /> Add Policy</Button>
       )}
       {(policies.length === 0 || showForm) && (
-        <AddPolicyInlineForm clientId={client.id} onSaved={() => setShowForm(false)} onCancel={() => setShowForm(false)} showCancel={policies.length > 0} />
+        <AddPolicyInlineForm client={client} onSaved={() => setShowForm(false)} onCancel={() => setShowForm(false)} showCancel={policies.length > 0} />
       )}
+
       {policies.length > 0 && (
         <div className="space-y-2">
           {policies.map((pol: any) => (
@@ -992,8 +994,9 @@ function PolicyFields({ detail }: { detail: any }) {
   );
 }
 
-function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clientId: string; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
+function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client: any; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
   const qc = useQueryClient();
+  const clientId = client.id as string;
   const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "" });
 
   const listCarriersFn = useServerFn(listCarriers);
@@ -1003,29 +1006,59 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
     (carriers as any[]).find((c: any) => c.id === form.carrier_id)?.product_types,
   );
 
-  const addPolicyFn = useServerFn(addPolicy);
+  // Same server path as the Post a Deal page, so posting from the drawer also
+  // runs the commission calculation instead of only inserting a policy row.
+  const postDealFn = useServerFn(postDeal);
   const mut = useMutation({
-    mutationFn: () => addPolicyFn({ data: {
-      client_id: clientId,
-      carrier_id: form.carrier_id || null,
-      policy_number: form.policy_number,
-      product: form.product,
-      status: form.status,
-      monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : null,
-      annual_premium: form.monthly_premium ? Number(form.monthly_premium) * 12 : null,
-      face_amount: form.face_amount ? Number(form.face_amount) : null,
-      effective_date: form.effective_date || null,
+    mutationFn: () => postDealFn({ data: {
+      client: {
+        existing_id: clientId,
+        first_name: client.first_name ?? "",
+        last_name: client.last_name ?? "",
+        phone: client.phone ?? "",
+        date_of_birth: client.date_of_birth ?? "",
+      },
+      policy: {
+        carrier_id: form.carrier_id,
+        product: form.product,
+        policy_number: form.policy_number,
+        effective_date: form.effective_date,
+        face_amount: form.face_amount ? Number(form.face_amount) : 0,
+        monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : 0,
+        status: "issued_not_paid" as const,
+      },
+      beneficiaries: [],
     }}),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["pipeline"] });
       qc.invalidateQueries({ queryKey: ["bob", "list"] });
       qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
-      toast.success("Policy saved");
+      if (res?.compensation && res.compensation.ok === false) {
+        toast.warning("Deal posted — but the commission could not be worked out", {
+          description: res.compensation.messages?.join(" ") ?? undefined,
+          duration: 12000,
+        });
+      } else {
+        toast.success("Deal posted");
+      }
       onSaved();
     },
-    onError: (e: any) => toast.error(e?.message ?? "Failed to save policy"),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to post deal"),
   });
+
+  // The deal path needs a carrier, a product, and enough client detail to
+  // create the policy — check here so nothing reaches the server validator.
+  const post = () => {
+    if (!form.carrier_id) return toast.error("Select a carrier first.");
+    if (!form.product) return toast.error("Select the product sold.");
+    if (!form.effective_date) return toast.error("Enter the effective date.");
+    if (!client.first_name || !client.last_name) return toast.error("Add the client's first and last name in Contact first.");
+    if (!client.phone || String(client.phone).replace(/\D/g, "").length < 10) return toast.error("Add the client's phone number in Contact first.");
+    if (!client.date_of_birth) return toast.error("Add the client's date of birth in Contact first.");
+    mut.mutate();
+  };
+
 
   const monthly = Number(form.monthly_premium || 0);
 
@@ -1074,8 +1107,8 @@ function AddPolicyInlineForm({ clientId, onSaved, onCancel, showCancel }: { clie
       </div>
       <div className="flex gap-2 pt-1">
         {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
-        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
-          {mut.isPending ? "Saving..." : "Save Policy"}
+        <Button size="sm" onClick={post} disabled={mut.isPending} className="flex-1">
+          {mut.isPending ? "Posting..." : "Post Deal"}
         </Button>
       </div>
     </div>
@@ -1215,6 +1248,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="flex-1">Cancel</Button>
         <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+
           {mut.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
