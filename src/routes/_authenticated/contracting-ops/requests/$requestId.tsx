@@ -21,7 +21,7 @@ import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
   ADVANCE_OPTIONS, ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
-  isAgentActionStatus,
+  isAgentActionStatus, requestStatusLabel,
   CONTRACT_TYPE_LABELS, METHOD_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
 } from "@/lib/contracting-ops/types";
@@ -744,7 +744,16 @@ function RequestDetailPage() {
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
                     <div className="min-w-0">
                       <div className="text-sm text-foreground">
-                        {h.from_status ? `${h.from_status} → ${h.to_status}` : `Created as ${h.to_status}`}
+                        {/* A field change is not a status move, and reading it
+                            as "approved → approved" told nobody anything. Say
+                            which fact changed and to what. */}
+                        {h.field
+                          ? `${h.field}: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`
+                          : h.change_kind === "note" || h.change_kind === "internal_note"
+                            ? "Note added"
+                            : h.from_status
+                              ? `${requestStatusLabel(h.from_status)} → ${requestStatusLabel(h.to_status)}`
+                              : `Created as ${requestStatusLabel(h.to_status)}`}
                       </div>
                       {h.agent_visible_message && (
                         <div className="mt-0.5 text-xs text-muted-foreground">{h.agent_visible_message}</div>
@@ -754,6 +763,7 @@ function RequestDetailPage() {
                       )}
                       <div className="mt-0.5 text-[10px] text-text-dim">
                         {new Date(h.created_at).toLocaleString()}
+                        {h.changed_by_name ? ` · ${h.changed_by_name}` : ""}
                       </div>
                     </div>
                   </li>
