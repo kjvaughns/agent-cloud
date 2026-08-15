@@ -25,6 +25,8 @@ async function fetchAll(supabase: any, userId: string): Promise<Row[]> {
     .from("commission_schedule")
     .select("id,policy_id,agent_id,source_agent_id,payment_date,payment_type,amount,status,carrier,product,client_name,commission_pct,writing_agent_id")
     .eq("agent_id", userId)
+    // Superseded legs are kept for history; they must never be counted twice.
+    .is("superseded_at", null)
     .order("payment_date", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as Row[];
