@@ -9,7 +9,9 @@ import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
+import {
+  addRequestNote, getContractingRequest, recordRequestInvitation, updateRequestStatus,
+} from "@/lib/contracting-ops.functions";
 import { beginContractingHandoff } from "@/lib/contracting-handoff.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 // The same server function the queue's bulk assign calls, with one id. It
@@ -96,6 +98,101 @@ function Field({ label, value, masked }: { label: string; value: string | null; 
  * go live pricing from nothing.
  */
 const PICKABLE_STATUSES = PRIMARY_REQUEST_STATUSES.filter((s) => s !== "active");
+
+/**
+ * Invitations and notes, the two staff actions that aren't status moves.
+ *
+ * Sending a SureLC link or recording that the carrier invited the agent
+ * directly is a fact about the outside world; a note is a message. Both were
+ * only reachable by dressing them up as a status change, so an invitation left
+ * no trace of which route it took and a note could not be added without moving
+ * the request.
+ */
+function InviteAndNotePanel({
+  onInvite,
+  onNote,
+  busy,
+}: {
+  onInvite: (vars: { method: "surelc" | "carrier_direct"; reference: string | null }) => void;
+  onNote: (vars: { agent_visible_message?: string | null; internal_message?: string | null }) => void;
+  busy: boolean;
+}) {
+  const [reference, setReference] = useState("");
+  const [agentNote, setAgentNote] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+
+  return (
+    <Panel title="Invitation & notes" className="ac-no-print">
+      <label htmlFor="invite-ref" className="mb-1 block text-xs font-medium text-muted-foreground">
+        Invitation reference
+      </label>
+      <input
+        id="invite-ref"
+        value={reference}
+        onChange={(e) => setReference(e.target.value)}
+        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+        placeholder="Optional — e.g. SureLC batch or email subject"
+      />
+      <div className="mt-2 flex flex-col gap-2">
+        <Button
+          size="sm" variant="outline" className="w-full justify-start" disabled={busy}
+          onClick={() => onInvite({ method: "surelc", reference: reference.trim() || null })}
+        >
+          <Send className="mr-1.5 h-3.5 w-3.5" /> Record SureLC invitation sent
+        </Button>
+        <Button
+          size="sm" variant="outline" className="w-full justify-start" disabled={busy}
+          onClick={() => onInvite({ method: "carrier_direct", reference: reference.trim() || null })}
+        >
+          <Mail className="mr-1.5 h-3.5 w-3.5" /> Record direct carrier invitation
+        </Button>
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+        Either one sets the status to Invite sent, stamps the time, and tells the agent
+        to go and finish it.
+      </p>
+
+      <div className="mt-3 space-y-2 border-t border-border-soft pt-3">
+        <div>
+          <label htmlFor="note-agent" className="mb-1 block text-xs font-medium text-muted-foreground">
+            Note the agent sees
+          </label>
+          <textarea
+            id="note-agent" rows={2} value={agentNote}
+            onChange={(e) => setAgentNote(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            placeholder="Shown on their Contracts page, and they're notified"
+          />
+        </div>
+        <div>
+          <label htmlFor="note-internal" className="mb-1 block text-xs font-medium text-muted-foreground">
+            Private internal note
+          </label>
+          <textarea
+            id="note-internal" rows={2} value={internalNote}
+            onChange={(e) => setInternalNote(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            placeholder="Staff only — never shown to the agent"
+          />
+        </div>
+        <Button
+          size="sm" className="w-full"
+          disabled={busy || (!agentNote.trim() && !internalNote.trim())}
+          onClick={() => {
+            onNote({
+              agent_visible_message: agentNote.trim() || null,
+              internal_message: internalNote.trim() || null,
+            });
+            setAgentNote("");
+            setInternalNote("");
+          }}
+        >
+          Add note
+        </Button>
+      </div>
+    </Panel>
+  );
+}
 
 function DecisionPanel({
   requested,
@@ -307,6 +404,8 @@ function RequestDetailPage() {
   const qc = useQueryClient();
   const getFn = useServerFn(getContractingRequest);
   const statusFn = useServerFn(updateRequestStatus);
+  const noteFn = useServerFn(addRequestNote);
+  const inviteFn = useServerFn(recordRequestInvitation);
   const templatesFn = useServerFn(listTemplates);
   const emailFn = useServerFn(generateEmail);
   const sheetFn = useServerFn(generateSpreadsheetRow);
@@ -744,6 +843,14 @@ function RequestDetailPage() {
               granted={(data as any).granted ?? null}
               busy={setStatus.isPending}
               onRecord={(vars) => setStatus.mutate(vars as any)}
+            />
+          )}
+
+          {isStaff && (
+            <InviteAndNotePanel
+              busy={addNote.isPending || recordInvite.isPending}
+              onInvite={(vars) => recordInvite.mutate(vars)}
+              onNote={(vars) => addNote.mutate(vars)}
             />
           )}
 
