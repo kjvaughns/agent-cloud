@@ -521,6 +521,13 @@ function ImportPage() {
       return;
     }
     for (let i = 0; i < rows.length; i += RECONCILE_CHUNK) {
+      // Rows matched, out of rows read — the honest number, since this is the
+      // slow half of an import and it is measured in rows, not files.
+      mark(
+        id,
+        `Matching against your book — ${Math.min(i + RECONCILE_CHUNK, rows.length).toLocaleString()} of ${rows.length.toLocaleString()} rows`,
+        60 + (i / rows.length) * 38,
+      );
       const res: any = await reconcileFn({
         data: { document_id: id, kind, rows: rows.slice(i, i + RECONCILE_CHUNK) },
       });
@@ -531,6 +538,7 @@ function ImportPage() {
         break;
       }
     }
+
   }
 
   /**
