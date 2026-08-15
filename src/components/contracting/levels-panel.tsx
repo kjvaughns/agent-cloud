@@ -171,7 +171,18 @@ export function LevelsPanel() {
   return <div className="space-y-4">
     <div className="flex items-center justify-between gap-3">
       <p className="text-sm text-muted-foreground">{canManage ? "One simple ladder used for invites, promotions, and permissions." : "Your position and the positions below you."}</p>
-      {canManage && <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button>}
+      {canManage && <div className="flex shrink-0 gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={carriers.length === 0 || detectLadder.isPending}
+          onClick={() => detectLadder.mutate()}
+        >
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+          {detectLadder.isPending ? "Detecting…" : "Detect all carrier levels"}
+        </Button>
+        <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button>
+      </div>}
     </div>
     <div className="space-y-2">{rows.map((level) => {
       const maps = (level.agency_level_carrier_mappings ?? []) as any[];
