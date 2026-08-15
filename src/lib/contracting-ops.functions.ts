@@ -17,6 +17,8 @@ import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effectiv
 // `writing_numbers` is authoritative; the column on `contract_requests` is
 // deprecated. Same loader the Contracts page and the team matrix already use.
 import { loadWritingNumbers, writingNumberKey } from "@/lib/writing-numbers";
+import { agencyCarrierConfiguration } from "@/lib/compensation/lookup.server";
+import { carrierState } from "@/lib/carriers/status";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -259,17 +261,77 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
       open.set(r.org_carrier_id, (open.get(r.org_carrier_id) ?? 0) + 1);
     }
 
+    // The lifecycle status comes from one module so the Carriers tab, the Add
+    // Carrier wizard and the activation toggle cannot disagree about whether a
+    // carrier is ready. The reasons inside it are the resolver's own — the
+    // same sentences Post a Deal shows an agent — rather than a second opinion
+    // formed here.
+    const configuration = await agencyCarrierConfiguration(supabase, access.orgId);
+
+    // Grid rows are keyed on `carrier_id`, not on the org_carrier row.
+    const { data: gridRows } = await supabase
+      .from("commission_grids")
+      .select("carrier_id")
+      .eq("organization_id", access.orgId);
+    const gridCount = new Map<string, number>();
+    for (const g of (gridRows ?? []) as any[]) {
+      const k = String(g.carrier_id);
+      gridCount.set(k, (gridCount.get(k) ?? 0) + 1);
+    }
+
+    // Which active positions resolve on this carrier only through their own
+    // percentage. Named rather than counted, because "Training Agent falls
+    // back" is actionable and "1 position falls back" is not.
+    const [{ data: levels }, { data: mappings }] = await Promise.all([
+      supabase
+        .from("agency_levels")
+        .select("id, name")
+        .eq("organization_id", access.orgId)
+        .eq("active", true),
+      supabase
+        .from("agency_level_carrier_mappings")
+        .select("agency_level_id, org_carrier_id")
+        .eq("organization_id", access.orgId),
+    ]);
+    const mapped = new Set(
+      ((mappings ?? []) as any[]).map((m) => `${m.org_carrier_id}:${m.agency_level_id}`),
+    );
+
     return {
       access,
-      carriers: (data ?? []).map((c: any) => ({
-        ...c,
-        name: c.carriers?.name ?? "Unnamed carrier",
-        logo_url: c.carriers?.logo_url ?? null,
-        is_private: c.carriers?.is_private ?? false,
-        open_requests: open.get(c.id) ?? 0,
-        requirement_count: (c.carrier_requirements ?? []).filter((r: any) => r.active).length,
-        comp_level_count: (c.carrier_comp_levels ?? []).filter((l: any) => l.status === "active").length,
-      })),
+      carriers: (data ?? []).map((c: any) => {
+        const activeLevels = (c.carrier_comp_levels ?? []).filter((l: any) => l.status === "active");
+        const name = c.carriers?.name ?? "Unnamed carrier";
+        const state = carrierState({
+          orgCarrierId: c.id,
+          carrierName: name,
+          enabled: c.enabled !== false && c.status === "active",
+          archived: c.status === "archived",
+          levelCount: activeLevels.length,
+          gridRowCount: gridCount.get(String(c.carrier_id)) ?? 0,
+          // No review queue exists yet; extraction review lands with the Add
+          // Carrier wizard. Reporting zero here is today's behaviour rather
+          // than a guess, and the status module already handles a non-zero.
+          unreviewedGridRowCount: 0,
+          maxAdvance: c.default_advance_option ?? null,
+          hasContractingMethod: (c.org_carrier_methods ?? []).length > 0,
+          configuration: configuration.get(c.id) ?? { configured: false, reasons: [] },
+          positionsOnFallback: ((levels ?? []) as any[])
+            .filter((l) => !mapped.has(`${c.id}:${l.id}`))
+            .map((l) => l.name),
+        });
+        return {
+          ...c,
+          name,
+          logo_url: c.carriers?.logo_url ?? null,
+          is_private: c.carriers?.is_private ?? false,
+          open_requests: open.get(c.id) ?? 0,
+          requirement_count: (c.carrier_requirements ?? []).filter((r: any) => r.active).length,
+          comp_level_count: activeLevels.length,
+          grid_row_count: gridCount.get(String(c.carrier_id)) ?? 0,
+          state,
+        };
+      }),
     };
   });
 

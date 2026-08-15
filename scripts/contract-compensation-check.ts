@@ -164,9 +164,17 @@ check("the component it used to hold lives on its own",
 const NAV = strip(read("src/lib/navigation.ts"));
 check("the duplicate nav row is gone",
   /path: "\/contracting\/commission-grids"/.test(NAV), false);
-// The owner's editor keeps its own home; only the agent's duplicate went.
-check("the settings editor keeps its row",
-  /path: "\/settings\/comp-grids"/.test(NAV), true);
+// The owner's editor keeps a home; only the agent's duplicate went. That home
+// is now the Carriers tab of Agency Settings rather than a page of its own —
+// what a carrier pays is part of setting that carrier up, so Comp Grids
+// stopped being a separate destination and `/settings/comp-grids` became a
+// redirect into the tab.
+check("the editor still has exactly one home",
+  read("src/routes/_authenticated/settings.agency.tsx")
+    .includes("<ManageGridsPage embedded />"), true);
+check("…and the old standalone page is a redirect, not a second mount",
+  /redirect\(\{ to: "\/settings\/agency", search: \{ tab: "carriers" \}/.test(
+    read("src/routes/_authenticated/settings.comp-grids.tsx")), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
