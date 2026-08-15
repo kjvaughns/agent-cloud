@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, ExternalLink, Plus, Settings2, Trash2 } from "lucide-react";
+import { Building2, Plus, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ManageGridsPage } from "@/components/contracting/manage-grids";
 import {
