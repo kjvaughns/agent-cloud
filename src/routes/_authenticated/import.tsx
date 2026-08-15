@@ -59,6 +59,7 @@ function ImportPage() {
   const [note, setNote] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
 
