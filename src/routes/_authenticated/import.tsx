@@ -15,7 +15,7 @@ import { useNavContext } from "@/hooks/use-my-access";
 import {
   createImportBatch, classifyImportDoc, setImportKind, reconcileImportRows,
   listImports, getImportSummary, listProposals, decideProposals, applyProposals,
-  dismissImport, listCarrierIndex, type ImportDoc, type Proposal,
+  dismissImport, listCarrierIndex, markWorkbookParent, type ImportDoc, type Proposal,
 } from "@/lib/import.functions";
 import type { CarrierRecord } from "@/lib/carrier-match";
 import { extractGrid } from "@/lib/comp-grid.functions";
@@ -25,6 +25,7 @@ import { resolveKind, allHeaderRows, KIND_LABEL, KIND_TARGET, type ImportKind } 
 import { clientsFromDocument, contractingRowsFromDocument, rosterFromDocument } from "@/lib/import-extract-rows";
 import { readDocument } from "@/lib/sheet-shape";
 import { MigrationGuide } from "@/components/import/migration-guide";
+import { planWorkbook, describePlan } from "@/lib/import-workbook";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
@@ -38,6 +39,9 @@ const STATUS_STYLE: Record<string, { label: string; variant: any }> = {
   applied: { label: "Imported", variant: "success" },
   dismissed: { label: "Dismissed", variant: "secondary" },
   failed: { label: "Couldn't read", variant: "destructive" },
+  // A workbook is not reviewed itself — its tabs are, and they are listed
+  // under it as their own rows.
+  split: { label: "Split by tab", variant: "info" },
 };
 
 /**
@@ -71,6 +75,7 @@ function ImportPage() {
   const dismissFn = useServerFn(dismissImport);
   const extractGridFn = useServerFn(extractGrid);
   const carrierIndexFn = useServerFn(listCarrierIndex);
+  const markParentFn = useServerFn(markWorkbookParent);
 
   const { data, isLoading } = useQuery({
     queryKey: ["imports"],
@@ -116,7 +121,7 @@ function ImportPage() {
           const item = queue.shift();
           if (!item || !item.rec) return;
           try {
-            await processOne(item.file, item.rec.id, trimmed);
+            await processOne(item.file, item.rec.id, trimmed, batch.batch_id);
           } catch (e: any) {
             // Every file reports its own outcome on its row. One that cannot be
             // read must not take the rest of the batch down with it.
@@ -147,11 +152,84 @@ function ImportPage() {
    * and settle most spreadsheets between them. Only what they cannot agree on
    * reaches the model.
    */
-  async function processOne(file: File, id: string, userNote: string | null) {
+  async function processOne(file: File, id: string, userNote: string | null, batchId: string) {
     const doc = await extractDocument(file);
 
     const notice = truncationNotice(doc);
     if (notice) toast.warning(`${file.name}: ${notice}`);
+
+    /*
+      A migration workbook is four different imports in one file.
+
+      Routing the whole file as one thing meant the tab that won decided
+      everything: a roster read as clients, or — more often — the columns
+      disagreeing with each other so nothing was recognised at all. Each tab is
+      read and routed on its own, and the tabs that describe the same people
+      (clients, their policies, their notes) are joined into one stream before
+      anything is proposed, so a policy lands on the client it belongs to
+      instead of inventing a second copy of them.
+    */
+    const plan = doc.text ? planWorkbook(doc.text, carriers, userNote) : null;
+
+    if (plan && plan.streams.length > 1) {
+      await markParentFn({
+        data: { id, summary: describePlan(plan), sheet_count: plan.sheets.length },
+      });
+
+      const children: any = await batchFn({
+        data: {
+          batch_id: batchId,
+          user_note: userNote,
+          files: plan.streams.map((st) => ({
+            file_name: `${file.name} — ${st.sheetLabel}`,
+            mime_type: file.type || null,
+            size_bytes: null,
+            parent_id: id,
+            sheet_label: st.sheetLabel,
+          })),
+        },
+      });
+      qc.invalidateQueries({ queryKey: ["imports"] });
+
+      for (let i = 0; i < plan.streams.length; i++) {
+        const st = plan.streams[i];
+        const rec = children.documents?.[i];
+        if (!rec) continue;
+        await setKindFn({
+          data: {
+            id: rec.id,
+            kind: st.kind,
+            confidence: 0.95,
+            summary: `${st.sheetLabel} — ${st.rows.length} row${st.rows.length === 1 ? "" : "s"}`,
+          },
+        });
+        await sendRows(rec.id, st.kind, st.rows, file.name);
+        qc.invalidateQueries({ queryKey: ["imports"] });
+      }
+      if (plan.notesJoined || plan.policiesJoined) {
+        toast.info(
+          `${file.name}: matched ${plan.policiesJoined} policies and ${plan.notesJoined} notes onto their clients.`,
+        );
+      }
+      return;
+    }
+
+    // A single recognisable sheet still goes through the planner, so a one-tab
+    // book gets the same column reading and the same joins as a four-tab one.
+    if (plan && plan.streams.length === 1 && plan.streams[0].kind !== "unknown") {
+      const st = plan.streams[0];
+      await setKindFn({
+        data: { id, kind: st.kind, confidence: 0.9, summary: describePlan(plan) },
+      });
+      if (st.rows.length) {
+        await sendRows(id, st.kind, st.rows, file.name);
+        return;
+      }
+      // Recognised but empty of rows — a comp grid PDF, say. Fall through to
+      // the extractors below, which know how to read pictures.
+      await proposeRows(id, st.kind, doc, file);
+      return;
+    }
 
     const headers = doc.text ? allHeaderRows(doc.text) : [];
     const guess = resolveKind(headers, userNote);
@@ -245,6 +323,20 @@ function ImportPage() {
       }
     }
 
+    await sendRows(id, kind, rows, file.name);
+  }
+
+  /** Chunked reconcile. Shared by the per-sheet path and the single-file path. */
+  async function sendRows(
+    id: string,
+    kind: ImportKind,
+    rows: Record<string, any>[],
+    fileName: string,
+  ) {
+    if (!rows.length) {
+      toast.warning(`We recognised ${fileName} but couldn't read any rows out of it.`);
+      return;
+    }
     for (let i = 0; i < rows.length; i += RECONCILE_CHUNK) {
       const res: any = await reconcileFn({
         data: { document_id: id, kind, rows: rows.slice(i, i + RECONCILE_CHUNK) },
