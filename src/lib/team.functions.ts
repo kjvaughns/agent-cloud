@@ -312,9 +312,23 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       atRisk.set(r.agent_id, held);
     }
 
+    // The self row arrives without the RPC's aggregates, so its counts come
+    // from the rows already fetched above rather than reading as zero.
+    const policyCount = new Map<string, number>();
+    for (const p of (policies.data ?? []) as any[]) {
+      policyCount.set(p.agent_id, (policyCount.get(p.agent_id) ?? 0) + 1);
+    }
+    const contractCount = new Map<string, number>();
+    for (const c of (contracts.data ?? []) as any[]) {
+      contractCount.set(c.agent_id, (contractCount.get(c.agent_id) ?? 0) + 1);
+    }
+
     const now = Date.now();
     return {
       rows: agents.map((a): RosterAgent => {
+        const policiesCount = a.is_self
+          ? (policyCount.get(a.id) ?? 0)
+          : Number(a.policies_count ?? 0);
         const facts: AgentFacts = {
           status: a.status,
           liveLicences: liveLicences.get(a.id) ?? 0,
@@ -322,7 +336,8 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           eoExpiry: eoExpiry.get(a.id) ?? null,
           eoPresent: eoPresent.has(a.id),
           activeCarriers: activeCarriers.get(a.id) ?? 0,
-          policiesCount: Number(a.policies_count ?? 0),
+          policiesCount,
+
           lastSaleAt: lastSale.get(a.id) ?? null,
           firstContractedAt: firstContracted.get(a.id) ?? null,
           // Persistency is a per-agent computation over the whole book and is
