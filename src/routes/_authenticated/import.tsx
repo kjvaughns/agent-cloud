@@ -918,10 +918,20 @@ function DocCard({
             <div className="min-w-0">
               <div className="truncate font-medium leading-tight">{doc.file_name}</div>
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-                  <span className="font-medium text-foreground">{style.label}</span>
-                </span>
+                {/* While the file is being read the client knows more than the
+                    database does, so its phase wins over the stored status —
+                    otherwise a file actively being parsed reads "Queued". */}
+                {phase ? (
+                  <span className="inline-flex items-center gap-1.5 font-medium text-primary">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {phase.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                    <span className="font-medium text-foreground">{style.label}</span>
+                  </span>
+                )}
                 {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
                 {doc.carrier_name && <span>· {doc.carrier_name}</span>}
                 {doc.period_label && <span>· {doc.period_label}</span>}
@@ -930,6 +940,7 @@ function DocCard({
                 )}
               </div>
             </div>
+
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             {target && doc.status === "needs_review" && (
