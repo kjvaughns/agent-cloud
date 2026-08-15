@@ -426,7 +426,7 @@ export async function writeGridRows(
   }
 
 
-  return { count: opts.rows.length };
+  return { count: rows.length };
 }
 
 /** The agency's own organization, or a refusal a person can act on. */
