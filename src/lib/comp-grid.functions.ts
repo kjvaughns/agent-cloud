@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
 import { assertCanEditGrids } from "@/lib/settings/tab-guard.server";
+import { preferOwnGridRows } from "@/lib/compensation/own-grid";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -80,7 +81,9 @@ export const listMyGrids = createServerFn({ method: "GET" })
 
     // Group by carrier, and flag which carriers the agency has customized.
     const byCarrier = new Map<string, { carrier_id: string; carrier_name: string; rows: any[]; owned: boolean }>();
-    for (const g of grids ?? []) {
+    // Own rows shadow the shared defaults, otherwise a carrier that began as a
+    // shared grid shows both sets after the first save and the edit looks lost.
+    for (const g of preferOwnGridRows((grids ?? []) as any[])) {
       const key = g.carrier_id ?? "unknown";
       if (!byCarrier.has(key)) {
         byCarrier.set(key, {
