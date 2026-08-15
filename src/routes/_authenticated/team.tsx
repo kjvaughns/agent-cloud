@@ -49,13 +49,13 @@ import {
   type RiskFlag,
 } from "@/lib/team-roster";
 
-const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
-const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
-const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => getTeamAlerts() });
+export const downlineQO = queryOptions({ queryKey: ["team", "downline"], queryFn: () => getTeamDownline() });
+export const kpisQO = queryOptions({ queryKey: ["team", "kpis"], queryFn: () => getTeamKpis() });
+export const alertsQO = queryOptions({ queryKey: ["team", "alerts"], queryFn: () => getTeamAlerts() });
 // The roster needs two things the downline RPC does not carry — compliance and
 // days since last sale — so it has its own query rather than making every
 // consumer of the downline pay for them.
-const rosterQO = (start: string | null, end: string | null) => queryOptions({
+export const rosterQO = (start: string | null, end: string | null) => queryOptions({
   // The range is part of the key: two windows are two different answers, and
   // caching them together would show last week's numbers under "All".
   queryKey: ["team", "roster", start ?? "all", end ?? "open"],
