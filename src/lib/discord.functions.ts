@@ -99,6 +99,8 @@ const WebhookSchema = z.object({
   // agents to the same channel through two integrations with different
   // thresholds, and a list of three identical rows cannot be managed.
   name: z.string().trim().min(1).max(60).optional(),
+  /** What this bot is for, in the owner's words. Shown on the card. */
+  description: z.string().trim().max(280).nullable().optional(),
   channel_label: z.string().trim().max(80).nullable().optional(),
   enabled: z.boolean().optional(),
   post_deals: z.boolean().optional(),
