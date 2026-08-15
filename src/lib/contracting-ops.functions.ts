@@ -1190,7 +1190,7 @@ export const listContractingRequests = createServerFn({ method: "GET" })
         profiles:agent_id ( id, first_name, last_name, email, npn_number ),
         assignee:assigned_to ( id, first_name, last_name ),
         upline:direct_upline_id ( id, first_name, last_name ),
-        requested_level:requested_comp_level_id ( id, name ),
+        requested_level:requested_comp_level_id ( id, level_name ),
         org_carriers ( id, carrier_id, carriers ( name, logo_url ) )
       `)
       .order("updated_at", { ascending: false })
@@ -1219,7 +1219,7 @@ export const listContractingRequests = createServerFn({ method: "GET" })
       carrier_name: r.org_carriers?.carriers?.name ?? "Carrier",
       assignee_name: r.assignee ? `${r.assignee.first_name ?? ""} ${r.assignee.last_name ?? ""}`.trim() : null,
       upline_name: r.upline ? `${r.upline.first_name ?? ""} ${r.upline.last_name ?? ""}`.trim() : null,
-      requested_level_name: r.requested_level?.name ?? null,
+      requested_level_name: r.requested_level?.level_name ?? null,
       writing_number: r.org_carriers?.carrier_id
         ? (numbers.get(writingNumberKey(r.agent_id, r.org_carriers.carrier_id)) ?? null)
         : null,
