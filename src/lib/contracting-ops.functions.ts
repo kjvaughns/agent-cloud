@@ -571,7 +571,14 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
 
     const { data: created, error } = await supabaseAdmin
       .from("org_carriers")
-      .insert({ organization_id: orgId, carrier_id: resolvedCarrierId, ...fields, created_by: userId, updated_by: userId })
+      // The defaults the schema used to carry live here, where a new row is the
+      // only thing they can apply to.
+      .insert({
+        organization_id: orgId, carrier_id: resolvedCarrierId,
+        status: "active", product_types: [], writing_number_scope: "national",
+        just_in_time_appointments: false, transfers_allowed: true, release_required: false,
+        ...fields, created_by: userId, updated_by: userId,
+      })
       .select("id").single();
     if (error) {
       if (String(error.message).includes("org_carriers_organization_id_carrier_id_key")) {
