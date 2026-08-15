@@ -131,7 +131,8 @@ function BookPage() {
   function toggleStatusCard(s: PolicyStatus) {
     setStatusToggles((prev) => {
       const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
       return next;
     });
     setPage(0);

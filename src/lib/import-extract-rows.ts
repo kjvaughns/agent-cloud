@@ -70,7 +70,7 @@ function isoDate(v: string | undefined): string | null {
   const s = (v ?? "").trim();
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})$/);
+  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (m) {
     const [, a, b, c] = m;
     const year = c.length === 2 ? (Number(c) > 30 ? `19${c}` : `20${c}`) : c;

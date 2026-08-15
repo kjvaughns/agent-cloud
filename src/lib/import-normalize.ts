@@ -233,7 +233,7 @@ export function parseImportDate(
 
   const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/.exec(s);
   if (m) {
-    let [, a, b, y] = m;
+    const [, a, b, y] = m;
     let year = Number(y);
     // Two-digit years: 70-99 are the 1900s, everything else the 2000s. A
     // policy effective in 1972 is plausible; one in 2072 is not.
@@ -281,7 +281,7 @@ export function parseAmount(raw: string | number | null | undefined): number | n
   const accountingNegative = /^\(.*\)$/.test(s);
   if (accountingNegative) s = s.slice(1, -1);
 
-  s = s.replace(/[^\d.,\-]/g, "");
+  s = s.replace(/[^\d.,-]/g, "");
   if (!s) return null;
 
   // European "1.234,56": the comma is the decimal separator when it comes last.

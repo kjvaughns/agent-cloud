@@ -42,7 +42,7 @@ function parseStructured(category: Category, body: string): Record<string, unkno
   switch (category) {
     case "height": {
       // 5'7", 5 ft 7, 5-7
-      const m = text.match(/(\d+)\s*['ft\s\-]+(\d{1,2})/i);
+      const m = text.match(/(\d+)\s*['ft\s-]+(\d{1,2})/i);
       if (m) return { height_ft: Number(m[1]), height_in: Math.min(11, Number(m[2])) };
       return null;
     }
@@ -183,7 +183,8 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
               onClick={() =>
                 setActive((prev) => {
                   const n = new Set(prev);
-                  n.has(c.key) ? n.delete(c.key) : n.add(c.key);
+                  if (n.has(c.key)) n.delete(c.key);
+                  else n.add(c.key);
                   return n;
                 })
               }

@@ -52,7 +52,7 @@ export const getFinancesData = createServerFn({ method: "POST" })
 
     // Enrich with client names from policies
     const policyIds = Array.from(new Set(rows.map((r) => r.policy_id)));
-    let clientMap = new Map<string, { client_name: string; policy_number: string | null }>();
+    const clientMap = new Map<string, { client_name: string; policy_number: string | null }>();
     if (policyIds.length) {
       const { data: pols } = await supabase
         .from("policies")

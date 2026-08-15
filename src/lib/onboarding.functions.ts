@@ -777,7 +777,7 @@ export const listOnboardingInvites = createServerFn({ method: "POST" })
     const linkedIds = Array.from(new Set(
       ((rows ?? []) as any[]).flatMap((r: any) => [r.linked_agent_id, r.upline_id]).filter(Boolean),
     ));
-    let agentMap = new Map<string, any>();
+    const agentMap = new Map<string, any>();
     if (linkedIds.length) {
       const { data: agents } = await supabase.from("profiles").select("id,first_name,last_name,email").in("id", linkedIds);
       (agents ?? []).forEach((a: any) => agentMap.set(a.id, a));

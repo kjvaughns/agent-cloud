@@ -32,9 +32,12 @@ async function getMyLevelPct(supabase: any, userId: string, carrierId: string): 
     .eq("carrier_id", carrierId)
     .maybeSingle();
   if (!data) return null;
-  let pct = Number(data.assigned_pct);
-  if (pct > 1) pct = pct; // already percentage like 80
-  return pct;
+  // No normalisation: both callers compare this against a `level_pct` that was
+  // read from or is being written to this same `assigned_pct` column, so both
+  // sides are already in the same units. There used to be an `if (pct > 1)
+  // pct = pct;` here, which converted nothing and only suggested that some
+  // conversion was happening.
+  return Number(data.assigned_pct);
 }
 
 // ---------- carriers ----------

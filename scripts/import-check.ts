@@ -53,7 +53,8 @@ function fakeSupabase() {
 let pass = 0, fail = 0;
 function check(name: string, got: any, want: any) {
   const ok = JSON.stringify(got) === JSON.stringify(want);
-  ok ? pass++ : fail++;
+  if (ok) pass++;
+  else fail++;
   console.log(`${ok ? "ok  " : "FAIL"}  ${name}${ok ? "" : `\n        got  ${JSON.stringify(got)}\n        want ${JSON.stringify(want)}`}`);
 }
 
