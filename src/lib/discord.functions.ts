@@ -297,6 +297,8 @@ async function recordDelivery(opts: {
   policyId?: string | null;
   /** Why a skip was a skip. Absent for sent and failed. */
   skipReason?: string | null;
+  /** Stable identity for the event, so a retry cannot post it twice. */
+  eventKey?: string | null;
 }): Promise<void> {
   const row = {
     organization_id: opts.orgId,
@@ -306,6 +308,7 @@ async function recordDelivery(opts: {
     status: opts.status,
     http_status: opts.httpStatus ?? null,
     error: opts.error ?? null,
+    event_key: opts.eventKey ?? null,
   };
   try {
     const { error } = await supabaseAdmin
@@ -321,9 +324,26 @@ async function recordDelivery(opts: {
       if (retry.error) throw retry.error;
     }
   } catch (e: any) {
-    // 23505 is the deal path's "already announced in this channel" guard.
+    // 23505 is the "already sent this event to this channel" guard.
     if (e?.code !== "23505") console.error("[discord] delivery not recorded:", e?.message);
   }
+}
+
+/**
+ * Has this exact event already landed in this channel?
+ *
+ * The unique index is the real guarantee; this read exists so a duplicate is a
+ * skip with a reason rather than a failed insert an owner has to interpret.
+ */
+async function alreadySent(integrationId: string, key: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("discord_deliveries")
+    .select("id")
+    .eq("integration_id", integrationId)
+    .eq("event_key", key)
+    .eq("status", "sent")
+    .maybeSingle();
+  return !!data;
 }
 
 /**
