@@ -164,7 +164,9 @@ export function fromMatrix(m: MatrixState): GridRow[] {
     m.levels.forEach((l, li) => {
       if (!l.name.trim()) return;
       const c = m.cells.get(cellKey(p.uid, l.uid));
-      if (!c || c.year_1_pct == null) return;
+      // A blank cell and a 0 cell are the same statement: no rate here.
+      if (!c || c.year_1_pct == null || Number.isNaN(c.year_1_pct) || c.year_1_pct === 0) return;
+
       out.push({
         product_name: p.product_name.trim(),
         level_name: l.name.trim(),
