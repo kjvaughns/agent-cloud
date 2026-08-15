@@ -91,7 +91,7 @@ export const listPipelineClients = createServerFn({ method: "POST" })
     if (soldIds.length) {
       const { data: banks } = await supabase
         .from("client_banking")
-        .select("client_id, payment_method, draft_date")
+        .select("client_id, payment_method, draft_date, draft_schedule, draft_wednesday")
         .in("client_id", soldIds);
       for (const b of banks ?? []) bankingMap.set(b.client_id, b);
     }
