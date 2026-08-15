@@ -33,6 +33,7 @@ export const IMPORT_KINDS = [
   "state_licenses",
   "commission_statement",
   "policy_status_report",
+  "agent_debt",
   "unknown",
 ] as const;
 
@@ -47,7 +48,8 @@ export const KIND_LABEL: Record<ImportKind, string> = {
   writing_numbers: "Writing numbers",
   state_licenses: "State licenses",
   commission_statement: "Commission statement",
-  policy_status_report: "Policy status report",
+  policy_status_report: "Carrier policy report",
+  agent_debt: "Agent debt report",
   unknown: "Not recognized",
 };
 
@@ -73,7 +75,14 @@ export const KIND_TARGET: Record<
   writing_numbers: { table: "writing_numbers", scope: "shared", applies: "runContractingImport" },
   state_licenses: { table: "state_licenses", scope: "own", applies: "runContractingImport" },
   commission_statement: { table: "commission_statements", scope: "own", applies: "createStatement" },
-  policy_status_report: { table: "policies", scope: "own", applies: "applyCarrierSync" },
+  // A carrier certificate report is a list of policies *with the people
+  // attached*, so it lands through the same save the book of business uses: the
+  // matcher then recognises each certificate number and updates the policy that
+  // is already on file instead of creating a second copy of it.
+  policy_status_report: { table: "clients", scope: "own", applies: "saveClientFullRecord" },
+  // Debt is agency-wide money owed back, read by uplines as well as the agent
+  // it belongs to, so it needs the second pair of eyes `shared` implies.
+  agent_debt: { table: "agent_debt_balances", scope: "shared", applies: "applyAgentDebt" },
   unknown: null,
 };
 
@@ -122,8 +131,23 @@ const VOCAB: Record<Exclude<ImportKind, "unknown">, { strong: string[]; weak: st
     weak: ["policy number", "agent", "carrier", "premium", "period"],
   },
   policy_status_report: {
-    strong: ["policy status", "lapse date", "termination date", "in force"],
-    weak: ["policy number", "status", "carrier", "effective date"],
+    strong: [
+      "policy status", "lapse date", "termination date", "in force",
+      // The certificate vocabulary. A carrier calls a policy a certificate and
+      // dates it by activation; without these a certificate export scored on
+      // "insured name" alone and got misrouted to book of business, where the
+      // status column means nothing.
+      "certificate number", "certificate activation date", "contract status",
+      "status reason", "application entry date",
+    ],
+    weak: ["policy number", "status", "carrier", "effective date", "insured name", "product id", "issue age", "status group"],
+  },
+  agent_debt: {
+    strong: [
+      "debit balance", "debt balance", "age of debt", "unsecured advance",
+      "unpaid commission", "amount owed",
+    ],
+    weak: ["agent name", "agent number", "immediate upline name", "commission level", "npn", "pending policies", "agent status", "refreshed date"],
   },
 };
 
@@ -136,7 +160,8 @@ const NOTE_LEXICON: { kind: Exclude<ImportKind, "unknown">; words: string[] }[] 
   { kind: "writing_numbers", words: ["writing number", "writing numbers", "appointment", "appointments", "contract"] },
   { kind: "state_licenses", words: ["license", "licenses", "licence", "nipr", "pdb", "loa"] },
   { kind: "commission_statement", words: ["statement", "commission statement", "payout", "earnings"] },
-  { kind: "policy_status_report", words: ["lapse", "lapses", "status report", "terminations", "in force"] },
+  { kind: "policy_status_report", words: ["lapse", "lapses", "status report", "terminations", "in force", "certificates", "certificate report", "policy report"] },
+  { kind: "agent_debt", words: ["debt", "debt report", "debit balance", "chargebacks owed", "agent debt", "downline debt"] },
 ];
 
 export type KindGuess = {
