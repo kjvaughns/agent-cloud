@@ -692,7 +692,12 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
 
   function handleOpenChange(v: boolean) {
     setOpen(v);
-    if (!v) { setCarrierId(""); setWritingNumber(""); setLoa(""); setNotes(""); setError(null); setMode("active"); }
+    if (!v) {
+      setCarrierId(""); setWritingNumber(""); setLoa(""); setNotes(""); setError(null); setMode("active");
+      // Cleared too, so the next request re-reads the profile rather than
+      // reusing whatever was typed into the last one.
+      setFullName(""); setEmail(""); setPhone(""); setNpn("");
+    }
   }
 
   const canSubmit = mode === "active"
