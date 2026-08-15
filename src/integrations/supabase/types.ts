@@ -6519,6 +6519,7 @@ export type Database = {
           posted_at: string
           premium_mode: string | null
           product: string | null
+          production_date: string
           status: Database["public"]["Enums"]["policy_status"]
           sync_source: string | null
         }
@@ -6541,6 +6542,7 @@ export type Database = {
           posted_at?: string
           premium_mode?: string | null
           product?: string | null
+          production_date: string
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -6563,6 +6565,7 @@ export type Database = {
           posted_at?: string
           premium_mode?: string | null
           product?: string | null
+          production_date?: string
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -9730,6 +9733,10 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
+      policy_counts_as_production: {
+        Args: { _status: string }
+        Returns: boolean
+      }
       prune_rate_limits: { Args: never; Returns: undefined }
       prune_usage_events: { Args: never; Returns: number }
       read_email_batch: {
