@@ -2162,6 +2162,8 @@ export type Database = {
           client_id: string
           created_at: string | null
           draft_date: number | null
+          draft_schedule: string | null
+          draft_wednesday: number | null
           id: string
           payment_method: string | null
           routing_number: string | null
@@ -2179,6 +2181,8 @@ export type Database = {
           client_id: string
           created_at?: string | null
           draft_date?: number | null
+          draft_schedule?: string | null
+          draft_wednesday?: number | null
           id?: string
           payment_method?: string | null
           routing_number?: string | null
@@ -2196,6 +2200,8 @@ export type Database = {
           client_id?: string
           created_at?: string | null
           draft_date?: number | null
+          draft_schedule?: string | null
+          draft_wednesday?: number | null
           id?: string
           payment_method?: string | null
           routing_number?: string | null
