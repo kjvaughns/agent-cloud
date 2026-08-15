@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -17,7 +17,9 @@ import {
   listMyGrids, extractGrid, saveGrid, deleteMyGrid, type GridRow,
 } from "@/lib/comp-grid.functions";
 import { addCarrier } from "@/lib/contracting.functions";
-import { extractDocument, truncationNotice } from "@/lib/document-extract";
+import {
+  extractDocument, truncationNotice, MAX_REQUEST_IMAGE_CHARS,
+} from "@/lib/document-extract";
 import {
   reviewGrid, canSaveGrid, reviewSummary, type ReviewRow,
 } from "@/lib/carriers/grid-review";
@@ -73,6 +75,7 @@ export function ManageGridsPage({
   // What the extraction thought of its own reading, kept so the review below
   // can say "check these" rather than only reporting it once in a toast.
   const [confidence, setConfidence] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const extractFn = useServerFn(extractGrid);
   const saveFn = useServerFn(saveGrid);
@@ -118,27 +121,76 @@ export function ManageGridsPage({
         images.length = 8;
       }
 
-      const out: any = await extractFn({
-        data: {
-          images: images.length ? images : null,
-          text: texts.join("\n\n") || null,
-          file_name: files.map((f) => f.name).join(", ").slice(0, 255),
-          carrier_id: carrierId || null,
-          carrier_name: carriers.find((c: any) => c.id === carrierId)?.name ?? null,
-        },
-      });
+      // Pages go up in batches that stay inside what one request can carry.
+      //
+      // Everything used to be posted at once, so four photographed pages
+      // produced a request the browser abandoned before it reached us — which
+      // it reports as "Load failed", with no server error to show and nothing
+      // naming the cause. Each batch merges into the editor as it lands, so a
+      // failure on page four keeps pages one to three.
+      const batches: string[][] = [];
+      let current: string[] = [];
+      let weight = 0;
+      for (const img of images) {
+        if (current.length && weight + img.length > MAX_REQUEST_IMAGE_CHARS) {
+          batches.push(current);
+          current = [];
+          weight = 0;
+        }
+        current.push(img);
+        weight += img.length;
+      }
+      if (current.length) batches.push(current);
+      const text = texts.join("\n\n") || null;
+      if (!batches.length && text) batches.push([]);
 
-      if (!out.rows?.length) {
-        toast.error("Couldn't read any rows from that file");
+      const fileName = files.map((f) => f.name).join(", ").slice(0, 255);
+      let readAny = false;
+      let working = matrix;
+      let addedLevels: string[] = [];
+      let addedProducts = 0;
+      let changedCells = 0;
+      let lastConfidence: number | null = null;
+      let lastNotes: string | null = null;
+      let lastUploadId: string | null = null;
+
+      for (let i = 0; i < batches.length; i++) {
+        if (batches.length > 1) toast.info(`Reading pages ${i + 1} of ${batches.length}…`);
+        const out: any = await extractFn({
+          data: {
+            images: batches[i].length ? batches[i] : null,
+            // The text layer belongs with the first request only; repeating it
+            // per batch would have the model read the same table twice.
+            text: i === 0 ? text : null,
+            file_name: fileName,
+            carrier_id: carrierId || null,
+            carrier_name: carriers.find((c: any) => c.id === carrierId)?.name ?? null,
+          },
+        });
+        if (!out?.rows?.length) continue;
+        readAny = true;
+        const m = mergeMatrix(working, toMatrix(out.rows));
+        working = m.merged;
+        addedLevels = [...new Set([...addedLevels, ...m.addedLevels])];
+        addedProducts += m.addedProducts;
+        changedCells += m.changedCells;
+        lastUploadId = out.upload_id ?? lastUploadId;
+        lastNotes = out.notes ?? lastNotes;
+        if (typeof out.confidence === "number") {
+          lastConfidence = lastConfidence == null ? out.confidence : Math.min(lastConfidence, out.confidence);
+        }
+      }
+
+      if (!readAny) {
+        toast.error("Couldn't read any rows from that file. If it's a photo, make sure the whole table is in frame and in focus.");
       } else {
-        const { merged, addedProducts, addedLevels, changedCells } = mergeMatrix(matrix, toMatrix(out.rows));
-        setMatrix(merged);
-        setRows(fromMatrix(merged));
-        setUploadId(out.upload_id);
+        setMatrix(working);
+        setRows(fromMatrix(working));
+        setUploadId(lastUploadId);
         setSource("ai_extracted");
-        setNotes(out.notes ?? null);
-        setConfidence(typeof out.confidence === "number" ? out.confidence : null);
-        const conf = out.confidence == null ? null : Math.round(out.confidence * 100);
+        setNotes(lastNotes);
+        setConfidence(lastConfidence);
+        const conf = lastConfidence == null ? null : Math.round(lastConfidence * 100);
         const parts = [
           addedLevels.length ? `added level${addedLevels.length === 1 ? "" : "s"} ${addedLevels.join(", ")}` : null,
           addedProducts ? `${addedProducts} product row${addedProducts === 1 ? "" : "s"}` : null,
@@ -149,10 +201,32 @@ export function ManageGridsPage({
         );
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Couldn't read that file");
+      // "Load failed" / "Failed to fetch" is the browser abandoning the
+      // request, not an answer from us. Say what it actually means.
+      const raw = String(e?.message ?? "");
+      toast.error(
+        /load failed|failed to fetch|networkerror/i.test(raw)
+          ? "That upload was too large to send. Photograph one page at a time, or upload the PDF instead — each upload adds to the grid."
+          : raw || "Couldn't read that file",
+      );
     } finally {
       setReading(false);
     }
+  }
+
+  /** Only what the extractor can actually read. Anything else is named. */
+  function acceptFiles(list: FileList | null) {
+    const all = Array.from(list ?? []);
+    if (!all.length) return;
+    const ok = all.filter((f) =>
+      f.type.startsWith("image/") ||
+      f.type === "application/pdf" ||
+      /\.(pdf|png|jpe?g|webp|heic|csv|tsv|xlsx?|txt)$/i.test(f.name));
+    const rejected = all.filter((f) => !ok.includes(f));
+    if (rejected.length) {
+      toast.error(`Can't read ${rejected.map((f) => f.name).join(", ")} — use a PDF, a photo, or a spreadsheet.`);
+    }
+    if (ok.length) onFiles(ok);
   }
 
   const save = useMutation({
