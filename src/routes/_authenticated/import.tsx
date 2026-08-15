@@ -36,6 +36,10 @@ import {
 import { normalizePolicyStatus } from "@/lib/import-normalize";
 import { extractCarrierReport } from "@/lib/import-carrier-reports.functions";
 import { carrierFromLabel } from "@/lib/sheet-shape";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  claimStaleImports, processStoredImport, retryImportDoc, failImportDoc, heartbeatImport,
+} from "@/lib/import-resume.functions";
 
 export const Route = createFileRoute("/_authenticated/import")({
   head: () => ({ meta: [{ title: "Import — Agent Cloud" }] }),
