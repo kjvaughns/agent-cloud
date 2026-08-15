@@ -297,13 +297,14 @@ export const PAGES: Page[] = [
   { id: "ops-licensing", label: "Licensing & PDB", path: "/contracting-ops/licensing", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "writing-numbers", label: "Writing numbers", path: "/contracting-ops/requests?tab=numbers", icon: IdCard, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   { id: "ops-import", label: "Import records", path: "/contracting-ops/import", icon: UploadCloud, area: "Back office", parent: "contracting-ops", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
-  { id: "contracting-templates", label: "Submission templates", path: "/settings/templates", icon: FileSignature, area: "Settings", parent: "settings", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
+  { id: "contracting-templates", label: "Submission templates", path: "/settings/agency?tab=contracting", icon: FileSignature, area: "Settings", unlock: "agency-admin", staffPermission: "staff_view_contracts", permission: "staff_is_admin" },
   // Agency-level configuration rather than daily work, so it keeps the
   // administrator gate and takes no staff permission.
-  { id: "contracting-settings", label: "How contracting works", path: "/settings/contracting", icon: Settings, area: "Settings", parent: "settings", unlock: "agency-admin", permission: "staff_is_admin" },
+  { id: "contracting-settings", label: "How contracting works", path: "/settings/agency?tab=contracting", icon: Settings, area: "Settings", unlock: "agency-admin", permission: "staff_is_admin" },
   // Only offered to an agency that actually has children — the gate keeps a
   // solo agency from seeing an empty tab about a concept it doesn't have.
-  { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", parent: "settings", unlock: "has-sub-agencies" },
+  { id: "sub-agencies", label: "Sub-Agencies", path: "/settings/sub-agencies", icon: Building2, area: "Settings", unlock: "has-sub-agencies" },
+
 
   // Updates
   { id: "news", label: "News Feed", path: "/news-feed", icon: Newspaper, area: "Updates" },
