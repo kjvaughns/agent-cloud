@@ -15,7 +15,7 @@ import { listAgencyLevels, saveAgencyLevel } from "@/lib/contracting-records.fun
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { EmptyState } from "@/components/contracting/shared";
 import {
-  carrierLevelOptions, levelLabel, levelOrigin, suggestLevel, mappingFor, findLevel,
+  carrierLevelOptions, levelLabel, levelOrigin, suggestLevel, autoMatchLevel, mappingFor, findLevel,
   type CarrierLevelOption,
 } from "@/lib/compensation/carrier-levels";
 
