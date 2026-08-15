@@ -232,6 +232,59 @@ export function bandProblems(rows: GridRow[], productName: string): string[] {
 }
 
 /**
+ * What Post a Deal has to ask for before this carrier can be priced.
+ *
+ * Derived from the grid rather than configured, because the grid is what
+ * decides. A carrier whose rows carry no age bands must not make an agent
+ * enter a date of birth to satisfy a form; a carrier with a Florida exception
+ * must ask for the state or it will quietly pay the national rate in Florida.
+ *
+ * `needsAge` is the one that matters most. An unknown age matches no bounded
+ * band at all, so without asking, every deal on a banded carrier falls back to
+ * the level percentage and the agency's uploaded grid does nothing.
+ */
+export type DealRequirements = {
+  products: string[];
+  needsAge: boolean;
+  needsState: boolean;
+  needsRisk: boolean;
+};
+
+export function requirementsFor(rows: GridRow[], levelName: string | null): DealRequirements {
+  const mine = rows.filter((r) => !r.levelName || norm(r.levelName) === norm(levelName));
+  return {
+    products: productsFor(rows, levelName),
+    needsAge: mine.some((r) => r.ageMin != null || r.ageMax != null),
+    needsState: mine.some((r) => Boolean(r.stateCode)),
+    needsRisk: mine.some((r) => Boolean(r.riskClass)),
+  };
+}
+
+/**
+ * What is still missing before this deal can be priced from the grid.
+ *
+ * Returned as sentences an agent can act on. Empty means either the deal is
+ * fully specified or the carrier has no grid — both of which price fine, one
+ * from the grid and one from the level percentage.
+ */
+export function missingForPricing(
+  req: DealRequirements,
+  deal: { age: number | null; state?: string | null; riskClass?: string | null },
+): string[] {
+  const out: string[] = [];
+  if (req.needsAge && deal.age == null) {
+    out.push("This carrier pays different rates by age. Add the insured's date of birth.");
+  }
+  if (req.needsState && !deal.state) {
+    out.push("This carrier pays different rates in some states. Choose the state.");
+  }
+  if (req.needsRisk && !deal.riskClass) {
+    out.push("This carrier pays different rates by tobacco use. Choose one.");
+  }
+  return out;
+}
+
+/**
  * Age on a date, which is what a carrier rates on.
  *
  * Not age today: a policy written in December for somebody whose birthday is
