@@ -9,8 +9,27 @@ import { createFileRoute } from "@tanstack/react-router";
  * calling out via net.http_post.
  *
  * Lives under /api/public/* because that prefix bypasses site auth for external
- * callers, so the handler does its own check: the caller must present the
- * project's key in the `apikey` header, the same rule as the automations hook.
+ * callers, so the handler does its own check.
+ *
+ * ── The token has to be a secret ──
+ *
+ * That check used to accept `SUPABASE_PUBLISHABLE_KEY`. The publishable key is
+ * read in `integrations/supabase/client.ts` as
+ * `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`, which Vite inlines into the
+ * browser bundle — so it is printed in the source of every page and is not a
+ * secret in any sense. Anybody who opened the app could read it and call this
+ * endpoint.
+ *
+ * The exposure was bounded: the handler takes no body, sends only
+ * announcements that were already scheduled and already due, and the delivery
+ * ledger stops a repeat. So nothing could be sent that was not going to be
+ * sent anyway. What it did allow was unauthenticated work — each call scans
+ * every scheduled announcement across every agency — which is a load and cost
+ * vector against a public URL.
+ *
+ * `ANNOUNCEMENT_DISPATCH_TOKEN` has no `VITE_` prefix, so it never reaches the
+ * client. The publishable key is deliberately NOT accepted as a fallback: a
+ * fallback to a public value is the same hole with a longer name.
  *
  * The work itself is `dispatchAllDueAnnouncements`, which reuses the delivery
  * fan-out the owner-triggered path already uses. Nothing here decides who gets
@@ -20,13 +39,16 @@ export const Route = createFileRoute("/api/public/hooks/dispatch-announcements")
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected =
-          process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+        const expected = process.env.ANNOUNCEMENT_DISPATCH_TOKEN ?? "";
         const provided =
           request.headers.get("apikey") ??
           request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
           "";
 
+        // An unset token refuses everything rather than accepting anything.
+        // The alternative — treating "no token configured" as "no check" —
+        // turns a deploy that forgot an environment variable into an open
+        // endpoint, and does it silently.
         if (!expected || provided !== expected) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,

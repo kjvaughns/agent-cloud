@@ -250,12 +250,51 @@ check("…and that send happens on the transition",
 check("a grouped post moves together",
   /q\.eq\("announcement_group_id", before\.announcement_group_id\)/.test(FNS), true);
 
-check("there is a dispatch for posts that came due",
-  /export const dispatchDueAnnouncements/.test(FNS), true);
+// ── The scheduled dispatcher ────────────────────────────────────────────────
+//
+// In-app visibility needs nothing to run. Email and Discord need something to
+// reach out, and until the cron endpoint existed that only happened when an
+// owner opened the page — so a post scheduled for 9am Monday reached Discord
+// whenever somebody next visited.
+
+const HOOK = strip(read("src/routes/api/public/hooks/dispatch-announcements.ts"));
+
+check("there is a sweep for posts that came due",
+  /export async function dispatchAllDueAnnouncements/.test(FNS), true);
+check("…covering every agency, since cron has no session",
+  /\.eq\("status", "scheduled"\)/.test(FNS), true);
 check("…which skips anything already delivered",
-  /const due = dueForDispatch\(scheduled as any\[\], delivered\)/.test(FNS), true);
+  /dueForDispatch\(rows as any\[\], delivered\)/.test(FNS), true);
 check("…and degrades quietly before the migration",
-  /if \(error\) return \{ dispatched: 0 \}/.test(FNS), true);
+  /if \(error\) return \{ dispatched: 0, organizations: 0 \}/.test(FNS), true);
+
+// One implementation of who gets told: the endpoint delegates, it does not
+// fan out.
+check("the endpoint delegates rather than fanning out itself",
+  /dispatchAllDueAnnouncements\(\)/.test(HOOK), true);
+check("…and decides nothing about channels itself",
+  /normalizeChannels|announcement_deliveries/.test(HOOK), false);
+
+// The bug this replaced: delivering only in-app, which derived visibility
+// already gives for free, so the two channels that were the whole point got
+// nothing.
+check("a scheduled post is offered every channel",
+  /channels: normalizeChannels\(\["in_app", "email", "discord"\]\)/.test(FNS), true);
+check("…and so is a draft being published",
+  (FNS.match(/normalizeChannels\(\["in_app", "email", "discord"\]\)/g) ?? []).length, 2);
+check("…so nothing still sends the feed alone",
+  /normalizeChannels\(\["in_app"\]\)/.test(FNS), false);
+
+// The token must not be a value that ships to the browser. The publishable key
+// is inlined into the bundle by Vite, so accepting it — even as a fallback —
+// would leave the endpoint callable by anybody who opened the app.
+check("the endpoint requires a server-only token",
+  /process\.env\.ANNOUNCEMENT_DISPATCH_TOKEN/.test(HOOK), true);
+check("…and does not accept the publishable key",
+  /SUPABASE_PUBLISHABLE_KEY|SUPABASE_ANON_KEY/.test(HOOK), false);
+// A deploy that forgets the variable must refuse, not wave everybody through.
+check("…refusing everything when it is unset",
+  /if \(!expected \|\| provided !== expected\)/.test(HOOK), true);
 
 check("every send is audited", /recordAnnouncementAudit\(\{/.test(FNS), true);
 check("…distinguishable from contracting rows",
