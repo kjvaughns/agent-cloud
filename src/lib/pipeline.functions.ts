@@ -574,13 +574,37 @@ export const listCarriers = createServerFn({ method: "GET" })
       .eq("status", "active");
     if (error) throw new Error(error.message);
 
+    // The commission grid is what actually names a carrier's products — the
+    // "Ethos Term Life Prime" kind of name an agent recognises. `product_types`
+    // on org_carriers is a hand-filled field and is usually empty, so the grid
+    // wins whenever it has rows, with the agency's own rows shadowing the
+    // shared library exactly as everywhere else.
+    const { data: gridRows } = await supabase
+      .from("commission_grids")
+      .select("carrier_id, product_name, organization_id")
+      .in("organization_id", [orgId])
+      .or(`organization_id.eq.${orgId},organization_id.is.null`);
+    const byCarrier = new Map<string, { own: Set<string>; shared: Set<string> }>();
+    for (const g of (gridRows ?? []) as any[]) {
+      if (!g.product_name) continue;
+      const k = String(g.carrier_id);
+      if (!byCarrier.has(k)) byCarrier.set(k, { own: new Set(), shared: new Set() });
+      const bucket = byCarrier.get(k)!;
+      (g.organization_id ? bucket.own : bucket.shared).add(String(g.product_name));
+    }
+
     return (data ?? [])
       .filter((r: any) => r.carriers?.active !== false)
-      .map((r: any) => ({
-        id: r.carrier_id as string,
-        name: (r.carriers?.name ?? "Carrier") as string,
-        product_types: (r.product_types ?? []) as string[],
-      }))
+      .map((r: any) => {
+        const g = byCarrier.get(String(r.carrier_id));
+        const gridProducts = g ? (g.own.size > 0 ? [...g.own] : [...g.shared]) : [];
+        const configured = (r.product_types ?? []) as string[];
+        return {
+          id: r.carrier_id as string,
+          name: (r.carriers?.name ?? "Carrier") as string,
+          product_types: (gridProducts.length > 0 ? gridProducts.sort((a, b) => a.localeCompare(b)) : configured) as string[],
+        };
+      })
       .sort((a: any, b: any) => a.name.localeCompare(b.name));
   });
 
