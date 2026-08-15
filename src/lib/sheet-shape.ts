@@ -102,7 +102,7 @@ function detectDelimiter(lines: string[]): string {
 
 // ── Cell shapes ──────────────────────────────────────────────────────────────
 
-const NUMERIC = /^[$(\-]?\s*[\d,]+(\.\d+)?\s*%?\)?$/;
+const NUMERIC = /^[$(-]?\s*[\d,]+(\.\d+)?\s*%?\)?$/;
 const DATEISH = /^\d{1,4}[/\-.]\d{1,2}([/\-.]\d{1,4})?$/;
 
 function looksNumeric(cell: string): boolean {

@@ -19,7 +19,7 @@
  * still keeps its own.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { periodRanges } from "../src/lib/leaderboard/board";
@@ -298,10 +298,18 @@ check("…including the twelve-month chart",
 check("…and does not coalesce an effective date",
   /COALESCE\(pol\.effective_date/i.test(RPC), false);
 
-// The old definition must not still be sitting in a later-numbered file.
-const OLD_RPC = sql(read("supabase/migrations/20260715120000_dashboard-real-data.sql"));
-check("the migration that replaced it is the later one",
-  "20260814250000" > "20260715120000" && /get_dashboard_metrics/.test(OLD_RPC), true);
+// Migrations apply in filename order, so the LAST file to define the RPC is
+// the definition the database ends up with. Asserting the filename ordering by
+// hand proved nothing — it compared two constants. This reads the directory,
+// so a migration added later that redefines the function on `posted_at` fails
+// here rather than quietly winning at apply time.
+const definers = readdirSync(join(ROOT, "supabase/migrations"))
+  .filter((f) => f.endsWith(".sql"))
+  .filter((f) => /CREATE OR REPLACE FUNCTION public\.get_dashboard_metrics/i
+    .test(read(`supabase/migrations/${f}`)))
+  .sort();
+check("the last migration to define the dashboard RPC is this one",
+  definers.at(-1), "20260814250000_production-date.sql");
 
 // One list of statuses, on both sides of the wire.
 const fnBody = RPC.match(

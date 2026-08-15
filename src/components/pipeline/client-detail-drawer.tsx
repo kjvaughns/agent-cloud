@@ -1450,7 +1450,10 @@ function ReferralsTab({ detail }: { detail: any }) {
         <div className="space-y-2">
           {items.map((r: any) => {
             let p: any = {};
-            try { p = JSON.parse(r.note ?? "{}"); } catch {}
+            // A note that is not JSON is a plain note somebody typed, which is
+            // most of them. Falling back to `{}` renders it as an empty record
+            // rather than breaking the whole list.
+            try { p = JSON.parse(r.note ?? "{}"); } catch { /* not JSON */ }
             return (
               <div key={r.id} className="border rounded-md p-3 text-sm">
                 <div className="font-medium">{p.name}</div>

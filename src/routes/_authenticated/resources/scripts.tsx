@@ -68,7 +68,8 @@ function Page() {
   const toggleFav = (id: string) => {
     setFavs((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       try { localStorage.setItem(FAV_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
       return next;
     });

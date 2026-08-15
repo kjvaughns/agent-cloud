@@ -52,7 +52,7 @@ export const listMyCaseDesigns = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     // hydrate client names
     const ids = (data ?? []).map((r) => r.client_id).filter(Boolean) as string[];
-    let names: Record<string, string> = {};
+    const names: Record<string, string> = {};
     if (ids.length) {
       const { data: cs } = await supabase.from("clients").select("id,first_name,last_name").in("id", ids);
       for (const c of cs ?? []) names[c.id] = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim();
@@ -248,7 +248,7 @@ export const listRetirementCases = createServerFn({ method: "GET" })
       .order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     const ids = (data ?? []).map((r) => r.client_id).filter(Boolean) as string[];
-    let names: Record<string, string> = {};
+    const names: Record<string, string> = {};
     if (ids.length) {
       const { data: cs } = await supabase.from("clients").select("id,first_name,last_name").in("id", ids);
       for (const c of cs ?? []) names[c.id] = `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim();

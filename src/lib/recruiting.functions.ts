@@ -17,7 +17,7 @@ export const listFunnels = createServerFn({ method: "GET" })
 
     // Recruited production: sum policies.annual_premium for linked agents per funnel
     const ids = (funnels ?? []).map((f) => f.id);
-    let production: Record<string, number> = {};
+    const production: Record<string, number> = {};
     if (ids.length) {
       const { data: prospects } = await supabase
         .from("recruiting_prospects")

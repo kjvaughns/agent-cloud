@@ -44,7 +44,7 @@ export const listAnnouncements = createServerFn({ method: "GET" })
 
     // Which channels each post actually went out on. Best-effort: the ledger
     // arrives with the same migration as the columns above.
-    let channels: Record<string, string[]> = {};
+    const channels: Record<string, string[]> = {};
     if (rows.length > 0) {
       const { data: deliveries } = await supabaseAdmin
         .from("announcement_deliveries")

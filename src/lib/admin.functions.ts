@@ -984,7 +984,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
         target_id: data.agent_id,
         details: { carrier_id: data.carrier_id, assigned_pct: data.assigned_pct, commission_level: data.commission_level },
       });
-    } catch {}
+    } catch { /* the comp change is already saved; a missing log line must not undo it */ }
     return { ok: true };
   });
 

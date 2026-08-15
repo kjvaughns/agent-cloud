@@ -14,7 +14,7 @@ export interface KpiCardProps {
 
 export function KpiCard({ label, value, delta, change, icon: Icon, hint }: KpiCardProps) {
   if (change && typeof delta !== "number") {
-    const n = parseFloat(change.replace(/[^\d.\-]/g, ""));
+    const n = parseFloat(change.replace(/[^\d.-]/g, ""));
     if (!Number.isNaN(n)) delta = change.trim().startsWith("-") ? -Math.abs(n) : n;
   }
 

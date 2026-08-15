@@ -140,8 +140,12 @@ function parseDateMaybe(v: any): string | null {
   // MM/DD/YYYY or M/D/YY
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
   if (m) {
-    let [, mm, dd, yyyy] = m;
-    if (yyyy.length === 2) yyyy = (Number(yyyy) >= 50 ? "19" : "20") + yyyy;
+    const [, mm, dd, rawYear] = m;
+    // A two-digit year is windowed rather than reassigned in place, so the
+    // three parts of the match can all stay const.
+    const yyyy = rawYear.length === 2
+      ? (Number(rawYear) >= 50 ? "19" : "20") + rawYear
+      : rawYear;
     return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
   }
   // DD-MMM-YYYY (e.g. 05-Jan-2026)
