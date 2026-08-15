@@ -2474,9 +2474,11 @@ export type Database = {
           level_sort: number | null
           organization_id: string | null
           product_name: string
+          risk_class: string | null
           sort_order: number | null
           source: string | null
           source_file: string | null
+          state_code: string | null
           updated_at: string
           year_1_pct: number | null
           years_2_5_pct: number | null
@@ -2496,9 +2498,11 @@ export type Database = {
           level_sort?: number | null
           organization_id?: string | null
           product_name: string
+          risk_class?: string | null
           sort_order?: number | null
           source?: string | null
           source_file?: string | null
+          state_code?: string | null
           updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
@@ -2518,9 +2522,11 @@ export type Database = {
           level_sort?: number | null
           organization_id?: string | null
           product_name?: string
+          risk_class?: string | null
           sort_order?: number | null
           source?: string | null
           source_file?: string | null
+          state_code?: string | null
           updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
@@ -7939,6 +7945,12 @@ export type Database = {
       role_permissions: {
         Row: {
           admin_invite_users: boolean | null
+          admin_manage_agency_profile: boolean
+          admin_manage_automations: boolean
+          admin_manage_carriers: boolean
+          admin_manage_grids: boolean
+          admin_manage_integrations: boolean
+          admin_manage_levels: boolean
           admin_manage_staff_configs: boolean | null
           admin_view_agency_tickets: boolean | null
           admin_view_billing_readonly: boolean | null
@@ -7995,6 +8007,12 @@ export type Database = {
         }
         Insert: {
           admin_invite_users?: boolean | null
+          admin_manage_agency_profile?: boolean
+          admin_manage_automations?: boolean
+          admin_manage_carriers?: boolean
+          admin_manage_grids?: boolean
+          admin_manage_integrations?: boolean
+          admin_manage_levels?: boolean
           admin_manage_staff_configs?: boolean | null
           admin_view_agency_tickets?: boolean | null
           admin_view_billing_readonly?: boolean | null
@@ -8051,6 +8069,12 @@ export type Database = {
         }
         Update: {
           admin_invite_users?: boolean | null
+          admin_manage_agency_profile?: boolean
+          admin_manage_automations?: boolean
+          admin_manage_carriers?: boolean
+          admin_manage_grids?: boolean
+          admin_manage_integrations?: boolean
+          admin_manage_levels?: boolean
           admin_manage_staff_configs?: boolean | null
           admin_view_agency_tickets?: boolean | null
           admin_view_billing_readonly?: boolean | null
@@ -9661,6 +9685,10 @@ export type Database = {
       caller_is_active: { Args: never; Returns: boolean }
       can_approve_contracts: { Args: { _org: string }; Returns: boolean }
       can_assign_contracting_staff: { Args: { _org: string }; Returns: boolean }
+      can_manage_agency_settings: {
+        Args: { _key: string; _org: string }
+        Returns: boolean
+      }
       can_manage_comp_levels: { Args: { _org: string }; Returns: boolean }
       can_manage_contracting: { Args: { _org: string }; Returns: boolean }
       can_manage_hierarchy: { Args: { _org: string }; Returns: boolean }
