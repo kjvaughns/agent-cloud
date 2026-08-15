@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { advanceRefusal, advanceWithinCarrierMax } from "@/lib/carriers/wizard";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
@@ -358,7 +359,10 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
           // Carrier wizard. Reporting zero here is today's behaviour rather
           // than a guess, and the status module already handles a non-zero.
           unreviewedGridRowCount: 0,
-          maxAdvance: c.default_advance_option ?? null,
+          // The carrier's own ceiling is what "an advance is configured" means.
+          // Falling back to the agency default keeps carriers configured before
+          // the ceiling column existed reading as configured.
+          maxAdvance: c.max_advance_option ?? c.default_advance_option ?? null,
           hasContractingMethod: (c.org_carrier_methods ?? []).length > 0,
           configuration: configuration.get(c.id) ?? { configured: false, reasons: [] },
           positionsOnFallback: ((levels ?? []) as any[])
@@ -404,7 +408,9 @@ export const listAvailableCarriers = createServerFn({ method: "GET" })
     if (!access.orgId) return { carriers: [] };
 
     const [{ data: all }, { data: mine }] = await Promise.all([
-      supabase.from("carriers").select("id, name, logo_url, is_private").order("name"),
+      // The library row as the wizard shows it: a logo and a website are what
+      // let somebody confirm they picked the right "American Life".
+      supabase.from("carriers").select("id, name, logo_url, is_private, website, phone").order("name"),
       supabase.from("org_carriers").select("carrier_id").eq("organization_id", access.orgId),
     ]);
     const taken = new Set((mine ?? []).map((r: any) => r.carrier_id));
@@ -459,6 +465,14 @@ const OrgCarrierSchema = z.object({
   // The enum's own five values, imported rather than retyped — a literal list
   // here would be a second place for them to drift from the database.
   default_advance_option: z.enum(ADVANCE_OPTIONS).nullable().optional(),
+  /**
+   * The most this carrier itself permits. Distinct from the agency default on
+   * purpose: the ceiling is a fact about the carrier and the default is the
+   * agency's choice inside it, and collapsing them meant an owner could not
+   * offer 6 months on a carrier that allows 9 without claiming the carrier
+   * only allows 6.
+   */
+  max_advance_option: z.enum(ADVANCE_OPTIONS).nullable().optional(),
 });
 
 export const saveOrgCarrier = createServerFn({ method: "POST" })
@@ -475,6 +489,26 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
     if (!access.canManageCarriers) deny("You don't have permission to manage carriers.");
 
     const { id, carrier_id, new_carrier_name, ...fields } = data;
+
+    // The advance ceiling, enforced here and not only in the form. An agent
+    // advanced beyond what the carrier permits is a chargeback nobody
+    // budgeted for, and a stale tab posting the old default is exactly how
+    // that happens. The database has the same rule as a constraint; this is
+    // what turns it into a sentence somebody can act on.
+    if (fields.default_advance_option !== undefined && fields.default_advance_option !== null) {
+      let ceiling: string | null = fields.max_advance_option ?? null;
+      // Not sent, or sent empty on an existing row: the ceiling to check
+      // against is the one already stored, not "none".
+      if (fields.max_advance_option == null && id) {
+        const { data: existing } = await supabaseAdmin
+          .from("org_carriers").select("max_advance_option").eq("id", id).maybeSingle();
+        ceiling = (existing?.max_advance_option as string | null) ?? null;
+      }
+      if (!advanceWithinCarrierMax(fields.default_advance_option, ceiling)) {
+        throw new Error(advanceRefusal(fields.default_advance_option, ceiling));
+      }
+    }
+
 
     let resolvedCarrierId = carrier_id ?? null;
 
