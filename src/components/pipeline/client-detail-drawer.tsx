@@ -1161,11 +1161,20 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       effective_date: form.effective_date || null,
       sale_date: form.sale_date || null,
     }}),
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
       qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      toast.success("Policy updated");
+      // Moving the sale date moves production, the leaderboard and the
+      // commission schedule with it, so those views must not keep stale numbers.
+      if (res?.saleDateChanged) {
+        qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+        qc.invalidateQueries({ queryKey: ["leaderboard"] });
+        qc.invalidateQueries({ queryKey: ["finances"] });
+        toast.success(`Policy updated — now counts toward ${saleMonthLabel(form.sale_date)}`);
+      } else {
+        toast.success("Policy updated");
+      }
       setEditing(false);
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to update policy"),
