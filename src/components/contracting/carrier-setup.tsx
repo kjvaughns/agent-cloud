@@ -133,11 +133,11 @@ function RemoveCarrierDialog({
  * in a different place on every card.
  */
 function CarrierRow({
-  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onFinish, onToggle, toggling,
+  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onSetup, onToggle, toggling,
 }: {
   carrier: any; first: boolean; canManage: boolean;
   onEdit: () => void; onRemove: () => void; onRestore: () => void; onEditGrid: () => void;
-  onFinish: () => void; onToggle: (on: boolean) => void; toggling: boolean;
+  onSetup: () => void; onToggle: (on: boolean) => void; toggling: boolean;
 }) {
   const state = c.state as CarrierState | undefined;
   const isActive = state?.status === "active";
