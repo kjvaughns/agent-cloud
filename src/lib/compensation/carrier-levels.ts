@@ -331,3 +331,34 @@ export function findLevel(
   const key = norm(levelName);
   return options.find((o) => norm(o.name) === key) ?? null;
 }
+
+/**
+ * How far off a level may be before auto-detect refuses it.
+ *
+ * A suggestion an owner clicks may be loose — they can see it and judge it. An
+ * automatic pass across every carrier cannot: mapping a 60% position onto a
+ * carrier whose nearest rung is the 90 contract silently changes what everyone
+ * on that position is paid. So bulk detection only accepts a rung within this
+ * many points of the position, and everything else stays on the position
+ * percentage until the agency adds the level.
+ */
+export const AUTO_MATCH_TOLERANCE_PCT = 2.5;
+
+/**
+ * The level to apply automatically, or null to keep the position percentage.
+ *
+ * Deliberately stricter than `suggestLevel`: nearest-of-whatever-exists is a
+ * fine hint but a bad decision. A carrier that simply does not publish this
+ * rung must fall back to the position percentage, not be handed the closest
+ * unrelated contract.
+ */
+export function autoMatchLevel(
+  options: CarrierLevelOption[],
+  basePct: number,
+  tolerance: number = AUTO_MATCH_TOLERANCE_PCT,
+): CarrierLevelOption | null {
+  const best = suggestLevel(options, basePct);
+  if (!best) return null;
+  const d = levelDistance(best, basePct);
+  return d != null && d <= tolerance ? best : null;
+}
