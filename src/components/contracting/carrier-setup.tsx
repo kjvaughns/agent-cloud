@@ -250,7 +250,8 @@ function CarrierRow({
                 </button>
                 <button
                   onClick={onEdit}
-                  aria-label={`Edit ${c.name}`}
+                  aria-label={`Edit ${c.name} details`}
+                  title="Edit contact details and advance"
                   className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
