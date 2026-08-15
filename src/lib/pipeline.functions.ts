@@ -642,17 +642,32 @@ export const addPolicy = createServerFn({ method: "POST" })
       ? `${clientRow.first_name ?? ""} ${clientRow.last_name ?? ""}`.trim()
       : "";
 
-    await calculateAndInsertAllCommissions(supabase, {
-      policyId: row.id,
-      agentId: userId,
-      carrierId: data.carrier_id ?? null,
-      product: data.product ?? "",
-      monthlyPremium: data.monthly_premium ?? 0,
-      effectiveDate: data.effective_date ?? null,
-      clientName,
-    });
+    // The policy is already written. A commission failure must be reported,
+    // not thrown — throwing here loses the deal the agent just posted.
+    let commissionError: string | null = null;
+    try {
+      await calculateAndInsertAllCommissions(supabase, {
+        policyId: row.id,
+        agentId: userId,
+        carrierId: data.carrier_id ?? null,
+        product: data.product ?? "",
+        monthlyPremium: data.monthly_premium ?? 0,
+        effectiveDate: data.effective_date ?? null,
+        clientName,
+      });
+      const { data: issue } = await (supabase as any)
+        .from("commission_setup_issues")
+        .select("messages")
+        .eq("policy_id", row.id)
+        .is("resolved_at", null)
+        .maybeSingle();
+      if (issue?.messages?.length) commissionError = issue.messages.join(" ");
+    } catch (e: any) {
+      console.error("[commissions] inline post deal failed for", row.id, e?.message);
+      commissionError = e?.message ?? "The commission could not be worked out.";
+    }
 
-    return row;
+    return { ...row, commissionError };
   });
 
 // ---------- Update policy ----------
