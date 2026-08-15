@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS client_financials_client_id_key ON public.client_financials(client_id);

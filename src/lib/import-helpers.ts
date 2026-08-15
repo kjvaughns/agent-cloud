@@ -303,6 +303,17 @@ export function mapPolicyStatus(raw?: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface FullClientRecord {
+  /** The stage exactly as the source spelled it — mapped, never trusted. */
+  stage_raw?: string | null;
+  /** The agent named on the row. Resolution happens before this is called. */
+  agent_name?: string | null;
+  assigned_to_email?: string | null;
+  monthly_income?: number | null;
+  employment?: string | null;
+  pitch_carrier?: string | null;
+  pitch_face_amount?: number | null;
+  reminder_notes?: string | null;
+  callback_date?: string | null;
   first_name: string;
   last_name: string;
   phone?: string | null;
@@ -353,6 +364,7 @@ export interface FullClientRecord {
     content: string;
     created_at?: string | null;
     note_type?: string | null;
+    author?: string | null;
   }>;
 }
 
@@ -372,6 +384,17 @@ export async function saveClientFullRecord(
      * `{ existing_client_id: null }` means "decided: this is new".
      */
     match?: { existing_client_id: string | null } | null;
+    /**
+     * Backdate the policy to its effective date and build the commission
+     * schedule from there.
+     *
+     * An imported book is history. Stamping `production_date` with today would
+     * put two years of business into this month — every past month reads zero
+     * and the leaderboard is wrong — and skipping the commission build leaves
+     * an imported policy earning nothing at all.
+     */
+    backdate?: boolean;
+    buildCommissions?: boolean;
   },
 ): Promise<{ clientId: string; isNew: boolean }> {
   const phone = c.phone ? normalizePhone(c.phone) : null;
@@ -428,8 +451,8 @@ export async function saveClientFullRecord(
       zip_code: c.zip_code || null,
       born_country_state: c.born_country_state || null,
       ssn_last4: c.ssn_last4 || null,
-      stage: c.stage ?? "new",
-      temperature: c.temperature ?? "cold",
+      stage: c.stage ?? mapStage(c.stage_raw ?? undefined),
+      assigned_to_email: c.assigned_to_email ?? null,
     };
     const { data: newClient, error } = await supabase
       .from("clients")
@@ -480,6 +503,43 @@ export async function saveClientFullRecord(
     }, { onConflict: "client_id" });
   }
 
+  // ── Financials ─────────────────────────────────────────────────────
+  // Monthly income and employment are what an underwriter and a needs analysis
+  // both ask for first, and `client_financials` is where the app already reads
+  // them from — so they go there rather than into a note nobody queries.
+  if (c.monthly_income != null || c.employment) {
+    await supabase.from("client_financials").upsert({
+      client_id: clientId,
+      earned_income: c.monthly_income ?? null,
+      employment_status: c.employment ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "client_id" });
+  }
+
+  /**
+   * Pipeline intent has no column, so it becomes a note rather than vanishing.
+   *
+   * A callback date, a reminder and the carrier being pitched are the working
+   * notes of an unsold lead. There is nowhere in the schema that holds them,
+   * and dropping a "call back on the 4th" is the kind of silent loss that makes
+   * somebody distrust the whole import — so they are written as one dated note.
+   */
+  const intent = [
+    c.callback_date ? `Callback: ${c.callback_date}` : null,
+    c.pitch_carrier ? `Pitching: ${c.pitch_carrier}` : null,
+    c.pitch_face_amount ? `Face amount discussed: $${Number(c.pitch_face_amount).toLocaleString()}` : null,
+    c.reminder_notes ? c.reminder_notes : null,
+  ].filter(Boolean).join(" · ");
+  if (intent) {
+    await supabase.from("contact_history").insert({
+      client_id: clientId,
+      agent_id: agentId,
+      contact_type: "imported_note",
+      note: intent,
+      created_at: new Date().toISOString(),
+    });
+  }
+
   // ── Policies ───────────────────────────────────────────────────────
   for (const pol of c.policies ?? []) {
     if (!pol.policy_number && !pol.carrier_name && !pol.monthly_premium) continue;
@@ -501,7 +561,15 @@ export async function saveClientFullRecord(
       Number(pol.annual_premium ?? 0) ||
       (monthly > 0 ? monthly * 12 : 0);
 
-    await supabase.from("policies").insert({
+    const now = new Date().toISOString();
+    // History counts in the month it was written. `production_date` is what the
+    // dashboard and the leaderboard window on, so an imported policy anchors
+    // there rather than on the day of the upload.
+    const productionDate = opts?.backdate && pol.effective_date
+      ? new Date(`${pol.effective_date}T12:00:00Z`).toISOString()
+      : now;
+
+    const { data: insertedPol } = await supabase.from("policies").insert({
       client_id: clientId,
       agent_id: agentId,
       carrier_id: carrierId,
@@ -511,9 +579,37 @@ export async function saveClientFullRecord(
       annual_premium: annual || null,
       face_amount: Number(pol.face_amount ?? 0) || null,
       effective_date: pol.effective_date ?? null,
-      status: pol.status ?? "active",
-      posted_at: new Date().toISOString(),
-    });
+      status: mapPolicyStatus(pol.status ?? undefined),
+      posted_at: now,
+      production_date: productionDate,
+    }).select("id").maybeSingle();
+
+    /**
+     * An imported policy with no commission schedule is a policy that earns
+     * nothing on the Finances page, which is indistinguishable from a bug.
+     *
+     * Built on the effective date, not today, so advances and renewals fall in
+     * the months they were actually due. Wrapped because the commonest reason
+     * this fails is a missing comp grid for the product — a real gap, surfaced
+     * elsewhere as a setup issue, and never a reason to fail the import of the
+     * policy itself.
+     */
+    if (opts?.buildCommissions && insertedPol?.id && carrierId && pol.effective_date && monthly > 0) {
+      try {
+        const { calculateAndInsertAllCommissions } = await import("@/lib/commission-calculator");
+        await calculateAndInsertAllCommissions(supabase, {
+          policyId: insertedPol.id,
+          agentId,
+          carrierId,
+          product: pol.product ?? "Final Expense",
+          monthlyPremium: monthly,
+          effectiveDate: pol.effective_date,
+          clientName: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim(),
+        });
+      } catch (e) {
+        console.error("Import: commission build failed for policy", insertedPol.id, e);
+      }
+    }
   }
 
   // ── Beneficiaries (insert if not already present by name) ─────────
@@ -548,11 +644,80 @@ export async function saveClientFullRecord(
       client_id: clientId,
       agent_id: agentId,
       contact_type: isMedical ? "medical_note" : "imported_note",
-      note: note.content.trim(),
-      created_at: note.created_at ?? new Date().toISOString(),
+      note: note.author ? `${note.content.trim()} — ${note.author}` : note.content.trim(),
+      created_at: note.created_at
+        ? new Date(`${note.created_at}T12:00:00Z`).toISOString()
+        : new Date().toISOString(),
     });
   }
 
   return { clientId, isNew };
 }
 
+
+/**
+ * The agent named on a row → an account, a roster email, or nothing.
+ *
+ * Resolved once per chunk rather than per row: a book of business names the
+ * same dozen agents five hundred times, and a query per row is a query too
+ * many. Matching is on the full name as written, because that is all these
+ * exports carry — an email would be better and is used when the roster sheet
+ * supplies one for that name.
+ *
+ * Ambiguity is not resolved. Two teammates called "Chris Taylor" return
+ * nothing, so the row stays with the uploader instead of being filed under a
+ * coin toss.
+ */
+export async function resolveAgentOwners(
+  supabase: any,
+  userId: string,
+  rows: Record<string, any>[],
+): Promise<Map<string, { agentId: string | null; email: string | null }>> {
+  const out = new Map<string, { agentId: string | null; email: string | null }>();
+
+  const names = new Set<string>();
+  for (const r of rows) {
+    const n = String(r?.agent_name ?? "").trim().toLowerCase();
+    if (n) names.add(n);
+  }
+  if (!names.size) return out;
+
+  const { data: me } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  const orgId = me?.organization_id ?? null;
+
+  let q = supabase.from("profiles").select("id, first_name, last_name, email");
+  if (orgId) q = q.eq("organization_id", orgId);
+  const { data: profiles } = await q.limit(2000);
+
+  const counts = new Map<string, number>();
+  const firstHit = new Map<string, { agentId: string; email: string | null }>();
+  for (const p of profiles ?? []) {
+    const key = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim().toLowerCase();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (!firstHit.has(key)) firstHit.set(key, { agentId: p.id, email: p.email ?? null });
+  }
+
+  for (const n of names) {
+    const hit = firstHit.get(n);
+    if (hit && counts.get(n) === 1) out.set(n, { agentId: hit.agentId, email: hit.email });
+  }
+
+  // Anyone still unresolved may be on the roster — imported from the same
+  // workbook, most likely — in which case the email is what carries ownership
+  // forward until they have an account.
+  const unresolved = [...names].filter((n) => !out.has(n));
+  if (unresolved.length) {
+    const { data: pending } = await supabase
+      .from("pending_agents").select("email, first_name, last_name").limit(2000);
+    for (const p of pending ?? []) {
+      const key = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim().toLowerCase();
+      if (key && unresolved.includes(key) && !out.has(key)) {
+        out.set(key, { agentId: null, email: p.email ?? null });
+      }
+    }
+  }
+
+  return out;
+}

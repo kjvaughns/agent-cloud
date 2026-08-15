@@ -32,6 +32,16 @@ const CLIENT_FIELDS: Record<string, string[]> = {
   city: ["city", "town"],
   state: ["state", "st", "province"],
   zip_code: ["zip", "zip code", "postal code", "postcode"],
+  born_country_state: ["born in", "birth state", "birth country", "country of birth", "born state"],
+  stage: ["stage", "pipeline stage", "lead stage", "status stage"],
+  tobacco_use: ["smoker", "tobacco", "tobacco use", "nicotine"],
+  medical_notes: ["medical notes", "health notes", "medical history"],
+  reminder_notes: ["reminder notes", "reminder", "next step", "next steps"],
+  callback_date: ["callback date", "call back date", "follow up date", "callback"],
+  monthly_income: ["monthly income", "income"],
+  employment: ["employment", "occupation", "job", "employer"],
+  pitch_carrier: ["pitch carrier", "quoted carrier", "carrier pitched"],
+  agent_name: ["agent", "agent name", "writing agent", "servicing agent", "producer"],
 };
 
 const POLICY_FIELDS: Record<string, string[]> = {
@@ -42,6 +52,7 @@ const POLICY_FIELDS: Record<string, string[]> = {
   face_amount: ["face amount", "face", "coverage", "death benefit", "benefit amount"],
   effective_date: ["effective date", "effective", "issue date", "start date", "policy date"],
   status: ["status", "policy status"],
+  product: ["product", "product name", "plan", "plan name", "coverage type"],
 };
 
 /** A full name in one column, which plenty of exports do. */
@@ -81,6 +92,15 @@ function isoDate(v: string | undefined): string | null {
   }
   const d = new Date(s);
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+/** "Yes"/"Y"/"true"/"1" → true, "No"/"N" → false, blank → null (not false). */
+function yesNo(v: string | undefined): boolean | null {
+  const s = (v ?? "").trim().toLowerCase();
+  if (!s) return null;
+  if (["yes", "y", "true", "1", "smoker", "tobacco"].includes(s)) return true;
+  if (["no", "n", "false", "0", "non smoker", "non-smoker", "none"].includes(s)) return false;
+  return null;
 }
 
 export type ExtractedClient = Record<string, any> & { policies?: Record<string, any>[] };
@@ -162,23 +182,38 @@ export function clientsFromBlock(
       }
     }
 
-    for (const f of ["phone", "email", "street_address", "city", "state", "zip_code"]) {
+    for (const f of ["phone", "email", "street_address", "city", "state", "zip_code", "born_country_state", "employment", "pitch_carrier", "reminder_notes", "agent_name"]) {
       if (client[f] !== undefined) rec[f] = cells[client[f]] || null;
     }
     if (client.date_of_birth !== undefined) rec.date_of_birth = isoDate(cells[client.date_of_birth]);
+    if (client.stage !== undefined) rec.stage_raw = cells[client.stage] || null;
+    if (client.tobacco_use !== undefined) rec.tobacco_use = yesNo(cells[client.tobacco_use]);
+    if (client.medical_notes !== undefined) rec.medical_notes = cells[client.medical_notes] || null;
+    if (client.monthly_income !== undefined) rec.monthly_income = num(cells[client.monthly_income]);
+    if (client.callback_date !== undefined) rec.callback_date = isoDate(cells[client.callback_date]);
 
     if (!rec.first_name && !rec.last_name && !rec.phone && !rec.email) continue;
 
     const pol: Record<string, any> = {};
     if (policy.policy_number !== undefined) pol.policy_number = cells[policy.policy_number] || null;
     if (policy.carrier_name !== undefined) pol.carrier_name = cells[policy.carrier_name] || null;
+    if (policy.product !== undefined) pol.product = cells[policy.product] || null;
     if (policy.monthly_premium !== undefined) pol.monthly_premium = num(cells[policy.monthly_premium]);
     if (policy.annual_premium !== undefined) pol.annual_premium = num(cells[policy.annual_premium]);
     if (policy.face_amount !== undefined) pol.face_amount = num(cells[policy.face_amount]);
     if (policy.effective_date !== undefined) pol.effective_date = isoDate(cells[policy.effective_date]);
     if (policy.status !== undefined) pol.status = cells[policy.status] || null;
 
-    if (Object.values(pol).some((v) => v !== null && v !== undefined)) {
+    /**
+     * A face amount on its own is a quote, not a policy.
+     *
+     * A pipeline export carries "Face Amount" and "Pitch Carrier" for people
+     * who never bought anything. Treating that as policy-shaped filed a live
+     * policy — with no carrier, no premium and no number — against every
+     * prospect in the sheet, and those rows then counted as production.
+     */
+    const soldish = pol.policy_number || pol.carrier_name || pol.monthly_premium || pol.annual_premium;
+    if (soldish) {
       // Stamped after the emptiness test, so a tab name cannot conjure a policy
       // out of a row that has nothing else policy-shaped in it.
       if (labelCarrier) {
@@ -187,10 +222,15 @@ export function clientsFromBlock(
         pol.carrier_source = "sheet_name";
       }
       rec.policies = [pol];
+    } else if (pol.face_amount) {
+      // Kept as an intent, not a policy — the pipeline shows it as the coverage
+      // being pitched.
+      rec.pitch_face_amount = pol.face_amount;
     }
 
     out.push(rec);
   }
+
 
   return out;
 }
@@ -373,4 +413,61 @@ export function rosterFromBlock(b: SheetBlock): Record<string, any>[] {
 
 export function rosterFromDocument(text: string): Record<string, any>[] {
   return readDocument(text).flatMap((b) => rosterFromBlock(b));
+}
+
+
+// ── Client notes ─────────────────────────────────────────────────────────────
+
+const NOTE_FIELDS: Record<string, string[]> = {
+  client_name: ["client name", "client", "name", "insured", "insured name"],
+  content: ["note content", "note", "notes", "content", "note text", "body", "comment", "comments"],
+  note_type: ["note type", "type", "category"],
+  author: ["author", "created by", "agent", "agent name", "user"],
+  created_at: ["date", "created", "created at", "note date", "timestamp"],
+};
+
+export type ExtractedNote = {
+  client_name: string;
+  content: string;
+  note_type: string | null;
+  author: string | null;
+  created_at: string | null;
+};
+
+/**
+ * Notes, each carrying the name of the person it belongs to.
+ *
+ * A note is not a record on its own — it has to land on a client — so the join
+ * happens in `import-workbook.ts`, where the client sheet from the same
+ * workbook is still in hand. What this does is read the sheet exactly: no
+ * content, no note.
+ */
+export function notesFromBlock(b: SheetBlock): ExtractedNote[] {
+  if (!b.headers.length || !b.rows.length) return [];
+  const headers = b.headers.map(normHeader);
+  const cols: Record<string, number> = {};
+  for (const [field, spellings] of Object.entries(NOTE_FIELDS)) {
+    const i = headers.findIndex((h) => spellings.includes(h));
+    if (i >= 0) cols[field] = i;
+  }
+  if (cols.content === undefined || cols.client_name === undefined) return [];
+
+  const out: ExtractedNote[] = [];
+  for (const cells of b.rows) {
+    const content = (cells[cols.content] ?? "").trim();
+    const who = (cells[cols.client_name] ?? "").trim();
+    if (!content || !who) continue;
+    out.push({
+      client_name: who,
+      content,
+      note_type: cols.note_type !== undefined ? cells[cols.note_type]?.trim() || null : null,
+      author: cols.author !== undefined ? cells[cols.author]?.trim() || null : null,
+      created_at: cols.created_at !== undefined ? isoDate(cells[cols.created_at]) : null,
+    });
+  }
+  return out;
+}
+
+export function notesFromDocument(text: string): ExtractedNote[] {
+  return readDocument(text).flatMap((b) => notesFromBlock(b));
 }

@@ -4535,9 +4535,11 @@ export type Database = {
           id: string
           mime_type: string | null
           organization_id: string | null
+          parent_id: string | null
           period_label: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          sheet_label: string | null
           size_bytes: number | null
           status: string
           suggested_action: string | null
@@ -4559,9 +4561,11 @@ export type Database = {
           id?: string
           mime_type?: string | null
           organization_id?: string | null
+          parent_id?: string | null
           period_label?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sheet_label?: string | null
           size_bytes?: number | null
           status?: string
           suggested_action?: string | null
@@ -4583,9 +4587,11 @@ export type Database = {
           id?: string
           mime_type?: string | null
           organization_id?: string | null
+          parent_id?: string | null
           period_label?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          sheet_label?: string | null
           size_bytes?: number | null
           status?: string
           suggested_action?: string | null
@@ -4600,6 +4606,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_intake_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake"
             referencedColumns: ["id"]
           },
           {
