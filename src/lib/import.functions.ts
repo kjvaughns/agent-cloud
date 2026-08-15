@@ -111,11 +111,8 @@ const CONTRACTING_TABLES: Record<string, "writing_numbers" | "licenses" | "carri
   carriers: "carriers",
 };
 
-/** Rows we will hold for one document. Past this we are not reviewing, we are hoping. */
-const MAX_PROPOSALS_PER_DOC = 5000;
 
-/** Postgres is happy with far more; this keeps a single statement small. */
-const INSERT_CHUNK = 500;
+
 
 /** How many approved rows one apply call works through before returning. */
 const APPLY_BATCH = 200;
