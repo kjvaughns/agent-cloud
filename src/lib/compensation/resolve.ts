@@ -41,6 +41,8 @@
  * `if (pct > 1) pct = pct / 100` guessed at the unit rather than knowing it.
  */
 
+import { selectGridRule, type GridRow } from "./grid-rule";
+
 export const ADVANCE_OPTIONS = [
   "as_earned",
   "3_months",
@@ -82,6 +84,7 @@ export const PCT_SOURCE_LABELS: Record<PctSource, string> = {
   contract: "set on this contract",
   level_carrier: "from the agency level's terms for this carrier",
   level_base: "from the agency level",
+  grid: "from the carrier's published grid",
 };
 
 export const ADVANCE_SOURCE_LABELS: Record<AdvanceSource, string> = {
@@ -157,11 +160,37 @@ export type ResolveInput = {
   mapping: LevelCarrierMapping | null;
   contract: ContractOverride | null;
   carrier: AgencyCarrier | null;
+  /**
+   * The carrier's published grid, and the deal to price against it.
+   *
+   * Both optional, and every caller that does not supply them resolves exactly
+   * as it did before. When they are supplied and a row matches, that row's
+   * percentage wins — which is the brief's tiers 1 and 2, the product and age
+   * band specific rules, sitting above the level percentages below.
+   *
+   * The grid is consulted with the CARRIER's level name, not the agency
+   * position's. A carrier publishes rates against "Level 40"; whether the
+   * agency calls that rung "Training Agent" is its own business, and matching
+   * on the agency's label would find nothing.
+   */
+  grid?: GridRow[];
+  deal?: {
+    productName: string;
+    /** Insured age on the effective date. Null when it was not collected. */
+    age: number | null;
+    policyYear: number;
+    state?: string | null;
+    riskClass?: string | null;
+  };
 };
 
 // ── Output ──────────────────────────────────────────────────────────────────
 
-export type PctSource = "contract" | "level_carrier" | "level_base";
+// `grid` sits above the other three: it is the carrier's published rate for
+// this exact product, age band, year, state and risk class, and it is the only
+// source that can differ between two deals written by the same agent on the
+// same carrier.
+export type PctSource = "grid" | "contract" | "level_carrier" | "level_base";
 export type AdvanceSource = "contract" | "level_carrier" | "carrier_default";
 
 /**
@@ -201,6 +230,15 @@ export type Resolution =
        * percentage rather than defaulting to the agency's own label.
        */
       carrierLevelName: string | null;
+      /**
+       * Which grid row was used, in words, or null when none was.
+       *
+       * An owner reconciling a figure against a carrier statement needs to see
+       * "Final Expense, ages 71–80, FL — year 1", not just a percentage. Null
+       * means the level percentages answered, which is a legitimate answer and
+       * not a warning.
+       */
+      gridRule: string | null;
     }
   | { ok: false; failures: ResolveFailure[]; messages: string[] };
 
@@ -284,6 +322,36 @@ export function resolveCompensation(input: ResolveInput): Resolution {
     return fail(...(failures.length > 0 ? failures : ["no_percentage" as const]));
   }
 
+  // The carrier's own name for the level the agent landed on. Worked out
+  // before the grid lookup because that is the key the grid is written
+  // against.
+  const carrierLevelName =
+    (pctSource === "contract" ? contract?.commission_level : null) ??
+    mapping?.carrier_level_name ??
+    contract?.commission_level ??
+    null;
+
+  // Tiers 1 and 2: a published rate for this exact deal outranks any of the
+  // flat percentages above, because it is the number the carrier will actually
+  // pay. No match is normal — most agencies have no grid — and leaves the
+  // percentage resolved above untouched.
+  let gridRule: string | null = null;
+  if (input.grid?.length && input.deal) {
+    const hit = selectGridRule(input.grid, {
+      levelName: carrierLevelName,
+      productName: input.deal.productName,
+      age: input.deal.age,
+      policyYear: input.deal.policyYear,
+      state: input.deal.state ?? null,
+      riskClass: input.deal.riskClass ?? null,
+    });
+    if (hit) {
+      pct = hit.pct;
+      pctSource = "grid";
+      gridRule = hit.because;
+    }
+  }
+
   return {
     ok: true,
     pct,
@@ -293,11 +361,8 @@ export function resolveCompensation(input: ResolveInput): Resolution {
     advanceMonths: ADVANCE_MONTHS[advance],
     levelId: pctSource === "contract" ? (level?.id ?? "") : level!.id,
     levelName: pctSource === "contract" ? (level?.name ?? "Contract override") : level!.name,
-    carrierLevelName:
-      (pctSource === "contract" ? contract?.commission_level : null) ??
-      mapping?.carrier_level_name ??
-      contract?.commission_level ??
-      null,
+    carrierLevelName,
+    gridRule,
   };
 }
 
