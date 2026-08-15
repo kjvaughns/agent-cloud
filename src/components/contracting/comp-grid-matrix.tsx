@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import {
   DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GripVertical, Plus, SplitSquareVertical, Trash2, Wand2 } from "lucide-react";
@@ -13,7 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   BANDS, type BandKey, type MatrixState, type ProductRow, type LevelCol,
   cellKey, setCell, renameProduct, renameLevel, setAgeBand, addProduct, addLevel,
-  splitByAge, removeProduct, removeLevel, moveProduct, moveLevel, fillFromTemplate,
+  splitByAge, removeProduct, removeLevel, moveProduct, fillFromTemplate,
 } from "@/lib/comp-grid-model";
 
 export {
@@ -77,14 +75,6 @@ export function CompGridMatrix({
     const from = value.products.findIndex((p) => p.uid === active.id);
     const to = value.products.findIndex((p) => p.uid === over.id);
     onChange(moveProduct(value, from, to));
-  }
-
-  function onLevelDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const from = value.levels.findIndex((l) => l.uid === active.id);
-    const to = value.levels.findIndex((l) => l.uid === over.id);
-    onChange(moveLevel(value, from, to));
   }
 
   return (
