@@ -520,6 +520,10 @@ const bankingSchema = z.object({
   account_number_masked: z.string().max(50).nullable().optional(),
   account_type: z.string().max(20).nullable().optional(),
   draft_date: z.number().int().min(1).max(28).nullable().optional(),
+  // Social Security recipients are paid on the 2nd, 3rd, or 4th Wednesday, so
+  // billing follows the weekday, not a calendar day.
+  draft_schedule: z.enum(["day_of_month", "ss_wednesday"]).nullable().optional(),
+  draft_wednesday: z.number().int().min(2).max(4).nullable().optional(),
   payment_method: z.string().max(50).nullable().optional(),
 
   // Card on file. There is no cvc field and there must never be one — PCI DSS
