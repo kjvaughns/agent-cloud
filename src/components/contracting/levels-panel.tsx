@@ -51,6 +51,28 @@ export function LevelsPanel() {
   const [adding, setAdding] = useState(false);
   const { data, isLoading } = useQuery({ queryKey: ["agency-levels"], queryFn: () => listFn() });
   const { data: carrierData } = useQuery({ queryKey: ["contracting-ops", "carriers"], queryFn: () => carriersFn() });
+  // The four rungs nearly every agency starts with, offered rather than
+  // assumed: an empty ladder means every agent is unassigned, and typing four
+  // near-identical dialogs to get going is where owners stopped.
+  const STARTER = [
+    { name: "Trainee", base_pct: 50, can_invite: false },
+    { name: "Agent", base_pct: 60, can_invite: false },
+    { name: "Senior Agent", base_pct: 70, can_invite: true },
+    { name: "MGA", base_pct: 80, can_invite: true },
+  ];
+  const starter = useMutation({
+    mutationFn: async () => {
+      for (const rung of STARTER) {
+        await saveFn({ data: { ...rung, sort_order: rung.base_pct, active: true, mappings: [] } });
+      }
+    },
+    onSuccess: () => {
+      toast.success("Four starter positions created. Rename or change the percentages any time.");
+      qc.invalidateQueries({ queryKey: ["agency-levels"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not create the starter ladder"),
+  });
+
   const save = useMutation({ mutationFn: (p: any) => saveFn({ data: p }), onSuccess: () => { toast.success("Agency level saved"); setAdding(false); setEditing(null); qc.invalidateQueries({ queryKey: ["agency-levels"] }); }, onError: (e: any) => toast.error(e?.message ?? "Could not save the agency level") });
   const rows = (data?.rows ?? []) as any[];
   const canManage = (data as any)?.canManage !== false;
@@ -64,7 +86,12 @@ export function LevelsPanel() {
       body={canManage
         ? "Create each level once, such as Trainee 50%, Agent 60%, and MGA 80%. Carrier equivalents are optional exceptions inside the level."
         : "You will see your own position and the positions below you once your agency places you on the ladder."}
-      action={canManage ? <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create first level</Button> : undefined}
+      action={canManage ? <div className="flex flex-wrap justify-center gap-2">
+        <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create first level</Button>
+        <Button size="sm" variant="outline" disabled={starter.isPending} onClick={() => starter.mutate()}>
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" /> {starter.isPending ? "Creating…" : "Use a starter ladder"}
+        </Button>
+      </div> : undefined}
     />
     {dialog}
   </>;
@@ -109,7 +136,10 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
       carrier_level_name: m.carrier_level_name ?? "",
       carrier_pct: m.carrier_pct != null ? String(m.carrier_pct) : "",
     }])));
-    setShowOverrides(false);
+    // Open when there is anything to map. The brief asks for carrier matching
+    // in the position editor rather than behind a link, and a collapsed section
+    // is why positions stayed on the fallback without anybody deciding to.
+    setShowOverrides(carriers.length > 0);
   }
 
   const basePct = Number(pct);
