@@ -165,6 +165,39 @@ function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }:
   };
   const suggestionFor = (c: any) => suggestLevel(levelsFor(c), basePct);
   const suggestable = carriers.filter((c) => rowFor(c.id).mode === "fallback" && suggestionFor(c));
+  /**
+   * Detect every carrier at once.
+   *
+   * One pass over every carrier that is not hand-entered: where a level matches
+   * this position it is mapped, and where nothing matches the carrier is left on
+   * the position percentage rather than forced onto the nearest column. A
+   * carrier typed in manually is a deliberate answer, so it is not overwritten.
+   */
+  const detectAll = () => {
+    if (!Number.isFinite(basePct)) { toast.error("Enter the headline commission first"); return; }
+    const next: Record<string, Row> = { ...mappings };
+    let mapped = 0;
+    let left = 0;
+    for (const c of carriers) {
+      if (rowFor(c.id).mode === "custom") continue;
+      const s = suggestionFor(c);
+      if (!s) { next[c.id] = FALLBACK; left++; continue; }
+      const m = mappingFor(s);
+      next[c.id] = {
+        mode: "level",
+        carrier_level_name: m.carrier_level_name,
+        carrier_pct: m.carrier_pct != null ? String(m.carrier_pct) : "",
+      };
+      mapped++;
+    }
+    setMappings(next);
+    toast.success(
+      left === 0
+        ? `Matched ${mapped} carrier${mapped === 1 ? "" : "s"}.`
+        : `Matched ${mapped} carrier${mapped === 1 ? "" : "s"} · ${left} left on ${basePct}%.`,
+    );
+  };
+
 
   const submit = () => onSave({
     id: record?.id, name: name.trim(), base_pct: basePct, sort_order: basePct, can_invite: canInvite, active: true,
