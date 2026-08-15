@@ -238,7 +238,9 @@ export async function calculateAndInsertAllCommissions(
         agent_id: agentId,
         writing_agent_id: agentId,
         payment_date: ds(addMonths(effDate, month)),
-        payment_type: "as_earned",
+        // The table's allowed payment types call the un-advanced balance
+        // "deferred"; that is what Finances and the dashboard read.
+        payment_type: "deferred",
         amount: per,
         carrier: carrierName,
         product,
