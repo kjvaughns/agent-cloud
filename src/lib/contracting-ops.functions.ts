@@ -1366,6 +1366,30 @@ export const getContractingRequest = createServerFn({ method: "GET" })
 
     const isStaff = access.canSubmit || access.canApprove || access.canManageCarriers;
 
+    // The carrier's own ladder, plus whatever level is on the agent today.
+    // Recording a decision needs both: the rungs to choose from, and the rung
+    // the last decision landed on so the panel opens on the current answer.
+    const [{ data: compLevelRows }, { data: gridLevelRows }, { data: grantedRow }] = await Promise.all([
+      supabaseAdmin.from("carrier_comp_levels")
+        .select("id, level_name, commission_pct, status, sort_order")
+        .eq("org_carrier_id", facts.request.org_carrier_id).order("sort_order"),
+      facts.carrier?.carrier_id
+        ? supabaseAdmin.from("commission_grids")
+            .select("level_name, level_sort, product_name, year_1_pct")
+            .eq("carrier_id", facts.carrier.carrier_id).limit(2000)
+        : Promise.resolve({ data: [] as any[] }),
+      facts.carrier?.carrier_id
+        ? supabaseAdmin.from("agent_commission_levels")
+            .select("commission_level, assigned_pct, writing_number, status, pending, assigned_at")
+            .eq("agent_id", facts.request.agent_id).eq("carrier_id", facts.carrier.carrier_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const carrierLevels = carrierLevelOptions({
+      carrier_comp_levels: (compLevelRows ?? []) as any[],
+      carrier_grid_levels: (gridLevelRows ?? []) as any[],
+    });
+
     const [{ data: history }, { data: methods }, { data: submissions }] = await Promise.all([
       supabase.from("contracting_status_history")
         .select("*").eq("request_id", data.id).order("created_at", { ascending: false }).limit(100),
@@ -1459,6 +1483,13 @@ export const getContractingRequest = createServerFn({ method: "GET" })
       readiness,
       methods: methods ?? [],
       submissions: submissions ?? [],
+      comp_levels: (compLevelRows ?? []).map((l: any) => ({
+        id: l.id,
+        level_name: l.level_name,
+        commission_pct: l.commission_pct == null ? null : Number(l.commission_pct),
+      })),
+      carrier_levels: carrierLevels,
+      granted: grantedRow ?? null,
       history: (history ?? []).map((h: any) => ({
         ...h,
         internal_message: isStaff ? h.internal_message : null,
@@ -1485,7 +1516,91 @@ const StatusSchema = z.object({
   // final state and the number the carrier issued was recorded nowhere — the
   // step the whole queue exists to produce had no way to produce it.
   writing_number: z.string().trim().max(64).nullable().optional(),
+  // ── The level the carrier actually granted ─────────────────────────────
+  //
+  // A request is raised AT the agent's position; what comes back is whatever
+  // the carrier agreed to, and those are routinely not the same rung. Until
+  // now there was nowhere to put the difference: the queue could reach
+  // `writing_number_issued` and the agent's commission level stayed empty, so
+  // every deal on that carrier priced from nothing.
+  granted_comp_level_id: z.string().uuid().nullable().optional(),
+  granted_level_name: z.string().trim().max(120).nullable().optional(),
+  granted_pct: z.coerce.number().min(0).max(500).nullable().optional(),
 });
+
+/**
+ * Make the granted level real: `agent_commission_levels`.
+ *
+ * This is the table the commission engine reads, and it is the one thing an
+ * approval has to produce for the approval to mean anything. Keyed on
+ * (agent_id, carrier_id) — a unique constraint already exists — so recording a
+ * decision twice corrects the row rather than duplicating it.
+ *
+ * Never throws, for the same reason `syncContractRecord` does not: the request
+ * status is the source of truth, and a bookkeeping failure that rolled back a
+ * carrier decision would lose the decision.
+ */
+async function recordGrantedLevel(
+  request: any,
+  args: {
+    actorId: string;
+    orgId: string;
+    status: string;
+    compLevelId?: string | null;
+    levelName?: string | null;
+    pct?: number | null;
+    writingNumber?: string | null;
+  },
+) {
+  try {
+    const { data: orgCarrier } = await supabaseAdmin
+      .from("org_carriers").select("carrier_id").eq("id", request.org_carrier_id).maybeSingle();
+    if (!orgCarrier?.carrier_id) return;
+
+    // A level id is the strongest statement, so it wins the name and the
+    // percentage; a hand-typed name or number is used exactly as given.
+    let levelName = args.levelName?.trim() || null;
+    let pct = args.pct ?? null;
+    if (args.compLevelId) {
+      const { data: level } = await supabaseAdmin
+        .from("carrier_comp_levels")
+        .select("level_name, commission_pct")
+        .eq("id", args.compLevelId)
+        .maybeSingle();
+      if (level) {
+        levelName = level.level_name ?? levelName;
+        if (pct == null && level.commission_pct != null) pct = Number(level.commission_pct);
+      }
+    }
+
+    // Nothing to say and nothing already recorded: leave the row alone rather
+    // than writing an empty assignment that reads as "granted, at nothing".
+    if (!levelName && pct == null && !args.writingNumber) return;
+
+    const patch: Record<string, unknown> = {
+      agent_id: request.agent_id,
+      carrier_id: orgCarrier.carrier_id,
+      organization_id: request.organization_id ?? args.orgId,
+      assigned_by: args.actorId,
+      assigned_at: new Date().toISOString(),
+      // Approval alone is an internal clearance; a writing number is the
+      // carrier having appointed them. Only the latter is live.
+      status: args.status === "writing_number_issued" ? "active" : "pending",
+      pending: args.status !== "writing_number_issued",
+    };
+    if (levelName) patch.commission_level = levelName;
+    if (pct != null) patch.assigned_pct = pct;
+    if (args.writingNumber?.trim()) patch.writing_number = args.writingNumber.trim();
+
+    const { error } = await supabaseAdmin
+      .from("agent_commission_levels")
+      .upsert(patch, { onConflict: "agent_id,carrier_id" });
+    if (error) console.error("[contracting] commission level not recorded", error);
+  } catch (e) {
+    console.error("[contracting] commission level sync failed", e);
+  }
+}
+
 
 /**
  * Write the contract this request produced into the contract record.
@@ -1643,6 +1758,18 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     // else.
     if (["approved", "writing_number_issued"].includes(data.status)) {
       await syncContractRecord(before, data.status, now, data.writing_number);
+      // And the level, which is the half the commission engine reads. Falls
+      // back to what the request was raised at when staff recorded no change,
+      // so an approval never leaves the agent with no level at all.
+      await recordGrantedLevel(before, {
+        actorId: userId,
+        orgId: orgId,
+        status: data.status,
+        compLevelId: data.granted_comp_level_id ?? before.requested_comp_level_id ?? null,
+        levelName: data.granted_level_name ?? before.requested_advance_level ?? null,
+        pct: data.granted_pct ?? null,
+        writingNumber: data.writing_number ?? null,
+      });
     }
 
     // The trigger records the bare transition; this adds the human context.
