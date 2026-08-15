@@ -1249,6 +1249,13 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <Input type="date" className="h-8 text-xs" value={form.effective_date} onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
         </div>
         <div>
+          <Label className="text-xs mb-1 block">Sale Date</Label>
+          {/* Editable so an imported or mis-dated policy can be moved into the
+              month it was written; the commission schedule is rebuilt with it. */}
+          <Input type="date" max={todaySaleDate()} className="h-8 text-xs" value={form.sale_date} onChange={e => setForm(f => ({ ...f, sale_date: e.target.value }))} />
+          <p className="mt-1 text-[10px] text-muted-foreground">Counts toward {saleMonthLabel(form.sale_date)}</p>
+        </div>
+        <div>
           <Label className="text-xs mb-1 block">Monthly Premium</Label>
           <div className="relative">
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">$</span>
