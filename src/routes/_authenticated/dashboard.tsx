@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
@@ -64,7 +65,7 @@ function DashboardRoute() {
   if (loading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 rounded-xl" />
+        <PageSkeleton metrics={4} panels={2} />
       </PageShell>
     );
   }
