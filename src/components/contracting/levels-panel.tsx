@@ -117,7 +117,9 @@ export function LevelsPanel() {
             });
             continue;
           }
-          const s = suggestLevel(levels, basePct);
+          // Only a confident match is applied. A carrier without this rung keeps
+          // paying the position percentage rather than the nearest unrelated one.
+          const s = autoMatchLevel(levels, basePct);
           if (!s) { left++; continue; }
           const m = mappingFor(s);
           next.push({
