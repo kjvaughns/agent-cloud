@@ -178,6 +178,12 @@ function ImportPage() {
       });
       qc.invalidateQueries({ queryKey: ["imports"] });
 
+      // Every file in the batch is waiting on a worker, and says so, rather
+      // than looking idle until its turn comes.
+      for (const rec of batch.documents ?? []) {
+        if (rec?.id) mark(rec.id, "Waiting its turn", 2);
+      }
+
       let done = 0;
       const queue = list.map((file, i) => ({ file, rec: batch.documents[i] }));
 
@@ -192,6 +198,7 @@ function ImportPage() {
             // read must not take the rest of the batch down with it.
             console.error("Import failed for", item.file.name, e);
           }
+          clearMark(item.rec.id);
           done++;
           setProgress({ done, total: list.length });
           qc.invalidateQueries({ queryKey: ["imports"] });
@@ -206,9 +213,11 @@ function ImportPage() {
     } finally {
       setBusy(false);
       setProgress(null);
+      setLive({});
       qc.invalidateQueries({ queryKey: ["imports"] });
     }
   }
+
 
   /**
    * Read one file and work out what it is.
