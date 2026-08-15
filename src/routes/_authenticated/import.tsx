@@ -389,7 +389,9 @@ function ImportPage() {
     } else if (
       kind === "policy_status_report" || kind === "agent_debt" || kind === "commission_statement"
     ) {
+      mark(id, "Reading the carrier report", 40);
       rows = await carrierReportRows(kind, doc, file);
+
     } else {
       return;
     }
