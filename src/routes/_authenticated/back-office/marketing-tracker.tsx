@@ -28,11 +28,11 @@ export const Route = createFileRoute("/_authenticated/back-office/marketing-trac
 });
 
 const STAGES = [
-  { key: "new", label: "New Inquiries", color: "bg-slate-500" },
-  { key: "callback", label: "Callbacks", color: "bg-sky-500" },
-  { key: "in_course", label: "In Course", color: "bg-amber-500" },
-  { key: "getting_licensed", label: "Getting Licensed", color: "bg-violet-500" },
-  { key: "onboarded", label: "Onboarded", color: "bg-emerald-500" },
+  { key: "new", label: "New Inquiries", color: "bg-muted" },
+  { key: "callback", label: "Callbacks", color: "bg-info" },
+  { key: "in_course", label: "In Course", color: "bg-warning" },
+  { key: "getting_licensed", label: "Getting Licensed", color: "bg-primary" },
+  { key: "onboarded", label: "Onboarded", color: "bg-success" },
 ] as const;
 
 const STAGE_LABEL: Record<string, string> = Object.fromEntries(STAGES.map((s) => [s.key, s.label]));
@@ -148,7 +148,7 @@ function MarketingTrackerPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tType === "recruiting" ? "bg-primary/10 text-primary" : "bg-emerald-500/10 text-emerald-600"}`}>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tType === "recruiting" ? "bg-primary/10 text-primary" : "bg-success/10 text-success"}`}>
                             {tType === "recruiting" ? "Recruiting" : "Client"}
                           </span>
                         </TableCell>

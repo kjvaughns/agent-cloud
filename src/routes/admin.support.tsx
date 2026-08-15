@@ -23,10 +23,10 @@ export const Route = createFileRoute("/admin/support")({
 });
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-500/15 text-red-600",
-  high: "bg-amber-500/15 text-amber-600",
-  normal: "bg-slate-500/15 text-slate-500",
-  low: "bg-emerald-500/15 text-emerald-600",
+  urgent: "bg-destructive/15 text-destructive",
+  high: "bg-warning/15 text-warning",
+  normal: "bg-muted/15 text-muted-foreground",
+  low: "bg-success/15 text-success",
 };
 
 // `in_progress` was here and nothing has ever written it — every writer in
@@ -258,7 +258,7 @@ function AdminSupport() {
                   </SelectContent>
                 </Select>
                 {newStatus !== selected.status && (
-                  <span className="text-xs text-amber-600">Status will change on send</span>
+                  <span className="text-xs text-warning">Status will change on send</span>
                 )}
                 <Button
                   size="sm"

@@ -158,7 +158,7 @@ function ChallengeCards() {
     };
   }, [q.data]);
 
-  const colors = { daily: "bg-primary", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" } as const;
+  const colors = { daily: "bg-primary", weekly: "bg-success", monthly: "bg-primary", quarterly: "bg-warning" } as const;
   const order: Array<"daily"|"weekly"|"monthly"|"quarterly"> = ["daily", "weekly", "monthly", "quarterly"];
 
   return (
@@ -174,11 +174,11 @@ function ChallengeCards() {
           const pct = Math.min(100, Math.round(((c.current_value ?? 0) / Math.max(1, c.target_value ?? 1)) * 100));
           const isPremium = c.type === "premium";
           return (
-            <Card key={c.id} className={c.completed ? "border-amber-400 border-2 shadow-lg" : ""}>
+            <Card key={c.id} className={c.completed ? "border-warning border-2 shadow-lg" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold capitalize">{p} Challenge</div>
-                  {c.completed && <Trophy className="h-5 w-5 text-amber-500" />}
+                  {c.completed && <Trophy className="h-5 w-5 text-warning" />}
                 </div>
                 <div className="text-xs text-muted-foreground mb-3">{c.description}</div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
@@ -192,7 +192,7 @@ function ChallengeCards() {
                   </span>
                   <span className="text-muted-foreground">{pct}%</span>
                 </div>
-                {c.completed && <div className="text-xs text-amber-600 mt-2 font-semibold">🏆 Completed!</div>}
+                {c.completed && <div className="text-xs text-warning mt-2 font-semibold">🏆 Completed!</div>}
               </CardContent>
             </Card>
           );
@@ -208,14 +208,14 @@ function TrophyCabinet() {
   const q = useQuery({ queryKey: ["trophies"], queryFn: () => fetchTrophies() });
   const trophies = q.data ?? [];
   const byType = (t: string) => trophies.filter((x) => x.type === t).length;
-  const dotColors: Record<string, string> = { daily: "bg-primary", weekly: "bg-green-500", monthly: "bg-purple-500", quarterly: "bg-orange-500" };
+  const dotColors: Record<string, string> = { daily: "bg-primary", weekly: "bg-success", monthly: "bg-primary", quarterly: "bg-warning" };
 
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
+            <Trophy className="h-5 w-5 text-warning" />
             <h3 className="font-semibold">Trophy Cabinet</h3>
             <Badge variant="secondary">{trophies.length} Total</Badge>
           </div>
@@ -227,7 +227,7 @@ function TrophyCabinet() {
                 {trophies.length === 0 && <div className="col-span-3 text-center text-sm text-muted-foreground py-8">No trophies yet. Complete challenges to earn them!</div>}
                 {trophies.map((t) => (
                   <Card key={t.id}><CardContent className="p-4 text-center">
-                    <Trophy className="h-10 w-10 mx-auto text-amber-500" />
+                    <Trophy className="h-10 w-10 mx-auto text-warning" />
                     <div className="text-xs font-medium mt-2 capitalize">{t.type} Trophy</div>
                     <div className="text-[10px] text-muted-foreground">{new Date(t.earned_at).toLocaleDateString()}</div>
                   </CardContent></Card>
@@ -252,9 +252,9 @@ function TrophyCabinet() {
 // ---------------- Insight Card ----------------
 function InsightCard({ card }: { card: AIInsight }) {
   const variants = {
-    needs_attention: { bg: "bg-amber-500/10 border-amber-500/40", icon: AlertTriangle, color: "text-amber-600", label: "Needs Attention" },
-    learn_from: { bg: "bg-green-500/10 border-green-500/40", icon: Star, color: "text-green-600", label: "Learn From" },
-    risk_alert: { bg: "bg-red-500/10 border-red-500/40", icon: AlertCircle, color: "text-red-600", label: "Risk Alert" },
+    needs_attention: { bg: "bg-warning/10 border-warning/40", icon: AlertTriangle, color: "text-warning", label: "Needs Attention" },
+    learn_from: { bg: "bg-success/10 border-success/40", icon: Star, color: "text-success", label: "Learn From" },
+    risk_alert: { bg: "bg-destructive/10 border-destructive/40", icon: AlertCircle, color: "text-destructive", label: "Risk Alert" },
     coaching: { bg: "bg-primary/10 border-primary/40", icon: Lightbulb, color: "text-gold-bright", label: "Coaching" },
   } as const;
   const v = variants[card.type];
@@ -266,7 +266,7 @@ function InsightCard({ card }: { card: AIInsight }) {
         <div className="font-medium text-sm">{card.title}</div>
         <p className="text-xs text-muted-foreground">{card.body}</p>
         {typeof card.dollar_impact === "number" && card.dollar_impact > 0 && (
-          <div className="text-xs font-semibold text-green-600">💰 {fmtCurrency(card.dollar_impact)} potential</div>
+          <div className="text-xs font-semibold text-success">💰 {fmtCurrency(card.dollar_impact)} potential</div>
         )}
         {card.action_text && <Button size="sm" variant="outline" className="mt-1" asChild={!!card.action_url}>
           {card.action_url ? <a href={card.action_url}>{card.action_text}</a> : <span>{card.action_text}</span>}

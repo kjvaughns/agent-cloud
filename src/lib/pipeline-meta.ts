@@ -1,7 +1,7 @@
 /**
  * Pipeline display metadata.
  *
- * The stage colours used to be raw palette values (bg-slate-500, bg-violet-500)
+ * The stage colours used to be raw palette values (bg-muted, bg-primary)
  * which meant the board ignored the agency accent and read as seven unrelated
  * colours. A stage now expresses progress through the theme: neutral while it
  * is only a lead, brand while the agent is working it, success when placed,

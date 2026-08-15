@@ -6,8 +6,8 @@
  * here are defined in src/styles.css and are built from the theme tokens, so a
  * badge follows light/dark and the agency's accent without knowing either.
  *
- * Use this instead of reaching into the Tailwind palette (bg-amber-500,
- * text-emerald-700). Those values are outside the theme and drift.
+ * Use this instead of reaching into the Tailwind palette (bg-warning,
+ * text-success). Those values are outside the theme and drift.
  */
 
 export type Tone = "brand" | "success" | "warning" | "danger" | "info" | "neutral";

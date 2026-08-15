@@ -75,9 +75,9 @@ export function AiDailyBriefing() {
                       variant="secondary"
                       className={
                         a.priority === "high"
-                          ? "bg-red-500/10 text-red-700 dark:text-red-400"
+                          ? "bg-destructive/10 text-destructive"
                           : a.priority === "medium"
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                          ? "bg-warning/10 text-warning"
                           : "bg-muted text-muted-foreground"
                       }
                     >

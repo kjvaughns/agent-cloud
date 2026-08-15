@@ -586,10 +586,10 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
 function TypeBadge({ type }: { type: string }) {
   const cls: Record<string, string> = {
     advance: "bg-primary/15 text-gold-bright border-primary/30",
-    trail: "bg-purple-500/15 text-purple-600 border-purple-500/30",
-    deferred: "bg-purple-500/15 text-purple-600 border-purple-500/30",
-    override: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-    renewal: "bg-sky-500/15 text-sky-600 border-sky-500/30",
+    trail: "bg-primary/15 text-primary border-primary/30",
+    deferred: "bg-primary/15 text-primary border-primary/30",
+    override: "bg-success/15 text-success border-success/30",
+    renewal: "bg-info/15 text-info border-info/30",
   };
   const label = type === "deferred" ? "trail" : type;
   return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls[type] ?? "bg-muted"}`}>{label}</span>;
@@ -624,8 +624,8 @@ function PayoutRow({ row }: { row: Row }) {
 
 function StatusBadge({ status }: { status: string }) {
   const cls = status === "paid"
-    ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
-    : "bg-amber-500/15 text-amber-600 border-amber-500/30";
+    ? "bg-success/15 text-success border-success/30"
+    : "bg-warning/15 text-warning border-warning/30";
   return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{status}</span>;
 }
 

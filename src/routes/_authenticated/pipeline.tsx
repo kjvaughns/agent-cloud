@@ -34,14 +34,14 @@ type Temp = "hot" | "warm" | "cold";
 
 const STAGE_COLS: { key: Stage; label: string; tint: string; header: string; badgeCls: string }[] = [
   { key: "new", label: "New / Cold", tint: "bg-surface-2", header: "text-muted-foreground", badgeCls: "bg-surface-2 text-muted-foreground border-border-soft" },
-  { key: "callback", label: "Callback", tint: "bg-surface-2", header: "text-amber-600 dark:text-amber-400", badgeCls: "bg-amber-100 text-amber-700 border-amber-200" },
-  { key: "almost_there", label: "Almost There", tint: "bg-surface-2", header: "text-emerald-600 dark:text-emerald-400", badgeCls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { key: "callback", label: "Callback", tint: "bg-surface-2", header: "text-warning", badgeCls: "bg-warning text-warning border-warning" },
+  { key: "almost_there", label: "Almost There", tint: "bg-surface-2", header: "text-success", badgeCls: "bg-success text-success border-success" },
 ];
 
 const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot: { cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-900", Icon: Flame, label: "Hot" },
-  warm: { cls: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-900", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900", Icon: Snowflake, label: "Cold" },
+  hot: { cls: "bg-destructive text-destructive border-destructive", Icon: Flame, label: "Hot" },
+  warm: { cls: "bg-warning text-warning border-warning", Icon: Thermometer, label: "Warm" },
+  cold: { cls: "bg-info text-info border-info", Icon: Snowflake, label: "Cold" },
 };
 
 export const Route = createFileRoute("/_authenticated/pipeline")({
@@ -419,7 +419,7 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); nav({ to: "/post-deal", search: { client_id: client.id } }); }}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-success hover:underline"
         >
           <DollarSign className="h-3 w-3" /> Mark Sold
         </button>
@@ -430,10 +430,10 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
 
 function PolicyStatusDot({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
-    active:          { cls: "bg-emerald-500", label: "Active" },
-    issued_not_paid: { cls: "bg-amber-500",   label: "Issued" },
+    active:          { cls: "bg-success", label: "Active" },
+    issued_not_paid: { cls: "bg-warning",   label: "Issued" },
     in_review:       { cls: "bg-primary",  label: "In Review" },
-    lapsed:          { cls: "bg-red-500",     label: "Lapsed" },
+    lapsed:          { cls: "bg-destructive",     label: "Lapsed" },
   };
   const s = map[status] ?? { cls: "bg-muted-foreground", label: status };
   return (

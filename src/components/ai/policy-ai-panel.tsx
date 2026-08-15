@@ -19,10 +19,10 @@ export function PolicyAiPanel({ policyId }: { policyId: string }) {
 
   const bandColor =
     data?.lapse_risk.band === "high"
-      ? "bg-red-500/10 text-red-700 dark:text-red-400"
+      ? "bg-destructive/10 text-destructive"
       : data?.lapse_risk.band === "medium"
-      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+      ? "bg-warning/10 text-warning"
+      : "bg-success/10 text-success";
 
   return (
     <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-4">

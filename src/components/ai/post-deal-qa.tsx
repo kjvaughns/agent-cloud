@@ -39,7 +39,7 @@ export function PostDealQaButton({ buildPayload }: { buildPayload: () => QaPaylo
       </Button>
       {result && (
         <div className="rounded-lg border p-3 text-sm space-y-2">
-          <div className={`flex items-center gap-2 font-medium ${result.ready_to_submit ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+          <div className={`flex items-center gap-2 font-medium ${result.ready_to_submit ? "text-success" : "text-warning"}`}>
             {result.ready_to_submit ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
             {result.ready_to_submit ? "Looks ready to submit." : "Issues to address before submitting."}
           </div>
@@ -47,7 +47,7 @@ export function PostDealQaButton({ buildPayload }: { buildPayload: () => QaPaylo
             <ul className="space-y-1.5">
               {result.issues.map((iss, i) => (
                 <li key={i} className="text-xs">
-                  <span className={`font-semibold ${iss.severity === "high" ? "text-destructive" : iss.severity === "medium" ? "text-amber-600" : ""}`}>
+                  <span className={`font-semibold ${iss.severity === "high" ? "text-destructive" : iss.severity === "medium" ? "text-warning" : ""}`}>
                     [{iss.severity}] {iss.field}:
                   </span>{" "}
                   {iss.problem} — <span className="text-muted-foreground">{iss.fix}</span>

@@ -45,11 +45,11 @@ function initials(f?: string | null, l?: string | null) {
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: "bg-green-500/20 text-green-100 border-green-300/40",
-    pending: "bg-amber-500/20 text-amber-100 border-amber-300/40",
-    not_activated: "bg-slate-500/20 text-slate-100 border-slate-300/40",
-    hidden: "bg-slate-500/20 text-slate-100 border-slate-300/40",
-    terminated: "bg-red-500/20 text-red-100 border-red-300/40",
+    active: "bg-success/20 text-on-solid border-success/40",
+    pending: "bg-warning/20 text-on-solid border-warning/40",
+    not_activated: "bg-muted/20 text-muted-foreground border-border/40",
+    hidden: "bg-muted/20 text-muted-foreground border-border/40",
+    terminated: "bg-destructive/20 text-on-solid border-destructive/40",
   };
   const label =
     status === "active"
@@ -295,7 +295,7 @@ export function AgentProfileDrawer({ agentId, onClose, isAdmin }: Props) {
                       return (
                         <div key={i} className="flex items-center justify-between text-sm border rounded-lg p-2.5 bg-card">
                           <div className="flex items-center gap-2">
-                            <span className="h-2 w-2 rounded-full bg-violet-500" />
+                            <span className="h-2 w-2 rounded-full bg-primary" />
                             <span className="font-medium">
                               {(c as { carriers?: { name?: string } }).carriers?.name ?? "Carrier"}
                             </span>

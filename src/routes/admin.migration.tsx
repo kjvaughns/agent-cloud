@@ -31,7 +31,7 @@ function StepIndicator({ current }: { current: number }) {
         <div key={i} className="flex items-center">
           <div className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
-            i < current ? "bg-emerald-500/15 text-emerald-600" :
+            i < current ? "bg-success/15 text-success" :
             i === current ? "bg-primary text-primary-foreground" :
             "bg-muted text-muted-foreground"
           )}>
@@ -272,7 +272,7 @@ function AdminMigration() {
                       <tr key={i}>
                         <td className="px-4 py-3">{r.email}</td>
                         <td className="px-4 py-3">
-                          <Badge className={r.ok ? "bg-yellow-500/15 text-yellow-600" : "bg-red-500/15 text-red-600"}>
+                          <Badge className={r.ok ? "bg-warning/15 text-warning" : "bg-destructive/15 text-destructive"}>
                             {r.ok ? "Invited" : "Failed"}
                           </Badge>
                         </td>

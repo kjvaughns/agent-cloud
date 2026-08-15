@@ -74,7 +74,7 @@ function JoinPage() {
     return (
       <div className="min-h-screen grid place-items-center bg-gradient-to-br from-slate-950 to-slate-900 text-white p-6">
         <Card className="max-w-md p-8 text-center bg-white/10 border-white/20 text-white">
-          <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-400" />
+          <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-success" />
           <h1 className="text-2xl font-bold mb-2">Application Received!</h1>
           <p className="text-white/80">We'll be in touch shortly.</p>
         </Card>
@@ -106,7 +106,7 @@ function JoinPage() {
             "No minimums, no fees",
           ].map((b) => (
             <div key={b} className="flex items-start gap-2 text-white/90">
-              <CheckCircle2 className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <CheckCircle2 className="h-5 w-5 text-success mt-0.5 shrink-0" />
               <span>{b}</span>
             </div>
           ))}
@@ -126,8 +126,8 @@ function JoinPage() {
               <Label htmlFor="message">Message (optional)</Label>
               <textarea id="message" name="message" maxLength={2000} rows={3} className="flex w-full rounded-md border px-3 py-2 text-sm" />
             </div>
-            {error && <p className="text-red-300 text-sm">{error}</p>}
-            <Button type="submit" disabled={busy} size="lg" className="w-full bg-white text-slate-900 hover:bg-white/90">
+            {error && <p className="text-destructive text-sm">{error}</p>}
+            <Button type="submit" disabled={busy} size="lg" className="w-full bg-white text-muted-foreground hover:bg-white/90">
               {busy ? "Submitting..." : "Submit Application"}
             </Button>
           </form>

@@ -143,7 +143,7 @@ export function BookImportDialog({
               </p>
             </DialogHeader>
             <div className="space-y-4 py-2">
-              <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              <div className="rounded-lg border border-warning bg-warning px-3 py-2 text-xs text-warning">
                 Generate your key in your previous platform, under Profile → Integrations → API Access
               </div>
               <div className="space-y-1">
@@ -190,11 +190,11 @@ export function BookImportDialog({
               <DialogTitle>Connected</DialogTitle>
             </DialogHeader>
             <div className="py-2 space-y-4">
-              <div className="flex items-center gap-3 p-3 rounded-lg border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+              <div className="flex items-center gap-3 p-3 rounded-lg border bg-success border-success">
+                <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Connected</div>
-                  <div className="text-xs text-emerald-700 dark:text-emerald-400">
+                  <div className="text-sm font-medium text-success">Connected</div>
+                  <div className="text-xs text-success">
                     Key: ••••••{(status as any)?.masked_suffix}
                     {(status as any)?.last_synced && ` · Last synced: ${(status as any).last_synced}`}
                   </div>
@@ -261,9 +261,9 @@ export function BookImportDialog({
             <div className="py-2 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
-                  { label: "Imported", value: importResult.imported, cls: "text-emerald-700 dark:text-emerald-400" },
+                  { label: "Imported", value: importResult.imported, cls: "text-success" },
                   { label: "Skipped", value: importResult.skipped, cls: "text-muted-foreground" },
-                  { label: "Duplicates", value: importResult.duplicates, cls: "text-amber-700 dark:text-amber-400" },
+                  { label: "Duplicates", value: importResult.duplicates, cls: "text-warning" },
                 ].map(({ label, value, cls }) => (
                   <div key={label} className="rounded-lg border bg-muted/30 p-3 text-center">
                     <div className={`text-2xl font-bold ${cls}`}>{value}</div>

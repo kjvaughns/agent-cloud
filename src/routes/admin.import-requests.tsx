@@ -24,10 +24,10 @@ export const Route = createFileRoute("/admin/import-requests")({
 });
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  pending: "bg-warning text-warning",
   in_progress: "bg-primary/15 text-primary",
-  completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-  failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  completed: "bg-success text-success",
+  failed: "bg-destructive text-destructive",
 };
 
 const AL_URL = "https://agentlink.insuracloud.ai";

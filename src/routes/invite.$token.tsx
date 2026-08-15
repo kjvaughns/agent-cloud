@@ -121,11 +121,11 @@ function PublicInvitePage() {
             </div>
 
             {migrationMatch && (
-              <div className="flex items-center gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-950/20">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+              <div className="flex items-center gap-3 rounded-lg border border-success bg-success px-4 py-3">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
                 <div className="text-sm">
-                  <span className="font-semibold text-emerald-800 dark:text-emerald-300">Welcome back! </span>
-                  <span className="text-emerald-700 dark:text-emerald-400">
+                  <span className="font-semibold text-success">Welcome back! </span>
+                  <span className="text-success">
                     We found your Apex record and pre-filled your name.
                   </span>
                 </div>
@@ -343,8 +343,8 @@ function JoinWithExistingAccount({ token, uplineId, requireUpline, onDone }: {
 function Welcome({ uplineName }: { uplineName: string }) {
   return (
     <Card className="space-y-4 p-8 text-center">
-      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/10">
-        <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+      <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-success/10">
+        <CheckCircle2 className="h-8 w-8 text-success" />
       </div>
       <h2 className="text-2xl font-bold">You're in</h2>
       <p className="text-muted-foreground">

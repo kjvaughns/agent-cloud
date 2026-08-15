@@ -121,7 +121,7 @@ function AdminCarriers() {
                   <td className="px-4 py-3 text-muted-foreground capitalize hidden md:table-cell">{c.pay_frequency || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{c.contracting_speed_days ?? "—"}</td>
                   <td className="px-4 py-3 text-center hidden md:table-cell">
-                    {c.is_annuity_carrier ? <Badge className="bg-purple-500/15 text-purple-600 text-xs">Yes</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                    {c.is_annuity_carrier ? <Badge className="bg-primary/15 text-primary text-xs">Yes</Badge> : <span className="text-muted-foreground text-xs">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <Switch checked={!!c.active} onCheckedChange={() => toggleActive(c)} />

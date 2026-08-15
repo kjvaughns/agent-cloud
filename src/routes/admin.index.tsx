@@ -21,18 +21,18 @@ export const Route = createFileRoute("/admin/")({
 });
 
 const STATUS_COLORS: Record<string, string> = {
-  requested: "bg-yellow-500/15 text-yellow-600",
+  requested: "bg-warning/15 text-warning",
   submitted: "bg-primary/15 text-primary",
-  active: "bg-emerald-500/15 text-emerald-600",
-  issue: "bg-red-500/15 text-red-600",
-  declined: "bg-slate-500/15 text-slate-500",
+  active: "bg-success/15 text-success",
+  issue: "bg-destructive/15 text-destructive",
+  declined: "bg-muted/15 text-muted-foreground",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-500/15 text-red-600",
-  high: "bg-amber-500/15 text-amber-600",
-  normal: "bg-slate-500/15 text-slate-500",
-  low: "bg-emerald-500/15 text-emerald-600",
+  urgent: "bg-destructive/15 text-destructive",
+  high: "bg-warning/15 text-warning",
+  normal: "bg-muted/15 text-muted-foreground",
+  low: "bg-success/15 text-success",
 };
 
 function StatCard({ title, value, icon: Icon, loading }: { title: string; value: number | null; icon: any; loading: boolean }) {
@@ -201,7 +201,7 @@ function AdminOverview() {
                     <p className="text-xs text-muted-foreground">{c.carriers?.name}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={cn("text-xs font-medium", STATUS_COLORS[c.status] ?? "bg-slate-500/15 text-slate-500")}>{c.status}</Badge>
+                    <Badge className={cn("text-xs font-medium", STATUS_COLORS[c.status] ?? "bg-muted/15 text-muted-foreground")}>{c.status}</Badge>
                     <span className="text-xs text-muted-foreground tnum">{formatDistanceToNow(new Date(c.updated_at), { addSuffix: true })}</span>
                   </div>
                 </div>
@@ -220,7 +220,7 @@ function AdminOverview() {
                   <div key={t.id} className="space-y-1 py-2 border-b border-border-soft last:border-0">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium truncate flex-1 mr-2">{t.subject}</p>
-                      <Badge className={cn("text-xs shrink-0", PRIORITY_COLORS[t.priority] ?? "bg-slate-500/15 text-slate-500")}>{t.priority}</Badge>
+                      <Badge className={cn("text-xs shrink-0", PRIORITY_COLORS[t.priority] ?? "bg-muted/15 text-muted-foreground")}>{t.priority}</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">{t.profiles?.first_name} {t.profiles?.last_name}</p>
@@ -265,8 +265,8 @@ function AdminOverview() {
                 </p>
                 {backfillResult && (
                   <div className="text-xs space-y-1 tnum">
-                    <div>Processed: <span className="font-semibold text-emerald-600">{backfillResult.processed}</span></div>
-                    <div>Errors: <span className="font-semibold text-red-600">{backfillResult.errors}</span></div>
+                    <div>Processed: <span className="font-semibold text-success">{backfillResult.processed}</span></div>
+                    <div>Errors: <span className="font-semibold text-destructive">{backfillResult.errors}</span></div>
                     <div>Remaining: <span className="font-semibold">{backfillResult.remaining}</span></div>
                   </div>
                 )}

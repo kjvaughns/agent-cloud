@@ -226,9 +226,9 @@ function NextStep({
 
   if (missing.length === 0) {
     return (
-      <Card className="border-2 border-emerald-500/30">
+      <Card className="border-2 border-success/30">
         <CardContent className="flex items-center gap-2.5 p-5">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
           <div>
             <div className="text-sm font-semibold">
               Your profile is complete — you're fully set up for contracting.
@@ -297,7 +297,7 @@ function NextStep({
                   const w = FIX_LOCATION[item] ?? { tab: "profile" as ProfileTab, action: "Go to it" };
                   return (
                     <li key={item} className="flex items-center gap-2 text-sm">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
                       <span className="min-w-0 flex-1 truncate">{item}</span>
                       <button
                         type="button"
@@ -862,13 +862,13 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
                   <Button
                     size="sm"
                     variant={ans.answer === true ? "default" : "outline"}
-                    className={ans.answer === true ? "bg-red-600 hover:bg-red-700 border-red-600" : ""}
+                    className={ans.answer === true ? "bg-destructive hover:bg-destructive border-destructive" : ""}
                     onClick={() => setAnswers(prev => ({ ...prev, [qNum]: { ...prev[qNum], answer: true } }))}
                   >Yes</Button>
                   <Button
                     size="sm"
                     variant={ans.answer === false ? "default" : "outline"}
-                    className={ans.answer === false ? "bg-emerald-600 hover:bg-emerald-700 border-emerald-600" : ""}
+                    className={ans.answer === false ? "bg-success hover:bg-success border-success" : ""}
                     onClick={() => setAnswers(prev => ({ ...prev, [qNum]: { ...prev[qNum], answer: false } }))}
                   >No</Button>
                 </div>
@@ -887,7 +887,7 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
           })}
 
           {bgAgreement && (
-            <div className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 p-3 rounded-lg bg-emerald-500/10">
+            <div className="flex items-center gap-2 text-sm text-success p-3 rounded-lg bg-success/10">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               Signed by {bgAgreement.signature_name} on {new Date(bgAgreement.signed_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </div>
@@ -925,7 +925,7 @@ function BackgroundTab({ background, agreement, onSaved }: { background: any[]; 
               return (
                 <div key={q.id} className="space-y-1">
                   <p className="text-sm font-medium">{qNum}. {q.text}</p>
-                  <p className={cn("text-sm font-semibold", ans.answer ? "text-red-600" : "text-emerald-600")}>
+                  <p className={cn("text-sm font-semibold", ans.answer ? "text-destructive" : "text-success")}>
                     {ans.answer ? "Yes" : "No"}
                   </p>
                   {ans.answer && ans.explanation && <p className="text-sm text-muted-foreground italic">{ans.explanation}</p>}

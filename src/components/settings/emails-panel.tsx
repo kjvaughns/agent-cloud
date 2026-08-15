@@ -24,8 +24,8 @@ const RANGES = [
 ];
 
 function tone(status: string) {
-  if (status === "sent") return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
-  if (status === "suppressed") return "bg-amber-500/15 text-amber-600 border-amber-500/30";
+  if (status === "sent") return "bg-success/15 text-success border-success/30";
+  if (status === "suppressed") return "bg-warning/15 text-warning border-warning/30";
   if (status === "pending") return "bg-muted text-muted-foreground border-border";
   return "bg-destructive/15 text-destructive border-destructive/30";
 }
