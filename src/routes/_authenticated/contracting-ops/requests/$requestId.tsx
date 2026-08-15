@@ -345,6 +345,15 @@ function RequestDetailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // `listOrgAgents` answers `{ agents }`. Reading `rows` first and then the
+  // whole object meant `.map` was called on the object itself and the page
+  // crashed for every staff member — the one screen that needs it most.
+  const staffRows: any[] = Array.isArray((staff as any)?.agents)
+    ? (staff as any).agents
+    : Array.isArray((staff as any)?.rows)
+      ? (staff as any).rows
+      : Array.isArray(staff) ? (staff as any) : [];
+
   const assign = useMutation({
     mutationFn: (assigned_to: string | null) =>
       assignFn({ data: { ids: [requestId], assigned_to } }),
@@ -731,7 +740,7 @@ function RequestDetailPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none" className="text-xs">Unassigned</SelectItem>
-                      {((staff as any)?.rows ?? (staff as any) ?? []).map((p: any) => (
+                      {staffRows.map((p: any) => (
                         <SelectItem key={p.id} value={p.id} className="text-xs">
                           {`${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "Unnamed"}
                         </SelectItem>
