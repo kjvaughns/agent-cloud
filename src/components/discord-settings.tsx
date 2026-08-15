@@ -1,35 +1,44 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageSquare, Send, Trash2, Loader2, ExternalLink, Plus } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { MessageSquare, Send, Trash2, Loader2, Plus, RotateCcw, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { healthState, healthDetail, HEALTH_LABELS } from "@/lib/discord/retry";
+import { EVENT_LABEL, EVENT_PURPOSE, DISCORD_EVENTS, eventsFor, eventSummary } from "@/lib/discord/message";
+import type { DiscordEvent } from "@/lib/discord/message";
 import {
   getDiscordSettings, saveDiscordSettings, disconnectDiscord,
-  sendDiscordTest, listDiscordDeliveries,
+  sendDiscordTest, listDiscordDeliveries, retryDiscordDelivery,
 } from "@/lib/discord.functions";
 
 /**
- * Discord sales bot settings. Owner-only — a webhook URL is a credential, and
- * the server never returns one in full, only a masked form.
+ * Discord bots.
  *
- * Several channels are supported because agencies genuinely want different
- * audiences: everything in #sales, only the large cases in a leadership
- * channel. Each channel carries its own threshold and its own event switches
- * rather than one shared set.
+ * One bot is one webhook pointed at one channel, posting exactly the events it
+ * was created for — a Sales bot in #sales, an Announcements bot in #general.
+ * Nothing is switched on behind the owner's back: a new bot writes its event
+ * choices explicitly rather than inheriting column defaults, which is what
+ * used to make a "sales" webhook also carry announcements.
+ *
+ * A webhook URL is a bearer credential, so the server returns only a masked
+ * form and every send happens server-side.
  */
 
 type Webhook = {
   id: string;
-  /** What this integration is for. Arrives with 20260815020000. */
   name?: string | null;
+  description?: string | null;
   channel_label: string | null;
   webhook_masked: string;
   enabled: boolean;
@@ -44,44 +53,64 @@ type Webhook = {
   next_retry_at?: string | null;
 };
 
-/**
- * One word for whether this channel is actually delivering.
- *
- * "Retrying" and "Not delivering" are deliberately different. One failure is
- * usually Discord having a moment; several in a row means somebody deleted the
- * webhook, and those want different reactions from whoever is reading.
- */
+type Delivery = {
+  id: string;
+  integration_id: string;
+  event_type: string;
+  status: string;
+  http_status: number | null;
+  error: string | null;
+  skip_reason?: string | null;
+  created_at: string;
+};
+
+const EVENT_COLUMN: Record<DiscordEvent, "post_deals" | "post_announcements" | "post_new_agents"> = {
+  sales: "post_deals",
+  announcements: "post_announcements",
+  new_agents: "post_new_agents",
+};
+
 function HealthBadge({ webhook }: { webhook: Webhook }) {
   const state = healthState(webhook);
-  // A working channel needs no badge — a row of green "Working" pills teaches
-  // an owner to stop reading them, which is exactly when the red one appears.
   if (state === "healthy" || state === "off") return null;
   return (
-    <Badge variant={state === "broken" ? "destructive" : "secondary"}>
-      {HEALTH_LABELS[state]}
-    </Badge>
+    <Badge variant={state === "broken" ? "destructive" : "secondary"}>{HEALTH_LABELS[state]}</Badge>
   );
 }
 
-/**
- * Only switches that do something.
- *
- * "Milestones — production milestones and streaks" was offered here since
- * Discord shipped. Nothing ever sent one, and there is no milestone or streak
- * concept anywhere in the product for it to describe, so an owner could turn
- * it on and wait forever. The column stays in the database, unused; the
- * control is gone, because a switch that can never do anything is worse than
- * no switch.
- *
- * "New agents" was in the same state and now has the sender it implied.
- * "Announcements" is new: agency announcements have always gone to every
- * enabled channel with no way to say no short of turning the channel off.
- */
-const EVENTS = [
-  ["post_deals", "Posted deals", "A message each time someone writes business."],
-  ["post_new_agents", "New agents", "When someone joins the agency."],
-  ["post_announcements", "Announcements", "Agency announcements posted from the Announcements page."],
-] as const;
+type Draft = {
+  id?: string;
+  name: string;
+  description: string;
+  channel_label: string;
+  webhook_url: string;
+  events: DiscordEvent[];
+  enabled: boolean;
+  min_annual_premium: string;
+};
+
+const emptyDraft: Draft = {
+  name: "",
+  description: "",
+  channel_label: "",
+  webhook_url: "",
+  events: [],
+  enabled: true,
+  min_annual_premium: "0",
+};
+
+function draftFrom(w: Webhook): Draft {
+  return {
+    id: w.id,
+    name: w.name ?? "",
+    description: w.description ?? "",
+    channel_label: w.channel_label ?? "",
+    webhook_url: "",
+    events: eventsFor(w),
+    enabled: !!w.enabled,
+    min_annual_premium: String(w.min_annual_premium ?? 0),
+  };
+}
 
 export function DiscordSettings() {
   const qc = useQueryClient();
@@ -90,30 +119,38 @@ export function DiscordSettings() {
   const testFn = useServerFn(sendDiscordTest);
   const dropFn = useServerFn(disconnectDiscord);
   const logFn = useServerFn(listDiscordDeliveries);
+  const retryFn = useServerFn(retryDiscordDelivery);
 
   const { data, isLoading } = useQuery({ queryKey: ["discord"], queryFn: () => getFn() });
-  const { data: log } = useQuery({ queryKey: ["discord", "log"], queryFn: () => logFn() });
+  const { data: log } = useQuery({
+    queryKey: ["discord", "log"],
+    queryFn: () => logFn({ data: {} }),
+  });
 
   const webhooks = ((data as any)?.webhooks ?? []) as Webhook[];
   const isOwner = Boolean((data as any)?.isOwner);
   const maxWebhooks = Number((data as any)?.maxWebhooks ?? 10);
+  const deliveries = ((log as any)?.deliveries ?? []) as Delivery[];
 
-  const [adding, setAdding] = useState(false);
-  const [newUrl, setNewUrl] = useState("");
-  const [newLabel, setNewLabel] = useState("");
-  const [newMin, setNewMin] = useState("0");
+  const byBot = useMemo(() => {
+    const m = new Map<string, Delivery[]>();
+    for (const d of deliveries) {
+      const list = m.get(d.integration_id) ?? [];
+      list.push(d);
+      m.set(d.integration_id, list);
+    }
+    return m;
+  }, [deliveries]);
+
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["discord"] });
 
   const save = useMutation({
     mutationFn: (patch: any) => saveFn({ data: patch }),
     onSuccess: (_r, patch: any) => {
-      if (!patch.id) {
-        toast.success("Discord channel connected");
-        setAdding(false); setNewUrl(""); setNewLabel(""); setNewMin("0");
-      } else {
-        toast.success("Saved");
-      }
+      toast.success(patch.id ? "Saved" : "Discord bot added");
+      setDraft(null);
       invalidate();
     },
     onError: (e: any) => toast.error(e?.message ?? "Couldn't save"),
@@ -127,8 +164,17 @@ export function DiscordSettings() {
 
   const disconnect = useMutation({
     mutationFn: (id: string) => dropFn({ data: { id } }),
-    onSuccess: () => { toast.success("Channel removed"); invalidate(); },
-    onError: (e: any) => toast.error(e?.message ?? "Couldn't remove that channel"),
+    onSuccess: () => { toast.success("Bot removed"); invalidate(); },
+    onError: (e: any) => toast.error(e?.message ?? "Couldn't remove that bot"),
+  });
+
+  const retry = useMutation({
+    mutationFn: (id: string) => retryFn({ data: { id } }),
+    onSuccess: (r: any) => {
+      toast.success(r?.alreadySent ? "That event had already been posted — nothing sent twice." : "Retried");
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Retry failed"),
   });
 
   if (isLoading) return <Panel><Skeleton className="h-56" /></Panel>;
@@ -145,14 +191,35 @@ export function DiscordSettings() {
 
   const atLimit = webhooks.length >= maxWebhooks;
 
+  function submitDraft() {
+    if (!draft) return;
+    if (!draft.name.trim()) return toast.error("Give this bot a name.");
+    if (draft.events.length === 0) return toast.error("Pick at least one event for this bot to post.");
+    if (!draft.id && !draft.webhook_url.trim()) return toast.error("Paste the Discord webhook URL.");
+
+    const patch: Record<string, unknown> = {
+      name: draft.name.trim(),
+      description: draft.description.trim() || null,
+      channel_label: draft.channel_label.trim() || null,
+      enabled: draft.enabled,
+      min_annual_premium: Number(draft.min_annual_premium || 0),
+      post_deals: draft.events.includes("sales"),
+      post_announcements: draft.events.includes("announcements"),
+      post_new_agents: draft.events.includes("new_agents"),
+    };
+    if (draft.id) patch.id = draft.id;
+    if (draft.webhook_url.trim()) patch.webhook_url = draft.webhook_url.trim();
+    save.mutate(patch);
+  }
+
   return (
     <div className="flex flex-col gap-[var(--gap)]">
       <Panel
-        title="Discord Sales Bot"
+        title="Discord bots"
         action={
-          webhooks.length > 0
-            ? <Badge variant="secondary">{webhooks.length} channel{webhooks.length === 1 ? "" : "s"}</Badge>
-            : <Badge variant="outline">Not connected</Badge>
+          <Button size="sm" disabled={atLimit} onClick={() => setDraft({ ...emptyDraft })}>
+            <Plus className="mr-2 h-4 w-4" /> Add Discord bot
+          </Button>
         }
       >
         <div className="flex items-start gap-3">
@@ -160,235 +227,248 @@ export function DiscordSettings() {
             <MessageSquare className="h-4 w-4" />
           </span>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Announce posted deals in your agency's Discord. Create an incoming webhook
-            under <strong>Server Settings → Integrations → Webhooks</strong>, pick the
-            channel, and paste the URL here. Add as many channels as you like — each one
-            has its own premium threshold, so a leadership channel can hear only about the
-            large cases.
+            Each bot is one Discord webhook posting only the events you tick. Create the
+            webhook under <strong>Server Settings → Integrations → Webhooks</strong>, pick the
+            channel, then add it here — a Sales bot in #sales, an Announcements bot in
+            #general, each independent of the other.
           </p>
         </div>
-
         <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-          Announcements never include client names or policy numbers. Discord servers
-          often have wide membership, and that is not a place for customer identity.
+          Posts never include client names, policy numbers or contact details. Discord
+          servers often have wide membership, and that is not a place for customer identity.
         </p>
+        {atLimit && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            You have reached the limit of {maxWebhooks} bots.
+          </p>
+        )}
       </Panel>
 
-      {webhooks.map((w) => (
-        <Panel
-          key={w.id}
-          title={w.name || w.channel_label || "Discord channel"}
-          action={
-            <div className="flex items-center gap-1.5">
-              <HealthBadge webhook={w} />
-              <Badge variant={w.enabled ? "success" : "secondary"}>{w.enabled ? "Live" : "Paused"}</Badge>
-            </div>
-          }
-        >
-          <p className="font-mono text-[11px] text-text-dim">{w.webhook_masked}</p>
+      {webhooks.length === 0 && (
+        <Panel>
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No Discord bots yet. Add one to start posting to a channel.
+          </p>
+        </Panel>
+      )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">What this is for</label>
-              <Input
-                defaultValue={w.name ?? ""}
-                placeholder="Sales Bot"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== (w.name ?? "")) save.mutate({ id: w.id, name: v });
-                }}
-              />
-              <p className="mt-1 text-[11px] text-text-dim">
-                Two integrations can post to the same channel with different rules, so this is
-                what tells them apart in this list.
-              </p>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Which Discord channel</label>
-              <Input
-                defaultValue={w.channel_label ?? ""}
-                placeholder="#sales"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v !== (w.channel_label ?? "")) save.mutate({ id: w.id, channel_label: v || null });
-                }}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Only announce deals at or above</label>
-              <Input
-                type="number" min={0} inputMode="numeric"
-                defaultValue={String(w.min_annual_premium ?? 0)}
-                onBlur={(e) => {
-                  const v = Number(e.target.value || 0);
-                  if (v !== Number(w.min_annual_premium ?? 0)) save.mutate({ id: w.id, min_annual_premium: v });
-                }}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">Annual premium. 0 announces every deal.</p>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm font-medium">Channel enabled</p>
-                <p className="text-xs text-muted-foreground">Turn this channel off without removing it.</p>
+      {webhooks.map((w) => {
+        const events = eventsFor(w);
+        const detail = healthDetail(w);
+        const rows = byBot.get(w.id) ?? [];
+        return (
+          <Panel
+            key={w.id}
+            title={w.name || w.channel_label || "Discord bot"}
+            action={
+              <div className="flex items-center gap-1.5">
+                <HealthBadge webhook={w} />
+                <Badge variant={w.enabled ? "success" : "secondary"}>{w.enabled ? "Live" : "Paused"}</Badge>
               </div>
-              <Switch
-                className="mt-0.5 shrink-0"
-                checked={w.enabled}
-                onCheckedChange={(v) => save.mutate({ id: w.id, enabled: v })}
-              />
+            }
+          >
+            {w.description && <p className="text-sm text-muted-foreground">{w.description}</p>}
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {events.length === 0 ? (
+                <Badge variant="outline">{eventSummary(events)}</Badge>
+              ) : (
+                events.map((e) => <Badge key={e} variant="secondary">{EVENT_LABEL[e]}</Badge>)
+              )}
+              {w.channel_label && <span className="text-xs text-muted-foreground">{w.channel_label}</span>}
             </div>
-            {EVENTS.map(([key, title, desc]) => (
-              <div key={key} className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{title}</p>
-                  <p className="text-xs text-muted-foreground">{desc}</p>
-                </div>
+
+            <p className="mt-3 font-mono text-[11px] text-text-dim">{w.webhook_masked}</p>
+
+            <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+              <p>
+                {w.last_success_at
+                  ? `Last delivered ${new Date(w.last_success_at).toLocaleString()}`
+                  : "Nothing delivered yet"}
+              </p>
+              {detail && <p className="text-warning">{detail}</p>}
+              {w.last_error && <p className="text-destructive">{w.last_error}</p>}
+              {events.includes("sales") && Number(w.min_annual_premium ?? 0) > 0 && (
+                <p>Only sales at or above ${Number(w.min_annual_premium).toLocaleString()} annual premium.</p>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => test.mutate(w.id)} disabled={test.isPending}>
+                {test.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Send test
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setDraft(draftFrom(w))}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </Button>
+              <div className="ml-1 flex items-center gap-2">
                 <Switch
-                  className="mt-0.5 shrink-0"
-                  // `!== false`, not `Boolean(...)`. Before 20260814240000 the
-                  // announcements column is absent and reads as undefined —
-                  // and the truth in that window is that announcements DO go
-                  // to every enabled channel, so a switch showing "off" would
-                  // be describing the opposite of what happens. The other two
-                  // columns are real booleans and read identically either way.
-                  checked={w[key] !== false}
-                  onCheckedChange={(v) => save.mutate({ id: w.id, [key]: v })}
+                  checked={!!w.enabled}
+                  onCheckedChange={(v) => save.mutate({ id: w.id, enabled: v })}
+                />
+                <span className="text-xs text-muted-foreground">{w.enabled ? "Enabled" : "Disabled"}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto text-destructive"
+                onClick={() => disconnect.mutate(w.id)}
+                disabled={disconnect.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Remove
+              </Button>
+            </div>
+
+            {rows.length > 0 && (
+              <div className="mt-5 border-t border-border pt-4">
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Recent deliveries</p>
+                <ul className="space-y-1.5">
+                  {rows.slice(0, 8).map((d) => (
+                    <li key={d.id} className="flex items-center gap-2 text-xs">
+                      <Badge
+                        variant={d.status === "sent" ? "success" : d.status === "failed" ? "destructive" : "secondary"}
+                      >
+                        {d.status}
+                      </Badge>
+                      <span className="text-muted-foreground">{d.event_type}</span>
+                      <span className="text-text-dim">{new Date(d.created_at).toLocaleString()}</span>
+                      {(d.error || d.skip_reason) && (
+                        <span className="truncate text-text-dim">{d.error ?? d.skip_reason}</span>
+                      )}
+                      {d.status === "failed" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-auto h-6 px-2"
+                          onClick={() => retry.mutate(d.id)}
+                          disabled={retry.isPending}
+                        >
+                          <RotateCcw className="mr-1 h-3 w-3" /> Retry
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Panel>
+        );
+      })}
+
+      <Dialog open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{draft?.id ? "Edit Discord bot" : "Add Discord bot"}</DialogTitle>
+            <DialogDescription>
+              This bot posts only the events you tick below — nothing else.
+            </DialogDescription>
+          </DialogHeader>
+
+          {draft && (
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Bot name</label>
+                <Input
+                  value={draft.name}
+                  placeholder="Sales Bot"
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 />
               </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={() => test.mutate(w.id)}
-                    disabled={test.isPending && test.variables === w.id}>
-              {test.isPending && test.variables === w.id
-                ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                : <Send className="mr-1 h-3.5 w-3.5" />}
-              Send test message
-            </Button>
-            <Button size="sm" variant="outline" className="text-muted-foreground hover:text-destructive"
-                    onClick={() => disconnect.mutate(w.id)}
-                    disabled={disconnect.isPending && disconnect.variables === w.id}>
-              <Trash2 className="mr-1 h-3.5 w-3.5" /> Remove
-            </Button>
-          </div>
-
-          {healthDetail(w) && (
-            <div className={cn(
-              "mt-3 rounded-lg border px-3 py-2 text-xs",
-              healthState(w) === "broken"
-                ? "border-destructive/30 bg-destructive/10 text-destructive"
-                : "border-border bg-surface-2 text-muted-foreground",
-            )}>
-              <p>{healthDetail(w)}</p>
-              {w.last_error && (
-                <p className="mt-1 font-mono text-[11px] opacity-80">{w.last_error}</p>
-              )}
-            </div>
-          )}
-        </Panel>
-      ))}
-
-      {adding || webhooks.length === 0 ? (
-        <Panel title={webhooks.length === 0 ? "Connect your first channel" : "Add another channel"}>
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Webhook URL</label>
-              <Input
-                type="password" autoComplete="off"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="https://discord.com/api/webhooks/…"
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Channel name (for your reference)</label>
-                <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="#sales" />
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Purpose</label>
+                <Textarea
+                  value={draft.description}
+                  rows={2}
+                  placeholder="Posts every deal into #sales."
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Only announce deals at or above</label>
-                <Input type="number" min={0} inputMode="numeric" value={newMin}
-                       onChange={(e) => setNewMin(e.target.value)} placeholder="0" />
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Discord channel</label>
+                <Input
+                  value={draft.channel_label}
+                  placeholder="#sales"
+                  onChange={(e) => setDraft({ ...draft, channel_label: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Webhook URL{draft.id ? " (leave blank to keep the current one)" : ""}
+                </label>
+                <Input
+                  value={draft.webhook_url}
+                  placeholder="https://discord.com/api/webhooks/…"
+                  onChange={(e) => setDraft({ ...draft, webhook_url: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-medium text-muted-foreground">Events</p>
+                <div className="space-y-2">
+                  {DISCORD_EVENTS.map((ev) => {
+                    const checked = draft.events.includes(ev);
+                    return (
+                      <label key={ev} className="flex cursor-pointer items-start gap-2 rounded-lg border border-border p-2.5">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) =>
+                            setDraft({
+                              ...draft,
+                              events: v
+                                ? [...draft.events, ev]
+                                : draft.events.filter((x) => x !== ev),
+                            })
+                          }
+                        />
+                        <span>
+                          <span className="block text-sm font-medium">{EVENT_LABEL[ev]}</span>
+                          <span className="block text-[11px] text-muted-foreground">{EVENT_PURPOSE[ev]}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {draft.events.includes("sales") && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Only post sales at or above (annual premium)
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={draft.min_annual_premium}
+                    onChange={(e) => setDraft({ ...draft, min_annual_premium: e.target.value })}
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">0 posts every deal.</p>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={draft.enabled}
+                  onCheckedChange={(v) => setDraft({ ...draft, enabled: v })}
+                />
+                <span className="text-sm">Enabled</span>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => save.mutate({
-                  webhook_url: newUrl.trim(),
-                  channel_label: newLabel.trim() || null,
-                  min_annual_premium: Number(newMin || 0),
-                })}
-                disabled={save.isPending || !newUrl.trim()}
-              >
-                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect channel"}
-              </Button>
-              {webhooks.length > 0 && (
-                <Button variant="outline" onClick={() => { setAdding(false); setNewUrl(""); }}>Cancel</Button>
-              )}
-            </div>
-          </div>
-        </Panel>
-      ) : (
-        <div>
-          <Button variant="outline" size="sm" onClick={() => setAdding(true)} disabled={atLimit}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Add another channel
-          </Button>
-          {atLimit && (
-            <p className="mt-2 text-[11px] text-text-dim">
-              You've reached the limit of {maxWebhooks} channels.
-            </p>
           )}
-        </div>
-      )}
 
-      {((log as any)?.deliveries ?? []).length > 0 && (
-        <Panel title="Recent Announcements">
-          <ul className="-my-1 divide-y divide-border-soft">
-            {((log as any).deliveries as any[]).map((d) => {
-              const target = webhooks.find((w) => w.id === d.integration_id);
-              return (
-                <li key={d.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="min-w-0 truncate capitalize text-muted-foreground">
-                    {String(d.event_type).replace(/_/g, " ")}
-                    {target && (
-                      <span className="ml-2 text-[11px] normal-case text-text-dim">
-                        {target.channel_label || "channel"}
-                      </span>
-                    )}
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {d.error && <span className="max-w-[220px] truncate text-[11px] text-destructive">{d.error}</span>}
-                    <Badge
-                      variant={d.status === "sent" ? "success" : d.status === "skipped" ? "secondary" : "destructive"}
-                      className="text-[10px]"
-                    >
-                      {d.status}
-                    </Badge>
-                    <span className="tnum text-[11px] text-muted-foreground">
-                      {new Date(d.created_at).toLocaleDateString()}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Panel>
-      )}
-
-      {webhooks.length === 0 && (
-        <a
-          href="https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn("inline-flex items-center gap-1 text-xs text-primary hover:underline")}
-        >
-          How to create a Discord webhook <ExternalLink className="h-3 w-3" />
-        </a>
-      )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
+            <Button onClick={submitDraft} disabled={save.isPending}>
+              {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {draft?.id ? "Save bot" : "Add bot"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+// `EVENT_COLUMN` documents the column each ticked event maps to; the payload
+// above writes those columns directly, so it is exported for the checks.
+export { EVENT_COLUMN };
