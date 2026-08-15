@@ -94,13 +94,40 @@ export const listMyAgencyCarriers = createServerFn({ method: "GET" })
   });
 
 
+/**
+ * The directory, scoped to the carriers this agency actually has.
+ *
+ * It used to return every active carrier in the platform, so the directory
+ * advertised relationships the agency does not hold. `org_carriers` is the
+ * per-agency layer; anything archived or terminated there is not "ours".
+ */
 export const listCarriers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context as Ctx;
+    const orgId = await getOrgId(supabase, userId);
+    if (!orgId) return { carriers: [] as any[] };
+
+    const { data: orgRows, error: orgErr } = await supabase
+      .from("org_carriers")
+      .select("carrier_id, status")
+      .eq("organization_id", orgId);
+    if (orgErr) throw new Error(orgErr.message);
+
+    const allowed = Array.from(
+      new Set(
+        (orgRows ?? [])
+          .filter((r: any) => r.status !== "archived" && r.status !== "terminated")
+          .map((r: any) => r.carrier_id)
+          .filter(Boolean),
+      ),
+    ) as string[];
+    if (allowed.length === 0) return { carriers: [] as any[] };
+
     const { data, error } = await supabase
       .from("carriers")
       .select("id,name,phone,hours,website,contracting_speed_days,pay_frequency,advance_cap,advance_cap_amount,advance_cap_months,ideal_client,agent_portal_url,training_url,about_text,is_annuity_carrier,active")
+      .in("id", allowed)
       .eq("active", true)
       .order("name", { ascending: true });
     if (error) throw new Error(error.message);
@@ -114,6 +141,7 @@ export const listCarriers = createServerFn({ method: "GET" })
 
     return { carriers: (data ?? []).map((c: any) => ({ ...c, my_active: activeSet.has(c.id) })) };
   });
+
 
 // ---------- add carrier (self-reported) ----------
 export const addAgentCarrier = createServerFn({ method: "POST" })
