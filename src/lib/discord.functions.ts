@@ -6,7 +6,7 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // Backoff, health, and the two patches a send outcome writes. One place, so
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
-import { piiProblems } from "@/lib/discord/message";
+import { piiProblems, productCategory, eventKey } from "@/lib/discord/message";
 import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 const supabaseAdmin = _admin as any;
