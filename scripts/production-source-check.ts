@@ -22,11 +22,16 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { periodRanges } from "../src/lib/leaderboard/board";
 import {
   PRODUCTION_DATE_COLUMN,
   productionDate,
   premiumOf,
   sumPremium,
+  sumPlaced,
+  placementRate,
+  countsAsProduction,
+  NON_PRODUCTION_STATUSES,
   tally,
   tallyInWindow,
   tallyByAgent,
@@ -98,7 +103,7 @@ check("the end of a window is inclusive",
   true);
 
 check("the column every window filters on is named once",
-  PRODUCTION_DATE_COLUMN, "posted_at");
+  PRODUCTION_DATE_COLUMN, "production_date");
 
 // ── Summing ─────────────────────────────────────────────────────────────────
 
@@ -120,15 +125,15 @@ check("…and treating a missing premium as zero, not NaN",
 // A policy with no premium is still a policy: the count and the money are
 // different questions.
 check("a policy with no premium still counts as a policy",
-  tally(ROWS), { premium: 2700, policies: 4 });
+  tally(ROWS), { premium: 2700, policies: 4, placed: 0 });
 check("a window narrows both halves",
   tallyInWindow(ROWS, "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z"),
-  { premium: 1800, policies: 3 });
+  { premium: 1800, policies: 3, placed: 0 });
 
 const byAgent = tallyByAgent(ROWS);
-check("per-agent totals split correctly", byAgent.get("a"), { premium: 1800, policies: 2 });
+check("per-agent totals split correctly", byAgent.get("a"), { premium: 1800, policies: 2, placed: 0 });
 check("…including a policy that carries no premium",
-  byAgent.get("b"), { premium: 900, policies: 2 });
+  byAgent.get("b"), { premium: 900, policies: 2, placed: 0 });
 // A phantom leaderboard row is worse than a missing one.
 check("an unattributed policy belongs to nobody",
   tallyByAgent([{ annual_premium: 500, posted_at: "2026-08-01T00:00:00Z" }]).size, 0);
@@ -138,6 +143,82 @@ check("an unattributed policy belongs to nobody",
 // reconcile.
 const lapsed = { annual_premium: 1000, posted_at: "2026-08-01T00:00:00Z", status: "lapsed" };
 check("a lapsed policy still counts as production", sumPremium([lapsed]), 1000);
+
+// ── Which statuses count, and the date that decides when ────────────────────
+//
+// The brief: "Exclude deleted, duplicate, withdrawn, and invalid records."
+// Three statuses in this schema mean the business never placed and never will.
+
+console.log("");
+
+for (const status of ["withdrawn", "not_taken", "carrier_na"]) {
+  check(`a ${status} policy is not production`,
+    countsAsProduction({ status }), false);
+  check(`…and is in no window at any date`,
+    inWindow({ status, production_date: "2026-08-01T00:00:00Z" }, null, null), false);
+}
+// Deliberately still counted: these were placed, the premium was real and the
+// commission was advanced. Netting them out would make production and
+// retention impossible to reconcile.
+for (const status of ["active", "issued_not_paid", "in_review", "lapse_pending", "lapsed", "cancelled", "postponed"]) {
+  check(`a ${status} policy is production`, countsAsProduction({ status }), true);
+}
+check("a row with no status counts, rather than vanishing",
+  countsAsProduction({}), true);
+check("an ineligible policy contributes nothing to a sum",
+  sumPremium([{ annual_premium: 500, status: "withdrawn" }]), 0);
+check("…nor to a count", tally([{ annual_premium: 500, status: "withdrawn" }]).policies, 0);
+
+// Placed premium, the figure the brief asks for beside production.
+const MIXED = [
+  { annual_premium: 1000, status: "active", production_date: "2026-08-01T00:00:00Z" },
+  { annual_premium: 500, status: "lapsed", production_date: "2026-08-02T00:00:00Z" },
+  { annual_premium: 200, status: "withdrawn", production_date: "2026-08-03T00:00:00Z" },
+];
+check("production counts what was written", sumPremium(MIXED), 1500);
+check("placed counts what is on the books", sumPlaced(MIXED), 1000);
+check("…and the withdrawn one is in neither",
+  sumPremium(MIXED) + sumPlaced(MIXED), 2500);
+check("the placement rate is placed over produced", placementRate(MIXED), 1000 / 1500);
+// A person who wrote nothing has no rate; 0% would read as "everything lapsed".
+check("nothing written has no rate, rather than zero", placementRate([]), null);
+
+// ── The date, and the imported book it repairs ──────────────────────────────
+
+console.log("");
+
+// The reported contradiction: the leaderboard shows zero for a month the book
+// of business plainly has business in. Two import paths stamp posted_at = now.
+const IMPORTED = {
+  annual_premium: 1200,
+  posted_at: "2026-08-14T15:00:00Z",
+  production_date: "2024-03-01T00:00:00Z",
+  effective_date: "2024-03-01",
+  status: "active",
+};
+check("an imported policy is dated when it was written",
+  productionDate(IMPORTED), "2024-03-01T00:00:00Z");
+check("…so it counts in the month it was written",
+  inWindow(IMPORTED, "2024-03-01T00:00:00Z", "2024-03-31T23:59:59Z"), true);
+check("…and not in the month it was imported",
+  inWindow(IMPORTED, "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z"), false);
+
+// The rule only ever moves a date backwards, so the #144 bug cannot return.
+const FORWARD = {
+  annual_premium: 600,
+  posted_at: "2026-08-14T10:00:00Z",
+  production_date: "2026-08-14T10:00:00Z",
+  effective_date: "2026-09-01",
+  status: "active",
+};
+check("a forward-dated sale still counts when it was posted",
+  inWindow(FORWARD, "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z"), true);
+check("…and not in the month it takes effect",
+  inWindow(FORWARD, "2026-09-01T00:00:00Z", "2026-09-30T23:59:59Z"), false);
+
+// A row read before the migration applied has no production_date.
+check("a row without the new column falls back to posted_at",
+  productionDate({ posted_at: "2026-08-14T10:00:00Z" }), "2026-08-14T10:00:00Z");
 
 // The roster reaches the same answer through its own name for it.
 check("the roster's inRange is the same window",
@@ -163,8 +244,29 @@ check("…so the 400-day fetch pad is gone", /400 \* 86400000/.test(DASH), false
 
 check("every window filters on the named column",
   (DASH.match(/\.gte\("posted_at"/g) ?? []).length, 0);
-check("…by name, not by literal",
-  (DASH.match(/PRODUCTION_DATE_COLUMN/g) ?? []).length >= 5, true);
+// Four production reads, all through the one helper that knows what to do
+// while the column is still pending. A fifth added the old way would be right
+// today and wrong for the hours between shipping and the migration applying.
+check("…through the helper, not by hand",
+  (DASH.match(/selectProduction</g) ?? []).length, 4);
+check("…which is where the pending-column fallback lives",
+  /from "@\/lib\/production\/source\.server"/.test(DASH), true);
+
+const SRV = strip(read("src/lib/production/source.server.ts"));
+check("the fallback triggers on a missing column", /42703/.test(SRV), true);
+// Retrying a permissions failure against a different column would answer a
+// different question and look like success.
+check("…and only on a missing column",
+  /if \(!isMissingColumn\(first\.error\)\) \{/.test(SRV), true);
+check("…falling back to what the product does today",
+  /await build\("posted_at"\)/.test(SRV), true);
+
+// Naming the column in the projection is the same 42703 as naming it in a
+// filter, so every production read asks for the row.
+check("no production read names the pending column",
+  /production_date/.test(DASH), false);
+const TEAMFN = strip(read("src/lib/team.functions.ts"));
+check("…nor does the roster", /production_date/.test(TEAMFN), false);
 
 check("the leaderboard totals through the shared tally",
   /tallyByAgent\(\(agents \?\? \[\]\) as ProductionRow\[\]\)/.test(DASH), true);
@@ -177,14 +279,131 @@ check("the roster delegates rather than restating",
   /return inWindow\(\{ posted_at: postedAt \?\? null \}, start, end\)/.test(TEAM), true);
 check("…and takes its zero from the same module", /ZERO: Tally = ZERO_TALLY/.test(TEAM), true);
 
-// The live RPC is the thing the TypeScript is meant to agree with. If somebody
-// reintroduces a business date there, this fails and the disagreement is
-// caught in the repository rather than on a screen.
-const RPC = read("supabase/migrations/20260715120000_dashboard-real-data.sql");
-check("the live dashboard RPC windows on posted_at",
-  /pol\.posted_at >= _range_start/.test(RPC), true);
+// ── The database agrees with the module ─────────────────────────────────────
+//
+// The dashboard's headline figures come from an RPC, not from the TypeScript
+// above. A definition the TypeScript honours and the RPC does not is worse
+// than the original bug: one screen would disagree with every other, which
+// reads as the others being wrong.
+
+const sql = (s: string) => s.replace(/--[^\n]*/g, "");
+const RPC = sql(read("supabase/migrations/20260814250000_production-date.sql"));
+
+check("the dashboard RPC windows on the shared date",
+  /pol\.production_date >= _range_start/.test(RPC), true);
+check("…and no longer windows on posted_at",
+  /pol\.posted_at >= _range_start/.test(RPC), false);
+check("…including the twelve-month chart",
+  /ON pol\.production_date >= m\.m_start/.test(RPC), true);
 check("…and does not coalesce an effective date",
   /COALESCE\(pol\.effective_date/i.test(RPC), false);
+
+// The old definition must not still be sitting in a later-numbered file.
+const OLD_RPC = sql(read("supabase/migrations/20260715120000_dashboard-real-data.sql"));
+check("the migration that replaced it is the later one",
+  "20260814250000" > "20260715120000" && /get_dashboard_metrics/.test(OLD_RPC), true);
+
+// One list of statuses, on both sides of the wire.
+const fnBody = RPC.match(
+  /create or replace function public\.policy_counts_as_production[\s\S]*?\$\$([\s\S]*?)\$\$/i,
+)?.[1] ?? "";
+check("the database has one eligibility function", fnBody.length > 0, true);
+check("…excluding exactly the statuses the module excludes",
+  (fnBody.match(/'([a-z_]+)'/g) ?? []).map((s) => s.replace(/'/g, "")).sort(),
+  [...NON_PRODUCTION_STATUSES].sort());
+// A null status means "not recorded", not "not production". Dropping those
+// would silently delete production from the dashboard only.
+check("…and letting a null status through, as the module does",
+  /_status is null/.test(fnBody), true);
+
+check("the RPC's production figures use that function",
+  /where public\.policy_counts_as_production\(status::text\)/i.test(RPC), true);
+check("…and so does the chart",
+  /public\.policy_counts_as_production\(pol\.status::text\)/i.test(RPC), true);
+// The status grid is a pipeline view. A withdrawn application is exactly what
+// somebody opens it to see, so it must read the unfiltered set.
+check("the pipeline grid still shows every status",
+  /status_grid AS \(\s*SELECT status::text AS status, COUNT\(\*\) AS cnt\s*FROM range_policies/.test(RPC),
+  true);
+check("…as does the donut", /donut AS \([\s\S]*?FROM range_policies/.test(RPC), true);
+
+// The backfill runs once. Without a trigger the next import writes another
+// four hundred policies dated the afternoon of the import.
+check("new rows get a production date too",
+  /create trigger policies_set_production_date\s*before insert on public\.policies/.test(RPC), true);
+check("…by the same rule as the backfill",
+  /when new\.effective_date is not null\s*and new\.effective_date::timestamptz < coalesce\(new\.posted_at, now\(\)\)/.test(RPC),
+  true);
+// A caller that knows a better date must be able to say so.
+check("…and only when the caller did not set one",
+  /if new\.production_date is null then/.test(RPC), true);
+// A column default is applied before a BEFORE INSERT trigger sees the row, so
+// `default now()` would make the trigger's null test permanently false and the
+// import bug would survive the migration meant to fix it.
+check("…which a column default would make impossible",
+  /alter column production_date drop default/.test(RPC), true);
+check("…so no default is set", /production_date set default/.test(RPC), false);
+
+// ── The brief's own test ────────────────────────────────────────────────────
+//
+// "Add tests proving that a policy shown in the book of business appears in
+// the correct leaderboard period."
+//
+// The book of business has no date window: it lists everything. The
+// leaderboard windows on production_date. So the property to prove is that
+// every policy the book shows lands in exactly one period, and in the right
+// one — which is what the imported book was failing at.
+
+console.log("");
+
+const BOOK = [
+  // Written March 2024, imported August 2026. The reported bug.
+  { id: "1", annual_premium: 1200, posted_at: "2026-08-14T15:00:00Z",
+    production_date: "2024-03-11T00:00:00Z", status: "active" },
+  // Written and posted the same day, last month.
+  { id: "2", annual_premium: 900, posted_at: "2026-07-09T10:00:00Z",
+    production_date: "2026-07-09T10:00:00Z", status: "active" },
+  // Posted this month, effective next.
+  { id: "3", annual_premium: 600, posted_at: "2026-08-03T10:00:00Z",
+    production_date: "2026-08-03T10:00:00Z", effective_date: "2026-09-01", status: "issued_not_paid" },
+  // Withdrawn: in the book, and not production.
+  { id: "4", annual_premium: 400, posted_at: "2026-08-04T10:00:00Z",
+    production_date: "2026-08-04T10:00:00Z", status: "withdrawn" },
+];
+
+const NOW = new Date(2026, 7, 14, 14, 0, 0);
+const inPeriod = (row: any, p: Parameters<typeof periodRanges>[0]) => {
+  const r = periodRanges(p, NOW);
+  return inWindow(row, r.start.toISOString(), r.end.toISOString());
+};
+
+check("a policy written in March 2024 is in year-to-date? no — a prior year",
+  inPeriod(BOOK[0], "ytd"), false);
+check("…and it is in a custom range covering March 2024",
+  inWindow(BOOK[0], "2024-03-01T00:00:00Z", "2024-03-31T23:59:59Z"), true);
+// Before the migration this policy was dated the import afternoon, so it
+// appeared in "This Month" and nowhere else.
+check("…and NOT in this month, where the import put it",
+  inPeriod(BOOK[0], "month"), false);
+
+check("a policy written last month is in Last Month", inPeriod(BOOK[1], "last_month"), true);
+check("…and not in This Month", inPeriod(BOOK[1], "month"), false);
+check("…and is in year to date", inPeriod(BOOK[1], "ytd"), true);
+
+check("a policy posted this month is in This Month", inPeriod(BOOK[2], "month"), true);
+check("…even though it takes effect next month", inPeriod(BOOK[2], "ytd"), true);
+
+// In the book, not on the board. Both are correct and they are different
+// questions: the book lists the record, the leaderboard counts production.
+check("a withdrawn policy is in the book and in no period",
+  [inPeriod(BOOK[3], "month"), inPeriod(BOOK[3], "ytd")], [false, false]);
+
+// Every eligible policy counted once, never twice.
+const eligible = BOOK.filter(countsAsProduction);
+check("every eligible policy in the book counts exactly once",
+  eligible.length, 3);
+check("…and the periods do not double-count it",
+  tallyInWindow(BOOK, "2026-08-01T00:00:00Z", "2026-08-31T23:59:59Z").policies, 1);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -70,7 +70,10 @@ const TREE = [
   { id: "bob", upline_id: "manager" },
   { id: "solo", upline_id: "owner" },
 ];
-const t = (premium: number, policies: number): Tally => ({ premium, policies });
+// `placed` defaults to zero so the cases below stay about the rollup; the
+// placed column has its own coverage in production-source-check.
+const t = (premium: number, policies: number, placed = 0): Tally =>
+  ({ premium, policies, placed });
 const OWN = new Map<string, Tally>([
   ["manager", t(1000, 1)],
   ["alice", t(5000, 4)],
@@ -133,9 +136,15 @@ const strip = (s: string) => s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\
 
 const FNS = read("src/lib/team.functions.ts");
 check("the roster takes a range", /rangeStart: z\.string\(\)\.nullable\(\)\.optional\(\)/.test(FNS), true);
-check("own production is summed inside it", /if \(!inRange\(p\.posted_at/.test(FNS), true);
-check("…on annual_premium, the formula already in use",
-  /annual_premium/.test(FNS) && /held\.premium \+= Number\(p\.annual_premium \?\? 0\)/.test(FNS), true);
+// Own production comes from the shared source now rather than a loop here, so
+// the roster and the leaderboard cannot answer "how much did they write"
+// differently. A hand-rolled sum returning is the regression to catch.
+check("own production is summed by the shared source",
+  /const ownTally = tallyByAgent\(/.test(FNS), true);
+check("…windowed by the shared rule",
+  /inWindow\(p, data\.rangeStart \?\? null, data\.rangeEnd \?\? null\)/.test(FNS), true);
+check("…and not summed by hand here",
+  /held\.premium \+= Number\(p\.annual_premium/.test(FNS), false);
 check("the team rollup reuses the pure model", /rollUpDownline\(/.test(FNS), true);
 check("at risk reads live retention cases only",
   /\.in\("status", \["open", "working"\]\)/.test(FNS), true);

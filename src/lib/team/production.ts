@@ -7,13 +7,13 @@
  * Two decisions worth stating, because both look like they could have gone the
  * other way:
  *
- * **The formula is the one already in use.** `annual_premium` over
- * `posted_at`, with no status filter — every policy counts, whatever became of
- * it. That definition now lives in `lib/production/source.ts`, which this
- * module and the dashboard both read, so the roster cannot drift from the
- * numbers an owner sees on their own front page. (The dashboard's production
- * chart had drifted: it still bucketed on the `COALESCE(effective_date,
- * posted_at)` of a superseded 2026-06-05 RPC.)
+ * **The formula is not defined here.** `annual_premium` over the production
+ * date, for the statuses that count — and all three of those decisions live in
+ * `lib/production/source.ts`, which this module, the dashboard and the
+ * leaderboard all read. The roster therefore cannot drift from the numbers an
+ * owner sees on their own front page, which it previously could: the
+ * dashboard's chart had drifted onto the `COALESCE(effective_date, posted_at)`
+ * of a superseded 2026-06-05 RPC while the roster summed `posted_at`.
  *
  * **The team rollup needs no recursive SQL.** The roster already holds the
  * caller's whole downline, each row carrying its `upline_id`. An agent's team
@@ -107,16 +107,25 @@ export function rollUpDownline(
     const mine = own.get(id) ?? ZERO;
     let premium = 0;
     let policies = 0;
+    let placed = 0;
     for (const child of children.get(id) ?? []) {
       const sub = walk(child, depth + 1);
       premium += sub.premium;
       policies += sub.policies;
+      // `?? 0` because `placed` is newer than this walk: a caller still
+      // building tallies without it would otherwise turn the whole column to
+      // NaN, which renders as a blank rather than as an error.
+      placed += sub.placed ?? 0;
     }
     // What we store is the downline only; what we return includes self, so the
     // parent's sum counts this agent's own writing too.
-    team.set(id, { premium, policies });
+    team.set(id, { premium, policies, placed });
     visiting.delete(id);
-    return { premium: premium + mine.premium, policies: policies + mine.policies };
+    return {
+      premium: premium + mine.premium,
+      policies: policies + mine.policies,
+      placed: placed + (mine.placed ?? 0),
+    };
   }
 
   for (const r of rows) if (!team.has(r.id)) walk(r.id, 0);
