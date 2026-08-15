@@ -130,13 +130,21 @@ export function toMatrix(rows: GridRow[]): MatrixState {
       levelByIdent.set(li, l);
       levels.push(l);
     }
+    // No rate is an empty cell, not a zero one. A row that arrives with a
+    // null or 0 first-year rate — a product not offered at that level, or a
+    // column the extraction could not read — used to become a 0 cell, which
+    // then came back out of `fromMatrix` as a row the review blocked on and
+    // nobody could find on screen, because a blank cell is what it looks like.
+    const y1 = r.year_1_pct;
+    if (y1 == null || Number.isNaN(y1) || y1 === 0) continue;
     cells.set(cellKey(p.uid, l.uid), {
-      year_1_pct: r.year_1_pct ?? 0,
+      year_1_pct: y1,
       years_2_5_pct: r.years_2_5_pct ?? null,
       years_6_plus_pct: r.years_6_plus_pct ?? null,
       ...(r.is_estimated ? { is_estimated: true } : {}),
     });
   }
+
   return { products, levels, cells };
 }
 
@@ -156,7 +164,9 @@ export function fromMatrix(m: MatrixState): GridRow[] {
     m.levels.forEach((l, li) => {
       if (!l.name.trim()) return;
       const c = m.cells.get(cellKey(p.uid, l.uid));
-      if (!c || c.year_1_pct == null) return;
+      // A blank cell and a 0 cell are the same statement: no rate here.
+      if (!c || c.year_1_pct == null || Number.isNaN(c.year_1_pct) || c.year_1_pct === 0) return;
+
       out.push({
         product_name: p.product_name.trim(),
         level_name: l.name.trim(),

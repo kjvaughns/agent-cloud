@@ -205,7 +205,7 @@ check("the file input accepts several files", /multiple\s*\n?\s*accept=/.test(PA
 check("uploads pool into one extraction call", /const images: string\[\] = \[\]/.test(PAGE) && /for \(const file of files\)/.test(PAGE), true);
 
 // The two halves of "a second upload replaced my grid".
-check("an upload merges into the editor", /mergeMatrix\(matrix, toMatrix\(out\.rows\)\)/.test(PAGE), true);
+check("an upload merges into the editor", /mergeMatrix\((matrix|working), toMatrix\(out\.rows\)\)/.test(PAGE), true);
 check("bare state replacement is gone", /setRows\(out\.rows\)/.test(strip(PAGE)), false);
 check("picking a carrier loads its existing grid", /function selectCarrier/.test(PAGE) && /selectCarrier\(v\)/.test(PAGE), true);
 check("save declares its mode instead of leaning on the default", /mode: "replace"/.test(PAGE), true);
