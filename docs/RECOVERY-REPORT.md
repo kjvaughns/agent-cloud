@@ -222,10 +222,26 @@ before every send.
 **An agent could not see where their own request stood.** The inbox was
 owner-only, and a decline gave no reason.
 
+**A writing number could appear with nobody's name against it.** The brief
+names seven kinds of change that need a trail — permission, hierarchy, level,
+contract, carrier, writing number and commission. Six were covered.
+`writing_number.created` had been in the audit vocabulary since the log was
+built and the staff-facing editor always wrote it, but the four *other* paths
+that record a number — an agent stating their own, staff setting one on a
+contract, an agent activating an assigned contract, and an admin recording one
+on somebody's behalf — did not. The audit now lives inside
+`recordWritingNumber` itself rather than at the call sites, on the same
+reasoning as `recordContractChange`: two writes that must both happen rot by
+one call site gaining only one of them. A duplicate insert is deliberately not
+audited — it is the desired end state, not a change, and logging it would fill
+the trail with entries for writes that did not happen.
+
 ### Tests and results
 
 - `contract-trail-check` (43), `request-history-check` (50),
-  `request-inbox-check` (35), `notify-prefs-check` — all pass.
+  `request-inbox-check` (35), `notify-prefs-check`, `writing-numbers-check`
+  (30) — all pass. The last asserts that every `recordWritingNumber` call site
+  names an actor, so a fifth path added later cannot skip the trail.
 
 **One defect the tests caught.** `merge()` collapses duplicate history rows
 within ten seconds and backdated to the earlier timestamp only when the *later*
@@ -240,6 +256,9 @@ way.
 2. Turn off a notification category → stop receiving it.
 3. Decline a contract request without a reason → refused. With one → the agent
    sees the reason on their own request.
+4. As an agent, self-report a writing number → the contracting audit log shows
+   `writing_number.created` against you. Save the same number again → no second
+   entry.
 
 ### Remaining risk
 

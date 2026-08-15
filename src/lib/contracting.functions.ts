@@ -138,6 +138,7 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
     if (data.writing_number) {
       await recordWritingNumber(supabase, {
         agentId: userId,
+        actorId: userId,
         orgId,
         carrierId: data.carrier_id,
         writingNumber: data.writing_number,
@@ -465,6 +466,7 @@ export const updateContractStatus = createServerFn({ method: "POST" })
       const row = touched[0] as any;
       await recordWritingNumber(supabase, {
         agentId: row.agent_id,
+        actorId: userId,
         orgId: await getOrgId(supabase, row.agent_id),
         carrierId: row.carrier_id,
         writingNumber: data.writing_number,
@@ -1118,6 +1120,7 @@ export const activateContract = createServerFn({ method: "POST" })
 
     await recordWritingNumber(supabase, {
       agentId: userId,
+      actorId: userId,
       orgId: await getOrgId(supabase, userId),
       carrierId: contract.carrier_id,
       writingNumber: data.writing_number,
