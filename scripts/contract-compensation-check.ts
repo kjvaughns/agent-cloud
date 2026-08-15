@@ -68,8 +68,13 @@ const fromLevel = resolveCompensation({
 });
 check("a resolution names where its percentage came from",
   fromLevel.ok && fromLevel.pctSource, "level_base");
+// `grid` joined the other three when the carrier's published product and age
+// band rates started being selected from. It is the only source that can
+// differ between two deals the same agent writes on the same carrier, so it
+// needs a sentence as much as the rest — an agent seeing 80% on one deal and
+// 60% on the next has to be able to find out why.
 check("…and every source has a sentence",
-  Object.keys(PCT_SOURCE_LABELS).sort(), ["contract", "level_base", "level_carrier"]);
+  Object.keys(PCT_SOURCE_LABELS).sort(), ["contract", "grid", "level_base", "level_carrier"]);
 check("…as does every advance source",
   Object.keys(ADVANCE_SOURCE_LABELS).sort(), ["carrier_default", "contract", "level_carrier"]);
 // The page shows these on rows belonging to other people in Team and Agency
