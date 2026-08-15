@@ -6,6 +6,7 @@ import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds } from "@/lib/scope.functions";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
+import { saleDateToTimestamp } from "@/lib/sale-date";
 
 type Ctx = { supabase: any; userId: string };
 
