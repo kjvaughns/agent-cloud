@@ -670,42 +670,79 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function DocRow({
-  doc, open, onToggle, onDismiss, onDescribe,
+/**
+ * One uploaded file, and its tabs if it had any.
+ *
+ * Header, then whatever the file has to say, then the review. The status word
+ * and the type sit on one line under the name rather than beside it, because on
+ * a phone a name long enough to matter pushed everything else off the row.
+ */
+function DocCard({
+  doc, sheets, openDoc, onToggle, onDismiss, onDescribe,
 }: {
   doc: ImportDoc;
-  open: boolean;
-  onToggle: () => void;
-  onDismiss: () => void;
+  sheets: ImportDoc[];
+  openDoc: string | null;
+  onToggle: (id: string) => void;
+  onDismiss: (id: string) => void;
   /** Opens the note field and scrolls to it. */
   onDescribe: () => void;
 }) {
-  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary" };
+  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
   const kind = (doc.doc_type ?? "unknown") as ImportKind;
   const target = KIND_TARGET[kind];
+  const Icon = KIND_ICON[kind] ?? FileText;
+  const open = openDoc === doc.id;
+  const isParent = sheets.length > 0;
 
   return (
-    <Panel>
+    <Panel
+      className={cn(
+        // The one row that wants something from you is the one that gets the
+        // accent. Everything else stays quiet.
+        doc.status === "needs_review" && "border-warning/40",
+        doc.status === "failed" && "border-destructive/40",
+      )}
+    >
       <div className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div
+              className={cn(
+                "grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius)] border",
+                doc.status === "applied" && "border-success/30 bg-success/10 text-success",
+                doc.status === "failed" && "border-destructive/30 bg-destructive/10 text-destructive",
+                doc.status === "needs_review" && "border-warning/30 bg-warning/10 text-warning",
+                !["applied", "failed", "needs_review"].includes(doc.status) &&
+                  "border-border bg-surface-2 text-muted-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+            </div>
             <div className="min-w-0">
-              <div className="truncate font-medium">{doc.file_name}</div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <Badge variant={style.variant}>{style.label}</Badge>
-                {doc.doc_type && <span>{KIND_LABEL[kind] ?? doc.doc_type}</span>}
+              <div className="truncate font-medium leading-tight">{doc.file_name}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                  <span className="font-medium text-foreground">{style.label}</span>
+                </span>
+                {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
                 {doc.carrier_name && <span>· {doc.carrier_name}</span>}
                 {doc.period_label && <span>· {doc.period_label}</span>}
+                {isParent && (
+                  <span>· {sheets.length} tab{sheets.length === 1 ? "" : "s"}</span>
+                )}
               </div>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             {target && doc.status === "needs_review" && (
-              <Button size="sm" onClick={onToggle}>{open ? "Hide" : "Review"}</Button>
+              <Button size="sm" onClick={() => onToggle(doc.id)}>
+                {open ? "Hide" : "Review"}
+              </Button>
             )}
-            {doc.status !== "applied" && doc.status !== "dismissed" && (
-              <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+            {doc.status !== "applied" && doc.status !== "dismissed" && !isParent && (
+              <Button size="sm" variant="ghost" onClick={() => onDismiss(doc.id)}>Dismiss</Button>
             )}
             {/* On the finished import, not behind a menu: the fear an undo
                 answers peaks in the minute after the import completes. */}
@@ -715,7 +752,7 @@ function DocRow({
 
         {doc.summary && <p className="text-sm text-muted-foreground">{doc.summary}</p>}
         {doc.error && (
-          <p className="flex items-start gap-2 text-sm text-destructive">
+          <p className="flex items-start gap-2 rounded-[var(--radius)] border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             {doc.error}
           </p>
@@ -736,8 +773,84 @@ function DocRow({
         )}
 
         {open && target && <ReviewPanel documentId={doc.id} />}
+
+        {isParent && (
+          // Indented against a rail, so the tabs read as contents of the file
+          // above rather than as more uploads.
+          <div className="space-y-2 border-l border-border pl-3 sm:pl-4">
+            {sheets.map((sh) => (
+              <SheetRow
+                key={sh.id}
+                doc={sh}
+                open={openDoc === sh.id}
+                onToggle={() => onToggle(sh.id)}
+                onDismiss={() => onDismiss(sh.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </Panel>
+  );
+}
+
+/** One tab of a workbook: same information, one level quieter. */
+function SheetRow({
+  doc, open, onToggle, onDismiss,
+}: {
+  doc: ImportDoc;
+  open: boolean;
+  onToggle: () => void;
+  onDismiss: () => void;
+}) {
+  const style = STATUS_STYLE[doc.status] ?? { label: doc.status, variant: "secondary", dot: "bg-muted-foreground/50" };
+  const kind = (doc.doc_type ?? "unknown") as ImportKind;
+  const target = KIND_TARGET[kind];
+  const Icon = KIND_ICON[kind] ?? FileText;
+  // The tab's own name, not "workbook.xlsx — Book of Business" repeated down the
+  // list. The filename is already on the card this sits inside.
+  const label = doc.sheet_label ?? doc.file_name.split(" — ").slice(-1)[0] ?? doc.file_name;
+
+  return (
+    <div className="rounded-[var(--radius)] border border-border bg-surface-2/50 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <CornerDownRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium leading-tight">{label}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
+                {style.label}
+              </span>
+              {doc.doc_type && <span>· {KIND_LABEL[kind] ?? doc.doc_type}</span>}
+            </div>
+            {doc.summary && (
+              <p className="mt-1 text-xs text-muted-foreground">{doc.summary}</p>
+            )}
+            {doc.error && (
+              <p className="mt-1 flex items-start gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {doc.error}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {target && doc.status === "needs_review" && (
+            <Button size="sm" variant={open ? "outline" : "default"} onClick={onToggle}>
+              {open ? "Hide" : "Review"}
+            </Button>
+          )}
+          {doc.status !== "applied" && doc.status !== "dismissed" && (
+            <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+          )}
+        </div>
+      </div>
+
+      {open && target && <ReviewPanel documentId={doc.id} />}
+    </div>
   );
 }
 
