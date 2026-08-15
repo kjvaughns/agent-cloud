@@ -135,7 +135,7 @@ M3.
 | Added | `src/lib/announcements/lifecycle.ts`, `src/lib/discord/retry.ts`, `src/routes/api/public/hooks/dispatch-announcements.ts` |
 | Changed | announcements route, Discord settings |
 | Migrations | `20260814200000` *(applied)*, `20260815010000_announcement-lifecycle-and-targeting.sql` *(applied)*, `20260815020000_discord-named-integrations.sql` **(pending)** |
-| Checks | `announcements-check`, `announcement-lifecycle-check` (82), `discord-channels-check`, `discord-health-check` (50) |
+| Checks | `announcements-check`, `announcement-lifecycle-check` (76), `discord-channels-check`, `discord-health-check` (50) |
 
 ### Root causes
 
@@ -156,7 +156,7 @@ somebody to notice and switch it back on; skipping recovers by itself.
 
 ### Tests and results
 
-- `announcement-lifecycle-check` — 82 assertions across draft/scheduled/
+- `announcement-lifecycle-check` — 76 assertions across draft/scheduled/
   published/expired, role and upline targeting. Pass.
 - `discord-health-check` — 50 assertions across the ladder, backoff, health
   states and both patches. Pass.
