@@ -79,6 +79,27 @@ const bandIdent = (name: string, min: number | null | undefined, max: number | n
   `${name.trim().toLowerCase()}${SEP}${min ?? ""}${SEP}${max ?? ""}`;
 const levelIdent = (name: string) => name.trim().toLowerCase();
 
+/** Extract the numeric value from a level name so columns can be ordered highest-first. */
+function levelValue(name: string): number {
+  const nums = name.match(/\d+(?:\.\d+)?/g);
+  if (!nums) return NaN;
+  return Number(nums[nums.length - 1]);
+}
+
+/** Sort level columns descending by the percentage they represent. */
+function sortLevelsDesc(m: MatrixState): MatrixState {
+  const indexed = m.levels.map((l, i) => ({ l, i, v: levelValue(l.name) }));
+  indexed.sort((a, b) => {
+    const na = Number.isNaN(a.v);
+    const nb = Number.isNaN(b.v);
+    if (na && nb) return a.i - b.i;
+    if (na) return 1;
+    if (nb) return -1;
+    return b.v - a.v;
+  });
+  return { ...m, levels: indexed.map((x) => x.l) };
+}
+
 /** "18–59", "60+", "to 80" — for chips and merge summaries. */
 export function bandLabel(min: number | null, max: number | null): string | null {
   if (min == null && max == null) return null;
