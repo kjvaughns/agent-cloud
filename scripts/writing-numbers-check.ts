@@ -15,7 +15,13 @@
  * Run alongside `import-check.ts` and `nav-snapshot.ts`.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { loadWritingNumbers, recordWritingNumber, resolveOrgCarrierId, writingNumberKey } from "../src/lib/writing-numbers";
+
+const strip = (s: string) =>
+  s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
 
 let pass = 0;
 let fail = 0;
@@ -155,14 +161,14 @@ check("RLS violation is absorbed",
 
 check("an empty number is never written",
   await recordWritingNumber(fakeDb({}) as any, {
-    agentId: AGENT, orgId: "org-1", carrierId: CARRIER, writingNumber: "   ",
+    agentId: AGENT, actorId: AGENT, orgId: "org-1", carrierId: CARRIER, writingNumber: "   ",
   }), false);
 
 // A personal account with no organization has nothing to attach a row to.
 // That is a normal state, not an error.
 check("no organization → no row, no throw",
   await recordWritingNumber(fakeDb({}) as any, {
-    agentId: AGENT, orgId: null, carrierId: CARRIER, writingNumber: "WN-1",
+    agentId: AGENT, actorId: AGENT, orgId: null, carrierId: CARRIER, writingNumber: "WN-1",
   }), false);
 
 check("no organization → org carrier resolves to null",
@@ -175,6 +181,35 @@ check("a missing org carrier link is created",
     fakeDb({ org_carriers: { single: { data: null, error: null }, insertResult: { data: { id: "oc-new" }, error: null } } }) as any,
     "org-1", CARRIER,
   ), "oc-new");
+
+// ── A writing number that appears has somebody's name against it ────────────
+//
+// `writing_number.created` has been in the audit vocabulary since the log was
+// built, and the staff editor always wrote it. The four other paths that
+// record a number did not, so a number could appear against an agent with
+// nothing saying who put it there — one of the seven changes the recovery
+// brief names as needing a trail.
+
+const WN = strip(readFileSync(join(process.cwd(), "src/lib/writing-numbers.ts"), "utf8"));
+
+check("recording a number writes the audit row",
+  /action: "writing_number\.created"/.test(WN), true);
+check("…naming the agent it is about",
+  /subjectAgentId: args\.agentId/.test(WN), true);
+check("…and who did it", /actorId: args\.actorId/.test(WN), true);
+// A duplicate is the desired end state, not a change. Auditing it would fill
+// the trail with entries for writes that did not happen.
+check("a duplicate is not audited",
+  WN.indexOf('recordAudit') < WN.indexOf('error.code === "23505"'), true);
+
+// The whole point of putting it in the recorder: a call site cannot record a
+// number without recording that they did.
+for (const f of ["src/lib/contracting.functions.ts", "src/lib/admin.functions.ts"]) {
+  const src = strip(readFileSync(join(process.cwd(), f), "utf8"));
+  const calls = src.split("recordWritingNumber(").slice(1);
+  check(`every call site in ${f.split("/").pop()} names an actor`,
+    calls.every((c) => /actorId:/.test(c.slice(0, 400))), true);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

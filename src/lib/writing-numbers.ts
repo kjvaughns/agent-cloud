@@ -30,6 +30,8 @@
  *   stale and unread, and both the dual write and the read fallback can go.
  */
 
+import { recordAudit } from "@/lib/contracting-ops/audit";
+
 type Db = { from: (t: string) => any };
 
 /** PostgREST codes this module has to tolerate rather than surface. */
@@ -82,17 +84,34 @@ export async function resolveOrgCarrierId(
 }
 
 /**
- * Record a writing number for an agent at a carrier.
+ * Record a writing number for an agent at a carrier, and log that it happened.
  *
  * Returns whether the row landed. A false is not an error the caller should
  * raise: before `20260802220000` is applied the `self_reported` source violates
  * the check constraint and the agent write policy does not exist, and in that
  * window the legacy column the caller also writes is the whole story.
+ *
+ * ── Why the audit is in here and not at the call sites ──
+ *
+ * `writing_number.created` has been in the audit vocabulary since the log was
+ * built, and the staff-facing editor in `contracting-records.functions.ts` has
+ * always written it. The four other paths that record a number — an agent
+ * stating their own, staff setting one on a contract, an agent activating an
+ * assigned contract, and an admin recording one on somebody's behalf — did
+ * not. So a writing number could appear against an agent with nothing saying
+ * who put it there, which is one of the seven changes the recovery brief names
+ * as needing a trail.
+ *
+ * Bundling it here is the same reasoning as `recordContractChange`: two writes
+ * that must both happen rot by one call site gaining only one of them. A
+ * caller cannot now record a number without recording that they did.
  */
 export async function recordWritingNumber(
   db: Db,
   args: {
     agentId: string;
+    /** Who is doing this. The agent themselves, for a self-report. */
+    actorId: string;
     orgId: string | null | undefined;
     carrierId: string;
     writingNumber: string;
@@ -121,9 +140,26 @@ export async function recordWritingNumber(
     request_id: args.requestId ?? null,
   });
 
+  if (!error) {
+    // After the insert is known to have landed. Recording a number that was
+    // rejected would be worse than not recording one at all.
+    await recordAudit({
+      organizationId: args.orgId,
+      actorId: args.actorId,
+      action: "writing_number.created",
+      recordType: "writing_number",
+      subjectAgentId: args.agentId,
+      next: { writing_number: number, carrier_id: args.carrierId, source: args.source ?? "self_reported" },
+      metadata: { org_carrier_id: orgCarrierId, request_id: args.requestId ?? null },
+    });
+    return true;
+  }
+
   // 23505: the same number is already recorded for this agent and carrier,
-  // which is the desired end state.
-  if (!error || error.code === "23505") return true;
+  // which is the desired end state — and nothing changed, so there is nothing
+  // to log. Auditing here would fill the trail with entries for writes that
+  // did not happen.
+  if (error.code === "23505") return true;
   if (error.code === CHECK_VIOLATION || error.code === RLS_VIOLATION) return false;
 
   // Anything else is a genuine fault, but still not worth failing the caller

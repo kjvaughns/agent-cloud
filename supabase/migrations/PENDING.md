@@ -117,3 +117,49 @@ agents are not queued.
 
 In the window: nothing reads `agency_level_review` yet, and no constraint
 exists to be violated, so the product behaves exactly as it does today.
+
+- `20260815050000_org-bound-admin-policies.sql`
+
+**Apply this one first.** It closes a cross-tenant read leak that is live in
+production right now.
+
+`public.user_roles` is `(user_id, role)` and has no `organization_id`. So
+`has_role(auth.uid(), 'admin')` asks "is this person an admin *anywhere*" —
+and `admin`, `manager` and `agency_owner` are all issued per-agency by
+ordinary product flows (`billing.functions.ts` gives `agency_owner` to every
+self-serve workspace creator). Fifty-two policies across thirty-three tables
+tested a role that way, so any agency owner could read the other agencies'
+rows.
+
+Proven rather than inferred. On a scratch Postgres with every migration
+applied and two unrelated agencies seeded, agency A's owner read agency B's
+`commission_schedule` — their per-agent commission rates — while correctly
+reading zero policies and zero clients from the same session. That second half
+is what rules out a broken fixture: the org-scoping pass of 2026-07-30 worked,
+and these policies escaped it because its drop-list assumed a `<tbl>_owner_*`
+naming convention that some tables never used.
+
+Three of the fixes are plain `DROP POLICY`: `commission_schedule` and
+`onboarding_documents` already carry correct `*_org_select` / `*_org_modify`
+policies, so the leaking ones were pure surplus and removing them takes nothing
+from anybody. The rest swap the unbounded role test for `is_admin_of_agent()`,
+a new helper built on the existing `is_org_admin()` — which already requires an
+active membership in that specific org, so the bound comes from the schema's
+own vocabulary rather than a new rule.
+
+Also closed: the `producer-docs`, `agent-documents` and `imports` storage
+buckets, where object paths are `<agent uuid>/<file>` and the same role test
+let one agency list another's folders. That bucket holds government ID, voided
+cheques and SSN-bearing contracting paperwork.
+
+`super_admin` is untouched everywhere — it is the one role in that table that
+really is platform-wide, and `is_platform_admin()` tests exactly it.
+
+In the window: **the leak stays open until this is applied.** Nothing in the
+product breaks either way — no TypeScript reads or writes any of these policies
+directly, and every legitimate access path is preserved by the replacement. The
+cost of waiting is exposure, not breakage.
+
+Guarded from here on by `scripts/integration-check.sh`, which fails on the
+leak itself and, separately, on any future policy that tests an agency-level
+role without naming an organization.

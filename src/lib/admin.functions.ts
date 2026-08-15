@@ -968,6 +968,7 @@ export const adminSetCompLevel = createServerFn({ method: "POST" })
         .from("profiles").select("organization_id").eq("id", data.agent_id).maybeSingle();
       await recordWritingNumber(supabase, {
         agentId: data.agent_id,
+        actorId: userId,
         orgId: agent?.organization_id ?? null,
         carrierId: data.carrier_id,
         writingNumber: data.writing_number,
