@@ -716,15 +716,100 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
 
 export const listDiscordDeliveries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ integrationId: z.string().uuid().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     const { supabase } = context as Ctx;
-    const { data, error } = await supabase
+    let q = supabase
       .from("discord_deliveries")
-      .select("id, event_type, status, http_status, error, created_at, integration_id")
+      .select("id, event_type, status, http_status, error, skip_reason, event_key, created_at, integration_id")
       .order("created_at", { ascending: false })
-      .limit(25);
+      .limit(data.integrationId ? 25 : 50);
+    if (data.integrationId) q = q.eq("integration_id", data.integrationId);
+    const { data: rows, error } = await q;
     if (error) return { deliveries: [] };
-    return { deliveries: data ?? [] };
+    return { deliveries: rows ?? [] };
+  });
+
+/**
+ * Send a failed delivery again, under its original event key.
+ *
+ * Re-sending is safe precisely because the key is stable: a retry either lands
+ * once or is recognised as already sent. Only failed rows may be retried — a
+ * skip was a decision, not an accident.
+ */
+export const retryDiscordDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (!orgId) throw new Error("No organization");
+    await assertTabPermission(userId, "automations", orgId);
+
+    const { data: row } = await supabaseAdmin
+      .from("discord_deliveries")
+      .select("id, integration_id, event_type, event_key, policy_id, status")
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!row) throw new Error("That delivery no longer exists.");
+    if (row.status !== "failed") throw new Error("Only failed deliveries can be retried.");
+
+    const { data: cfg } = await supabaseAdmin
+      .from("discord_integrations")
+      .select("*")
+      .eq("id", row.integration_id)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (!cfg?.webhook_url) throw new Error("That Discord bot no longer exists.");
+
+    if (row.event_key && (await alreadySent(cfg.id, row.event_key))) {
+      return { ok: true, alreadySent: true };
+    }
+
+    // The original event is rebuilt rather than stored: a deal's premium may
+    // have been corrected since, and the channel should hear what is true now.
+    if (row.event_type === "deal_posted" && row.policy_id) {
+      await announceDeal(row.policy_id);
+      return { ok: true, alreadySent: false };
+    }
+
+    try {
+      const status = await postToDiscord(cfg.webhook_url, {
+        username: "Agent Cloud",
+        embeds: [{
+          title: "🔁 Retried delivery",
+          description: "A previously failed Agent Cloud post was retried.",
+          color: GOLD,
+          timestamp: new Date().toISOString(),
+        }],
+      });
+      await recordDelivery({
+        orgId,
+        integrationId: cfg.id,
+        eventType: row.event_type,
+        status: "sent",
+        httpStatus: status,
+        eventKey: row.event_key,
+      });
+      await markSuccess(cfg.id);
+      return { ok: true, alreadySent: false };
+    } catch (e: any) {
+      const msg = String(e?.message ?? e).slice(0, 500);
+      await recordDelivery({
+        orgId,
+        integrationId: cfg.id,
+        eventType: row.event_type,
+        status: "failed",
+        httpStatus: e?.status ?? null,
+        error: msg,
+        eventKey: row.event_key,
+      });
+      await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
+      throw new Error(`Discord rejected the message: ${msg}`);
+    }
   });
 
 /**
