@@ -2474,9 +2474,11 @@ export type Database = {
           level_sort: number | null
           organization_id: string | null
           product_name: string
+          risk_class: string | null
           sort_order: number | null
           source: string | null
           source_file: string | null
+          state_code: string | null
           updated_at: string
           year_1_pct: number | null
           years_2_5_pct: number | null
@@ -2496,9 +2498,11 @@ export type Database = {
           level_sort?: number | null
           organization_id?: string | null
           product_name: string
+          risk_class?: string | null
           sort_order?: number | null
           source?: string | null
           source_file?: string | null
+          state_code?: string | null
           updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
@@ -2518,9 +2522,11 @@ export type Database = {
           level_sort?: number | null
           organization_id?: string | null
           product_name?: string
+          risk_class?: string | null
           sort_order?: number | null
           source?: string | null
           source_file?: string | null
+          state_code?: string | null
           updated_at?: string
           year_1_pct?: number | null
           years_2_5_pct?: number | null
