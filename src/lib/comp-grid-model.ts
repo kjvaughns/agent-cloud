@@ -166,7 +166,7 @@ export function toMatrix(rows: GridRow[]): MatrixState {
     });
   }
 
-  return { products, levels, cells };
+  return sortLevelsDesc({ products, levels, cells });
 }
 
 /**
@@ -275,7 +275,7 @@ export function mergeMatrix(current: MatrixState, incoming: MatrixState): MergeS
     cells.set(k, cell);
   }
 
-  return { merged: { products, levels, cells }, addedProducts, addedLevels, changedCells };
+  return { merged: sortLevelsDesc({ products, levels, cells }), addedProducts, addedLevels, changedCells };
 }
 
 // ── Editing operations ──────────────────────────────────────────────────────
@@ -303,8 +303,9 @@ export function renameProduct(m: MatrixState, uid: string, name: string): Matrix
 }
 
 export function renameLevel(m: MatrixState, uid: string, name: string): MatrixState {
-  return { ...m, levels: m.levels.map((l) => (l.uid === uid ? { ...l, name } : l)) };
+  return sortLevelsDesc({ ...m, levels: m.levels.map((l) => (l.uid === uid ? { ...l, name } : l)) });
 }
+
 
 export function setAgeBand(m: MatrixState, uid: string, min: number | null, max: number | null): MatrixState {
   return { ...m, products: m.products.map((p) => (p.uid === uid ? { ...p, age_group_min: min, age_group_max: max } : p)) };
@@ -315,8 +316,9 @@ export function addProduct(m: MatrixState): MatrixState {
 }
 
 export function addLevel(m: MatrixState): MatrixState {
-  return { ...m, levels: [...m.levels, { uid: newUid(), name: "" }] };
+  return sortLevelsDesc({ ...m, levels: [...m.levels, { uid: newUid(), name: "" }] });
 }
+
 
 /**
  * A second age band for a product, inserted directly beneath it.
