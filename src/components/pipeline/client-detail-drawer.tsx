@@ -32,6 +32,7 @@ import {
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
   listCarriers, addPolicy, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
+import { postDeal } from "@/lib/post-deal.functions";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
 import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
@@ -1106,8 +1107,8 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       </div>
       <div className="flex gap-2 pt-1">
         {showCancel && <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>}
-        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
-          {mut.isPending ? "Saving..." : "Save Policy"}
+        <Button size="sm" onClick={post} disabled={mut.isPending} className="flex-1">
+          {mut.isPending ? "Posting..." : "Post Deal"}
         </Button>
       </div>
     </div>
@@ -1246,7 +1247,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       </div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="flex-1">Cancel</Button>
-        <Button size="sm" onClick={() => mut.mutate()} disabled={mut.isPending} className="flex-1">
+        <Button size="sm" onClick={post} disabled={mut.isPending} className="flex-1">
           {mut.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
