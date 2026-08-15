@@ -6,7 +6,7 @@ import {
   listMyContracts, listMyRequestHistory, addAgentCarrier, requestCommissionLevel, listCarriers,
   listMyAgencyCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
-  listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
+  listWorkInbox, activateContract, createContractRequest, deleteContractRequest, getMyContactFacts,
   resolveCommissionLevelRequest,
 } from "@/lib/contracting.functions";
 import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses } from "@/lib/surelc.functions";
@@ -643,12 +643,42 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
   const addFn = useServerFn(addAgentCarrier);
   const requestFn = useServerFn(createContractRequest);
 
+  // ── What the carrier paperwork is filled from ──────────────────────────
+  //
+  // Prefilled from the profile, editable here. A request raised on a blank NPN
+  // stalls at the first staff review, and the agent hears about it days later
+  // as "agent action needed" — so the gap is shown before the request exists.
+  const factsFn = useServerFn(getMyContactFacts);
+  const { data: facts } = useQuery({
+    queryKey: ["contracting", "my-contact-facts"],
+    queryFn: () => factsFn({}),
+    enabled: open && mode === "request",
+  });
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [npn, setNpn] = useState("");
+  useEffect(() => {
+    if (!facts) return;
+    setFullName((v) => v || facts.full_name);
+    setEmail((v) => v || facts.email);
+    setPhone((v) => v || facts.phone);
+    setNpn((v) => v || facts.npn);
+  }, [facts]);
+
   const submit = useMutation({
     mutationFn: () => {
       if (mode === "active") {
         return addFn({ data: { carrier_id: carrierId, writing_number: writingNumber || undefined, loa: loa as any } });
       } else {
-        return requestFn({ data: { carrier_id: carrierId, notes: notes || undefined } });
+        return requestFn({ data: {
+          carrier_id: carrierId,
+          notes: notes || undefined,
+          full_name: fullName.trim() || undefined,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          npn: npn.trim() || undefined,
+        } });
       }
     },
     onSuccess: () => {
@@ -667,7 +697,9 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
 
   const canSubmit = mode === "active"
     ? (!!carrierId && !!writingNumber.trim() && !!loa)
-    : !!carrierId;
+    // The four confirmations are the request. Sending it without them is what
+    // produced requests staff had to send straight back.
+    : !!carrierId && !!fullName.trim() && !!email.trim() && !!phone.trim() && !!npn.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -733,10 +765,40 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
               </div>
             </>
           ) : (
+            <>
+              <div className="rounded-lg border border-border bg-surface-2 p-3 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Confirm the details the carrier paperwork is filled from. Fix anything
+                  that's wrong or missing — it saves back to your profile.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Full name *</Label>
+                    <Input value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 200))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>NPN *</Label>
+                    <Input value={npn} onChange={(e) => setNpn(e.target.value.slice(0, 20))} className="mt-1" placeholder="e.g. 12345678" />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value.slice(0, 200))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Phone *</Label>
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value.slice(0, 40))} className="mt-1" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Documents aren't needed to raise the request unless your agency asks for
+                  something specific.
+                </p>
+              </div>
             <div>
               <Label>Message to admin (optional)</Label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value.slice(0, 500))} className="mt-1" rows={3} placeholder="Any notes about this contracting request..." />
             </div>
+            </>
           )}
 
           {error && (
