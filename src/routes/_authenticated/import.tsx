@@ -998,10 +998,12 @@ function DocCard({
               <SheetRow
                 key={sh.id}
                 doc={sh}
+                phase={live[sh.id]}
                 open={openDoc === sh.id}
                 onToggle={() => onToggle(sh.id)}
                 onDismiss={() => onDismiss(sh.id)}
               />
+
             ))}
           </div>
         )}
