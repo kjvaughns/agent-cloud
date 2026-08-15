@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { PageShell, Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
 
 /**
@@ -42,7 +43,7 @@ export function RequireAgencyAdmin({
   if (loading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 rounded-xl" />
+        <PageSkeleton metrics={0} panels={1} />
       </PageShell>
     );
   }
