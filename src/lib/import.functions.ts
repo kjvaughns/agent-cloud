@@ -803,6 +803,40 @@ export const applyProposals = createServerFn({ method: "POST" })
     let applied = 0;
     let failed = 0;
 
+    /*
+      Claim first, then find out what the agency already has.
+
+      Review happened at some earlier point, possibly before this agent's rows
+      were claimed and certainly before whatever else has been imported since.
+      Both questions are asked again here, at the moment of writing, because
+      this is the last point where a duplicate can still be prevented.
+    */
+    const clientRows = rows.filter((r) => r.target_table === "clients");
+    const knownPolicyNumbers = new Set<string>();
+    if (clientRows.length) {
+      const { error: claimErr } = await supabase.rpc("claim_my_assigned_records", {});
+      if (claimErr) console.error("Import apply: claim failed", claimErr.message);
+
+      const numbers = new Set<string>();
+      for (const r of clientRows) {
+        for (const pol of r.payload?.policies ?? []) {
+          const n = String(pol?.policy_number ?? "").trim().toLowerCase();
+          if (n) numbers.add(n);
+        }
+      }
+      if (numbers.size) {
+        const { data: scan, error: scanErr } = await supabase.rpc("import_duplicate_scan", {
+          _phones: [], _emails: [], _name_dobs: [], _names: [],
+          _policy_numbers: [...numbers],
+        });
+        if (scanErr) console.error("Import apply: duplicate scan failed", scanErr.message);
+        for (const pol of (scan?.policies ?? []) as any[]) {
+          const n = String(pol?.policy_number ?? "").trim().toLowerCase();
+          if (n) knownPolicyNumbers.add(n);
+        }
+      }
+    }
+
     // Grid rows apply together, not one at a time. `saveGrid` in merge mode
     // clears the products it is about to write, so applying row by row would
     // have each row wipe the one before it — the second level of a product
@@ -885,6 +919,7 @@ export const applyProposals = createServerFn({ method: "POST" })
             // effective date rather than today.
             backdate: true,
             buildCommissions: true,
+            knownPolicyNumbers,
           };
           const owner = p.payload?.agent_id && p.payload.agent_id !== userId
             ? String(p.payload.agent_id)
