@@ -62,7 +62,11 @@ function CarriersPage() {
         {isLoading ? (
           <div className="grid md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-56" />)}</div>
         ) : filtered.length === 0 ? (
-          <Panel><div className="py-10 text-center text-sm text-muted-foreground">No carriers match.</div></Panel>
+          <Panel><div className="py-10 text-center text-sm text-muted-foreground">
+            {(data?.carriers ?? []).length === 0
+              ? "No carriers set up yet. Add the carriers your agency holds under Settings ▸ Carriers."
+              : "No carriers match."}
+          </div></Panel>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">
             {filtered.map((c: any) => (
