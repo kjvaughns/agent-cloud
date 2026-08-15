@@ -618,6 +618,13 @@ const addPolicySchema = z.object({
   monthly_premium: z.number().nullable().optional(),
   face_amount: z.number().nullable().optional(),
   effective_date: z.string().nullable().optional().or(z.literal("")),
+  /**
+   * When the business was written. Optional: left out, the database derives it
+   * the way it always has. Given, it decides which month this deal counts in
+   * on production, the dashboard and the leaderboard — which is what makes a
+   * backdated or imported policy read accurately.
+   */
+  sale_date: z.string().nullable().optional().or(z.literal("")),
 });
 
 export const addPolicy = createServerFn({ method: "POST" })
@@ -625,9 +632,17 @@ export const addPolicy = createServerFn({ method: "POST" })
   .inputValidator((d) => addPolicySchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
-    const payload: any = { ...data, agent_id: userId, posted_at: new Date().toISOString() };
+    const { sale_date, ...fields } = data;
+    const payload: any = { ...fields, agent_id: userId, posted_at: new Date().toISOString() };
     for (const k of ["policy_number", "product", "effective_date"]) {
       if (payload[k] === "") payload[k] = null;
+    }
+    // `posted_at` stays the real post time for audit; the sale date is the
+    // production window, and only set here when the agent chose one.
+    if (sale_date) {
+      payload.production_date = saleDateToTimestamp(sale_date);
+      payload.production_date_set_by = userId;
+      payload.production_date_set_at = new Date().toISOString();
     }
     const { data: row, error } = await supabase.from("policies").insert(payload).select("id").single();
     if (error) throw new Error(error.message);
