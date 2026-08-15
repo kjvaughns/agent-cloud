@@ -325,6 +325,64 @@ export type Database = {
           },
         ]
       }
+      agency_level_review: {
+        Row: {
+          candidate_level_ids: string[]
+          created_at: string
+          id: string
+          observed_pct: number | null
+          organization_id: string
+          profile_id: string
+          reason: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          candidate_level_ids?: string[]
+          created_at?: string
+          id?: string
+          observed_pct?: number | null
+          organization_id: string
+          profile_id: string
+          reason: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          candidate_level_ids?: string[]
+          created_at?: string
+          id?: string
+          observed_pct?: number | null
+          organization_id?: string
+          profile_id?: string
+          reason?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_level_review_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_review_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_level_review_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_levels: {
         Row: {
           active: boolean
@@ -9754,6 +9812,10 @@ export type Database = {
           version: string
         }[]
       }
+      mapping_level_same_org: {
+        Args: { _level_id: string; _mapping_org: string }
+        Returns: boolean
+      }
       may_notify: {
         Args: { _category: string; _profile: string }
         Returns: boolean
@@ -9774,6 +9836,10 @@ export type Database = {
       normalize_policy_number: { Args: { _s: string }; Returns: string }
       policy_counts_as_production: {
         Args: { _status: string }
+        Returns: boolean
+      }
+      profile_level_same_org: {
+        Args: { _level_id: string; _profile_org: string }
         Returns: boolean
       }
       prune_rate_limits: { Args: never; Returns: undefined }
