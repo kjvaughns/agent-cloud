@@ -51,9 +51,13 @@ check("…and declares no route of its own", /createFileRoute|beforeLoad/.test(M
 // a page and became a redirect into Agency Settings ▸ Carriers, because what a
 // carrier pays is part of setting that carrier up. The requirement is
 // unchanged and is what this asserts — one mount, not two.
-check("the agency settings page mounts the editor",
-  read("src/routes/_authenticated/settings.agency.tsx")
+check("the carrier row mounts the editor",
+  read("src/components/contracting/carrier-setup.tsx")
     .includes('from "@/components/contracting/manage-grids"'), true);
+// Two mounts is how one screen starts disagreeing with itself about what a
+// carrier pays.
+check("…and the settings page no longer mounts a second copy",
+  read("src/routes/_authenticated/settings.agency.tsx").includes("ManageGridsPage"), false);
 check("…and the old comp-grids page mounts nothing",
   read("src/routes/_authenticated/settings.comp-grids.tsx")
     .includes("ManageGridsPage"), false);

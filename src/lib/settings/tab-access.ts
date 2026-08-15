@@ -43,7 +43,6 @@ export const SETTINGS_TABS = [
   "levels",
   "carriers",
   "contracting",
-  "notifications",
   "automations",
   "integrations",
 ] as const;
@@ -56,7 +55,6 @@ export const TAB_LABEL: Record<SettingsTab, string> = {
   levels: "Levels & Positions",
   carriers: "Carriers",
   contracting: "Contracting",
-  notifications: "Notifications",
   automations: "Automations",
   integrations: "Integrations",
 };
@@ -64,9 +62,10 @@ export const TAB_LABEL: Record<SettingsTab, string> = {
 /**
  * The capability each tab needs.
  *
- * `null` means the tab needs nothing beyond being staff at all — Notifications
- * only ever edits your own preferences, so gating it would stop somebody
- * turning off their own email.
+ * Every tab needs one. Notifications used to be the exception — it edits your
+ * own preferences and so could not be gated — which is exactly why it is no
+ * longer a tab here: a page anybody may open does not belong behind a hub that
+ * requires an agency permission to reach. It lives at /settings/notifications.
  */
 export const TAB_PERMISSION: Record<SettingsTab, PermissionKey | null> = {
   general: "admin_manage_agency_profile",
@@ -74,7 +73,6 @@ export const TAB_PERMISSION: Record<SettingsTab, PermissionKey | null> = {
   levels: "admin_manage_levels",
   carriers: "admin_manage_carriers",
   contracting: "staff_edit_contracts",
-  notifications: null,
   automations: "admin_manage_automations",
   integrations: "admin_manage_integrations",
 };

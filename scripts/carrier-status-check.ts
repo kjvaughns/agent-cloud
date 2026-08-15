@@ -224,11 +224,35 @@ console.log("");
 
 const UI = strip(readFileSync(join(process.cwd(), "src/components/contracting/carrier-setup.tsx"), "utf8"));
 
-check("the card shows the status pill", /<StatusPill state=\{c\.state\} \/>/.test(UI), true);
+check("the row shows the status pill", /<StatusPill state=\{state\} \/>/.test(UI), true);
+// The ten facts the spec asks a row to carry. A grid of cards puts each in a
+// different place on every card; a row keeps them in the same column, which is
+// the whole point when scanning fifteen carriers for the one missing an
+// advance.
+check("…and the facts a row must carry",
+  ["Levels", "Advance", "Contracting", "Open requests"]
+    .every((l) => new RegExp(`label="${l}"`).test(UI)), true);
+// Products is the one fact that is also a doorway: it counts what the grid
+// covers and opens that grid, because "0 products" with nowhere to go is a
+// complaint rather than a next step.
+check("…with products opening the grid it counts",
+  />Products<\/dt>/.test(UI) && /onClick=\{onEditGrid\}/.test(UI), true);
+check("…and saying so when there is no grid yet",
+  /"Add grid"/.test(UI), true);
+check("…with the logo when there is one", /c\.logo_url \? \(/.test(UI), true);
 // A row of reassuring green badges teaches an owner to stop reading them,
 // which is exactly when the one that matters appears.
 check("…and problems only when there are problems",
-  /\(c\.state\?\.problems \?\? \[\]\)\.length > 0 &&/.test(UI), true);
+  /\(state\?\.problems \?\? \[\]\)\.length > 0 &&/.test(UI), true);
+// The switch is what makes a carrier real to agents, so it must not flip when
+// the setup cannot pay a deal — and must say why rather than doing nothing.
+check("the row has an activation switch", /role="switch"/.test(UI), true);
+check("…that refuses when setup is outstanding", /if \(!mayToggle\) \{/.test(UI), true);
+check("…explaining what is missing rather than failing silently",
+  /toast\.error\(\s*state\?\.problems\[0\]/.test(UI), true);
+check("…and switching off keeps the carrier",
+  /stays saved and keeps its history/.test(UI), true);
+
 check("the header counts active and needing setup",
   /summarise\(allCarriers\.map/.test(UI), true);
 // Filtering must not change the counts, or an owner filtering to Draft can no
@@ -248,7 +272,7 @@ check("…with the wording deciding the button",
   /mode === "delete" \? "Delete permanently" : "Archive"/.test(UI), true);
 // An archived carrier with an Edit button and no way back is a dead end.
 check("an archived carrier offers restore instead of edit",
-  /c\.state\?\.status === "archived" \? \(/.test(UI), true);
+  /isArchived \? \(/.test(UI) && /onClick=\{onRestore\}/.test(UI), true);
 check("…and archived rows are out of the default view",
   /filter === "all"\s*\? carriers\.filter\(\(c\) => c\.state\?\.status !== "archived"\)/.test(UI), true);
 

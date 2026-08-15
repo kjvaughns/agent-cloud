@@ -96,10 +96,12 @@ check("…under Agency, with the roster",
   /id: "sub-agencies-nav"[^}]*area: "Agency"/.test(NAV), true);
 check("…still gated on actually having children",
   /id: "sub-agencies-nav"[^}]*unlock: "has-sub-agencies"/.test(NAV), true);
-// The five the Settings hub is allowed to show. A sixth creeping back in is
-// the thing the consolidation was for.
-check("the Settings hub stays at five",
-  /settings: \[\s*\{ label: "", ids: \["agency-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\]/
+// The Settings hub, held to exactly this list. Anything creeping back in is
+// the thing the consolidation was for — notif-settings is here on purpose,
+// because it configures your own inbox and cannot live behind an agency
+// permission.
+check("the Settings hub holds its shape",
+  /settings: \[\s*\{ label: "", ids: \["agency-settings", "notif-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\]/
     .test(NAV), true);
 
 const ACCESS = read("src/lib/permissions.functions.ts");

@@ -34,30 +34,51 @@ const strip = (s: string) => s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\
 
 const AGENCY = read("src/routes/_authenticated/settings.agency.tsx");
 
-const CONCEPTS: [string, string, string, string][] = [
-  // [concept, component file, exported name, tab it renders under]
-  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "carriers"],
-  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "carriers"],
-  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "levels"],
-  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "contracting"],
-  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "contracting"],
-  ["roles & permissions", "src/components/agency-team-page.tsx", "AgencyTeamPage", "roles"],
-  ["notification prefs", "src/components/settings/notifications-panel.tsx", "NotificationsPanel", "notifications"],
-  ["integrations catalogue", "src/components/settings/integrations-catalog.tsx", "IntegrationsCatalog", "integrations"],
+// [concept, component file, exported name, tab, where it mounts]
+//
+// `host` is the file that renders it. Most sit directly on the Agency settings
+// page; the comp-grid editor does not, because a grid belongs to one carrier
+// and having every carrier's rates open beneath the carrier list meant neither
+// was findable. It opens from the carrier row instead.
+const CONCEPTS: [string, string, string, string, string][] = [
+  ["carrier setup", "src/components/contracting/carrier-setup.tsx", "CarrierDirectoryPage", "carriers",
+   "src/routes/_authenticated/settings.agency.tsx"],
+  ["comp-grid editor", "src/components/contracting/manage-grids.tsx", "ManageGridsPage", "carriers",
+   "src/components/contracting/carrier-setup.tsx"],
+  ["levels ladder", "src/components/contracting/levels-panel.tsx", "LevelsPanel", "levels",
+   "src/routes/_authenticated/settings.agency.tsx"],
+  ["contracting policy", "src/components/settings/contracting-settings-panel.tsx", "ContractingSettingsPanel", "contracting",
+   "src/routes/_authenticated/settings.agency.tsx"],
+  ["submission templates", "src/components/settings/templates-panel.tsx", "TemplatesPanel", "contracting",
+   "src/routes/_authenticated/settings.agency.tsx"],
+  ["roles & permissions", "src/components/agency-team-page.tsx", "AgencyTeamPage", "roles",
+   "src/routes/_authenticated/settings.agency.tsx"],
+  // Notification preferences left Agency settings entirely: they configure YOUR
+  // inbox rather than the agency, so they could not be gated like the rest and
+  // an agent with no agency permissions must still reach them.
+  ["notification prefs", "src/components/settings/notifications-panel.tsx", "NotificationsPanel", "",
+   "src/routes/_authenticated/settings.notifications.tsx"],
+  ["integrations catalogue", "src/components/settings/integrations-catalog.tsx", "IntegrationsCatalog", "integrations",
+   "src/routes/_authenticated/settings.agency.tsx"],
 ];
 
-for (const [concept, compFile, exported, tab] of CONCEPTS) {
+for (const [concept, compFile, exported, tab, hostFile] of CONCEPTS) {
   const comp = read(compFile);
   check(`${concept}: component exports ${exported}`, comp.includes(`export function ${exported}`), true);
   check(`${concept}: component declares no route`, /createFileRoute/.test(comp), false);
-  check(`${concept}: Agency settings mounts it`, AGENCY.includes(`<${exported}`), true);
-  check(`${concept}: its tab exists`, AGENCY.includes(`"${tab}"`), true);
+  // Exactly one mount. Two is how a screen starts disagreeing with itself.
+  check(`${concept}: mounted once, in ${hostFile.split("/").pop()}`,
+    (read(hostFile).match(new RegExp(`<${exported}[\\s/>]`, "g")) ?? []).length, 1);
+  if (tab) check(`${concept}: its tab exists`, AGENCY.includes(`"${tab}"`), true);
 }
 
-// The eight tabs, in the order the work happens.
-check("Agency settings declares the eight tabs in order",
-  /"general",\s*\n\s*"roles",\s*\n\s*"levels",\s*\n\s*"carriers",\s*\n\s*"contracting",\s*\n\s*"notifications",\s*\n\s*"automations",\s*\n\s*"integrations",/.test(AGENCY),
-  true);
+// The tabs, in the order the work happens, and derived from one list rather
+// than retyped on the page.
+check("Agency settings derives its tabs from the access module",
+  /const TABS = SETTINGS_TABS;/.test(AGENCY), true);
+check("…which declares the seven in order",
+  /"general",\s*\n\s*"roles",\s*\n\s*"levels",\s*\n\s*"carriers",\s*\n\s*"contracting",\s*\n\s*"automations",\s*\n\s*"integrations",/
+    .test(read("src/lib/settings/tab-access.ts")), true);
 check("the setup strip is above the tabs", /<AgencySetupProgress/.test(AGENCY), true);
 
 // ── The pages that became tabs redirect into them, in one hop ───────────────
@@ -70,10 +91,12 @@ const TAB_REDIRECTS: [string, string][] = [
   ["src/routes/_authenticated/settings.levels.tsx", "levels"],
   ["src/routes/_authenticated/settings.contracting.tsx", "contracting"],
   ["src/routes/_authenticated/settings.templates.tsx", "contracting"],
-  ["src/routes/_authenticated/settings.notifications.tsx", "notifications"],
   ["src/routes/_authenticated/settings.roles.tsx", "roles"],
   ["src/routes/_authenticated/settings.automations.tsx", "automations"],
   ["src/routes/_authenticated/settings.integrations.tsx", "integrations"],
+  // settings.notifications.tsx is deliberately absent: it stopped redirecting
+  // into a tab and became the page itself, because notification preferences
+  // configure your own inbox rather than the agency.
 ];
 for (const [file, tab] of TAB_REDIRECTS) {
   const s = read(file);
@@ -149,8 +172,10 @@ for (const site of LINK_SITES) {
 console.log("");
 
 const NAV = read("src/lib/navigation.ts");
-check("Settings lists five rows and no groups",
-  /settings: \[\s*\n\s*\{ label: "", ids: \["agency-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\n\s*\],/.test(NAV),
+check("notifications has a destination rather than a tab link",
+  /id: "notif-settings"[^}]*path: "\/settings\/notifications"/.test(NAV), true);
+check("Settings lists its rows flat, with no group headings",
+  /settings: \[\s*\n\s*\{ label: "", ids: \["agency-settings", "notif-settings", "security", "billing", "nova-pro", "support-desk"\] \},\s*\n\s*\],/.test(NAV),
   true);
 check("the ops hub is daily work only", /label: "Set up contracting"/.test(NAV), false);
 // The configuration entries stay in the registry — the palette still knows
@@ -159,7 +184,10 @@ check("the ops hub is daily work only", /label: "Set up contracting"/.test(NAV),
 for (const id of [
   "carriers-setup", "comp-grids-setup", "agency-levels",
   "contracting-settings", "contracting-templates",
-  "agency-roles", "notif-settings", "agency-automations", "integrations",
+  // notif-settings is deliberately absent: it went the other way, out of the
+  // tabs and back to a destination of its own, because it configures your own
+  // inbox rather than the agency and could not be gated like the rest.
+  "agency-roles", "agency-automations", "integrations",
 ]) {
   const line = NAV.split("\n").find((l) => l.includes(`id: "${id}"`)) ?? "";
   check(`nav entry ${id} resolves to an Agency settings tab`, /path: "\/settings\/agency\?tab=/.test(line), true);
