@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
-  AlertTriangle, Flame, Thermometer, Snowflake, Heart, Eye, EyeOff,
+  AlertTriangle, Heart, Eye, EyeOff,
   ClipboardList, Share2, DollarSign, Building, Activity, Users, User, Calendar, MapPin,
   Shield,
   Loader2,
@@ -21,8 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { PRODUCT_TYPES as PRODUCTS } from "@/lib/products";
-import { phone as fmtPhone, money, formatPhone, formatRouting } from "@/lib/format";
+import { PRODUCT_TYPES as PRODUCTS, productsForCarrier } from "@/lib/products";
+import { phone as fmtPhone, money, formatPhone, formatRouting, formatDob } from "@/lib/format";
+import { listCarriersForDeal } from "@/lib/post-deal.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
@@ -38,13 +39,6 @@ import { PolicyReviewPanel } from "@/components/ai/policy-review-panel";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 type Stage = "new" | "callback" | "almost_there" | "sold";
-type Temp = "hot" | "warm" | "cold";
-
-const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot:  { cls: "bg-destructive text-destructive border-destructive",    Icon: Flame,       label: "Hot"  },
-  warm: { cls: "bg-warning text-warning border-warning", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-info text-info border-info", Icon: Snowflake,   label: "Cold" },
-};
 
 const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
   new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-border text-muted-foreground",   label: "New / Initial" },
@@ -109,7 +103,7 @@ export function ClientDetailDrawer({ clientId, onClose }: { clientId: string | n
 
 // ============ Body ============
 function DrawerBody({ clientId }: { clientId: string }) {
-  const [activeTab, setActiveTab] = useState("timeline");
+  const [activeTab, setActiveTab] = useState("contact");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
   if (isLoading || !data?.client) {
@@ -123,13 +117,12 @@ function DrawerBody({ clientId }: { clientId: string }) {
   }
 
   const c = data.client;
-  const t = tempPill[(c.temperature ?? "cold") as Temp];
   const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Compact header */}
-      <DrawerHeader client={c} t={t} />
+      <DrawerHeader client={c} />
 
       {/* Stage bar */}
       <StageBar client={c} />
@@ -164,7 +157,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
 }
 
 // ============ Header ============
-function DrawerHeader({ client, t }: { client: any; t: any }) {
+function DrawerHeader({ client }: { client: any }) {
   const qc = useQueryClient();
   const nav = useNavigate();
   const markSoldFn = useServerFn(markClientSold);
@@ -183,9 +176,6 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-lg leading-tight">{client.first_name} {client.last_name}</span>
-            <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium shrink-0", t.cls)}>
-              <t.Icon className="h-3 w-3" /> {t.label}
-            </span>
           </div>
           {client.phone && (
             <a href={`tel:${client.phone}`} className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1 mt-0.5">
@@ -443,13 +433,10 @@ function ContactTab({ detail }: { detail: any }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <EditableField label="First Name" client={client} field="first_name" />
           <EditableField label="Last Name" client={client} field="last_name" />
-          <EditableField label="Phone" client={client} field="phone" />
+          <EditableField label="Phone" client={client} field="phone" phone />
           <EditableField label="Phone Type" client={client} field="phone_type" select={["Mobile","Home","Work"]} />
           <EditableField label="Email" client={client} field="email" />
-          <EditableField label="Date of Birth" client={client} field="date_of_birth" type="date" />
-        </div>
-        <div className="mt-3 pt-3 border-t">
-          <TemperatureSelector client={client} />
+          <EditableField label="Date of Birth" client={client} field="date_of_birth" dob />
         </div>
       </SectionCard>
 
@@ -480,39 +467,6 @@ function ContactTab({ detail }: { detail: any }) {
       <SectionCard icon={Users} title="Beneficiaries">
         <BeneficiariesInline detail={detail} />
       </SectionCard>
-    </div>
-  );
-}
-
-// ============ Temperature ============
-function TemperatureSelector({ client }: { client: any }) {
-  const qc = useQueryClient();
-  const updateFn = useServerFn(updateClient);
-  const mut = useMutation({
-    mutationFn: (temperature: Temp) => updateFn({ data: { id: client.id, patch: { temperature } } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
-  });
-
-  return (
-    <div className="space-y-2">
-      <div className="text-xs font-medium text-muted-foreground">Temperature</div>
-      <div className="flex gap-2">
-        {(["hot", "warm", "cold"] as const).map((temp) => {
-          const p = tempPill[temp];
-          return (
-            <button
-              key={temp}
-              onClick={() => mut.mutate(temp)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition",
-                client.temperature === temp ? p.cls : "border-border text-muted-foreground hover:bg-muted",
-              )}
-            >
-              <p.Icon className="h-3 w-3" /> {p.label}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
