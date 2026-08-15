@@ -79,6 +79,27 @@ const bandIdent = (name: string, min: number | null | undefined, max: number | n
   `${name.trim().toLowerCase()}${SEP}${min ?? ""}${SEP}${max ?? ""}`;
 const levelIdent = (name: string) => name.trim().toLowerCase();
 
+/** Extract the numeric value from a level name so columns can be ordered highest-first. */
+function levelValue(name: string): number {
+  const nums = name.match(/\d+(?:\.\d+)?/g);
+  if (!nums) return NaN;
+  return Number(nums[nums.length - 1]);
+}
+
+/** Sort level columns descending by the percentage they represent. */
+function sortLevelsDesc(m: MatrixState): MatrixState {
+  const indexed = m.levels.map((l, i) => ({ l, i, v: levelValue(l.name) }));
+  indexed.sort((a, b) => {
+    const na = Number.isNaN(a.v);
+    const nb = Number.isNaN(b.v);
+    if (na && nb) return a.i - b.i;
+    if (na) return 1;
+    if (nb) return -1;
+    return b.v - a.v;
+  });
+  return { ...m, levels: indexed.map((x) => x.l) };
+}
+
 /** "18–59", "60+", "to 80" — for chips and merge summaries. */
 export function bandLabel(min: number | null, max: number | null): string | null {
   if (min == null && max == null) return null;
@@ -145,7 +166,7 @@ export function toMatrix(rows: GridRow[]): MatrixState {
     });
   }
 
-  return { products, levels, cells };
+  return sortLevelsDesc({ products, levels, cells });
 }
 
 /**
@@ -254,7 +275,7 @@ export function mergeMatrix(current: MatrixState, incoming: MatrixState): MergeS
     cells.set(k, cell);
   }
 
-  return { merged: { products, levels, cells }, addedProducts, addedLevels, changedCells };
+  return { merged: sortLevelsDesc({ products, levels, cells }), addedProducts, addedLevels, changedCells };
 }
 
 // ── Editing operations ──────────────────────────────────────────────────────
@@ -282,8 +303,9 @@ export function renameProduct(m: MatrixState, uid: string, name: string): Matrix
 }
 
 export function renameLevel(m: MatrixState, uid: string, name: string): MatrixState {
-  return { ...m, levels: m.levels.map((l) => (l.uid === uid ? { ...l, name } : l)) };
+  return sortLevelsDesc({ ...m, levels: m.levels.map((l) => (l.uid === uid ? { ...l, name } : l)) });
 }
+
 
 export function setAgeBand(m: MatrixState, uid: string, min: number | null, max: number | null): MatrixState {
   return { ...m, products: m.products.map((p) => (p.uid === uid ? { ...p, age_group_min: min, age_group_max: max } : p)) };
@@ -294,8 +316,9 @@ export function addProduct(m: MatrixState): MatrixState {
 }
 
 export function addLevel(m: MatrixState): MatrixState {
-  return { ...m, levels: [...m.levels, { uid: newUid(), name: "" }] };
+  return sortLevelsDesc({ ...m, levels: [...m.levels, { uid: newUid(), name: "" }] });
 }
+
 
 /**
  * A second age band for a product, inserted directly beneath it.

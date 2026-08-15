@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import {
   DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext, useSortable, horizontalListSortingStrategy, verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { GripVertical, Plus, SplitSquareVertical, Trash2, Wand2 } from "lucide-react";
@@ -13,7 +11,7 @@ import { cn } from "@/lib/utils";
 import {
   BANDS, type BandKey, type MatrixState, type ProductRow, type LevelCol,
   cellKey, setCell, renameProduct, renameLevel, setAgeBand, addProduct, addLevel,
-  splitByAge, removeProduct, removeLevel, moveProduct, moveLevel, fillFromTemplate,
+  splitByAge, removeProduct, removeLevel, moveProduct, fillFromTemplate,
 } from "@/lib/comp-grid-model";
 
 export {
@@ -79,14 +77,6 @@ export function CompGridMatrix({
     onChange(moveProduct(value, from, to));
   }
 
-  function onLevelDragEnd(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const from = value.levels.findIndex((l) => l.uid === active.id);
-    const to = value.levels.findIndex((l) => l.uid === over.id);
-    onChange(moveLevel(value, from, to));
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -116,32 +106,28 @@ export function CompGridMatrix({
       <div className="overflow-x-auto rounded-[var(--radius)] border border-border">
         <table className="w-full border-collapse text-sm">
           <thead>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLevelDragEnd}>
-              <SortableContext items={value.levels.map((l) => l.uid)} strategy={horizontalListSortingStrategy}>
-                <tr className="bg-surface-2">
-                  <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[300px]">
-                    Product
-                  </th>
-                  {value.levels.map((lvl) => (
-                    <LevelHeader
-                      key={lvl.uid}
-                      level={lvl}
-                      onRename={(name) => onChange(renameLevel(value, lvl.uid, name))}
-                      onRemove={() => onChange(removeLevel(value, lvl.uid))}
-                    />
-                  ))}
-                  <th className="p-1.5 w-[110px]">
-                    <Button
-                      type="button" size="sm" variant="ghost"
-                      className="w-full text-xs"
-                      onClick={() => onChange(addLevel(value))}
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Level
-                    </Button>
-                  </th>
-                </tr>
-              </SortableContext>
-            </DndContext>
+            <tr className="bg-surface-2">
+              <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[300px]">
+                Product
+              </th>
+              {value.levels.map((lvl) => (
+                <LevelHeader
+                  key={lvl.uid}
+                  level={lvl}
+                  onRename={(name) => onChange(renameLevel(value, lvl.uid, name))}
+                  onRemove={() => onChange(removeLevel(value, lvl.uid))}
+                />
+              ))}
+              <th className="p-1.5 w-[110px]">
+                <Button
+                  type="button" size="sm" variant="ghost"
+                  className="w-full text-xs"
+                  onClick={() => onChange(addLevel(value))}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Level
+                </Button>
+              </th>
+            </tr>
           </thead>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onProductDragEnd}>
             <SortableContext items={value.products.map((p) => p.uid)} strategy={verticalListSortingStrategy}>
@@ -220,27 +206,9 @@ function LevelHeader({ level, onRename, onRemove }: {
   onRename: (name: string) => void;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: level.uid });
   return (
-    <th
-      ref={setNodeRef}
-      style={{
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        transition,
-      }}
-      className={cn("p-1.5 min-w-[120px]", isDragging && "z-10 opacity-70")}
-    >
+    <th className="p-1.5 min-w-[120px]">
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={`Reorder level ${level.name || "column"}`}
-          className="shrink-0 cursor-grab touch-none text-text-dim hover:text-foreground active:cursor-grabbing"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
         <Input
           value={level.name}
           onChange={(e) => onRename(e.target.value)}

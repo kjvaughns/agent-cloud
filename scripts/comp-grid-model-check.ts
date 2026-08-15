@@ -131,12 +131,13 @@ console.log("");
 
 {
   const m = toMatrix(LEVEL_A.concat(LEVEL_B));
-  const moved = moveLevel(m, 1, 0);
-  check("a dragged level column moves", moved.levels[0].name, "110");
-  check("level_sort records the column order",
-    fromMatrix(moved).find((r) => r.level_name === "110")?.level_sort, 0);
-  // The uid-keyed cells are the reason reordering cannot lose data.
-  check("no cell is lost in a column move", fromMatrix(moved).length, 4);
+  check("levels are auto-sorted highest-first", m.levels.map((l) => l.name), ["110", "Advanced"]);
+  check("level_sort records the descending order",
+    fromMatrix(m).find((r) => r.level_name === "110")?.level_sort, 0);
+  check("no cell is lost in auto-sort", fromMatrix(m).length, 4);
+
+  const renamed = renameLevel(m, m.levels[0].uid, "95");
+  check("renaming a level re-sorts it into place", renamed.levels.map((l) => l.name), ["95", "Advanced"]);
 }
 
 // ── Editing operations ──────────────────────────────────────────────────────
@@ -228,7 +229,7 @@ check("extraction output can no longer be truncated at 4000 tokens", /maxTokens:
 
 // Reordering.
 check("product rows are sortable", /verticalListSortingStrategy/.test(MATRIX), true);
-check("level columns are sortable", /horizontalListSortingStrategy/.test(MATRIX), true);
+check("level columns are auto-sorted descending", /sortLevelsDesc/.test(MODEL), true);
 check("the reader honours authored row order", /r\.sort_order/.test(READER), true);
 check("the reader honours authored column order", /level_sort/.test(READER), true);
 check("the editor list is no longer heap-ordered", /entry\.rows\.sort/.test(FNS), true);
