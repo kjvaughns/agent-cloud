@@ -957,6 +957,15 @@ function DocCard({
           </div>
         </div>
 
+        {phase && (
+          <div className="flex items-center gap-3">
+            <Progress value={phase.pct} className="h-1.5 flex-1" />
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">{phase.pct}%</span>
+          </div>
+        )}
+
+
+
         {doc.summary && <p className="text-sm text-muted-foreground">{doc.summary}</p>}
         {doc.error && (
           <p className="flex items-start gap-2 rounded-[var(--radius)] border border-destructive/30 bg-destructive/5 p-2.5 text-sm text-destructive">
