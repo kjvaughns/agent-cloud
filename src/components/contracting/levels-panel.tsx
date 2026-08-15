@@ -85,6 +85,71 @@ export function LevelsPanel() {
   // section looked broken.
   const carriers = ((carrierData?.carriers ?? []) as any[])
     .filter((c) => c.state?.status !== "archived" && c.status !== "archived");
+
+  /**
+   * Detect carrier levels for the whole ladder, not one position at a time.
+   *
+   * The per-position button lives inside the editor, which means an owner with
+   * five rungs opens five dialogs to do one job. This does the same matching
+   * for every position: where a carrier has a level near the position
+   * percentage it is mapped, and where nothing matches the carrier keeps
+   * paying the position percentage. A mapping typed by hand — a name no
+   * carrier level goes by — is a deliberate answer and is left alone.
+   */
+  const detectLadder = useMutation({
+    mutationFn: async () => {
+      let mapped = 0;
+      let left = 0;
+      for (const level of rows) {
+        const basePct = Number(level.base_pct ?? 0);
+        const existing = (level.agency_level_carrier_mappings ?? []) as any[];
+        const byCarrier = new Map(existing.map((m) => [m.org_carrier_id, m]));
+        const next: any[] = [];
+        for (const c of carriers) {
+          const levels = levelsFor(c);
+          const prior = byCarrier.get(c.id);
+          // Hand-entered: a name the carrier itself does not use.
+          if (prior && prior.carrier_level_name && !findLevel(levels, prior.carrier_level_name)) {
+            next.push({
+              org_carrier_id: c.id,
+              carrier_level_name: prior.carrier_level_name,
+              carrier_pct: prior.carrier_pct ?? null,
+            });
+            continue;
+          }
+          const s = suggestLevel(levels, basePct);
+          if (!s) { left++; continue; }
+          const m = mappingFor(s);
+          next.push({
+            org_carrier_id: c.id,
+            carrier_level_name: m.carrier_level_name || null,
+            carrier_pct: m.carrier_pct ?? null,
+          });
+          mapped++;
+        }
+        await saveFn({ data: {
+          id: level.id,
+          name: level.name,
+          base_pct: basePct,
+          sort_order: level.sort_order ?? basePct,
+          can_invite: Boolean(level.can_invite),
+          active: level.active !== false,
+          mappings: next,
+        } });
+      }
+      return { mapped, left };
+    },
+    onSuccess: ({ mapped, left }) => {
+      toast.success(
+        left === 0
+          ? `Matched ${mapped} carrier level${mapped === 1 ? "" : "s"} across the ladder.`
+          : `Matched ${mapped} carrier level${mapped === 1 ? "" : "s"} · ${left} stayed on the position percentage.`,
+      );
+      qc.invalidateQueries({ queryKey: ["agency-levels"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not detect carrier levels"),
+  });
+
   const dialog = <AgencyLevelDialog open={adding || Boolean(editing)} record={editing} carriers={carriers} pending={save.isPending} onClose={() => { setAdding(false); setEditing(null); }} onSave={(p) => save.mutate(p)} />;
 
   if (!isLoading && rows.length === 0) return <>
@@ -106,7 +171,18 @@ export function LevelsPanel() {
   return <div className="space-y-4">
     <div className="flex items-center justify-between gap-3">
       <p className="text-sm text-muted-foreground">{canManage ? "One simple ladder used for invites, promotions, and permissions." : "Your position and the positions below you."}</p>
-      {canManage && <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button>}
+      {canManage && <div className="flex shrink-0 gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={carriers.length === 0 || detectLadder.isPending}
+          onClick={() => detectLadder.mutate()}
+        >
+          <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+          {detectLadder.isPending ? "Detecting…" : "Detect all carrier levels"}
+        </Button>
+        <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add agency level</Button>
+      </div>}
     </div>
     <div className="space-y-2">{rows.map((level) => {
       const maps = (level.agency_level_carrier_mappings ?? []) as any[];
