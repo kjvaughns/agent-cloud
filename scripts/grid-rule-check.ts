@@ -22,8 +22,12 @@
  * preference, and it is the case a naive implementation gets backwards.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import {
   selectGridRule, productsFor, bandsFor, bandProblems, pctForYear, ageOn,
+  requirementsFor, missingForPricing,
   type GridRow,
 } from "../src/lib/compensation/grid-rule";
 import { resolveCompensation, type ResolveInput } from "../src/lib/compensation/resolve";
@@ -280,6 +284,56 @@ const broken = resolveCompensation({
   deal: { productName: "Final Expense", age: 75, policyYear: 1 },
 });
 check("a grid does not paper over an unplaced agent", broken.ok, false);
+
+// ── What Post a Deal must ask for ───────────────────────────────────────────
+//
+// Derived from the grid, not configured. A carrier with no age bands must not
+// make an agent enter a date of birth to satisfy a form; a carrier with a
+// Florida exception must ask for the state or it quietly pays the national
+// rate in Florida.
+
+console.log("");
+
+const banded = requirementsFor(FE, null);
+check("a banded carrier needs the age", banded.needsAge, true);
+check("…and nothing else", [banded.needsState, banded.needsRisk], [false, false]);
+check("…and offers its products", banded.products, ["Final Expense"]);
+
+const flat = requirementsFor([row({ id: "x" })], null);
+check("a carrier with no bands does not ask for an age", flat.needsAge, false);
+
+check("a carrier with a state exception asks for the state",
+  requirementsFor(withState, null).needsState, true);
+check("a carrier with a risk split asks for tobacco use",
+  requirementsFor(withRisk, null).needsRisk, true);
+
+// Rows tied to another level must not make this agent answer for them.
+check("another level's exception does not add a question",
+  requirementsFor([row({ id: "o", levelName: "Level 80", stateCode: "FL" })], "Level 40").needsState,
+  false);
+
+check("a missing age is named in plain words",
+  /Add the insured's date of birth/.test(missingForPricing(banded, { age: null })[0] ?? ""), true);
+check("…and satisfied once given", missingForPricing(banded, { age: 70 }), []);
+check("a missing state is named",
+  /Choose the state/.test(
+    missingForPricing(requirementsFor(withState, null), { age: 70 })[0] ?? ""), true);
+// A carrier that varies on nothing asks nothing, which is most of them.
+check("a flat carrier asks for nothing", missingForPricing(flat, { age: null }), []);
+
+// ── The server function hands Post a Deal the same answer ───────────────────
+
+const SRV = readFileSync(join(process.cwd(), "src/lib/compensation/deal-pricing.server.ts"), "utf8");
+check("the server function derives requirements from the grid",
+  /requirementsFor\(rows, levelName\)/.test(SRV), true);
+// Keyed on the carrier's level name, not the agency's label for the rung.
+check("…keyed on the carrier's level name",
+  /carrier_level_name/.test(SRV), true);
+// Naming a pending column fails the whole select rather than omitting it.
+check("…and tolerates the pending state and risk columns",
+  /\.select\("\*"\)/.test(SRV), true);
+check("the carrier is scoped to the caller's organization",
+  /\.eq\("organization_id", orgId\)/.test(SRV), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -6,6 +6,8 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // Backoff, health, and the two patches a send outcome writes. One place, so
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
+import { piiProblems } from "@/lib/discord/message";
+import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 const supabaseAdmin = _admin as any;
 
@@ -116,7 +118,15 @@ export const saveDiscordSettings = createServerFn({ method: "POST" })
     const { userId } = context as Ctx;
     const orgId = await getMyPrimaryOrgId(userId);
     if (!orgId) throw new Error("No organization");
-    await assertOrgOwner(userId, orgId);
+    // Was owner-only. The brief puts Discord under the Automations tab, which
+    // staff may hold, so this widens to that permission — `assertTabPermission`
+    // still returns true for the owner, so nobody who could do this before
+    // loses it.
+    //
+    // A webhook URL is a bearer credential: anyone holding it can post to that
+    // channel as the agency. So this is a real grant, not a formality, and it
+    // is checked here rather than only in the tab that renders the form.
+    await assertTabPermission(userId, "automations", orgId);
 
     const { id, ...fields } = data;
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -216,7 +226,32 @@ export const disconnectDiscord = createServerFn({ method: "POST" })
 
 // ── Sending ─────────────────────────────────────────────────────────────────
 
+/** Raised when a payload would carry something that must not reach a channel. */
+export class DiscordPrivacyError extends Error {
+  constructor(public readonly problems: string[]) {
+    super(problems.join(" "));
+    this.name = "DiscordPrivacyError";
+  }
+}
+
+/**
+ * Every send goes through here, so the privacy scan does too.
+ *
+ * The builders in `@/lib/discord/message` already cannot see a client — they
+ * take narrow fact types rather than a policy row. This is the layer that
+ * catches a forbidden value arriving inside a field that WAS allowed: an
+ * announcement body somebody pasted a phone number into passes every earlier
+ * check and must not reach a channel whose membership the agency does not
+ * control.
+ *
+ * Refusing is deliberate rather than redacting. A message with a hole in it
+ * reads as a bug and teaches nobody; a refusal with a reason in the delivery
+ * ledger tells the owner what to edit.
+ */
 async function postToDiscord(webhookUrl: string, body: unknown) {
+  const problems = piiProblems(JSON.stringify(body));
+  if (problems.length > 0) throw new DiscordPrivacyError(problems);
+
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -37,6 +37,21 @@ export const STAFF_PERMS = [
 export const ADMIN_PERMS = [
   "admin_manage_staff_configs", "admin_view_billing_readonly",
   "admin_invite_users", "admin_view_agency_tickets",
+  // The Agency Settings tabs. Six of the brief's eight; the other two are
+  // `admin_manage_staff_configs` (Roles and Permissions) and
+  // `staff_edit_contracts` (Contracting), which already existed and are not
+  // duplicated here.
+  //
+  // Grids are separate from carriers deliberately. Adding a carrier changes
+  // what agents can select; editing its grid changes what every one of them is
+  // paid on every deal already written against it. An agency that lets
+  // somebody do the first has not thereby said they may do the second.
+  "admin_manage_agency_profile",
+  "admin_manage_levels",
+  "admin_manage_carriers",
+  "admin_manage_grids",
+  "admin_manage_automations",
+  "admin_manage_integrations",
 ] as const;
 
 export type PermissionKey = (typeof MANAGER_PERMS)[number] | (typeof STAFF_PERMS)[number] | (typeof ADMIN_PERMS)[number];

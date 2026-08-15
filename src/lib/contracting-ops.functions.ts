@@ -19,6 +19,7 @@ import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effectiv
 import { loadWritingNumbers, writingNumberKey } from "@/lib/writing-numbers";
 import { agencyCarrierConfiguration } from "@/lib/compensation/lookup.server";
 import { carrierState } from "@/lib/carriers/status";
+import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 // Generated DB types predate this module's tables; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -408,6 +409,10 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
     const { userId } = context as Ctx;
     const access = await resolveAccess(userId);
     const orgId = requireOrg(access);
+    // The interface hides the Carriers tab; this refuses the endpoint. Anybody
+    // can post to a server function with a fetch, and until this existed the
+    // permission was advisory.
+    await assertTabPermission(userId, "carriers", orgId);
     if (!access.canManageCarriers) deny("You don't have permission to manage carriers.");
 
     const { id, carrier_id, new_carrier_name, ...fields } = data;

@@ -74,3 +74,39 @@ In the window: nothing writes `state_code` or `risk_class` yet, and the
 selector treats a row with neither as applying everywhere — which is every row
 today. So the product behaves exactly as it does now until an owner records an
 exception.
+
+- `20260815080000_agency-settings-permissions.sql`
+
+**The six Agency Settings permissions get somewhere to live.**
+
+`role_permissions` is a table of fixed boolean columns, not a key-value bag.
+The six keys the tab guard reads — agency profile, levels, carriers, grids,
+automations, integrations — had no columns, so an owner could not have granted
+one if they tried: the write would be dropped and the read would return
+undefined forever. Code that reads a name nothing can write is not a permission
+system, it is a permanently-false constant with a suggestive name. Same shape
+as the `OrgCarrierSchema` defect the contracting checklist turned up.
+
+Every column defaults to false, and the guards treat an owner or platform admin
+as permitted without consulting any of them — so applying this changes nothing
+for owners and starts staff at no access until somebody grants it. Defaulting
+to true so nothing appeared to change would have silently handed every existing
+staff member the ability to rewrite comp grids.
+
+Also `can_manage_agency_settings(_org, _key)`, the database's own answer,
+shaped after `is_org_admin`: an active membership in THAT organization plus
+either an agency-level role or the specific column. It exists so an RLS policy
+can ask the same question the server does instead of re-deriving it. The key is
+checked against a fixed list of six before the column is read, so an arbitrary
+column name cannot be used to read something else off the row.
+
+Proven on scratch Postgres: an owner is permitted without holding any toggle, a
+staff member gets exactly what they were granted and nothing else, an arbitrary
+column name is refused, and neither is permitted in an organization they do not
+belong to.
+
+In the window: the tab gate and the server guards both treat a missing column
+as "not granted", so before this is applied only owners and platform admins can
+reach the six areas. That is stricter than today rather than looser, and no
+staff member loses anything they can currently do — the permissions did not
+exist to be held.

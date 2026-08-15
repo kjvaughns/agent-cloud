@@ -14,6 +14,10 @@ import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
+import {
+  canOpenTab, visibleTabs, defaultTab, TAB_LABEL,
+  type SettingsTab, type AccessContext,
+} from "@/lib/settings/tab-access";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
@@ -458,8 +462,27 @@ export function normalizeTab(raw: unknown): Tab | undefined {
  */
 function AgencySettingsPage() {
   const { tab } = Route.useSearch();
-  const [active, setActive] = useState<Tab>(tab ?? "general");
   const { access } = useMyAccess();
+
+  // One answer to "may this person open this tab", shared with the server
+  // functions behind each panel. A tab somebody cannot open is dropped rather
+  // than disabled: a disabled tab advertises a capability and then refuses it,
+  // which reads as a fault rather than as a boundary.
+  const ctx: AccessContext = {
+    isOwner: Boolean(access?.canManageRoles),
+    isPlatformAdmin: access?.role === "super_admin",
+    isStaff: Boolean(access?.inAgency),
+    perms: (access?.permissions ?? {}) as AccessContext["perms"],
+  };
+  const allowed = visibleTabs(ctx);
+  const landing = defaultTab(ctx, tab ?? null);
+  const [active, setActive] = useState<SettingsTab>(landing ?? "general");
+
+  // A deep link to a tab they cannot open, or a permission changing underneath
+  // them, must move them somewhere real rather than leave a blank panel.
+  useEffect(() => {
+    if (landing && !allowed.includes(active)) setActive(landing);
+  }, [landing, allowed, active]);
 
   return (
     <PageShell>
@@ -471,16 +494,16 @@ function AgencySettingsPage() {
 
         <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
 
-        <Tabs value={active} onValueChange={(v) => setActive(v as Tab)}>
+        <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
           <TabsList className="flex-wrap">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="roles">Roles &amp; Permissions</TabsTrigger>
-            <TabsTrigger value="levels">Levels &amp; Positions</TabsTrigger>
-            <TabsTrigger value="carriers">Carriers</TabsTrigger>
-            <TabsTrigger value="contracting">Contracting</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="automations">Automations</TabsTrigger>
-            <TabsTrigger value="integrations">Integrations</TabsTrigger>
+            {canOpenTab("general", ctx) && <TabsTrigger value="general">{TAB_LABEL.general}</TabsTrigger>}
+            {canOpenTab("roles", ctx) && <TabsTrigger value="roles">{TAB_LABEL.roles}</TabsTrigger>}
+            {canOpenTab("levels", ctx) && <TabsTrigger value="levels">{TAB_LABEL.levels}</TabsTrigger>}
+            {canOpenTab("carriers", ctx) && <TabsTrigger value="carriers">{TAB_LABEL.carriers}</TabsTrigger>}
+            {canOpenTab("contracting", ctx) && <TabsTrigger value="contracting">{TAB_LABEL.contracting}</TabsTrigger>}
+            {canOpenTab("notifications", ctx) && <TabsTrigger value="notifications">{TAB_LABEL.notifications}</TabsTrigger>}
+            {canOpenTab("automations", ctx) && <TabsTrigger value="automations">{TAB_LABEL.automations}</TabsTrigger>}
+            {canOpenTab("integrations", ctx) && <TabsTrigger value="integrations">{TAB_LABEL.integrations}</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="general" className="mt-4"><GeneralTab /><VisibilityPanel /></TabsContent>
