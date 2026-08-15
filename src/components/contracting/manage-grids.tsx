@@ -45,12 +45,18 @@ function Wrap({ embedded, children }: { embedded: boolean; children: React.React
  * edit mode of the agent-facing grid reader; `embedded` drops the page chrome
  * so it does not nest a second shell inside the host page.
  */
-export function ManageGridsPage({ embedded = false }: { embedded?: boolean } = {}) {
+export function ManageGridsPage({
+  embedded = false,
+  initialCarrierId,
+}: { embedded?: boolean; initialCarrierId?: string } = {}) {
   const qc = useQueryClient();
   const listFn = useServerFn(listMyGrids);
   const { data, isLoading } = useQuery({ queryKey: ["comp-grids"], queryFn: () => listFn() });
 
-  const [carrierId, setCarrierId] = useState("");
+  // Opened from a carrier row, this arrives already pointed at that carrier.
+  // The editor keeps its own picker so it still works standalone, but nobody
+  // reaching it from a carrier should have to find that carrier again.
+  const [carrierId, setCarrierId] = useState(initialCarrierId ?? "");
   const [addingCarrier, setAddingCarrier] = useState(false);
   const [newCarrierName, setNewCarrierName] = useState("");
   const [rows, setRows] = useState<GridRow[]>([]);

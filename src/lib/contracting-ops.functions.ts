@@ -272,12 +272,20 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
     // Grid rows are keyed on `carrier_id`, not on the org_carrier row.
     const { data: gridRows } = await supabase
       .from("commission_grids")
-      .select("carrier_id")
+      .select("carrier_id, product_name")
       .eq("organization_id", access.orgId);
     const gridCount = new Map<string, number>();
+    // Distinct products, not rows. One product with three age bands is three
+    // rows and one product, and "3 products" on a carrier that sells one is
+    // the kind of number an owner stops trusting the rest of the screen over.
+    const gridProducts = new Map<string, Set<string>>();
     for (const g of (gridRows ?? []) as any[]) {
       const k = String(g.carrier_id);
       gridCount.set(k, (gridCount.get(k) ?? 0) + 1);
+      const name = String(g.product_name ?? "").trim().toLowerCase();
+      if (!name) continue;
+      if (!gridProducts.has(k)) gridProducts.set(k, new Set());
+      gridProducts.get(k)!.add(name);
     }
 
     // Which active positions resolve on this carrier only through their own
@@ -330,6 +338,7 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
           requirement_count: (c.carrier_requirements ?? []).filter((r: any) => r.active).length,
           comp_level_count: activeLevels.length,
           grid_row_count: gridCount.get(String(c.carrier_id)) ?? 0,
+          product_count: gridProducts.get(String(c.carrier_id))?.size ?? 0,
           state,
         };
       }),

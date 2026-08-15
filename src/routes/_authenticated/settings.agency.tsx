@@ -15,20 +15,18 @@ import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
 import {
-  canOpenTab, visibleTabs, defaultTab, TAB_LABEL,
+  canOpenTab, visibleTabs, defaultTab, TAB_LABEL, SETTINGS_TABS,
   type SettingsTab, type AccessContext,
 } from "@/lib/settings/tab-access";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AutomationsPage } from "@/components/settings/automations-panel";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SampleDataPanel } from "@/components/settings/sample-data-panel";
-import { NotificationsPanel } from "@/components/settings/notifications-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
-import { ManageGridsPage } from "@/components/contracting/manage-grids";
 import { SetupChecklist } from "@/components/settings/setup-checklist";
 import { ContractingSettingsPanel } from "@/components/settings/contracting-settings-panel";
 import { TemplatesPanel } from "@/components/settings/templates-panel";
@@ -420,17 +418,10 @@ function GeneralTab() {
   );
 }
 
-const TABS = [
-  "general",
-  "roles",
-  "levels",
-  "carriers",
-  "contracting",
-  "notifications",
-  "automations",
-  "integrations",
-] as const;
-type Tab = (typeof TABS)[number];
+// Derived, not retyped. A second list of tab names is how the rail, the
+// permission map and the alias table stop agreeing about what exists.
+const TABS = SETTINGS_TABS;
+type Tab = SettingsTab;
 
 /** Old bookmarks and palette entries that named a tab we no longer have. */
 const TAB_ALIASES: Record<string, Tab> = {
@@ -438,6 +429,11 @@ const TAB_ALIASES: Record<string, Tab> = {
   "comp-grids": "carriers",
   templates: "contracting",
   grids: "carriers",
+  // Notifications left Agency Settings for /settings/notifications, because it
+  // edits your own preferences rather than the agency's and so could never be
+  // gated like the rest. An old link lands on General rather than nowhere; the
+  // route itself redirects.
+  notifications: "general",
 };
 
 export function normalizeTab(raw: unknown): Tab | undefined {
@@ -495,16 +491,23 @@ function AgencySettingsPage() {
         <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
 
         <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
-          <TabsList className="flex-wrap">
-            {canOpenTab("general", ctx) && <TabsTrigger value="general">{TAB_LABEL.general}</TabsTrigger>}
-            {canOpenTab("roles", ctx) && <TabsTrigger value="roles">{TAB_LABEL.roles}</TabsTrigger>}
-            {canOpenTab("levels", ctx) && <TabsTrigger value="levels">{TAB_LABEL.levels}</TabsTrigger>}
-            {canOpenTab("carriers", ctx) && <TabsTrigger value="carriers">{TAB_LABEL.carriers}</TabsTrigger>}
-            {canOpenTab("contracting", ctx) && <TabsTrigger value="contracting">{TAB_LABEL.contracting}</TabsTrigger>}
-            {canOpenTab("notifications", ctx) && <TabsTrigger value="notifications">{TAB_LABEL.notifications}</TabsTrigger>}
-            {canOpenTab("automations", ctx) && <TabsTrigger value="automations">{TAB_LABEL.automations}</TabsTrigger>}
-            {canOpenTab("integrations", ctx) && <TabsTrigger value="integrations">{TAB_LABEL.integrations}</TabsTrigger>}
-          </TabsList>
+          {/* A scrolling rail rather than a wrapping row. Seven pills that
+              re-flow to two or three lines move under the cursor as the window
+              changes, and the second line reads as less important than the
+              first when it is not. */}
+          <div className="-mx-1 overflow-x-auto px-1 pb-px">
+            <TabsList className="inline-flex h-auto w-max gap-1 rounded-lg bg-surface-2 p-1">
+              {allowed.map((t) => (
+                <TabsTrigger
+                  key={t}
+                  value={t}
+                  className="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium data-[state=active]:bg-surface-1 data-[state=active]:shadow-sm"
+                >
+                  {TAB_LABEL[t]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           <TabsContent value="general" className="mt-4"><GeneralTab /><VisibilityPanel /></TabsContent>
 
@@ -529,28 +532,18 @@ function AgencySettingsPage() {
             <LevelsPanel />
           </TabsContent>
 
-          <TabsContent value="carriers" className="mt-4 space-y-6">
-            <div>
-              <SectionHead
-                title="Carriers"
-                blurb="The carriers your agency writes with. A carrier only becomes visible to agents once its setup can pay a deal."
-              />
-              <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
-            </div>
-            <div>
-              <SectionHead
-                title="Comp grids"
-                blurb="What each carrier pays, by level, product and age band. Every payout forecast reads these numbers."
-              />
-              <ManageGridsPage embedded />
-            </div>
+          <TabsContent value="carriers" className="mt-4">
+            {/* One surface. The comp grid editor used to sit open underneath
+                this list, so the tab showed every carrier AND every rate at
+                once and neither was findable. The grid belongs to a carrier,
+                so it opens from that carrier. */}
+            <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
           </TabsContent>
 
           <TabsContent value="contracting" className="mt-4 space-y-6">
             <ContractingTab />
           </TabsContent>
 
-          <TabsContent value="notifications" className="mt-4"><NotificationsPanel /></TabsContent>
           <TabsContent value="automations" className="mt-4 space-y-6">
             <AutomationsPage />
             <DiscordSettings />

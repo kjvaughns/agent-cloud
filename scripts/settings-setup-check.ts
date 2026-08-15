@@ -57,8 +57,12 @@ const strip = (s: string) =>
 const NAV = read("src/lib/navigation.ts");
 const hub = NAV.slice(NAV.indexOf("  settings: ["));
 const hubIds = Array.from(hub.slice(0, hub.indexOf("],")).matchAll(/"([a-z-]+)"/g)).map((m) => m[1]);
-check("the five rows the brief names", hubIds,
-  ["agency-settings", "security", "billing", "nova-pro", "support-desk"]);
+// Six now, not five. Notifications came back out of Agency Settings as its
+// own row: it configures your own inbox rather than the agency, so it could
+// not be gated like the tabs around it, and an agent with no agency
+// permissions still has to be able to turn something off.
+check("the settings rows", hubIds,
+  ["agency-settings", "notif-settings", "security", "billing", "nova-pro", "support-desk"]);
 check("the six-group heading run is gone", /label: "Contracting Setup"/.test(NAV), false);
 check("…as is the older flat grouping", /label: "Your agency"/.test(NAV), false);
 

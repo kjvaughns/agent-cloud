@@ -48,9 +48,13 @@ const staff = (perms: AccessContext["perms"]): AccessContext =>
 
 // ── The eight, in the brief's order ─────────────────────────────────────────
 
-check("the eight the brief names, in order", [...SETTINGS_TABS], [
+// Seven, not the brief's eight. Notifications moved out to
+// /settings/notifications: it edits YOUR preferences rather than the agency's,
+// so it was the one tab that could not be gated — and a page anybody may open
+// does not belong behind a hub that needs an agency permission to reach.
+check("the seven agency tabs, in order", [...SETTINGS_TABS], [
   "general", "roles", "levels", "carriers",
-  "contracting", "notifications", "automations", "integrations",
+  "contracting", "automations", "integrations",
 ]);
 // Levels before Carriers is deliberate: an agency builds its ladder before
 // mapping it onto carrier levels.
@@ -60,7 +64,7 @@ check("every tab has a label", SETTINGS_TABS.every((t) => TAB_LABEL[t].length > 
 
 // ── Owner and agent ─────────────────────────────────────────────────────────
 
-check("an owner sees all eight", visibleTabs(owner).length, 8);
+check("an owner sees all seven", visibleTabs(owner).length, 7);
 // They are who grants the toggles; requiring them to hold one is circular.
 check("…without holding any toggle", canOpenTab("carriers", owner), true);
 check("a regular agent sees none", visibleTabs(agent), []);
@@ -84,11 +88,17 @@ for (const tab of GATED) {
     canOpenTab(tab, staff(everythingElse)), false);
 }
 
-// Notifications only ever edits your own preferences. Gating it would stop
-// somebody turning off their own email.
-check("notifications needs nothing beyond a seat",
-  canOpenTab("notifications", staff({})), true);
-check("…but an agent still does not get it", canOpenTab("notifications", agent), false);
+// Every remaining tab is gated, which is what makes the hub itself a
+// permission boundary rather than a folder.
+check("every tab needs a permission",
+  SETTINGS_TABS.filter((t) => TAB_PERMISSION[t] === null), []);
+// The panel still exists; it is reachable at its own route instead.
+check("notifications has its own destination",
+  readFileSync(join(process.cwd(), "src/routes/_authenticated/settings.notifications.tsx"), "utf8")
+    .includes("<NotificationsPanel />"), true);
+check("…and is listed in the Settings hub",
+  /ids: \["agency-settings", "notif-settings", "security", "billing", "nova-pro", "support-desk"\]/
+    .test(readFileSync(join(process.cwd(), "src/lib/navigation.ts"), "utf8")), true);
 
 // ── The two that were reused rather than reinvented ─────────────────────────
 
@@ -125,7 +135,7 @@ check("nonsense falls back too", defaultTab(owner, "not-a-tab"), "general");
 // A staff member with one permission sees exactly one gated tab plus the
 // ungated one, and a dropped tab is dropped rather than disabled.
 check("a narrow seat sees only what it holds",
-  visibleTabs(staff({ admin_manage_levels: true })), ["levels", "notifications"]);
+  visibleTabs(staff({ admin_manage_levels: true })), ["levels"]);
 
 // ── The refusal says what to grant ──────────────────────────────────────────
 
@@ -159,10 +169,12 @@ check("…and not in a second list of their own",
   (PERMS.match(/export const [A-Z_]+_PERMS = \[/g) ?? []).length, 3);
 
 const PAGE = strip(readFileSync(join(process.cwd(), "src/routes/_authenticated/settings.agency.tsx"), "utf8"));
-check("the page asks this module which tabs to show",
-  /canOpenTab\("carriers", ctx\)/.test(PAGE), true);
-check("…for all eight",
-  SETTINGS_TABS.every((t) => new RegExp(`canOpenTab\\("${t}", ctx\\)`).test(PAGE)), true);
+// The rail renders `visibleTabs` rather than testing each trigger, so a tab
+// added to the module appears without touching the page — and one somebody
+// cannot open cannot be left behind by a forgotten guard.
+check("the rail renders only the tabs this module allows",
+  /\{allowed\.map\(\(t\) => \(/.test(PAGE), true);
+check("…from visibleTabs", /const allowed = visibleTabs\(ctx\);/.test(PAGE), true);
 // A hidden trigger is not a gate if the landing tab can still be one they
 // cannot open.
 check("…and lands them on one they are allowed",
@@ -172,7 +184,11 @@ check("…moving them if a permission changes underneath them",
 // The labels come from the module, so a tab renamed in one place is renamed
 // everywhere.
 check("the labels are not retyped in the page",
-  /TAB_LABEL\.carriers/.test(PAGE), true);
+  /\{TAB_LABEL\[t\]\}/.test(PAGE), true);
+// A second list of tab names is how the rail, the permission map and the
+// alias table stop agreeing about what exists.
+check("…and the page derives its tab list rather than keeping its own",
+  /const TABS = SETTINGS_TABS;/.test(PAGE), true);
 
 // ── Hiding a button is not enough ───────────────────────────────────────────
 //

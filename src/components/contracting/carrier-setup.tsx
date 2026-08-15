@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ExternalLink, Plus, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ManageGridsPage } from "@/components/contracting/manage-grids";
 import {
   CARRIER_STATUSES, STATUS_LABEL, summarise, removalExplanation, removalMode,
   type CarrierStatus, type CarrierState,
@@ -122,6 +123,156 @@ function RemoveCarrierDialog({
   );
 }
 
+/**
+ * One carrier, with everything the spec asks a row to show.
+ *
+ * A row rather than a card because the ten facts are the point: an owner
+ * scanning fifteen carriers for the one that is missing an advance option
+ * needs them in the same column each time, and a grid of cards puts every fact
+ * in a different place on every card.
+ */
+function CarrierRow({
+  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onToggle, toggling,
+}: {
+  carrier: any; first: boolean; canManage: boolean;
+  onEdit: () => void; onRemove: () => void; onRestore: () => void; onEditGrid: () => void;
+  onToggle: (on: boolean) => void; toggling: boolean;
+}) {
+  const state = c.state as CarrierState | undefined;
+  const isActive = state?.status === "active";
+  const isArchived = state?.status === "archived";
+  // Off and allowed on, or already on. Anything else has setup outstanding and
+  // the switch says why instead of silently doing nothing.
+  const mayToggle = isActive || Boolean(state?.canActivate);
+
+  const methods = (c.org_carrier_methods ?? []) as any[];
+  const advance = c.default_advance_option
+    ? ADVANCE_LABELS[c.default_advance_option as AdvanceOption] ?? c.default_advance_option
+    : null;
+
+  return (
+    <div className={cn("bg-surface-1 px-4 py-3", !first && "border-t border-border-soft")}>
+      <div className="flex flex-wrap items-start gap-3">
+        {c.logo_url ? (
+          <img src={c.logo_url} alt="" className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+        ) : (
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Building2 className="h-4 w-4" />
+          </span>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-sm font-bold text-foreground">{c.name}</h3>
+            <StatusPill state={state} />
+            {c.is_private && <span className="text-[10px] text-text-dim">Private</span>}
+          </div>
+
+          <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+            <button
+              type="button"
+              onClick={onEditGrid}
+              className="min-w-0 text-left transition-opacity hover:opacity-70"
+            >
+              <dt className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">Products</dt>
+              <dd className={cn("truncate text-xs font-medium underline decoration-dotted underline-offset-2",
+                c.grid_row_count > 0 ? "text-foreground" : "text-warning")}>
+                {c.grid_row_count > 0 ? `${c.product_count ?? 0} · edit grid` : "Add grid"}
+              </dd>
+            </button>
+            <Fact label="Levels" value={String(c.comp_level_count ?? 0)} />
+            <Fact label="Advance" value={advance ?? "Not set"} warn={!advance} />
+            <Fact
+              label="Contracting"
+              value={methods.length
+                ? methods.map((m) => METHOD_LABELS[m.method as ContractingMethod] ?? m.method).join(", ")
+                : "Not set"}
+              warn={methods.length === 0}
+            />
+            <Fact label="Open requests" value={String(c.open_requests ?? 0)} />
+          </dl>
+
+          {(state?.problems ?? []).length > 0 && (
+            <ul className="mt-2 space-y-0.5">
+              {state!.problems.slice(0, 2).map((p) => (
+                <li key={p} className="text-[11px] leading-snug text-warning">{p}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {canManage && (
+          <div className="flex shrink-0 items-center gap-1">
+            {isArchived ? (
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onRestore}>
+                Restore
+              </Button>
+            ) : (
+              <>
+                {/* Off until the setup can pay a deal. A switch that flips and
+                    then does nothing is worse than one that explains itself. */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isActive}
+                  aria-label={`${isActive ? "Switch off" : "Switch on"} ${c.name}`}
+                  disabled={toggling}
+                  onClick={() => {
+                    if (!mayToggle) {
+                      toast.error(
+                        state?.problems[0]
+                          ?? `${c.name} is not set up enough to switch on yet.`,
+                      );
+                      return;
+                    }
+                    onToggle(!isActive);
+                  }}
+                  className={cn(
+                    "relative h-5 w-9 rounded-full transition-colors",
+                    isActive ? "bg-success" : mayToggle ? "bg-surface-3" : "bg-surface-3 opacity-50",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform",
+                      isActive ? "translate-x-[1.125rem]" : "translate-x-0.5",
+                    )}
+                  />
+                </button>
+                <button
+                  onClick={onEdit}
+                  aria-label={`Edit ${c.name}`}
+                  className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
+                >
+                  <Settings2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={onRemove}
+                  aria-label={`Remove ${c.name}`}
+                  className="rounded p-1 text-text-dim transition-colors hover:text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Fact({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{label}</dt>
+      <dd className={cn("truncate text-xs font-medium", warn ? "text-warning" : "text-foreground")}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels: () => void }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listOrgCarriers);
@@ -131,7 +282,23 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [removing, setRemoving] = useState<any | null>(null);
+  const [gridFor, setGridFor] = useState<any | null>(null);
   const restoreFn = useServerFn(restoreOrgCarrier);
+  // Active is the only status agents can see, so this switch is what makes a
+  // carrier real to them. `carrierState.canActivate` decides whether it may be
+  // turned on; the row explains the refusal rather than disabling silently.
+  const toggle = useMutation({
+    mutationFn: ({ id, on }: { id: string; on: boolean }) =>
+      saveFn({ data: { id, status: on ? "active" : "paused" } }),
+    onSuccess: (_r, v) => {
+      toast.success(v.on
+        ? "Carrier is live. Agents can select it now."
+        : "Carrier switched off. It stays saved and keeps its history.");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not change the carrier"),
+  });
+
   const restore = useMutation({
     mutationFn: (id: string) => restoreFn({ data: { id } }),
     onSuccess: () => {
@@ -237,6 +404,24 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
         </div>
       )}
 
+      {/* The grid belongs to a carrier, so it opens from that carrier. It used
+          to sit open underneath the whole list, which meant the tab showed
+          every carrier and every rate at once and neither was findable. */}
+      {gridFor && (
+        <Dialog open onOpenChange={(o) => !o && setGridFor(null)}>
+          <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{gridFor.name} — compensation grid</DialogTitle>
+              <DialogDescription>
+                What this carrier pays, by level, product and age band. Every payout
+                forecast reads these numbers.
+              </DialogDescription>
+            </DialogHeader>
+            <ManageGridsPage embedded initialCarrierId={gridFor.carrier_id ?? undefined} />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {removing && (
         <RemoveCarrierDialog
           carrier={removing}
@@ -258,137 +443,27 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
             : undefined}
         />
       ) : (
-        <div data-tour="carrier-list" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-tour="carrier-list" className="overflow-hidden rounded-xl border border-border">
           {visible.length === 0 ? (
-            <p className="col-span-full py-6 text-center text-sm text-muted-foreground">
+            <p className="py-10 text-center text-sm text-muted-foreground">
               No carriers match that search or filter.
             </p>
-          ) : null}
-          {visible.map((c) => (
-            <Panel key={c.id} className="p-4">
-              <div className="flex items-start gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <Building2 className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-bold text-foreground">{c.name}</h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <StatusPill state={c.state} />
-                    {c.is_private && (
-                      <span className="text-[10px] text-text-dim">Private to your agency</span>
-                    )}
-                  </div>
-                </div>
-                {canManage && (
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    {c.state?.status === "archived" ? (
-                      <button
-                        onClick={() => restore.mutate(c.id)}
-                        aria-label={`Restore ${c.name}`}
-                        className="rounded px-1.5 py-1 text-[10px] text-text-dim transition-colors hover:text-foreground"
-                      >
-                        Restore
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => setEditing(c)}
-                          aria-label={`Edit ${c.name}`}
-                          className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
-                        >
-                          <Settings2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setRemoving(c)}
-                          aria-label={`Remove ${c.name}`}
-                          className="rounded p-1 text-text-dim transition-colors hover:text-danger"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {(c.state?.problems ?? []).length > 0 && (
-                <ul className="mt-2 space-y-1">
-                  {c.state.problems.slice(0, 2).map((p: string) => (
-                    <li key={p} className="text-[11px] leading-snug text-warning">{p}</li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {(c.org_carrier_methods ?? []).length === 0 ? (
-                  canManage ? (
-                    <button
-                      onClick={() => setEditing(c)}
-                      className="rounded-full border border-dashed border-warning/40 px-2 py-0.5 text-[10px] text-warning transition-colors hover:border-warning"
-                    >
-                      Set a submission method
-                    </button>
-                  ) : (
-                    // Naming the problem without a way to solve it, to somebody
-                    // who cannot solve it, is just a complaint. Say who can.
-                    <span className="rounded-full border border-dashed border-border px-2 py-0.5 text-[10px] text-text-dim">
-                      No submission method set — ask an admin
-                    </span>
-                  )
-                ) : (
-                  (c.org_carrier_methods ?? []).map((m: any) => (
-                    <span
-                      key={m.id}
-                      className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
-                    >
-                      {METHOD_LABELS[m.method as ContractingMethod] ?? m.method}
-                    </span>
-                  ))
-                )}
-              </div>
-
-              <dl className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 border-t border-border-soft pt-3">
-                {[
-                  ["Requirements", c.requirement_count],
-                  ["Comp levels", c.comp_level_count],
-                  ["Open", c.open_requests],
-                ].map(([label, value]) => (
-                  <div key={String(label)}>
-                    <dt className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">{label}</dt>
-                    <dd className="tnum mt-0.5 text-sm font-bold text-foreground">{String(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              {/* Method rows first, the legacy columns as fallback — the same
-                  order the packet and the handoff use. These stay plain links:
-                  this is a staff configuration surface, and the per-request
-                  funnel is where clicks are worth recording. */}
-              {(() => {
-                const byKind = (kind: string) =>
-                  (c.org_carrier_methods ?? []).find((m: any) => m.method === kind)?.target_url
-                    ?? (kind === "surelc" ? c.surelc_url
-                      : kind === "carrier_portal" ? c.contracting_portal_url
-                      : c.invitation_link);
-                const chips = [
-                  ["SureLC", byKind("surelc")],
-                  ["Portal", byKind("carrier_portal")],
-                  ["Invitation", byKind("invitation_link")],
-                ].filter(([, url]) => url);
-                if (!chips.length) return null;
-                return (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {chips.map(([label, url]) => (
-                      <a key={String(label)} href={String(url)} target="_blank" rel="noreferrer"
-                         className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                        <ExternalLink className="h-3 w-3" /> {label}
-                      </a>
-                    ))}
-                  </div>
-                );
-              })()}
-            </Panel>
-          ))}
+          ) : (
+            visible.map((c, i) => (
+              <CarrierRow
+                key={c.id}
+                carrier={c}
+                first={i === 0}
+                canManage={Boolean(canManage)}
+                onEdit={() => setEditing(c)}
+                onRemove={() => setRemoving(c)}
+                onEditGrid={() => setGridFor(c)}
+                onRestore={() => restore.mutate(c.id)}
+                onToggle={(on) => toggle.mutate({ id: c.id, on })}
+                toggling={toggle.isPending}
+              />
+            ))
+          )}
         </div>
       )}
 

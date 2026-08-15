@@ -174,9 +174,14 @@ check("the duplicate nav row is gone",
 // what a carrier pays is part of setting that carrier up, so Comp Grids
 // stopped being a separate destination and `/settings/comp-grids` became a
 // redirect into the tab.
+// One home, and it moved again: a grid belongs to one carrier, so it opens
+// from that carrier's row rather than sitting open under the whole list.
 check("the editor still has exactly one home",
-  read("src/routes/_authenticated/settings.agency.tsx")
-    .includes("<ManageGridsPage embedded />"), true);
+  (read("src/components/contracting/carrier-setup.tsx")
+    .match(/<ManageGridsPage /g) ?? []).length, 1);
+check("…scoped to the carrier it was opened from",
+  read("src/components/contracting/carrier-setup.tsx")
+    .includes("initialCarrierId={gridFor.carrier_id"), true);
 check("…and the old standalone page is a redirect, not a second mount",
   /redirect\(\{ to: "\/settings\/agency", search: \{ tab: "carriers" \}/.test(
     read("src/routes/_authenticated/settings.comp-grids.tsx")), true);

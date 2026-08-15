@@ -333,7 +333,7 @@ export const PAGES: Page[] = [
   // command palette still finds them by the names people know them by, and
   // lands on the tab that owns each one.
   { id: "agency-roles", label: "Roles & permissions", path: "/settings/agency?tab=roles", icon: ShieldCheck, area: "Settings", unlock: "agency-admin" },
-  { id: "notif-settings", label: "Notification settings", path: "/settings/agency?tab=notifications", icon: Megaphone, area: "Settings" },
+  { id: "notif-settings", label: "Notifications", path: "/settings/notifications", icon: Megaphone, area: "Settings" },
   { id: "agency-automations", label: "Automations", path: "/settings/agency?tab=automations", icon: Bot, area: "Settings", unlock: "agency-admin" },
   { id: "integrations", label: "Integrations", path: "/settings/agency?tab=integrations", icon: Bot, area: "Settings", unlock: "agency-admin" },
 
@@ -564,7 +564,7 @@ const HUBS: Record<string, HubGroup[]> = {
   // improvement on listing nineteen rows, but the rows themselves were the
   // problem.
   settings: [
-    { label: "", ids: ["agency-settings", "security", "billing", "nova-pro", "support-desk"] },
+    { label: "", ids: ["agency-settings", "notif-settings", "security", "billing", "nova-pro", "support-desk"] },
   ],
 
 };
