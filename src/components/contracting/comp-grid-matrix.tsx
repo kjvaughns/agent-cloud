@@ -206,27 +206,9 @@ function LevelHeader({ level, onRename, onRemove }: {
   onRename: (name: string) => void;
   onRemove: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: level.uid });
   return (
-    <th
-      ref={setNodeRef}
-      style={{
-        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-        transition,
-      }}
-      className={cn("p-1.5 min-w-[120px]", isDragging && "z-10 opacity-70")}
-    >
+    <th className="p-1.5 min-w-[120px]">
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={`Reorder level ${level.name || "column"}`}
-          className="shrink-0 cursor-grab touch-none text-text-dim hover:text-foreground active:cursor-grabbing"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
         <Input
           value={level.name}
           onChange={(e) => onRename(e.target.value)}
