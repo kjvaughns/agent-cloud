@@ -388,13 +388,31 @@ export async function writeGridRows(
       : {}),
   });
 
+  // 20260815070000 made (org, carrier, product, level, age band, state, risk)
+  // unique, so a payload that names the same cell twice — the matrix editor
+  // sending a duplicated column, a document extracted with a repeated row —
+  // now violates commission_grids_org_rule_uniq instead of quietly storing two
+  // conflicting rates. Last one wins, which matches how the editor reads: the
+  // value furthest down the screen is the one the person just typed.
+  const seen = new Map<string, WriteGridRow>();
+  for (const r of opts.rows) {
+    const key = [
+      r.product_name.trim().toLowerCase(),
+      (r.level_name ?? "").trim().toLowerCase(),
+      r.age_group_min ?? -1,
+      r.age_group_max ?? -1,
+    ].join("|");
+    seen.set(key, r);
+  }
+  const rows = Array.from(seen.values());
+
   // sort_order / level_sort arrive with a hand-applied migration and this code
   // ships first. PostgREST rejects a whole insert naming an unknown column
   // (PGRST204), so the batch retries without the pending fields rather than
   // refusing to save any grid at all in the window.
   let dropPending = false;
-  for (let i = 0; i < opts.rows.length; i += 500) {
-    const slice = opts.rows.slice(i, i + 500);
+  for (let i = 0; i < rows.length; i += 500) {
+    const slice = rows.slice(i, i + 500);
     if (!dropPending) {
       const { error } = await supabase.from("commission_grids")
         .insert(slice.map((r) => toRow(r, true)));
@@ -406,6 +424,7 @@ export async function writeGridRows(
       .insert(slice.map((r) => toRow(r, false)));
     if (error) throw new Error(error.message);
   }
+
 
   return { count: opts.rows.length };
 }
