@@ -43,6 +43,56 @@ async function getMyLevelPct(supabase: any, userId: string, carrierId: string): 
 }
 
 // ---------- carriers ----------
+/**
+ * Only the carriers this agency has actually set up.
+ *
+ * `listCarriers` is the reference directory — every carrier in the platform —
+ * which is right for a browse page and wrong for "Add carrier" on My
+ * Contracts: an agent could pick a carrier their agency has no relationship
+ * with, so no comp resolves and the contract request has nowhere to go. This
+ * intersects the directory with the agency's own `org_carriers` rows, minus
+ * anything archived, and keeps the `my_active` flag so carriers already held
+ * can be filtered out of the picker.
+ */
+export const listMyAgencyCarriers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const orgId = await getOrgId(supabase, userId);
+    if (!orgId) return { carriers: [] as any[] };
+
+    const { data: orgRows, error: orgErr } = await supabase
+      .from("org_carriers")
+      .select("carrier_id, status")
+      .eq("organization_id", orgId);
+    if (orgErr) throw new Error(orgErr.message);
+
+    const allowed = new Set(
+      (orgRows ?? [])
+        .filter((r: any) => r.status !== "archived")
+        .map((r: any) => r.carrier_id)
+        .filter(Boolean),
+    );
+    if (allowed.size === 0) return { carriers: [] as any[] };
+
+    const { data, error } = await supabase
+      .from("carriers")
+      .select("id,name,is_annuity_carrier,active")
+      .in("id", Array.from(allowed) as string[])
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const { data: active } = await supabase
+      .from("contract_requests")
+      .select("carrier_id")
+      .eq("agent_id", userId)
+      .eq("status", "active");
+    const activeSet = new Set((active ?? []).map((r: any) => r.carrier_id));
+
+    return { carriers: (data ?? []).map((c: any) => ({ ...c, my_active: activeSet.has(c.id) })) };
+  });
+
+
 export const listCarriers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {

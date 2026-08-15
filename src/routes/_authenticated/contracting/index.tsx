@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, useSuspenseQuery, queryOptions }
 import { useServerFn } from "@/hooks/use-server-fn";
 import {
   listMyContracts, listMyRequestHistory, addAgentCarrier, requestCommissionLevel, listCarriers,
+  listMyAgencyCarriers,
   listDownlineMatrix, assignDownlineContract, updateContractStatus,
   listWorkInbox, activateContract, createContractRequest, deleteContractRequest,
   resolveCommissionLevelRequest,
@@ -631,7 +632,14 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
   const [loa, setLoa] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { data } = useQuery({ ...carriersQuery, enabled: open });
+  // Only what the agency has set up. The full directory belongs to the browse
+  // page; picking an unconfigured carrier here produces a request with no comp
+  // behind it.
+  const { data } = useQuery({
+    queryKey: ["contracting", "my-agency-carriers"],
+    queryFn: () => listMyAgencyCarriers(),
+    enabled: open,
+  });
   const addFn = useServerFn(addAgentCarrier);
   const requestFn = useServerFn(createContractRequest);
 
@@ -700,7 +708,13 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
                 ))}
               </SelectContent>
             </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {(data?.carriers ?? []).filter((c: any) => !c.my_active).length === 0
+                ? "Your agency has no other carriers set up yet — add them in Settings ▸ Carriers."
+                : "Only carriers your agency has set up appear here."}
+            </p>
           </div>
+
 
           {mode === "active" ? (
             <>
