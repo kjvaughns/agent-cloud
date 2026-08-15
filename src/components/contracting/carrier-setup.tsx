@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+// The advance vocabulary from the resolver, not a second copy of it.
+import { ADVANCE_OPTIONS, ADVANCE_LABELS, type AdvanceOption } from "@/lib/compensation/resolve";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -220,6 +223,11 @@ function CarrierDialog({
   const [carrierId, setCarrierId] = useState<string>("");
   const [newName, setNewName] = useState("");
   const [form, setForm] = useState<Record<string, string>>({});
+  const [advance, setAdvance] = useState<AdvanceOption | null>(null);
+  const [publish, setPublish] = useState({
+    visible_to_agents: true,
+    available_for_post_deal: true,
+  });
   // Array rather than a form field: this is a set, and the save schema has
   // always accepted it — the dialog simply never offered a way to change it,
   // so every carrier kept whatever product_types it was created with (none).
@@ -239,6 +247,13 @@ function CarrierDialog({
       internal_instructions: carrier?.internal_instructions ?? "",
     });
     setProductTypes(carrier?.product_types ?? []);
+    // `?? null` on the advance, `!== false` on the booleans: absent means
+    // "never chosen" for one and "on, as it always has been" for the others.
+    setAdvance((carrier?.default_advance_option as AdvanceOption | null) ?? null);
+    setPublish({
+      visible_to_agents: carrier?.visible_to_agents !== false,
+      available_for_post_deal: carrier?.available_for_post_deal !== false,
+    });
   }
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -270,6 +285,14 @@ function CarrierDialog({
       just_in_time_appointments: carrier?.just_in_time_appointments ?? false,
       transfers_allowed: carrier?.transfers_allowed ?? true,
       release_required: carrier?.release_required ?? false,
+      // The five the resolver reads. They were stripped by the schema until
+      // now, so an advance option could not be chosen and a carrier could not
+      // be published — while the resolver refused to guess either, leaving
+      // every contract marked "Comp not set up" with no control that could
+      // clear it.
+      default_advance_option: advance,
+      visible_to_agents: publish.visible_to_agents,
+      available_for_post_deal: publish.available_for_post_deal,
     });
   };
 
@@ -343,6 +366,47 @@ function CarrierDialog({
               />
             </div>
           ))}
+
+          <div>
+            <Label htmlFor="advance-option">How much of year one this carrier advances</Label>
+            <select
+              id="advance-option"
+              value={advance ?? ""}
+              onChange={(e) => setAdvance((e.target.value || null) as AdvanceOption | null)}
+              className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
+            >
+              {/* "Not chosen" is a real option and the default, because
+                  guessing an agency's advance terms is the silent default the
+                  compensation rewrite exists to remove. */}
+              <option value="">Not chosen yet</option>
+              {ADVANCE_OPTIONS.map((o) => (
+                <option key={o} value={o}>{ADVANCE_LABELS[o]}</option>
+              ))}
+            </select>
+            {!advance && (
+              <p className="mt-1 text-[11px] text-warning">
+                Until this is chosen, a deal on this carrier cannot work out what to advance.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Published to agents</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={publish.visible_to_agents}
+                onCheckedChange={(v) => setPublish((p) => ({ ...p, visible_to_agents: v }))}
+              />
+              <span className="text-muted-foreground">Agents can see this carrier</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={publish.available_for_post_deal}
+                onCheckedChange={(v) => setPublish((p) => ({ ...p, available_for_post_deal: v }))}
+              />
+              <span className="text-muted-foreground">Agents can post deals against it</span>
+            </label>
+          </div>
 
           <div>
             <Label>Products this carrier writes</Label>

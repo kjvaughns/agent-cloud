@@ -6,6 +6,7 @@ import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 // One definition of production for every number on this page. The chart used
 // to bucket on a different date field from the tiles above it.
 import {
+  countsAsProduction,
   productionDate,
   premiumOf,
   sumPremium,
@@ -219,6 +220,12 @@ export const getDashboardHero = createServerFn({ method: "GET" })
     const daysSoFar = now.getDate();
     const dailyTotals = new Array(daysSoFar).fill(0);
     for (const r of rows) {
+      // The tile above this sparkline goes through `sumPremium`, which skips
+      // ineligible statuses. Without the same guard the line under it counted
+      // withdrawn and not-taken premium, so the chart contradicted the number
+      // it was drawn beneath — the same class of disagreement #144 fixed
+      // between the tiles and the chart's date field.
+      if (!countsAsProduction(r)) continue;
       const when = productionDate(r);
       if (!when) continue;
       const d = new Date(when);
@@ -595,6 +602,9 @@ export const getProductionSeries = createServerFn({ method: "POST" })
     }
 
     for (const p of pols ?? []) {
+      // Same rule as every other production figure. This series is read beside
+      // the KPI tiles, which exclude these statuses.
+      if (!countsAsProduction(p)) continue;
       const when = productionDate(p);
       if (!when) continue;
       const b = buckets.get(keyOf(new Date(when)));

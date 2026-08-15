@@ -146,5 +146,34 @@ check("…including the two the brief names beside a new contract",
   [CONTRACT_TYPE_LABELS.comp_level_change, CONTRACT_TYPE_LABELS.hierarchy_change],
   ["Compensation level change", "Hierarchy change"]);
 
+// ── Assigning one request ───────────────────────────────────────────────────
+//
+// Assignment existed only in bulk, on the queue. A staff member reading one
+// request could not take it — they had to go back to the list, find it again,
+// and tick it.
+
+console.log("");
+
+const DETAIL = strip(read("src/routes/_authenticated/contracting-ops/requests/$requestId.tsx"));
+
+check("the detail page can assign a request", /Assigned to/.test(DETAIL), true);
+// The existing server function already takes an array, already audits, and
+// already notifies the assignee. A second single-request endpoint would be a
+// second place for those to be forgotten.
+check("…through the same server function the queue uses",
+  /assignFn\(\{ data: \{ ids: \[requestId\], assigned_to \} \}\)/.test(DETAIL), true);
+check("…rather than a second endpoint",
+  /assignOneRequest|assignRequest\b/.test(DETAIL), false);
+check("…and can unassign", /v === "none" \? null : v/.test(DETAIL), true);
+
+const WF = strip(read("src/lib/contracting-workflow.functions.ts"));
+check("that function still audits the assignment",
+  /action: "request\.assigned"/.test(WF), true);
+check("…and still tells the person assigned",
+  /await notifyPeople\(supabaseAdmin, \{\s*userIds: \[data\.assigned_to\]/.test(WF), true);
+// Holding somebody else's row id must not let you assign their agency's work.
+check("…scoped to the caller's own agency",
+  /\.eq\("organization_id", orgId\)/.test(WF), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
