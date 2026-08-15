@@ -183,7 +183,13 @@ export const postDeal = createServerFn({ method: "POST" })
         // manually posted deal.
         premium_mode: "monthly",
         status: data.policy.status ?? "issued_not_paid",
-      })
+        // `production_date` is deliberately not named. It is NOT NULL with no
+        // default, filled by the BEFORE INSERT trigger in 20260814250000 —
+        // which is the only writer of the rule, so no insert path can get it
+        // wrong. The cast is only to satisfy generated types that read a
+        // trigger-filled NOT NULL column as required input.
+      } as never)
+
       .select("id")
       .single();
     if (polErr) throw new Error(polErr.message);
