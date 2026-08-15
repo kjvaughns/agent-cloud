@@ -2255,6 +2255,59 @@ export type Database = {
           },
         ]
       }
+      client_health: {
+        Row: {
+          client_id: string
+          conditions: string | null
+          created_at: string
+          height_ft: number | null
+          height_in: number | null
+          medical_notes: string | null
+          medications: string | null
+          primary_physician: string | null
+          primary_physician_phone: string | null
+          tobacco_use: boolean | null
+          updated_at: string
+          weight_lbs: number | null
+        }
+        Insert: {
+          client_id: string
+          conditions?: string | null
+          created_at?: string
+          height_ft?: number | null
+          height_in?: number | null
+          medical_notes?: string | null
+          medications?: string | null
+          primary_physician?: string | null
+          primary_physician_phone?: string | null
+          tobacco_use?: boolean | null
+          updated_at?: string
+          weight_lbs?: number | null
+        }
+        Update: {
+          client_id?: string
+          conditions?: string | null
+          created_at?: string
+          height_ft?: number | null
+          height_in?: number | null
+          medical_notes?: string | null
+          medications?: string | null
+          primary_physician?: string | null
+          primary_physician_phone?: string | null
+          tobacco_use?: boolean | null
+          updated_at?: string
+          weight_lbs?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_health_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           agent_id: string
