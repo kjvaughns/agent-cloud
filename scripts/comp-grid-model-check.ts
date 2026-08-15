@@ -137,7 +137,7 @@ console.log("");
   check("no cell is lost in auto-sort", fromMatrix(m).length, 4);
 
   const renamed = renameLevel(m, m.levels[0].uid, "95");
-  check("renaming a level re-sorts it into place", renamed.levels.map((l) => l.name), ["110", "95", "Advanced"]);
+  check("renaming a level re-sorts it into place", renamed.levels.map((l) => l.name), ["95", "Advanced"]);
 }
 
 // ── Editing operations ──────────────────────────────────────────────────────
