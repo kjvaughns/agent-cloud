@@ -953,6 +953,18 @@ function ImportPage() {
                     toast.error(e?.message ?? "Couldn't dismiss that");
                   }
                 };
+                const readAgain = async (id: string) => {
+                  try {
+                    await retryFn({ data: { id } });
+                    const out: any = await processStoredFn({ data: { id } });
+                    if (out?.status === "read") toast.success("Read it this time.");
+                    else if (out?.status === "deferred") toast.info("Reload this page and it'll finish here.");
+                    else toast.error(out?.reason ?? "Still couldn't read it.");
+                    qc.invalidateQueries({ queryKey: ["imports"] });
+                  } catch (e: any) {
+                    toast.error(e?.message ?? "Couldn't read that again");
+                  }
+                };
                 return (
                   <DocCard
                     key={g.doc.id}
@@ -963,7 +975,9 @@ function ImportPage() {
                     openDoc={openDoc}
                     onToggle={(id) => setOpenDoc(openDoc === id ? null : id)}
                     onDismiss={dismiss}
+                    onReadAgain={readAgain}
                   />
+
 
                 );
               })}
