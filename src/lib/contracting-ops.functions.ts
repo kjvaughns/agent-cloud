@@ -422,7 +422,17 @@ const OrgCarrierSchema = z.object({
   carrier_id: z.string().uuid().optional(),
   /** Supplied instead of carrier_id to create a carrier the catalog lacks. */
   new_carrier_name: z.string().trim().min(2).max(120).optional(),
-  status: z.enum(["active", "paused", "not_contracted", "terminated"]).default("active"),
+  // No `.default()` on anything that already has a stored value.
+  //
+  // These used to default, and `z.object` fills a default in for every key the
+  // caller left out — so the activation switch, which sends only `{id, status}`,
+  // was writing `product_types: []`, `writing_number_scope: "national"`,
+  // `transfers_allowed: true` and `release_required: false` over whatever the
+  // carrier had. Flipping a carrier off and on again wiped its products, which
+  // is why the switch appeared to do nothing useful and the carrier fell back to
+  // "needs setup". A partial update must stay partial; the create path supplies
+  // its own defaults below.
+  status: z.enum(["active", "paused", "not_contracted", "terminated"]).optional(),
   // The three gateway URL fields are gone from this schema on purpose. They
   // live in org_carrier_methods now, written through saveOrgCarrierMethod;
   // z.object strips unknown keys, so a stale client still sending them has
