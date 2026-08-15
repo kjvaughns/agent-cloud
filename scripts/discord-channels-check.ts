@@ -69,7 +69,7 @@ check("the settings screen offers three event choices", OFFERED.sort(),
 
 for (const key of OFFERED) {
   check(`${key} is read by a sender`,
-    new RegExp(`\\.eq\\("${key}", true\\)|${key} !== false`).test(DISCORD), true);
+    new RegExp(`\\.eq\\("${key}", true\\)|${key} === true`).test(DISCORD), true);
 }
 
 // The switch that never could: gone from the screen, gone from what the save
