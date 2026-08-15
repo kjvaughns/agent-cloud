@@ -602,6 +602,110 @@ export type Database = {
           },
         ]
       }
+      agent_debt_balances: {
+        Row: {
+          age_of_debt: number | null
+          agent_email: string | null
+          agent_id: string | null
+          agent_name: string
+          agent_number: string | null
+          agent_status: string | null
+          as_of_date: string | null
+          balance: number
+          carrier_id: string | null
+          carrier_name: string | null
+          commission_level: string | null
+          created_at: string
+          id: string
+          npn: string | null
+          organization_id: string
+          pending_policies: number | null
+          source_document_id: string | null
+          source_line: string | null
+          unpaid_commission: number | null
+          unsecured_advance: number | null
+          updated_at: string
+          upline_name: string | null
+        }
+        Insert: {
+          age_of_debt?: number | null
+          agent_email?: string | null
+          agent_id?: string | null
+          agent_name: string
+          agent_number?: string | null
+          agent_status?: string | null
+          as_of_date?: string | null
+          balance?: number
+          carrier_id?: string | null
+          carrier_name?: string | null
+          commission_level?: string | null
+          created_at?: string
+          id?: string
+          npn?: string | null
+          organization_id: string
+          pending_policies?: number | null
+          source_document_id?: string | null
+          source_line?: string | null
+          unpaid_commission?: number | null
+          unsecured_advance?: number | null
+          updated_at?: string
+          upline_name?: string | null
+        }
+        Update: {
+          age_of_debt?: number | null
+          agent_email?: string | null
+          agent_id?: string | null
+          agent_name?: string
+          agent_number?: string | null
+          agent_status?: string | null
+          as_of_date?: string | null
+          balance?: number
+          carrier_id?: string | null
+          carrier_name?: string | null
+          commission_level?: string | null
+          created_at?: string
+          id?: string
+          npn?: string | null
+          organization_id?: string
+          pending_policies?: number | null
+          source_document_id?: string | null
+          source_line?: string | null
+          unpaid_commission?: number | null
+          unsecured_advance?: number | null
+          updated_at?: string
+          upline_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_debt_balances_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_debt_balances_carrier_id_fkey"
+            columns: ["carrier_id"]
+            isOneToOne: false
+            referencedRelation: "carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_debt_balances_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_debt_balances_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_integrations: {
         Row: {
           agent_id: string
