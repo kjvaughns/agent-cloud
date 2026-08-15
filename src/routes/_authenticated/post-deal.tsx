@@ -268,6 +268,7 @@ function PostDealPage() {
             product: d.product,
             policy_number: d.policy_number,
             effective_date: d.effective_date,
+            sale_date: d.sale_date,
             face_amount: Number(d.face_amount || 0),
             monthly_premium: Number(d.monthly_premium || 0),
             status: d.status,
