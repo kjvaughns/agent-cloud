@@ -249,7 +249,9 @@ export const postDeal = createServerFn({ method: "POST" })
       console.error("[commission-calculator] failed for policy", policy.id, e?.message);
       compensation = {
         ok: false,
-        messages: ["The commission could not be worked out. Your agency has been notified."],
+        messages: [
+          `The commission could not be worked out: ${e?.message ?? "unknown error"}. Your agency has been notified.`,
+        ],
       };
     }
 
