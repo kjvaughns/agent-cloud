@@ -67,12 +67,29 @@ export type ExistingClient = {
   date_of_birth: string | null;
 };
 
+export type ExistingPolicy = {
+  id: string;
+  agent_id: string;
+  client_id: string | null;
+  policy_number: string | null;
+  assigned_to_email: string | null;
+};
+
 export type MatchIndex = {
   byPhone: Map<string, ExistingClient>;
   byEmail: Map<string, ExistingClient>;
   byNameDob: Map<string, ExistingClient>;
   byName: Map<string, ExistingClient[]>;
   policyNumbers: Set<string>;
+  /**
+   * Policy number → the policy already on file, whoever owns it.
+   *
+   * `policyNumbers` is keyed by agent, which is right for "have *I* already
+   * imported this" and wrong for the case that actually double-counts
+   * production: the agency imported the book, the agent then uploads their own
+   * copy of it, and the same policy number arrives under a different agent id.
+   */
+  policyOwners: Map<string, ExistingPolicy>;
   size: number;
 };
 
@@ -95,6 +112,7 @@ export async function buildMatchIndex(
     byNameDob: new Map(),
     byName: new Map(),
     policyNumbers: new Set(),
+    policyOwners: new Map(),
     size: 0,
   };
   if (!agentIds.length) return index;
@@ -293,4 +311,107 @@ export function rowKey(kind: string, record: Record<string, any>): string {
     default:
       return JSON.stringify(record);
   }
+}
+
+
+/** Already on file for somebody — whoever that is. */
+export function policyOnFile(index: MatchIndex, policyNumber: string | null | undefined): boolean {
+  const n = (policyNumber ?? "").trim().toLowerCase();
+  return n !== "" && index.policyOwners.has(n);
+}
+
+/** Add one existing client to every lookup it belongs in. */
+function addClient(index: MatchIndex, c: ExistingClient): void {
+  const phone = normalizePhone10(c.phone);
+  if (phone && !index.byPhone.has(phone)) index.byPhone.set(phone, c);
+
+  const email = normalizeEmail(c.email);
+  if (email && !index.byEmail.has(email)) index.byEmail.set(email, c);
+
+  const nameKey = `${normName(c.first_name)}|${normName(c.last_name)}`;
+  if (nameKey === "|") return;
+  if (c.date_of_birth) {
+    const k = `${nameKey}|${c.date_of_birth}`;
+    if (!index.byNameDob.has(k)) index.byNameDob.set(k, c);
+  }
+  const bucket = index.byName.get(nameKey);
+  if (bucket) {
+    if (!bucket.some((b) => b.id === c.id)) bucket.push(c);
+  } else {
+    index.byName.set(nameKey, [c]);
+  }
+}
+
+/**
+ * Widen the index to the whole agency, one key at a time.
+ *
+ * The case this exists for: an agency imports its book, its agents get
+ * accounts, and one of them uploads their own export of the same business. All
+ * of it is already in the system — under the agency's ids, which the agent
+ * cannot read — so matching against the uploader's own rows alone found
+ * nothing and created every client and every policy a second time. That is the
+ * double production this feature is meant to prevent.
+ *
+ * It asks the database only about the keys already present in the file: the
+ * phones, emails, names and policy numbers the uploader is holding in their
+ * hand. Nothing else about a teammate's book comes back, so this does not
+ * become a way to read it.
+ */
+export async function mergeAgencyMatches(
+  supabase: any,
+  index: MatchIndex,
+  rows: Record<string, any>[],
+): Promise<{ clients: number; policies: number }> {
+  const phones = new Set<string>();
+  const emails = new Set<string>();
+  const nameDobs = new Set<string>();
+  const names = new Set<string>();
+  const policyNumbers = new Set<string>();
+
+  const plain = (v: any) => String(v ?? "").trim().toLowerCase();
+
+  for (const r of rows) {
+    const p = normalizePhone10(r.phone);
+    if (p) phones.add(p);
+    const e = plain(r.email);
+    if (e.includes("@")) emails.add(e);
+    const f = plain(r.first_name);
+    const l = plain(r.last_name);
+    if (f || l) {
+      names.add(`${f}|${l}`);
+      if (r.date_of_birth) nameDobs.add(`${f}|${l}|${r.date_of_birth}`);
+    }
+    for (const pol of r.policies ?? []) {
+      const n = plain(pol?.policy_number);
+      if (n) policyNumbers.add(n);
+    }
+  }
+
+  if (!phones.size && !emails.size && !names.size && !policyNumbers.size) {
+    return { clients: 0, policies: 0 };
+  }
+
+  const { data, error } = await supabase.rpc("import_duplicate_scan", {
+    _phones: [...phones],
+    _emails: [...emails],
+    _name_dobs: [...nameDobs],
+    _names: [...names],
+    _policy_numbers: [...policyNumbers],
+  });
+  // A scan failure must not silently turn into "no duplicates found" — that is
+  // the outcome this whole module exists to avoid — so it is loud.
+  if (error) throw new Error(`Duplicate scan failed: ${error.message}`);
+
+  const found = (data ?? {}) as { clients?: ExistingClient[]; policies?: ExistingPolicy[] };
+
+  for (const c of found.clients ?? []) {
+    index.size++;
+    addClient(index, c);
+  }
+  for (const pol of found.policies ?? []) {
+    const n = (pol.policy_number ?? "").trim().toLowerCase();
+    if (n && !index.policyOwners.has(n)) index.policyOwners.set(n, pol);
+  }
+
+  return { clients: (found.clients ?? []).length, policies: (found.policies ?? []).length };
 }

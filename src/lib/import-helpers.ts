@@ -395,6 +395,15 @@ export async function saveClientFullRecord(
      */
     backdate?: boolean;
     buildCommissions?: boolean;
+    /**
+     * Policy numbers already on file anywhere in the agency, lowercased.
+     *
+     * The per-policy lookup below can only see what RLS lets this agent read,
+     * which excludes their upline's rows — the exact rows an agent's own upload
+     * would otherwise duplicate. This set is gathered once, with the agency's
+     * view, before applying.
+     */
+    knownPolicyNumbers?: Set<string>;
   },
 ): Promise<{ clientId: string; isNew: boolean }> {
   const phone = c.phone ? normalizePhone(c.phone) : null;
@@ -524,20 +533,41 @@ export async function saveClientFullRecord(
    * and dropping a "call back on the 4th" is the kind of silent loss that makes
    * somebody distrust the whole import — so they are written as one dated note.
    */
+  /*
+    Notes are content, not rows with keys, so re-uploading a book would stack a
+    second identical copy of every note onto the timeline. Existing text is read
+    once and used to skip repeats.
+  */
+  const existingNotes = new Set<string>();
+  if (!isNew) {
+    const { data: priorNotes } = await supabase
+      .from("contact_history")
+      .select("note")
+      .eq("client_id", clientId)
+      .limit(500);
+    for (const n of priorNotes ?? []) {
+      const t = String(n?.note ?? "").trim().toLowerCase();
+      if (t) existingNotes.add(t);
+    }
+  }
+  const alreadyNoted = (text: string) => existingNotes.has(text.trim().toLowerCase());
+
   const intent = [
     c.callback_date ? `Callback: ${c.callback_date}` : null,
     c.pitch_carrier ? `Pitching: ${c.pitch_carrier}` : null,
     c.pitch_face_amount ? `Face amount discussed: $${Number(c.pitch_face_amount).toLocaleString()}` : null,
     c.reminder_notes ? c.reminder_notes : null,
   ].filter(Boolean).join(" · ");
-  if (intent) {
+  if (intent && !alreadyNoted(intent)) {
     await supabase.from("contact_history").insert({
       client_id: clientId,
       agent_id: agentId,
+      assigned_to_email: c.assigned_to_email ?? null,
       contact_type: "imported_note",
       note: intent,
       created_at: new Date().toISOString(),
     });
+    existingNotes.add(intent.trim().toLowerCase());
   }
 
   // ── Policies ───────────────────────────────────────────────────────
@@ -545,11 +575,15 @@ export async function saveClientFullRecord(
     if (!pol.policy_number && !pol.carrier_name && !pol.monthly_premium) continue;
 
     if (pol.policy_number) {
+      // Agency-wide first: a policy the upline imported is the one most likely
+      // to arrive again in the agent's own export, and re-inserting it doubles
+      // the production it counts toward.
+      if (opts?.knownPolicyNumbers?.has(pol.policy_number.trim().toLowerCase())) continue;
       const { data: existingPol } = await supabase
         .from("policies")
         .select("id")
-        .eq("agent_id", agentId)
         .eq("policy_number", pol.policy_number)
+        .limit(1)
         .maybeSingle();
       if (existingPol) continue;
     }
@@ -572,6 +606,7 @@ export async function saveClientFullRecord(
     const { data: insertedPol } = await supabase.from("policies").insert({
       client_id: clientId,
       agent_id: agentId,
+      assigned_to_email: c.assigned_to_email ?? null,
       carrier_id: carrierId,
       product: pol.product ?? "Final Expense",
       policy_number: pol.policy_number ?? null,
@@ -640,15 +675,19 @@ export async function saveClientFullRecord(
     const isMedical =
       (note.note_type ?? "").toLowerCase().includes("medical") ||
       (note.note_type ?? "").toLowerCase().includes("health");
+    const text = note.author ? `${note.content.trim()} — ${note.author}` : note.content.trim();
+    if (alreadyNoted(text)) continue;
     await supabase.from("contact_history").insert({
       client_id: clientId,
       agent_id: agentId,
+      assigned_to_email: c.assigned_to_email ?? null,
       contact_type: isMedical ? "medical_note" : "imported_note",
-      note: note.author ? `${note.content.trim()} — ${note.author}` : note.content.trim(),
+      note: text,
       created_at: note.created_at
         ? new Date(`${note.created_at}T12:00:00Z`).toISOString()
         : new Date().toISOString(),
     });
+    existingNotes.add(text.trim().toLowerCase());
   }
 
   return { clientId, isNew };

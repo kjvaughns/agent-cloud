@@ -26,6 +26,21 @@ export const listPipelineClients = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
+    /*
+      Pick up anything the agency imported under this person's email.
+
+      An agency commonly imports an agent's book after that agent has already
+      signed up, which parks the rows against their email with no owner. Signup
+      claimed what existed then; without this, everything imported afterwards
+      never appears for them at all — an empty pipeline next to a book that is
+      demonstrably theirs. Cheap: the update matches nothing on every subsequent
+      load.
+    */
+    if (data.scope === "mine") {
+      const { error: claimErr } = await supabase.rpc("claim_my_assigned_records", {});
+      if (claimErr) console.error("Pipeline: claim failed", claimErr.message);
+    }
+
     // Who counts as "me" for this request. Everything below narrows to this
     // set, including the beneficiary lookup — miss that one and a downline
     // client silently loses its beneficiary label, which is a wrong answer
