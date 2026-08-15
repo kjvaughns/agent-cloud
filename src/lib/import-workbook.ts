@@ -89,7 +89,29 @@ function mergeClient(a: ExtractedClient, b: ExtractedClient): void {
     if (v === null || v === undefined || v === "") continue;
     if (a[k] === null || a[k] === undefined || a[k] === "") a[k] = v;
   }
-  if (Array.isArray(b.policies)) a.policies = [...(a.policies ?? []), ...b.policies];
+  /*
+    Policies merge by number rather than stacking.
+
+    The clients tab carries a policy number and a face amount; the book tab
+    carries the same number with the carrier, the premium and the effective
+    date. Appending both gave the client two policies — one of them a stub with
+    no carrier — which then counted twice in production. Same number means same
+    policy, and the fuller row fills in the blanks of the thinner one.
+  */
+  if (Array.isArray(b.policies)) {
+    const merged = [...(a.policies ?? [])];
+    const keyOf = (p: any) => String(p?.policy_number ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    for (const inc of b.policies) {
+      const k = keyOf(inc);
+      const hit = k ? merged.find((m) => keyOf(m) === k) : undefined;
+      if (!hit) { merged.push(inc); continue; }
+      for (const [pk, pv] of Object.entries(inc)) {
+        if (pv === null || pv === undefined || pv === "") continue;
+        if (hit[pk] === null || hit[pk] === undefined || hit[pk] === "") hit[pk] = pv;
+      }
+    }
+    a.policies = merged;
+  }
   if (Array.isArray((b as any).notes)) {
     (a as any).notes = [...((a as any).notes ?? []), ...(b as any).notes];
   }
