@@ -402,8 +402,14 @@ export function ManageGridsPage({
         )}
 
         <Panel title="Add or update a carrier grid">
-          <div className="grid gap-4 sm:grid-cols-[260px_1fr] items-start">
-            <div className="space-y-3">
+          {/* Stacked, not side by side: the matrix is a wide table with a
+              product column and one column per level, and squeezing it into
+              half a settings tab meant every product name and most rate
+              columns were cut off. Picking the carrier and dropping files is
+              narrow work; reviewing the grid needs the whole width. */}
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 items-start">
+
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Carrier</label>
                 <Select

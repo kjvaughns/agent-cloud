@@ -119,7 +119,7 @@ export function CompGridMatrix({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onLevelDragEnd}>
               <SortableContext items={value.levels.map((l) => l.uid)} strategy={horizontalListSortingStrategy}>
                 <tr className="bg-surface-2">
-                  <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[210px]">
+                  <th className="p-2 text-left text-xs font-semibold text-muted-foreground min-w-[300px]">
                     Product
                   </th>
                   {value.levels.map((lvl) => (
@@ -318,7 +318,8 @@ function ProductTr({ product, value, band, onChange }: {
             value={product.product_name}
             onChange={(e) => onChange(renameProduct(value, product.uid, e.target.value))}
             placeholder="Product name"
-            className="h-8 text-xs"
+            title={product.product_name}
+            className="h-8 min-w-[180px] text-xs"
           />
           {showBand && (
             <span className="flex shrink-0 items-center gap-0.5 text-[10px] text-muted-foreground">

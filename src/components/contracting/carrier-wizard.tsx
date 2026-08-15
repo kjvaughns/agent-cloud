@@ -153,7 +153,7 @@ export function CarrierWizard({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-hidden p-0">
+      <DialogContent className="max-h-[92vh] w-[96vw] max-w-6xl overflow-hidden p-0">
         <div className="grid md:grid-cols-[210px_1fr]">
           {/* The rail is the point of the flow: it says what is left, and it is
               clickable, because an owner with the advance terms to hand and not
