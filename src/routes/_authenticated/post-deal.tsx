@@ -60,6 +60,7 @@ type FormData = {
   product: string;
   policy_number: string;
   effective_date: string;
+  sale_date: string;
   face_amount: string;
   monthly_premium: string;
   status: "issued_not_paid" | "in_review";
