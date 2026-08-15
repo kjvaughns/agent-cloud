@@ -76,6 +76,7 @@ export function ManageGridsPage({
   // can say "check these" rather than only reporting it once in a toast.
   const [confidence, setConfidence] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
   const extractFn = useServerFn(extractGrid);
   const saveFn = useServerFn(saveGrid);
@@ -323,6 +324,25 @@ export function ManageGridsPage({
     }
   }
 
+  /**
+   * Opened from a carrier row, load that carrier's grid.
+   *
+   * `initialCarrierId` only ever set the picker's value. The rows are loaded in
+   * `selectCarrier`, which runs when somebody uses the dropdown — so arriving
+   * from "Edit grid" showed an empty table for a carrier that had a full grid,
+   * and because the save mode is `replace`, saving that screen would have
+   * deleted rows it never displayed. Runs once per carrier, after the query
+   * lands, and never over unsaved work.
+   */
+  const loadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialCarrierId || isLoading) return;
+    if (loadedFor.current === initialCarrierId) return;
+    loadedFor.current = initialCarrierId;
+    selectCarrier(initialCarrierId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCarrierId, isLoading, grids.length]);
+
   const addCarrierMut = useMutation({
     mutationFn: (name: string) => addCarrierFn({ data: { name } }),
     onSuccess: async (r: any) => {
@@ -433,20 +453,46 @@ export function ManageGridsPage({
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
                   Upload the grid
                 </label>
-                <label
+                {/* A drop zone, not a label wrapping a hidden input.
+                    A wrapping <label> is what made multi-select unreliable: the
+                    click reached the label, which re-dispatched it to the input,
+                    and some browsers open the single-file picker for a
+                    synthesised click. The input is now opened directly from a
+                    ref, and the same zone accepts dragged files. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInput.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.current?.click(); }
+                  }}
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragEnter={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragging(false);
+                    acceptFiles(e.dataTransfer.files);
+                  }}
                   className={cn(
-                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border p-5 text-center transition-colors",
-                    "hover:border-primary/50 hover:bg-surface-2",
+                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-5 text-center transition-colors",
+                    dragging ? "border-primary bg-gold-glow" : "border-border hover:border-primary/50 hover:bg-surface-2",
                     reading && "pointer-events-none opacity-60",
                   )}
                 >
                   {reading
                     ? <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    : <Upload className="h-5 w-5 text-muted-foreground" />}
+                    : <Upload className={cn("h-5 w-5", dragging ? "text-primary" : "text-muted-foreground")} />}
                   <span className="text-xs text-muted-foreground">
-                    {reading ? "Reading the grid…" : "PDF, photo, screenshot or spreadsheet"}
+                    {reading
+                      ? "Reading the grid…"
+                      : dragging
+                        ? "Drop the pages here"
+                        : "Drop files here, or tap to choose"}
                   </span>
+                  <span className="text-[11px] text-text-dim">PDF, photo, screenshot or spreadsheet</span>
                   <input
+                    ref={fileInput}
                     type="file"
                     // `multiple`: a paper grid photographed page by page is the
                     // normal phone case, and picking the photos one at a time
@@ -454,9 +500,9 @@ export function ManageGridsPage({
                     multiple
                     accept="application/pdf,image/*,.csv,.xlsx,.xls"
                     className="hidden"
-                    onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) onFiles(fs); e.currentTarget.value = ""; }}
+                    onChange={(e) => { acceptFiles(e.target.files); e.currentTarget.value = ""; }}
                   />
-                </label>
+                </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
                   Photograph every page — you can select several at once, and a later upload
                   adds to the grid below rather than replacing it. Nothing is saved until you
