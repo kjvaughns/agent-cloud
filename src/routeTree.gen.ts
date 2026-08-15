@@ -176,6 +176,7 @@ import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/em
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
+import { Route as ApiPublicHooksDispatchAnnouncementsRouteImport } from './routes/api/public/hooks/dispatch-announcements'
 import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
@@ -1103,6 +1104,12 @@ const ApiPublicHooksFetchNewsRoute = ApiPublicHooksFetchNewsRouteImport.update({
   path: '/api/public/hooks/fetch-news',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDispatchAnnouncementsRoute =
+  ApiPublicHooksDispatchAnnouncementsRouteImport.update({
+    id: '/api/public/hooks/dispatch-announcements',
+    path: '/api/public/hooks/dispatch-announcements',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDemoResetRoute = ApiPublicHooksDemoResetRouteImport.update({
   id: '/api/public/hooks/demo-reset',
   path: '/api/public/hooks/demo-reset',
@@ -1290,6 +1297,7 @@ export interface FileRoutesByFullPath {
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
+  '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1457,6 +1465,7 @@ export interface FileRoutesByTo {
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
+  '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1631,6 +1640,7 @@ export interface FileRoutesById {
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
+  '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
@@ -1805,6 +1815,7 @@ export interface FileRouteTypes {
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/demo-reset'
+    | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -1972,6 +1983,7 @@ export interface FileRouteTypes {
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
     | '/api/public/hooks/demo-reset'
+    | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -2145,6 +2157,7 @@ export interface FileRouteTypes {
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
     | '/api/public/hooks/demo-reset'
+    | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/run-automations'
     | '/lovable/email/auth/preview'
@@ -2191,6 +2204,7 @@ export interface RootRouteChildren {
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
+  ApiPublicHooksDispatchAnnouncementsRoute: typeof ApiPublicHooksDispatchAnnouncementsRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
@@ -3371,6 +3385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksFetchNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/dispatch-announcements': {
+      id: '/api/public/hooks/dispatch-announcements'
+      path: '/api/public/hooks/dispatch-announcements'
+      fullPath: '/api/public/hooks/dispatch-announcements'
+      preLoaderRoute: typeof ApiPublicHooksDispatchAnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/demo-reset': {
       id: '/api/public/hooks/demo-reset'
       path: '/api/public/hooks/demo-reset'
@@ -3841,6 +3862,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
+  ApiPublicHooksDispatchAnnouncementsRoute:
+    ApiPublicHooksDispatchAnnouncementsRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
