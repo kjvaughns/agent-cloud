@@ -59,6 +59,7 @@ function ImportPage() {
   const [note, setNote] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
 
@@ -401,8 +402,29 @@ function ImportPage() {
               )}
 
               <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!busy) setDragging(true);
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (!busy) setDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  // Only clear when the pointer actually leaves the zone, not
+                  // when it crosses onto a child element inside it.
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  if (busy) return;
+                  const dropped = e.dataTransfer?.files;
+                  if (dropped?.length) handleFiles(dropped);
+                }}
                 className={cn(
                   "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-[var(--radius)] border-2 border-dashed border-border p-8 text-center transition-colors hover:border-primary/50 hover:bg-surface-2",
+                  dragging && "border-primary bg-primary/5",
                   busy && "pointer-events-none opacity-60",
                 )}
               >
@@ -426,14 +448,17 @@ function ImportPage() {
                   </>
                 ) : (
                   <>
-                    <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                    <span className="text-sm font-medium">Choose files, or drop them here</span>
+                    <UploadCloud className={cn("h-6 w-6 text-muted-foreground", dragging && "text-primary")} />
+                    <span className="text-sm font-medium">
+                      {dragging ? "Drop to import" : "Choose files, or drop them here"}
+                    </span>
                     <span className="text-xs text-muted-foreground">
                       PDF, images, CSV, Excel — up to 100 at a time
                     </span>
                   </>
                 )}
               </label>
+
             </div>
           </Panel>
 

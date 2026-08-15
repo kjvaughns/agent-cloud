@@ -35,6 +35,7 @@ function ImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<any | null>(null);
   const [fileName, setFileName] = useState("");
+  const [dragging, setDragging] = useState(false);
 
   const columns = IMPORT_COLUMNS[kind];
 
@@ -116,9 +117,27 @@ function ImportPage() {
 
       <Panel title={`Import ${KIND_LABELS[kind].toLowerCase()}`}>
         {headers.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-surface-2/30 px-6 py-10 text-center">
-            <Upload className="mx-auto h-6 w-6 text-text-dim" />
-            <p className="mt-3 text-sm font-semibold text-foreground">Choose a CSV file</p>
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragEnter={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              const f = e.dataTransfer?.files?.[0];
+              if (f) onFile(f);
+            }}
+            className={cn(
+              "rounded-xl border border-dashed border-border bg-surface-2/30 px-6 py-10 text-center transition-colors",
+              dragging && "border-primary bg-primary/5",
+            )}
+          >
+            <Upload className={cn("mx-auto h-6 w-6 text-text-dim", dragging && "text-primary")} />
+            <p className="mt-3 text-sm font-semibold text-foreground">
+              {dragging ? "Drop your CSV to load it" : "Choose a CSV file, or drop it here"}
+            </p>
             <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
               Any column order works — you map them in the next step. Download the template above if
               you would rather start from the expected shape.
@@ -135,6 +154,7 @@ function ImportPage() {
               </span>
             </label>
           </div>
+
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
