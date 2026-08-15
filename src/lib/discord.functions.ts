@@ -511,31 +511,36 @@ export async function announceDeal(policyId: string): Promise<void> {
     // One channel refusing, or failing, must not stop the others.
     await Promise.all(
       targets.map(async (cfg) => {
+        const key = eventKey(cfg.id, "sales", policy.id);
         try {
           if (annual < Number(cfg.min_annual_premium ?? 0)) {
-            await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: cfg.organization_id,
-              integration_id: cfg.id,
-              event_type: "deal_posted",
-              policy_id: policy.id,
+            await recordDelivery({
+              orgId: cfg.organization_id,
+              integrationId: cfg.id,
+              eventType: "deal_posted",
+              policyId: policy.id,
               status: "skipped",
               error: "Below this channel's minimum premium threshold",
+              skipReason: "below_threshold",
+              eventKey: key,
             });
             return;
           }
 
+          // The event key is unique across sent rows for this bot, so a retry
+          // or a double submit is recognised rather than posted twice.
+          if (await alreadySent(cfg.id, key)) return;
+
           const status = await postToDiscord(cfg.webhook_url, body);
 
-          // Unique on (policy_id, event_type, integration_id) where status =
-          // 'sent', so a retry or a double submit cannot announce the same deal
-          // twice in the same channel.
-          await supabaseAdmin.from("discord_deliveries").insert({
-            organization_id: cfg.organization_id,
-            integration_id: cfg.id,
-            event_type: "deal_posted",
-            policy_id: policy.id,
+          await recordDelivery({
+            orgId: cfg.organization_id,
+            integrationId: cfg.id,
+            eventType: "deal_posted",
+            policyId: policy.id,
             status: "sent",
-            http_status: status,
+            httpStatus: status,
+            eventKey: key,
           });
 
           await markSuccess(cfg.id);
@@ -544,14 +549,15 @@ export async function announceDeal(policyId: string): Promise<void> {
           if (e?.code === "23505") return;
           const msg = String(e?.message ?? e).slice(0, 500);
           try {
-            await supabaseAdmin.from("discord_deliveries").insert({
-              organization_id: cfg.organization_id,
-              integration_id: cfg.id,
-              event_type: "deal_posted",
-              policy_id: policy.id,
+            await recordDelivery({
+              orgId: cfg.organization_id,
+              integrationId: cfg.id,
+              eventType: "deal_posted",
+              policyId: policy.id,
               status: "failed",
-              http_status: e?.status ?? null,
+              httpStatus: e?.status ?? null,
               error: msg,
+              eventKey: key,
             });
             await markFailure(cfg.id, msg, cfg.consecutive_failures ?? 0);
           } catch {
