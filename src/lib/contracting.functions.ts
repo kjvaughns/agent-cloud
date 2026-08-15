@@ -447,23 +447,6 @@ export const createContractRequest = createServerFn({ method: "POST" })
       directUplineId: null,
     });
 
-    // Corrections the agent made in the dialog are theirs to make: it is their
-    // own profile, and the carrier paperwork is filled from it.
-    const profilePatch: Record<string, unknown> = {};
-    if (data.full_name?.trim()) {
-      const parts = data.full_name.trim().split(/\s+/);
-      profilePatch.first_name = parts[0];
-      if (parts.length > 1) profilePatch.last_name = parts.slice(1).join(" ");
-    }
-    if (data.email?.trim()) profilePatch.email = data.email.trim();
-    if (data.phone?.trim()) profilePatch.phone = data.phone.trim();
-    if (data.npn?.trim()) profilePatch.npn = data.npn.trim();
-    if (Object.keys(profilePatch).length) {
-      // Through the user's own client, so RLS is still the boundary.
-      const { error: pErr } = await supabase.from("profiles").update(profilePatch).eq("id", userId);
-      if (pErr) console.error("[contracting] profile confirmation not saved", pErr.message);
-    }
-
     if (!created.length) {
       throw new Error("Could not raise that request. Nothing was saved — please try again.");
     }
