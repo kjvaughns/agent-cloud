@@ -558,33 +558,15 @@ const HUBS: Record<string, HubGroup[]> = {
     { label: "", ids: ["import", "documents-tools", "resources", "quoter", "marketing"] },
   ],
 
-  // Was nine rows, nearly all of them a page that belonged inside something
-  // else. Emails, Automations and Integrations are tabs of Agency settings;
-  // White label is the upgrade it always was, inside Billing; the support desk
-  // sits in Help beside the tickets it answers; Edit resources lives with the
-  // resources it edits. What people use is gone.
-  // The six groups the product's settings actually divide into, named in
-  // `lib/settings/groups.ts`. This was one flat run of nineteen entries plus a
-  // "Your agency" heading, so Levels & Positions, Nova Pro and Security sat at
-  // the same level as each other and an owner looking for where compensation
-  // is configured had to read all nineteen.
-  //
-  // Contracting Setup is listed in the order the guided checklist walks it:
-  // carriers, positions, grids, then how contracting runs.
+  // Five rows now, in the order somebody needs them: set the agency up, then
+  // lock it down, then pay for it. The ten configuration screens that used to be
+  // listed here are tabs of Agency settings; grouping nineteen rows was an
+  // improvement on listing nineteen rows, but the rows themselves were the
+  // problem.
   settings: [
-    { label: "Agency Profile", ids: ["agency-settings", "white-label"] },
-    { label: "Team and Access", ids: ["agency-roles", "sub-agencies", "security"] },
-    {
-      label: "Contracting Setup",
-      ids: [
-        "carriers-setup", "agency-levels", "comp-grids-setup",
-        "contracting-settings", "contracting-templates",
-      ],
-    },
-    { label: "Communications", ids: ["notif-settings", "agency-emails"] },
-    { label: "Integrations", ids: ["integrations", "agency-automations"] },
-    { label: "Billing", ids: ["billing", "nova-pro", "support-desk"] },
+    { label: "", ids: ["agency-settings", "security", "billing", "nova-pro", "support-desk"] },
   ],
+
 };
 
 export function isHub(id: string): boolean {
