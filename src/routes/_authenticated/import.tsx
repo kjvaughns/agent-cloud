@@ -31,8 +31,9 @@ import { readDocument } from "@/lib/sheet-shape";
 import { MigrationGuide } from "@/components/import/migration-guide";
 import { planWorkbook, describePlan } from "@/lib/import-workbook";
 import {
-  certificatesFromDocument, debtFromDocument, statementLinesFromDocument,
+  certificatesFromDocument, debtFromDocument, statementLinesFromDocument, splitName,
 } from "@/lib/import-carrier-reports";
+import { normalizePolicyStatus } from "@/lib/import-normalize";
 import { extractCarrierReport } from "@/lib/import-carrier-reports.functions";
 import { carrierFromLabel } from "@/lib/sheet-shape";
 
@@ -433,7 +434,7 @@ function ImportPage() {
     // Certificates become client records, so a carrier's copy of a policy lands
     // on the client already on file instead of a second copy of the person.
     return (out?.certificates ?? []).map((c: any) => {
-      const { first_name, last_name } = splitReportName(String(c.insured_name ?? ""));
+      const { first_name, last_name } = splitName(String(c.insured_name ?? ""));
       return {
         first_name,
         last_name,
@@ -445,7 +446,8 @@ function ImportPage() {
           effective_date: c.effective_date ?? null,
           // The carrier's own wording, mapped by the same table the
           // spreadsheet path uses — never coerced to "active" on a guess.
-          status: normalizeReportStatus(c.status_text),
+          status: normalizePolicyStatus(c.status_text ?? "") ?? null,
+          status_raw: c.status_text ?? null,
           face_amount: c.face_amount ?? null,
           monthly_premium: c.monthly_premium ?? null,
         }],
