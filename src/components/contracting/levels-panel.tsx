@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useServerFn } from "@/hooks/use-server-fn";
 import { listAgencyLevels, saveAgencyLevel } from "@/lib/contracting-records.functions";
 import { listOrgCarriers } from "@/lib/contracting-ops.functions";
+import { getMyPlacement, setAgentPosition } from "@/lib/team.functions";
 import { EmptyState } from "@/components/contracting/shared";
 import {
   carrierLevelOptions, levelLabel, levelOrigin, suggestLevel, autoMatchLevel, mappingFor, findLevel,

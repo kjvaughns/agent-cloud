@@ -540,7 +540,7 @@ export const getMyPlacement = createServerFn({ method: "GET" })
       .select("id, first_name, last_name, agency_level_id, organization_id")
       .eq("id", userId)
       .maybeSingle();
-    if (!me) return { canSelfAssign: false, agencyLevelId: null, name: null, pct: null };
+    if (!me) return { agentId: null, canSelfAssign: false, agencyLevelId: null, name: null, pct: null };
 
     let isRootAgency = false;
     if (me.organization_id) {
@@ -559,6 +559,7 @@ export const getMyPlacement = createServerFn({ method: "GET" })
     }
 
     return {
+      agentId: me.id as string,
       canSelfAssign: isRootAgency,
       agencyLevelId: (me.agency_level_id ?? null) as string | null,
       name,
