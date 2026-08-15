@@ -27,6 +27,7 @@ import {
   METHOD_LABELS, type ContractingMethod,
 } from "@/lib/contracting-ops/types";
 import { MethodsEditor } from "@/components/contracting/carrier-methods-editor";
+import { CarrierWizard } from "@/components/contracting/carrier-wizard";
 import { EmptyState } from "@/components/contracting/shared";
 import { PRODUCT_TYPES } from "@/lib/products";
 import { cn } from "@/lib/utils";
@@ -131,11 +132,11 @@ function RemoveCarrierDialog({
  * in a different place on every card.
  */
 function CarrierRow({
-  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onToggle, toggling,
+  carrier: c, first, canManage, onEdit, onRemove, onRestore, onEditGrid, onFinish, onToggle, toggling,
 }: {
   carrier: any; first: boolean; canManage: boolean;
   onEdit: () => void; onRemove: () => void; onRestore: () => void; onEditGrid: () => void;
-  onToggle: (on: boolean) => void; toggling: boolean;
+  onFinish: () => void; onToggle: (on: boolean) => void; toggling: boolean;
 }) {
   const state = c.state as CarrierState | undefined;
   const isActive = state?.status === "active";
@@ -208,6 +209,14 @@ function CarrierRow({
               </Button>
             ) : (
               <>
+                {/* The way back into the guided flow. A carrier that cannot be
+                    switched on has a named next step, and this opens the step
+                    rather than leaving an owner to guess which field it was. */}
+                {!isActive && !state?.canActivate && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onFinish}>
+                    Finish setup
+                  </Button>
+                )}
                 {/* Off until the setup can pay a deal. A switch that flips and
                     then does nothing is worse than one that explains itself. */}
                 <button
@@ -278,7 +287,9 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   const availableFn = useServerFn(listAvailableCarriers);
   const saveFn = useServerFn(saveOrgCarrier);
 
-  const [adding, setAdding] = useState(false);
+  // The guided flow. `"new"` before a carrier exists, then the saved id so the
+  // dialog reads the live row and resumes on the first thing still missing.
+  const [wizardId, setWizardId] = useState<string | null>(null);
   // Ids, not the carrier objects.
   //
   // These used to hold the row itself, captured when the button was clicked —
@@ -329,18 +340,15 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   const { data: available } = useQuery({
     queryKey: ["contracting-ops", "carriers", "available"],
     queryFn: () => availableFn(),
-    enabled: adding,
+    enabled: wizardId === "new",
   });
 
   const save = useMutation({
     mutationFn: (payload: any) => saveFn({ data: payload }),
     onSuccess: () => {
-      const wasAdding = adding;
-      toast.success(wasAdding ? "Carrier added. Now add its agency levels." : "Carrier saved");
-      setAdding(false);
+      toast.success("Carrier saved");
       setEditingId(null);
       qc.invalidateQueries({ queryKey: ["contracting-ops"] });
-      if (wasAdding) onConfigureLevels();
     },
     onError: (e: any) => toast.error(e?.message ?? "Could not save the carrier"),
   });
@@ -396,7 +404,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
           </p>
         </div>
         {canManage && (
-          <Button size="sm" data-tour="carrier-add" onClick={() => setAdding(true)}>
+          <Button size="sm" data-tour="carrier-add" onClick={() => setWizardId("new")}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Add carrier
           </Button>
         )}
@@ -460,7 +468,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
           title="No carriers yet"
           body="Add your first carrier to begin organizing contracting workflows. You can pick one from the shared catalog or add a carrier only your agency uses."
           action={canManage
-            ? <Button size="sm" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add your first carrier</Button>
+            ? <Button size="sm" onClick={() => setWizardId("new")}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add your first carrier</Button>
             : undefined}
         />
       ) : (
@@ -479,6 +487,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
                 onEdit={() => setEditingId(c.id)}
                 onRemove={() => setRemovingId(c.id)}
                 onEditGrid={() => setGridForId(c.id)}
+                onFinish={() => setWizardId(c.id)}
                 onRestore={() => restore.mutate(c.id)}
                 onToggle={(on) => toggle.mutate({ id: c.id, on })}
                 toggling={toggle.isPending}
@@ -488,12 +497,26 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
         </div>
       )}
 
+      {/* Add and finish-setup both go through the seven-step flow; the gear
+          stays a single form, because changing one field on a live carrier
+          should not walk somebody through activation again. */}
+      {wizardId && (
+        <CarrierWizard
+          open
+          carrier={wizardId === "new" ? null : byId(wizardId)}
+          available={(available?.carriers ?? []) as any[]}
+          onCreated={(id) => setWizardId(id)}
+          onClose={() => setWizardId(null)}
+          onConfigureLevels={onConfigureLevels}
+        />
+      )}
+
       <CarrierDialog
-        open={adding || Boolean(editing)}
+        open={Boolean(editing)}
         carrier={editing}
         available={(available?.carriers ?? []) as any[]}
         pending={save.isPending}
-        onClose={() => { setAdding(false); setEditingId(null); }}
+        onClose={() => setEditingId(null)}
         onSave={(payload) => save.mutate(payload)}
       />
     </div>
