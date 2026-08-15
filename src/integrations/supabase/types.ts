@@ -5166,7 +5166,7 @@ export type Database = {
           created_at: string
           created_by: string
           existing_agent_id: string | null
-          expires_at: string
+          expires_at: string | null
           id: string
           invite_signature_html: string | null
           invited_role: string | null
@@ -5195,7 +5195,7 @@ export type Database = {
           created_at?: string
           created_by: string
           existing_agent_id?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           invite_signature_html?: string | null
           invited_role?: string | null
@@ -5224,7 +5224,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           existing_agent_id?: string | null
-          expires_at?: string
+          expires_at?: string | null
           id?: string
           invite_signature_html?: string | null
           invited_role?: string | null
