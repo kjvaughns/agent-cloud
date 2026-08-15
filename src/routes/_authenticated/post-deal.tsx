@@ -481,6 +481,27 @@ function PostDealPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {/* Which list this is. "Whole Life" appears in both the grid
+                    and the general catalogue, so without saying so an agent
+                    cannot tell whether the names in front of them are their
+                    agency's configured products or a stock list. */}
+                {gridProducts.length > 0 && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {selectedCarrierName}'s products, from the comp grid.
+                  </p>
+                )}
+                {/* The grid names the products but prices them per contract
+                    level. Without a level there is no column to read, so the
+                    deal pays the flat position percentage — worth saying here,
+                    where the agent is looking at grid product names and would
+                    otherwise assume grid rates. */}
+                {gridProducts.length > 0 && !dealOptions?.carrierLevelName && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    You are not mapped to a contract level on {selectedCarrierName}, so this pays
+                    your position percentage rather than the grid rate. An agency admin can set
+                    the mapping under Agency settings ▸ Levels &amp; Positions.
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Policy Number *</Label>

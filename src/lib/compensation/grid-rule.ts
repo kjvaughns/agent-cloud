@@ -173,15 +173,31 @@ export function selectGridRule(rows: GridRow[], q: GridQuery): GridMatch | null 
 }
 
 /**
- * Which products an agent may pick for a carrier.
+ * Which products an agent may pick for a carrier. Every one on the grid.
  *
- * Post a Deal shows these and nothing else, so a product the agency never
- * configured cannot be sold into a grid that says nothing about it.
+ * ── Not filtered by level, deliberately ──
+ *
+ * This used to take a level name and drop every row belonging to another one.
+ * That confused two different things. A carrier grid is a matrix: products down
+ * the side, contract levels across the top. Transamerica sells FE Express to an
+ * RK1 and to an RK12 alike — what changes between those columns is the RATE, not
+ * the catalogue.
+ *
+ * The filter also failed in the most common case rather than a rare one. An
+ * agent with no carrier level mapped has `levelName` null, and every row on a
+ * grid whose columns are named (RK1, RK10, RK11…) carries a level — so every row
+ * was skipped, the list came back empty, and Post a Deal quietly fell back to
+ * its own generic product list. The agency's uploaded grid did nothing, which is
+ * the exact failure the grid work was meant to end.
+ *
+ * Pricing still needs the level and still refuses without it: `selectGridRule`
+ * keeps its level check, so an unknown level resolves no grid rate rather than
+ * arbitrarily paying the first column. Choosing a product and being paid for it
+ * are different questions, and only the second one needs to know the column.
  */
-export function productsFor(rows: GridRow[], levelName: string | null): string[] {
+export function productsFor(rows: GridRow[]): string[] {
   const seen = new Map<string, string>();
   for (const r of rows) {
-    if (r.levelName && norm(r.levelName) !== norm(levelName)) continue;
     const k = norm(r.productName);
     if (k && !seen.has(k)) seen.set(k, r.productName.trim());
   }
@@ -250,10 +266,27 @@ export type DealRequirements = {
   needsRisk: boolean;
 };
 
-export function requirementsFor(rows: GridRow[], levelName: string | null): DealRequirements {
+/**
+ * The rows that could apply to a level.
+ *
+ * An unknown level is not the same as a level with no rows. Null means we do
+ * not yet know which column of the matrix applies, so every column is still in
+ * play — narrowing to the level-less rows would answer "does this carrier vary
+ * by age" from an empty set and confidently say no. A named level the grid has
+ * never heard of tells us nothing either, so it falls back the same way.
+ */
+function rowsForLevel(rows: GridRow[], levelName: string | null): GridRow[] {
+  if (!levelName) return rows;
   const mine = rows.filter((r) => !r.levelName || norm(r.levelName) === norm(levelName));
+  return mine.length > 0 ? mine : rows;
+}
+
+export function requirementsFor(rows: GridRow[], levelName: string | null): DealRequirements {
+  const mine = rowsForLevel(rows, levelName);
   return {
-    products: productsFor(rows, levelName),
+    // Every product on the grid, whatever level the agent is on. See
+    // `productsFor` — the catalogue is the rows, the level is the column.
+    products: productsFor(rows),
     needsAge: mine.some((r) => r.ageMin != null || r.ageMax != null),
     needsState: mine.some((r) => Boolean(r.stateCode)),
     needsRisk: mine.some((r) => Boolean(r.riskClass)),
