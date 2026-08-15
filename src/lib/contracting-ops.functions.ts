@@ -486,10 +486,23 @@ export const saveOrgCarrier = createServerFn({ method: "POST" })
         .from("org_carriers").select("*").eq("id", id).eq("organization_id", orgId).maybeSingle();
       if (!before) throw new OrgAccessError("That carrier is not in your directory");
 
-      const { error } = await supabaseAdmin
+      // `.select()` on the update, not a bare update.
+      //
+      // PostgREST reports no error when an update matches zero rows — the
+      // statement ran, it just changed nothing — so a bare update returns
+      // success whether or not anything was written, and the interface says
+      // "Carrier saved" over a database that never heard the request. Reading
+      // the row back is what makes the success claim true.
+      const { data: after, error } = await supabaseAdmin
         .from("org_carriers").update({ ...fields, updated_by: userId })
-        .eq("id", id).eq("organization_id", orgId);
+        .eq("id", id).eq("organization_id", orgId)
+        .select("id");
       if (error) throw new Error(error.message);
+      if (!after?.length) {
+        throw new Error(
+          "The carrier was not saved — nothing was written. Reload the page and try again.",
+        );
+      }
 
       const d = diff(before, { ...before, ...fields });
       await recordAudit({
@@ -579,10 +592,19 @@ export const saveOrgCarrierMethod = createServerFn({ method: "POST" })
         .from("org_carrier_methods").select("*").eq("id", id).eq("organization_id", orgId).maybeSingle();
       if (!before) throw new OrgAccessError("That submission method is not in your directory");
 
-      const { error } = await supabaseAdmin
+      // Read back, for the same reason as the carrier update above: a
+      // zero-row update is not an error, so without this the dialog is told
+      // the method saved whether or not one did.
+      const { data: after, error } = await supabaseAdmin
         .from("org_carrier_methods").update({ ...fields, updated_at: new Date().toISOString() })
-        .eq("id", id).eq("organization_id", orgId);
+        .eq("id", id).eq("organization_id", orgId)
+        .select("id");
       if (error) throw new Error(error.message);
+      if (!after?.length) {
+        throw new Error(
+          "The submission method was not saved — nothing was written. Reload the page and try again.",
+        );
+      }
 
       const d = diff(before, { ...before, ...fields });
       await recordAudit({

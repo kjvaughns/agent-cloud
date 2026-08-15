@@ -280,9 +280,22 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
   const saveFn = useServerFn(saveOrgCarrier);
 
   const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [removing, setRemoving] = useState<any | null>(null);
-  const [gridFor, setGridFor] = useState<any | null>(null);
+  // Ids, not the carrier objects.
+  //
+  // These used to hold the row itself, captured when the button was clicked —
+  // a snapshot frozen at that instant. Everything inside the dialog then read
+  // that snapshot forever. Adding a submission method wrote the row, refetched
+  // the list, and the panel underneath still said "None set", because it was
+  // rendering the object from before the write. The save was real; the screen
+  // was reporting a stale copy of the world.
+  //
+  // Holding the id and looking the carrier up in the query data means a
+  // refetch flows straight into the open dialog. The form's own fields keep
+  // their local state — seeded once per carrier — so a background refetch
+  // still cannot overwrite something half-typed.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [gridForId, setGridForId] = useState<string | null>(null);
   const restoreFn = useServerFn(restoreOrgCarrier);
   // Active is the only status agents can see, so this switch is what makes a
   // carrier real to them. `carrierState.canActivate` decides whether it may be
@@ -326,7 +339,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
       const wasAdding = adding;
       toast.success(wasAdding ? "Carrier added. Now add its agency levels." : "Carrier saved");
       setAdding(false);
-      setEditing(null);
+      setEditingId(null);
       qc.invalidateQueries({ queryKey: ["contracting-ops"] });
       if (wasAdding) onConfigureLevels();
     },
@@ -335,6 +348,15 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
 
   const allCarriers = (data?.carriers ?? []) as any[];
   const canManage = data?.access?.canManageCarriers;
+
+  // Resolved against the current query data on every render, so a save that
+  // refetches is visible to whatever is open. A carrier that disappears while
+  // a dialog is open — removed in another tab — resolves to null and the
+  // dialog closes rather than editing something that is no longer there.
+  const byId = (id: string | null) => (id ? allCarriers.find((c) => c.id === id) ?? null : null);
+  const editing = byId(editingId);
+  const removing = byId(removingId);
+  const gridFor = byId(gridForId);
 
   // Search and filter. Both narrow the same list rather than replacing it, so
   // the counts above always describe the agency and not the current view — an
@@ -408,7 +430,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
           to sit open underneath the whole list, which meant the tab showed
           every carrier and every rate at once and neither was findable. */}
       {gridFor && (
-        <Dialog open onOpenChange={(o) => !o && setGridFor(null)}>
+        <Dialog open onOpenChange={(o) => !o && setGridForId(null)}>
           <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{gridFor.name} — compensation grid</DialogTitle>
@@ -425,7 +447,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
       {removing && (
         <RemoveCarrierDialog
           carrier={removing}
-          onClose={() => setRemoving(null)}
+          onClose={() => setRemovingId(null)}
           onDone={() => qc.invalidateQueries({ queryKey: ["contracting-ops"] })}
         />
       )}
@@ -455,9 +477,9 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
                 carrier={c}
                 first={i === 0}
                 canManage={Boolean(canManage)}
-                onEdit={() => setEditing(c)}
-                onRemove={() => setRemoving(c)}
-                onEditGrid={() => setGridFor(c)}
+                onEdit={() => setEditingId(c.id)}
+                onRemove={() => setRemovingId(c.id)}
+                onEditGrid={() => setGridForId(c.id)}
                 onRestore={() => restore.mutate(c.id)}
                 onToggle={(on) => toggle.mutate({ id: c.id, on })}
                 toggling={toggle.isPending}
@@ -472,7 +494,7 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
         carrier={editing}
         available={(available?.carriers ?? []) as any[]}
         pending={save.isPending}
-        onClose={() => { setAdding(false); setEditing(null); }}
+        onClose={() => { setAdding(false); setEditingId(null); }}
         onSave={(payload) => save.mutate(payload)}
       />
     </div>

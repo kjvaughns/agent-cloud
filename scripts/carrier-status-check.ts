@@ -288,5 +288,50 @@ check("restoring comes back paused, not active",
   /\.update\(\{ status: "paused"/.test(OPS), true);
 check("both are audited", (OPS.match(/action: "carrier\.archived"/g) ?? []).length, 2);
 
+// ── A save that says it saved ───────────────────────────────────────────────
+//
+// Reported symptom: choose a submission method, click save, get "Submission
+// method saved", and the panel underneath still reads "None set". Two separate
+// ways a save can lie, and both were live.
+
+console.log("");
+
+// One. The dialog held the carrier OBJECT, captured when Edit was clicked. The
+// write landed and the list refetched, but the open dialog kept rendering the
+// snapshot from before it — so the method was there and the screen said it was
+// not. Holding the id and looking it up in the query data is what lets a
+// refetch reach an open dialog.
+check("the dialog holds a carrier id, not a captured row",
+  /const \[editingId, setEditingId\] = useState<string \| null>\(null\)/.test(UI), true);
+check("…resolved against the live list on every render",
+  /const editing = byId\(editingId\)/.test(UI), true);
+check("…and the same for remove and the grid",
+  /const removing = byId\(removingId\)/.test(UI) && /const gridFor = byId\(gridForId\)/.test(UI), true);
+// The row objects must not come back: a single `setEditing(c)` anywhere
+// reintroduces exactly this bug, silently.
+check("no handler captures the row object again",
+  /set(Editing|Removing|GridFor)\((?!null)[a-z]/.test(UI), false);
+// The form's own fields are still seeded once per carrier. Without this a
+// background refetch would overwrite something half-typed.
+check("but a refetch cannot overwrite a half-typed field",
+  /if \(key !== lastKey\) \{/.test(UI), true);
+
+// Two. PostgREST reports no error when an update matches zero rows — the
+// statement ran, it just changed nothing. A bare update therefore returns
+// success whether or not anything was written, which is a success message the
+// database never agreed to.
+check("the carrier update reads its own write back",
+  /\.from\("org_carriers"\)\.update\(\{ \.\.\.fields, updated_by: userId \}\)[\s\S]{0,120}\.select\("id"\)/.test(OPS), true);
+check("…and a zero-row update is an error, not a save",
+  /if \(!after\?\.length\) \{\s*throw new Error\(\s*"The carrier was not saved/.test(OPS), true);
+check("the submission method update reads its own write back",
+  /\.from\("org_carrier_methods"\)\.update\(\{ \.\.\.fields[\s\S]{0,160}\.select\("id"\)/.test(OPS), true);
+check("…and says so plainly when nothing was written",
+  /"The submission method was not saved/.test(OPS), true);
+// Archive and restore already did this. Asserted so they keep doing it.
+check("archive and restore assert their row counts too",
+  /if \(!row\?\.length\) throw new Error\("That carrier was already removed\."\)/.test(OPS) &&
+  /if \(!row\?\.length\) throw new Error\("That carrier is not archived\."\)/.test(OPS), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
