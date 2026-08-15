@@ -165,9 +165,37 @@ const mixed = [
 ];
 // Case duplicates are one product, not two rows in a dropdown.
 check("products are listed once each",
-  productsFor(mixed, null), ["Final Expense", "Term Life"]);
-check("…and a level sees its own too",
-  productsFor(mixed, "Level 40"), ["Final Expense", "Term Life", "Whole Life"]);
+  productsFor(mixed), ["Final Expense", "Term Life", "Whole Life"]);
+
+// The bug this replaced. A real grid names its columns — RK1, RK10, RK11 — so
+// EVERY row carries a level, and an agent with no mapping has none. Filtering
+// products by level dropped all of them, the list came back empty, and Post a
+// Deal fell back to its stock catalogue. The agency's uploaded grid did nothing.
+//
+// A grid is a matrix: products down the side, contract levels across the top.
+// The catalogue is the rows. Only the RATE lives in the column.
+const REAL = [
+  row({ id: "r1", productName: "FE Express", levelName: "RK1", year1Pct: 65 }),
+  row({ id: "r2", productName: "FE Express", levelName: "RK10", year1Pct: 70 }),
+  row({ id: "r3", productName: "Trendsetter Super", levelName: "RK1", year1Pct: 30 }),
+  row({ id: "r4", productName: "Whole Life", levelName: "RK11", year1Pct: 65 }),
+];
+check("a grid whose every row names a level still lists its products",
+  productsFor(REAL), ["FE Express", "Trendsetter Super", "Whole Life"]);
+check("…and an agent on no level sees the same catalogue",
+  requirementsFor(REAL, null).products, ["FE Express", "Trendsetter Super", "Whole Life"]);
+check("…as does one on a level the grid has never heard of",
+  requirementsFor(REAL, "GA3").products, ["FE Express", "Trendsetter Super", "Whole Life"]);
+// Choosing a product and being paid for it are different questions. Pricing
+// still refuses without the level rather than paying the first column.
+check("but pricing without a level still resolves nothing",
+  selectGridRule(REAL, {
+    levelName: null, productName: "FE Express", age: 60, policyYear: 1,
+  }), null);
+check("…and with one, reads that column",
+  selectGridRule(REAL, {
+    levelName: "RK10", productName: "FE Express", age: 60, policyYear: 1,
+  })?.pct, 70);
 
 // ── Bands, gaps and overlaps for the review screen ──────────────────────────
 
@@ -307,10 +335,20 @@ check("a carrier with a state exception asks for the state",
 check("a carrier with a risk split asks for tobacco use",
   requirementsFor(withRisk, null).needsRisk, true);
 
-// Rows tied to another level must not make this agent answer for them.
+// Rows tied to another level must not make this agent answer for them — as
+// long as the grid has something to say about this agent's level at all.
 check("another level's exception does not add a question",
-  requirementsFor([row({ id: "o", levelName: "Level 80", stateCode: "FL" })], "Level 40").needsState,
-  false);
+  requirementsFor(
+    [row({ id: "o", levelName: "Level 80", stateCode: "FL" }), row({ id: "m", levelName: "Level 40" })],
+    "Level 40",
+  ).needsState, false);
+// An unknown level is not a level with no rows. Narrowing to the level-less
+// rows would answer "does this carrier vary by state" from an empty set and
+// confidently say no, so the whole grid is consulted instead.
+check("an unmapped agent is still asked what the grid varies on",
+  requirementsFor([row({ id: "o", levelName: "RK1", stateCode: "FL" })], null).needsState, true);
+check("…and so is one on a level the grid never mentions",
+  requirementsFor([row({ id: "o", levelName: "RK1", stateCode: "FL" })], "GA3").needsState, true);
 
 check("a missing age is named in plain words",
   /Add the insured's date of birth/.test(missingForPricing(banded, { age: null })[0] ?? ""), true);
@@ -352,6 +390,15 @@ check("…and prefers those products",
 // entirely, which is worse than a broad one.
 check("…falling back to the agency's list when there is no grid",
   /: productsForCarrier\(selectedCarrier\?\.product_types\)/.test(DEAL), true);
+// "Whole Life" is on the grid AND in the stock catalogue, so without a line
+// saying which list this is, an agent cannot tell the two apart.
+check("…and says the names came from the comp grid",
+  /from the comp grid/.test(DEAL), true);
+// The grid names the products but prices them per column. An agent choosing a
+// grid product name would otherwise assume a grid rate followed.
+check("an unmapped agent is told the grid rate will not apply",
+  /!dealOptions\?\.carrierLevelName/.test(DEAL) &&
+  /pays\s*\n?\s*your position percentage rather than the grid rate/.test(DEAL), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
