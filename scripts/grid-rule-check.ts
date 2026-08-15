@@ -335,5 +335,23 @@ check("…and tolerates the pending state and risk columns",
 check("the carrier is scoped to the caller's organization",
   /\.eq\("organization_id", orgId\)/.test(SRV), true);
 
+// ── Post a Deal offers the grid's products ──────────────────────────────────
+//
+// The whole rule module is inert if the dropdown still lists something else. A
+// product the grid says nothing about prices at the flat level percentage
+// while looking like a configured choice.
+
+console.log("");
+
+const DEAL = readFileSync(join(process.cwd(), "src/routes/_authenticated/post-deal.tsx"), "utf8");
+check("the deal form asks the carrier what it sells",
+  /getCarrierDealOptions\(\{ data: \{ orgCarrierId/.test(DEAL), true);
+check("…and prefers those products",
+  /gridProducts\.length > 0/.test(DEAL), true);
+// Most agencies have no grid. An empty dropdown would stop them posting deals
+// entirely, which is worse than a broad one.
+check("…falling back to the agency's list when there is no grid",
+  /: productsForCarrier\(selectedCarrier\?\.product_types\)/.test(DEAL), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

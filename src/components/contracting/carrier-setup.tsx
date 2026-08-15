@@ -2,6 +2,10 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ExternalLink, Plus, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  CARRIER_STATUSES, STATUS_LABEL, summarise, removalExplanation, removalMode,
+  type CarrierStatus, type CarrierState,
+} from "@/lib/carriers/status";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +21,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import {
   deleteOrgCarrierMethod, listAvailableCarriers, listOrgCarriers,
   saveOrgCarrier, saveOrgCarrierMethod,
+  getCarrierUsage, removeOrgCarrier, restoreOrgCarrier,
 } from "@/lib/contracting-ops.functions";
 import {
   CONTRACT_TYPES, CONTRACT_TYPE_LABELS, CONTRACTING_METHODS, METHOD_LABELS,
@@ -32,6 +37,91 @@ import { cn } from "@/lib/utils";
  * Mounted by Settings ▸ Carriers; extracted from the old Carrier Setup tabs
  * page so the route and the component can live in different trees.
  */
+/**
+ * What this carrier still needs, in one pill.
+ *
+ * A working carrier shows a plain "Active" and nothing else. The problems only
+ * render when there are problems: a row of reassuring badges teaches an owner
+ * to stop reading them, which is exactly when the one that matters appears.
+ */
+function StatusPill({ state }: { state?: CarrierState }) {
+  if (!state) return null;
+  const tone =
+    state.status === "active" ? "bg-success/15 text-success"
+      : state.status === "ready_to_activate" ? "bg-primary/15 text-primary"
+      : state.status === "archived" || state.status === "inactive" ? "bg-muted text-text-dim"
+      : "bg-warning/15 text-warning";
+  return (
+    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", tone)}>
+      {state.label}
+    </span>
+  );
+}
+
+/**
+ * Delete or archive, decided by what is attached rather than by the owner.
+ *
+ * The counts are read before the dialog opens: somebody about to lose a
+ * carrier's commission history is entitled to know that before they click, not
+ * after. The server re-reads them and decides again, so a stale screen cannot
+ * turn an archive into a delete.
+ */
+function RemoveCarrierDialog({
+  carrier, onClose, onDone,
+}: { carrier: any; onClose: () => void; onDone: () => void }) {
+  const usageFn = useServerFn(getCarrierUsage);
+  const removeFn = useServerFn(removeOrgCarrier);
+
+  const { data: usage, isLoading } = useQuery({
+    queryKey: ["carrier-usage", carrier.id],
+    queryFn: () => usageFn({ data: { id: carrier.id } }),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => removeFn({ data: { id: carrier.id } }),
+    onSuccess: (r: any) => {
+      toast.success(r?.mode === "deleted" || r?.mode === "delete"
+        ? `${carrier.name} deleted`
+        : `${carrier.name} archived. Its history is intact.`);
+      onDone();
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not remove the carrier"),
+  });
+
+  const mode = usage ? removalMode(usage) : null;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === "delete" ? "Delete" : "Archive"} {carrier.name}?</DialogTitle>
+        </DialogHeader>
+
+        {isLoading || !usage ? (
+          <Skeleton className="h-16 rounded-lg" />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {removalExplanation(carrier.name, usage)}
+          </p>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
+            variant={mode === "delete" ? "destructive" : "default"}
+            disabled={isLoading || remove.isPending}
+            onClick={() => remove.mutate()}
+          >
+            {remove.isPending ? "Working…" : mode === "delete" ? "Delete permanently" : "Archive"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels: () => void }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listOrgCarriers);
@@ -40,6 +130,18 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
 
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [removing, setRemoving] = useState<any | null>(null);
+  const restoreFn = useServerFn(restoreOrgCarrier);
+  const restore = useMutation({
+    mutationFn: (id: string) => restoreFn({ data: { id } }),
+    onSuccess: () => {
+      // Back as paused, not active: an owner reviews the setup and switches it
+      // on, rather than having agents see it again the instant it is un-filed.
+      toast.success("Carrier restored. Switch it on when its setup is ready.");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not restore the carrier"),
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["contracting-ops", "carriers"],
@@ -64,15 +166,47 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
     onError: (e: any) => toast.error(e?.message ?? "Could not save the carrier"),
   });
 
-  const carriers = (data?.carriers ?? []) as any[];
+  const allCarriers = (data?.carriers ?? []) as any[];
   const canManage = data?.access?.canManageCarriers;
+
+  // Search and filter. Both narrow the same list rather than replacing it, so
+  // the counts above always describe the agency and not the current view — an
+  // owner filtering to Draft should still see how many are live.
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | CarrierStatus>("all");
+
+  const counts = summarise(allCarriers.map((c) => c.state as CarrierState).filter(Boolean));
+  const q = query.trim().toLowerCase();
+  const carriers = allCarriers.filter((c) => {
+    if (q && !String(c.name ?? "").toLowerCase().includes(q)) return false;
+    if (filter !== "all" && c.state?.status !== filter) return false;
+    return true;
+  });
+
+  // Archived carriers are filed away, so they are out of the default view and
+  // reachable through the filter. Hiding them with no way back would make a
+  // restore impossible from the only screen that offers one.
+  const visible = filter === "all"
+    ? carriers.filter((c) => c.state?.status !== "archived")
+    : carriers;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Start here. Add every carrier your agency writes with. You can configure levels and rates in the next two steps.
-        </p>
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground">
+            Every carrier your agency writes with, and what each still needs.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{counts.active}</span> active
+            {counts.needsSetup > 0 && (
+              <>
+                {" · "}
+                <span className="font-medium text-warning">{counts.needsSetup}</span> need setup
+              </>
+            )}
+          </p>
+        </div>
         {canManage && (
           <Button size="sm" data-tour="carrier-add" onClick={() => setAdding(true)}>
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Add carrier
@@ -80,11 +214,42 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
         )}
       </div>
 
+      {allCarriers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search carriers"
+            aria-label="Search carriers"
+            className="h-8 min-w-[10rem] flex-1 rounded-md border border-border bg-surface-1 px-2.5 text-sm text-foreground placeholder:text-text-dim"
+          />
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as "all" | CarrierStatus)}
+            aria-label="Filter by status"
+            className="h-8 rounded-md border border-border bg-surface-1 px-2 text-xs text-foreground"
+          >
+            <option value="all">All statuses</option>
+            {CARRIER_STATUSES.map((st) => (
+              <option key={st} value={st}>{STATUS_LABEL[st]}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {removing && (
+        <RemoveCarrierDialog
+          carrier={removing}
+          onClose={() => setRemoving(null)}
+          onDone={() => qc.invalidateQueries({ queryKey: ["contracting-ops"] })}
+        />
+      )}
+
       {isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
         </div>
-      ) : carriers.length === 0 ? (
+      ) : allCarriers.length === 0 ? (
         <EmptyState
           title="No carriers yet"
           body="Add your first carrier to begin organizing contracting workflows. You can pick one from the shared catalog or add a carrier only your agency uses."
@@ -94,7 +259,12 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
         />
       ) : (
         <div data-tour="carrier-list" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {carriers.map((c) => (
+          {visible.length === 0 ? (
+            <p className="col-span-full py-6 text-center text-sm text-muted-foreground">
+              No carriers match that search or filter.
+            </p>
+          ) : null}
+          {visible.map((c) => (
             <Panel key={c.id} className="p-4">
               <div className="flex items-start gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -102,21 +272,52 @@ export function CarrierDirectoryPage({ onConfigureLevels }: { onConfigureLevels:
                 </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="truncate text-sm font-bold text-foreground">{c.name}</h3>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {c.status === "active" ? "Active" : c.status.replace(/_/g, " ")}
-                    {c.is_private && " · Private to your agency"}
-                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <StatusPill state={c.state} />
+                    {c.is_private && (
+                      <span className="text-[10px] text-text-dim">Private to your agency</span>
+                    )}
+                  </div>
                 </div>
                 {canManage && (
-                  <button
-                    onClick={() => setEditing(c)}
-                    aria-label={`Edit ${c.name}`}
-                    className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    {c.state?.status === "archived" ? (
+                      <button
+                        onClick={() => restore.mutate(c.id)}
+                        aria-label={`Restore ${c.name}`}
+                        className="rounded px-1.5 py-1 text-[10px] text-text-dim transition-colors hover:text-foreground"
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setEditing(c)}
+                          aria-label={`Edit ${c.name}`}
+                          className="rounded p-1 text-text-dim transition-colors hover:text-foreground"
+                        >
+                          <Settings2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setRemoving(c)}
+                          aria-label={`Remove ${c.name}`}
+                          className="rounded p-1 text-text-dim transition-colors hover:text-danger"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {(c.state?.problems ?? []).length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {c.state.problems.slice(0, 2).map((p: string) => (
+                    <li key={p} className="text-[11px] leading-snug text-warning">{p}</li>
+                  ))}
+                </ul>
+              )}
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {(c.org_carrier_methods ?? []).length === 0 ? (

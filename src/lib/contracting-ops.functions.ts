@@ -18,7 +18,7 @@ import { loadEffectiveContractingSettings } from "@/lib/contracting-ops/effectiv
 // deprecated. Same loader the Contracts page and the team matrix already use.
 import { loadWritingNumbers, writingNumberKey } from "@/lib/writing-numbers";
 import { agencyCarrierConfiguration } from "@/lib/compensation/lookup.server";
-import { carrierState } from "@/lib/carriers/status";
+import { carrierState, removalMode } from "@/lib/carriers/status";
 import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 // Generated DB types predate this module's tables; cast until regenerated.
@@ -555,6 +555,125 @@ export const saveOrgCarrierMethod = createServerFn({ method: "POST" })
       recordType: "org_carrier_methods", recordId: created.id, next: fields,
     });
     return { ok: true, id: created.id as string };
+  });
+
+/**
+ * What is attached to this carrier, so the screen can say delete or archive.
+ *
+ * Read before the action rather than inside it: an owner about to lose a
+ * carrier's commission history is entitled to know that before they click,
+ * not after.
+ */
+export const getCarrierUsage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+
+    const { data: oc } = await supabaseAdmin
+      .from("org_carriers").select("id, carrier_id")
+      .eq("id", data.id).eq("organization_id", orgId).maybeSingle();
+    if (!oc) throw new OrgAccessError("That carrier is not in your directory");
+
+    const count = async (table: string, column: string, value: string) => {
+      const { count: n } = await supabaseAdmin
+        .from(table).select("id", { count: "exact", head: true }).eq(column, value);
+      return n ?? 0;
+    };
+
+    // Counted against `carrier_id` where the table keys on the catalogue
+    // carrier, and `org_carrier_id` where it keys on this agency's row. Mixing
+    // the two reads zero and offers a delete that destroys history.
+    const [contracts, policies, requests, commissionRecords] = await Promise.all([
+      count("agent_commission_levels", "carrier_id", oc.carrier_id),
+      count("policies", "carrier_id", oc.carrier_id),
+      count("contracting_requests", "org_carrier_id", oc.id),
+      count("commission_schedule", "carrier_id", oc.carrier_id),
+    ]);
+
+    return { contracts, policies, requests, commissionRecords };
+  });
+
+/**
+ * Remove a carrier: delete it when nothing points at it, archive it otherwise.
+ *
+ * The caller does not choose. `removalMode` decides from the counts, read here
+ * rather than trusted from the client — a stale screen must not be able to
+ * turn an archive into a delete.
+ */
+export const removeOrgCarrier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+    await assertTabPermission(userId, "carriers", orgId);
+
+    const { data: before } = await supabaseAdmin
+      .from("org_carriers").select("*").eq("id", data.id).eq("organization_id", orgId).maybeSingle();
+    if (!before) throw new OrgAccessError("That carrier is not in your directory");
+
+    const usage = await getCarrierUsage({ data: { id: data.id } });
+    const mode = removalMode(usage);
+
+    if (mode === "delete") {
+      const { data: gone, error } = await supabaseAdmin
+        .from("org_carriers").delete().eq("id", data.id).eq("organization_id", orgId).select("id");
+      if (error) throw new Error(error.message);
+      if (!gone?.length) throw new Error("That carrier was already removed.");
+      await recordAudit({
+        organizationId: orgId, actorId: userId, action: "carrier.archived",
+        recordType: "org_carriers", recordId: data.id, previous: before,
+        metadata: { removal: "deleted", usage },
+      });
+      return { ok: true, mode };
+    }
+
+    const { data: row, error } = await supabaseAdmin
+      .from("org_carriers")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", data.id).eq("organization_id", orgId).select("id");
+    if (error) throw new Error(error.message);
+    if (!row?.length) throw new Error("That carrier was already removed.");
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "carrier.archived",
+      recordType: "org_carriers", recordId: data.id,
+      previous: before, next: { status: "archived" }, metadata: { removal: "archived", usage },
+    });
+    return { ok: true, mode };
+  });
+
+/** Put an archived carrier back. Agents see it again once it is active. */
+export const restoreOrgCarrier = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+    await assertTabPermission(userId, "carriers", orgId);
+
+    // Restored to `paused`, not `active`. A carrier coming back out of the
+    // archive should not start appearing to agents the instant somebody
+    // un-files it — the owner reviews its setup and switches it on.
+    const { data: row, error } = await supabaseAdmin
+      .from("org_carriers")
+      .update({ status: "paused", updated_at: new Date().toISOString() })
+      .eq("id", data.id).eq("organization_id", orgId).eq("status", "archived").select("id");
+    if (error) throw new Error(error.message);
+    if (!row?.length) throw new Error("That carrier is not archived.");
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "carrier.updated",
+      recordType: "org_carriers", recordId: data.id,
+      previous: { status: "archived" }, next: { status: "paused" },
+      metadata: { removal: "restored" },
+    });
+    return { ok: true };
   });
 
 export const deleteOrgCarrierMethod = createServerFn({ method: "POST" })

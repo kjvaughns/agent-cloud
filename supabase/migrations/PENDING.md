@@ -110,3 +110,26 @@ as "not granted", so before this is applied only owners and platform admins can
 reach the six areas. That is stricter than today rather than looser, and no
 staff member loses anything they can currently do — the permissions did not
 exist to be held.
+
+- `20260815090000_carrier-archived-status.sql`
+
+Lets a carrier be archived. `org_carriers.status` allowed active, paused,
+not_contracted and terminated, and none of them means "we are done with this
+carrier, keep the history".
+
+Reusing `terminated` would have been wrong in a way that shows up in
+paperwork: terminated records that the CARRIER ended the relationship, which
+is a fact about them, while archived is the agency's own filing decision.
+
+An archived carrier keeps every policy, commission row and request it has,
+stops appearing to agents, cannot be picked for new deals or requests, and can
+be restored. Deleting is only offered when nothing points at it at all.
+
+The old CHECK was created twice under different generated names, so it is found
+by what it constrains rather than by a name this migration would have to guess.
+
+Nothing is archived by applying this; it only makes the state expressible.
+
+In the window: the Remove button archives via a status the database refuses, so
+removal fails with a constraint error until this is applied. Everything else on
+the Carriers tab works.
