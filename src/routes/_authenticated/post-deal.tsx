@@ -13,6 +13,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { productsForCarrier } from "@/lib/products";
+import { getCarrierDealOptions } from "@/lib/compensation/deal-pricing.server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -209,9 +210,28 @@ function PostDealPage() {
   const mine = (carriers ?? []).filter((c) => activeCarrierIds?.includes(c.id));
   const others = (carriers ?? []).filter((c) => !activeCarrierIds?.includes(c.id));
 
-  // What this carrier actually writes, falling back to the general list when
-  // the agency has not told us. An empty dropdown is worse than a broad one.
-  const products = productsForCarrier(selectedCarrier?.product_types);
+  // What this carrier actually pays on, taken from its comp grid.
+  //
+  // The grid is the only place that knows: `org_carriers.product_types` is a
+  // free-text list an owner typed, and a product on it that the grid says
+  // nothing about prices at the agent's flat level percentage while looking
+  // like a configured choice. The grid's own product names are the ones the
+  // rate rows are keyed on, so choosing from them is what makes the age bands
+  // and state exceptions reachable at all.
+  //
+  // Order of preference, and the fallback matters: grid products, then the
+  // owner's typed list, then the general catalogue. An empty dropdown is worse
+  // than a broad one — most agencies have no grid yet, and they must still be
+  // able to post a deal.
+  const { data: dealOptions } = useQuery({
+    queryKey: ["carrier-deal-options", selectedCarrier?.id],
+    queryFn: () => getCarrierDealOptions({ data: { orgCarrierId: selectedCarrier!.id } }),
+    enabled: Boolean(selectedCarrier?.id),
+  });
+  const gridProducts = dealOptions?.products ?? [];
+  const products = gridProducts.length > 0
+    ? gridProducts
+    : productsForCarrier(selectedCarrier?.product_types);
   const notes = watch("notes") ?? "";
   const benPctSum = (watch("beneficiaries") ?? []).reduce(
     (a, b) => a + Number(b.percentage || 0),

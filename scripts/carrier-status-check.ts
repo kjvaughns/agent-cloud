@@ -214,5 +214,55 @@ check("…and names the positions on fallback rather than counting them",
 check("archived carriers come from the status column",
   /archived: c\.status === "archived"/.test(OPS), true);
 
+// ── The screen actually renders it ──────────────────────────────────────────
+//
+// The status model existed for a while with nothing showing it. A carrier that
+// "needs an advance" and looks identical to one that is live is the defect
+// this was written for, still present.
+
+console.log("");
+
+const UI = strip(readFileSync(join(process.cwd(), "src/components/contracting/carrier-setup.tsx"), "utf8"));
+
+check("the card shows the status pill", /<StatusPill state=\{c\.state\} \/>/.test(UI), true);
+// A row of reassuring green badges teaches an owner to stop reading them,
+// which is exactly when the one that matters appears.
+check("…and problems only when there are problems",
+  /\(c\.state\?\.problems \?\? \[\]\)\.length > 0 &&/.test(UI), true);
+check("the header counts active and needing setup",
+  /summarise\(allCarriers\.map/.test(UI), true);
+// Filtering must not change the counts, or an owner filtering to Draft can no
+// longer see how many are live.
+check("…from the whole list, not the filtered view",
+  UI.includes("summarise(allCarriers") && !UI.includes("summarise(visible"), true);
+check("there is a search box", /placeholder="Search carriers"/.test(UI), true);
+check("…and a status filter built from the nine",
+  /CARRIER_STATUSES\.map\(\(st\) =>/.test(UI), true);
+
+// ── Delete versus archive, on screen ────────────────────────────────────────
+
+check("removing a carrier asks first", /RemoveCarrierDialog/.test(UI), true);
+check("…and uses the shared explanation rather than its own words",
+  /removalExplanation\(carrier\.name, usage\)/.test(UI), true);
+check("…with the wording deciding the button",
+  /mode === "delete" \? "Delete permanently" : "Archive"/.test(UI), true);
+// An archived carrier with an Edit button and no way back is a dead end.
+check("an archived carrier offers restore instead of edit",
+  /c\.state\?\.status === "archived" \? \(/.test(UI), true);
+check("…and archived rows are out of the default view",
+  /filter === "all"\s*\? carriers\.filter\(\(c\) => c\.state\?\.status !== "archived"\)/.test(UI), true);
+
+// A stale screen must not be able to turn an archive into a delete. `OPS` is
+// the same file read for the wiring assertions above.
+check("the server decides delete or archive for itself",
+  /const mode = removalMode\(usage\);/.test(OPS), true);
+check("…from counts it read, not ones it was handed",
+  /const usage = await getCarrierUsage/.test(OPS), true);
+check("…and archiving keeps the row",
+  /\.update\(\{ status: "archived"/.test(OPS), true);
+check("restoring comes back paused, not active",
+  /\.update\(\{ status: "paused"/.test(OPS), true);
+check("both are audited", (OPS.match(/action: "carrier\.archived"/g) ?? []).length, 2);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
