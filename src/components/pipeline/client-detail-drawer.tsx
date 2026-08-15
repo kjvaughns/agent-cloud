@@ -979,8 +979,9 @@ function PolicyFields({ detail }: { detail: any }) {
         <Button size="sm" variant="outline" onClick={() => setShowForm(true)}><Plus className="h-4 w-4 mr-1" /> Add Policy</Button>
       )}
       {(policies.length === 0 || showForm) && (
-        <AddPolicyInlineForm clientId={client.id} onSaved={() => setShowForm(false)} onCancel={() => setShowForm(false)} showCancel={policies.length > 0} />
+        <AddPolicyInlineForm client={client} onSaved={() => setShowForm(false)} onCancel={() => setShowForm(false)} showCancel={policies.length > 0} />
       )}
+
       {policies.length > 0 && (
         <div className="space-y-2">
           {policies.map((pol: any) => (
