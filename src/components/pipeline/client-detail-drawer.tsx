@@ -349,24 +349,69 @@ function SectionCard({ icon: Icon, title, children }: { icon: any; title: string
   );
 }
 
+// ============ Shared: dates ============
+/** "1954-03-07" → "03/07/1954". Parsed off the string so no timezone shift. */
+function dobToDisplay(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso).trim());
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso);
+}
+
+/** "03/07/1954" → "1954-03-07", or null while the entry is incomplete. */
+function displayToIso(display: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
+  if (!m) return null;
+  const [, mm, dd, yyyy] = m;
+  const month = Number(mm), day = Number(dd), year = Number(yyyy);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) return null;
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/** Whole years since the date, from the string so it never drifts a day. */
+function ageFromDob(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso).trim());
+  if (!m) return null;
+  const [, y, mo, d] = m.map(Number) as unknown as [string, number, number, number];
+  const now = new Date();
+  let age = now.getFullYear() - y;
+  const beforeBirthday =
+    now.getMonth() + 1 < mo || (now.getMonth() + 1 === mo && now.getDate() < d);
+  if (beforeBirthday) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+}
+
 // ============ Shared: EditableField ============
-function EditableField({ label, client, field, type, select, address }: { label: string; client: any; field: string; type?: string; select?: string[]; address?: boolean }) {
+function EditableField({ label, client, field, type, select, address, phone, dob }: { label: string; client: any; field: string; type?: string; select?: string[]; address?: boolean; phone?: boolean; dob?: boolean }) {
   const qc = useQueryClient();
   const updateFn = useServerFn(updateClient);
   const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState<string>(client[field] ?? "");
-  useEffect(() => setVal(client[field] ?? ""), [client, field]);
+  const raw = client[field] ?? "";
+  const display = dob ? dobToDisplay(raw) : phone ? formatPhone(String(raw)) : String(raw);
+  const [val, setVal] = useState<string>(display);
+  useEffect(() => {
+    setVal(dob ? dobToDisplay(client[field]) : phone ? formatPhone(String(client[field] ?? "")) : (client[field] ?? ""));
+  }, [client, field, dob, phone]);
 
   const mut = useMutation({
-    mutationFn: (patch: Record<string, string>) => updateFn({ data: { id: client.id, patch } }),
+    mutationFn: (patch: Record<string, string | null>) => updateFn({ data: { id: client.id, patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline"] }),
     onError: (e: any) => toast.error(e?.message ?? "Update failed"),
   });
 
   const save = () => {
     setEditing(false);
-    if (val !== (client[field] ?? "")) mut.mutate({ [field]: val });
+    if (dob) {
+      const iso = val.trim() ? displayToIso(val) : null;
+      if (val.trim() && !iso) { toast.error("Enter the date of birth as MM/DD/YYYY"); return; }
+      if (iso !== (raw || null)) mut.mutate({ [field]: iso });
+      return;
+    }
+    const next = val.trim() || null;
+    if ((next ?? "") !== (raw ?? "")) mut.mutate({ [field]: next });
   };
+
+  const age = dob ? ageFromDob(raw) : null;
 
   if (editing) {
     if (select) {
@@ -403,6 +448,30 @@ function EditableField({ label, client, field, type, select, address }: { label:
         </div>
       );
     }
+    if (dob || phone) {
+      const liveAge = dob ? ageFromDob(displayToIso(val)) : null;
+      return (
+        <div className="min-w-0 space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              autoFocus
+              inputMode="numeric"
+              placeholder={dob ? "MM/DD/YYYY" : "(555) 123-4567"}
+              value={val}
+              onChange={(e) => setVal(dob ? formatDob(e.target.value) : formatPhone(e.target.value))}
+              onBlur={save}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+            />
+            {dob && liveAge !== null && (
+              <span className="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                Age {liveAge}
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-w-0 space-y-1.5">
         <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
@@ -415,9 +484,14 @@ function EditableField({ label, client, field, type, select, address }: { label:
     <button type="button" onClick={() => setEditing(true)} className="min-w-0 text-left space-y-1.5 group w-full">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <div className="flex items-start justify-between gap-2 min-h-[2.25rem] px-3 py-2 rounded-md bg-muted/40 border border-transparent group-hover:border-border group-hover:bg-muted/60 transition-colors">
-        <span className={cn("min-w-0 flex-1 text-sm break-words", !client[field] && "text-muted-foreground/50 italic")}>
-          {client[field] || "—"}
+        <span className={cn("min-w-0 flex-1 text-sm break-words", !raw && "text-muted-foreground/50 italic")}>
+          {display || "—"}
         </span>
+        {age !== null && (
+          <span className="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            Age {age}
+          </span>
+        )}
         <Pencil className="h-3 w-3 shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors" />
       </div>
     </button>
