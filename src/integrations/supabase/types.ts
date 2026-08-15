@@ -5823,6 +5823,9 @@ export type Database = {
           just_in_time_appointments: boolean
           last_synced_at: string | null
           manual_override: boolean
+          max_advance_option:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
           max_issue_age: number | null
           min_issue_age: number | null
           min_production_requirements: string | null
@@ -5868,6 +5871,9 @@ export type Database = {
           just_in_time_appointments?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
+          max_advance_option?:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
           max_issue_age?: number | null
           min_issue_age?: number | null
           min_production_requirements?: string | null
@@ -5913,6 +5919,9 @@ export type Database = {
           just_in_time_appointments?: boolean
           last_synced_at?: string | null
           manual_override?: boolean
+          max_advance_option?:
+            | Database["public"]["Enums"]["advance_option"]
+            | null
           max_issue_age?: number | null
           min_issue_age?: number | null
           min_production_requirements?: string | null
