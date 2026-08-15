@@ -1094,6 +1094,11 @@ function DocCard({
                 {open ? "Hide" : "Review"}
               </Button>
             )}
+            {/* A file that failed is not a dead end: we kept the file. */}
+            {doc.status === "failed" && (
+              <Button size="sm" variant="outline" onClick={() => onReadAgain(doc.id)}>Read again</Button>
+            )}
+
             {doc.status !== "applied" && doc.status !== "dismissed" && !isParent && (
               <Button size="sm" variant="ghost" onClick={() => onDismiss(doc.id)}>Dismiss</Button>
             )}
