@@ -190,11 +190,18 @@ export const postDeal = createServerFn({ method: "POST" })
         // manually posted deal.
         premium_mode: "monthly",
         status: data.policy.status ?? "issued_not_paid",
-        // `production_date` is deliberately not named. It is NOT NULL with no
-        // default, filled by the BEFORE INSERT trigger in 20260814250000 —
-        // which is the only writer of the rule, so no insert path can get it
-        // wrong. The cast is only to satisfy generated types that read a
-        // trigger-filled NOT NULL column as required input.
+        // `production_date` is only named when the agent chose a sale date.
+        // Left out, the BEFORE INSERT trigger derives it, which is right for a
+        // deal written today; given, it is the agent telling us this business
+        // is older than the moment they typed it in. `posted_at` stays the
+        // real post time either way, for audit.
+        ...(data.policy.sale_date
+          ? {
+              production_date: saleDateToTimestamp(data.policy.sale_date),
+              production_date_set_by: userId,
+              production_date_set_at: new Date().toISOString(),
+            }
+          : {}),
       } as never)
 
       .select("id")
