@@ -362,18 +362,22 @@ function ImportPage() {
     let rows: Record<string, any>[] = [];
 
     if (kind === "book_of_business") {
+      mark(id, "Reading your book", 40);
       rows = doc.text ? clientsFromDocument(doc.text, carriers) : [];
     } else if (kind === "commission_grid") {
       // A rate table's meaning is in its layout — which column a number sits
       // under is the level it pays. The text layer gives the numbers in
       // reading order with the columns gone, so grids go to the model as
       // pictures even when the PDF has perfectly good text.
+      mark(id, "Turning pages into images", 34);
       const pages = doc.images.length
         ? doc.images
         : (await extractDocument(file, { prefer: "image", maxPages: 8 })).images;
       if (!pages.length) return;
+      mark(id, `Reading the rate table (${pages.length} page${pages.length === 1 ? "" : "s"})`, 50);
       const out: any = await extractGridFn({ data: { images: pages, file_name: file.name } });
       rows = (out?.rows ?? []).map((r: any) => ({ ...r, carrier_name: out.carrier_name ?? null }));
+
     } else if (kind === "writing_numbers" || kind === "state_licenses") {
       // Straight to the contracting importer's own column vocabulary. It does
       // the resolution and the validation; mapping is all that is needed here.
