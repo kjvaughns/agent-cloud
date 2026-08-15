@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 
@@ -94,7 +94,7 @@ function AdminAnnouncements() {
                   dangerouslySetInnerHTML={{ __html: a.body_html?.replace(/<[^>]+>/g, " ").slice(0, 160) + "..." }} />
                 <p className="text-xs text-muted-foreground mt-2">
                   {a.profiles ? `By ${a.profiles.first_name} ${a.profiles.last_name} · ` : ""}
-                  {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                  {timeAgo(a.created_at)}
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">

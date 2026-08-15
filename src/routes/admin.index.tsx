@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Users, FileSignature, LifeBuoy, Building2, UserPlus, ShieldCheck, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
+
 import { toast } from "sonner";
 import { runCommissionBackfill } from "@/lib/admin.functions";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
@@ -202,7 +203,7 @@ function AdminOverview() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge className={cn("text-xs font-medium", STATUS_COLORS[c.status] ?? "bg-muted/15 text-muted-foreground")}>{c.status}</Badge>
-                    <span className="text-xs text-muted-foreground tnum">{formatDistanceToNow(new Date(c.updated_at), { addSuffix: true })}</span>
+                    <span className="text-xs text-muted-foreground tnum">{timeAgo(c.updated_at)}</span>
                   </div>
                 </div>
               ))}
@@ -243,7 +244,7 @@ function AdminOverview() {
                   <div key={a.id} className="space-y-1">
                     <p className="text-sm font-medium">{a.first_name} {a.last_name}</p>
                     <p className="text-xs text-muted-foreground truncate">{a.email}</p>
-                    <p className="text-xs text-muted-foreground tnum">{formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</p>
+                    <p className="text-xs text-muted-foreground tnum">{timeAgo(a.created_at)}</p>
                   </div>
                 ))}
               </div>

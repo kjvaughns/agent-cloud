@@ -5,7 +5,7 @@ import { adminListMigrations } from "@/lib/admin.functions";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Database } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/admin/migrations")({
@@ -111,7 +111,7 @@ function AdminMigrations() {
                           )}
                         </td>
                         <td className="py-2 whitespace-nowrap text-muted-foreground tnum">
-                          {at ? formatDistanceToNow(at, { addSuffix: true }) : "—"}
+                          {at ? timeAgo(at) : "—"}
                         </td>
                       </tr>
                     );

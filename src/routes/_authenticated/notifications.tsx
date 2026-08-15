@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { formatDistanceToNow } from "date-fns";
+import { timeAgo } from "@/lib/time-ago";
 import { Bell, X, CheckCheck, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,7 +101,7 @@ function NotificationsPage() {
                       <div className={cn("font-medium text-sm", !n.read && "text-gold-bright")}>{n.title}</div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground tnum">
-                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                          {timeAgo(n.created_at)}
                         </span>
                         <button
                           onClick={(e) => {
