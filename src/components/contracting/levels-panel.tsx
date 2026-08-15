@@ -208,6 +208,63 @@ export function LevelsPanel() {
   </div>;
 }
 
+/**
+ * Your own position on the ladder.
+ *
+ * An owner with no agency above them has nobody to place them, so their own
+ * deals priced off nothing. This reads the placement and, for a top-level
+ * agency, lets them set it on themselves.
+ */
+function MyPositionCard({ rows }: { rows: any[] }) {
+  const qc = useQueryClient();
+  const placementFn = useServerFn(getMyPlacement);
+  const assignFn = useServerFn(setAgentPosition);
+  const { data: me } = useQuery({ queryKey: ["my-placement"], queryFn: () => placementFn() });
+
+  const assign = useMutation({
+    mutationFn: (agencyLevelId: string | null) =>
+      assignFn({ data: { agentId: (me as any)?.agentId ?? "", agencyLevelId } }),
+    onSuccess: () => {
+      toast.success("Your position was updated");
+      qc.invalidateQueries({ queryKey: ["my-placement"] });
+      qc.invalidateQueries({ queryKey: ["team", "roster"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not set your position"),
+  });
+
+  if (!me) return null;
+
+  return <Panel className="p-4">
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-bold text-primary tnum">
+        {me.pct != null ? `${Number(me.pct)}%` : "—"}
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="font-semibold text-foreground">Your position</h3>
+        <p className="text-xs text-muted-foreground">
+          {me.name
+            ? `You are on ${me.name}, so your own deals pay at ${Number(me.pct ?? 0)}% before carrier levels.`
+            : me.canSelfAssign
+              ? "You have no position yet, so your own deals have nothing to price off. Pick one."
+              : "Your agency sets your position."}
+        </p>
+      </div>
+      {me.canSelfAssign && <Select
+        value={me.agencyLevelId ?? "__none"}
+        onValueChange={(v) => assign.mutate(v === "__none" ? null : v)}
+        disabled={assign.isPending || rows.length === 0}
+      >
+        <SelectTrigger className="h-9 w-[220px]"><SelectValue placeholder="Choose your position" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none">No position</SelectItem>
+          {rows.map((r) => <SelectItem key={r.id} value={r.id}>{r.name} · {Number(r.base_pct)}%</SelectItem>)}
+        </SelectContent>
+      </Select>}
+    </div>
+  </Panel>;
+}
+
+
 function AgencyLevelDialog({ open, record, carriers, pending, onClose, onSave }: { open: boolean; record: any; carriers: any[]; pending: boolean; onClose: () => void; onSave: (p: any) => void }) {
   const key = record?.id ?? (open ? "new" : "closed");
   const [lastKey, setLastKey] = useState(key);
