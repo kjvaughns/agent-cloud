@@ -169,9 +169,36 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       source = own;
     }
 
-    const agents = (source ?? []) as TeamAgent[];
+    const downlineAgents = (source ?? []) as TeamAgent[];
+
+    // The caller's own row. `get_team_downline` starts at the children of
+    // auth.uid(), so an agency owner never appeared on their own roster and had
+    // nowhere to read or set their own position. Included as depth 0 and
+    // flagged, so the UI can label it and the team roll-up can treat it as the
+    // root of the tree.
+    const { data: me } = await supabase
+      .from("profiles")
+      .select("id, first_name, last_name, email, phone, upline_id, status, last_active_at, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const selfAgent: TeamAgent | null = me
+      ? {
+          ...(me as any),
+          depth_level: 0,
+          contracts_count: 0,
+          policies_count: 0,
+          premium_total: 0,
+          completion_pct: 0,
+          missing: [],
+          is_self: true,
+        }
+      : null;
+
+    const agents = selfAgent ? [selfAgent, ...downlineAgents] : downlineAgents;
     const ids = agents.map((a) => a.id);
     if (ids.length === 0) return { rows: [] as RosterAgent[] };
+
 
     const today = new Date().toISOString().slice(0, 10);
 
