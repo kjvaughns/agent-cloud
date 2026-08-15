@@ -167,7 +167,7 @@ export function PolicyDetailSheet({
                   <Row k="Effective" v={row.effective_date ?? "—"} />
                   <Row k="Face amount" v={row.face_amount ? money(row.face_amount) : "—"} />
                   <Row k="Monthly premium" v={row.monthly_premium ? money(row.monthly_premium, { maximumFractionDigits: 2 }) : "—"} />
-                  <Row k="Annual premium" v={<span className="font-semibold text-emerald-700 dark:text-emerald-400">{row.annual_premium ? money(row.annual_premium, { maximumFractionDigits: 2 }) : "—"}</span>} />
+                  <Row k="Annual premium" v={<span className="font-semibold text-success">{row.annual_premium ? money(row.annual_premium, { maximumFractionDigits: 2 }) : "—"}</span>} />
                   <Row k="Agent" v={`${row.agent_first_name ?? ""} ${row.agent_last_name ?? ""}`.trim() || "—"} />
                   {/* Em dash when there is nothing on file, never a made-up day. */}
                   <Row k="Draft" v={draftSummary(bankingQ.data?.payment_method, bankingQ.data?.draft_date) ?? "—"} />

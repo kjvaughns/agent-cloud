@@ -111,23 +111,23 @@ function timeAgo(iso: string | null) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: "bg-green-500/15 text-green-600 border-green-500/30",
-    pending: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+    active: "bg-success/15 text-success border-success/30",
+    pending: "bg-warning/15 text-warning border-warning/30",
     inactive: "bg-muted text-muted-foreground border-border",
-    terminated: "bg-red-500/15 text-red-600 border-red-500/30",
+    terminated: "bg-destructive/15 text-destructive border-destructive/30",
     imported: "bg-primary/15 text-primary border-primary/30",
   };
   return <Badge variant="outline" className={map[status] ?? map.pending}>{status}</Badge>;
 }
 
 const STAGE_TONE: Record<LifecycleStage, string> = {
-  active: "bg-green-500/15 text-green-600 border-green-500/30",
-  at_risk: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  active: "bg-success/15 text-success border-success/30",
+  at_risk: "bg-warning/15 text-warning border-warning/30",
   contracted: "bg-primary/15 text-primary border-primary/30",
-  licensed: "bg-sky-500/15 text-sky-600 border-sky-500/30",
+  licensed: "bg-info/15 text-info border-info/30",
   onboarding: "bg-muted text-muted-foreground border-border",
   inactive: "bg-muted text-muted-foreground border-border",
-  terminated: "bg-red-500/15 text-red-600 border-red-500/30",
+  terminated: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
 /**
@@ -181,9 +181,9 @@ function StageBadge({ stage, flags }: { stage: LifecycleStage; flags: RiskFlag[]
  */
 function ComplianceDot({ level }: { level: ComplianceLevel }) {
   const meta: Record<ComplianceLevel, { cls: string; label: string }> = {
-    ok: { cls: "bg-green-500", label: "Licences and E&O current" },
-    warn: { cls: "bg-amber-500", label: "Something expires soon, or E&O is missing" },
-    bad: { cls: "bg-red-500", label: "Expired, or no active licence" },
+    ok: { cls: "bg-success", label: "Licences and E&O current" },
+    warn: { cls: "bg-warning", label: "Something expires soon, or E&O is missing" },
+    bad: { cls: "bg-destructive", label: "Expired, or no active licence" },
     unknown: { cls: "bg-muted-foreground/40", label: "Nothing on file yet" },
   };
   const m = meta[level];
@@ -478,8 +478,8 @@ function TeamAlertsCard() {
     <Panel title="Alerts" data-tour="team-alerts">
       <div className="space-y-2">
         {items.map((i) => (
-          <div key={i.kind} className="flex items-start gap-2 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div key={i.kind} className="flex items-start gap-2 p-3 rounded-lg border border-warning/30 bg-warning/10 text-sm">
+            <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
             <span>{i.text}</span>
           </div>
         ))}

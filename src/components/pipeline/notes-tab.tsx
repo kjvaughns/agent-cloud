@@ -14,11 +14,11 @@ import { toast } from "sonner";
 type Category = "medical" | "height" | "weight" | "physician" | "tobacco";
 
 const CHIPS: { key: Category; label: string; activeCls: string }[] = [
-  { key: "medical",   label: "Medical",   activeCls: "bg-red-100 text-red-700 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900" },
-  { key: "height",    label: "Height",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
-  { key: "weight",    label: "Weight",    activeCls: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900" },
+  { key: "medical",   label: "Medical",   activeCls: "bg-destructive text-destructive border-destructive" },
+  { key: "height",    label: "Height",    activeCls: "bg-warning text-warning border-warning" },
+  { key: "weight",    label: "Weight",    activeCls: "bg-warning text-warning border-warning" },
   { key: "physician", label: "Physician", activeCls: "bg-primary/15 text-primary border-primary/30" },
-  { key: "tobacco",   label: "Tobacco",   activeCls: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900" },
+  { key: "tobacco",   label: "Tobacco",   activeCls: "bg-warning text-warning border-warning" },
 ];
 
 const CHIP_BASE = "px-2.5 py-1 rounded-full border text-[11px] font-medium transition select-none";
@@ -160,7 +160,7 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
   return (
     <div className="space-y-3">
       {/* Composer */}
-      <div className={cn("border rounded-md transition-colors", isMedical && "border-red-400 ring-1 ring-red-300 dark:border-red-700 dark:ring-red-900")}>
+      <div className={cn("border rounded-md transition-colors", isMedical && "border-destructive ring-1 ring-destructive")}>
         <div className="flex items-center gap-1 border-b p-1">
           <button type="button" className={cn(btn, editor.isActive("bold") && "bg-muted")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="h-3.5 w-3.5" /></button>
           <button type="button" className={cn(btn, editor.isActive("italic") && "bg-muted")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="h-3.5 w-3.5" /></button>
@@ -245,7 +245,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
   return (
     <div className={cn(
       "border rounded-md p-3 text-sm",
-      medical && "border-red-400 bg-red-50 dark:border-red-900 dark:bg-red-950/20",
+      medical && "border-destructive bg-destructive",
     )}>
       <div className="flex items-center justify-between gap-2 mb-1">
         <div className="text-xs font-semibold flex flex-wrap items-center gap-1">
@@ -257,7 +257,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
           {Array.from(cats).map((c) => (
             <span key={c} className={cn(
               "px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wide",
-              c === "medical" && "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900",
+              c === "medical" && "bg-destructive text-destructive border-destructive",
               c !== "medical" && "bg-muted text-muted-foreground",
             )}>{c}</span>
           ))}

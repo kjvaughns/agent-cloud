@@ -183,10 +183,10 @@ export function AIImportDialog({
           <div className="space-y-4 py-2">
             <div className={`grid gap-3 ${isMulti ? "grid-cols-4" : "grid-cols-3"}`}>
               {[
-                ...(isMulti ? [{ label: "Pending Agents", value: rosterCount, color: "text-purple-600" }] : []),
-                { label: "Clients", value: clients.length, color: "text-emerald-600" },
+                ...(isMulti ? [{ label: "Pending Agents", value: rosterCount, color: "text-primary" }] : []),
+                { label: "Clients", value: clients.length, color: "text-success" },
                 { label: "Policies", value: policyCount, color: "text-primary" },
-                { label: "Notes", value: noteCount, color: "text-amber-600" },
+                { label: "Notes", value: noteCount, color: "text-warning" },
               ].map((s) => (
                 <div key={s.label} className="rounded-xl border bg-muted/30 p-3 text-center">
                   <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -276,7 +276,7 @@ export function AIImportDialog({
 
         {phase === "done" && result && (
           <div className="py-6 text-center space-y-4">
-            <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-success mx-auto" />
             <div>
               <h3 className="text-lg font-bold">Import Complete</h3>
               <p className="text-sm text-muted-foreground mt-1">

@@ -103,16 +103,16 @@ export function SoldTab({ clients, onOpen }: { clients: any[]; onOpen: (id: stri
         <Kpi label="Clients" value={String(stats.clients)} tone="text-foreground" />
         <Kpi label="Policies" value={String(stats.policies)} tone="text-primary" />
         <Kpi label="Total Face" value={fmtMoney(stats.face)} tone="text-primary" />
-        <Kpi label="Annual Premium" value={fmtMoney(stats.annual)} tone="text-emerald-600" />
-        <Kpi label="Avg Policy" value={fmtMoney(stats.avg)} tone="text-violet-600" />
-        <Kpi label="This Month" value={String(stats.thisMonth)} tone="text-amber-600" />
+        <Kpi label="Annual Premium" value={fmtMoney(stats.annual)} tone="text-success" />
+        <Kpi label="Avg Policy" value={fmtMoney(stats.avg)} tone="text-primary" />
+        <Kpi label="This Month" value={String(stats.thisMonth)} tone="text-warning" />
       </div>
 
       {/* Alerts banner */}
       {(needsReview + needsContact + birthdays + anniversaries) > 0 && (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 px-4 py-3">
-          <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
-          <div className="text-xs text-amber-900 dark:text-amber-200">
+        <div className="flex items-start gap-3 rounded-lg border border-warning bg-warning px-4 py-3">
+          <AlertCircle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+          <div className="text-xs text-warning">
             <span className="font-semibold">Client Alerts: </span>
             {needsReview > 0 && <span>{needsReview} in review · </span>}
             {needsContact > 0 && <span>{needsContact} need contact · </span>}
@@ -210,8 +210,8 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
       <button onClick={onClick} className="w-full text-left p-4 pb-3 border-b">
         <div className="flex items-start gap-3">
           <div className="relative shrink-0">
-            <div className="h-10 w-10 rounded-full bg-emerald-500/15 grid place-items-center text-sm font-bold text-emerald-700 dark:text-emerald-400">{initials}</div>
-            <CheckCircle2 className="h-4 w-4 absolute -bottom-1 -right-1 text-emerald-600 bg-card rounded-full" />
+            <div className="h-10 w-10 rounded-full bg-success/15 grid place-items-center text-sm font-bold text-success">{initials}</div>
+            <CheckCircle2 className="h-4 w-4 absolute -bottom-1 -right-1 text-success bg-card rounded-full" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-bold text-sm">{client.first_name} {client.last_name}</div>
@@ -240,7 +240,7 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
                 <div className="text-[10px] text-muted-foreground truncate">{p.product ?? "—"}</div>
               </div>
               <div className="text-right shrink-0">
-                <div className="font-bold text-emerald-600">${Number(p.monthly_premium ?? 0).toFixed(0)}<span className="text-[9px] font-normal text-muted-foreground">/mo</span></div>
+                <div className="font-bold text-success">${Number(p.monthly_premium ?? 0).toFixed(0)}<span className="text-[9px] font-normal text-muted-foreground">/mo</span></div>
                 {p.face_amount > 0 && <div className="text-[10px] text-muted-foreground">${Number(p.face_amount).toLocaleString()}</div>}
               </div>
             </div>
@@ -262,12 +262,12 @@ function SoldClientCard({ client, onClick }: { client: any; onClick: () => void 
       )}
 
       {/* Footer */}
-      <div className="border-t bg-emerald-50/50 dark:bg-emerald-950/10 px-3 py-2 flex items-center justify-between text-[11px]">
+      <div className="border-t bg-success/50 px-3 py-2 flex items-center justify-between text-[11px]">
         <div>
           <span className="text-muted-foreground">Total: </span>
           <span className="font-bold">${totalFace.toLocaleString()}</span>
         </div>
-        <div className="font-bold text-emerald-700 dark:text-emerald-400">${totalMonthly.toFixed(0)}/mo</div>
+        <div className="font-bold text-success">${totalMonthly.toFixed(0)}/mo</div>
       </div>
     </div>
   );
@@ -282,10 +282,10 @@ function ActionChip({ icon: Icon, label, href }: { icon: any; label: string; hre
 
 function PolicyStatusPill({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
-    active:          { cls: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900", label: "Active" },
-    issued_not_paid: { cls: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900", label: "Not Taken" },
+    active:          { cls: "bg-success text-success border-success", label: "Active" },
+    issued_not_paid: { cls: "bg-warning text-warning border-warning", label: "Not Taken" },
     in_review:       { cls: "bg-primary/15 text-primary border-primary/30", label: "In Review" },
-    lapsed:          { cls: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900", label: "Lapsed" },
+    lapsed:          { cls: "bg-destructive text-destructive border-destructive", label: "Lapsed" },
   };
   const s = map[status] ?? { cls: "bg-muted text-muted-foreground border-border", label: status ?? "—" };
   return <span className={cn("inline-flex items-center rounded-full border px-1.5 py-0.5 font-medium", s.cls)}>{s.label}</span>;

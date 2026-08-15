@@ -25,13 +25,13 @@ export function KpiCard({ label, value, delta, change, icon: Icon, hint }: KpiCa
         <div className="text-sm font-medium text-muted-foreground">{label}</div>
         {Icon && <div className="h-8 w-8 rounded-md bg-primary/10 text-primary grid place-items-center"><Icon className="h-4 w-4" /></div>}
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-tight">{value}</div>
+      <div className="mt-3 font-display text-2xl font-bold tracking-tight tnum">{value}</div>
       <div className="mt-2 flex items-center gap-2 text-xs">
         {typeof delta === "number" && (
           <span className={cn("inline-flex items-center gap-0.5 font-medium",
-            positive ? "text-success" : "text-destructive")}>
+            positive ? "tone-text-success" : "tone-text-danger")}>
             {positive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-            {Math.abs(delta).toFixed(1)}%
+            <span className="tnum">{Math.abs(delta).toFixed(1)}%</span>
           </span>
         )}
         {hint && <span className="text-muted-foreground">{hint}</span>}

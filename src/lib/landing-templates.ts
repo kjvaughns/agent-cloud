@@ -17,7 +17,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Life Insurance Calculator",
     category: "Lead Capture",
     gradient: "from-indigo-900 via-purple-800 to-violet-900",
-    accent: "text-violet-300",
+    accent: "text-primary",
     headline: "How Much Life Insurance Do You Actually Need?",
     subhead: "Use our 60-second calculator to find your ideal coverage amount.",
     bullets: [
@@ -33,7 +33,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Family Protection",
     category: "Life Insurance",
     gradient: "from-purple-950 via-purple-800 to-fuchsia-900",
-    accent: "text-fuchsia-300",
+    accent: "text-primary",
     headline: "Protect What Matters Most",
     subhead: "Life insurance designed to keep your family financially secure no matter what.",
     bullets: [
@@ -49,7 +49,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Free Quote",
     category: "Lead Capture",
     gradient: "from-teal-700 via-emerald-700 to-green-800",
-    accent: "text-emerald-200",
+    accent: "text-success",
     headline: "Get Your Free Quote Today",
     subhead: "Compare top-rated carriers and find the policy that fits your budget.",
     bullets: [
@@ -65,7 +65,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Final Expense",
     category: "Senior Market",
     gradient: "from-pink-700 via-rose-700 to-coral-700",
-    accent: "text-pink-200",
+    accent: "text-primary",
     headline: "Final Expense Coverage With Guaranteed Acceptance",
     subhead: "Fast 24-hour payouts so your family is never left with the bill.",
     bullets: [
@@ -81,7 +81,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Retirement Planning",
     category: "Retirement",
     gradient: "from-orange-700 via-amber-700 to-yellow-700",
-    accent: "text-amber-200",
+    accent: "text-warning",
     headline: "Building Income Streams That Last a Lifetime",
     subhead: "Discover how indexed annuities and IUL can secure your retirement income.",
     bullets: [
@@ -97,7 +97,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Young Family",
     category: "Term Life",
     gradient: "from-blue-700 via-indigo-700 to-purple-700",
-    accent: "text-blue-200",
+    accent: "text-info",
     headline: "Your Little One Deserves a Secure Future",
     subhead: "Affordable term life insurance built for new and growing families.",
     bullets: [
@@ -113,7 +113,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Business Tax Strategies",
     category: "Business",
     gradient: "from-slate-900 via-blue-950 to-amber-900",
-    accent: "text-amber-300",
+    accent: "text-warning",
     headline: "5 Tax-Advantaged Life Insurance Strategies for Business Owners",
     subhead: "Reduce your tax burden while building wealth for you and your business.",
     bullets: [
@@ -129,7 +129,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Veterans Benefits",
     category: "Veterans",
     gradient: "from-red-800 via-blue-900 to-slate-900",
-    accent: "text-red-200",
+    accent: "text-destructive",
     headline: "Life Insurance for Those Who Served",
     subhead: "Specialized coverage and benefits for military veterans and their families.",
     bullets: [
@@ -145,7 +145,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Mortgage Protection",
     category: "Mortgage",
     gradient: "from-emerald-800 via-teal-700 to-cyan-800",
-    accent: "text-emerald-200",
+    accent: "text-success",
     headline: "Don't Let Your Family Lose Their Home",
     subhead: "Mortgage protection life insurance pays off your home if something happens to you.",
     bullets: [
@@ -161,7 +161,7 @@ export const LANDING_TEMPLATES: LandingTemplate[] = [
     name: "Indexed Universal Life",
     category: "Life Insurance",
     gradient: "from-yellow-700 via-amber-700 to-orange-800",
-    accent: "text-yellow-200",
+    accent: "text-warning",
     headline: "Build Tax-Free Wealth With Indexed Universal Life",
     subhead: "Market-linked growth, downside protection, and tax-free retirement income.",
     bullets: [

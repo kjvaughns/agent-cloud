@@ -18,8 +18,8 @@ import { useState } from "react";
 
 
 function statusTone(status: string) {
-  if (status === "ok") return "bg-emerald-500/15 text-emerald-600 border-emerald-500/30";
-  if (status === "partial") return "bg-amber-500/15 text-amber-600 border-amber-500/30";
+  if (status === "ok") return "bg-success/15 text-success border-success/30";
+  if (status === "partial") return "bg-warning/15 text-warning border-warning/30";
   if (status === "failed") return "bg-destructive/15 text-destructive border-destructive/30";
   return "bg-muted text-muted-foreground border-border";
 }

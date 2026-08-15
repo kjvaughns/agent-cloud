@@ -30,12 +30,12 @@ const STATUSES = ["all", ...CONTRACT_STATUSES];
 
 const STATUS_COLORS: Record<ContractStatus, string> = {
   assigned: "bg-primary/15 text-primary",
-  requested: "bg-yellow-500/15 text-yellow-600",
+  requested: "bg-warning/15 text-warning",
   submitted: "bg-primary/15 text-primary",
-  processing: "bg-purple-500/15 text-purple-600",
-  active: "bg-emerald-500/15 text-emerald-600",
-  issue: "bg-red-500/15 text-red-600",
-  rejected: "bg-slate-500/15 text-slate-500",
+  processing: "bg-primary/15 text-primary",
+  active: "bg-success/15 text-success",
+  issue: "bg-destructive/15 text-destructive",
+  rejected: "bg-muted/15 text-muted-foreground",
 };
 
 function AdminContracts() {
@@ -154,7 +154,7 @@ function AdminContracts() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs text-emerald-600 hover:text-emerald-600 hover:bg-emerald-500/10"
+                        className="h-7 text-xs text-success hover:text-success hover:bg-success/10"
                         disabled={saving[c.id] || c.status === "active"}
                         onClick={() => update(c.id, { status: "active" })}
                       >
@@ -163,7 +163,7 @@ function AdminContracts() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs text-amber-600 hover:text-amber-600 hover:bg-amber-500/10"
+                        className="h-7 text-xs text-warning hover:text-warning hover:bg-warning/10"
                         disabled={saving[c.id] || c.status === "issue"}
                         onClick={() => update(c.id, { status: "issue" })}
                       >
@@ -172,7 +172,7 @@ function AdminContracts() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 text-xs text-red-600 hover:text-red-600 hover:bg-red-500/10"
+                        className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
                         disabled={saving[c.id] || c.status === "rejected"}
                         onClick={() => update(c.id, { status: "rejected" })}
                       >

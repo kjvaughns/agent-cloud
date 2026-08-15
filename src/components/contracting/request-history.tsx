@@ -42,7 +42,7 @@ function Standing({ status }: { status: string }) {
       <span
         className={cn(
           "inline-block h-1.5 w-1.5 rounded-full",
-          s.open ? "bg-amber-500" : "bg-emerald-500",
+          s.open ? "bg-warning" : "bg-success",
         )}
       />
       <span className="font-medium">{s.label}</span>
@@ -116,7 +116,7 @@ export function RequestHistory({ rows }: { rows: RequestRow[] }) {
                         <span
                           className={cn(
                             "mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full",
-                            h.open ? "bg-muted-foreground/50" : "bg-emerald-500",
+                            h.open ? "bg-muted-foreground/50" : "bg-success",
                           )}
                         />
                         <div className="min-w-0 flex-1">
@@ -131,7 +131,7 @@ export function RequestHistory({ rows }: { rows: RequestRow[] }) {
                           </div>
                           {h.message && <p className="mt-0.5 text-sm">{h.message}</p>}
                           {h.nextAction && (
-                            <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                            <p className="mt-1 flex items-start gap-1.5 text-xs text-warning">
                               <Clock className="mt-0.5 h-3 w-3 shrink-0" />
                               <span>
                                 Next: {h.nextAction}

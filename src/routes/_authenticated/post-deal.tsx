@@ -458,7 +458,7 @@ function PostDealPage() {
                   </SelectContent>
                 </Select>
                 {carrierMissing && (
-                  <div className="mt-2 flex items-start gap-2 text-amber-700 dark:text-amber-400 text-sm">
+                  <div className="mt-2 flex items-start gap-2 text-warning text-sm">
                     <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
                       You don't have an active contract with {selectedCarrierName}. Submit business
@@ -496,7 +496,7 @@ function PostDealPage() {
                     where the agent is looking at grid product names and would
                     otherwise assume grid rates. */}
                 {gridProducts.length > 0 && !dealOptions?.carrierLevelName && (
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                  <p className="mt-1 text-xs text-warning">
                     You are not mapped to a contract level on {selectedCarrierName}, so this pays
                     your position percentage rather than the grid rate. An agency admin can set
                     the mapping under Agency settings ▸ Levels &amp; Positions.
@@ -600,7 +600,7 @@ function PostDealPage() {
               </div>
               <div className="col-span-2">
                 <Label>Annual Premium</Label>
-                <div className="px-3 py-2 bg-muted rounded-md text-emerald-700 dark:text-emerald-400 font-semibold">
+                <div className="px-3 py-2 bg-muted rounded-md text-success font-semibold">
                   {money(annual)} / year
                 </div>
               </div>

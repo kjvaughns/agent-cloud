@@ -122,7 +122,7 @@ function ClientMarketingPage() {
               return (
                 <div key={t.slug} className="flex flex-col rounded-[var(--radius)] border border-border-soft bg-surface-2 overflow-hidden">
                   <div className={`h-28 bg-gradient-to-br ${t.gradient} p-3 flex flex-col justify-end`}>
-                    <div className="text-white text-sm font-semibold leading-tight line-clamp-2">{t.headline}</div>
+                    <div className="text-on-solid text-sm font-semibold leading-tight line-clamp-2">{t.headline}</div>
                   </div>
                   <div className="p-4 space-y-3 flex-1 flex flex-col">
                     <div className="flex items-start justify-between gap-2">

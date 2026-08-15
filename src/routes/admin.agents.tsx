@@ -22,17 +22,17 @@ export const Route = createFileRoute("/admin/agents")({
 });
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-emerald-500/15 text-emerald-600",
-  inactive: "bg-slate-500/15 text-slate-500",
-  terminated: "bg-red-500/15 text-red-600",
-  pending: "bg-yellow-500/15 text-yellow-600",
+  active: "bg-success/15 text-success",
+  inactive: "bg-muted/15 text-muted-foreground",
+  terminated: "bg-destructive/15 text-destructive",
+  pending: "bg-warning/15 text-warning",
   imported: "bg-primary/15 text-primary",
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-purple-500/15 text-purple-600",
+  admin: "bg-primary/15 text-primary",
   manager: "bg-primary/15 text-primary",
-  agent: "bg-slate-500/15 text-slate-500",
+  agent: "bg-muted/15 text-muted-foreground",
 };
 
 function AdminAgents() {
@@ -198,7 +198,7 @@ function AdminAgents() {
                   <td className="px-4 py-3 font-medium">{a.first_name} {a.last_name}</td>
                   <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{a.email}</td>
                   <td className="px-4 py-3">
-                    <Badge className={cn("text-xs", STATUS_COLORS[a.status] ?? "bg-slate-500/15 text-slate-500")}>{a.status ?? "unknown"}</Badge>
+                    <Badge className={cn("text-xs", STATUS_COLORS[a.status] ?? "bg-muted/15 text-muted-foreground")}>{a.status ?? "unknown"}</Badge>
                   </td>
                   <td className="px-4 py-3">
                     <Badge className={cn("text-xs", ROLE_COLORS[getRole(a.id)])}>{getRole(a.id)}</Badge>

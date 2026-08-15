@@ -90,12 +90,12 @@ function LandingPage() {
             </div>
           ))}
         </section>
-        <Card className="max-w-2xl mx-auto p-6 md:p-8 bg-white text-slate-900">
+        <Card className="max-w-2xl mx-auto p-6 md:p-8 bg-white text-muted-foreground">
           {submitted ? (
             <div className="text-center py-8">
-              <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-emerald-500" />
+              <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-success" />
               <h2 className="text-2xl font-bold mb-2">Thanks!</h2>
-              <p className="text-slate-600">{agentName} will reach out shortly.</p>
+              <p className="text-muted-foreground">{agentName} will reach out shortly.</p>
             </div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">

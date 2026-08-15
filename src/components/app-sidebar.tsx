@@ -323,7 +323,10 @@ export function AppSidebar() {
           {!sidebarCollapsed && (() => {
             const isAgency = !!org?.slug && org.slug !== "apex";
             const bigName = isAgency ? org!.name : "Agent Cloud";
-            const smallLine = "by Agent Cloud";
+            // On a white-labelled agency the second line is the platform
+            // credit. Without an agency it repeated the first line — the
+            // sidebar read "Agent Cloud / BY AGENT CLOUD" — so it is dropped.
+            const smallLine = isAgency ? "by Agent Cloud" : null;
             return (
               <div className="min-w-0 flex-1">
                 <div
@@ -332,12 +335,15 @@ export function AppSidebar() {
                 >
                   {bigName}
                 </div>
-                <div className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5 tracking-wide uppercase truncate">
-                  {smallLine}
-                </div>
+                {smallLine && (
+                  <div className="text-[10px] text-sidebar-foreground/50 leading-none mt-0.5 tracking-wide uppercase truncate">
+                    {smallLine}
+                  </div>
+                )}
               </div>
             );
           })()}
+
         </div>
       </SidebarHeader>
       <SidebarContent>

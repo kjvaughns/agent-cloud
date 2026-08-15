@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { PageShell } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
 import { MyLicensesView } from "@/components/licensing/my-licenses";
 
@@ -28,7 +29,7 @@ function LicensingPage() {
   if (loading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 rounded-xl" />
+        <PageSkeleton metrics={4} panels={2} />
       </PageShell>
     );
   }

@@ -53,7 +53,7 @@ function ExpiryCell({ date }: { date?: string }) {
   const in90 = new Date(); in90.setDate(in90.getDate() + 90);
   const exp = new Date(date);
   if (exp < today) return <span className="text-destructive font-semibold">{date}</span>;
-  if (exp < in90) return <span className="text-amber-600 font-semibold">{date}</span>;
+  if (exp < in90) return <span className="text-warning font-semibold">{date}</span>;
   return <span>{date}</span>;
 }
 
@@ -155,7 +155,7 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
             <a href="https://nipr.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
               <ExternalLink className="h-3.5 w-3.5" /> Open NIPR.com
             </a>
-            <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 dark:bg-green-950/20 px-3 py-2 text-xs text-green-700 dark:text-green-400">
+            <div className="flex items-center gap-2 rounded-md border border-success bg-success px-3 py-2 text-xs text-success">
               <ShieldCheck className="h-4 w-4 flex-shrink-0" />
               Your document is processed securely and never stored. Only the extracted license data is saved.
             </div>
@@ -270,7 +270,7 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
 
         {phase === "done" && importResult && (
           <div className="py-8 flex flex-col items-center gap-4 text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-500" />
+            <CheckCircle2 className="h-12 w-12 text-success" />
             <div>
               <p className="text-lg font-semibold">{importResult.inserted} licenses imported</p>
               {editedNpn && <p className="text-sm text-muted-foreground mt-1">NPN: {editedNpn}</p>}
@@ -444,8 +444,8 @@ export function MyLicensesView() {
     const in90 = new Date(); in90.setDate(in90.getDate() + 90);
     const exp = new Date(expires);
     if (exp < today) return <Badge variant="destructive">Expired</Badge>;
-    if (exp < in90) return <Badge className="bg-amber-500 text-white">Expiring soon</Badge>;
-    return <Badge className="bg-green-600 text-white">Active</Badge>;
+    if (exp < in90) return <Badge className="bg-warning text-on-solid">Expiring soon</Badge>;
+    return <Badge className="bg-success text-on-solid">Active</Badge>;
   }
 
   return (
@@ -471,8 +471,8 @@ export function MyLicensesView() {
       </div>
 
       {stats.expiring + stats.expired > 0 && (
-        <div className="rounded-[var(--radius)] border border-amber-500/50 bg-amber-500/10 p-pad flex items-center gap-2 text-sm">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <div className="rounded-[var(--radius)] border border-warning/50 bg-warning/10 p-pad flex items-center gap-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-warning" />
           {stats.expired > 0 && <span><strong className="tnum">{stats.expired}</strong> expired</span>}
           {stats.expiring > 0 && <span>· <strong className="tnum">{stats.expiring}</strong> expiring within 90 days</span>}
         </div>
@@ -480,7 +480,7 @@ export function MyLicensesView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Licensed States</div><div className="text-2xl font-bold tnum">{stats.total}</div></div>
-        <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expiring (90d)</div><div className="text-2xl font-bold text-amber-600 tnum">{stats.expiring}</div></div>
+        <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expiring (90d)</div><div className="text-2xl font-bold text-warning tnum">{stats.expiring}</div></div>
         <div className="rounded-[var(--radius)] border border-border bg-card p-pad"><div className="text-xs text-text-dim">Expired</div><div className="text-2xl font-bold text-destructive tnum">{stats.expired}</div></div>
       </div>
 

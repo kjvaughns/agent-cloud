@@ -88,9 +88,9 @@ const SEED: Lead[] = [
 
 const TEMP_ICON = { hot: Flame, warm: Thermometer, cold: Snowflake } as const;
 const TEMP_CLS = {
-  hot: "text-red-400",
-  warm: "text-amber-400",
-  cold: "text-blue-400",
+  hot: "text-destructive",
+  warm: "text-warning",
+  cold: "text-info",
 } as const;
 
 function PipelineDemo() {

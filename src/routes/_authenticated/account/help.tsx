@@ -62,16 +62,16 @@ const STATUS_COLORS: Record<string, string> = {
   // `pending`, not `in_progress` — the latter was the only status listed here
   // that nothing in the app has ever written, so a ticket the agency had
   // picked up rendered with no colour at all.
-  pending: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  resolved: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  pending: "bg-warning/10 text-warning",
+  resolved: "bg-success/10 text-success",
   closed: "bg-muted text-muted-foreground",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low: "bg-slate-100 text-slate-600",
+  low: "bg-muted text-muted-foreground",
   normal: "bg-primary/10 text-primary",
-  high: "bg-amber-100 text-amber-700",
-  urgent: "bg-red-100 text-red-700",
+  high: "bg-warning text-warning",
+  urgent: "bg-destructive text-destructive",
 };
 
 function HelpPage() {
@@ -176,7 +176,7 @@ function SubmitTicketForm() {
     return (
       <Card>
         <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
-          <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+          <CheckCircle2 className="h-12 w-12 text-success" />
           <div>
             <h2 className="text-xl font-bold">Ticket Submitted!</h2>
             <p className="text-sm text-muted-foreground mt-1">Your ticket #{confirmed.ticket_number} has been received. We'll respond within 1 business day.</p>

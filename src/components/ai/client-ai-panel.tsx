@@ -36,7 +36,7 @@ export function ClientAiPanel({ clientId }: { clientId: string }) {
         <>
           <div className="text-sm text-muted-foreground">{data.summary}</div>
           {data.stall_warning && (
-            <div className="flex gap-2 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded p-2">
+            <div className="flex gap-2 text-xs bg-warning/10 text-warning rounded p-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               {data.stall_warning}
             </div>

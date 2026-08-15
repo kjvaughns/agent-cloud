@@ -13,6 +13,7 @@ import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { useMyAccess } from "@/hooks/use-my-access";
 import {
   canOpenTab, visibleTabs, defaultTab, TAB_LABEL, SETTINGS_TABS,
@@ -75,7 +76,7 @@ function AgencySettingsRoute() {
   if (loading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 rounded-xl" />
+        <PageSkeleton metrics={0} panels={2} />
       </PageShell>
     );
   }

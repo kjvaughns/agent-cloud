@@ -41,16 +41,16 @@ type Stage = "new" | "callback" | "almost_there" | "sold";
 type Temp = "hot" | "warm" | "cold";
 
 const tempPill: Record<Temp, { cls: string; Icon: any; label: string }> = {
-  hot:  { cls: "bg-red-100 text-red-700 border-red-200",    Icon: Flame,       label: "Hot"  },
-  warm: { cls: "bg-orange-100 text-orange-700 border-orange-200", Icon: Thermometer, label: "Warm" },
-  cold: { cls: "bg-blue-100 text-blue-700 border-blue-200", Icon: Snowflake,   label: "Cold" },
+  hot:  { cls: "bg-destructive text-destructive border-destructive",    Icon: Flame,       label: "Hot"  },
+  warm: { cls: "bg-warning text-warning border-warning", Icon: Thermometer, label: "Warm" },
+  cold: { cls: "bg-info text-info border-info", Icon: Snowflake,   label: "Cold" },
 };
 
 const STAGE_PILLS: Record<Stage, { active: string; inactive: string; label: string }> = {
-  new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-400",   label: "New / Initial" },
-  callback:     { active: "bg-amber-500 text-white border-amber-500",                    inactive: "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400",   label: "Callback"      },
-  almost_there: { active: "bg-orange-500 text-white border-orange-500",                  inactive: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400", label: "Almost There" },
-  sold:         { active: "bg-emerald-500 text-white border-emerald-500",                inactive: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400", label: "Sold"     },
+  new:          { active: "bg-primary text-primary-foreground border-primary",           inactive: "border-border text-muted-foreground",   label: "New / Initial" },
+  callback:     { active: "bg-warning text-on-solid border-warning",                    inactive: "border-warning text-warning",   label: "Callback"      },
+  almost_there: { active: "bg-warning text-on-solid border-warning",                  inactive: "border-warning text-warning", label: "Almost There" },
+  sold:         { active: "bg-success text-on-solid border-success",                inactive: "border-success text-success", label: "Sold"     },
 };
 
 
@@ -208,7 +208,7 @@ function DrawerHeader({ client, t }: { client: any; t: any }) {
           {client.stage !== "sold" ? (
             <Button
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              className="bg-success hover:bg-success text-on-solid gap-1.5"
               onClick={() => soldMut.mutate()}
               disabled={soldMut.isPending}
             >
@@ -851,10 +851,10 @@ function PoliciesTab({ detail }: { detail: any }) {
 
 // ============ Policy Fields (used inline in ContactTab) ============
 const statusCls: Record<string, string> = {
-  active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
-  lapsed:    "bg-red-100 text-red-700 border-red-200",
-  in_review: "bg-amber-100 text-amber-700 border-amber-200",
-  pending:   "bg-slate-100 text-slate-600 border-slate-200",
+  active:    "bg-success text-success border-success",
+  lapsed:    "bg-destructive text-destructive border-destructive",
+  in_review: "bg-warning text-warning border-warning",
+  pending:   "bg-muted text-muted-foreground border-border",
 };
 
 function PolicyFields({ detail }: { detail: any }) {
@@ -1263,10 +1263,10 @@ function BeneficiariesTab({ detail }: { detail: any }) {
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <Button onClick={openAdd}><Plus className="h-4 w-4" /> Add Beneficiary</Button>
-        <div className={cn("text-sm font-medium", total === 100 ? "text-emerald-600" : "text-amber-600")}>Total: {total}%</div>
+        <div className={cn("text-sm font-medium", total === 100 ? "text-success" : "text-warning")}>Total: {total}%</div>
       </div>
       {total !== 100 && detail.beneficiaries.length > 0 && (
-        <div className="text-xs text-amber-600 inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Percentages must sum to 100%.</div>
+        <div className="text-xs text-warning inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Percentages must sum to 100%.</div>
       )}
       {detail.beneficiaries.length === 0 ? (
         <div className="text-sm text-muted-foreground">No beneficiaries added.</div>
@@ -1372,7 +1372,7 @@ function BeneficiariesInline({ detail }: { detail: any }) {
           ))}
           <div className={cn(
             "text-xs font-medium text-right",
-            total === 100 ? "text-emerald-600" : "text-amber-600"
+            total === 100 ? "text-success" : "text-warning"
           )}>
             Total: {total}%{total !== 100 && " — must equal 100%"}
           </div>
@@ -1521,7 +1521,7 @@ function FinancialsTab({ detail }: { detail: any }) {
         <Field label="Pension"><Input type="number" value={form.pension} onChange={(e) => setForm({ ...form, pension: e.target.value as any })} onBlur={save} /></Field>
         <Field label="Other Income"><Input type="number" value={form.other_income} onChange={(e) => setForm({ ...form, other_income: e.target.value as any })} onBlur={save} /></Field>
       </div>
-      <div className="rounded-md border bg-emerald-50 dark:bg-emerald-950/30 p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+      <div className="rounded-md border bg-success p-3 text-sm font-semibold text-success">
         Total Monthly Income: {money(total)}
       </div>
       <div className="text-sm font-semibold pt-2">Work & Retirement</div>
@@ -1684,7 +1684,7 @@ function EmailTab({ detail }: { detail: any }) {
   const [selected, setSelected] = useState<any>(null);
   if (!c.email) {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-700 dark:text-amber-300 inline-flex items-start gap-2">
+      <div className="rounded-md border border-warning bg-warning p-4 text-sm text-warning inline-flex items-start gap-2">
         <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
         No email address on file. Add an email in the Contact tab to use email templates.
       </div>

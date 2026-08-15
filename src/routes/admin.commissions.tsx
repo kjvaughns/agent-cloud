@@ -378,7 +378,7 @@ function AdminCompGridsTab({
             </div>
             <p className="text-sm text-muted-foreground">
               Upload a carrier comp grid (PDF, image, or CSV) and AI will extract all levels and rates automatically.
-              <span className="text-amber-600 font-medium"> This replaces all existing rows for the selected carrier.</span>
+              <span className="text-warning font-medium"> This replaces all existing rows for the selected carrier.</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -441,7 +441,7 @@ function AdminCompGridsTab({
                   {levels.map((l: any) => (
                     <Badge
                       key={l.name}
-                      className={cn(l.pct === topPct ? "bg-amber-500 text-white" : "bg-secondary text-secondary-foreground")}
+                      className={cn(l.pct === topPct ? "bg-warning text-on-solid" : "bg-secondary text-secondary-foreground")}
                     >
                       {l.pct === topPct ? "★ " : ""}{l.name} ({l.pct}%)
                     </Badge>
@@ -467,7 +467,7 @@ function AdminCompGridsTab({
                       key={l.name}
                       className={cn(
                         "text-center px-3 py-2 font-medium border-b border-r whitespace-nowrap min-w-[80px]",
-                        l.pct === topPct ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-muted/40 text-muted-foreground"
+                        l.pct === topPct ? "bg-warning/15 text-warning" : "bg-muted/40 text-muted-foreground"
                       )}
                     >
                       {l.name}
@@ -490,11 +490,11 @@ function AdminCompGridsTab({
                           key={l.name}
                           className={cn(
                             "px-3 py-2 text-center font-mono text-xs border-r",
-                            l.pct === topPct && "bg-amber-500/10"
+                            l.pct === topPct && "bg-warning/10"
                           )}
                         >
                           {cell ? (
-                            <span className={cn(l.pct === topPct && "text-amber-700 dark:text-amber-400 font-semibold")}>
+                            <span className={cn(l.pct === topPct && "text-warning font-semibold")}>
                               {cell.year_1_pct}%
                             </span>
                           ) : (
@@ -521,7 +521,7 @@ function AdminCompGridsTab({
 
       {phase === "done" && (
         <Card className="p-8 text-center space-y-3">
-          <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto" />
+          <CheckCircle2 className="h-10 w-10 text-success mx-auto" />
           <div className="font-semibold text-lg">Grid saved successfully</div>
           <div className="text-sm text-muted-foreground">
             {extracted?.rows.length} rows saved for {carrierName}

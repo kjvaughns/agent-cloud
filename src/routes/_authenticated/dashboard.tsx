@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageSkeleton } from "@/components/page-skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
@@ -64,7 +65,7 @@ function DashboardRoute() {
   if (loading) {
     return (
       <PageShell>
-        <Skeleton className="h-64 rounded-xl" />
+        <PageSkeleton metrics={4} panels={2} />
       </PageShell>
     );
   }
@@ -714,7 +715,7 @@ function ActivationQueueWidget({ feed, loading }: { feed: any; loading: boolean 
           <div className="space-y-2">{[1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>
         ) : queue.length === 0 ? (
           <div className="flex items-center gap-3 py-4 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
             All direct agents have complete profiles.
           </div>
         ) : (
@@ -775,7 +776,7 @@ function TeamActivityFeed({ feed, loading }: { feed: any; loading: boolean }) {
                         <AvatarFallback className="text-[10px]">{initials(a.first_name, a.last_name)}</AvatarFallback>
                       </Avatar>
                       <span className="font-medium">{a.first_name} {a.last_name}</span>
-                      <Badge variant="outline" className="text-[10px] py-0 h-4 text-emerald-600 border-emerald-500/30 bg-emerald-500/10">New Agent</Badge>
+                      <Badge variant="outline" className="text-[10px] py-0 h-4 text-success border-success/30 bg-success/10">New Agent</Badge>
                       <span className="text-xs text-muted-foreground ml-auto">{new Date(a.created_at).toLocaleDateString()}</span>
                     </div>
                   ))}

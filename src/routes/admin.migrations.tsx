@@ -74,7 +74,7 @@ function AdminMigrations() {
 
         <Panel>
           {error ? (
-            <p className="py-8 text-center text-sm text-red-600">{error}</p>
+            <p className="py-8 text-center text-sm text-destructive">{error}</p>
           ) : !rows ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

@@ -50,7 +50,7 @@ function Section({ title, items, accent }: { title: string; items: string[]; acc
   if (!items?.length) return null;
   return (
     <div>
-      <div className={`text-xs font-medium mb-1 ${accent ? "text-amber-600 dark:text-amber-400" : ""}`}>{title}</div>
+      <div className={`text-xs font-medium mb-1 ${accent ? "text-warning" : ""}`}>{title}</div>
       <ul className="list-disc pl-4 space-y-0.5 text-xs">
         {items.map((it, i) => <li key={i}>{it}</li>)}
       </ul>

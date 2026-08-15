@@ -178,7 +178,7 @@ export function CompLevelEditor({ agentId, agentName }: { agentId: string; agent
                 <div className="text-sm font-medium truncate flex items-center gap-2">
                   {carrier.name}
                   {isPending && (
-                    <Badge className="bg-amber-500/15 text-amber-600 text-[10px] px-1.5 py-0">Pending</Badge>
+                    <Badge className="bg-warning/15 text-warning text-[10px] px-1.5 py-0">Pending</Badge>
                   )}
                 </div>
                 {!isEditing && (

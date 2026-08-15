@@ -52,6 +52,10 @@
   --color-gold-glow: var(--gold-glow);
   --color-gold-foreground: var(--gold-foreground);
   --color-text-dim: var(--text-dim);
+  /* Foreground for a saturated filled surface (status badge, stage pill).
+     Constant across themes on purpose: a filled --destructive block needs the
+     same light text on paper as on near-black. */
+  --color-on-solid: var(--on-solid);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -147,6 +151,7 @@
   --sidebar-border: #E3DFD3;
   --sidebar-ring: var(--gold);
 
+  --on-solid: #FFFFFF;
   --shadow-pop: 0 12px 32px rgba(60,50,30,0.16);
 }
 
@@ -214,6 +219,7 @@
   --sidebar-border: #26262C;
   --sidebar-ring: var(--gold);
 
+  --on-solid: #FFFFFF;
   --shadow-pop: 0 12px 32px rgba(0,0,0,0.35);
 }
 
@@ -266,6 +272,96 @@
 @layer utilities {
   .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 }
+
+/* ============================================================
+   SEMANTIC TONES
+
+   Every status badge, stage chip, and calendar pill in the app used to reach
+   straight into the Tailwind palette (bg-amber-500, text-emerald-700,
+   bg-slate-500). Those values do not exist in the theme, so they ignore the
+   accent setting, ignore light/dark, and drift apart between screens.
+
+   A tone is a role, not a colour: brand, success, warning, danger, info,
+   neutral. Each tone has three renderings, and every screen picks one:
+
+     .tone-{name}       soft chip  — tinted surface, tinted border, legible text
+     .tone-solid-{name} solid chip — filled surface with its own foreground
+     .tone-dot-{name}   4px dot    — the tone's colour as a background only
+
+   Text is mixed toward --foreground so a tone stays readable on the warm paper
+   canvas in light mode and on near-black in dark mode from one declaration.
+   ============================================================ */
+@layer utilities {
+  .tone-brand,
+  .tone-success,
+  .tone-warning,
+  .tone-danger,
+  .tone-info,
+  .tone-neutral,
+  .tone-solid-brand,
+  .tone-solid-success,
+  .tone-solid-warning,
+  .tone-solid-danger,
+  .tone-solid-info,
+  .tone-solid-neutral {
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  .tone-brand {
+    background-color: color-mix(in oklab, var(--primary) 14%, transparent);
+    border-color: color-mix(in oklab, var(--primary) 32%, transparent);
+    color: color-mix(in oklab, var(--primary) 76%, var(--foreground));
+  }
+  .tone-success {
+    background-color: color-mix(in oklab, var(--success) 14%, transparent);
+    border-color: color-mix(in oklab, var(--success) 32%, transparent);
+    color: color-mix(in oklab, var(--success) 72%, var(--foreground));
+  }
+  .tone-warning {
+    background-color: color-mix(in oklab, var(--warning) 15%, transparent);
+    border-color: color-mix(in oklab, var(--warning) 34%, transparent);
+    color: color-mix(in oklab, var(--warning) 72%, var(--foreground));
+  }
+  .tone-danger {
+    background-color: color-mix(in oklab, var(--destructive) 14%, transparent);
+    border-color: color-mix(in oklab, var(--destructive) 32%, transparent);
+    color: color-mix(in oklab, var(--destructive) 74%, var(--foreground));
+  }
+  .tone-info {
+    background-color: color-mix(in oklab, var(--info) 14%, transparent);
+    border-color: color-mix(in oklab, var(--info) 32%, transparent);
+    color: color-mix(in oklab, var(--info) 74%, var(--foreground));
+  }
+  .tone-neutral {
+    background-color: var(--muted);
+    border-color: var(--border);
+    color: var(--muted-foreground);
+  }
+
+  .tone-solid-brand   { background-color: var(--primary);     border-color: transparent; color: var(--primary-foreground); }
+  .tone-solid-success { background-color: var(--success);     border-color: transparent; color: var(--success-foreground); }
+  .tone-solid-warning { background-color: var(--warning);     border-color: transparent; color: var(--warning-foreground); }
+  .tone-solid-danger  { background-color: var(--destructive); border-color: transparent; color: var(--destructive-foreground); }
+  .tone-solid-info    { background-color: var(--info);        border-color: transparent; color: var(--info-foreground); }
+  .tone-solid-neutral { background-color: var(--elevated);    border-color: var(--border); color: var(--foreground); }
+
+  .tone-dot-brand   { background-color: var(--primary); }
+  .tone-dot-success { background-color: var(--success); }
+  .tone-dot-warning { background-color: var(--warning); }
+  .tone-dot-danger  { background-color: var(--destructive); }
+  .tone-dot-info    { background-color: var(--info); }
+  .tone-dot-neutral { background-color: var(--text-dim); }
+
+  /* Text-only rendering, for a figure that carries its own meaning. */
+  .tone-text-brand   { color: color-mix(in oklab, var(--primary) 82%, var(--foreground)); }
+  .tone-text-success { color: color-mix(in oklab, var(--success) 78%, var(--foreground)); }
+  .tone-text-warning { color: color-mix(in oklab, var(--warning) 78%, var(--foreground)); }
+  .tone-text-danger  { color: color-mix(in oklab, var(--destructive) 80%, var(--foreground)); }
+  .tone-text-info    { color: color-mix(in oklab, var(--info) 80%, var(--foreground)); }
+  .tone-text-neutral { color: var(--muted-foreground); }
+}
+
 
 /* ============================================================
    PHONES — density tokens step down

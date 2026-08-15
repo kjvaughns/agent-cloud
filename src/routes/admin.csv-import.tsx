@@ -142,10 +142,10 @@ function PreviewPanel({
       </div>
 
       {parsed.errors.length > 0 && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 space-y-1">
-          <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">Parse warnings</div>
+        <div className="rounded-lg border border-warning bg-warning px-3 py-2 space-y-1">
+          <div className="text-xs font-semibold text-warning">Parse warnings</div>
           {parsed.errors.map((e, i) => (
-            <div key={i} className="text-xs text-amber-600 dark:text-amber-500">{e}</div>
+            <div key={i} className="text-xs text-warning">{e}</div>
           ))}
         </div>
       )}
@@ -205,7 +205,7 @@ function PreviewPanel({
                     <td className="p-2 text-muted-foreground">{p.carrier}</td>
                     <td className="p-2 text-muted-foreground">{p.product}</td>
                     <td className="p-2 font-mono">{p.policyNumber}</td>
-                    <td className="p-2 text-emerald-700 dark:text-emerald-400">${p.monthlyPremium.toFixed(2)}</td>
+                    <td className="p-2 text-success">${p.monthlyPremium.toFixed(2)}</td>
                     <td className="p-2 text-muted-foreground">{p.agentName}</td>
                   </tr>
                 ))}
@@ -237,7 +237,7 @@ function PreviewPanel({
                     <td className="p-2">
                       <span className={cn(
                         "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                        a.status === "ACTIVE" ? "bg-emerald-500/15 text-emerald-700" : "bg-amber-500/15 text-amber-700"
+                        a.status === "ACTIVE" ? "bg-success/15 text-success" : "bg-warning/15 text-warning"
                       )}>
                         {a.status}
                       </span>
@@ -483,7 +483,7 @@ function AdminBookImport() {
       {phase === "done" && result && (
         <div className="space-y-4 max-w-xl">
           <div className="text-center py-4">
-            <CheckCircle2 className="h-11 w-11 text-emerald-500 mx-auto mb-3" />
+            <CheckCircle2 className="h-11 w-11 text-success mx-auto mb-3" />
             <h2 className="text-xl font-bold">Import Complete</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -495,7 +495,7 @@ function AdminBookImport() {
             <StatCard label="Skipped" value={result.skipped} />
           </div>
           {result.duplicates_found > 0 && duplicateMode === "review" && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+            <div className="rounded-lg border border-warning bg-warning px-3 py-2 text-sm text-warning">
               {result.duplicates_found} duplicate{result.duplicates_found !== 1 ? "s" : ""} flagged for agent review. They can resolve these from their pipeline.
             </div>
           )}
