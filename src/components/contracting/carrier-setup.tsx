@@ -219,35 +219,36 @@ function CarrierRow({
                   {isActive || state?.canActivate ? "Setup" : "Finish setup"}
                 </Button>
                 {/* Off until the setup can pay a deal. A switch that flips and
-                    then does nothing is worse than one that explains itself. */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isActive}
-                  aria-label={`${isActive ? "Switch off" : "Switch on"} ${c.name}`}
-                  disabled={toggling}
-                  onClick={() => {
-                    if (!mayToggle) {
-                      toast.error(
-                        state?.problems[0]
-                          ?? `${c.name} is not set up enough to switch on yet.`,
-                      );
-                      return;
-                    }
-                    onToggle(!isActive);
+                    then does nothing is worse than one that explains itself.
+                    The shared Switch rather than a hand-rolled pill, so it has
+                    the same size, ring, thumb and easing as every other toggle
+                    in the app — only the on-colour is swapped to success,
+                    because "live" is a state and not a brand accent. */}
+                <span
+                  onClickCapture={(e) => {
+                    // The gate lives on the wrapper: a disabled Switch would
+                    // swallow the click and say nothing about why.
+                    if (mayToggle || toggling) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toast.error(
+                      state?.problems[0]
+                        ?? `${c.name} is not set up enough to switch on yet.`,
+                    );
                   }}
-                  className={cn(
-                    "relative h-5 w-9 rounded-full transition-colors",
-                    isActive ? "bg-success" : mayToggle ? "bg-surface-3" : "bg-surface-3 opacity-50",
-                  )}
+                  className={cn("inline-flex", !mayToggle && "cursor-not-allowed")}
                 >
-                  <span
+                  <Switch
+                    checked={isActive}
+                    disabled={toggling}
+                    aria-label={`${isActive ? "Switch off" : "Switch on"} ${c.name}`}
+                    onCheckedChange={(v) => onToggle(v)}
                     className={cn(
-                      "absolute top-0.5 h-4 w-4 rounded-full bg-card transition-transform",
-                      isActive ? "translate-x-[1.125rem]" : "translate-x-0.5",
+                      "data-[state=checked]:bg-success data-[state=unchecked]:bg-surface-3",
+                      !mayToggle && "opacity-50",
                     )}
                   />
-                </button>
+                </span>
                 <button
                   onClick={onEdit}
                   aria-label={`Edit ${c.name} details`}
