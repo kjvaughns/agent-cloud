@@ -109,6 +109,13 @@ const PostDealSchema = z.object({
     face_amount: z.number().min(0),
     monthly_premium: z.number().min(0),
     status: z.enum(["issued_not_paid", "in_review"]).default("issued_not_paid"),
+    /**
+     * When the business was written, which is the month it counts in on
+     * production, the dashboard and the leaderboard. Optional: omitted, the
+     * database derives it as before. Present, it is how an older policy typed
+     * in today lands in the month it was actually sold.
+     */
+    sale_date: z.string().optional().or(z.literal("")),
   }),
   beneficiaries: z.array(BeneficiarySchema).max(10),
   notes: z.string().max(2000).optional().or(z.literal("")),
