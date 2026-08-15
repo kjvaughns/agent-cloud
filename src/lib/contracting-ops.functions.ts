@@ -708,7 +708,30 @@ export const getCarrierUsage = createServerFn({ method: "GET" })
       count("commission_schedule", "carrier_id", oc.carrier_id),
     ]);
 
-    return { contracts, policies, requests, commissionRecords };
+    // Configuration, counted separately from history. It does not decide
+    // delete-versus-archive — a grid is something you rebuild, not something
+    // you lose money over — but a delete takes it with the carrier, so the
+    // confirmation has to be able to say so before the click rather than after.
+    const { count: gridRows } = await supabaseAdmin
+      .from("commission_grids").select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId).eq("carrier_id", oc.carrier_id);
+    const { count: compLevels } = await supabaseAdmin
+      .from("carrier_comp_levels").select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId).eq("org_carrier_id", oc.id);
+    const { count: mappings } = await supabaseAdmin
+      .from("agency_level_carrier_mappings").select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId).eq("org_carrier_id", oc.id);
+    const { count: methods } = await supabaseAdmin
+      .from("org_carrier_methods").select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId).eq("org_carrier_id", oc.id);
+
+    return {
+      contracts, policies, requests, commissionRecords,
+      gridRows: gridRows ?? 0,
+      compLevels: compLevels ?? 0,
+      mappings: mappings ?? 0,
+      methods: methods ?? 0,
+    };
   });
 
 /**
@@ -735,16 +758,26 @@ export const removeOrgCarrier = createServerFn({ method: "POST" })
     const mode = removalMode(usage);
 
     if (mode === "delete") {
-      const { data: gone, error } = await supabaseAdmin
-        .from("org_carriers").delete().eq("id", data.id).eq("organization_id", orgId).select("id");
+      // One statement, in the database, because the carrier is not the only
+      // thing being removed. Its grid rows key on (organization, carrier_id)
+      // rather than on this row, so deleting only `org_carriers` left a grid
+      // behind with no carrier to belong to — and re-adding the carrier
+      // resurrected rates nobody knew were still stored. Comp levels, position
+      // mappings, submission methods, requirements and aliases went the same
+      // way. Nothing here touches policies or commission history: a carrier
+      // with any of those is archived above, never deleted.
+      const { data: removed, error } = await supabaseAdmin.rpc("delete_org_carrier_cascade", {
+        _org: orgId,
+        _org_carrier: data.id,
+      });
       if (error) throw new Error(error.message);
-      if (!gone?.length) throw new Error("That carrier was already removed.");
+
       await recordAudit({
         organizationId: orgId, actorId: userId, action: "carrier.archived",
         recordType: "org_carriers", recordId: data.id, previous: before,
-        metadata: { removal: "deleted", usage },
+        metadata: { removal: "deleted", usage, removed },
       });
-      return { ok: true, mode };
+      return { ok: true, mode, removed: (removed ?? null) as Record<string, number> | null };
     }
 
     const { data: row, error } = await supabaseAdmin

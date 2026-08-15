@@ -509,10 +509,28 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
     // label to be wrong about, so an empty matrix is a worse answer but not
     // an incorrect one, while a throw takes the tab out entirely.
     const teamIds = (await resolveScopeAgentIdsOrNone(supabase, "team")).filter((id) => id !== userId);
+
+    // An agency owner is in their own matrix.
+    //
+    // The row for the signed-in user was filtered out on the reasoning that you
+    // do not assign to yourself. But an owner's own carrier levels have to be
+    // recorded somewhere: they write business like everybody else, and their
+    // percentages are what the commission calculator pays them from. With no
+    // row anywhere in the app, an owner's commissions computed to zero and the
+    // only fix was somebody editing the database. Owners can set their own;
+    // agents still cannot, and the cap in `assignDownlineContract` is what
+    // enforces that rather than this list.
+    const { data: me } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const canSetOwn = me?.organization_id
+      ? Boolean((await supabase.rpc("can_manage_comp_levels", { _org: me.organization_id })).data)
+      : false;
+
+    const visibleIds = canSetOwn ? [userId, ...teamIds] : teamIds;
     const { data: agents, error: aErr } = await supabase
       .from("profiles")
       .select("id,first_name,last_name,email")
-      .in("id", teamIds.length ? teamIds : ["00000000-0000-0000-0000-000000000000"])
+      .in("id", visibleIds.length ? visibleIds : ["00000000-0000-0000-0000-000000000000"])
       .order("first_name", { ascending: true });
     if (aErr) throw new Error(aErr.message);
 
@@ -577,7 +595,9 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
         numbers.get(writingNumberKey(r.agent_id, r.carrier_id)) ?? r.writing_number ?? null,
     }));
 
-    return { agents: agents ?? [], carriers, requests, levels };
+    // `selfId` so the table can label the owner's own row rather than leaving
+    // them to recognise their own name among their downline.
+    return { agents: agents ?? [], carriers, requests, levels, selfId: userId, canSetOwn };
   });
 
 export const assignDownlineContract = createServerFn({ method: "POST" })
@@ -591,9 +611,24 @@ export const assignDownlineContract = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
-    const myPct = await getMyLevelPct(supabase, userId, data.carrier_id);
-    if (myPct !== null && data.level_pct > myPct) {
-      throw new Error(`You cannot assign a level above your own (${myPct}%).`);
+    // Setting your own level is a different question from assigning a
+    // downline's, and the cap below cannot answer it: comparing your own level
+    // to itself would freeze it at whatever it happens to be, so an owner could
+    // never raise their own contract. Permission decides this one.
+    if (data.agent_id === userId) {
+      const { data: me } = await supabase
+        .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+      const allowed = me?.organization_id
+        ? Boolean((await supabase.rpc("can_manage_comp_levels", { _org: me.organization_id })).data)
+        : false;
+      if (!allowed) {
+        throw new Error("Ask your upline to set your level for this carrier.");
+      }
+    } else {
+      const myPct = await getMyLevelPct(supabase, userId, data.carrier_id);
+      if (myPct !== null && data.level_pct > myPct) {
+        throw new Error(`You cannot assign a level above your own (${myPct}%).`);
+      }
     }
 
     const { error: lvlErr } = await supabase

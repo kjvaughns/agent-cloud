@@ -807,6 +807,8 @@ function DownlineTab() {
   const levelMap = new Map<string, any>();
   ((data as any)?.levels ?? []).forEach((l: any) => levelMap.set(`${l.agent_id}:${l.carrier_id}`, l));
 
+  const selfId = (data as any)?.selfId as string | undefined;
+
   if (agents.length === 0) {
     return <Panel className="p-10 text-center text-sm text-muted-foreground">No downline agents yet. Invite agents from the Agent Network page.</Panel>;
   }
@@ -815,8 +817,11 @@ function DownlineTab() {
   const activeCnt = reqs.filter((r: any) => r.status === "active").length;
   const pendingCnt = reqs.filter((r: any) => ["requested", "submitted", "assigned", "processing"].includes(r.status)).length;
   const issueCnt = reqs.filter((r: any) => r.status === "issue").length;
-  const filteredAgents = agents.filter((a: any) =>
-    !agentSearch.trim() || `${a.first_name ?? ""} ${a.last_name ?? ""}`.toLowerCase().includes(agentSearch.toLowerCase()));
+  const filteredAgents = agents
+    .filter((a: any) =>
+      !agentSearch.trim() || `${a.first_name ?? ""} ${a.last_name ?? ""}`.toLowerCase().includes(agentSearch.toLowerCase()))
+    // Own row first: it is the one an owner came here to fix.
+    .sort((a: any, b: any) => (a.id === (data as any)?.selfId ? -1 : b.id === (data as any)?.selfId ? 1 : 0));
   const visibleCarriers = carrierFilter === "all" ? carriers : carriers.filter((c: any) => c.id === carrierFilter);
 
   return (
@@ -849,7 +854,14 @@ function DownlineTab() {
           <tbody>
             {filteredAgents.map((a: any) => (
               <tr key={a.id} className="border-t border-border">
-                <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">{a.first_name} {a.last_name}</td>
+                <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">
+                  {a.first_name} {a.last_name}
+                  {a.id === selfId && (
+                    <span className="ml-2 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                      You
+                    </span>
+                  )}
+                </td>
                 {visibleCarriers.map((c: any) => {
                   const existing = map.get(`${a.id}:${c.id}`);
                   const level = levelMap.get(`${a.id}:${c.id}`);
