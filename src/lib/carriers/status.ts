@@ -274,6 +274,11 @@ export type CarrierUsage = {
   policies: number;
   requests: number;
   commissionRecords: number;
+  /** Configuration the delete takes with it. Optional: older callers omit it. */
+  gridRows?: number;
+  compLevels?: number;
+  mappings?: number;
+  methods?: number;
 };
 
 export function removalMode(u: CarrierUsage): "delete" | "archive" {
@@ -283,11 +288,21 @@ export function removalMode(u: CarrierUsage): "delete" | "archive" {
 
 export function removalExplanation(name: string, u: CarrierUsage): string {
   if (removalMode(u) === "delete") {
+    // Name the setup being destroyed. A carrier with no history can still have
+    // an afternoon of grid work behind it, and "cannot be undone" alone does
+    // not tell the owner what they are about to lose.
+    const setup: string[] = [];
+    if (u.gridRows) setup.push(`${u.gridRows} grid row${u.gridRows === 1 ? "" : "s"}`);
+    if (u.compLevels) setup.push(`${u.compLevels} comp level${u.compLevels === 1 ? "" : "s"}`);
+    if (u.mappings) setup.push(`${u.mappings} position mapping${u.mappings === 1 ? "" : "s"}`);
+    if (u.methods) setup.push(`${u.methods} submission method${u.methods === 1 ? "" : "s"}`);
+    const also = setup.length ? ` Its ${setup.join(", ")} will be deleted with it.` : "";
     return (
       `${name} has no contracts, policies, requests or commission records, so it can ` +
-      `be deleted permanently. This cannot be undone.`
+      `be deleted permanently.${also} This cannot be undone.`
     );
   }
+
   const parts: string[] = [];
   if (u.policies) parts.push(`${u.policies} polic${u.policies === 1 ? "y" : "ies"}`);
   if (u.contracts) parts.push(`${u.contracts} contract${u.contracts === 1 ? "" : "s"}`);
