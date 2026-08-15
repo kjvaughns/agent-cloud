@@ -216,5 +216,42 @@ check("and the app writes a second one when there is a message",
 check("every status the app can set has agent-facing metadata",
   REQUEST_STATUSES.every((s) => Boolean(REQUEST_STATUS_META[s])), true);
 
+// ── A status change can carry its explanation ───────────────────────────────
+//
+// `StatusSchema` has accepted `agent_visible_message`, `internal_message`,
+// `next_action` and `decline_reason` since the workflow was built. No control
+// supplied any of them, so every decline in the system was recorded with no
+// reason at all: the agent saw "Declined" and nothing else, and the
+// `decline_reason` column that exists to hold the explanation stayed null.
+
+console.log("");
+
+const DETAIL = strip(read("src/routes/_authenticated/contracting-ops/requests/$requestId.tsx"));
+
+check("the server has always accepted a decline reason",
+  /decline_reason: z\.string\(\)/.test(OPS), true);
+check("…and now something sends one", /decline_reason: composing\.reason\.trim\(\)/.test(DETAIL), true);
+// A decline with no reason gives the agent nothing to act on.
+check("…which a decline cannot be saved without",
+  /composing\.status === "declined" && !composing\.reason\.trim\(\)/.test(DETAIL), true);
+
+check("a status change can say what the agent sees",
+  /agent_visible_message: composing\.message\.trim\(\)/.test(DETAIL), true);
+check("…what happens next", /next_action: composing\.nextAction\.trim\(\)/.test(DETAIL), true);
+check("…and carry a staff-only note", /internal_message: composing\.internal\.trim\(\)/.test(DETAIL), true);
+
+// A blank field must not overwrite anything or write a history row that says
+// nothing, so empty strings are omitted rather than sent as "".
+check("blank fields are omitted rather than sent",
+  (DETAIL.match(/\?\s*\{ (agent_visible_message|internal_message|next_action|decline_reason)/g) ?? []).length,
+  4);
+
+// The writing-number path keeps its own form: it ends the request and records
+// a number against the agent, which is a different act from a status note.
+check("issuing a writing number still has its own step",
+  /if \(v === "writing_number_issued"\) setIssuingNumber\(""\)/.test(DETAIL), true);
+check("…and everything else composes first",
+  /else compose\(v as RequestStatus\)/.test(DETAIL), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
