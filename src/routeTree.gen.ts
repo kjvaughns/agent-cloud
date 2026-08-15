@@ -82,6 +82,7 @@ import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedContractingOpsIndexRouteImport } from './routes/_authenticated/contracting-ops/index'
 import { Route as AuthenticatedAgencyIndexRouteImport } from './routes/_authenticated/agency/index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as LovableAnnouncementsDispatchRouteImport } from './routes/lovable/announcements/dispatch'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
@@ -557,6 +558,12 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   path: '/lovable/email/suppression',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LovableAnnouncementsDispatchRoute =
+  LovableAnnouncementsDispatchRouteImport.update({
+    id: '/lovable/announcements/dispatch',
+    path: '/lovable/announcements/dispatch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe/webhook',
   path: '/api/stripe/webhook',
@@ -1281,6 +1288,7 @@ export interface FileRoutesByFullPath {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/lovable/announcements/dispatch': typeof LovableAnnouncementsDispatchRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency/': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1448,6 +1456,7 @@ export interface FileRoutesByTo {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/lovable/announcements/dispatch': typeof LovableAnnouncementsDispatchRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
@@ -1622,6 +1631,7 @@ export interface FileRoutesById {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/lovable/announcements/dispatch': typeof LovableAnnouncementsDispatchRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/agency/': typeof AuthenticatedAgencyIndexRoute
   '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1796,6 +1806,7 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/lovable/announcements/dispatch'
     | '/lovable/email/suppression'
     | '/agency/'
     | '/contracting-ops/'
@@ -1963,6 +1974,7 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/lovable/announcements/dispatch'
     | '/lovable/email/suppression'
     | '/agency'
     | '/contracting-ops'
@@ -2136,6 +2148,7 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/lovable/announcements/dispatch'
     | '/lovable/email/suppression'
     | '/_authenticated/agency/'
     | '/_authenticated/contracting-ops/'
@@ -2189,6 +2202,7 @@ export interface RootRouteChildren {
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  LovableAnnouncementsDispatchRoute: typeof LovableAnnouncementsDispatchRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
@@ -2711,6 +2725,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/announcements/dispatch': {
+      id: '/lovable/announcements/dispatch'
+      path: '/lovable/announcements/dispatch'
+      fullPath: '/lovable/announcements/dispatch'
+      preLoaderRoute: typeof LovableAnnouncementsDispatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stripe/webhook': {
@@ -3839,6 +3860,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  LovableAnnouncementsDispatchRoute: LovableAnnouncementsDispatchRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,

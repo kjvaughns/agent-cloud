@@ -145,11 +145,17 @@ check("posts show which channels they actually went out on",
 check("the email template is registered",
   /'announcement': announcement/.test(read("src/lib/email-templates/registry.ts")), true);
 check("…and exists", existsSync(join(ROOT, "src/lib/email-templates/announcement.tsx")), true);
+// Delivery moved to its own module so the scheduled dispatcher calls exactly
+// this code rather than a second copy of it.
+const DELIVERY = read("src/lib/announcements/deliver.server.ts");
 check("email goes out under the announcements consent category",
-  /category: "announcements"/.test(FN), true);
+  /category: "announcements"/.test(DELIVERY), true);
 // Re-running a send must not re-send: the key identifies the event.
 check("…with an event-level idempotency key",
-  /key: `announcement:\$\{announcementId\}:\$\{id\}`/.test(FN), true);
+  /key: `announcement:\$\{announcementId\}:\$\{id\}`/.test(DELIVERY), true);
+// One implementation, called from both the interactive path and the cron route.
+check("…from the one module both callers use",
+  /from "@\/lib\/announcements\/deliver\.server"/.test(FN), true);
 
 const DISCORD = read("src/lib/discord.functions.ts");
 check("announcements post to the agency's own channels only",

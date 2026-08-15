@@ -10,6 +10,8 @@ import {
 import {
   ANNOUNCEMENT_STATUSES, validate, dueForDispatch,
 } from "@/lib/announcements/lifecycle";
+// One implementation of "who gets told", shared with the scheduled dispatcher.
+import { deliver } from "@/lib/announcements/deliver.server";
 
 // Generated DB types predate the audience migration; cast until regenerated.
 const supabaseAdmin = _admin as any;
@@ -233,6 +235,7 @@ export const createAnnouncement = createServerFn({ method: "POST" })
       // would be worse than a post that reached one channel instead of three.
       for (const row of inserted ?? []) {
         await deliver({
+          db: supabaseAdmin,
           announcementId: row.id,
           orgId: row.organization_id,
           title: data.title,
@@ -327,6 +330,7 @@ export const updateAnnouncement = createServerFn({ method: "POST" })
     if (data.status === "published" && before.status !== "published") {
       for (const row of touched ?? []) {
         await deliver({
+          db: supabaseAdmin,
           announcementId: row.id,
           orgId,
           title: before.title,
@@ -392,6 +396,7 @@ export const dispatchDueAnnouncements = createServerFn({ method: "POST" })
     const due = dueForDispatch(scheduled as any[], delivered);
     for (const row of due) {
       await deliver({
+        db: supabaseAdmin,
         announcementId: row.id,
         orgId,
         title: row.title,
@@ -437,90 +442,3 @@ async function recordAnnouncementAudit(input: {
   }
 }
 
-/**
- * Fan one announcement out to the channels an agency asked for.
- *
- * Every attempt is logged to `announcement_deliveries`, including the ones
- * that were skipped — "nobody was emailed because everybody had that category
- * off" and "nobody was emailed because the send failed" are different answers,
- * and a ledger that only records successes cannot tell them apart.
- */
-async function deliver(opts: {
-  announcementId: string;
-  orgId: string;
-  title: string;
-  bodyHtml: string;
-  fromName: string;
-  channels: Channel[];
-}) {
-  const { announcementId, orgId, title, bodyHtml, fromName, channels } = opts;
-
-  const log = async (channel: Channel, status: "sent" | "failed" | "skipped", target?: string, error?: string) => {
-    await supabaseAdmin.from("announcement_deliveries").insert({
-      announcement_id: announcementId,
-      organization_id: orgId,
-      channel, status, target: target ?? null, error: error ?? null,
-    });
-  };
-
-  const { data: members } = await supabaseAdmin
-    .from("profiles").select("id").eq("organization_id", orgId).neq("status", "terminated");
-  const recipients = (members ?? []).map((m: any) => m.id);
-
-  // ── In the app ───────────────────────────────────────────────────────────
-  if (channels.includes("in_app")) {
-    try {
-      const allowed: string[] = [];
-      for (const id of recipients) {
-        const { data: ok } = await supabaseAdmin.rpc("may_notify", { _profile: id, _category: "announcements" });
-        // A missing function or a null answer must not silence the feed: the
-        // preference defaults to on, so default to sending.
-        if (ok !== false) allowed.push(id);
-      }
-      if (allowed.length > 0) {
-        await supabaseAdmin.from("notifications").insert(allowed.map((id) => ({
-          user_id: id, type: "announcement", title, description: `New announcement from ${fromName}`, read: false,
-        })));
-      }
-      await log("in_app", allowed.length > 0 ? "sent" : "skipped", `${allowed.length} of ${recipients.length}`);
-    } catch (e: any) {
-      await log("in_app", "failed", undefined, e?.message);
-    }
-  }
-
-  // ── Email ────────────────────────────────────────────────────────────────
-  if (channels.includes("email")) {
-    try {
-      const { sendTransactionalEmail } = await import("@/lib/email/send.server");
-      let sent = 0;
-      for (const id of recipients) {
-        // Both consent layers — the agency's category switch and the
-        // individual's may_notify — are enforced inside the sender.
-        const res = await sendTransactionalEmail({
-          template: "announcement",
-          profileId: id,
-          orgId,
-          category: "announcements",
-          // Event-level, not per attempt: re-running must not re-send.
-          key: `announcement:${announcementId}:${id}`,
-          data: { title, bodyHtml, fromName },
-        });
-        if (res.sent) sent += 1;
-      }
-      await log("email", sent > 0 ? "sent" : "skipped", `${sent} of ${recipients.length}`);
-    } catch (e: any) {
-      await log("email", "failed", undefined, e?.message);
-    }
-  }
-
-  // ── Discord ──────────────────────────────────────────────────────────────
-  if (channels.includes("discord")) {
-    try {
-      const { announceToDiscord } = await import("@/lib/discord.functions");
-      const result = await announceToDiscord(orgId, title, bodyHtml);
-      await log("discord", result.sent > 0 ? "sent" : "skipped", `${result.sent} channel(s)`);
-    } catch (e: any) {
-      await log("discord", "failed", undefined, e?.message);
-    }
-  }
-}

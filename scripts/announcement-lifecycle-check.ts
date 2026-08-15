@@ -295,5 +295,59 @@ check("…covering every new field",
   ],
   [true, true, true, true, true]);
 
+// ── The scheduled dispatcher ────────────────────────────────────────────────
+//
+// In-app visibility needs nothing to run. Email and Discord need something to
+// reach out, and until the cron route existed that only happened when an owner
+// opened the page — so a post scheduled for 9am on a Monday reached Discord
+// whenever somebody next visited.
+
+console.log("");
+
+const CRON = strip(read("src/routes/lovable/announcements/dispatch.ts"));
+const DELIVER = strip(read("src/lib/announcements/deliver.server.ts"));
+
+// The point of the whole arrangement: one implementation of "who gets told".
+check("the dispatcher calls the shared delivery, not its own copy",
+  /import \{ deliver, normalizeChannels \} from "@\/lib\/announcements\/deliver\.server"/.test(CRON),
+  true);
+check("…which the interactive path also calls",
+  /import \{ deliver \} from "@\/lib\/announcements\/deliver\.server"/.test(FNS), true);
+// If deliver() closed over its own client, the route could not supply one.
+check("…and takes its database client as an argument",
+  /export async function deliver\(opts: \{[\s\S]{0,120}?db: any;/.test(DELIVER), true);
+check("…with no module-level client left in it",
+  /supabaseAdmin/.test(DELIVER), false);
+
+// Cron has no session, so this cannot be the user-facing server function.
+check("the route authenticates with the service role key",
+  /authHeader\.slice\("Bearer "\.length\)\.trim\(\) !== supabaseServiceKey/.test(CRON), true);
+check("…refusing an unsigned call", /return Response\.json\(\{ error: "Unauthorized" \}, \{ status: 401 \}\)/.test(CRON), true);
+check("…and a wrong one", /return Response\.json\(\{ error: "Forbidden" \}, \{ status: 403 \}\)/.test(CRON), true);
+
+// Every agency, not one caller's.
+check("the route covers every agency",
+  /\.eq\("status", "scheduled"\)/.test(CRON) && !/organization_id", orgId/.test(CRON), true);
+check("…oldest first, so a backlog drains in order",
+  /\.order\("publish_at", \{ ascending: true \}\)/.test(CRON), true);
+check("…bounded per run", /\.limit\(MAX_PER_RUN\)/.test(CRON), true);
+
+// Repeated runs must be free.
+check("the ledger decides what is still owed",
+  /const due = dueForDispatch\(rows, delivered\)/.test(CRON), true);
+// A stored flag would reintroduce the drift the derived design avoids.
+check("…and no delivery flag is written back to announcements",
+  /\.from\("announcements"\)\.update\(/.test(CRON), false);
+
+// One agency's webhook must not stop the rest of the run.
+check("a single failure does not abort the batch",
+  /failures\.push\(\{ id: row\.id, error: e\?\.message \?\? "unknown" \}\)/.test(CRON), true);
+check("…and failures are named, not just counted",
+  /failures: failures\.slice\(0, 10\)/.test(CRON), true);
+
+// Before the migration there is no status column at all.
+check("an unmigrated database is reported, not a 500",
+  /reason: "not_migrated"/.test(CRON), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
