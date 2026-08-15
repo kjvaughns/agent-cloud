@@ -370,9 +370,47 @@ export const listMyContracts = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * The four facts a contracting request is filled from.
+ *
+ * The request dialog asked for a carrier and nothing else, so an agent with a
+ * blank NPN raised a request that could not be submitted and only found out
+ * when staff asked them for it. Reading the profile here lets the dialog show
+ * what will be sent and let them fix it first.
+ */
+export const getMyContactFacts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: p } = await supabase
+      .from("profiles").select("first_name, last_name, email, phone, npn_number")
+      .eq("id", userId).maybeSingle();
+    return {
+      full_name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim(),
+      email: p?.email ?? "",
+      phone: p?.phone ?? "",
+      npn: p?.npn_number ?? "",
+    };
+  });
+
 export const createContractRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ carrier_id: z.string().uuid(), notes: z.string().max(1000).optional() }).parse(d))
+  // ── What the agent confirms as they ask ────────────────────────────────
+  //
+  // The request was a carrier id and a note, so a profile missing an NPN or a
+  // phone number produced a request staff could not submit — and the agent
+  // found out days later, through an "agent action needed" note asking for
+  // something they were never given the chance to supply. Confirming the four
+  // fields here means the correction lands before the request exists, not after
+  // it has stalled.
+  .inputValidator((d) => z.object({
+    carrier_id: z.string().uuid(),
+    notes: z.string().max(1000).optional(),
+    full_name: z.string().trim().max(200).optional(),
+    email: z.string().trim().email().max(200).optional(),
+    phone: z.string().trim().max(40).optional(),
+    npn: z.string().trim().max(20).optional(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
@@ -434,6 +472,23 @@ export const createContractRequest = createServerFn({ method: "POST" })
 
     if (!created.length) {
       throw new Error("Could not raise that request. Nothing was saved — please try again.");
+    }
+
+    // Corrections the agent made in the dialog are theirs to make: it is their
+    // own profile, and the carrier paperwork is filled from it.
+    const profilePatch: Record<string, unknown> = {};
+    if (data.full_name?.trim()) {
+      const parts = data.full_name.trim().split(/\s+/);
+      profilePatch.first_name = parts[0];
+      if (parts.length > 1) profilePatch.last_name = parts.slice(1).join(" ");
+    }
+    if (data.email?.trim()) profilePatch.email = data.email.trim();
+    if (data.phone?.trim()) profilePatch.phone = data.phone.trim();
+    if (data.npn?.trim()) profilePatch.npn_number = data.npn.trim();
+    if (Object.keys(profilePatch).length) {
+      // Through the user's own client, so RLS is still the boundary.
+      const { error: pErr } = await supabase.from("profiles").update(profilePatch).eq("id", userId);
+      if (pErr) console.error("[contracting] profile confirmation not saved", pErr.message);
     }
 
     // ── Tell the people who have to work it ────────────────────────────────

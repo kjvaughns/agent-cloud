@@ -9,7 +9,9 @@ import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { getContractingRequest, updateRequestStatus } from "@/lib/contracting-ops.functions";
+import {
+  addRequestNote, getContractingRequest, recordRequestInvitation, updateRequestStatus,
+} from "@/lib/contracting-ops.functions";
 import { beginContractingHandoff } from "@/lib/contracting-handoff.functions";
 import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/contracting-templates.functions";
 // The same server function the queue's bulk assign calls, with one id. It
@@ -18,7 +20,9 @@ import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/cont
 import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
-  CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
+  ADVANCE_OPTIONS, ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
+  isAgentActionStatus, requestStatusLabel,
+  CONTRACT_TYPE_LABELS, METHOD_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
 } from "@/lib/contracting-ops/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -85,6 +89,111 @@ function Field({ label, value, masked }: { label: string; value: string | null; 
  * one step. Approval marks the level pending; a writing number makes it live,
  * because approval is an internal clearance and appointment is the carrier's.
  */
+/**
+ * The statuses staff pick by hand.
+ *
+ * "Active" is missing on purpose: activating a contract needs a level, an
+ * advance and a writing number in the same act, so it belongs to the Carrier
+ * decision panel rather than a bare status dropdown that would let a contract
+ * go live pricing from nothing.
+ */
+const PICKABLE_STATUSES = PRIMARY_REQUEST_STATUSES.filter((s) => s !== "active");
+
+/**
+ * Invitations and notes, the two staff actions that aren't status moves.
+ *
+ * Sending a SureLC link or recording that the carrier invited the agent
+ * directly is a fact about the outside world; a note is a message. Both were
+ * only reachable by dressing them up as a status change, so an invitation left
+ * no trace of which route it took and a note could not be added without moving
+ * the request.
+ */
+function InviteAndNotePanel({
+  onInvite,
+  onNote,
+  busy,
+}: {
+  onInvite: (vars: { method: "surelc" | "carrier_direct"; reference: string | null }) => void;
+  onNote: (vars: { agent_visible_message?: string | null; internal_message?: string | null }) => void;
+  busy: boolean;
+}) {
+  const [reference, setReference] = useState("");
+  const [agentNote, setAgentNote] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+
+  return (
+    <Panel title="Invitation & notes" className="ac-no-print">
+      <label htmlFor="invite-ref" className="mb-1 block text-xs font-medium text-muted-foreground">
+        Invitation reference
+      </label>
+      <input
+        id="invite-ref"
+        value={reference}
+        onChange={(e) => setReference(e.target.value)}
+        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+        placeholder="Optional — e.g. SureLC batch or email subject"
+      />
+      <div className="mt-2 flex flex-col gap-2">
+        <Button
+          size="sm" variant="outline" className="w-full justify-start" disabled={busy}
+          onClick={() => onInvite({ method: "surelc", reference: reference.trim() || null })}
+        >
+          <Send className="mr-1.5 h-3.5 w-3.5" /> Record SureLC invitation sent
+        </Button>
+        <Button
+          size="sm" variant="outline" className="w-full justify-start" disabled={busy}
+          onClick={() => onInvite({ method: "carrier_direct", reference: reference.trim() || null })}
+        >
+          <Mail className="mr-1.5 h-3.5 w-3.5" /> Record direct carrier invitation
+        </Button>
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+        Either one sets the status to Invite sent, stamps the time, and tells the agent
+        to go and finish it.
+      </p>
+
+      <div className="mt-3 space-y-2 border-t border-border-soft pt-3">
+        <div>
+          <label htmlFor="note-agent" className="mb-1 block text-xs font-medium text-muted-foreground">
+            Note the agent sees
+          </label>
+          <textarea
+            id="note-agent" rows={2} value={agentNote}
+            onChange={(e) => setAgentNote(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            placeholder="Shown on their Contracts page, and they're notified"
+          />
+        </div>
+        <div>
+          <label htmlFor="note-internal" className="mb-1 block text-xs font-medium text-muted-foreground">
+            Private internal note
+          </label>
+          <textarea
+            id="note-internal" rows={2} value={internalNote}
+            onChange={(e) => setInternalNote(e.target.value)}
+            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            placeholder="Staff only — never shown to the agent"
+          />
+        </div>
+        <Button
+          size="sm" className="w-full"
+          disabled={busy || (!agentNote.trim() && !internalNote.trim())}
+          onClick={() => {
+            onNote({
+              agent_visible_message: agentNote.trim() || null,
+              internal_message: internalNote.trim() || null,
+            });
+            setAgentNote("");
+            setInternalNote("");
+          }}
+        >
+          Add note
+        </Button>
+      </div>
+    </Panel>
+  );
+}
+
 function DecisionPanel({
   requested,
   compLevels,
@@ -99,11 +208,13 @@ function DecisionPanel({
   granted: any | null;
   busy: boolean;
   onRecord: (vars: {
-    status: "approved" | "writing_number_issued";
+    status: "approved" | "active";
     granted_comp_level_id?: string | null;
     granted_level_name?: string | null;
     granted_pct?: number | null;
     writing_number?: string | null;
+    granted_advance_option?: string | null;
+    granted_effective_date?: string | null;
   }) => void;
 }) {
   // A comp-level row is a real FK, so it is offered by id. A level that only
@@ -120,6 +231,16 @@ function DecisionPanel({
   const [choice, setChoice] = useState<string>(initial);
   const [pct, setPct] = useState<string>(granted?.assigned_pct != null ? String(granted.assigned_pct) : "");
   const [number, setNumber] = useState<string>(granted?.writing_number ?? "");
+  const [advance, setAdvance] = useState<string>(granted?.advance_option ?? "");
+  const [effective, setEffective] = useState<string>("");
+
+  // Which of the three answers the number on screen came from. An agency
+  // settling a dispute has to be able to see whether a rate was granted to this
+  // agent, inherited from their position's carrier mapping, or is the
+  // position's own percentage standing in because no mapping exists.
+  const compSource: CompSource = choice
+    ? (choice.startsWith("name:") ? "position_carrier_mapping" : "agent_carrier_level")
+    : (pct.trim() ? "position_pct_fallback" : "none");
 
   const payload = () => {
     const isName = choice.startsWith("name:");
@@ -130,6 +251,8 @@ function DecisionPanel({
       granted_level_name: isName ? choice.slice(5) : (compLevel?.level_name ?? null),
       granted_pct: parsed != null && Number.isFinite(parsed) ? parsed : null,
       writing_number: number.trim() || null,
+      granted_advance_option: advance || null,
+      granted_effective_date: effective || null,
     };
   };
 
@@ -211,6 +334,43 @@ function DecisionPanel({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Advance
+            </label>
+            <Select value={advance} onValueChange={setAdvance} disabled={busy}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Choose an advance…" />
+              </SelectTrigger>
+              <SelectContent>
+                {ADVANCE_OPTIONS.map((o) => (
+                  <SelectItem key={o} value={o} className="text-xs">
+                    {ADVANCE_OPTION_LABELS[o]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="granted-eff" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Effective date
+            </label>
+            <input
+              id="granted-eff"
+              type="date"
+              value={effective}
+              onChange={(e) => setEffective(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            />
+            <p className="mt-1 text-[11px] text-text-dim">Optional — leave blank if the carrier hasn't said.</p>
+          </div>
+        </div>
+
+        <p className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[11px] text-muted-foreground">
+          Compensation source: <span className="text-foreground">{COMP_SOURCE_LABELS[compSource]}</span>
+        </p>
+
         <div className="flex flex-col gap-2 pt-1">
           <Button
             size="sm"
@@ -224,14 +384,14 @@ function DecisionPanel({
           <Button
             size="sm"
             className="w-full"
-            disabled={busy || !number.trim()}
-            onClick={() => onRecord({ status: "writing_number_issued", ...payload() })}
+            disabled={busy || !number.trim() || !advance || compSource === "none"}
+            onClick={() => onRecord({ status: "active", ...payload() })}
           >
-            <Check className="mr-1.5 h-3.5 w-3.5" /> Activate — number issued
+            <Check className="mr-1.5 h-3.5 w-3.5" /> Activate contract
           </Button>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Approving records the level as pending. Adding the writing number makes it
-            live, so deals on this carrier pay at that level straight away.
+            Approving records the level as pending. Activating needs a level, an advance
+            and a writing number — that is what deals on this carrier price from.
           </p>
         </div>
       </div>
@@ -244,6 +404,8 @@ function RequestDetailPage() {
   const qc = useQueryClient();
   const getFn = useServerFn(getContractingRequest);
   const statusFn = useServerFn(updateRequestStatus);
+  const noteFn = useServerFn(addRequestNote);
+  const inviteFn = useServerFn(recordRequestInvitation);
   const templatesFn = useServerFn(listTemplates);
   const emailFn = useServerFn(generateEmail);
   const sheetFn = useServerFn(generateSpreadsheetRow);
@@ -252,7 +414,6 @@ function RequestDetailPage() {
   // Selecting it opens this rather than moving straight to the final state,
   // because a request that reached "writing number issued" without the number
   // is the exact dead end this workflow had before.
-  const [issuingNumber, setIssuingNumber] = useState<string | null>(null);
   /**
    * The status being composed, before it is sent.
    *
@@ -372,6 +533,8 @@ function RequestDetailPage() {
       granted_comp_level_id?: string | null;
       granted_level_name?: string | null;
       granted_pct?: number | null;
+      granted_advance_option?: string | null;
+      granted_effective_date?: string | null;
     }) =>
       statusFn({ data: { id: requestId, ...vars } as any }),
     onSuccess: () => {
@@ -381,6 +544,26 @@ function RequestDetailPage() {
     // The readiness gate throws with the outstanding items named, which is
     // exactly the message the operator needs — surface it verbatim.
     onError: (e: any) => toast.error(e?.message ?? "Could not update the request"),
+  });
+
+  const addNote = useMutation({
+    mutationFn: (vars: { agent_visible_message?: string | null; internal_message?: string | null }) =>
+      noteFn({ data: { id: requestId, ...vars } as any }),
+    onSuccess: () => {
+      toast.success("Note added");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not add the note"),
+  });
+
+  const recordInvite = useMutation({
+    mutationFn: (vars: { method: "surelc" | "carrier_direct"; reference: string | null }) =>
+      inviteFn({ data: { id: requestId, ...vars } as any }),
+    onSuccess: () => {
+      toast.success("Invitation recorded");
+      qc.invalidateQueries({ queryKey: ["contracting-ops"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not record the invitation"),
   });
 
   if (isLoading) {
@@ -561,7 +744,16 @@ function RequestDetailPage() {
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
                     <div className="min-w-0">
                       <div className="text-sm text-foreground">
-                        {h.from_status ? `${h.from_status} → ${h.to_status}` : `Created as ${h.to_status}`}
+                        {/* A field change is not a status move, and reading it
+                            as "approved → approved" told nobody anything. Say
+                            which fact changed and to what. */}
+                        {h.field
+                          ? `${h.field}: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`
+                          : h.change_kind === "note" || h.change_kind === "internal_note"
+                            ? "Note added"
+                            : h.from_status
+                              ? `${requestStatusLabel(h.from_status)} → ${requestStatusLabel(h.to_status)}`
+                              : `Created as ${requestStatusLabel(h.to_status)}`}
                       </div>
                       {h.agent_visible_message && (
                         <div className="mt-0.5 text-xs text-muted-foreground">{h.agent_visible_message}</div>
@@ -571,6 +763,7 @@ function RequestDetailPage() {
                       )}
                       <div className="mt-0.5 text-[10px] text-text-dim">
                         {new Date(h.created_at).toLocaleString()}
+                        {h.changed_by_name ? ` · ${h.changed_by_name}` : ""}
                       </div>
                     </div>
                   </li>
@@ -686,6 +879,14 @@ function RequestDetailPage() {
           )}
 
           {isStaff && (
+            <InviteAndNotePanel
+              busy={addNote.isPending || recordInvite.isPending}
+              onInvite={(vars) => recordInvite.mutate(vars)}
+              onNote={(vars) => addNote.mutate(vars)}
+            />
+          )}
+
+          {isStaff && (
             <Panel title="Actions" className="ac-no-print">
               <div className="space-y-2">
                 <Button
@@ -759,22 +960,19 @@ function RequestDetailPage() {
                   </label>
                   <Select
                     value=""
-                    onValueChange={(v) => {
-                      if (v === "writing_number_issued") setIssuingNumber("");
-                      // Everything else goes through the compose step, so a
-                      // status change can carry the explanation the server has
-                      // always been willing to store. Sending it bare is still
-                      // one click away — the compose panel's fields are all
-                      // optional except a decline's reason.
-                      else compose(v as RequestStatus);
-                    }}
+                    // Every move goes through the compose step, so a status
+                    // change can carry the explanation the server has always
+                    // been willing to store. Sending it bare is still one click
+                    // away — the fields are optional except a decline's reason
+                    // and an agent-action note.
+                    onValueChange={(v) => compose(v as RequestStatus)}
                     disabled={setStatus.isPending}
                   >
                     <SelectTrigger className="h-8 text-xs">
                       <SelectValue placeholder="Choose a status…" />
                     </SelectTrigger>
                     <SelectContent>
-                      {REQUEST_STATUSES.map((s) => (
+                      {PICKABLE_STATUSES.map((s) => (
                         <SelectItem key={s} value={s} className="text-xs">
                           {REQUEST_STATUS_META[s].label}
                         </SelectItem>
@@ -783,8 +981,9 @@ function RequestDetailPage() {
                   </Select>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                     Ready to submit and Submitted are gated on readiness; the
-                    carrier decisions need contracting rights. The server says
-                    so plainly if a move isn't allowed.
+                    carrier decisions need contracting rights. Activating a
+                    contract happens in Carrier decision above, because it needs
+                    a level, an advance and a writing number together.
                   </p>
 
                   {composing && (
@@ -819,6 +1018,9 @@ function RequestDetailPage() {
                       <div>
                         <label htmlFor="agent-msg" className="mb-1 block text-xs font-medium">
                           What the agent sees
+                          {isAgentActionStatus(composing.status) && (
+                            <span className="ml-1 text-danger">required</span>
+                          )}
                         </label>
                         <textarea
                           id="agent-msg"
@@ -826,8 +1028,18 @@ function RequestDetailPage() {
                           value={composing.message}
                           onChange={(e) => setComposing({ ...composing, message: e.target.value })}
                           className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                          placeholder="Optional — shown on their Contracts page"
+                          placeholder={
+                            isAgentActionStatus(composing.status)
+                              ? "e.g. Upload your current resident licence — the carrier rejected the expired one"
+                              : "Optional — shown on their Contracts page"
+                          }
                         />
+                        {isAgentActionStatus(composing.status) && (
+                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                            Required. "Agent action needed" puts this on the agent's desk, so it
+                            has to say exactly what they must do.
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -865,7 +1077,8 @@ function RequestDetailPage() {
                           className="h-7 text-xs"
                           disabled={
                             setStatus.isPending ||
-                            (composing.status === "declined" && !composing.reason.trim())
+                            (composing.status === "declined" && !composing.reason.trim()) ||
+                            (isAgentActionStatus(composing.status) && !composing.message.trim())
                           }
                           onClick={() => {
                             setStatus.mutate({
@@ -903,52 +1116,6 @@ function RequestDetailPage() {
                     </div>
                   )}
 
-                  {issuingNumber !== null && (
-                    <div className="mt-2 rounded-md border border-border bg-surface-2 p-2">
-                      <label
-                        htmlFor="wn-issued"
-                        className="mb-1 block text-xs font-medium text-foreground"
-                      >
-                        Writing number the carrier issued
-                      </label>
-                      <input
-                        id="wn-issued"
-                        autoFocus
-                        value={issuingNumber}
-                        onChange={(e) => setIssuingNumber(e.target.value)}
-                        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                        placeholder="e.g. 4471902"
-                      />
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                        Recorded against the agent and this carrier, and shown
-                        on their Contracts page and in the team matrix.
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={!issuingNumber.trim() || setStatus.isPending}
-                          onClick={() => {
-                            setStatus.mutate({
-                              status: "writing_number_issued",
-                              writing_number: issuingNumber.trim(),
-                            } as any);
-                            setIssuingNumber(null);
-                          }}
-                        >
-                          Record and close
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          onClick={() => setIssuingNumber(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 

@@ -3499,6 +3499,7 @@ export type Database = {
       }
       contracting_requests: {
         Row: {
+          activated_at: string | null
           agent_id: string
           approved_at: string | null
           assigned_at: string | null
@@ -3518,9 +3519,15 @@ export type Database = {
           external_provider: string | null
           external_record_id: string | null
           external_status: string | null
+          granted_advance_option: string | null
+          granted_comp_level_id: string | null
+          granted_level_name: string | null
+          granted_pct: number | null
           id: string
           integration_metadata: Json
           internal_notes: string | null
+          invite_method: string | null
+          invite_sent_at: string | null
           is_sample: boolean
           is_transfer: boolean
           last_synced_at: string | null
@@ -3546,8 +3553,10 @@ export type Database = {
           sync_error: string | null
           sync_source: string | null
           updated_at: string
+          writing_number: string | null
         }
         Insert: {
+          activated_at?: string | null
           agent_id: string
           approved_at?: string | null
           assigned_at?: string | null
@@ -3567,9 +3576,15 @@ export type Database = {
           external_provider?: string | null
           external_record_id?: string | null
           external_status?: string | null
+          granted_advance_option?: string | null
+          granted_comp_level_id?: string | null
+          granted_level_name?: string | null
+          granted_pct?: number | null
           id?: string
           integration_metadata?: Json
           internal_notes?: string | null
+          invite_method?: string | null
+          invite_sent_at?: string | null
           is_sample?: boolean
           is_transfer?: boolean
           last_synced_at?: string | null
@@ -3595,8 +3610,10 @@ export type Database = {
           sync_error?: string | null
           sync_source?: string | null
           updated_at?: string
+          writing_number?: string | null
         }
         Update: {
+          activated_at?: string | null
           agent_id?: string
           approved_at?: string | null
           assigned_at?: string | null
@@ -3616,9 +3633,15 @@ export type Database = {
           external_provider?: string | null
           external_record_id?: string | null
           external_status?: string | null
+          granted_advance_option?: string | null
+          granted_comp_level_id?: string | null
+          granted_level_name?: string | null
+          granted_pct?: number | null
           id?: string
           integration_metadata?: Json
           internal_notes?: string | null
+          invite_method?: string | null
+          invite_sent_at?: string | null
           is_sample?: boolean
           is_transfer?: boolean
           last_synced_at?: string | null
@@ -3644,6 +3667,7 @@ export type Database = {
           sync_error?: string | null
           sync_source?: string | null
           updated_at?: string
+          writing_number?: string | null
         }
         Relationships: [
           {
@@ -3686,6 +3710,13 @@ export type Database = {
             columns: ["direct_upline_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_requests_granted_comp_level_id_fkey"
+            columns: ["granted_comp_level_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_comp_levels"
             referencedColumns: ["id"]
           },
           {
@@ -3792,13 +3823,17 @@ export type Database = {
         Row: {
           agent_visible_message: string | null
           attachment_document_id: string | null
+          change_kind: string
           changed_by: string | null
           created_at: string
           due_date: string | null
+          field: string | null
           from_status: string | null
           id: string
           internal_message: string | null
+          new_value: string | null
           next_action: string | null
+          old_value: string | null
           organization_id: string
           request_id: string
           to_status: string
@@ -3806,13 +3841,17 @@ export type Database = {
         Insert: {
           agent_visible_message?: string | null
           attachment_document_id?: string | null
+          change_kind?: string
           changed_by?: string | null
           created_at?: string
           due_date?: string | null
+          field?: string | null
           from_status?: string | null
           id?: string
           internal_message?: string | null
+          new_value?: string | null
           next_action?: string | null
+          old_value?: string | null
           organization_id: string
           request_id: string
           to_status: string
@@ -3820,13 +3859,17 @@ export type Database = {
         Update: {
           agent_visible_message?: string | null
           attachment_document_id?: string | null
+          change_kind?: string
           changed_by?: string | null
           created_at?: string
           due_date?: string | null
+          field?: string | null
           from_status?: string | null
           id?: string
           internal_message?: string | null
+          new_value?: string | null
           next_action?: string | null
+          old_value?: string | null
           organization_id?: string
           request_id?: string
           to_status?: string
