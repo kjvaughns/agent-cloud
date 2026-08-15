@@ -35,6 +35,7 @@ function ImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<any | null>(null);
   const [fileName, setFileName] = useState("");
+  const [dragging, setDragging] = useState(false);
 
   const columns = IMPORT_COLUMNS[kind];
 
