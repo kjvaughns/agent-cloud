@@ -923,54 +923,135 @@ function ReviewPanel({ documentId }: { documentId: string }) {
     }
   }
 
+  const newCount = s?.newRecords ?? 0;
+  const skipped = s?.autoSkipped ?? 0;
+  const needsYou = s?.needsYou ?? 0;
+  const applied = s?.applied ?? 0;
+  const total = newCount + skipped + needsYou;
+  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+
   return (
-    <div className="space-y-4 border-t border-border pt-4">
-      <div className="flex flex-wrap gap-4 text-sm">
-        <Count n={s?.newRecords ?? 0} label="new" tone="text-foreground" />
-        <Count n={s?.autoSkipped ?? 0} label="already on file — skipped" tone="text-muted-foreground" />
-        <Count n={s?.needsYou ?? 0} label="need you" tone="text-warning" />
-        {(s?.applied ?? 0) > 0 && <Count n={s.applied} label="imported" tone="text-success" />}
+    <div className="mt-3 space-y-4 border-t border-border pt-4">
+      {/*
+        What is in the file, as one bar and three labels.
+
+        Four numbers on a line of running text made the person do the
+        arithmetic — how much of this book is new? — and the answer is the
+        single thing they want before pressing import. The bar answers it
+        without being read.
+      */}
+      <div className="space-y-2.5">
+        {total > 0 && (
+          <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-2">
+            <div className="bg-primary" style={{ width: `${pct(newCount)}%` }} />
+            <div className="bg-warning" style={{ width: `${pct(needsYou)}%` }} />
+            <div className="bg-muted-foreground/30" style={{ width: `${pct(skipped)}%` }} />
+          </div>
+        )}
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+          <Count n={newCount} label="new" tone="text-foreground" swatch="bg-primary" />
+          {needsYou > 0 && (
+            <Count n={needsYou} label="need you" tone="text-warning" swatch="bg-warning" />
+          )}
+          <Count
+            n={skipped}
+            label="already on file — skipped"
+            tone="text-muted-foreground"
+            swatch="bg-muted-foreground/30"
+          />
+          {applied > 0 && <Count n={applied} label="imported" tone="text-success" swatch="bg-success" />}
+        </div>
       </div>
 
       {rows.length > 0 && (
         <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-warning">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {rows.length} we won't guess on
+            </p>
+            {/* One decision for the whole list, for the common case where the
+                answer is the same every time. Individual rows still win. */}
+            <button
+              type="button"
+              onClick={() => decide(rows.map((r) => r.id), "skipped")}
+              className="text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              Skip all
+            </button>
+          </div>
           <p className="text-sm text-muted-foreground">
-            These look like people you might already have. We won't guess.
+            These look like people you might already have.
           </p>
-          {rows.map((p) => (
-            <div key={p.id} className="rounded-[var(--radius)] border border-border p-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-medium">
-                    {[p.payload?.first_name, p.payload?.last_name].filter(Boolean).join(" ") || "Unnamed record"}
+          {rows.map((p) => {
+            const name =
+              [p.payload?.first_name, p.payload?.last_name].filter(Boolean).join(" ") || "Unnamed record";
+            const initials = name
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w: string) => w[0]?.toUpperCase())
+              .join("");
+            return (
+              <div
+                key={p.id}
+                className="rounded-[var(--radius)] border border-warning/30 bg-warning/[0.04] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-surface-2 text-[11px] font-semibold text-muted-foreground">
+                      {initials || "?"}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate font-medium leading-tight">{name}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                        {p.payload?.phone && <span>{p.payload.phone}</span>}
+                        {p.payload?.email && <span className="truncate">· {p.payload.email}</span>}
+                      </div>
+                      {p.match_reason && (
+                        <div className="mt-1 text-xs text-warning">{p.match_reason}</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.match_reason}
-                    {p.payload?.phone ? ` · ${p.payload.phone}` : ""}
-                    {p.payload?.email ? ` · ${p.payload.email}` : ""}
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => decide([p.id], "skipped")}>
-                    Already have them
-                  </Button>
-                  <Button size="sm" onClick={() => decide([p.id], "approved", null)}>
-                    Add as new
-                  </Button>
-                  {p.match_id && (
-                    <Button size="sm" variant="secondary" onClick={() => decide([p.id], "approved", p.match_id)}>
-                      Merge into existing
+                  {/* Full width and wrapping on a phone: three buttons on one
+                      line at 375px put "Merge into existing" off the edge, and
+                      that is the option a duplicate usually wants. */}
+                  <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto">
+                    {p.match_id && (
+                      <Button size="sm" onClick={() => decide([p.id], "approved", p.match_id)}>
+                        Merge into existing
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant={p.match_id ? "outline" : "default"}
+                      onClick={() => decide([p.id], "approved", null)}
+                    >
+                      Add as new
                     </Button>
-                  )}
+                    <Button size="sm" variant="ghost" onClick={() => decide([p.id], "skipped")}>
+                      Already have them
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Nothing left to import reads as a result, not as a disabled button. */}
+      {newCount === 0 && needsYou === 0 ? (
+        <p className="flex items-center gap-2 rounded-[var(--radius)] border border-success/30 bg-success/5 p-3 text-sm text-success">
+          <Check className="h-4 w-4 shrink-0" />
+          {applied > 0
+            ? `Imported ${applied.toLocaleString()} record${applied === 1 ? "" : "s"}. Everything else was already on file.`
+            : "Everything in this file is already on file — nothing to add."}
+        </p>
+      ) : (
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Button
+          className="w-full sm:w-auto"
           onClick={async () => {
             const ids = ((await proposalsFn({
               data: { document_id: documentId, filter: "new", limit: 200, offset: 0 },
@@ -989,14 +1070,16 @@ function ReviewPanel({ documentId }: { documentId: string }) {
           </span>
         )}
       </div>
+      )}
     </div>
   );
 }
 
-function Count({ n, label, tone }: { n: number; label: string; tone: string }) {
+function Count({ n, label, tone, swatch }: { n: number; label: string; tone: string; swatch?: string }) {
   return (
-    <span className={tone}>
-      <span className="tnum font-semibold">{n.toLocaleString()}</span>{" "}
+    <span className={cn("inline-flex items-center gap-1.5", tone)}>
+      {swatch && <span className={cn("h-2 w-2 shrink-0 rounded-full", swatch)} />}
+      <span className="tnum font-semibold">{n.toLocaleString()}</span>
       <span className="text-muted-foreground">{label}</span>
     </span>
   );
