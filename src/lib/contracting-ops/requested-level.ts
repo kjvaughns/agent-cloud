@@ -25,9 +25,21 @@ export type RequestedLevel = {
   requestedCompLevelId: string | null;
   /** Human label: the carrier's level name, or the position percentage. */
   requestedAdvanceLevel: string | null;
+  /**
+   * Which of the three answers this is. Staff recording a decision need to
+   * know whether they are looking at a real carrier rung or the position's own
+   * percentage standing in for one.
+   */
+  source: "position_carrier_mapping" | "position_pct_fallback" | "none";
+  /** The position's own percentage, when that is what the label came from. */
+  positionPct: number | null;
+  positionName: string | null;
 };
 
-const EMPTY: RequestedLevel = { requestedCompLevelId: null, requestedAdvanceLevel: null };
+const EMPTY: RequestedLevel = {
+  requestedCompLevelId: null, requestedAdvanceLevel: null,
+  source: "none", positionPct: null, positionName: null,
+};
 
 export async function resolveRequestedLevel(
   client: any,
@@ -63,7 +75,15 @@ export async function resolveRequestedLevel(
     : (position?.name ?? null);
 
   const mappedName = String(mapping?.carrier_level_name ?? "").trim();
-  if (!mappedName) return { requestedCompLevelId: null, requestedAdvanceLevel: fallback };
+  if (!mappedName) {
+    return {
+      requestedCompLevelId: null,
+      requestedAdvanceLevel: fallback,
+      source: fallback ? "position_pct_fallback" : "none",
+      positionPct: basePct,
+      positionName: position?.name ?? null,
+    };
+  }
 
   // Case-insensitive, because a carrier's ladder is typed by hand in one place
   // and mapped by hand in another. A name that matches nothing still travels as
@@ -78,5 +98,8 @@ export async function resolveRequestedLevel(
   return {
     requestedCompLevelId: (compLevel?.id as string | null) ?? null,
     requestedAdvanceLevel: mappedName,
+    source: "position_carrier_mapping",
+    positionPct: basePct,
+    positionName: position?.name ?? null,
   };
 }

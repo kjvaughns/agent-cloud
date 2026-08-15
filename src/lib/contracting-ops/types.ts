@@ -14,8 +14,9 @@
 export const REQUEST_STATUSES = [
   "draft", "missing_information", "missing_documents", "awaiting_agent",
   "awaiting_manager", "awaiting_owner_approval", "ready_to_submit", "assigned",
-  "submitted", "carrier_reviewing", "nigo", "additional_info_requested",
-  "approved", "writing_number_issued", "declined", "cancelled", "closed",
+  "invite_sent", "submitted", "carrier_reviewing", "nigo",
+  "additional_info_requested", "approved", "active", "writing_number_issued",
+  "declined", "cancelled", "closed",
 ] as const;
 
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
@@ -27,24 +28,90 @@ export const REQUEST_STATUS_META: Record<
   RequestStatus,
   { label: string; tone: "neutral" | "warning" | "info" | "success" | "danger"; owner: Owner; open: boolean }
 > = {
-  draft:                    { label: "Draft",                     tone: "neutral", owner: "agent",   open: true },
-  missing_information:      { label: "Missing information",       tone: "warning", owner: "agent",   open: true },
-  missing_documents:        { label: "Missing documents",         tone: "warning", owner: "agent",   open: true },
-  awaiting_agent:           { label: "Waiting on agent",          tone: "warning", owner: "agent",   open: true },
-  awaiting_manager:         { label: "Waiting on manager",        tone: "info",    owner: "manager", open: true },
-  awaiting_owner_approval:  { label: "Waiting on owner approval", tone: "info",    owner: "owner",   open: true },
-  ready_to_submit:          { label: "Ready to submit",           tone: "success", owner: "staff",   open: true },
-  assigned:                 { label: "Assigned to staff",         tone: "info",    owner: "staff",   open: true },
-  submitted:                { label: "Submitted to carrier",      tone: "info",    owner: "carrier", open: true },
-  carrier_reviewing:        { label: "Carrier reviewing",         tone: "info",    owner: "carrier", open: true },
-  nigo:                     { label: "Not in good order",         tone: "danger",  owner: "staff",   open: true },
-  additional_info_requested:{ label: "Carrier needs more",        tone: "danger",  owner: "staff",   open: true },
-  approved:                 { label: "Approved",                  tone: "success", owner: "staff",   open: true },
-  writing_number_issued:    { label: "Writing number issued",     tone: "success", owner: "none",    open: false },
-  declined:                 { label: "Declined",                  tone: "danger",  owner: "none",    open: false },
-  cancelled:                { label: "Cancelled",                 tone: "neutral", owner: "none",    open: false },
-  closed:                   { label: "Closed",                    tone: "neutral", owner: "none",    open: false },
+  draft:                    { label: "Requested",                  tone: "neutral", owner: "staff",   open: true },
+  missing_information:      { label: "Agent action needed",        tone: "warning", owner: "agent",   open: true },
+  missing_documents:        { label: "Agent action needed",        tone: "warning", owner: "agent",   open: true },
+  awaiting_agent:           { label: "Agent action needed",        tone: "warning", owner: "agent",   open: true },
+  awaiting_manager:         { label: "Waiting on manager",         tone: "info",    owner: "manager", open: true },
+  awaiting_owner_approval:  { label: "Waiting on owner approval",  tone: "info",    owner: "owner",   open: true },
+  ready_to_submit:          { label: "Ready to submit",            tone: "success", owner: "staff",   open: true },
+  assigned:                 { label: "Assigned to staff",          tone: "info",    owner: "staff",   open: true },
+  invite_sent:              { label: "Invite sent",                tone: "info",    owner: "agent",   open: true },
+  submitted:                { label: "Submitted",                  tone: "info",    owner: "carrier", open: true },
+  carrier_reviewing:        { label: "Carrier review",             tone: "info",    owner: "carrier", open: true },
+  nigo:                     { label: "Agent action needed",        tone: "danger",  owner: "agent",   open: true },
+  additional_info_requested:{ label: "Agent action needed",        tone: "danger",  owner: "agent",   open: true },
+  approved:                 { label: "Approved",                   tone: "success", owner: "staff",   open: true },
+  active:                   { label: "Active",                     tone: "success", owner: "none",    open: false },
+  writing_number_issued:    { label: "Active",                     tone: "success", owner: "none",    open: false },
+  declined:                 { label: "Declined",                   tone: "danger",  owner: "none",    open: false },
+  cancelled:                { label: "Closed",                     tone: "neutral", owner: "none",    open: false },
+  closed:                   { label: "Closed",                     tone: "neutral", owner: "none",    open: false },
 };
+
+/**
+ * The nine statuses the workflow actually offers.
+ *
+ * Everything above stays a legal value — rows already hold the retired ones,
+ * and a vocabulary that cannot label its own history is worse than a long one.
+ * But a person working a request should choose from nine steps, not nineteen,
+ * so the pickers read from this list and the labels above fold the rest onto
+ * these nine names.
+ */
+export const PRIMARY_REQUEST_STATUSES = [
+  "draft", "invite_sent", "awaiting_agent", "submitted", "carrier_reviewing",
+  "approved", "active", "declined", "closed",
+] as const satisfies readonly RequestStatus[];
+
+export type PrimaryRequestStatus = (typeof PRIMARY_REQUEST_STATUSES)[number];
+
+/** The statuses that mean "the agent has something to do". */
+export const AGENT_ACTION_STATUSES = [
+  "awaiting_agent", "missing_information", "missing_documents", "nigo",
+  "additional_info_requested",
+] as const satisfies readonly RequestStatus[];
+
+export function isAgentActionStatus(status: string): boolean {
+  return (AGENT_ACTION_STATUSES as readonly string[]).includes(status);
+}
+
+/** The statuses that mean the appointment is live at the carrier. */
+export function isLiveStatus(status: string): boolean {
+  return status === "active" || status === "writing_number_issued";
+}
+
+export function requestStatusLabel(status: string): string {
+  return REQUEST_STATUS_META[status as RequestStatus]?.label ?? status;
+}
+
+// ── Advance options ─────────────────────────────────────────────────────────
+
+/** Mirrors the `advance_option` Postgres enum. */
+export const ADVANCE_OPTIONS = [
+  "as_earned", "3_months", "6_months", "9_months", "12_months",
+] as const;
+
+export type AdvanceOptionKey = (typeof ADVANCE_OPTIONS)[number];
+
+export const ADVANCE_OPTION_LABELS: Record<AdvanceOptionKey, string> = {
+  as_earned: "As earned",
+  "3_months": "3 month advance",
+  "6_months": "6 month advance",
+  "9_months": "9 month advance",
+  "12_months": "12 month advance",
+};
+
+// ── Where a compensation number came from ───────────────────────────────────
+
+export const COMP_SOURCE_LABELS = {
+  agent_carrier_level: "Agent specific carrier level",
+  position_carrier_mapping: "Agency position carrier mapping",
+  position_pct_fallback: "Agency position percentage fallback",
+  none: "Not resolved yet",
+} as const;
+
+export type CompSource = keyof typeof COMP_SOURCE_LABELS;
+
 
 // ── Contract type ───────────────────────────────────────────────────────────
 

@@ -33,6 +33,11 @@ export type AuditAction =
   // agent chasing a carrier appointment needs to be able to tell which
   // happened to theirs.
   | "request.removed"
+  // A note added without moving the request, and an invitation recorded as
+  // sent. Both are staff actions an agent can be waiting on, so they belong in
+  // the trail beside the status changes rather than only in the request's own
+  // history rows.
+  | "request.note_added" | "request.invitation_recorded"
   | "document.uploaded" | "document.reviewed" | "document.downloaded"
   // Distinct from `document.uploaded`: staff filing a document they hold on an
   // agent's behalf is a different act from the agent uploading their own, and

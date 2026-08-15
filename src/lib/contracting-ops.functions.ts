@@ -10,7 +10,10 @@ import {
   type Requirement, type RequestContext, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
-import { CONTRACTING_METHODS, REQUEST_STATUS_META, SENSITIVE_DOC_TYPES } from "@/lib/contracting-ops/types";
+import {
+  CONTRACTING_METHODS, REQUEST_STATUS_META, REQUEST_STATUSES, SENSITIVE_DOC_TYPES,
+  isAgentActionStatus, isLiveStatus, requestStatusLabel,
+} from "@/lib/contracting-ops/types";
 import { ADVANCE_OPTIONS } from "@/lib/compensation/resolve";
 import { resolveHandoffMethod, legacyFallbackUrl } from "@/lib/contracting-ops/handoff";
 import { INHERITABLE_FIELDS } from "@/lib/contracting-ops/effective-settings";
@@ -1499,12 +1502,9 @@ export const getContractingRequest = createServerFn({ method: "GET" })
 
 const StatusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum([
-    "draft", "missing_information", "missing_documents", "awaiting_agent", "awaiting_manager",
-    "awaiting_owner_approval", "ready_to_submit", "assigned", "submitted", "carrier_reviewing",
-    "nigo", "additional_info_requested", "approved", "writing_number_issued", "declined",
-    "cancelled", "closed",
-  ]),
+  // The one list, from the one place. A status the vocabulary knows is a
+  // status this endpoint accepts; there is no second copy to drift.
+  status: z.enum(REQUEST_STATUSES),
   agent_visible_message: z.string().max(2000).nullable().optional(),
   internal_message: z.string().max(2000).nullable().optional(),
   next_action: z.string().max(300).nullable().optional(),
@@ -1526,6 +1526,10 @@ const StatusSchema = z.object({
   granted_comp_level_id: z.string().uuid().nullable().optional(),
   granted_level_name: z.string().trim().max(120).nullable().optional(),
   granted_pct: z.coerce.number().min(0).max(500).nullable().optional(),
+  // The other two facts an activation carries: how the carrier pays it out,
+  // and from when. Both are agency-set; an agent never sends these.
+  granted_advance_option: z.enum(ADVANCE_OPTIONS as unknown as [string, ...string[]]).nullable().optional(),
+  granted_effective_date: z.string().max(10).nullable().optional(),
 });
 
 /**
@@ -1550,6 +1554,7 @@ async function recordGrantedLevel(
     levelName?: string | null;
     pct?: number | null;
     writingNumber?: string | null;
+    advanceOption?: string | null;
   },
 ) {
   try {
@@ -1575,7 +1580,7 @@ async function recordGrantedLevel(
 
     // Nothing to say and nothing already recorded: leave the row alone rather
     // than writing an empty assignment that reads as "granted, at nothing".
-    if (!levelName && pct == null && !args.writingNumber) return;
+    if (!levelName && pct == null && !args.writingNumber && !args.advanceOption) return;
 
     const patch: Record<string, unknown> = {
       agent_id: request.agent_id,
@@ -1585,9 +1590,10 @@ async function recordGrantedLevel(
       assigned_at: new Date().toISOString(),
       // Approval alone is an internal clearance; a writing number is the
       // carrier having appointed them. Only the latter is live.
-      status: args.status === "writing_number_issued" ? "active" : "pending",
-      pending: args.status !== "writing_number_issued",
+      status: isLiveStatus(args.status) ? "active" : "pending",
+      pending: !isLiveStatus(args.status),
     };
+    if (args.advanceOption) patch.advance_option = args.advanceOption;
     if (levelName) patch.commission_level = levelName;
     if (pct != null) patch.assigned_pct = pct;
     if (args.writingNumber?.trim()) patch.writing_number = args.writingNumber.trim();
@@ -1628,9 +1634,9 @@ async function syncContractRecord(
       organization_id: request.organization_id,
       // A writing number means the carrier has appointed them; approval alone
       // means the paperwork cleared internally.
-      status: status === "writing_number_issued" ? "active" : "processing",
+      status: isLiveStatus(status) ? "active" : "processing",
     };
-    if (status === "writing_number_issued") {
+    if (isLiveStatus(status)) {
       patch.activated_at = now;
       patch.effective_date = request.desired_effective_date ?? null;
 
@@ -1677,6 +1683,188 @@ async function syncContractRecord(
   }
 }
 
+/**
+ * One history entry per fact that moved.
+ *
+ * `contracting_status_history` was a status trail: the trigger wrote the
+ * transition and the app added a message. Everything else a decision carries —
+ * the writing number, the granted rung, the advance, the effective date — was
+ * written to the request and to `agent_commission_levels` and recorded nowhere,
+ * so "who put this agent at 90%, and when" had no answer at all.
+ *
+ * Never throws. A bookkeeping failure must not roll back a decision that
+ * already happened.
+ */
+async function recordFieldChanges(args: {
+  orgId: string;
+  requestId: string;
+  actorId: string;
+  status: string;
+  before: any;
+  data: any;
+}) {
+  const { orgId, requestId, actorId, status, before, data } = args;
+
+  const changes: { kind: string; field: string; from: string | null; to: string | null }[] = [];
+  const track = (kind: string, field: string, prev: unknown, next: unknown) => {
+    if (next === undefined) return;
+    const a = prev == null || prev === "" ? null : String(prev);
+    const b = next == null || next === "" ? null : String(next);
+    if (a === b) return;
+    changes.push({ kind, field, from: a, to: b });
+  };
+
+  track("writing_number", "Writing number", before.writing_number, data.writing_number);
+  track("carrier_level", "Carrier level", before.granted_level_name, data.granted_level_name);
+  track("carrier_level", "Carrier level percentage", before.granted_pct, data.granted_pct);
+  track("advance", "Advance option", before.granted_advance_option, data.granted_advance_option);
+  track("effective_date", "Effective date", before.desired_effective_date, data.granted_effective_date);
+
+  if (!changes.length) return;
+
+  try {
+    await supabaseAdmin.from("contracting_status_history").insert(
+      changes.map((c) => ({
+        organization_id: orgId,
+        request_id: requestId,
+        from_status: before.status,
+        to_status: status,
+        changed_by: actorId,
+        change_kind: c.kind,
+        field: c.field,
+        old_value: c.from,
+        new_value: c.to,
+      })),
+    );
+  } catch (e) {
+    console.error("[contracting] field history not recorded", e);
+  }
+}
+
+/**
+ * A note, without moving the request.
+ *
+ * Staff need both halves: something the agent reads, and something only the
+ * contracting team reads. Both belong on the same timeline as the status
+ * changes, which is why they are history rows rather than a second table.
+ */
+export const addRequestNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    id: z.string().uuid(),
+    agent_visible_message: z.string().trim().max(2000).nullable().optional(),
+    internal_message: z.string().trim().max(2000).nullable().optional(),
+    next_action: z.string().trim().max(300).nullable().optional(),
+  }).refine((v) => Boolean(v.agent_visible_message || v.internal_message), {
+    message: "Write a note before saving it.",
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+
+    const { data: request } = await supabaseAdmin
+      .from("contracting_requests").select("id, status, agent_id, reference")
+      .eq("id", data.id).eq("organization_id", orgId).maybeSingle();
+    if (!request) throw new OrgAccessError("That request is not available to you");
+
+    const isOwnAgent = request.agent_id === userId;
+    if (!access.canSubmit && !access.canApprove && !isOwnAgent) {
+      deny("You don't have permission to add a note to this request.");
+    }
+    // An agent may say something on their own request; they may not write into
+    // the staff-only channel.
+    const internal = access.canSubmit || access.canApprove ? data.internal_message ?? null : null;
+
+    await supabaseAdmin.from("contracting_status_history").insert({
+      organization_id: orgId, request_id: data.id,
+      from_status: request.status, to_status: request.status, changed_by: userId,
+      change_kind: internal && !data.agent_visible_message ? "internal_note" : "note",
+      agent_visible_message: data.agent_visible_message ?? null,
+      internal_message: internal,
+      next_action: data.next_action ?? null,
+    });
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "request.note_added",
+      recordType: "contracting_requests", recordId: data.id, subjectAgentId: request.agent_id,
+    });
+
+    // Only a note the agent can read is worth telling them about.
+    if (data.agent_visible_message && !isOwnAgent) {
+      const { notifyPeople } = await import("@/lib/notify.server");
+      await notifyPeople(supabaseAdmin, {
+        userIds: [request.agent_id],
+        category: "contract_updates",
+        title: "New note on your carrier request",
+        description: data.agent_visible_message,
+        type: "contracting",
+      });
+    }
+    return { ok: true };
+  });
+
+/**
+ * Record that an invitation went out — SureLC, or straight from the carrier.
+ *
+ * The workflow's "Invite sent" step is a fact about the outside world: somebody
+ * sent the agent a link and is now waiting on them. Recording it here moves the
+ * status, stamps when, and tells the agent to go and finish it.
+ */
+export const recordRequestInvitation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    id: z.string().uuid(),
+    method: z.enum(["surelc", "carrier_direct"]),
+    reference: z.string().trim().max(200).nullable().optional(),
+    agent_visible_message: z.string().trim().max(2000).nullable().optional(),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const access = await resolveAccess(userId);
+    const orgId = requireOrg(access);
+    if (!access.canSubmit && !access.canApprove) {
+      deny("Only contracting staff or the agency owner can record an invitation.");
+    }
+
+    const { data: request } = await supabaseAdmin
+      .from("contracting_requests").select("*")
+      .eq("id", data.id).eq("organization_id", orgId).maybeSingle();
+    if (!request) throw new OrgAccessError("That request is not available to you");
+
+    const now = new Date().toISOString();
+    const label = data.method === "surelc" ? "SureLC invitation" : "Carrier invitation";
+    const message = data.agent_visible_message?.trim()
+      || `${label} sent. Check your email and complete it — contracting continues once you do.`;
+
+    const { error } = await supabaseAdmin.from("contracting_requests").update({
+      status: "invite_sent",
+      invite_method: data.method,
+      invite_sent_at: now,
+      submission_reference: data.reference ?? request.submission_reference ?? null,
+    }).eq("id", data.id).eq("organization_id", orgId);
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("contracting_status_history").insert({
+      organization_id: orgId, request_id: data.id,
+      from_status: request.status, to_status: "invite_sent", changed_by: userId,
+      change_kind: "invitation",
+      field: label,
+      new_value: data.reference ?? null,
+      agent_visible_message: message,
+      next_action: "Complete the invitation the carrier emailed you",
+    });
+
+    await recordAudit({
+      organizationId: orgId, actorId: userId, action: "request.invitation_recorded",
+      recordType: "contracting_requests", recordId: data.id, subjectAgentId: request.agent_id,
+      previous: { status: request.status }, next: { status: "invite_sent", method: data.method },
+    });
+
+    await notifyAgent(request.agent_id, orgId, "invite_sent", message, request.reference);
+    return { ok: true };
+  });
+
 export const updateRequestStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StatusSchema.parse(d))
@@ -1693,8 +1881,46 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (!access.canSubmit && !access.canApprove && !isOwnAgentAction) {
       deny("You don't have permission to change this request's status.");
     }
-    if (["approved", "declined", "writing_number_issued"].includes(data.status) && !access.canApprove && !access.canSubmit) {
+    if (["approved", "declined", "writing_number_issued", "active", "invite_sent"].includes(data.status)
+      && !access.canApprove && !access.canSubmit) {
       deny("Only contracting staff or the agency owner can record a carrier decision.");
+    }
+
+    // ── "Agent action needed" has to say what the action is ────────────────
+    //
+    // The status exists to move the request onto the agent's desk. Without a
+    // sentence saying what they must do, it reads as the request having stalled
+    // and the agent has nothing to act on — so the note is part of the status,
+    // not an optional extra beside it.
+    if (isAgentActionStatus(data.status) && !data.agent_visible_message?.trim()) {
+      throw new Error(
+        "Tell the agent what they need to do. \"Agent action needed\" requires a note the agent can see.",
+      );
+    }
+
+    // ── Activating a contract needs the whole fact, not part of it ─────────
+    //
+    // A live appointment is a carrier, an agent, a level (or the position
+    // percentage standing in for one), an advance and a writing number. An
+    // activation missing any of those produces a contract that prices from
+    // nothing, which surfaces later as a posted deal that never paid.
+    if (isLiveStatus(data.status)) {
+      const writingNumber = (data.writing_number ?? before.writing_number ?? "").toString().trim();
+      const levelName = (data.granted_level_name ?? before.granted_level_name
+        ?? before.requested_advance_level ?? "").toString().trim();
+      const hasLevel = Boolean(data.granted_comp_level_id ?? before.granted_comp_level_id)
+        || Boolean(levelName) || data.granted_pct != null || before.granted_pct != null;
+      const advance = data.granted_advance_option ?? before.granted_advance_option ?? null;
+
+      const missing: string[] = [];
+      if (!writingNumber) missing.push("a writing number");
+      if (!hasLevel) missing.push("a carrier level or agency position percentage");
+      if (!advance) missing.push("an advance option");
+      if (missing.length) {
+        throw new Error(
+          `This contract can't go active yet — it still needs ${missing.join(", ")}.`,
+        );
+      }
     }
 
     // The gate. Readiness is recomputed here rather than trusting the cached
@@ -1716,7 +1942,18 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (data.status === "approved") patch.approved_at = now;
     if (data.status === "declined") { patch.declined_at = now; patch.decline_reason = data.decline_reason ?? null; }
     if (data.status === "closed") patch.closed_at = now;
+    if (data.status === "invite_sent") patch.invite_sent_at = now;
+    if (isLiveStatus(data.status)) patch.activated_at = now;
     if (data.confirmation_reference) patch.carrier_confirmation_number = data.confirmation_reference;
+
+    // The decision itself lives on the request too, so the queue can show what
+    // was granted without going and reading the commission table.
+    if (data.granted_comp_level_id !== undefined) patch.granted_comp_level_id = data.granted_comp_level_id;
+    if (data.granted_level_name !== undefined) patch.granted_level_name = data.granted_level_name;
+    if (data.granted_pct !== undefined) patch.granted_pct = data.granted_pct;
+    if (data.granted_advance_option !== undefined) patch.granted_advance_option = data.granted_advance_option;
+    if (data.granted_effective_date !== undefined) patch.desired_effective_date = data.granted_effective_date;
+    if (data.writing_number !== undefined) patch.writing_number = data.writing_number;
 
     const { error } = await supabaseAdmin
       .from("contracting_requests").update(patch).eq("id", data.id).eq("organization_id", orgId);
@@ -1756,7 +1993,7 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     // to point at it. Nothing used to write either, so a request could be
     // approved here and the agent would still show as uncontracted everywhere
     // else.
-    if (["approved", "writing_number_issued"].includes(data.status)) {
+    if (["approved", "writing_number_issued", "active"].includes(data.status)) {
       await syncContractRecord(before, data.status, now, data.writing_number);
       // And the level, which is the half the commission engine reads. Falls
       // back to what the request was raised at when staff recorded no change,
@@ -1767,8 +2004,9 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
         status: data.status,
         compLevelId: data.granted_comp_level_id ?? before.requested_comp_level_id ?? null,
         levelName: data.granted_level_name ?? before.requested_advance_level ?? null,
-        pct: data.granted_pct ?? null,
-        writingNumber: data.writing_number ?? null,
+        pct: data.granted_pct ?? before.granted_pct ?? null,
+        writingNumber: data.writing_number ?? before.writing_number ?? null,
+        advanceOption: data.granted_advance_option ?? before.granted_advance_option ?? null,
       });
     }
 
@@ -1777,12 +2015,20 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
       await supabaseAdmin.from("contracting_status_history").insert({
         organization_id: orgId, request_id: data.id,
         from_status: before.status, to_status: data.status, changed_by: userId,
+        change_kind: "status",
         agent_visible_message: data.agent_visible_message ?? null,
         internal_message: data.internal_message ?? null,
         next_action: data.next_action ?? null,
         due_date: data.due_date ?? null,
       });
     }
+
+    // Everything else the decision changed, each as its own timestamped entry.
+    // A status trail that cannot answer "who moved them to 90%, and when" is
+    // not a trail anybody can settle a commission dispute with.
+    await recordFieldChanges({
+      orgId, requestId: data.id, actorId: userId, status: data.status, before, data,
+    });
 
     await recordAudit({
       organizationId: orgId, actorId: userId,
@@ -1808,6 +2054,9 @@ async function notifyAgent(
   if (!settings.notify_on_status_change) return;
 
   const AGENT_VISIBLE: Record<string, string> = {
+    invite_sent: "Your carrier contracting invitation was sent",
+    active: "Your carrier contract is active",
+    carrier_reviewing: "The carrier is reviewing your contract",
     missing_information: "Your carrier request needs more information",
     missing_documents: "Your carrier request needs a document",
     awaiting_agent: "Your carrier request is waiting on you",

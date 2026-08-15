@@ -18,7 +18,8 @@ import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/cont
 import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
-  CONTRACT_TYPE_LABELS, METHOD_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META,
+  ADVANCE_OPTIONS, ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
+  CONTRACT_TYPE_LABELS, METHOD_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
 } from "@/lib/contracting-ops/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -99,11 +100,13 @@ function DecisionPanel({
   granted: any | null;
   busy: boolean;
   onRecord: (vars: {
-    status: "approved" | "writing_number_issued";
+    status: "approved" | "active";
     granted_comp_level_id?: string | null;
     granted_level_name?: string | null;
     granted_pct?: number | null;
     writing_number?: string | null;
+    granted_advance_option?: string | null;
+    granted_effective_date?: string | null;
   }) => void;
 }) {
   // A comp-level row is a real FK, so it is offered by id. A level that only
@@ -120,6 +123,16 @@ function DecisionPanel({
   const [choice, setChoice] = useState<string>(initial);
   const [pct, setPct] = useState<string>(granted?.assigned_pct != null ? String(granted.assigned_pct) : "");
   const [number, setNumber] = useState<string>(granted?.writing_number ?? "");
+  const [advance, setAdvance] = useState<string>(granted?.advance_option ?? "");
+  const [effective, setEffective] = useState<string>("");
+
+  // Which of the three answers the number on screen came from. An agency
+  // settling a dispute has to be able to see whether a rate was granted to this
+  // agent, inherited from their position's carrier mapping, or is the
+  // position's own percentage standing in because no mapping exists.
+  const compSource: CompSource = choice
+    ? (choice.startsWith("name:") ? "position_carrier_mapping" : "agent_carrier_level")
+    : (pct.trim() ? "position_pct_fallback" : "none");
 
   const payload = () => {
     const isName = choice.startsWith("name:");
@@ -130,6 +143,8 @@ function DecisionPanel({
       granted_level_name: isName ? choice.slice(5) : (compLevel?.level_name ?? null),
       granted_pct: parsed != null && Number.isFinite(parsed) ? parsed : null,
       writing_number: number.trim() || null,
+      granted_advance_option: advance || null,
+      granted_effective_date: effective || null,
     };
   };
 
@@ -211,6 +226,43 @@ function DecisionPanel({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Advance
+            </label>
+            <Select value={advance} onValueChange={setAdvance} disabled={busy}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Choose an advance…" />
+              </SelectTrigger>
+              <SelectContent>
+                {ADVANCE_OPTIONS.map((o) => (
+                  <SelectItem key={o} value={o} className="text-xs">
+                    {ADVANCE_OPTION_LABELS[o]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="granted-eff" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Effective date
+            </label>
+            <input
+              id="granted-eff"
+              type="date"
+              value={effective}
+              onChange={(e) => setEffective(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+            />
+            <p className="mt-1 text-[11px] text-text-dim">Optional — leave blank if the carrier hasn't said.</p>
+          </div>
+        </div>
+
+        <p className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[11px] text-muted-foreground">
+          Compensation source: <span className="text-foreground">{COMP_SOURCE_LABELS[compSource]}</span>
+        </p>
+
         <div className="flex flex-col gap-2 pt-1">
           <Button
             size="sm"
@@ -224,14 +276,14 @@ function DecisionPanel({
           <Button
             size="sm"
             className="w-full"
-            disabled={busy || !number.trim()}
-            onClick={() => onRecord({ status: "writing_number_issued", ...payload() })}
+            disabled={busy || !number.trim() || !advance || compSource === "none"}
+            onClick={() => onRecord({ status: "active", ...payload() })}
           >
-            <Check className="mr-1.5 h-3.5 w-3.5" /> Activate — number issued
+            <Check className="mr-1.5 h-3.5 w-3.5" /> Activate contract
           </Button>
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Approving records the level as pending. Adding the writing number makes it
-            live, so deals on this carrier pay at that level straight away.
+            Approving records the level as pending. Activating needs a level, an advance
+            and a writing number — that is what deals on this carrier price from.
           </p>
         </div>
       </div>
