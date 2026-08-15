@@ -72,6 +72,173 @@ function Field({ label, value, masked }: { label: string; value: string | null; 
   );
 }
 
+/**
+ * The other half of a request: what the carrier actually granted.
+ *
+ * A request is raised at the agent's agency position. What comes back is
+ * whatever the carrier agreed to, and the two are routinely different rungs.
+ * There was nowhere to record that difference, so a request could reach
+ * "writing number issued" while `agent_commission_levels` stayed empty — and
+ * every deal posted on that carrier then priced from nothing.
+ *
+ * Recording a decision here writes the level, the percentage and the number in
+ * one step. Approval marks the level pending; a writing number makes it live,
+ * because approval is an internal clearance and appointment is the carrier's.
+ */
+function DecisionPanel({
+  requested,
+  compLevels,
+  carrierLevels,
+  granted,
+  onRecord,
+  busy,
+}: {
+  requested: string | null;
+  compLevels: { id: string; level_name: string | null; commission_pct: number | null }[];
+  carrierLevels: { id: string; name: string; pct: number | null }[];
+  granted: any | null;
+  busy: boolean;
+  onRecord: (vars: {
+    status: "approved" | "writing_number_issued";
+    granted_comp_level_id?: string | null;
+    granted_level_name?: string | null;
+    granted_pct?: number | null;
+    writing_number?: string | null;
+  }) => void;
+}) {
+  // A comp-level row is a real FK, so it is offered by id. A level that only
+  // exists on an uploaded grid has no row to point at, so its NAME travels
+  // instead — the grid prices the deal from the name anyway.
+  const byName = new Set(compLevels.map((l) => String(l.level_name ?? "").trim().toLowerCase()));
+  const gridOnly = carrierLevels.filter((o) => !byName.has(o.name.trim().toLowerCase()));
+
+  const initial = granted?.commission_level
+    ? (compLevels.find((l) => String(l.level_name ?? "").trim().toLowerCase()
+        === String(granted.commission_level).trim().toLowerCase())?.id
+        ?? `name:${granted.commission_level}`)
+    : "";
+  const [choice, setChoice] = useState<string>(initial);
+  const [pct, setPct] = useState<string>(granted?.assigned_pct != null ? String(granted.assigned_pct) : "");
+  const [number, setNumber] = useState<string>(granted?.writing_number ?? "");
+
+  const payload = () => {
+    const isName = choice.startsWith("name:");
+    const compLevel = !isName ? compLevels.find((l) => l.id === choice) : undefined;
+    const parsed = pct.trim() === "" ? null : Number(pct);
+    return {
+      granted_comp_level_id: compLevel?.id ?? null,
+      granted_level_name: isName ? choice.slice(5) : (compLevel?.level_name ?? null),
+      granted_pct: parsed != null && Number.isFinite(parsed) ? parsed : null,
+      writing_number: number.trim() || null,
+    };
+  };
+
+  return (
+    <Panel title="Carrier decision" className="ac-no-print">
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Requested at <span className="text-foreground">{requested || "their position"}</span>.
+        Record the level the carrier actually granted — this is what commissions
+        are calculated from.
+      </p>
+
+      {granted?.commission_level && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          On file today: <span className="text-foreground">{granted.commission_level}</span>
+          {granted.assigned_pct != null ? ` · ${granted.assigned_pct}%` : ""}
+          {" · "}
+          <span className={granted.status === "active" ? "text-success" : "text-warning"}>
+            {granted.status === "active" ? "active" : "pending"}
+          </span>
+        </p>
+      )}
+
+      <div className="mt-3 space-y-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            Level granted
+          </label>
+          <Select value={choice} onValueChange={setChoice} disabled={busy}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Choose a carrier level…" />
+            </SelectTrigger>
+            <SelectContent>
+              {compLevels.map((l) => (
+                <SelectItem key={l.id} value={l.id} className="text-xs">
+                  {l.level_name ?? "Unnamed"}
+                  {l.commission_pct != null ? ` — ${l.commission_pct}%` : ""}
+                </SelectItem>
+              ))}
+              {gridOnly.map((o) => (
+                <SelectItem key={o.id} value={`name:${o.name}`} className="text-xs">
+                  {o.name} — from the comp grid
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {compLevels.length === 0 && gridOnly.length === 0 && (
+            <p className="mt-1 text-[11px] text-text-dim">
+              This carrier has no levels on file yet. Add them under Settings ▸ Carriers,
+              or type the percentage below.
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="granted-pct" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Percentage
+            </label>
+            <input
+              id="granted-pct"
+              inputMode="decimal"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+              placeholder="e.g. 105"
+            />
+          </div>
+          <div>
+            <label htmlFor="granted-wn" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Writing number
+            </label>
+            <input
+              id="granted-wn"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+              placeholder="e.g. 4471902"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            disabled={busy}
+            onClick={() => onRecord({ status: "approved", ...payload() })}
+          >
+            <Check className="mr-1.5 h-3.5 w-3.5" /> Approve at this level
+          </Button>
+          <Button
+            size="sm"
+            className="w-full"
+            disabled={busy || !number.trim()}
+            onClick={() => onRecord({ status: "writing_number_issued", ...payload() })}
+          >
+            <Check className="mr-1.5 h-3.5 w-3.5" /> Activate — number issued
+          </Button>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Approving records the level as pending. Adding the writing number makes it
+            live, so deals on this carrier pay at that level straight away.
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 function RequestDetailPage() {
   const { requestId } = Route.useParams();
   const qc = useQueryClient();
@@ -178,6 +345,15 @@ function RequestDetailPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // `listOrgAgents` answers `{ agents }`. Reading `rows` first and then the
+  // whole object meant `.map` was called on the object itself and the page
+  // crashed for every staff member — the one screen that needs it most.
+  const staffRows: any[] = Array.isArray((staff as any)?.agents)
+    ? (staff as any).agents
+    : Array.isArray((staff as any)?.rows)
+      ? (staff as any).rows
+      : Array.isArray(staff) ? (staff as any) : [];
+
   const assign = useMutation({
     mutationFn: (assigned_to: string | null) =>
       assignFn({ data: { ids: [requestId], assigned_to } }),
@@ -189,7 +365,14 @@ function RequestDetailPage() {
   });
 
   const setStatus = useMutation({
-    mutationFn: (vars: { status: string; agent_visible_message?: string | null }) =>
+    mutationFn: (vars: {
+      status: string;
+      agent_visible_message?: string | null;
+      writing_number?: string | null;
+      granted_comp_level_id?: string | null;
+      granted_level_name?: string | null;
+      granted_pct?: number | null;
+    }) =>
       statusFn({ data: { id: requestId, ...vars } as any }),
     onSuccess: () => {
       toast.success("Request updated");
@@ -492,6 +675,17 @@ function RequestDetailPage() {
           </Panel>
 
           {isStaff && (
+            <DecisionPanel
+              requested={packet.request.requested_comp_level ?? packet.request.requested_advance_level ?? null}
+              compLevels={((data as any).comp_levels ?? []) as any[]}
+              carrierLevels={((data as any).carrier_levels ?? []) as any[]}
+              granted={(data as any).granted ?? null}
+              busy={setStatus.isPending}
+              onRecord={(vars) => setStatus.mutate(vars as any)}
+            />
+          )}
+
+          {isStaff && (
             <Panel title="Actions" className="ac-no-print">
               <div className="space-y-2">
                 <Button
@@ -516,10 +710,7 @@ function RequestDetailPage() {
                   variant="outline"
                   className="w-full"
                   disabled={setStatus.isPending}
-                  onClick={() => setStatus.mutate({
-                    status: "missing_information",
-                    agent_visible_message: "We need a little more information before this can go to the carrier.",
-                  })}
+                  onClick={() => compose("missing_information")}
                 >
                   <UserPlus className="mr-1.5 h-3.5 w-3.5" /> Request missing information
                 </Button>
@@ -549,7 +740,7 @@ function RequestDetailPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none" className="text-xs">Unassigned</SelectItem>
-                      {((staff as any)?.rows ?? (staff as any) ?? []).map((p: any) => (
+                      {staffRows.map((p: any) => (
                         <SelectItem key={p.id} value={p.id} className="text-xs">
                           {`${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || p.email || "Unnamed"}
                         </SelectItem>

@@ -14,6 +14,7 @@ import {
   requestedRungFrom,
   auditInvitation,
 } from "@/lib/invitations/lookup.server";
+import { resolveRequestedLevel } from "@/lib/contracting-ops/requested-level";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -273,6 +274,8 @@ export async function assignInviteCarriers(opts: {
     // `requested_comp_level_id` is a real FK to `carrier_comp_levels` and is
     // what the packet reads. The assignment becomes real when the request does.
     let requestedCompLevelId: string | null = null;
+    let requestedAdvanceLevel: string | null =
+      a.level_name ?? (a.level_pct != null ? `${a.level_pct}%` : null);
     if (a.level_name || a.level_pct != null) {
       const { data: level } = await client
         .from("carrier_comp_levels")
@@ -281,7 +284,22 @@ export async function assignInviteCarriers(opts: {
         .eq(a.level_name ? "level_name" : "commission_pct", a.level_name ?? a.level_pct)
         .maybeSingle();
       requestedCompLevelId = level?.id ?? null;
+    } else {
+      // Nobody named a level, which is every self-serve request: "Add carrier"
+      // and "Request contracting" both arrive here with a carrier and nothing
+      // else. The agent's agency position already answers this, so the request
+      // is raised AT their position rather than blank — and where the agency
+      // has not mapped that position on this carrier, the label is the
+      // position's own percentage and the level id stays null for staff to set.
+      const resolved = await resolveRequestedLevel(client, {
+        agentId,
+        orgId: organizationId,
+        orgCarrierId,
+      });
+      requestedCompLevelId = resolved.requestedCompLevelId;
+      requestedAdvanceLevel = resolved.requestedAdvanceLevel;
     }
+
 
     const { data: requestRow } = await client.from("contracting_requests").insert({
       organization_id: organizationId,
@@ -299,7 +317,7 @@ export async function assignInviteCarriers(opts: {
       contract_type: a.release_needed ? "transfer" : "new_contract",
       contract_record_id: record?.id ?? null,
       requested_comp_level_id: requestedCompLevelId,
-      requested_advance_level: a.level_name ?? (a.level_pct != null ? `${a.level_pct}%` : null),
+      requested_advance_level: requestedAdvanceLevel,
       notes: opts.requestNote ?? "Pre-assigned on the invite link",
     }).select("id").maybeSingle();
 
