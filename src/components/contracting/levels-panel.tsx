@@ -4,7 +4,7 @@ import { Pencil, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -74,9 +74,11 @@ export function LevelsPanel() {
   });
 
   const save = useMutation({ mutationFn: (p: any) => saveFn({ data: p }), onSuccess: () => { toast.success("Agency level saved"); setAdding(false); setEditing(null); qc.invalidateQueries({ queryKey: ["agency-levels"] }); }, onError: (e: any) => toast.error(e?.message ?? "Could not save the agency level") });
-  const rows = (data?.rows ?? []) as any[];
+  // A ladder reads top down: the highest position first, the entry rung last.
+  const rows = [...((data?.rows ?? []) as any[])].sort(
+    (a, b) => Number(b.base_pct ?? 0) - Number(a.base_pct ?? 0),
+  );
   const canManage = (data as any)?.canManage !== false;
-  const myLevelId = (data as any)?.myLevelId ?? null;
   // Everything except what has been filed away. This used to keep only
   // `status === "active"`, so a carrier still being set up — which is exactly
   // when its levels need mapping — never appeared here at all, and the mapping
@@ -111,7 +113,7 @@ export function LevelsPanel() {
       return <Panel key={level.id} className="p-4"><div className="flex items-center gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-bold text-primary tnum">{Number(level.base_pct)}%</div>
         <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 font-semibold text-foreground">{level.name}{level.id === myLevelId && <Badge variant="secondary" className="text-[10px]">Your position</Badge>}</h3>
+          <h3 className="font-semibold text-foreground">{level.name}</h3>
           <p className="text-xs text-muted-foreground">
             {level.can_invite ? "Can build a downline" : "Cannot create invite links"} ·{" "}
             {maps.length === 0
