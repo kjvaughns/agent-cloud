@@ -306,12 +306,23 @@ function PostDealPage() {
   });
 
   const onSubmit = (d: FormData) => {
+    // The server schema requires a carrier and product; without this guard an
+    // empty select reaches it and surfaces as a raw ZodError / blank screen.
+    if (!d.carrier_id) {
+      toast.error("Select a carrier before posting the deal.");
+      return;
+    }
+    if (!d.product) {
+      toast.error("Select the product sold before posting the deal.");
+      return;
+    }
     if (!benValid) {
       toast.error("Beneficiary percentages must sum to 100%.");
       return;
     }
     mutation.mutate(d);
   };
+
 
   return (
     <PageShell>
