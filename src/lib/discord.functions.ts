@@ -6,6 +6,7 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // Backoff, health, and the two patches a send outcome writes. One place, so
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
+import { piiProblems } from "@/lib/discord/message";
 
 const supabaseAdmin = _admin as any;
 
@@ -216,7 +217,32 @@ export const disconnectDiscord = createServerFn({ method: "POST" })
 
 // ── Sending ─────────────────────────────────────────────────────────────────
 
+/** Raised when a payload would carry something that must not reach a channel. */
+export class DiscordPrivacyError extends Error {
+  constructor(public readonly problems: string[]) {
+    super(problems.join(" "));
+    this.name = "DiscordPrivacyError";
+  }
+}
+
+/**
+ * Every send goes through here, so the privacy scan does too.
+ *
+ * The builders in `@/lib/discord/message` already cannot see a client — they
+ * take narrow fact types rather than a policy row. This is the layer that
+ * catches a forbidden value arriving inside a field that WAS allowed: an
+ * announcement body somebody pasted a phone number into passes every earlier
+ * check and must not reach a channel whose membership the agency does not
+ * control.
+ *
+ * Refusing is deliberate rather than redacting. A message with a hole in it
+ * reads as a bug and teaches nobody; a refusal with a reason in the delivery
+ * ledger tells the owner what to edit.
+ */
 async function postToDiscord(webhookUrl: string, body: unknown) {
+  const problems = piiProblems(JSON.stringify(body));
+  if (problems.length > 0) throw new DiscordPrivacyError(problems);
+
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
