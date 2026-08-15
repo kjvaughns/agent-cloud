@@ -26,6 +26,7 @@ import { readBlock, readDocument } from "./sheet-shape";
 
 export const IMPORT_KINDS = [
   "book_of_business",
+  "client_notes",
   "commission_grid",
   "agent_roster",
   "writing_numbers",
@@ -35,10 +36,12 @@ export const IMPORT_KINDS = [
   "unknown",
 ] as const;
 
+
 export type ImportKind = (typeof IMPORT_KINDS)[number];
 
 export const KIND_LABEL: Record<ImportKind, string> = {
   book_of_business: "Book of business",
+  client_notes: "Client notes",
   commission_grid: "Commission grid",
   agent_roster: "Agent roster",
   writing_numbers: "Writing numbers",
@@ -61,6 +64,10 @@ export const KIND_TARGET: Record<
   { table: string; scope: "own" | "shared"; applies: string } | null
 > = {
   book_of_business: { table: "clients", scope: "own", applies: "saveClientFullRecord" },
+  // Notes land on the client they name — a note without a person to attach it
+  // to is not a record, so the assembler folds these into client records and
+  // the apply path is the same one the book of business uses.
+  client_notes: { table: "clients", scope: "own", applies: "saveClientFullRecord" },
   commission_grid: { table: "commission_grids", scope: "shared", applies: "saveGrid" },
   agent_roster: { table: "pending_agents", scope: "shared", applies: "confirmAdminImport" },
   writing_numbers: { table: "writing_numbers", scope: "shared", applies: "runContractingImport" },
@@ -80,8 +87,19 @@ export const KIND_TARGET: Record<
  */
 const VOCAB: Record<Exclude<ImportKind, "unknown">, { strong: string[]; weak: string[] }> = {
   book_of_business: {
-    strong: ["policy number", "policy #", "face amount", "annual premium", "monthly premium"],
-    weak: ["first name", "last name", "phone", "email", "date of birth", "dob", "carrier", "effective date", "beneficiary"],
+    // "stage" is a pipeline column: a CRM export of people, which is a book of
+    // business even when it carries no policy columns at all. Without it a
+    // client roster sheet scored 3 and went to the model for no reason.
+    strong: ["policy number", "policy #", "face amount", "annual premium", "monthly premium", "stage"],
+    weak: [
+      "first name", "last name", "client name", "phone", "email", "date of birth", "dob",
+      "carrier", "product", "effective date", "beneficiary", "street address", "address",
+      "city", "zip", "smoker", "tobacco", "medical notes", "agent", "premium", "born in",
+    ],
+  },
+  client_notes: {
+    strong: ["note content", "note text", "note body", "content"],
+    weak: ["client name", "note type", "type", "author", "date", "created"],
   },
   commission_grid: {
     strong: ["level", "comp level", "street level", "year 1", "years 2-5", "years 6+", "commission %"],
@@ -112,6 +130,7 @@ const VOCAB: Record<Exclude<ImportKind, "unknown">, { strong: string[]; weak: st
 /** Words in the note that point at a kind. */
 const NOTE_LEXICON: { kind: Exclude<ImportKind, "unknown">; words: string[] }[] = [
   { kind: "book_of_business", words: ["book of business", "book", "my clients", "clients", "policies", "policyholders"] },
+  { kind: "client_notes", words: ["client notes", "notes", "note history", "call notes"] },
   { kind: "commission_grid", words: ["comp grid", "commission grid", "grid", "comp", "rates", "rate card", "commission schedule"] },
   { kind: "agent_roster", words: ["roster", "agents", "downline", "team", "hierarchy", "recruits"] },
   { kind: "writing_numbers", words: ["writing number", "writing numbers", "appointment", "appointments", "contract"] },

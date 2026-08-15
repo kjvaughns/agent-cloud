@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callAiJson } from "@/lib/ai-gateway";
 import { IMPORT_KINDS, KIND_TARGET, KIND_LABEL, type ImportKind } from "@/lib/import-router";
 import { buildMatchIndex, classifyClient, policyExists, rowKey } from "@/lib/import-match";
-import { saveClientFullRecord, resolveCarrierId, upsertPendingAgent } from "@/lib/import-helpers";
+import { saveClientFullRecord, resolveCarrierId, upsertPendingAgent, resolveAgentOwners } from "@/lib/import-helpers";
 import { writeGridRows, requireOrgId } from "@/lib/comp-grid.functions";
 import { runContractingImport } from "@/lib/contracting-import.functions";
 
@@ -50,6 +50,9 @@ type Ctx = { supabase: any; userId: string };
 export type ImportDoc = {
   id: string;
   batch_id: string;
+  /** Set when this row is one sheet of a workbook. */
+  parent_id?: string | null;
+  sheet_label?: string | null;
   file_name: string;
   status: string;
   doc_type: string | null;
@@ -131,14 +134,20 @@ export const createImportBatch = createServerFn({ method: "POST" })
         mime_type: z.string().max(120).nullable().optional(),
         size_bytes: z.number().int().nonnegative().nullable().optional(),
         storage_path: z.string().max(500).nullable().optional(),
+        /** The workbook these sheets came out of. */
+        parent_id: z.string().uuid().nullable().optional(),
+        /** The tab name, when this row is one sheet of a workbook. */
+        sheet_label: z.string().max(200).nullable().optional(),
       })).min(1).max(100),
+      /** Join an existing batch, so an undo covers the whole upload. */
+      batch_id: z.string().uuid().nullable().optional(),
       user_note: z.string().max(2000).nullable().optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
 
-    const batchId = crypto.randomUUID();
+    const batchId = data.batch_id ?? crypto.randomUUID();
     const note = data.user_note?.trim() || null;
 
     const rows = data.files.map((f) => ({
@@ -149,6 +158,8 @@ export const createImportBatch = createServerFn({ method: "POST" })
       file_url: f.storage_path ?? null,
       status: "queued",
       uploaded_by: userId,
+      parent_id: f.parent_id ?? null,
+      sheet_label: f.sheet_label ?? null,
       ...(note ? { user_note: note } : {}),
     }));
 
@@ -285,6 +296,37 @@ export const setImportKind = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * The workbook row itself, once its sheets have been split out.
+ *
+ * A four-tab migration export is not one importable thing, so its own row
+ * stops being reviewable and becomes a heading: it says what was found on each
+ * tab, and the children underneath are what gets approved. Without this the
+ * parent would sit at "we couldn't tell what this is" forever, next to four
+ * rows that were read perfectly.
+ */
+export const markWorkbookParent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      id: z.string().uuid(),
+      summary: z.string().max(2000),
+      sheet_count: z.number().int().min(1).max(50),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as Ctx;
+    const { error } = await supabase.from("document_intake").update({
+      status: "split",
+      doc_type: null,
+      summary: data.summary,
+      error: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, sheets: data.sheet_count };
+  });
+
 // ── 3. Reconcile: rows in, proposals out ─────────────────────────────────────
 
 const ClientRow = z.object({
@@ -297,8 +339,29 @@ const ClientRow = z.object({
   city: z.string().max(120).nullable().optional(),
   state: z.string().max(60).nullable().optional(),
   zip_code: z.string().max(20).nullable().optional(),
+  born_country_state: z.string().max(120).nullable().optional(),
+  stage_raw: z.string().max(60).nullable().optional(),
+  tobacco_use: z.boolean().nullable().optional(),
+  medical_notes: z.string().max(4000).nullable().optional(),
+  monthly_income: z.number().nullable().optional(),
+  employment: z.string().max(200).nullable().optional(),
+  pitch_carrier: z.string().max(160).nullable().optional(),
+  pitch_face_amount: z.number().nullable().optional(),
+  reminder_notes: z.string().max(2000).nullable().optional(),
+  callback_date: z.string().max(20).nullable().optional(),
+  /** The agent named on the row, resolved below. */
+  agent_name: z.string().max(160).nullable().optional(),
+  agent_id: z.string().uuid().nullable().optional(),
+  assigned_to_email: z.string().max(200).nullable().optional(),
+  notes: z.array(z.object({
+    content: z.string().max(8000),
+    note_type: z.string().max(60).nullable().optional(),
+    author: z.string().max(160).nullable().optional(),
+    created_at: z.string().max(30).nullable().optional(),
+  })).max(200).optional(),
   policies: z.array(z.object({
     policy_number: z.string().max(80).nullable().optional(),
+    product: z.string().max(200).nullable().optional(),
     carrier_name: z.string().max(160).nullable().optional(),
     monthly_premium: z.number().nullable().optional(),
     annual_premium: z.number().nullable().optional(),
@@ -354,9 +417,24 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
 
     // Client rows are the only kind we match against existing records so far;
     // the others land as straightforward proposals until their slice is built.
-    const index = data.kind === "book_of_business"
+    const index = target.table === "clients"
       ? await buildMatchIndex(supabase, [userId])
       : null;
+
+    /**
+     * Who owns each row.
+     *
+     * A migration export names the writing agent per client, and filing four
+     * hundred of somebody else's clients under the uploader is the sort of
+     * quiet wrong that is very expensive to unpick later. So the name is
+     * resolved once for the whole chunk: a real teammate becomes the owner;
+     * somebody who is only on the roster so far becomes `assigned_to_email`,
+     * which is how this app already parks a record for an agent who has not
+     * signed up yet.
+     */
+    const owners = target.table === "clients"
+      ? await resolveAgentOwners(supabase, userId, data.rows)
+      : new Map<string, { agentId: string | null; email: string | null }>();
 
     const seen = new Set<string>();
     const proposals: any[] = [];
@@ -417,9 +495,15 @@ export const reconcileImportRows = createServerFn({ method: "POST" })
       const raw = data.rows[rowIdx];
       if (proposals.length >= room) break;
 
-      const parsed = data.kind === "book_of_business" ? ClientRow.safeParse(raw) : null;
+      const parsed = target.table === "clients" ? ClientRow.safeParse(raw) : null;
       if (parsed && !parsed.success) continue;
       const row: Record<string, any> = parsed ? parsed.data : raw;
+
+      if (target.table === "clients" && row.agent_name) {
+        const hit = owners.get(String(row.agent_name).trim().toLowerCase());
+        if (hit?.agentId) row.agent_id = hit.agentId;
+        else if (hit?.email) row.assigned_to_email = hit.email;
+      }
 
       // Within the file. A carrier report that lists a policy on two pages, or
       // a sheet with a repeated header block, would otherwise import twice —
@@ -752,10 +836,40 @@ export const applyProposals = createServerFn({ method: "POST" })
 
         let ref: string | null = null;
         if (p.target_table === "clients") {
-          const res = await saveClientFullRecord(supabase, userId, p.payload, {
+          const opts = {
             match: { existing_client_id: p.match_id ?? null },
-          });
-          ref = res.clientId;
+            // An imported book is history: policies count in the month they
+            // were written, and their commission schedules are built from the
+            // effective date rather than today.
+            backdate: true,
+            buildCommissions: true,
+          };
+          const owner = p.payload?.agent_id && p.payload.agent_id !== userId
+            ? String(p.payload.agent_id)
+            : userId;
+          try {
+            const res = await saveClientFullRecord(supabase, owner, p.payload, opts);
+            ref = res.clientId;
+          } catch (e: any) {
+            /**
+             * Only an agency owner may file a record under another agent.
+             *
+             * When the database refuses, the row is not lost: it lands with the
+             * uploader and keeps the teammate's email in `assigned_to_email`,
+             * so ownership still moves the day that person signs in. Failing
+             * the row instead would strand it, which is worse than filing it
+             * one level too high.
+             */
+            if (owner !== userId) {
+              const res = await saveClientFullRecord(supabase, userId, {
+                ...p.payload,
+                assigned_to_email: p.payload?.assigned_to_email ?? null,
+              }, opts);
+              ref = res.clientId;
+            } else {
+              throw e;
+            }
+          }
         } else if (p.target_table === "pending_agents") {
           // The uploader is the upline. Importing "my roster" means these
           // people sit under the person importing them; anything else would be
