@@ -132,7 +132,7 @@ check("a saved mapping finds its option regardless of casing",
 check("…and an empty carrier lists nothing rather than throwing",
   carrierLevelOptions({}), []);
 
-// ── A gridded carrier is not "Needs levels" ─────────────────────────────────
+// ── A gridded carrier counts its grid's levels ──────────────────────────────
 
 console.log("");
 
@@ -142,14 +142,18 @@ const facts = {
   hasContractingMethod: true, configuration: { configured: true, reasons: [] },
   positionsOnFallback: [],
 };
-// The same bug one screen over: a carrier whose grid names every level was held
-// at "Needs levels" until somebody retyped those names into a second table.
-check("a carrier whose grid names its levels is not held at Needs levels",
-  carrierState({ ...facts, levelCount: carrierLevelOptions(GRIDDED).length }).status, "active");
-check("…while one with no levels from either source still is",
-  carrierState({ ...facts, levelCount: 0 }).status, "needs_levels");
+// A carrier whose grid names every level knows its levels, so it is not on the
+// fallback and has nothing to say about them.
+const gridded = carrierState({ ...facts, levelCount: carrierLevelOptions(GRIDDED).length });
+check("a carrier whose grid names its levels has levels", gridded.usesFallback, false);
+check("…and nothing to fix", gridded.problems, []);
+// One with none from either source is still active — levels are a trade-off,
+// not a gate — and says what it is trading away rather than blocking.
+const bare = carrierState({ ...facts, levelCount: 0 });
+check("one with no levels from either source is still active", bare.status, "active");
+check("…but is on the fallback", bare.usesFallback, true);
 check("…and is told the grid is a way to supply them",
-  carrierState({ ...facts, levelCount: 0 }).problems.some((p) => /upload its comp grid/.test(p)), true);
+  bare.problems.some((p) => /upload its comp grid/.test(p)), true);
 
 // ── The panel and the server go through it ──────────────────────────────────
 

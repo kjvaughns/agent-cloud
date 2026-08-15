@@ -561,6 +561,10 @@ function CarrierDialog({
   // canonical list does not happen to name it.
   const productOptions = Array.from(new Set([...PRODUCT_TYPES, ...productTypes]));
 
+  // The grid's own product names, shipped with the carrier. Non-empty means
+  // the grid is the source and the checkbox list below is not offered.
+  const gridProducts = (carrier?.grid_products ?? []) as string[];
+
   const submit = () => {
     // Empty strings must become null, not "", or the url/email validators
     // reject a field the user deliberately left blank.
@@ -706,33 +710,66 @@ function CarrierDialog({
             </label>
           </div>
 
-          <div>
-            <Label>Products this carrier writes</Label>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {productOptions.map((t) => {
-                const on = productTypes.includes(t);
-                return (
-                  <button
+          {/* Products, asked for only when nothing else knows them.
+             *
+             * The comp grid is a list of this carrier's products with a rate
+             * against each, so a gridded carrier has already said what it
+             * writes — and Post a Deal reads the grid, falling back to
+             * `product_types` only when there is no grid at all. Asking an
+             * owner to tick the same products a second time was asking for a
+             * fact we hold, into a field that then changed nothing.
+             *
+             * So: show the grid's own names when there is a grid, and offer
+             * the checkboxes only when there is not. */}
+          {gridProducts.length > 0 ? (
+            <div>
+              <Label>Products this carrier writes</Label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {gridProducts.map((t: string) => (
+                  <span
                     key={t}
-                    type="button"
-                    onClick={() => setProductTypes((cur) =>
-                      cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t])}
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                      on ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
-                    )}
+                    className="rounded-full border border-primary/50 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
                   >
                     {t}
-                  </button>
-                );
-              })}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[11px] text-text-dim">
+                From {carrier?.name ?? "this carrier"}'s comp grid, which is where the
+                rates live too. Edit the grid to change this list — there is nothing to
+                set here.
+              </p>
             </div>
-            <p className="mt-1.5 text-[11px] text-text-dim">
-              {productTypes.length === 0
-                ? "Nothing selected, so Post a Deal offers the full product list for this carrier."
-                : `Post a Deal will offer only these ${productTypes.length} for ${carrier?.name ?? "this carrier"}.`}
-            </p>
-          </div>
+          ) : (
+            <div>
+              <Label>Products this carrier writes</Label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {productOptions.map((t) => {
+                  const on = productTypes.includes(t);
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setProductTypes((cur) =>
+                        cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t])}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                        on ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                      )}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-text-dim">
+                {productTypes.length === 0
+                  ? "Nothing selected, so Post a Deal offers the full product list for this carrier."
+                  : `Post a Deal will offer only these ${productTypes.length} for ${carrier?.name ?? "this carrier"}.`}
+                {" "}Upload a comp grid and its products replace this list.
+              </p>
+            </div>
+          )}
 
           <div>
             <Label htmlFor="internal_instructions">Instructions for your staff</Label>

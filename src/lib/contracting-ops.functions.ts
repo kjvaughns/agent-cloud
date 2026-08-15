@@ -286,7 +286,7 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
     // Distinct products, not rows. One product with three age bands is three
     // rows and one product, and "3 products" on a carrier that sells one is
     // the kind of number an owner stops trusting the rest of the screen over.
-    const gridProducts = new Map<string, Set<string>>();
+    const gridProducts = new Map<string, Map<string, string>>();
     // Kept as rows rather than collapsed here: one level pays different rates
     // on different products, and `carrierLevelOptions` is the one place that
     // knows a level's percentage may be a range instead of a number.
@@ -303,10 +303,14 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
           year_1_pct: g.year_1_pct ?? null,
         });
       }
-      const name = String(g.product_name ?? "").trim().toLowerCase();
+      const name = String(g.product_name ?? "").trim();
       if (!name) continue;
-      if (!gridProducts.has(k)) gridProducts.set(k, new Set());
-      gridProducts.get(k)!.add(name);
+      // Keyed on the lowercased name so case variants are one product, valued
+      // with the carrier's own casing so the screen shows "FE Express" rather
+      // than "fe express".
+      if (!gridProducts.has(k)) gridProducts.set(k, new Map());
+      const bucket = gridProducts.get(k)!;
+      if (!bucket.has(name.toLowerCase())) bucket.set(name.toLowerCase(), name);
     }
 
     // Which active positions resolve on this carrier only through their own
@@ -378,6 +382,13 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
           hand_entered_level_count: activeLevels.length,
           grid_row_count: gridCount.get(String(c.carrier_id)) ?? 0,
           product_count: gridProducts.get(String(c.carrier_id))?.size ?? 0,
+          // The grid's own product names. The carrier dialog shows these
+          // instead of asking an owner to retype the same list into
+          // `product_types`, which for a gridded carrier is a field that
+          // changes nothing — Post a Deal reads the grid and only falls back
+          // to `product_types` when there is no grid at all.
+          grid_products: [...(gridProducts.get(String(c.carrier_id))?.values() ?? [])]
+            .sort((a, b) => a.localeCompare(b)),
           state,
         };
       }),

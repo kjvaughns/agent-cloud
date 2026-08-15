@@ -30,7 +30,6 @@
 /** The lifecycle, in the order an owner walks it. */
 export const CARRIER_STATUSES = [
   "draft",
-  "needs_levels",
   "needs_grid_review",
   "needs_advance",
   "needs_contracting_method",
@@ -44,7 +43,6 @@ export type CarrierStatus = (typeof CARRIER_STATUSES)[number];
 
 export const STATUS_LABEL: Record<CarrierStatus, string> = {
   draft: "Draft",
-  needs_levels: "Needs levels",
   needs_grid_review: "Needs grid review",
   needs_advance: "Needs advance",
   needs_contracting_method: "Needs contracting method",
@@ -103,9 +101,9 @@ export type CarrierState = {
 /**
  * A carrier that has never been configured at all.
  *
- * Distinguished from `needs_levels` because "you have not started" and "you
- * started and stopped" want different words, and an owner scanning a list
- * needs to tell a placeholder from a job half done.
+ * Kept distinct from the named blocking steps because "you have not started"
+ * and "you started and stopped" want different words, and an owner scanning a
+ * list needs to tell a placeholder from a job half done.
  */
 function isUntouched(f: CarrierFacts): boolean {
   return (
@@ -123,15 +121,21 @@ function isUntouched(f: CarrierFacts): boolean {
  * carrier level is being sent to a screen with nothing on it.
  */
 function firstBlocker(f: CarrierFacts): { status: CarrierStatus; problem: string } | null {
-  if (f.levelCount === 0) {
-    return {
-      status: "needs_levels",
-      problem:
-        `${f.carrierName} has no contract levels yet. Add the levels this carrier ` +
-        `offers, or upload its comp grid — either names them, and they are what ` +
-        `an agency position gets mapped to.`,
-    };
-  }
+  // Carrier levels are NOT a blocker, and used to be the first one.
+  //
+  // This module's own header says a carrier may go live so long as every active
+  // position can resolve something, through a carrier level or through the
+  // position's own percentage — and then the first thing it did was refuse to
+  // activate a carrier with no levels, while the resolver was perfectly happy
+  // paying everybody their position percentage. So an owner was told a carrier
+  // "needs levels" when nothing was broken, no screen said what would change if
+  // they added them, and there was no way past it.
+  //
+  // What levels actually buy is product and age specific rates. That is a
+  // trade-off, not a fault, and `usesFallback` already exists to state it in the
+  // one place a trade-off belongs. A missing level that genuinely stops somebody
+  // being paid is a different thing, and `configuration` already catches it —
+  // reported in the resolver's own words rather than as a step name.
   if (f.unreviewedGridRowCount > 0) {
     return {
       status: "needs_grid_review",
@@ -168,15 +172,28 @@ function firstBlocker(f: CarrierFacts): { status: CarrierStatus; problem: string
  * answering a question they did not ask.
  */
 export function carrierState(f: CarrierFacts): CarrierState {
-  const usesFallback = f.positionsOnFallback.length > 0;
+  // A carrier with no levels at all is on the fallback for everybody, whether
+  // or not any position happens to have a mapping row — there is nothing to map
+  // to. Folding it in here rather than leaving it as a blocker is the whole
+  // point: it is a trade-off the owner should see, stated once, on a carrier
+  // that works.
+  const noLevels = f.levelCount === 0;
+  const usesFallback = noLevels || f.positionsOnFallback.length > 0;
 
-  const fallbackNote = usesFallback
-    ? [
-        `Compensation for ${f.positionsOnFallback.join(", ")} falls back to the ` +
-          `position percentage on this carrier. Product and age specific rates will ` +
-          `not apply until a carrier level is mapped.`,
-      ]
-    : [];
+  const fallbackNote = !usesFallback
+    ? []
+    : noLevels
+      ? [
+          `No contract levels are recorded for ${f.carrierName}, so every position ` +
+            `pays its own percentage here. Add the levels this carrier offers, or ` +
+            `upload its comp grid — either names them — to pay product and age ` +
+            `specific rates instead.`,
+        ]
+      : [
+          `Compensation for ${f.positionsOnFallback.join(", ")} falls back to the ` +
+            `position percentage on this carrier. Product and age specific rates will ` +
+            `not apply until a carrier level is mapped.`,
+        ];
 
   if (f.archived) {
     return {
