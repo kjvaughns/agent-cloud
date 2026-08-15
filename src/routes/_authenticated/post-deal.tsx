@@ -107,6 +107,9 @@ function PostDealPage() {
       product: "",
       policy_number: "",
       effective_date: "",
+      // Defaults to today, so the common case — a deal written today — needs no
+      // thought and behaves exactly as it always has.
+      sale_date: todaySaleDate(),
       face_amount: "",
       monthly_premium: "",
       status: "issued_not_paid",
