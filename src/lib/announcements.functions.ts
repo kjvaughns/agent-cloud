@@ -404,6 +404,76 @@ export const dispatchDueAnnouncements = createServerFn({ method: "POST" })
   });
 
 /**
+ * The same sweep, for every agency, with nobody logged in.
+ *
+ * Scheduled announcements appear in the feed on time without this, because
+ * visibility is derived by the RLS policy. Email and Discord are the part that
+ * has to reach out, and until now that only happened when an owner opened the
+ * page — a message scheduled for 8am on a day nobody logged in early went out
+ * late, or not at all.
+ *
+ * Called by pg_cron through /api/public/hooks/dispatch-announcements. There is
+ * no session, so this iterates organizations explicitly and reads with the
+ * admin client, exactly as the automations sweep does.
+ *
+ * Deliberately the same `deliver()` and the same `dueForDispatch()` the owner
+ * path uses — a second copy of the fan-out would drift, and the two would
+ * disagree about who got what. Nothing new tracks whether a post has been
+ * sent: `announcement_deliveries` already records every attempt per
+ * announcement and channel, and the email sender keeps an event-level
+ * idempotency key, so running this every five minutes sends nothing twice.
+ */
+export async function dispatchAllDueAnnouncements(): Promise<{
+  dispatched: number;
+  organizations: number;
+}> {
+  const { data: scheduled, error } = await supabaseAdmin
+    .from("announcements")
+    .select("*")
+    .eq("status", "scheduled")
+    .limit(500);
+  // Before the lifecycle migration there is no `status` column, so nothing is
+  // scheduled and there is nothing to dispatch.
+  if (error) return { dispatched: 0, organizations: 0 };
+
+  const rows = (scheduled ?? []) as any[];
+  if (!rows.length) return { dispatched: 0, organizations: 0 };
+
+  const { data: already } = await supabaseAdmin
+    .from("announcement_deliveries")
+    .select("announcement_id")
+    .in("announcement_id", rows.map((r) => r.id));
+  const delivered = new Set<string>((already ?? []).map((d: any) => String(d.announcement_id)));
+
+  const due = dueForDispatch(rows as any[], delivered);
+  if (!due.length) return { dispatched: 0, organizations: 0 };
+
+  const orgIds = Array.from(new Set(due.map((r: any) => r.organization_id).filter(Boolean)));
+  const { data: orgs } = await supabaseAdmin
+    .from("organizations").select("id, name").in("id", orgIds);
+  const names = new Map<string, string>((orgs ?? []).map((o: any) => [o.id, o.name]));
+
+  for (const row of due) {
+    await deliver({
+      announcementId: (row as any).id,
+      orgId: (row as any).organization_id,
+      title: (row as any).title,
+      bodyHtml: (row as any).body_html ?? "",
+      fromName: names.get((row as any).organization_id) ?? "Your agency",
+      // A scheduled post is owed every channel the agency has configured. The
+      // fan-out itself is what decides nothing gets sent: email honours both
+      // consent layers, and Discord has nothing to post to unless a channel
+      // is set up with announcements enabled.
+      channels: normalizeChannels(["in_app", "email", "discord"]),
+    }).catch((e: any) => console.error("[announcements] cron dispatch failed:", e?.message));
+  }
+
+  return { dispatched: due.length, organizations: orgIds.length };
+}
+
+
+
+/**
  * One row per agency the announcement went to.
  *
  * Reuses `contracting_audit_log`, which is the only audit table this schema

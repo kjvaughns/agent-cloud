@@ -849,8 +849,13 @@ export type Database = {
           body_html: string | null
           created_at: string
           created_by: string | null
+          expires_at: string | null
           id: string
           organization_id: string | null
+          publish_at: string | null
+          status: string
+          target_roles: string[]
+          target_upline_id: string | null
           title: string
         }
         Insert: {
@@ -859,8 +864,13 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string | null
+          publish_at?: string | null
+          status?: string
+          target_roles?: string[]
+          target_upline_id?: string | null
           title: string
         }
         Update: {
@@ -869,8 +879,13 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          expires_at?: string | null
           id?: string
           organization_id?: string | null
+          publish_at?: string | null
+          status?: string
+          target_roles?: string[]
+          target_upline_id?: string | null
           title?: string
         }
         Relationships: [
@@ -886,6 +901,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcements_target_upline_id_fkey"
+            columns: ["target_upline_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6519,6 +6541,7 @@ export type Database = {
           posted_at: string
           premium_mode: string | null
           product: string | null
+          production_date: string
           status: Database["public"]["Enums"]["policy_status"]
           sync_source: string | null
         }
@@ -6541,6 +6564,7 @@ export type Database = {
           posted_at?: string
           premium_mode?: string | null
           product?: string | null
+          production_date: string
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -6563,6 +6587,7 @@ export type Database = {
           posted_at?: string
           premium_mode?: string | null
           product?: string | null
+          production_date?: string
           status?: Database["public"]["Enums"]["policy_status"]
           sync_source?: string | null
         }
@@ -9730,6 +9755,10 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
+      policy_counts_as_production: {
+        Args: { _status: string }
+        Returns: boolean
+      }
       prune_rate_limits: { Args: never; Returns: undefined }
       prune_usage_events: { Args: never; Returns: number }
       read_email_batch: {
