@@ -370,6 +370,29 @@ export const listMyContracts = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * The four facts a contracting request is filled from.
+ *
+ * The request dialog asked for a carrier and nothing else, so an agent with a
+ * blank NPN raised a request that could not be submitted and only found out
+ * when staff asked them for it. Reading the profile here lets the dialog show
+ * what will be sent and let them fix it first.
+ */
+export const getMyContactFacts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as Ctx;
+    const { data: p } = await supabase
+      .from("profiles").select("first_name, last_name, email, phone, npn_number")
+      .eq("id", userId).maybeSingle();
+    return {
+      full_name: `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim(),
+      email: p?.email ?? "",
+      phone: p?.phone ?? "",
+      npn: p?.npn_number ?? "",
+    };
+  });
+
 export const createContractRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   // ── What the agent confirms as they ask ────────────────────────────────
@@ -461,7 +484,7 @@ export const createContractRequest = createServerFn({ method: "POST" })
     }
     if (data.email?.trim()) profilePatch.email = data.email.trim();
     if (data.phone?.trim()) profilePatch.phone = data.phone.trim();
-    if (data.npn?.trim()) profilePatch.npn = data.npn.trim();
+    if (data.npn?.trim()) profilePatch.npn_number = data.npn.trim();
     if (Object.keys(profilePatch).length) {
       // Through the user's own client, so RLS is still the boundary.
       const { error: pErr } = await supabase.from("profiles").update(profilePatch).eq("id", userId);
