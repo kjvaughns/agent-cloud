@@ -1024,6 +1024,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         product: form.product,
         policy_number: form.policy_number,
         effective_date: form.effective_date,
+        sale_date: form.sale_date,
         face_amount: form.face_amount ? Number(form.face_amount) : 0,
         monthly_premium: form.monthly_premium ? Number(form.monthly_premium) : 0,
         status: "issued_not_paid" as const,
