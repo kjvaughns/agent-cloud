@@ -4198,6 +4198,7 @@ export type Database = {
           attempt: number
           created_at: string
           error: string | null
+          event_key: string | null
           event_type: string
           http_status: number | null
           id: string
@@ -4211,6 +4212,7 @@ export type Database = {
           attempt?: number
           created_at?: string
           error?: string | null
+          event_key?: string | null
           event_type: string
           http_status?: number | null
           id?: string
@@ -4224,6 +4226,7 @@ export type Database = {
           attempt?: number
           created_at?: string
           error?: string | null
+          event_key?: string | null
           event_type?: string
           http_status?: number | null
           id?: string
@@ -4263,6 +4266,7 @@ export type Database = {
           consecutive_failures: number
           created_at: string
           created_by: string | null
+          description: string | null
           enabled: boolean
           id: string
           last_error: string | null
@@ -4284,6 +4288,7 @@ export type Database = {
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null
+          description?: string | null
           enabled?: boolean
           id?: string
           last_error?: string | null
@@ -4305,6 +4310,7 @@ export type Database = {
           consecutive_failures?: number
           created_at?: string
           created_by?: string | null
+          description?: string | null
           enabled?: boolean
           id?: string
           last_error?: string | null
