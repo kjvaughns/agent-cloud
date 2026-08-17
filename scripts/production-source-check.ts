@@ -479,5 +479,36 @@ check("…but the activity feed keeps its posted timestamp",
 check("nothing structural changes",
   /alter table|create table|drop /i.test(ANALYTICS), false);
 
+// ── A failed read is not zero production ────────────────────────────────────
+//
+// `selectProduction` swallowed every error that was not a missing column and
+// returned `[]`, with a comment calling that honest because nothing had been
+// read. It is not honest, because nothing renders it that way: the leaderboard
+// draws "$0 ALP · 0 policies written" and the dashboard draws zeros, and both
+// are statements about the agency's business rather than about the query.
+//
+// So a broken read and a genuinely quiet month were the same picture, and the
+// error object was discarded so the logs were empty too — leaving nothing to
+// look at when somebody says "it still shows 0".
+
+console.log("");
+
+const SRC = readFileSync(join(process.cwd(), "src/lib/production/source.server.ts"), "utf8");
+
+check("a real read failure throws rather than reading as zero",
+  /throw new Error\(\s*`Could not read production:/.test(SRC), true);
+check("…and is logged with its code, so there is something to look at",
+  /console\.error\("\[production\] read failed"/.test(SRC), true);
+// The one case that legitimately falls back is a column that is not there yet.
+check("a missing column still falls back to posted_at",
+  /console\.warn\("\[production\] production_date is missing/.test(SRC) &&
+  /const second = await build\("posted_at"\)/.test(SRC), true);
+check("…and the fallback failing is not silent either",
+  /\[production\] fallback read failed/.test(SRC), true);
+// The empty return is gone. A caller receiving [] now means the query ran and
+// matched nothing, which is the only thing it should ever have meant.
+check("no path returns an empty array to mean failure",
+  /^\s*return \[\];\s*$/m.test(SRC), false);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
