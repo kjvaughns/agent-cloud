@@ -97,7 +97,19 @@ const STAGE_OF: Record<string, RequestStage> = {
   additional_info_requested: "carrier_review",
 
   approved: "approved",
+  // Two staff states, one agent fact: appointed. `writing_number_issued` is
+  // the older of the two and `active` the one the picker now offers; both mean
+  // the agent can write business, so both land on the same stage rather than
+  // one of them falling through `fromStatus` to "Requested" — which is what an
+  // unmapped status silently reads as, and is the worst possible answer here.
+  // It would tell an appointed agent their contract had not been sent.
+  active: "active",
   writing_number_issued: "active",
+  // The agent has been invited and the invitation is the thing waiting on
+  // them. It has its own stage rather than folding into agent_action_needed
+  // because the action is different — open an email, not fix a submission —
+  // and `needsAgent` already counts it.
+  invite_sent: "invite_sent",
   declined: "declined",
   cancelled: "closed",
   closed: "closed",

@@ -113,18 +113,34 @@ check("…and nothing else does",
 check("the refusal says where the agent will read it",
   /My Contracts/.test(noteRefusal()), true);
 
-// ── The one that is deliberately unreachable ────────────────────────────────
+// ── The one that used to be unreachable ─────────────────────────────────────
 //
-// Nothing in the schema records that an invitation went out. `assigned` means
-// staff picked the request up, which is not the same thing and would tell an
-// agent to check an inbox nobody had sent to.
+// This stage was written ahead of its status: nothing in the schema recorded
+// that an invitation had gone out, so the stage existed and no status reached
+// it. `invite_sent` is a primary status now, and the mapping closed. The
+// assertion moves with it — pinning "nothing maps here" described a gap, not a
+// rule, and kept failing once the gap was filled.
 
-check("no status maps to invite sent yet",
-  mappedStatuses().filter((s) => fromStatus(s) === "invite_sent"), []);
-// It stays in the vocabulary so the UI and the eventual column agree on the
-// name when it is recorded.
-check("…but the stage exists for when it is recorded",
-  REQUEST_STAGES.includes("invite_sent"), true);
+check("an invitation reaches the agent as its own stage",
+  fromStatus("invite_sent"), "invite_sent");
+check("…and is something the agent has to act on",
+  needsAgent("invite_sent"), true);
+// Distinct from agent_action_needed on purpose: open an email is not the same
+// instruction as fix a submission, and folding them would make the note the
+// other one requires apply to this one too.
+check("…without being folded into agent action needed",
+  fromStatus("awaiting_agent") === fromStatus("invite_sent"), false);
+
+// ── Appointed, from either status ───────────────────────────────────────────
+//
+// `active` joined `writing_number_issued` as the picker's word for appointed.
+// An unmapped status falls through `fromStatus` to "requested", so leaving it
+// out told an appointed agent their contract had not been sent yet — the worst
+// available answer, and silent.
+
+check("both appointed statuses reach the same stage",
+  [fromStatus("active"), fromStatus("writing_number_issued")], ["active", "active"]);
+check("…and it is finished", isFinished("active"), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

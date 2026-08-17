@@ -114,9 +114,17 @@ check("the feed walks up only through willing relationships",
 check("…depth-capped", /depth < 10/.test(DISCORD), true);
 check("an opted-out owner's own deal posts nowhere",
   /show_own_sales_in_feed/.test(DISCORD) && /os\.show_own_sales_in_feed === false\) return/.test(DISCORD), true);
+// The ledger insert moved into a helper taking `orgId`, so the literal this
+// used to match no longer appears anywhere. The requirement is unchanged and is
+// what gets asserted: a delivery row belongs to the org that owns the CHANNEL,
+// not the org that owns the policy. In an IMO rollup a child's deal posts to
+// the parent's channel, and filing that row under the child would hide it from
+// the only owner who can see the channel.
 check("ledger rows belong to the channel's org",
-  /organization_id: cfg\.organization_id/.test(DISCORD) &&
-  !/organization_id: policy\.organization_id,\s*\n\s*integration_id/.test(strip(DISCORD)), true);
+  /orgId: c\.organization_id, integrationId: c\.id/.test(DISCORD) &&
+  (DISCORD.match(/orgId: cfg\.organization_id/g) ?? []).length >= 3, true);
+check("…and never to the policy's",
+  /orgId: policy\.organization_id/.test(DISCORD), false);
 
 const ORG_SETTINGS = read("src/lib/org-settings.functions.ts");
 check("the visibility toggles save through org settings",

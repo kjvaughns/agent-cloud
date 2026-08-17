@@ -5,6 +5,7 @@ import {
   ArrowLeft, Check, Copy, ExternalLink, Lock, Mail, Printer, Send, Table2, UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { advanceOptionsUpTo } from "@/lib/carriers/wizard";
 import { Panel } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +21,7 @@ import { generateEmail, generateSpreadsheetRow, listTemplates } from "@/lib/cont
 import { bulkAssignRequests } from "@/lib/contracting-workflow.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
 import {
-  ADVANCE_OPTIONS, ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
+  ADVANCE_OPTION_LABELS, COMP_SOURCE_LABELS, type CompSource,
   isAgentActionStatus, requestStatusLabel,
   CONTRACT_TYPE_LABELS, METHOD_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   type ContractType, type ContractingMethod, type RequestStatus,
@@ -121,8 +122,17 @@ function InviteAndNotePanel({
   const [agentNote, setAgentNote] = useState("");
   const [internalNote, setInternalNote] = useState("");
 
+  // A section rather than a Panel of its own.
+  //
+  // Recording an invitation, leaving a note and moving the status are the same
+  // job — working the request — and they were three separate cards an operator
+  // scrolled between. Nesting this inside Actions puts every write on the
+  // request in one place; the reads stay in their own panels on the left.
   return (
-    <Panel title="Invitation & notes" className="ac-no-print">
+    <div className="border-t border-border-soft pt-3">
+      <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        Invitation &amp; notes
+      </h4>
       <label htmlFor="invite-ref" className="mb-1 block text-xs font-medium text-muted-foreground">
         Invitation reference
       </label>
@@ -190,7 +200,7 @@ function InviteAndNotePanel({
           Add note
         </Button>
       </div>
-    </Panel>
+    </div>
   );
 }
 
@@ -199,6 +209,7 @@ function DecisionPanel({
   compLevels,
   carrierLevels,
   granted,
+  maxAdvance,
   onRecord,
   busy,
 }: {
@@ -206,6 +217,8 @@ function DecisionPanel({
   compLevels: { id: string; level_name: string | null; commission_pct: number | null }[];
   carrierLevels: { id: string; name: string; pct: number | null }[];
   granted: any | null;
+  /** What Agency Settings says this carrier advances at most. */
+  maxAdvance: string | null;
   busy: boolean;
   onRecord: (vars: {
     status: "approved" | "active";
@@ -229,32 +242,50 @@ function DecisionPanel({
         ?? `name:${granted.commission_level}`)
     : "";
   const [choice, setChoice] = useState<string>(initial);
-  const [pct, setPct] = useState<string>(granted?.assigned_pct != null ? String(granted.assigned_pct) : "");
   const [number, setNumber] = useState<string>(granted?.writing_number ?? "");
   const [advance, setAdvance] = useState<string>(granted?.advance_option ?? "");
   const [effective, setEffective] = useState<string>("");
 
-  // Which of the three answers the number on screen came from. An agency
-  // settling a dispute has to be able to see whether a rate was granted to this
-  // agent, inherited from their position's carrier mapping, or is the
-  // position's own percentage standing in because no mapping exists.
-  const compSource: CompSource = choice
-    ? (choice.startsWith("name:") ? "position_carrier_mapping" : "agent_carrier_level")
-    : (pct.trim() ? "position_pct_fallback" : "none");
+  // The percentage is not asked for. It belongs to the level.
+  //
+  // There was a Percentage box beside the level dropdown, and the two could
+  // disagree — pick "RK1 (50)" and type 105 and the request records both, with
+  // nothing to say which one pays. The level already carries its own figure, so
+  // asking again was asking the same question twice and inviting a
+  // contradiction. It is read from the chosen level instead.
+  //
+  // A level whose grid rates vary by product resolves to null here, on purpose:
+  // the grid prices each product from the level NAME, and a flat number stored
+  // beside it would outrank the grid for every product except the one it came
+  // from. That is the same rule `mappingFor` follows on the settings side.
+  const isName = choice.startsWith("name:");
+  const chosenComp = !isName ? compLevels.find((l) => l.id === choice) : undefined;
+  const chosenGrid = isName
+    ? carrierLevels.find((o) => o.name === choice.slice(5))
+    : undefined;
+  const grantedPct: number | null =
+    chosenComp?.commission_pct ?? chosenGrid?.pct ?? null;
 
-  const payload = () => {
-    const isName = choice.startsWith("name:");
-    const compLevel = !isName ? compLevels.find((l) => l.id === choice) : undefined;
-    const parsed = pct.trim() === "" ? null : Number(pct);
-    return {
-      granted_comp_level_id: compLevel?.id ?? null,
-      granted_level_name: isName ? choice.slice(5) : (compLevel?.level_name ?? null),
-      granted_pct: parsed != null && Number.isFinite(parsed) ? parsed : null,
-      writing_number: number.trim() || null,
-      granted_advance_option: advance || null,
-      granted_effective_date: effective || null,
-    };
-  };
+  // Which of the answers the number on screen came from. An agency settling a
+  // dispute has to be able to see whether a rate was granted to this agent or
+  // inherited from their position's carrier mapping.
+  const compSource: CompSource = choice
+    ? (isName ? "position_carrier_mapping" : "agent_carrier_level")
+    : "none";
+
+  const payload = () => ({
+    granted_comp_level_id: chosenComp?.id ?? null,
+    granted_level_name: isName ? choice.slice(5) : (chosenComp?.level_name ?? null),
+    granted_pct: grantedPct,
+    writing_number: number.trim() || null,
+    granted_advance_option: advance || null,
+    granted_effective_date: effective || null,
+  });
+
+  // Only what this carrier actually advances. `advanceOptionsUpTo` is the same
+  // ordering the Add Carrier wizard and the resolver use, so three screens
+  // cannot disagree about whether nine months is allowed.
+  const advanceChoices = advanceOptionsUpTo(maxAdvance);
 
   return (
     <Panel title="Carrier decision" className="ac-no-print">
@@ -301,25 +332,26 @@ function DecisionPanel({
           {compLevels.length === 0 && gridOnly.length === 0 && (
             <p className="mt-1 text-[11px] text-text-dim">
               This carrier has no levels on file yet. Add them under Settings ▸ Carriers,
-              or type the percentage below.
+              or upload its comp grid — either names them, and a level is what a
+              contract is granted at.
             </p>
           )}
         </div>
 
+        {/* What the chosen level pays, read back rather than typed. A level
+            whose grid rates vary by product says so instead of showing one of
+            them as if it were the rate. */}
+        {choice && (
+          <p className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-[11px] text-muted-foreground">
+            {grantedPct != null ? (
+              <>Pays <span className="text-foreground tnum">{grantedPct}%</span> — from the level, not typed here.</>
+            ) : (
+              <>Rates vary by product on this level, so each deal prices from the comp grid.</>
+            )}
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label htmlFor="granted-pct" className="mb-1 block text-xs font-medium text-muted-foreground">
-              Percentage
-            </label>
-            <input
-              id="granted-pct"
-              inputMode="decimal"
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-              placeholder="e.g. 105"
-            />
-          </div>
           <div>
             <label htmlFor="granted-wn" className="mb-1 block text-xs font-medium text-muted-foreground">
               Writing number
@@ -332,25 +364,30 @@ function DecisionPanel({
               placeholder="e.g. 4471902"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Advance
             </label>
-            <Select value={advance} onValueChange={setAdvance} disabled={busy}>
+            <Select value={advance} onValueChange={setAdvance} disabled={busy || advanceChoices.length === 0}>
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Choose an advance…" />
+                <SelectValue placeholder={advanceChoices.length ? "Choose an advance…" : "None allowed yet"} />
               </SelectTrigger>
               <SelectContent>
-                {ADVANCE_OPTIONS.map((o) => (
+                {advanceChoices.map((o) => (
                   <SelectItem key={o} value={o} className="text-xs">
-                    {ADVANCE_OPTION_LABELS[o]}
+                    {ADVANCE_OPTION_LABELS[o as keyof typeof ADVANCE_OPTION_LABELS] ?? o}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {/* Only what the agency agreed with this carrier. Granting more is
+                not a setting somebody fixes later — it is money fronted that
+                the carrier will not fund, and it returns as a chargeback. */}
+            <p className="mt-1 text-[11px] text-text-dim">
+              {maxAdvance
+                ? `${ADVANCE_OPTION_LABELS[maxAdvance as keyof typeof ADVANCE_OPTION_LABELS] ?? maxAdvance} is the most this carrier advances.`
+                : "No maximum advance is set for this carrier yet — choose one under Settings ▸ Carriers."}
+            </p>
           </div>
           <div>
             <label htmlFor="granted-eff" className="mb-1 block text-xs font-medium text-muted-foreground">
@@ -630,11 +667,18 @@ function RequestDetailPage() {
               </span>
             }
           >
+            {/* The five that identify the person, then everything else.
+                A carrier form is filled from the top five; the rest are
+                qualifiers, and burying the NPN among them meant hunting for the
+                one field every submission needs. */}
             <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Full legal name" value={packet.agent.full_legal_name} />
               <Field label="NPN" value={packet.agent.npn} />
               <Field label="Email" value={packet.agent.email} />
               <Field label="Phone" value={packet.agent.phone} />
+              <Field label="Requested level" value={packet.request.requested_comp_level} />
+            </dl>
+            <dl className="mt-3 grid gap-3 border-t border-border-soft pt-3 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Resident state" value={packet.agent.resident_state} />
               <Field label="Resident license" value={packet.agent.resident_license_number} />
               {/* Date of birth appears only when a carrier requirement asks for
@@ -644,9 +688,17 @@ function RequestDetailPage() {
               )}
               <Field label="Requested states" value={packet.request.requested_states.join(", ") || null} />
               <Field label="Requested products" value={packet.request.product_lines.join(", ") || null} />
-              <Field label="Requested level" value={packet.request.requested_comp_level} />
               <Field label="Advance level" value={packet.request.requested_advance_level} />
               <Field label="Desired effective date" value={packet.request.desired_effective_date} />
+              {/* The whole point of the "I already have a writing number" path.
+                  It used to live only inside the request's note text, so the
+                  person verifying read a sentence and retyped the digits. */}
+              {packet.request.existing_writing_number && (
+                <Field
+                  label="Agent-reported writing number"
+                  value={`${packet.request.existing_writing_number} — unverified`}
+                />
+              )}
             </dl>
           </Panel>
 
@@ -872,18 +924,174 @@ function RequestDetailPage() {
               requested={packet.request.requested_comp_level ?? packet.request.requested_advance_level ?? null}
               compLevels={((data as any).comp_levels ?? []) as any[]}
               carrierLevels={((data as any).carrier_levels ?? []) as any[]}
+              maxAdvance={packet.carrier.max_advance_option ?? null}
               granted={(data as any).granted ?? null}
               busy={setStatus.isPending}
               onRecord={(vars) => setStatus.mutate(vars as any)}
             />
           )}
 
+          {/* Status first, on its own.
+              It was the last control inside Actions, below three buttons and an
+              assignment picker — so the thing an operator does most often on a
+              request was the thing they scrolled furthest to reach. */}
           {isStaff && (
-            <InviteAndNotePanel
-              busy={addNote.isPending || recordInvite.isPending}
-              onInvite={(vars) => recordInvite.mutate(vars)}
-              onNote={(vars) => addNote.mutate(vars)}
-            />
+            <Panel title="Status" className="ac-no-print">
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Currently <span className="text-foreground">{REQUEST_STATUS_META[data.request.status as RequestStatus]?.label ?? data.request.status}</span>.
+              </p>
+              <Select
+                value=""
+                onValueChange={(v) => compose(v as RequestStatus)}
+                disabled={setStatus.isPending}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Move to…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PICKABLE_STATUSES.map((st) => (
+                    <SelectItem key={st} value={st} className="text-xs">
+                      {REQUEST_STATUS_META[st].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                Ready to submit and Submitted are gated on readiness; carrier decisions
+                need contracting rights. Activating a contract happens in Carrier
+                decision, because it needs a level, an advance and a writing number
+                together.
+              </p>
+{composing && (
+                <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-2 p-2">
+                  <p className="text-xs font-medium text-foreground">
+                    {REQUEST_STATUS_META[composing.status].label}
+                  </p>
+
+                  {composing.status === "declined" && (
+                    <div>
+                      <label htmlFor="decline-reason" className="mb-1 block text-xs font-medium">
+                        Why the carrier declined
+                      </label>
+                      <textarea
+                        id="decline-reason"
+                        autoFocus
+                        rows={2}
+                        value={composing.reason}
+                        onChange={(e) =>
+                          setComposing({ ...composing, reason: e.target.value })
+                        }
+                        className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                        placeholder="e.g. Open debt with a prior carrier"
+                      />
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Required. A decline with no reason gives the agent nothing to act on
+                        and nothing to appeal.
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label htmlFor="agent-msg" className="mb-1 block text-xs font-medium">
+                      What the agent sees
+                      {isAgentActionStatus(composing.status) && (
+                        <span className="ml-1 text-danger">required</span>
+                      )}
+                    </label>
+                    <textarea
+                      id="agent-msg"
+                      rows={2}
+                      value={composing.message}
+                      onChange={(e) => setComposing({ ...composing, message: e.target.value })}
+                      className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                      placeholder={
+                        isAgentActionStatus(composing.status)
+                          ? "e.g. Upload your current resident licence — the carrier rejected the expired one"
+                          : "Optional — shown on their Contracts page"
+                      }
+                    />
+                    {isAgentActionStatus(composing.status) && (
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                        Required. "Agent action needed" puts this on the agent's desk, so it
+                        has to say exactly what they must do.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="next-action" className="mb-1 block text-xs font-medium">
+                      What happens next
+                    </label>
+                    <input
+                      id="next-action"
+                      value={composing.nextAction}
+                      onChange={(e) =>
+                        setComposing({ ...composing, nextAction: e.target.value })
+                      }
+                      className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                      placeholder="Optional — e.g. Upload a current licence"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="internal-note" className="mb-1 block text-xs font-medium">
+                      Internal note
+                    </label>
+                    <textarea
+                      id="internal-note"
+                      rows={2}
+                      value={composing.internal}
+                      onChange={(e) => setComposing({ ...composing, internal: e.target.value })}
+                      className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
+                      placeholder="Optional — staff only, never shown to the agent"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={
+                        setStatus.isPending ||
+                        (composing.status === "declined" && !composing.reason.trim()) ||
+                        (isAgentActionStatus(composing.status) && !composing.message.trim())
+                      }
+                      onClick={() => {
+                        setStatus.mutate({
+                          status: composing.status,
+                          // Empty strings are omitted rather than sent, so
+                          // a blank field does not overwrite anything or
+                          // create a history row that says nothing.
+                          ...(composing.message.trim()
+                            ? { agent_visible_message: composing.message.trim() }
+                            : {}),
+                          ...(composing.internal.trim()
+                            ? { internal_message: composing.internal.trim() }
+                            : {}),
+                          ...(composing.nextAction.trim()
+                            ? { next_action: composing.nextAction.trim() }
+                            : {}),
+                          ...(composing.reason.trim()
+                            ? { decline_reason: composing.reason.trim() }
+                            : {}),
+                        } as any);
+                        setComposing(null);
+                      }}
+                    >
+                      Save status
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      onClick={() => setComposing(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Panel>
           )}
 
           {isStaff && (
@@ -954,169 +1162,14 @@ function RequestDetailPage() {
                   </p>
                 </div>
 
-                <div className="pt-2">
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Set status
-                  </label>
-                  <Select
-                    value=""
-                    // Every move goes through the compose step, so a status
-                    // change can carry the explanation the server has always
-                    // been willing to store. Sending it bare is still one click
-                    // away — the fields are optional except a decline's reason
-                    // and an agent-action note.
-                    onValueChange={(v) => compose(v as RequestStatus)}
-                    disabled={setStatus.isPending}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Choose a status…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PICKABLE_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s} className="text-xs">
-                          {REQUEST_STATUS_META[s].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Ready to submit and Submitted are gated on readiness; the
-                    carrier decisions need contracting rights. Activating a
-                    contract happens in Carrier decision above, because it needs
-                    a level, an advance and a writing number together.
-                  </p>
-
-                  {composing && (
-                    <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-2 p-2">
-                      <p className="text-xs font-medium text-foreground">
-                        {REQUEST_STATUS_META[composing.status].label}
-                      </p>
-
-                      {composing.status === "declined" && (
-                        <div>
-                          <label htmlFor="decline-reason" className="mb-1 block text-xs font-medium">
-                            Why the carrier declined
-                          </label>
-                          <textarea
-                            id="decline-reason"
-                            autoFocus
-                            rows={2}
-                            value={composing.reason}
-                            onChange={(e) =>
-                              setComposing({ ...composing, reason: e.target.value })
-                            }
-                            className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                            placeholder="e.g. Open debt with a prior carrier"
-                          />
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            Required. A decline with no reason gives the agent nothing to act on
-                            and nothing to appeal.
-                          </p>
-                        </div>
-                      )}
-
-                      <div>
-                        <label htmlFor="agent-msg" className="mb-1 block text-xs font-medium">
-                          What the agent sees
-                          {isAgentActionStatus(composing.status) && (
-                            <span className="ml-1 text-danger">required</span>
-                          )}
-                        </label>
-                        <textarea
-                          id="agent-msg"
-                          rows={2}
-                          value={composing.message}
-                          onChange={(e) => setComposing({ ...composing, message: e.target.value })}
-                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                          placeholder={
-                            isAgentActionStatus(composing.status)
-                              ? "e.g. Upload your current resident licence — the carrier rejected the expired one"
-                              : "Optional — shown on their Contracts page"
-                          }
-                        />
-                        {isAgentActionStatus(composing.status) && (
-                          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                            Required. "Agent action needed" puts this on the agent's desk, so it
-                            has to say exactly what they must do.
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="next-action" className="mb-1 block text-xs font-medium">
-                          What happens next
-                        </label>
-                        <input
-                          id="next-action"
-                          value={composing.nextAction}
-                          onChange={(e) =>
-                            setComposing({ ...composing, nextAction: e.target.value })
-                          }
-                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                          placeholder="Optional — e.g. Upload a current licence"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="internal-note" className="mb-1 block text-xs font-medium">
-                          Internal note
-                        </label>
-                        <textarea
-                          id="internal-note"
-                          rows={2}
-                          value={composing.internal}
-                          onChange={(e) => setComposing({ ...composing, internal: e.target.value })}
-                          className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-xs"
-                          placeholder="Optional — staff only, never shown to the agent"
-                        />
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={
-                            setStatus.isPending ||
-                            (composing.status === "declined" && !composing.reason.trim()) ||
-                            (isAgentActionStatus(composing.status) && !composing.message.trim())
-                          }
-                          onClick={() => {
-                            setStatus.mutate({
-                              status: composing.status,
-                              // Empty strings are omitted rather than sent, so
-                              // a blank field does not overwrite anything or
-                              // create a history row that says nothing.
-                              ...(composing.message.trim()
-                                ? { agent_visible_message: composing.message.trim() }
-                                : {}),
-                              ...(composing.internal.trim()
-                                ? { internal_message: composing.internal.trim() }
-                                : {}),
-                              ...(composing.nextAction.trim()
-                                ? { next_action: composing.nextAction.trim() }
-                                : {}),
-                              ...(composing.reason.trim()
-                                ? { decline_reason: composing.reason.trim() }
-                                : {}),
-                            } as any);
-                            setComposing(null);
-                          }}
-                        >
-                          Save status
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          onClick={() => setComposing(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
+                {/* Recording an invitation and leaving a note are the same job
+                    as the rest of this panel — writing to the request — so they
+                    live here rather than in a card of their own. */}
+                <InviteAndNotePanel
+                  busy={addNote.isPending || recordInvite.isPending}
+                  onInvite={(vars) => recordInvite.mutate(vars)}
+                  onNote={(vars) => addNote.mutate(vars)}
+                />
               </div>
 
               {!ready && (

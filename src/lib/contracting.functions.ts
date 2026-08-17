@@ -199,6 +199,46 @@ export const addAgentCarrier = createServerFn({ method: "POST" })
       if (!created.length) {
         throw new Error("Could not record that contract. Nothing was saved — please try again.");
       }
+
+      // ── The number becomes a fact, not a sentence ─────────────────────────
+      //
+      // The number the agent typed went into `requestNote` and nowhere else, so
+      // the request carried it as prose: `existing_writing_number` on the
+      // packet was hard-coded null, the readiness rule keyed to it could never
+      // be satisfied, and the staff screen had no field to show. Whoever
+      // verified the contract read a sentence and retyped the digits out of it.
+      //
+      // `writing_numbers` is already the authoritative store, and it already
+      // has `source = 'self_reported'` with an RLS policy letting an agent
+      // write exactly this row. The mechanism existed and nothing used it.
+      //
+      // `status: "pending"` is the point of the whole path: the number is
+      // recorded and explicitly NOT trusted, so it shows on the request as
+      // something to check rather than as an appointment. Failure here is
+      // logged, not thrown — the request itself is already saved, and losing it
+      // because a supporting row would not write is the worse outcome.
+      if (data.writing_number && orgId) {
+        const { data: oc } = await supabaseAdmin
+          .from("org_carriers").select("id")
+          .eq("organization_id", orgId).eq("carrier_id", data.carrier_id).maybeSingle();
+        if (oc?.id) {
+          const { error: wnError } = await supabaseAdmin.from("writing_numbers").insert({
+            organization_id: orgId,
+            agent_id: userId,
+            org_carrier_id: oc.id,
+            request_id: created[0].requestId,
+            writing_number: data.writing_number,
+            source: "self_reported",
+            status: "pending",
+            created_by: userId,
+            notes: "Reported by the agent when adding the carrier. Not verified with the carrier.",
+          });
+          if (wnError) {
+            console.error("[contracting] could not record the agent-reported writing number:", wnError.message);
+          }
+        }
+      }
+
       return { ok: true, pendingVerification: true };
     }
 

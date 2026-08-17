@@ -209,8 +209,20 @@ check("the level list is the assignable one",
   /options\.assignableLevels\.map/.test(PAGE), true);
 check("…not every level in the agency",
   /agencyLevels\?\.rows/.test(PAGE), false);
-check("the expiry is chosen before the link is handed out",
-  /expires_in_days: Number\(expiresInDays\)/.test(PAGE), true);
+// Links no longer expire — they stay good until revoked or deleted, and
+// `expires_in_days` is accepted on the server for older clients and ignored.
+// That is a deliberate model change with a replacement, not a dropped control,
+// so the assertion follows the requirement: a link handed out must be able to
+// be taken back out of circulation. Revocation is what does that now.
+check("a link can be taken out of circulation",
+  /revoke/i.test(PAGE), true);
+// Still accepted on the schema so an older client posting it is not rejected,
+// and never turned into a stored expiry — which is what "links do not expire"
+// has to mean in the data, not just in a comment.
+check("…while the old parameter is still accepted from older clients",
+  /expires_in_days: z\.number\(\)/.test(ONB), true);
+check("…and never written as an expiry on the link",
+  /expires_at: .*expires_in_days|expires_at: addDays/.test(ONB), false);
 check("the row action says revoke", /Revoke "\{name\}"\?/.test(PAGE), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);

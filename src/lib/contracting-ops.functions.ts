@@ -1043,6 +1043,26 @@ async function gatherFacts(requestId: string, orgId: string): Promise<{
     ? await supabaseAdmin.from("profiles").select("id, first_name, last_name, npn_number").eq("id", org.owner_id).maybeSingle()
     : { data: null };
 
+  // Read before the facts are assembled, and tolerant of a table that is not
+  // there: this runs on every request open, and a missing row is "the agent did
+  // not claim one", which is the common case rather than an error.
+  let selfReportedNumber: string | null = null;
+  try {
+    const { data: wn } = await supabaseAdmin
+      .from("writing_numbers")
+      .select("writing_number")
+      .eq("agent_id", request.agent_id)
+      .eq("org_carrier_id", request.org_carrier_id)
+      .eq("source", "self_reported")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    selfReportedNumber = (wn as any)?.writing_number ?? null;
+  } catch {
+    selfReportedNumber = null;
+  }
+
   const legalName = [
     producerProfile?.legal_first_name ?? agentProfile?.first_name,
     producerProfile?.legal_middle_name,
@@ -1073,7 +1093,15 @@ async function gatherFacts(requestId: string, orgId: string): Promise<{
     upline_comp_level: null,
     agency_writing_number: hierarchyRow?.agency_writing_number ?? null,
     agency_owner_npn: hierarchyRow?.agency_owner_npn ?? ownerProfile?.npn_number ?? null,
-    existing_writing_number: null,
+    // What the agent said they already hold, when they said so.
+    //
+    // This was hard-coded null, which made the readiness rule keyed to it
+    // permanently unsatisfiable and left the staff screen with nothing to show
+    // — the number only ever existed inside the request's note text. It comes
+    // from `writing_numbers` now, the authoritative store, restricted to the
+    // self-reported and still-pending row: a number the carrier has confirmed
+    // is not an "existing" claim to check, it is the answer.
+    existing_writing_number: selfReportedNumber,
   };
 
   const ctx: RequestContext = {
@@ -1481,6 +1509,11 @@ export const getContractingRequest = createServerFn({ method: "GET" })
         support_phone: facts.carrier?.support_phone ?? null,
         turnaround_days: facts.carrier?.turnaround_days ?? null,
         instructions: method?.instructions ?? facts.carrier?.internal_instructions ?? null,
+        // What Agency Settings ▸ Carriers says this carrier advances at most.
+        // The decision screen filters its advance choices to this rather than
+        // offering all five and letting somebody grant more than the carrier
+        // funds.
+        max_advance_option: facts.carrier?.default_advance_option ?? null,
       },
       documents: facts.documents,
       readiness,

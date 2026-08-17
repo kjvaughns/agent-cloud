@@ -62,6 +62,16 @@ export type PacketCarrier = {
   support_phone: string | null;
   turnaround_days: number | null;
   instructions: string | null;
+  /**
+   * The furthest advance this agency has agreed with this carrier, or null when
+   * nobody has chosen one.
+   *
+   * Carried on the packet so the screen that grants an advance can offer only
+   * what the carrier allows. Granting twelve months on a carrier that advances
+   * nine is not a setting somebody can fix later — it is money fronted that the
+   * carrier will not fund, and it comes back as a chargeback.
+   */
+  max_advance_option: string | null;
 };
 
 export type PacketDocument = {

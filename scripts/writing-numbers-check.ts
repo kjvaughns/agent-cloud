@@ -211,5 +211,40 @@ for (const f of ["src/lib/contracting.functions.ts", "src/lib/admin.functions.ts
     calls.every((c) => /actorId:/.test(c.slice(0, 400))), true);
 }
 
+// ── "I already have a writing number" ───────────────────────────────────────
+//
+// One of the two ways an agent adds a carrier is to say they already hold the
+// contract and type the number. That number went into the request's note text
+// and nowhere else: `existing_writing_number` on the packet was hard-coded
+// null, the readiness rule keyed to it could never be satisfied, and whoever
+// verified the contract read a sentence and retyped the digits out of it.
+//
+// `writing_numbers` was already the authoritative store and already allowed
+// `source = 'self_reported'`, with an RLS policy written for exactly this row.
+// The mechanism existed and nothing used it.
+
+console.log("");
+
+const CONTRACTING = readFileSync(join(process.cwd(), "src/lib/contracting.functions.ts"), "utf8");
+check("an agent-reported number is recorded as a row",
+  /\.from\("writing_numbers"\)\.insert\(\{[\s\S]{0,400}source: "self_reported"/.test(CONTRACTING), true);
+// The point of the whole path: recorded AND explicitly not trusted.
+check("…as pending, not active",
+  /source: "self_reported",\s*\n\s*status: "pending"/.test(CONTRACTING), true);
+check("…tied to the request it came in on",
+  /request_id: created\[0\]\.requestId/.test(CONTRACTING), true);
+check("…and saying on the row that nobody has checked it",
+  /Not verified with the carrier/.test(CONTRACTING), true);
+// The request is already saved by this point. Losing it because a supporting
+// row would not write is the worse outcome of the two.
+check("a failure here does not lose the request",
+  /could not record the agent-reported writing number/.test(CONTRACTING), true);
+
+const OPS2 = readFileSync(join(process.cwd(), "src/lib/contracting-ops.functions.ts"), "utf8");
+check("the packet reads it back rather than hard-coding null",
+  /existing_writing_number: selfReportedNumber/.test(OPS2), true);
+check("…only the self-reported, still-unverified one",
+  /\.eq\("source", "self_reported"\)\s*\n\s*\.eq\("status", "pending"\)/.test(OPS2), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

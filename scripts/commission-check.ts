@@ -248,7 +248,19 @@ function check(label: string, ok: boolean, detail = "") {
     advance?.amount === 720,
     `got ${advance?.amount}, expected 720`,
   );
-  const asEarned = rows.filter((r) => r.payment_type === "as_earned");
+  // `deferred`, not `as_earned`.
+  //
+  // This asserted "as_earned", which `commission_schedule_payment_type_check`
+  // has never allowed — the constraint lists advance, deferred, trail, override
+  // and renewal. So every balance row the calculator built was rejected by the
+  // database, agents were advanced nine months and never paid the remaining
+  // three, and this check was green over it the whole time because it asserted
+  // the same wrong string the code wrote.
+  //
+  // The fix was in the calculator; the lesson is here. A test that shares the
+  // code's vocabulary cannot catch the code using the wrong word — this is the
+  // second time in this suite that a fixture agreeing with the bug hid it.
+  const asEarned = rows.filter((r) => r.payment_type === "deferred");
   check(
     "the balance pays as earned over the remaining three months",
     asEarned.length === 3 && asEarned[0].amount === 80,

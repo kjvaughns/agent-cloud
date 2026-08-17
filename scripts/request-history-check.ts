@@ -118,7 +118,13 @@ console.log("");
 
 // The staff screen prints the raw string. An agent should not have to.
 check("a status reads as words", statusLabel("awaiting_owner_approval"), "Waiting on owner approval");
-check("…including the one nobody would guess", statusLabel("nigo"), "Not in good order");
+// `nigo` used to read "Not in good order" here. It reads "Agent action
+// needed" now, folded in with the other four states that mean the same thing to
+// whoever is looking. The requirement was never that word — it was that the raw
+// enum value never reaches a screen — so that is what this asserts, and the
+// wording is free to improve without breaking a test.
+check("…including the one nobody would guess",
+  statusLabel("nigo") !== "nigo" && /\s/.test(statusLabel("nigo")), true);
 check("every status the database allows has a label",
   REQUEST_STATUSES.every((s) => statusLabel(s) !== s), true);
 // An unknown status shows itself rather than nothing, so drift is visible.
@@ -135,7 +141,12 @@ check("…and a terminal one is not", currentStanding("declined").open, false);
 // Standing comes from the request's own status, so a request predating the
 // history table still reports where it stands.
 check("standing does not depend on there being any history",
-  currentStanding("draft").label, "Draft");
+  // The label moved from "Draft" to "Requested" — the same state, named for
+  // what the agent did rather than for the row's initial value. What matters is
+  // that a request with no history still reports a standing, and that it is
+  // open rather than finished.
+  [currentStanding("draft").label !== "draft", currentStanding("draft").open],
+  [true, true]);
 
 // ── What reaches the agent ──────────────────────────────────────────────────
 
@@ -155,7 +166,11 @@ const entries = forAgent([
 
 check("the agent view is merged too", entries.length, 2);
 check("…labelled", entries[0].label, "Declined");
-check("…and says where it came from", entries[0].fromLabel, "Submitted to carrier");
+// "Submitted to carrier" shortened to "Submitted". The requirement is that a
+// transition names BOTH ends, so the agent can see what moved — pinning the
+// exact phrasing of one end tested the copy instead.
+check("…and says where it came from",
+  Boolean(entries[0].fromLabel) && entries[0].fromLabel !== entries[0].label, true);
 check("a next action reaches the agent", entries[0].nextAction, "Upload a current licence");
 // The server strips this too. Dropping it here as well means no caller can
 // render it by accident even if that strip is ever loosened.
@@ -246,12 +261,66 @@ check("blank fields are omitted rather than sent",
   (DETAIL.match(/\?\s*\{ (agent_visible_message|internal_message|next_action|decline_reason)/g) ?? []).length,
   4);
 
-// The writing-number path keeps its own form: it ends the request and records
-// a number against the agent, which is a different act from a status note.
-check("issuing a writing number still has its own step",
-  /if \(v === "writing_number_issued"\) setIssuingNumber\(""\)/.test(DETAIL), true);
-check("…and everything else composes first",
-  /else compose\(v as RequestStatus\)/.test(DETAIL), true);
+// The writing-number path kept its own step in the status picker. It has since
+// moved into Carrier decision, where the number is recorded beside the level and
+// the advance it is granted with — one act instead of two, and next to the facts
+// it belongs with.
+//
+// What must not change is that a contract cannot go active without one: the
+// number is how Finances knows which policies are this agent's, and an active
+// contract lacking it pays nobody. So the assertion follows the requirement to
+// where it now lives rather than pinning the old handler.
+check("a writing number is still captured",
+  /Writing number/.test(DETAIL), true);
+check("…and a contract cannot go active without one",
+  /disabled=\{busy \|\| !number\.trim\(\)/.test(DETAIL), true);
+
+// ── The screen an operator actually works ───────────────────────────────────
+
+console.log("");
+
+// The percentage was a second answer to a question the level already answers.
+// Pick "RK1 (50)" and type 105 and the request recorded both, with nothing to
+// say which one pays.
+check("the decision does not ask for a percentage as well as a level",
+  /id="granted-pct"/.test(DETAIL), false);
+check("…it reads it off the level chosen",
+  /const grantedPct: number \| null =\s*\n?\s*chosenComp\?\.commission_pct \?\? chosenGrid\?\.pct \?\? null;/.test(DETAIL), true);
+// A level whose grid rates vary by product has no single figure, and saying so
+// beats showing one of them as if it were the rate.
+check("…and says when a level has no single rate",
+  /Rates vary by product on this level/.test(DETAIL), true);
+
+// Granting more advance than the carrier funds is not a setting somebody fixes
+// later — it is money fronted that comes back as a chargeback.
+check("the advance offers only what the carrier allows",
+  /const advanceChoices = advanceOptionsUpTo\(maxAdvance\)/.test(DETAIL), true);
+check("…from the shared ordering, not a second list",
+  /from "@\/lib\/carriers\/wizard"/.test(DETAIL), true);
+check("…and never the full five",
+  /ADVANCE_OPTIONS\.map/.test(DETAIL), false);
+check("…saying what the cap is",
+  /is the most this carrier advances/.test(DETAIL), true);
+
+// Status was the last control inside Actions, below three buttons and an
+// assignment picker — the most frequent act on the page, furthest to reach.
+check("status has a panel of its own",
+  /<Panel title="Status" className="ac-no-print">/.test(DETAIL), true);
+check("…saying where the request stands right now",
+  /Currently <span className="text-foreground">/.test(DETAIL), true);
+// One place to write to the request, not three cards to scroll between.
+check("invitation and notes fold into Actions rather than a third card",
+  /<Panel title="Invitation & notes"/.test(DETAIL), false);
+check("…mounted inside it",
+  /<InviteAndNotePanel[\s\S]{0,200}onNote=\{\(vars\) => addNote\.mutate\(vars\)\}/.test(DETAIL), true);
+
+// The five that identify the person, ahead of the qualifiers. A carrier form is
+// filled from these, and the NPN was buried among nine other fields.
+check("agent information leads with what a submission needs",
+  /Full legal name[\s\S]{0,400}Requested level[\s\S]{0,200}<\/dl>/.test(DETAIL), true);
+// The whole point of the "I already have a writing number" path.
+check("an agent-reported writing number is shown as a fact",
+  /Agent-reported writing number/.test(DETAIL) && /unverified/.test(DETAIL), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
