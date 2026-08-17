@@ -7,6 +7,10 @@ import {
 } from "@/lib/team-roster";
 import { rollUpDownline, ZERO, type Tally } from "@/lib/team/production";
 import { inWindow, tallyByAgent } from "@/lib/production/source";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { recordAudit } from "@/lib/contracting-ops/audit";
+import { checkAssignment } from "@/lib/team/position-assignment";
+import type { Rung } from "@/lib/invitations/permissions";
 
 export type TeamAgent = {
   id: string;
@@ -594,33 +598,109 @@ export const setAgentPosition = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
 
-    const { data: me } = await supabase
-      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
-    const orgId = me?.organization_id;
-    if (!orgId) throw new Error("You are not in an agency.");
+    const admin = supabaseAdmin as any;
 
-    const { data: agent } = await supabase
-      .from("profiles").select("id, organization_id").eq("id", data.agentId).maybeSingle();
-    if (!agent || agent.organization_id !== orgId) {
-      throw new Error("That agent is not in your agency.");
+    // ── Membership from the table that holds it ────────────────────────────
+    //
+    // This compared `profiles.organization_id` on both sides. That column is a
+    // DENORMALISED copy, written by a trigger that only fires when a membership
+    // row lands with `status = 'active' AND is_primary`. The roster lists people
+    // from `organization_memberships`, the real thing — so the two disagreed and
+    // an owner was told an agent on their own roster "is not in your agency".
+    //
+    // Both sides read the memberships table now, so the screen and the guard
+    // cannot answer differently.
+    const { data: myMemberships } = await admin
+      .from("organization_memberships")
+      .select("organization_id, is_primary")
+      .eq("profile_id", userId).eq("status", "active");
+    const myOrgIds = ((myMemberships ?? []) as any[]).map((m) => m.organization_id);
+    if (!myOrgIds.length) throw new Error("You are not in an agency.");
+
+    const { data: theirs } = await admin
+      .from("organization_memberships")
+      .select("organization_id")
+      .eq("profile_id", data.agentId).eq("status", "active")
+      .in("organization_id", myOrgIds);
+    const orgId: string | undefined = (theirs ?? [])[0]?.organization_id;
+
+    // Who the caller is, and what they may hand out.
+    const [{ data: org }, { data: myProfile }, { data: perms }] = await Promise.all([
+      orgId
+        ? admin.from("organizations").select("id, owner_id").eq("id", orgId).maybeSingle()
+        : Promise.resolve({ data: null }),
+      admin.from("profiles").select("agency_level_id, is_platform_admin").eq("id", userId).maybeSingle(),
+      orgId
+        ? admin.from("role_permissions").select("admin_manage_levels")
+            .eq("organization_id", orgId).eq("profile_id", userId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    const { data: rungRows } = orgId
+      ? await admin.from("agency_levels")
+          .select("id, name, base_pct, active, can_invite, sort_order")
+          .eq("organization_id", orgId)
+      : { data: [] };
+    const agencyRungs = ((rungRows ?? []) as any[]) as Rung[];
+
+    // Anywhere above them, not just directly above: an owner three rungs up is
+    // still their upline, and a hierarchy that only lets the direct upline act
+    // leaves everybody above them unable to do anything.
+    let isMyDownline = false;
+    if (orgId && data.agentId !== userId) {
+      const { data: inDownline } = await admin.rpc("is_in_downline", {
+        _upline: userId, _target: data.agentId,
+      });
+      isMyDownline = Boolean(inDownline);
     }
 
-    if (data.agencyLevelId) {
-      const { data: level } = await (supabase as any)
-        .from("agency_levels").select("id")
-        .eq("id", data.agencyLevelId).eq("organization_id", orgId).maybeSingle();
-      if (!level) throw new Error("That position is not one of your agency's.");
-    }
+    const verdict = checkAssignment({
+      actor: {
+        isOwner: Boolean(org?.owner_id === userId),
+        isPlatformAdmin: Boolean((myProfile as any)?.is_platform_admin),
+        canManageLevels: Boolean((perms as any)?.admin_manage_levels),
+        ownRung: agencyRungs.find((r) => r.id === (myProfile as any)?.agency_level_id) ?? null,
+      },
+      target: { inAgency: Boolean(orgId), isMyDownline },
+      rung: data.agencyLevelId
+        ? (agencyRungs.find((r) => r.id === data.agencyLevelId) ?? ({ id: data.agencyLevelId } as Rung))
+        : null,
+      agencyRungs,
+    });
+    if (!verdict.ok) throw new Error(verdict.messages.join(" "));
 
-    const { data: touched, error } = await supabase
+    // ── The write, after the check ─────────────────────────────────────────
+    //
+    // `profiles_org_manage` grants updates on `is_org_owner(organization_id)`
+    // and nothing else, so an upline placing their own downline was refused by
+    // the policy however the product felt about it — and an agent whose
+    // denormalised `organization_id` was null was unplaceable even by the owner,
+    // because the policy's own `organization_id IS NOT NULL` arm failed.
+    //
+    // So the write crosses the policy deliberately, behind the explicit check
+    // above. That is the same pattern the contracting modules already use, and
+    // the row count is still asserted: a zero-row update must not report success.
+    const { data: touched, error } = await admin
       .from("profiles")
       .update({ agency_level_id: data.agencyLevelId })
       .eq("id", data.agentId)
       .select("id");
     if (error) throw new Error(error.message);
     if (!touched?.length) {
-      throw new Error("Only the agency owner can change an agent's position.");
+      throw new Error("That position was not saved — nothing was written. Reload and try again.");
     }
+
+    // A position is what somebody is paid from, so the change leaves a trail.
+    await recordAudit({
+      organizationId: orgId!,
+      actorId: userId,
+      action: "comp.changed",
+      recordType: "profiles",
+      recordId: data.agentId,
+      subjectAgentId: data.agentId,
+      next: { agency_level_id: data.agencyLevelId },
+    });
+
     return { ok: true as const };
   });
 
