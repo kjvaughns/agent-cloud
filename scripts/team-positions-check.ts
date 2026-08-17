@@ -115,14 +115,24 @@ check("the invite screen still sends what it requires",
   /needsAgencyLevel/.test(INVITE_UI), true);
 
 const TEAM_FNS = read("src/lib/team.functions.ts");
+// Both ends are still checked; the decision and its wording moved into
+// `checkAssignment` so the rung ceiling could be the same one invitations
+// enforce. Asserting the sentences here pinned them to this file and would fail
+// on any rewording — the requirement is that the server asks the module and
+// refuses with everything wrong at once.
 check("assignment checks both ends against the caller's org",
-  /That agent is not in your agency/.test(TEAM_FNS) &&
-  /That position is not one of your agency's/.test(TEAM_FNS), true);
-// profiles RLS grants updates on the org-OWNER branch only, narrower than the
-// is_org_admin that may edit the catalog — so a refusal is a real outcome and
-// must not read as success.
-check("…and asserts its row count rather than trusting RLS",
-  /\.select\("id"\);[\s\S]{0,200}Only the agency owner can change an agent's position/.test(TEAM_FNS), true);
+  /const verdict = checkAssignment\(\{/.test(TEAM_FNS) &&
+  /if \(!verdict\.ok\) throw new Error\(verdict\.messages\.join\(" "\)\)/.test(TEAM_FNS), true);
+// The membership side of "both ends" now reads the table that holds membership
+// rather than the denormalised copy, which is what made an owner unable to
+// place an agent on their own roster.
+check("…with membership read from organization_memberships, not the copy",
+  /\.from\("organization_memberships"\)/.test(TEAM_FNS) &&
+  !/agent\.organization_id !== orgId/.test(TEAM_FNS), true);
+// The write crosses RLS deliberately, behind that check, and a zero-row update
+// must still not read as success.
+check("…and asserts its row count rather than trusting the write",
+  /\.select\("id"\);[\s\S]{0,200}That position was not saved/.test(TEAM_FNS), true);
 check("clearing a position is allowed", /agencyLevelId: z\.string\(\)\.uuid\(\)\.nullable\(\)/.test(TEAM_FNS), true);
 check("the roster carries the position per agent",
   /position_name: level\?\.name \?\? null/.test(TEAM_FNS) &&
