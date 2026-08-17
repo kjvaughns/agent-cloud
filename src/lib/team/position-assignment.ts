@@ -7,13 +7,15 @@
  * to sit under somebody else, and was told **"That agent is not in your
  * agency."** He was. Three separate things conspired:
  *
- *  1. The guard compared `profiles.organization_id` — a DENORMALISED copy of
- *     membership, maintained by a trigger that only fires when a membership row
- *     is written with `status = 'active' AND is_primary`. The roster lists
- *     people from `organization_memberships`, which is the real thing. So the
- *     two disagreed, and the refusal message asserted something false: the
- *     agent was in the agency, the caller just could not prove it from the
- *     column being consulted.
+ *  1. The guard asked the wrong source. Four different things answer "is this
+ *     agent in my agency" — `get_team_downline` (walks `upline_id`, no org
+ *     filter), `is_in_downline` (same walk, filtered on org), the membership
+ *     table, and `profiles.organization_id` (a denormalised copy of it). The
+ *     ROSTER is built from the first. The guard used the last, was corrected to
+ *     use the third, and refused the same agent both times — he has no
+ *     membership row and a null copy while being perfectly reachable through
+ *     `upline_id`. The rule is now the screen: if the roster lists them, they
+ *     are placeable.
  *
  *  2. `profiles_org_manage` grants writes on `id = auth.uid() OR
  *     (organization_id IS NOT NULL AND is_org_owner(organization_id))`. When
@@ -46,7 +48,12 @@ export type AssignActor = {
 };
 
 export type AssignTarget = {
-  /** True when `organization_memberships` says so. Never the denormalised column. */
+  /**
+   * True when the roster would list them: in the caller's downline per
+   * `get_team_downline`, or sharing an agency by membership or by column.
+   * Deliberately a union — each source alone has already refused somebody the
+   * screen was showing.
+   */
   inAgency: boolean;
   /** True when the actor is anywhere above the target in the hierarchy. */
   isMyDownline: boolean;
@@ -95,8 +102,9 @@ export function checkAssignment(input: {
   const { actor, target, rung, agencyRungs } = input;
   const refusals: AssignRefusal[] = [];
 
-  // Membership is the one thing nothing overrides. Somebody outside the agency
-  // is not placeable by anybody in it, including a platform admin acting here.
+  // Reachability is the one thing nothing overrides. Somebody the caller's own
+  // roster would not list is not placeable by them, including a platform admin
+  // acting here — that is the tenancy boundary, not a convenience.
   if (!target.inAgency) {
     return finish(["not_in_agency"]);
   }
