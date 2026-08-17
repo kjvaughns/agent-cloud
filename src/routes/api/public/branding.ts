@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
 import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 /**
@@ -47,12 +47,23 @@ export const Route = createFileRoute("/api/public/branding")({
 
         if (!host) return json(EMPTY);
 
-        const { data } = await (supabaseAdmin as any)
-          .from("organizations")
-          .select("name, logo_url, accent_color, tagline, plan_type")
-          .eq("custom_domain", host)
-          .eq("plan_type", "white_label")
-          .maybeSingle();
+        // Branding is decoration: if the privileged client is unavailable (e.g.
+        // no service key in this environment) the page must still render with
+        // Agent Cloud defaults rather than returning a 500.
+        let data: any = null;
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const res = await (supabaseAdmin as any)
+            .from("organizations")
+            .select("name, logo_url, accent_color, tagline, plan_type")
+            .eq("custom_domain", host)
+            .eq("plan_type", "white_label")
+            .maybeSingle();
+          data = res.data;
+        } catch (error) {
+          console.error(error);
+          return json(EMPTY);
+        }
 
         if (!data) return json(EMPTY);
 
