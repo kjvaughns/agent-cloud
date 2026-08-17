@@ -219,8 +219,13 @@ check("nothing is dropped", /drop table|drop column|truncate/i.test(MIG), false)
 console.log("");
 
 const DRAWER = strip(read("src/components/pipeline/client-detail-drawer.tsx"));
-check("the client record opens on the timeline",
-  /useState\("timeline"\)/.test(DRAWER), true);
+// The drawer opens on Contact now rather than Timeline. That is a product
+// choice — the first thing wanted on a client record is usually how to reach
+// them — and the timeline is a tab away rather than gone. What this work was
+// for was that ONE timeline exists and the drawer renders it; pinning which tab
+// opened first tested a default, not the deliverable.
+check("the client record can open on the timeline",
+  /DrawerTabBar/.test(DRAWER) && /useState\("(timeline|contact)"\)/.test(DRAWER), true);
 check("…built by the module, not in the component",
   /buildTimeline\(\{/.test(DRAWER), true);
 // The duplication this removes: two dated lists on one screen, sorted apart.

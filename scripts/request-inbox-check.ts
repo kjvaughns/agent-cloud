@@ -60,8 +60,14 @@ const QUEUE = strip(read("src/routes/_authenticated/contracting-ops/queue.tsx"))
 
 check("the list selects the level being asked for",
   /requested_comp_level_id/.test(OPS), true);
+// The embed used to name `name`, which `carrier_comp_levels` does not have —
+// the column is `level_name`. Asserting the broken spelling made this test
+// guard the bug. It asserts the requirement now: the id is resolved to a name
+// in the query rather than left for the screen to look up per row.
 check("…and resolves it to a name",
-  /requested_level:requested_comp_level_id \( id, name \)/.test(OPS), true);
+  /requested_level:requested_comp_level_id \( id, level_name \)/.test(OPS), true);
+check("…and the row carries that name, not the id",
+  /requested_level_name: r\.requested_level\?\.level_name/.test(OPS), true);
 check("the list selects the upline", /direct_upline_id/.test(OPS), true);
 check("…and resolves it to a person",
   /upline:direct_upline_id \( id, first_name, last_name \)/.test(OPS), true);
