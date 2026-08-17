@@ -178,6 +178,47 @@ function LeaderboardPage() {
     </div>
   );
 
+  // ── Every hook, before any early return ───────────────────────────────────
+  //
+  // These three sat BELOW the solo-agent early return, which is a Rules of
+  // Hooks violation and a crash, not a style problem. `access` is a query: the
+  // first render has it undefined, so the early return does not fire and all
+  // the hooks run. The render where it resolves to `isSolo` returns early and
+  // runs three fewer — React throws "rendered fewer hooks than expected" and
+  // the page renders nothing at all. It fails on the client, so no server
+  // error is logged and the screen simply never loads.
+  //
+  // Solo agents never see the ranked board, so the observer they feed is
+  // unused on that path. Declaring them here costs one ref each and makes the
+  // hook order the same on every render, which is the only thing React asks.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const youRef = useRef<HTMLTableRowElement | null>(null);
+  const [youVisible, setYouVisible] = useState(true);
+
+  // Always present: rankBoard places the viewer even at zero, which is the
+  // whole point of a footer whose job is to say where you stand. Computed here
+  // rather than after the early return only because the observer below needs
+  // it, and the observer has to be above the return.
+  const myRow = rows.find((r) => r.isYou);
+
+  // Your row lives in the list already. The sticky footer is only useful once
+  // that row has scrolled out of sight — drawing both at once made people read
+  // it as being listed twice. Guarded on the refs rather than on the branch:
+  // a solo agent renders neither the scroll box nor the row, so both refs stay
+  // null and the effect does nothing, which is the same outcome as not running
+  // it — reached without changing how many hooks this component calls.
+  useEffect(() => {
+    const root = scrollRef.current;
+    const el = youRef.current;
+    if (!root || !el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => setYouVisible(entry.isIntersecting),
+      { root, threshold: 0.6 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [rows.length, myRow?.id]);
+
   // ── Solo agents: personal production tracker, no comparisons ──────────────
   if (access?.isSolo) {
     const me = rows.find((r) => r.id === selfId);
@@ -208,28 +249,6 @@ function LeaderboardPage() {
       </PageShell>
     );
   }
-
-  // Always present now: rankBoard places the viewer even at zero, which is
-  // the whole point of a footer whose job is to say where you stand.
-  const myRow = rows.find((r) => r.isYou);
-
-  // Your row lives in the list already. The sticky footer is only useful once
-  // that row has scrolled out of sight — drawing both at once made people
-  // read it as being listed twice.
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const youRef = useRef<HTMLTableRowElement | null>(null);
-  const [youVisible, setYouVisible] = useState(true);
-  useEffect(() => {
-    const root = scrollRef.current;
-    const el = youRef.current;
-    if (!root || !el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setYouVisible(entry.isIntersecting),
-      { root, threshold: 0.6 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [rows.length, myRow?.id]);
 
   const boardToggle = availableScopes.length > 1 ? (
     <div className="flex gap-1.5 flex-wrap">
