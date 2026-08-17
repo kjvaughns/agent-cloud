@@ -48,12 +48,46 @@ export async function selectProduction<T>(
 ): Promise<T[]> {
   const first = await build(PRODUCTION_DATE_COLUMN);
   if (!first.error) return first.data ?? [];
+
   if (!isMissingColumn(first.error)) {
-    // A real failure — permissions, a bad range — must not be silently retried
-    // into a different answer. Empty is what these call sites already did with
-    // a failed read, and it is honest: nothing was read.
-    return [];
+    // ── A failed read is not zero production ──────────────────────────────
+    //
+    // This returned `[]` here, and the comment claimed that was honest because
+    // nothing had been read. It is not honest, because nothing renders it as
+    // "nothing was read" — the leaderboard draws `$0 ALP · 0 policies written`,
+    // the dashboard draws zeros, and every one of those is a statement about
+    // the agency's business rather than about the query.
+    //
+    // So a broken read and a genuinely quiet month were indistinguishable on
+    // screen, which is exactly the position somebody is in when they say "it
+    // still shows 0" and there is nothing to look at. Worse, the error object
+    // was discarded, so the server logs were empty too.
+    //
+    // Throwing is the same choice `resolveCompensation` makes about a
+    // percentage it cannot resolve: stopping is better than answering with a
+    // number nobody chose. The caller's query fails, the screen shows its error
+    // state, and the reason is in the logs.
+    const e = first.error as { code?: string; message?: string; details?: string } | null;
+    console.error("[production] read failed", {
+      column: PRODUCTION_DATE_COLUMN,
+      code: e?.code,
+      message: e?.message,
+      details: e?.details,
+    });
+    throw new Error(
+      `Could not read production: ${e?.message ?? "unknown error"}${e?.code ? ` (${e.code})` : ""}`,
+    );
   }
+
+  // The column is genuinely absent — the migration has not been applied here —
+  // so `posted_at` stands in. Logged rather than silent: this is a temporary
+  // state, and one that has been mistaken for the code being wrong.
+  console.warn("[production] production_date is missing; windowing on posted_at instead");
   const second = await build("posted_at");
+  if (second.error) {
+    const e = second.error as { code?: string; message?: string } | null;
+    console.error("[production] fallback read failed", { code: e?.code, message: e?.message });
+    throw new Error(`Could not read production: ${e?.message ?? "unknown error"}`);
+  }
   return second.data ?? [];
 }

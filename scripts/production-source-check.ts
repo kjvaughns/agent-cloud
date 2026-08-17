@@ -479,5 +479,58 @@ check("…but the activity feed keeps its posted timestamp",
 check("nothing structural changes",
   /alter table|create table|drop /i.test(ANALYTICS), false);
 
+// ── A failed read is not zero production ────────────────────────────────────
+//
+// `selectProduction` swallowed every error that was not a missing column and
+// returned `[]`, with a comment calling that honest because nothing had been
+// read. It is not honest, because nothing renders it that way: the leaderboard
+// draws "$0 ALP · 0 policies written" and the dashboard draws zeros, and both
+// are statements about the agency's business rather than about the query.
+//
+// So a broken read and a genuinely quiet month were the same picture, and the
+// error object was discarded so the logs were empty too — leaving nothing to
+// look at when somebody says "it still shows 0".
+
+console.log("");
+
+const SRC = readFileSync(join(process.cwd(), "src/lib/production/source.server.ts"), "utf8");
+
+check("a real read failure throws rather than reading as zero",
+  /throw new Error\(\s*`Could not read production:/.test(SRC), true);
+check("…and is logged with its code, so there is something to look at",
+  /console\.error\("\[production\] read failed"/.test(SRC), true);
+// The one case that legitimately falls back is a column that is not there yet.
+check("a missing column still falls back to posted_at",
+  /console\.warn\("\[production\] production_date is missing/.test(SRC) &&
+  /const second = await build\("posted_at"\)/.test(SRC), true);
+check("…and the fallback failing is not silent either",
+  /\[production\] fallback read failed/.test(SRC), true);
+// The empty return is gone. A caller receiving [] now means the query ran and
+// matched nothing, which is the only thing it should ever have meant.
+check("no path returns an empty array to mean failure",
+  /^\s*return \[\];\s*$/m.test(SRC), false);
+
+// ── A name must not be able to delete production ────────────────────────────
+//
+// The leaderboard read `.select("*, profiles!inner(...)")`. An inner join drops
+// the policy row whenever the embedded profile does not come back, so a board
+// sitting beside dashboard tiles reading $1,553 and 1 policy — same month, same
+// agent, same table — reported "No production yet this period". The three tile
+// queries select `*`; this one did not, and that was the entire difference.
+//
+// Nothing errored. The rows simply were not there, which is the worst shape a
+// bug can take on a screen whose job is to report a number.
+
+console.log("");
+
+check("no production read joins a table it does not need",
+  /!inner/.test(DASH), false);
+// All four reads of `policies` now have the same shape, so one of them cannot
+// quietly return a different answer from the other three.
+check("every production read selects the row and nothing else",
+  (DASH.match(/\.from\("policies"\)[\s\S]{0,300}?\.select\("\*"\)/g) ?? []).length >= 4, true);
+check("the leaderboard resolves names in its own query",
+  /\.from\("profiles"\)\.select\("id, first_name, last_name"\)\.in\("id", producerIds\)/.test(DASH), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

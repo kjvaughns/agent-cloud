@@ -434,24 +434,43 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       // Column absent before the imo-scope migration: nobody has opted out.
     }
 
+    // ── No join. A name must not be able to delete production ─────────────
+    //
+    // This read `.select("*, profiles!inner(first_name, last_name)")`, and the
+    // `!inner` is the whole bug: an inner join DROPS the policy row when the
+    // embedded `profiles` row does not come back. So a leaderboard sitting
+    // beside dashboard tiles reading $1,553 and 1 policy — same month, same
+    // agent, same table — said "No production yet this period", because the
+    // three tile queries select `*` and this one did not.
+    //
+    // A name is decoration on a row whose point is the premium. Trading the
+    // premium for it is the wrong way round, and an inner join is a silent way
+    // to make that trade: nothing errors, the rows simply are not there.
+    //
+    // The names are fetched separately, which is what the code already did for
+    // `selfName` a few lines below — one extra query, and no join that can
+    // remove a figure from a board.
     const agents = await selectProduction<any>((col) =>
       supabase
         .from("policies")
-        // `*` plus the embed: naming the date column in the projection is the
-        // same 42703 as naming it in a filter. See source.server.ts.
-        .select("*, profiles!inner(first_name, last_name)")
+        // `*` for the same reason as every other production read: naming the
+        // date column in the projection is the same 42703 as naming it in a
+        // filter. See source.server.ts.
+        .select("*")
         .in("agent_id", teamIds)
         .gte(col, data.rangeStart)
         .lte(col, data.rangeEnd),
     );
 
+    const producerIds = Array.from(
+      new Set(((agents ?? []) as any[]).map((r) => r.agent_id).filter(Boolean)),
+    );
     const names = new Map<string, string>();
-    for (const row of (agents ?? []) as any[]) {
-      if (row.agent_id && !names.has(row.agent_id)) {
-        names.set(
-          row.agent_id,
-          `${row.profiles?.first_name ?? ""} ${row.profiles?.last_name ?? ""}`.trim(),
-        );
+    if (producerIds.length) {
+      const { data: people } = await supabase
+        .from("profiles").select("id, first_name, last_name").in("id", producerIds);
+      for (const p of (people ?? []) as any[]) {
+        names.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim());
       }
     }
     const sorted = Array.from(tallyByAgent((agents ?? []) as ProductionRow[]).entries())
