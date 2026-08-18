@@ -655,12 +655,20 @@ function RosterTable({
 
   // The catalog, in the shape the pill model wants. base_pct IS the ladder
   // number — see lib/team/positions.ts for why there is no separate integer.
-  const positions: Position[] = useMemo(
-    () => (((levelData as any)?.rows ?? []) as any[])
+  //
+  // An upline who does not manage the ladder may only place somebody BELOW
+  // their own rung — the same ceiling invitations enforce. `listAgencyLevels`
+  // already hands them their own rung and everything under it, so their own is
+  // dropped here: offering a choice the server will refuse is worse than not
+  // offering it.
+  const positions: Position[] = useMemo(() => {
+    const canManage = Boolean((levelData as any)?.canManage);
+    const myLevelId = (levelData as any)?.myLevelId ?? null;
+    return (((levelData as any)?.rows ?? []) as any[])
       .filter((r) => r.active !== false)
-      .map((r) => ({ id: r.id, name: r.name, pct: Number(r.base_pct) })),
-    [levelData],
-  );
+      .filter((r) => canManage || r.id !== myLevelId)
+      .map((r) => ({ id: r.id, name: r.name, pct: Number(r.base_pct) }));
+  }, [levelData]);
 
   const assign = useMutation({
     mutationFn: (v: { agentId: string; agencyLevelId: string | null }) => assignFn({ data: v }),
@@ -926,7 +934,13 @@ function RosterTable({
                       positionPct={a.position_pct}
                       agencyLevelId={a.agency_level_id}
                       positions={positions}
-                      canAssign={canAssign}
+                      // An agency admin may place anybody on the roster; an
+                      // upline may place their own people, which is every row
+                      // this table shows them except themselves. The server
+                      // enforces the same rule and the rung ceiling, so a
+                      // refusal surfaces as its own message rather than a
+                      // hidden control that contradicts the hierarchy.
+                      canAssign={canAssign || !(a as any).is_self}
                       pending={assign.isPending}
                       onAssign={(agencyLevelId) => assign.mutate({ agentId: a.id, agencyLevelId })}
                     />

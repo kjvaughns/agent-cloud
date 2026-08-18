@@ -400,18 +400,57 @@ export const sendAgentReminder = createServerFn({ method: "POST" })
     return res as { ok: boolean; reason?: string };
   });
 
+/**
+ * One agent, as their drawer shows them.
+ *
+ * The RLS-bound client was the only reader here, and it blanked the drawer for
+ * an upline whose downline agent had no `organization_id` recorded: `same_org`
+ * needs a membership on both sides and the downline walk used to drop a child
+ * whose org column was null. The roster listed them, the drawer showed nothing.
+ *
+ * So standing is established the same way the roster is built — `get_team_downline`,
+ * which walks `upline_id` and nothing else — and the read then crosses the
+ * policy deliberately, behind that check. Anyone who is not on the caller's
+ * roster and is not an agency admin is refused outright.
+ */
 export const getAgentDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentId: string }) => z.object({ agentId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context as any;
+    const admin = supabaseAdmin as any;
+
+    const { data: downlineRows } = await supabase.rpc("get_team_downline");
+    let allowed =
+      data.agentId === userId ||
+      ((downlineRows ?? []) as any[]).some((r) => r.id === data.agentId);
+
+    if (!allowed) {
+      // An agency admin may open anybody in their own agency, downline or not.
+      const { data: me } = await admin
+        .from("profiles").select("organization_id, is_platform_admin").eq("id", userId).maybeSingle();
+      if (me?.is_platform_admin) allowed = true;
+      else if (me?.organization_id) {
+        const [{ data: org }, { data: perms }, { data: them }] = await Promise.all([
+          admin.from("organizations").select("owner_id").eq("id", me.organization_id).maybeSingle(),
+          admin.from("role_permissions").select("admin_manage_levels")
+            .eq("organization_id", me.organization_id).eq("profile_id", userId).maybeSingle(),
+          admin.from("profiles").select("organization_id").eq("id", data.agentId).maybeSingle(),
+        ]);
+        const isAgencyAdmin =
+          org?.owner_id === userId || Boolean(perms?.admin_manage_levels);
+        allowed = isAgencyAdmin && them?.organization_id === me.organization_id;
+      }
+    }
+    if (!allowed) throw new Error("That agent is not on your roster.");
+
     const [profile, contracts, policies] = await Promise.all([
-      supabase.from("profiles").select("id, first_name, last_name, email, phone, created_at, upline_id, status, last_active_at").eq("id", data.agentId).maybeSingle(),
-      supabase.from("agent_commission_levels").select("carrier_id, assigned_pct, commission_level, carriers(name)").eq("agent_id", data.agentId),
-      supabase.from("policies").select("id, status, annual_premium, monthly_premium, posted_at, product, carriers(name)").eq("agent_id", data.agentId).order("posted_at", { ascending: false }).limit(50),
+      admin.from("profiles").select("id, first_name, last_name, email, phone, created_at, upline_id, status, last_active_at").eq("id", data.agentId).maybeSingle(),
+      admin.from("agent_commission_levels").select("carrier_id, assigned_pct, commission_level, carriers(name)").eq("agent_id", data.agentId),
+      admin.from("policies").select("id, status, annual_premium, monthly_premium, posted_at, product, carriers(name)").eq("agent_id", data.agentId).order("posted_at", { ascending: false }).limit(50),
     ]);
     if (profile.error) throw new Error(profile.error.message);
-    const pols = policies.data ?? [];
+    const pols: any[] = (policies.data ?? []) as any[];
     const breakdown = {
       total: pols.length,
       active: pols.filter((p) => p.status === "active").length,
@@ -421,7 +460,7 @@ export const getAgentDetail = createServerFn({ method: "GET" })
     };
     return {
       profile: profile.data,
-      contracts: contracts.data ?? [],
+      contracts: ((contracts.data ?? []) as any[]),
       breakdown,
       recent: pols.slice(0, 5),
     };
