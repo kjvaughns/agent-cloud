@@ -8,6 +8,7 @@ import {
   suggestedDraftDay,
 } from "@/lib/deals/social-security";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { decodePolicyDraft } from "@/lib/deals/policy-draft";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -41,7 +42,13 @@ import { PostDealQaButton } from "@/components/ai/post-deal-qa";
 import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/post-deal")({
-  validateSearch: (s: Record<string, unknown>): { client_id?: string } => ({
+  // The `d_*` params carry a policy the agent had already started typing in the
+  // pipeline drawer. Passed through rather than enumerated here, because the
+  // shape belongs to `policy-draft` and restating it is how the two ends drift.
+  validateSearch: (s: Record<string, unknown>): Record<string, unknown> & { client_id?: string } => ({
+    ...Object.fromEntries(
+      Object.entries(s).filter(([k, v]) => k.startsWith("d_") && typeof v === "string"),
+    ),
     client_id: typeof s.client_id === "string" ? s.client_id : undefined,
   }),
   head: () => ({ meta: [{ title: "Post a Deal — Agent Cloud" }] }),
@@ -80,7 +87,8 @@ type FormData = {
 function PostDealPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
-  const { client_id } = Route.useSearch();
+  const search = Route.useSearch();
+  const { client_id } = search;
   const listCarriers = useServerFn(listCarriersForDeal);
   const myCarriers = useServerFn(getMyActiveCarrierIds);
   const submit = useServerFn(postDeal);
@@ -178,6 +186,29 @@ function PostDealPage() {
       replace(prefill.beneficiaries);
     }
   }, [prefill, setValue, replace]);
+
+  /**
+   * The policy the agent had already started in the pipeline drawer.
+   *
+   * Applied AFTER the server prefill and deliberately last: the prefill is what
+   * the database remembers, the draft is what the agent typed thirty seconds
+   * ago, and where they disagree the agent is right.
+   *
+   * Independent of `client_id` so it still lands when the prefill query is
+   * disabled or has not resolved, which is the case this exists for — the
+   * drawer opens its Add Policy form precisely when the client has no policy
+   * for the prefill to find.
+   */
+  const draftApplied = useRef(false);
+  useEffect(() => {
+    if (draftApplied.current) return;
+    const draft = decodePolicyDraft(search as Record<string, unknown>);
+    const entries = Object.entries(draft).filter(([, v]) => v !== undefined && v !== "");
+    if (!entries.length) return;
+    draftApplied.current = true;
+    for (const [k, v] of entries) setValue(k as any, v as any);
+    if (client_id) setValue("client_type", "existing");
+  }, [search, client_id, setValue]);
 
   const clientType = watch("client_type");
   const monthly = Number(watch("monthly_premium") || 0);
