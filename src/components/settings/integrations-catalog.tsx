@@ -73,8 +73,10 @@ const INTEGRATIONS: Integration[] = [
   },
   {
     name: "API Access",
-    what: "Read and write your agency's data from your own systems.",
-    status: "coming-soon",
+    what:
+      "A read-only key so your upline, or your own site, can pull the agency's " +
+      "production figures. Numbers only — never client detail.",
+    status: "available",
   },
 ];
 
@@ -82,11 +84,12 @@ export function IntegrationsCatalog({ onOpenTab }: { onOpenTab?: (tab: string) =
   return (
     <Panel
       title="Integrations"
-      action={<span className="text-xs text-muted-foreground">1 available</span>}
+      action={<span className="text-xs text-muted-foreground">2 available</span>}
     >
       <p className="text-sm text-muted-foreground">
-        Outside services your agency can connect. Discord is live today; the rest are on the
-        way, and nothing here will ask you to set up something that does not work yet.
+        Outside services your agency can connect. Discord and the read-only API are live
+        today; the rest are on the way, and nothing here will ask you to set up something
+        that does not work yet.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
