@@ -433,13 +433,12 @@ export const getAgentDetail = createServerFn({ method: "GET" })
       else if (me?.organization_id) {
         const [{ data: org }, { data: perms }, { data: them }] = await Promise.all([
           admin.from("organizations").select("owner_id").eq("id", me.organization_id).maybeSingle(),
-          admin.from("role_permissions").select("admin_manage_levels, staff_is_admin")
+          admin.from("role_permissions").select("admin_manage_levels")
             .eq("organization_id", me.organization_id).eq("profile_id", userId).maybeSingle(),
           admin.from("profiles").select("organization_id").eq("id", data.agentId).maybeSingle(),
         ]);
         const isAgencyAdmin =
-          org?.owner_id === userId ||
-          Boolean(perms?.admin_manage_levels) || Boolean(perms?.staff_is_admin);
+          org?.owner_id === userId || Boolean(perms?.admin_manage_levels);
         allowed = isAgencyAdmin && them?.organization_id === me.organization_id;
       }
     }
