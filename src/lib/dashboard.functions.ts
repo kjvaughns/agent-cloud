@@ -732,3 +732,97 @@ export const getProductionSeries = createServerFn({ method: "POST" })
 
     return { series: Array.from(buckets.values()) as SeriesPoint[], bucket };
   });
+
+// ── Production per agency, for an owner with sub-agencies ───────────────────
+
+export type AgencyProduction = {
+  orgId: string;
+  name: string;
+  isMine: boolean;
+  premium: number;
+  policies: number;
+  placed: number;
+};
+
+/**
+ * One row per agency in the rollup: the viewer's own org first, then every
+ * child that is active AND opted into the production rollup.
+ *
+ * Why the admin client: a parent cannot read a child org's profiles or policies
+ * under RLS, and it should not be able to — what it is entitled to is the
+ * child's TOTAL, which is what this returns. Nothing here exposes a client, a
+ * policy number or an individual agent of a child agency.
+ *
+ * A paused relationship, or one with `include_production` off, is absent rather
+ * than zero: showing $0 beside an agency that simply is not being counted reads
+ * as "they wrote nothing", which is a different and wrong statement.
+ */
+export const getProductionByAgency = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RangeSchema.parse(d))
+  .handler(async ({ data, context }): Promise<{ agencies: AgencyProduction[] }> => {
+    const { supabase, userId } = context as any;
+
+    const { data: me } = await supabase
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    const myOrgId = (me as any)?.organization_id as string | undefined;
+    if (!myOrgId) return { agencies: [] };
+
+    let childIds: string[] = [];
+    try {
+      const { data: rels } = await supabaseAdmin
+        .from("agency_relationships")
+        .select("child_org_id, include_production, status")
+        .eq("parent_org_id", myOrgId)
+        .eq("status", "active")
+        .eq("include_production", true);
+      childIds = ((rels ?? []) as any[]).map((r) => r.child_org_id).filter(Boolean);
+    } catch {
+      // Table pending: no children, so this panel simply does not render.
+      childIds = [];
+    }
+    if (!childIds.length) return { agencies: [] };
+
+    const orgIds = [myOrgId, ...childIds];
+    const [{ data: orgs }, { data: people }] = await Promise.all([
+      supabaseAdmin.from("organizations").select("id, name").in("id", orgIds),
+      supabaseAdmin.from("profiles").select("id, organization_id").in("organization_id", orgIds),
+    ]);
+
+    const orgOf = new Map<string, string>();
+    for (const p of (people ?? []) as any[]) {
+      if (p.id && p.organization_id) orgOf.set(p.id, p.organization_id);
+    }
+    const agentIds = Array.from(orgOf.keys());
+    const rows = agentIds.length
+      ? await selectProduction<ProductionRow>((col) =>
+          supabaseAdmin
+            .from("policies")
+            .select("*")
+            .in("agent_id", agentIds)
+            .gte(col, data.rangeStart)
+            .lte(col, data.rangeEnd),
+        )
+      : [];
+
+    const totals = new Map<string, { premium: number; policies: number; placed: number }>();
+    for (const orgId of orgIds) totals.set(orgId, { premium: 0, policies: 0, placed: 0 });
+    for (const [agentId, t] of tallyByAgent((rows ?? []) as ProductionRow[])) {
+      const orgId = orgOf.get(agentId);
+      if (!orgId) continue;
+      const acc = totals.get(orgId)!;
+      acc.premium += t.premium;
+      acc.policies += t.policies;
+      acc.placed += t.placed;
+    }
+
+    const nameOf = new Map(((orgs ?? []) as any[]).map((o) => [o.id, o.name as string]));
+    const agencies: AgencyProduction[] = orgIds.map((orgId) => ({
+      orgId,
+      name: nameOf.get(orgId) ?? "Agency",
+      isMine: orgId === myOrgId,
+      ...totals.get(orgId)!,
+    }));
+    agencies.sort((a, b) => (a.isMine === b.isMine ? b.premium - a.premium : a.isMine ? -1 : 1));
+    return { agencies };
+  });
