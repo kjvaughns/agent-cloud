@@ -35,19 +35,37 @@ const REVOKED = new Set(["inactive", "terminated"]);
  * return **zero rows** — which is precisely the condition that fires the
  * fallback. Every `supabaseAdmin` path would hand the org straight back.
  *
- * So the fallback is kept, and conditioned on the profile not being revoked.
- * Removing it outright would break installs mid-backfill; conditioning it is
- * correct in both windows.
+ * So the fallback is kept, and conditioned twice: on the profile not being
+ * revoked, AND on there being no membership row at all. The second condition
+ * is the one that matters — revocation ARCHIVES the membership rather than
+ * deleting it, so "no active membership" is true for a revoked person and a
+ * never-registered one alike, and only the latter should reach the copy.
+ *
+ * Mirrors `my_org_ids()` in the database, which carries the same two
+ * conditions. Change both together.
  */
 export async function getMyOrgIds(userId: string): Promise<string[]> {
+  // Every membership row, not only the active ones: an ARCHIVED row is the
+  // shape revocation leaves behind, and it has to beat a stale copy. Filtering
+  // to `status = 'active'` here and then falling back on an empty result hands
+  // the agency straight back to somebody who was revoked — the same hole the
+  // SQL twin had, caught on a scratch database while fixing it there.
   const { data: memberships } = await supabaseAdmin
     .from("organization_memberships")
-    .select("organization_id")
-    .eq("profile_id", userId)
-    .eq("status", "active");
+    .select("organization_id, status")
+    .eq("profile_id", userId);
 
-  const ids = (memberships ?? []).map((m: any) => m.organization_id).filter(Boolean);
+  const rows = (memberships ?? []) as { organization_id: string; status: string }[];
+  const ids = rows
+    .filter((m) => m.status === "active")
+    .map((m) => m.organization_id)
+    .filter(Boolean);
   if (ids.length > 0) return ids;
+
+  // The fallback is for people the membership table has never heard of, which
+  // is the state 20260818140000 repairs and prevents. Anybody who HAS a row —
+  // archived, suspended, invited — is answered by that row and nothing else.
+  if (rows.length > 0) return [];
 
   const { data: profile } = await supabaseAdmin
     .from("profiles")

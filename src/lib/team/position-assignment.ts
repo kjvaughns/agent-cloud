@@ -64,7 +64,9 @@ export type AssignRefusal =
   | "not_yours_to_place"
   | "rung_not_in_agency"
   | "rung_inactive"
-  | "rung_not_below_yours";
+  | "rung_not_below_yours"
+  | "actor_has_no_rung"
+  | "agency_has_no_rungs";
 
 export const ASSIGN_REFUSAL_MESSAGES: Record<AssignRefusal, string> = {
   not_in_agency:
@@ -79,6 +81,13 @@ export const ASSIGN_REFUSAL_MESSAGES: Record<AssignRefusal, string> = {
     "Settings ▸ Levels & Positions.",
   rung_not_below_yours:
     "You can only place somebody on a position below your own.",
+  actor_has_no_rung:
+    "You do not have a position yourself yet, so there is nothing below it to " +
+    "place anybody on. Ask your agency owner to set your position under " +
+    "Settings ▸ Levels & Positions, and you will be able to place your downline.",
+  agency_has_no_rungs:
+    "Your agency has not set up any positions yet. An agency owner creates them " +
+    "under Settings ▸ Levels & Positions.",
 };
 
 /**
@@ -118,19 +127,42 @@ export function checkAssignment(input: {
     refusals.push("not_yours_to_place");
   }
 
-  if (rung) {
+  // An empty ladder used to be indistinguishable from a rung that does not
+  // belong to the agency, and both drew "That position is not one of your
+  // agency's". For most of this week the ladder read as empty for anybody
+  // whose `profiles.organization_id` was null, because `agency_levels_read`
+  // gated on that column — so the message accused the agency of not owning a
+  // position it had created, and pointed nowhere useful.
+  if (rung && agencyRungs.length === 0) {
+    refusals.push("agency_has_no_rungs");
+  } else if (rung) {
     const known = agencyRungs.find((r) => r.id === rung.id);
     if (!known) {
       refusals.push("rung_not_in_agency");
     } else if (!known.active) {
       refusals.push("rung_inactive");
     } else if (!managesTheLadder) {
-      // The same ceiling invitations enforce. An agency that will not let
-      // somebody invite onto a better contract than their own must not let them
-      // promote onto one either — it is the same money, one step later.
-      const allowed = assignableRungs(actor.ownRung, agencyRungs);
-      if (!allowed.some((r) => r.id === known.id)) {
-        refusals.push("rung_not_below_yours");
+      // ── Say which of the two things is wrong ──
+      //
+      // `assignableRungs` answers `[]` both for somebody standing on the
+      // bottom rung and for somebody standing on no rung at all, and this
+      // reported both as "you can only place somebody below your own". An
+      // upline with no position of their own was told about a rule they had
+      // not broken, with nothing pointing at the thing that would fix it —
+      // which is somebody else giving them a position.
+      //
+      // `checkInvite` has always distinguished these as `inviter_has_no_rung`;
+      // this is the same distinction under the matching name.
+      if (!actor.ownRung || actor.ownRung.base_pct == null) {
+        refusals.push("actor_has_no_rung");
+      } else {
+        // The same ceiling invitations enforce. An agency that will not let
+        // somebody invite onto a better contract than their own must not let
+        // them promote onto one either — it is the same money, one step later.
+        const allowed = assignableRungs(actor.ownRung, agencyRungs);
+        if (!allowed.some((r) => r.id === known.id)) {
+          refusals.push("rung_not_below_yours");
+        }
       }
     }
   }

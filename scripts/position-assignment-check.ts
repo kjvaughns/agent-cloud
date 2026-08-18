@@ -254,5 +254,75 @@ check("idempotent, and reloads the schema",
 check("no column is dropped and no row removed",
   /drop column|delete from/i.test(MIG), false);
 
+
+// ── An upline with no position of their own ────────────────────────────────
+//
+// The reported case: "Pranav has downlines but he's unable to assign them
+// levels." `assignableRungs` answers [] both for somebody on the bottom rung
+// and for somebody on no rung at all, and this used to report both as "you can
+// only place somebody below your own" — a rule he had not broken, with nothing
+// pointing at the fix, which is his owner giving him a position.
+
+console.log("");
+
+const RUNGS: Rung[] = [
+  { id: "r80", name: "RK5 (80)", base_pct: 80, active: true } as Rung,
+  { id: "r50", name: "RK1 (50)", base_pct: 50, active: true } as Rung,
+];
+
+const asUpline = (ownRung: Rung | null) => ({
+  isOwner: false, isPlatformAdmin: false, canManageLevels: false, ownRung,
+});
+const mine = { inAgency: true, isMyDownline: true };
+
+{
+  const r = checkAssignment({ actor: asUpline(null), target: mine, rung: RUNGS[1], agencyRungs: RUNGS });
+  check("an upline with no position is told THAT, not the ceiling rule",
+    r.refusals, ["actor_has_no_rung"]);
+  check("…and the message names who can fix it",
+    /agency owner to set your position/.test(r.messages[0]), true);
+}
+{
+  // Standing on a real rung, the ceiling rule applies as before.
+  const r = checkAssignment({ actor: asUpline(RUNGS[1]), target: mine, rung: RUNGS[0], agencyRungs: RUNGS });
+  check("somebody on a rung still cannot promote above themselves",
+    r.refusals, ["rung_not_below_yours"]);
+  const ok = checkAssignment({ actor: asUpline(RUNGS[0]), target: mine, rung: RUNGS[1], agencyRungs: RUNGS });
+  check("…and can place below themselves", ok.ok, true);
+}
+{
+  // The ladder reading as empty was the RLS symptom, and it drew a message
+  // accusing the agency of not owning a position it had created.
+  const r = checkAssignment({ actor: asUpline(RUNGS[0]), target: mine, rung: RUNGS[1], agencyRungs: [] });
+  check("an empty ladder says the ladder is empty", r.refusals, ["agency_has_no_rungs"]);
+  check("…rather than blaming the position",
+    /not one of your agency/.test(r.messages.join(" ")), false);
+}
+{
+  // Removal needs no ceiling, so none of this applies to clearing a position.
+  const r = checkAssignment({ actor: asUpline(null), target: mine, rung: null, agencyRungs: RUNGS });
+  check("taking somebody off a position needs no position of your own", r.ok, true);
+}
+
+// ── The migration that makes the ladder readable at all ────────────────────
+
+const UPLINE_MIG = read("supabase/migrations/20260818140000_org-membership-from-upline.sql");
+check("the agency is derived from the upline chain", /org_of_upline/.test(UPLINE_MIG), true);
+check("…cycle-guarded", /cursor_id = any\(seen\)/.test(UPLINE_MIG), true);
+check("…and depth-capped", /for i in 1\.\.20 loop/.test(UPLINE_MIG), true);
+check("the ladder and the carriers ask the same question",
+  /create policy agency_levels_read[\s\S]{0,200}my_org_ids\(\)/.test(UPLINE_MIG), true);
+// The bypass the scratch run caught: revocation archives a membership rather
+// than deleting it, so "no ACTIVE membership" is true for a revoked person too.
+check("the profile fallback refuses anybody who has a membership row at all",
+  /not exists \(\s*select 1 from public\.organization_memberships m where m\.profile_id = auth\.uid\(\)/.test(UPLINE_MIG),
+  true);
+check("a new recruit inherits the agency before the membership trigger runs",
+  /before insert or update of upline_id, organization_id/.test(UPLINE_MIG), true);
+
+const GUARD = read("src/lib/org-guard.ts");
+check("the TypeScript twin carries the same refusal",
+  /if \(rows\.length > 0\) return \[\];/.test(GUARD), true);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
