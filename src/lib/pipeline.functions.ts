@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildMatchIndex, classifyClient, rowKey } from "@/lib/import-match";
 import { z } from "zod";
+import { gridProductsByCarrier } from "@/lib/carriers/grid-products";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIds } from "@/lib/scope.functions";
@@ -593,31 +594,20 @@ export const listCarriers = createServerFn({ method: "GET" })
     // The commission grid is what actually names a carrier's products — the
     // "Ethos Term Life Prime" kind of name an agent recognises. `product_types`
     // on org_carriers is a hand-filled field and is usually empty, so the grid
-    // wins whenever it has rows, with the agency's own rows shadowing the
-    // shared library exactly as everywhere else.
-    const { data: gridRows } = await supabase
-      .from("commission_grids")
-      .select("carrier_id, product_name, organization_id")
-      .or(`organization_id.eq.${orgId},organization_id.is.null`);
-    const byCarrier = new Map<string, { own: Set<string>; shared: Set<string> }>();
-    for (const g of (gridRows ?? []) as any[]) {
-      if (!g.product_name) continue;
-      const k = String(g.carrier_id);
-      if (!byCarrier.has(k)) byCarrier.set(k, { own: new Set(), shared: new Set() });
-      const bucket = byCarrier.get(k)!;
-      (g.organization_id ? bucket.own : bucket.shared).add(String(g.product_name));
-    }
+    // wins whenever it has rows. Shared with Post a Deal rather than restated,
+    // because the two screens drifted apart once already and the difference
+    // showed up as one of them quietly offering the generic catalogue.
+    const gridProducts = await gridProductsByCarrier(supabase, orgId);
 
     return (data ?? [])
       .filter((r: any) => r.carriers?.active !== false)
       .map((r: any) => {
-        const g = byCarrier.get(String(r.carrier_id));
-        const gridProducts = g ? (g.own.size > 0 ? [...g.own] : [...g.shared]) : [];
+        const fromGrid = gridProducts.get(String(r.carrier_id)) ?? [];
         const configured = (r.product_types ?? []) as string[];
         return {
           id: r.carrier_id as string,
           name: (r.carriers?.name ?? "Carrier") as string,
-          product_types: (gridProducts.length > 0 ? gridProducts.sort((a, b) => a.localeCompare(b)) : configured) as string[],
+          product_types: (fromGrid.length > 0 ? fromGrid : configured) as string[],
         };
       })
       .sort((a: any, b: any) => a.name.localeCompare(b.name));

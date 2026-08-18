@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { PAYMENT_METHODS } from "@/lib/deals/social-security";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { gridProductsByCarrier } from "@/lib/carriers/grid-products";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { announceDeal } from "@/lib/discord.functions";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
@@ -55,6 +56,12 @@ export const listCarriersForDeal = createServerFn({ method: "GET" })
       .eq("status", "active");
     if (error) throw new Error(error.message);
 
+    // The grid names the products; `org_carriers.product_types` is a list
+    // somebody typed and is usually empty. Post a Deal was the screen that did
+    // not do this — it relied entirely on `getCarrierDealOptions`, which never
+    // matched a row, so every carrier fell through to the generic catalogue.
+    const gridProducts = await gridProductsByCarrier(context.supabase, orgId);
+
     return (
       (data ?? [])
         // A carrier retired from the shared catalog stays out even if the agency
@@ -66,11 +73,15 @@ export const listCarriersForDeal = createServerFn({ method: "GET" })
         // which is today's behaviour; after it, an owner who has not finished
         // setting a carrier up cannot have an agent write on it by accident.
         .filter((r: any) => r.enabled !== false && r.available_for_post_deal !== false)
-        .map((r: any) => ({
-          id: r.carrier_id as string,
-          name: (r.carriers?.name ?? "Carrier") as string,
-          product_types: (r.product_types ?? []) as string[],
-        }))
+        .map((r: any) => {
+          const fromGrid = gridProducts.get(String(r.carrier_id)) ?? [];
+          const configured = (r.product_types ?? []) as string[];
+          return {
+            id: r.carrier_id as string,
+            name: (r.carriers?.name ?? "Carrier") as string,
+            product_types: (fromGrid.length > 0 ? fromGrid : configured) as string[],
+          };
+        })
         .sort((a: any, b: any) => a.name.localeCompare(b.name))
     );
   });

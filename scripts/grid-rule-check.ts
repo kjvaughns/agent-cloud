@@ -382,8 +382,14 @@ check("the carrier is scoped to the caller's organization",
 console.log("");
 
 const DEAL = readFileSync(join(process.cwd(), "src/routes/_authenticated/post-deal.tsx"), "utf8");
+// `carrierId`, not `orgCarrierId`. This check asserted the latter and passed
+// for two releases while the call it was guarding never matched a row: the
+// form held a `carriers.id` and the resolver looked it up as an
+// `org_carriers.id`. Asserting that the call is *made* is not the same as
+// asserting it is answered — scripts/carrier-products-check.ts now holds both
+// ends of that contract against each other.
 check("the deal form asks the carrier what it sells",
-  /getCarrierDealOptions\(\{ data: \{ orgCarrierId/.test(DEAL), true);
+  /getCarrierDealOptions\(\{\s*data:\s*\{\s*carrierId/.test(DEAL), true);
 check("…and prefers those products",
   /gridProducts\.length > 0/.test(DEAL), true);
 // Most agencies have no grid. An empty dropdown would stop them posting deals
