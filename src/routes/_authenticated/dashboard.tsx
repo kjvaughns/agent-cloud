@@ -141,6 +141,8 @@ function Dashboard() {
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
   const [metric, setMetric] = useState<"prod" | "policies">("prod");
   const [view, setView] = useState<"personal" | "agency">("personal");
+  const { caps } = useScopeCapabilities();
+
 
   const { rangeStart, rangeEnd, rangeLabel, rangeHeadline } = useMemo(() => {
     const b = rangeBounds(range, custom);
