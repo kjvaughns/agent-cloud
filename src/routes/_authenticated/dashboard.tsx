@@ -16,7 +16,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal, getProductionSeries } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal, getProductionSeries, getProductionByAgency } from "@/lib/dashboard.functions";
+import { BOARD_SCOPES, type BoardScope } from "@/lib/leaderboard/board";
+import { useScopeCapabilities } from "@/hooks/use-scope";
+
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { WorkQueue } from "@/components/work-queue";
@@ -138,6 +141,8 @@ function Dashboard() {
   const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
   const [metric, setMetric] = useState<"prod" | "policies">("prod");
   const [view, setView] = useState<"personal" | "agency">("personal");
+  const { caps } = useScopeCapabilities();
+
 
   const { rangeStart, rangeEnd, rangeLabel, rangeHeadline } = useMemo(() => {
     const b = rangeBounds(range, custom);
@@ -182,12 +187,40 @@ function Dashboard() {
   const fetchAtRisk = useServerFn(getAtRiskPolicies);
   const { data: atRisk } = useQuery({ queryKey: ["dashboard-atrisk"], queryFn: () => fetchAtRisk(), staleTime: 60_000 });
 
+  // ── Which population the dashboard board ranks ────────────────────────────
+  //
+  // It always ranked self-plus-downline, silently. An owner with sub-agencies
+  // had no way to see the whole agency or the whole IMO without leaving for the
+  // Leaderboard page. Total IMO is offered only when the agency actually has
+  // opted-in children (caps.canImo), and My Team only when there is a downline.
+  const [board, setBoard] = useState<BoardScope>("team");
+  const boardScopes = BOARD_SCOPES.filter(
+    (s) =>
+      s.value !== "mine" &&
+      (s.value !== "imo" || caps.canImo) &&
+      (s.value !== "team" || caps.downlineCount > 0),
+  );
+  const boardScope: BoardScope = boardScopes.some((s) => s.value === board)
+    ? board
+    : (boardScopes[0]?.value ?? "agency");
+
   const fetchLeaders = useServerFn(getLeaderboardData);
   const { data: leaders } = useQuery({
-    queryKey: ["dashboard-leaders", rangeStart, rangeEnd],
-    queryFn: () => fetchLeaders({ data: { rangeStart, rangeEnd } }),
+    queryKey: ["dashboard-leaders", rangeStart, rangeEnd, boardScope],
+    queryFn: () => fetchLeaders({ data: { rangeStart, rangeEnd, scope: boardScope } }),
     staleTime: 60_000,
   });
+
+  // Per-agency totals. Returns an empty list for an agency with no opted-in
+  // children, which is what hides the panel — no capability check needed here.
+  const fetchByAgency = useServerFn(getProductionByAgency);
+  const { data: byAgency } = useQuery({
+    queryKey: ["dashboard-by-agency", rangeStart, rangeEnd],
+    queryFn: () => fetchByAgency({ data: { rangeStart, rangeEnd } }),
+    enabled: caps.canImo,
+    staleTime: 60_000,
+  });
+
 
   // The producer-profile completion query went with the banner it fed. The
   // onboarding panel derives its own steps, so this was a request on every
@@ -256,9 +289,20 @@ function Dashboard() {
           />
 
           <div className="duo">
-            <LeaderboardPanel leaders={leaders} rangeLabel={rangeLabel} />
+            <LeaderboardPanel
+              leaders={leaders}
+              rangeLabel={rangeLabel}
+              scope={boardScope}
+              scopes={boardScopes}
+              onScope={setBoard}
+            />
             <CommissionPanel c={commission} />
           </div>
+
+          {(byAgency?.agencies?.length ?? 0) > 1 && (
+            <AgencyRollupPanel agencies={byAgency!.agencies} rangeLabel={rangeLabel} />
+          )}
+
 
           <OnboardingPanel feed={agencyFeed} loading={agencyFeedLoading} />
 
@@ -544,11 +588,92 @@ function HeroPanel({
   );
 }
 
-function LeaderboardPanel({ leaders, rangeLabel }: { leaders: any; rangeLabel: string }) {
+/**
+ * Per-agency production, for an owner whose agency has sub-agencies.
+ *
+ * Their own agency first, then each opted-in child. A child that is paused or
+ * excluded from the rollup is absent rather than zero — the server leaves it
+ * out, because "$0" beside an agency nobody is counting is a false statement
+ * about their month rather than a true one about the setting.
+ */
+function AgencyRollupPanel({ agencies, rangeLabel }: { agencies: any[]; rangeLabel: string }) {
+  const top = agencies[0]?.premium || 1;
+  const imoTotal = agencies.reduce((a, r) => a + (r.premium ?? 0), 0);
+  return (
+    <Panel
+      title="Total IMO by Agency"
+      action={<span className="text-[10.5px] text-muted-foreground">{rangeLabel} · {money(imoTotal)} ALP</span>}
+    >
+      <div className="flex flex-col gap-1.5">
+        {agencies.map((a) => (
+          <div
+            key={a.orgId}
+            className={cn(
+              "rounded-lg border px-3 py-2.5",
+              a.isMine ? "bg-gold-glow border-primary/30" : "border-border-soft bg-surface-2",
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className={cn("min-w-0 flex-1 truncate text-[12.5px]", a.isMine ? "font-bold text-gold-bright" : "font-medium")}>
+                {a.name}
+                {a.isMine && <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-[8.5px] font-extrabold tracking-[0.05em] text-gold-foreground">MINE</span>}
+              </div>
+              <div className="tnum font-display text-[12.5px] font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                {money(a.premium)}
+              </div>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border-soft">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(2, (a.premium / top) * 100)}%` }} />
+            </div>
+            <div className="mt-1 text-[10.5px] text-muted-foreground">
+              {number(a.policies)} {a.policies === 1 ? "policy" : "policies"} · {money(a.placed)} placed
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function LeaderboardPanel({
+  leaders, rangeLabel, scope, scopes, onScope,
+}: {
+  leaders: any;
+  rangeLabel: string;
+  scope: BoardScope;
+  scopes: { value: BoardScope; label: string }[];
+  onScope: (s: BoardScope) => void;
+}) {
   const agents: any[] = (leaders?.agents ?? []).slice(0, 5);
   const selfId = leaders?.selfId;
   return (
-    <Panel title="Leaderboard" action={<span className="text-[10.5px] text-muted-foreground">{rangeLabel} ALP</span>}>
+    <Panel
+      title="Leaderboard"
+      action={
+        <div className="flex items-center gap-2">
+          {scopes.length > 1 && (
+            <div className="flex gap-1">
+              {scopes.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => onScope(s.value)}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                    scope === s.value
+                      ? "border-primary/40 bg-gold-glow text-gold-bright"
+                      : "border-border bg-surface-2 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <span className="text-[10.5px] text-muted-foreground">{rangeLabel} ALP</span>
+        </div>
+      }
+    >
+
       {agents.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">No production yet this period.</div>
       ) : (
