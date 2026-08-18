@@ -182,12 +182,40 @@ function Dashboard() {
   const fetchAtRisk = useServerFn(getAtRiskPolicies);
   const { data: atRisk } = useQuery({ queryKey: ["dashboard-atrisk"], queryFn: () => fetchAtRisk(), staleTime: 60_000 });
 
+  // ── Which population the dashboard board ranks ────────────────────────────
+  //
+  // It always ranked self-plus-downline, silently. An owner with sub-agencies
+  // had no way to see the whole agency or the whole IMO without leaving for the
+  // Leaderboard page. Total IMO is offered only when the agency actually has
+  // opted-in children (caps.canImo), and My Team only when there is a downline.
+  const [board, setBoard] = useState<BoardScope>("team");
+  const boardScopes = BOARD_SCOPES.filter(
+    (s) =>
+      s.value !== "mine" &&
+      (s.value !== "imo" || caps.canImo) &&
+      (s.value !== "team" || caps.downlineCount > 0),
+  );
+  const boardScope: BoardScope = boardScopes.some((s) => s.value === board)
+    ? board
+    : (boardScopes[0]?.value ?? "agency");
+
   const fetchLeaders = useServerFn(getLeaderboardData);
   const { data: leaders } = useQuery({
-    queryKey: ["dashboard-leaders", rangeStart, rangeEnd],
-    queryFn: () => fetchLeaders({ data: { rangeStart, rangeEnd } }),
+    queryKey: ["dashboard-leaders", rangeStart, rangeEnd, boardScope],
+    queryFn: () => fetchLeaders({ data: { rangeStart, rangeEnd, scope: boardScope } }),
     staleTime: 60_000,
   });
+
+  // Per-agency totals. Returns an empty list for an agency with no opted-in
+  // children, which is what hides the panel — no capability check needed here.
+  const fetchByAgency = useServerFn(getProductionByAgency);
+  const { data: byAgency } = useQuery({
+    queryKey: ["dashboard-by-agency", rangeStart, rangeEnd],
+    queryFn: () => fetchByAgency({ data: { rangeStart, rangeEnd } }),
+    enabled: caps.canImo,
+    staleTime: 60_000,
+  });
+
 
   // The producer-profile completion query went with the banner it fed. The
   // onboarding panel derives its own steps, so this was a request on every
