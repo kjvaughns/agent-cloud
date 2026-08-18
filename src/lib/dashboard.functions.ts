@@ -387,11 +387,128 @@ const LeaderboardSchema = RangeSchema.extend({
   scope: z.enum(["mine", "team", "agency", "imo"]).optional(),
 });
 
+/**
+ * Agency owners who turned "show my own numbers on leaderboards" off.
+ *
+ * They lose their OWN line and nothing else. Resolved through the admin client
+ * because a parent ranking an IMO cannot read a child org's settings row under
+ * RLS, and this is the one fact from it a rollup is entitled to.
+ *
+ * Extracted because there are two ways to build a board now and an opt-out
+ * honoured on one of them is not honoured at all.
+ */
+async function hiddenOwnersAmong(ids: string[], viewerId: string): Promise<Set<string>> {
+  const hidden = new Set<string>();
+  if (!ids.length) return hidden;
+  try {
+    const { data: orgs } = await supabaseAdmin
+      .from("organizations").select("id, owner_id").in("owner_id", ids);
+    const orgIds = (orgs ?? []).map((o: any) => o.id);
+    if (!orgIds.length) return hidden;
+    const { data: optedOut } = await supabaseAdmin
+      .from("organization_settings")
+      .select("organization_id, show_own_on_leaderboards")
+      .in("organization_id", orgIds)
+      .eq("show_own_on_leaderboards", false);
+    const hiddenOrgIds = new Set((optedOut ?? []).map((s: any) => s.organization_id));
+    for (const o of (orgs ?? []) as any[]) {
+      if (hiddenOrgIds.has(o.id)) hidden.add(o.owner_id);
+    }
+  } catch {
+    // Column absent before the imo-scope migration: nobody has opted out.
+  }
+  // Never hide the viewer from themselves — their own board saying they do not
+  // exist would read as data loss, not privacy.
+  hidden.delete(viewerId);
+  return hidden;
+}
+
+/**
+ * The whole agency's board, via `get_org_leaderboard`.
+ *
+ * Returns null when the function is not there — the migration is applied by
+ * hand, so there is a window between this shipping and the function existing,
+ * and in that window the caller keeps today's narrower board rather than
+ * showing an error. Logged rather than silent: a temporary state that has been
+ * mistaken for the code being wrong before.
+ */
+async function agencyBoard(
+  supabase: any,
+  userId: string,
+  rangeStart: string,
+  rangeEnd: string,
+): Promise<{ agents: LeaderboardAgent[]; selfId: string; selfName: string | null } | null> {
+  const { data, error } = await supabase.rpc("get_org_leaderboard", {
+    _start: rangeStart,
+    _end: rangeEnd,
+  });
+  if (error) {
+    console.warn(
+      "[leaderboard] get_org_leaderboard unavailable, falling back to the downline board:",
+      (error as any)?.code,
+      (error as any)?.message,
+    );
+    return null;
+  }
+
+  const rows = (data ?? []) as any[];
+  const hidden = await hiddenOwnersAmong(rows.map((r) => r.agent_id), userId);
+
+  const agents = rows
+    .filter((r) => !hidden.has(r.agent_id))
+    .map((r) => ({
+      id: r.agent_id as string,
+      name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
+      premium: Number(r.premium ?? 0),
+      policies: Number(r.policies ?? 0),
+      placed: Number(r.placed ?? 0),
+    }))
+    .sort((a, b) => b.premium - a.premium) as LeaderboardAgent[];
+
+  // The viewer's own name, so the board can place them even when they wrote
+  // nothing in the window — this function lists producers only, so somebody
+  // quiet this month is legitimately not in `agents`.
+  let selfName = agents.find((a) => a.id === userId)?.name ?? null;
+  if (!selfName) {
+    const { data: me } = await supabase
+      .from("profiles").select("first_name, last_name").eq("id", userId).maybeSingle();
+    selfName = `${(me as any)?.first_name ?? ""} ${(me as any)?.last_name ?? ""}`.trim() || null;
+  }
+
+  return { agents, selfId: userId, selfName };
+}
+
 export const getLeaderboardData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => LeaderboardSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as any;
+
+    // ── The agency board answers "the agency" ─────────────────────────────
+    //
+    // "Each agent should be able to see everyone in the agency, not just them
+    // and their downline." The toggle offered My Agency to everybody and, for
+    // everybody who is not an org admin, quietly meant "my downline":
+    // `scope_agent_ids` degrades 'agency' to 'team' when `is_org_admin` is
+    // false, and nothing on screen said the question had been changed.
+    //
+    // `get_org_leaderboard` is a security definer function returning names and
+    // totals only. It is used INSTEAD of widening `scope_agent_ids`, which is
+    // also the source of truth for Book of Business, analytics and the
+    // dashboard tiles — widening it there would open agency-wide client and
+    // policy data to answer a question about a scoreboard.
+    //
+    // `imo` is deliberately not routed here: that scope spans child agencies,
+    // which this function does not walk.
+    if (data.scope === "agency") {
+      const board = await agencyBoard(supabase, userId, data.rangeStart, data.rangeEnd);
+      if (board) return board;
+      // The migration is applied by hand, so there is a window where the
+      // function does not exist. Falling through to the old path keeps today's
+      // board rather than showing an error — no better, but no worse, and the
+      // reason is in the logs. Same degrade `resolveScopeAgentIdsOrNone` makes.
+    }
+
     let teamIds: string[];
     if (data.scope === "mine") {
       // Just this person. A board of one is still a board: it carries their
@@ -411,28 +528,8 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
     // OWN line and nothing else. Resolved via the admin client because a
     // parent ranking an IMO cannot read a child org's settings row under RLS
     // — and this is the one fact from it the rollup is entitled to.
-    try {
-      const { data: orgs } = await supabaseAdmin
-        .from("organizations").select("id, owner_id").in("owner_id", teamIds);
-      const orgIds = (orgs ?? []).map((o: any) => o.id);
-      if (orgIds.length) {
-        const { data: optedOut } = await supabaseAdmin
-          .from("organization_settings")
-          .select("organization_id, show_own_on_leaderboards")
-          .in("organization_id", orgIds)
-          .eq("show_own_on_leaderboards", false);
-        const hiddenOrgIds = new Set((optedOut ?? []).map((s: any) => s.organization_id));
-        const hiddenOwners = new Set(
-          (orgs ?? []).filter((o: any) => hiddenOrgIds.has(o.id)).map((o: any) => o.owner_id),
-        );
-        // Never hide the viewer from themselves — their own board saying they
-        // don't exist would read as data loss, not privacy.
-        hiddenOwners.delete(userId);
-        teamIds = teamIds.filter((id) => !hiddenOwners.has(id));
-      }
-    } catch {
-      // Column absent before the imo-scope migration: nobody has opted out.
-    }
+    const hidden = await hiddenOwnersAmong(teamIds, userId);
+    teamIds = teamIds.filter((id) => !hidden.has(id));
 
     // ── No join. A name must not be able to delete production ─────────────
     //

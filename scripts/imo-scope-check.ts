@@ -84,8 +84,12 @@ const DASH = read("src/lib/dashboard.functions.ts");
 check("the leaderboard routes agency/imo through the scope layer",
   /scope: z\.enum\(\["mine", "team", "agency", "imo"\]\)\.optional\(\)/.test(DASH) &&
   /resolveScopeAgentIdsOrNone\(supabase, data\.scope as any\)/.test(DASH), true);
+// The lookup moved into `hiddenOwnersAmong` when a second way to build a board
+// arrived, so that both honour it — an opt-out obeyed on one path and not the
+// other is worse than one obeyed on neither. The requirement is unchanged: the
+// owner loses their own line, and never their own view of it.
 check("opted-out owners lose their own line only",
-  /eq\("show_own_on_leaderboards", false\)/.test(DASH) && /hiddenOwners\.delete\(userId\)/.test(DASH), true);
+  /eq\("show_own_on_leaderboards", false\)/.test(DASH) && /hidden\.delete\(viewerId\)/.test(DASH), true);
 check("…inside a catch for the pre-migration window",
   /catch \{\s*\n\s*\/\/ Column absent before the imo-scope migration/.test(DASH), true);
 check("the three levels come from the same resolver as every scoped page",
