@@ -50,6 +50,25 @@ paragraphs below.
   Forward only. No column is dropped, no row deleted, and every write is
   conditional on the value being absent.
 
+- `20260818160000_agency-api-keys.sql`
+
+  Adds `api_keys` and `api_key_usage`, both owner-only under RLS, for the
+  read-only production API an agency owner issues to somebody outside the
+  agency — typically their upline, for their own website.
+
+  **The feature is inert until this is applied**, rather than broken: the
+  settings panel's key list throws on a missing table and the endpoints answer
+  401 to every call, because there is no key to match. Nothing else in the
+  product reads these tables.
+
+  Verified on a scratch Postgres, applied twice: an owner sees their own
+  agency's keys and only those, an agent in the same agency sees none and
+  cannot mint one, another agency's owner sees only theirs, the same key hash
+  cannot be registered to two agencies, and usage history survives revocation.
+
+  Forward only. Two new tables; nothing existing is altered, dropped or
+  deleted.
+
 - `20260818120000_org-leaderboard.sql`
 
   Adds `get_org_leaderboard(_start, _end)`, a security definer function

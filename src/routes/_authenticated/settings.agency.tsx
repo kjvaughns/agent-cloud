@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DiscordSettings } from "@/components/discord-settings";
 import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
+import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
@@ -547,8 +548,12 @@ function AgencySettingsPage() {
           <TabsContent value="automations" className="mt-4 space-y-6">
             <DiscordSettings />
           </TabsContent>
-          <TabsContent value="integrations" className="mt-4">
+          <TabsContent value="integrations" className="mt-4 space-y-6">
             <IntegrationsCatalog onOpenTab={(t) => setActive((normalizeTab(t) ?? "automations"))} />
+            {/* Directly below the catalogue that lists it, rather than behind a
+                tab of its own: issuing a key is the only thing "API Access"
+                means, so there is nothing to navigate to. */}
+            <ApiKeysPanel />
           </TabsContent>
         </Tabs>
       </div>

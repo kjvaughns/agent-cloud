@@ -82,6 +82,8 @@ import { Route as AuthenticatedContractingIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedContractingOpsIndexRouteImport } from './routes/_authenticated/contracting-ops/index'
 import { Route as AuthenticatedAgencyIndexRouteImport } from './routes/_authenticated/agency/index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiV1WhoamiRouteImport } from './routes/api/v1/whoami'
+import { Route as ApiV1ProductionRouteImport } from './routes/api/v1/production'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
@@ -557,6 +559,16 @@ const AuthenticatedAgencyIndexRoute =
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1WhoamiRoute = ApiV1WhoamiRouteImport.update({
+  id: '/api/v1/whoami',
+  path: '/api/v1/whoami',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ProductionRoute = ApiV1ProductionRouteImport.update({
+  id: '/api/v1/production',
+  path: '/api/v1/production',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
@@ -1295,6 +1307,8 @@ export interface FileRoutesByFullPath {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/v1/production': typeof ApiV1ProductionRoute
+  '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency/': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1464,6 +1478,8 @@ export interface FileRoutesByTo {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/v1/production': typeof ApiV1ProductionRoute
+  '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
@@ -1640,6 +1656,8 @@ export interface FileRoutesById {
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/api/v1/production': typeof ApiV1ProductionRoute
+  '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/agency/': typeof AuthenticatedAgencyIndexRoute
   '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1816,6 +1834,8 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/api/v1/production'
+    | '/api/v1/whoami'
     | '/lovable/email/suppression'
     | '/agency/'
     | '/contracting-ops/'
@@ -1985,6 +2005,8 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/api/v1/production'
+    | '/api/v1/whoami'
     | '/lovable/email/suppression'
     | '/agency'
     | '/contracting-ops'
@@ -2160,6 +2182,8 @@ export interface FileRouteTypes {
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
     | '/api/stripe/webhook'
+    | '/api/v1/production'
+    | '/api/v1/whoami'
     | '/lovable/email/suppression'
     | '/_authenticated/agency/'
     | '/_authenticated/contracting-ops/'
@@ -2215,6 +2239,8 @@ export interface RootRouteChildren {
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
+  ApiV1ProductionRoute: typeof ApiV1ProductionRoute
+  ApiV1WhoamiRoute: typeof ApiV1WhoamiRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
   ApiPublicHooksDispatchAnnouncementsRoute: typeof ApiPublicHooksDispatchAnnouncementsRoute
@@ -2739,6 +2765,20 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/whoami': {
+      id: '/api/v1/whoami'
+      path: '/api/v1/whoami'
+      fullPath: '/api/v1/whoami'
+      preLoaderRoute: typeof ApiV1WhoamiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/production': {
+      id: '/api/v1/production'
+      path: '/api/v1/production'
+      fullPath: '/api/v1/production'
+      preLoaderRoute: typeof ApiV1ProductionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stripe/webhook': {
@@ -3881,6 +3921,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
+  ApiV1ProductionRoute: ApiV1ProductionRoute,
+  ApiV1WhoamiRoute: ApiV1WhoamiRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
   ApiPublicHooksDispatchAnnouncementsRoute:
