@@ -300,11 +300,24 @@ export const postDeal = createServerFn({ method: "POST" })
       await supabase.from("clients").update({ notes: data.notes }).eq("id", clientId);
     }
 
-    // Announce in the agency's Discord, if they've connected one. Never
-    // awaited into the failure path — a Discord outage must not fail a deal
-    // that is already written. announceDeal swallows its own errors and
-    // records them for the owner to see.
-    void announceDeal(policy.id);
+    // Announce in the agency's Discord, if they've connected one.
+    //
+    // ── Awaited, deliberately ──
+    //
+    // This was `void announceDeal(...)`, on the reasoning that a Discord
+    // outage must not fail a deal that is already written. That reasoning is
+    // right and the mechanism was wrong: this is a Vercel serverless function,
+    // and the instance can be frozen the moment the response is written. The
+    // announcement makes six sequential Supabase round-trips before the
+    // webhook fetch even starts, so it was a race the deal path did not know
+    // it was running.
+    //
+    // Awaiting costs a few hundred milliseconds on an action taken a handful
+    // of times a day, after this handler has already done a client upsert, a
+    // policy insert, beneficiaries, banking and the whole commission
+    // calculation. It cannot add a failure mode: `announceDeal` returns
+    // `Promise<void>` and swallows its own errors by contract.
+    await announceDeal(policy.id);
 
     return { policyId: policy.id, clientId, compensation };
   });

@@ -112,8 +112,13 @@ const DISCORD = read("src/lib/discord.functions.ts");
 check("the feed walks up only through willing relationships",
   /eq\("status", "active"\)\s*\n\s*\.eq\("allow_sales_feed", true\)/.test(DISCORD), true);
 check("…depth-capped", /depth < 10/.test(DISCORD), true);
+// The opt-out still stops the post; it now leaves an `owner_feed_opt_out` row
+// on the way out rather than returning silently, so the shape this matched
+// changed while the requirement did not.
 check("an opted-out owner's own deal posts nowhere",
-  /show_own_sales_in_feed/.test(DISCORD) && /os\.show_own_sales_in_feed === false\) return/.test(DISCORD), true);
+  /show_own_sales_in_feed/.test(DISCORD)
+  && /os\.show_own_sales_in_feed === false\) \{/.test(DISCORD)
+  && /skipReason: "owner_feed_opt_out"/.test(DISCORD), true);
 // The ledger insert moved into a helper taking `orgId`, so the literal this
 // used to match no longer appears anywhere. The requirement is unchanged and is
 // what gets asserted: a delivery row belongs to the org that owns the CHANNEL,
