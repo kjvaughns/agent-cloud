@@ -460,7 +460,7 @@ export const getAgentDetail = createServerFn({ method: "GET" })
     };
     return {
       profile: profile.data,
-      contracts: contracts.data ?? [],
+      contracts: ((contracts.data ?? []) as any[]),
       breakdown,
       recent: pols.slice(0, 5),
     };
