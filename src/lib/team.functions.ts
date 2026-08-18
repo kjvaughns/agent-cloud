@@ -450,7 +450,7 @@ export const getAgentDetail = createServerFn({ method: "GET" })
       admin.from("policies").select("id, status, annual_premium, monthly_premium, posted_at, product, carriers(name)").eq("agent_id", data.agentId).order("posted_at", { ascending: false }).limit(50),
     ]);
     if (profile.error) throw new Error(profile.error.message);
-    const pols = policies.data ?? [];
+    const pols: any[] = (policies.data ?? []) as any[];
     const breakdown = {
       total: pols.length,
       active: pols.filter((p) => p.status === "active").length,
