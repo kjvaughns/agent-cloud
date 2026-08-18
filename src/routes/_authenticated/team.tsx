@@ -934,7 +934,13 @@ function RosterTable({
                       positionPct={a.position_pct}
                       agencyLevelId={a.agency_level_id}
                       positions={positions}
-                      canAssign={canAssign}
+                      // An agency admin may place anybody on the roster; an
+                      // upline may place their own people, which is every row
+                      // this table shows them except themselves. The server
+                      // enforces the same rule and the rung ceiling, so a
+                      // refusal surfaces as its own message rather than a
+                      // hidden control that contradicts the hierarchy.
+                      canAssign={canAssign || !(a as any).is_self}
                       pending={assign.isPending}
                       onAssign={(agencyLevelId) => assign.mutate({ agentId: a.id, agencyLevelId })}
                     />
