@@ -34,6 +34,7 @@ import { MyOnboarding } from "@/components/onboarding/my-onboarding";
 import { useTheme } from "@/hooks/use-theme";
 import { useMyAccess } from "@/hooks/use-my-access";
 import { audienceFor } from "@/lib/navigation";
+import { productionWindowEnd } from "@/lib/production/source";
 import { StaffDashboard } from "@/components/staff-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -94,10 +95,16 @@ function rangeBounds(range: string, custom: { from: string; to: string } | null)
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+  // Every "so far" window used to end at `now`, and a production date is a DAY
+  // stamped at midday UTC. Before midday UTC — the whole US working morning —
+  // `now` is earlier than today's own deals, so they read as being in the
+  // future and vanished from the figure. See productionWindowEnd.
+  const throughToday = productionWindowEnd(now);
+
   if (range === "__custom" && custom?.from && custom?.to) {
     const from = new Date(custom.from + "T00:00:00");
     // Inclusive of the chosen end date.
-    const to = new Date(custom.to + "T23:59:59.999");
+    const to = productionWindowEnd(new Date(custom.to + "T12:00:00Z"));
     return {
       start: from,
       end: to,
@@ -108,21 +115,21 @@ function rangeBounds(range: string, custom: { from: string; to: string } | null)
 
   switch (range) {
     case "today":
-      return { start: startOfToday, end: now, label: "Today", headline: "Today's ALP" };
+      return { start: startOfToday, end: throughToday, label: "Today", headline: "Today's ALP" };
     case "week": {
       const d = new Date(startOfToday);
       d.setDate(d.getDate() - d.getDay());
-      return { start: d, end: now, label: "This Week", headline: "Week-to-date ALP" };
+      return { start: d, end: throughToday, label: "This Week", headline: "Week-to-date ALP" };
     }
     case "quarter": {
       const q = Math.floor(now.getMonth() / 3) * 3;
-      return { start: new Date(now.getFullYear(), q, 1), end: now, label: "This Quarter", headline: "Quarter-to-date ALP" };
+      return { start: new Date(now.getFullYear(), q, 1), end: throughToday, label: "This Quarter", headline: "Quarter-to-date ALP" };
     }
     case "year":
-      return { start: new Date(now.getFullYear(), 0, 1), end: now, label: "This Year", headline: "Year-to-date ALP" };
+      return { start: new Date(now.getFullYear(), 0, 1), end: throughToday, label: "This Year", headline: "Year-to-date ALP" };
     case "month":
     default:
-      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now, label: "This Month", headline: "Month-to-date ALP" };
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: throughToday, label: "This Month", headline: "Month-to-date ALP" };
   }
 }
 

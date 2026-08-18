@@ -148,6 +148,58 @@ export function inWindow(row: ProductionRow, start: string | null, end: string |
   return true;
 }
 
+/**
+ * The end of a "to date" production window.
+ *
+ * ── The bug this exists for ──
+ *
+ * A production date is a DAY, not a moment. `saleDateToTimestamp` normalises it
+ * to midday UTC on purpose — midnight cast to `timestamptz` lands in the
+ * previous day everywhere west of UTC, which would push a sale on the 1st into
+ * the previous month for a US agency.
+ *
+ * Every "this month so far" window was then built as `end: now`, the current
+ * instant. Those two decisions are individually sensible and jointly wrong: for
+ * the first twelve hours of every UTC day, `now` is EARLIER than the midday
+ * stamp on a deal sold that day, so the deal is in the future as far as the
+ * window is concerned and silently drops out.
+ *
+ * For a US agency that is the whole working morning. An owner opening the
+ * dashboard at 5am Eastern saw the agency's team total missing a deal written
+ * the day before, while the roster — which passes no upper bound at all —
+ * showed it. Two screens, the same table, different answers, and nothing on
+ * either one saying a window had been applied.
+ *
+ * Comparing a day-granular value against a sub-day instant is the category
+ * error; this fixes it by ending the window at the end of the day rather than
+ * at the current moment.
+ *
+ * ── Why the UTC day, not the local one ──
+ *
+ * `todaySaleDate()` already offers, and caps, the sale-date input at the UTC
+ * date. So the latest day an agent can record is the UTC one, and ending the
+ * window there is what includes everything they are able to enter — no more,
+ * because tomorrow's midday stamp is still safely outside.
+ */
+export function productionWindowEnd(now: Date): Date {
+  return new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999,
+  ));
+}
+
+/**
+ * The same rule for a day being compared against, rather than today.
+ *
+ * The prior-period comparisons truncate to "the same point last month" so that
+ * two days are compared against two days rather than against a whole month.
+ * That is the right idea and it carried the same fault: truncating to an hour
+ * and minute drops whatever was written on that day. The comparison is in
+ * days, so the boundary is the end of the day.
+ */
+export function endOfProductionDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
+}
+
 /** Total premium across rows, with no windowing. Ineligible rows count zero. */
 export function sumPremium(rows: ProductionRow[]): number {
   return rows.reduce((acc, r) => acc + (countsAsProduction(r) ? premiumOf(r) : 0), 0);
