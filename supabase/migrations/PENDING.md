@@ -19,6 +19,37 @@ with its description on the same line is invisible to the script — which is th
 exact failure the script exists to prevent. Prose goes in the indented
 paragraphs below.
 
+- `20260818140000_org-membership-from-upline.sql`
+
+  Derives an agent's agency by walking `upline_id` when their
+  `organization_memberships` row is missing and `profiles.organization_id` is
+  null, backfills both, widens `my_org_ids()` with the same revocation-guarded
+  fallback the application already uses, moves `agency_levels_read` onto it, and
+  adds a trigger so a new recruit inherits their upline's agency.
+
+  **This one is the fix, not a refinement.** Until it is applied, an agent in
+  that state sees no carriers (`org_carriers_read` gates on `my_org_ids()`), no
+  positions to assign to their own downline and no level names
+  (`agency_levels_read` gated on the denormalised copy), and their posted deals
+  reach no Discord channel (`getMyOrgIds` finds neither, so `announceDeal`
+  records `no_organization` and stops). One missing row, three unrelated-looking
+  reports.
+
+  The application changes that ship with it are safe on their own: the honest
+  refusal when an upline has no position of their own, and closing the
+  revocation hole in `getMyOrgIds`, both work against today's schema.
+
+  Verified on a scratch Postgres seeded with the exact deadlock — an owner, an
+  upline and a sub-agent with neither a membership row nor a copy, a terminated
+  profile, and an archived membership with a stale copy — applied twice. Both
+  agents gain the ladder, the carriers and their membership rows; a new recruit
+  under them gets both automatically; somebody with no upline is left alone; a
+  cycle returns instead of hanging; and neither the terminated profile nor the
+  archived membership is readmitted.
+
+  Forward only. No column is dropped, no row deleted, and every write is
+  conditional on the value being absent.
+
 - `20260818120000_org-leaderboard.sql`
 
   Adds `get_org_leaderboard(_start, _end)`, a security definer function
