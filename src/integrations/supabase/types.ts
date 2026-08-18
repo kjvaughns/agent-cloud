@@ -10145,6 +10145,7 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
+      org_of_my_chain: { Args: { _org: string }; Returns: boolean }
       policy_counts_as_production: {
         Args: { _status: string }
         Returns: boolean
