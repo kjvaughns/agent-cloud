@@ -600,29 +600,70 @@ export const setAgentPosition = createServerFn({ method: "POST" })
 
     const admin = supabaseAdmin as any;
 
-    // ── Membership from the table that holds it ────────────────────────────
+    // ── The roster is the definition of "in my agency" ────────────────────
     //
-    // This compared `profiles.organization_id` on both sides. That column is a
-    // DENORMALISED copy, written by a trigger that only fires when a membership
-    // row lands with `status = 'active' AND is_primary`. The roster lists people
-    // from `organization_memberships`, the real thing — so the two disagreed and
-    // an owner was told an agent on their own roster "is not in your agency".
+    // Three different sources answer this question and they do not agree:
     //
-    // Both sides read the memberships table now, so the screen and the guard
-    // cannot answer differently.
+    //   get_team_downline          walks `upline_id`, NO organisation filter
+    //   is_in_downline             walks `upline_id`, filtered on org matching
+    //   organization_memberships   the membership table
+    //   profiles.organization_id   a denormalised copy of that table
+    //
+    // The roster on screen is built from the FIRST one. This guard has now
+    // been wrong twice by consulting the others: first the denormalised copy,
+    // then the membership table — and an agent listed on the roster was refused
+    // both times, because he has no membership row and a null copy while being
+    // perfectly reachable through `upline_id`.
+    //
+    // So the rule is the screen: if the roster shows them, they are placeable.
+    // Anything else guarantees a refusal that contradicts what the person is
+    // looking at, which is exactly what happened.
+    //
+    // The RLS-bound client, deliberately — `get_team_downline` is security
+    // definer and keys on `auth.uid()`, which is null under the service role and
+    // would return nobody.
+    const { data: downlineRows } = await supabase.rpc("get_team_downline");
+    const downlineIds = new Set(((downlineRows ?? []) as any[]).map((r) => r.id));
+    const inMyDownline = downlineIds.has(data.agentId);
+
+    // The other paths remain, as a union rather than a replacement: an agency
+    // owner may legitimately place somebody who is not under them at all — a
+    // top-level agent with no upline, or one whose chain was never wired up.
     const { data: myMemberships } = await admin
       .from("organization_memberships")
-      .select("organization_id, is_primary")
+      .select("organization_id")
       .eq("profile_id", userId).eq("status", "active");
     const myOrgIds = ((myMemberships ?? []) as any[]).map((m) => m.organization_id);
-    if (!myOrgIds.length) throw new Error("You are not in an agency.");
 
-    const { data: theirs } = await admin
-      .from("organization_memberships")
-      .select("organization_id")
-      .eq("profile_id", data.agentId).eq("status", "active")
-      .in("organization_id", myOrgIds);
-    const orgId: string | undefined = (theirs ?? [])[0]?.organization_id;
+    const { data: myRow } = await admin
+      .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+    if ((myRow as any)?.organization_id && !myOrgIds.includes((myRow as any).organization_id)) {
+      myOrgIds.push((myRow as any).organization_id);
+    }
+    if (!myOrgIds.length && !inMyDownline) throw new Error("You are not in an agency.");
+
+    const [{ data: theirMembership }, { data: theirRow }] = await Promise.all([
+      myOrgIds.length
+        ? admin.from("organization_memberships").select("organization_id")
+            .eq("profile_id", data.agentId).eq("status", "active")
+            .in("organization_id", myOrgIds).maybeSingle()
+        : Promise.resolve({ data: null }),
+      admin.from("profiles").select("organization_id").eq("id", data.agentId).maybeSingle(),
+    ]);
+
+    const sharesOrg =
+      Boolean((theirMembership as any)?.organization_id) ||
+      Boolean((theirRow as any)?.organization_id && myOrgIds.includes((theirRow as any).organization_id));
+
+    // Which agency this assignment belongs to, for the ladder and the audit.
+    // Their org where we know it, otherwise the caller's own — a downline agent
+    // with no org recorded anywhere is still being placed on the caller's ladder.
+    const orgId: string | undefined =
+      (theirMembership as any)?.organization_id
+      ?? ((theirRow as any)?.organization_id && myOrgIds.includes((theirRow as any).organization_id)
+            ? (theirRow as any).organization_id
+            : undefined)
+      ?? (inMyDownline ? myOrgIds[0] : undefined);
 
     // Who the caller is, and what they may hand out.
     const [{ data: org }, { data: myProfile }, { data: perms }] = await Promise.all([
@@ -643,16 +684,11 @@ export const setAgentPosition = createServerFn({ method: "POST" })
       : { data: [] };
     const agencyRungs = ((rungRows ?? []) as any[]) as Rung[];
 
-    // Anywhere above them, not just directly above: an owner three rungs up is
-    // still their upline, and a hierarchy that only lets the direct upline act
-    // leaves everybody above them unable to do anything.
-    let isMyDownline = false;
-    if (orgId && data.agentId !== userId) {
-      const { data: inDownline } = await admin.rpc("is_in_downline", {
-        _upline: userId, _target: data.agentId,
-      });
-      isMyDownline = Boolean(inDownline);
-    }
+    // `is_in_downline` is deliberately NOT used for this. It filters its walk on
+    // the organisation matching the upline's, so an agent whose org column is
+    // null is in nobody's downline according to it — while sitting on the
+    // roster, which walks the same `upline_id` chain without that filter.
+    const isMyDownline = inMyDownline;
 
     const verdict = checkAssignment({
       actor: {
@@ -661,7 +697,7 @@ export const setAgentPosition = createServerFn({ method: "POST" })
         canManageLevels: Boolean((perms as any)?.admin_manage_levels),
         ownRung: agencyRungs.find((r) => r.id === (myProfile as any)?.agency_level_id) ?? null,
       },
-      target: { inAgency: Boolean(orgId), isMyDownline },
+      target: { inAgency: inMyDownline || sharesOrg, isMyDownline },
       rung: data.agencyLevelId
         ? (agencyRungs.find((r) => r.id === data.agencyLevelId) ?? ({ id: data.agencyLevelId } as Rung))
         : null,
@@ -692,7 +728,7 @@ export const setAgentPosition = createServerFn({ method: "POST" })
 
     // A position is what somebody is paid from, so the change leaves a trail.
     await recordAudit({
-      organizationId: orgId!,
+      organizationId: orgId ?? myOrgIds[0]!,
       actorId: userId,
       action: "comp.changed",
       recordType: "profiles",

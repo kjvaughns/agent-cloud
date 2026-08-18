@@ -9,20 +9,32 @@
  * someone else it's not letting me." The refusal read **"That agent is not in
  * your agency."** He was on the roster, two rows above the message.
  *
- * Three faults, one root:
+ * ── Four sources, and only one of them is on the screen ──
  *
- *   1. The guard compared `profiles.organization_id` on both sides. That column
- *      is a DENORMALISED copy of membership, written by a trigger that fires
- *      only when a membership row lands with `status = 'active' AND is_primary`.
- *      The roster lists people from `organization_memberships` — the real
- *      record, and what `same_org()` reads. So the screen and the guard
- *      disagreed about who is in the agency, and the guard asserted something
- *      false.
- *   2. `profiles_org_manage` grants writes on `organization_id IS NOT NULL AND
- *      is_org_owner(organization_id)`. On a null copy that refuses the OWNER, on
- *      their own agency.
- *   3. That policy named the owner and nobody else, so an upline could never
- *      place their own downline whatever the product said.
+ * The question "is this agent in my agency" has four answers in this codebase:
+ *
+ *   get_team_downline          walks `upline_id`, NO organisation filter
+ *   is_in_downline             walks `upline_id`, filtered on org matching
+ *   organization_memberships   the membership table
+ *   profiles.organization_id   a denormalised copy of that table
+ *
+ * The roster is built from the FIRST. This guard consulted the LAST, and was
+ * then "fixed" to consult the third — and refused the same agent both times,
+ * because he has no membership row and a null copy while being perfectly
+ * reachable through `upline_id`. Two wrong answers to a question the screen had
+ * already answered correctly.
+ *
+ * The rule is now the screen: if the roster lists them, they are placeable.
+ * Sharing an agency by membership or by column is a union on top, for an owner
+ * placing somebody who is not under them at all.
+ *
+ * Two more faults sat behind the first:
+ *
+ *   * `profiles_org_manage` grants writes on `organization_id IS NOT NULL AND
+ *     is_org_owner(organization_id)`. On a null copy that refuses the OWNER, on
+ *     their own agency.
+ *   * That policy named the owner and nobody else, so an upline could never
+ *     place their own downline whatever the product said.
  *
  * The decision is a module so it can be exercised without a database, and so
  * the rung ceiling can be the same one invitations already enforce rather than
@@ -174,15 +186,39 @@ check("the server asks the module rather than comparing two strings",
 check("…and refuses with everything wrong at once",
   /if \(!verdict\.ok\) throw new Error\(verdict\.messages\.join\(" "\)\)/.test(TEAM), true);
 
-// The root cause. Membership comes from the table that holds it, on BOTH sides,
-// so the roster and the guard cannot disagree about who is in the agency.
-check("membership is read from organization_memberships",
-  (TEAM.match(/\.from\("organization_memberships"\)/g) ?? []).length >= 2, true);
-check("…and no longer from the denormalised copy",
+// ── The guard asks the same question the screen answered ────────────────────
+//
+// Four sources answer "is this agent in my agency" and they do not agree:
+//
+//   get_team_downline          walks upline_id, NO organisation filter
+//   is_in_downline             walks upline_id, filtered on org matching
+//   organization_memberships   the membership table
+//   profiles.organization_id   a denormalised copy of that table
+//
+// The roster is built from the FIRST. This guard was wrong twice by consulting
+// the others — the denormalised copy, then the membership table — and both
+// times refused an agent who was visible on the roster two rows above the
+// error. Consulting anything but the roster's own source guarantees a refusal
+// that contradicts what the person is looking at.
+
+check("placeability comes from the same RPC the roster is built from",
+  /supabase\.rpc\("get_team_downline"\)/.test(TEAM), true);
+check("…on the RLS-bound client, because it keys on auth.uid()",
+  /const \{ data: downlineRows \} = await supabase\.rpc/.test(TEAM), true);
+// Under the service role `auth.uid()` is null and the RPC returns nobody, which
+// would refuse everyone — the same class of mistake one layer down.
+check("…not the service-role client",
+  /admin\.rpc\("get_team_downline"\)/.test(TEAM), false);
+// `is_in_downline` filters on the org matching, so an agent with a null org
+// column is in nobody's downline according to it — while sitting on the roster.
+check("the org-filtered downline helper is not used for this",
+  /rpc\("is_in_downline"/.test(TEAM), false);
+check("…and neither is the denormalised comparison that started it",
   /agent\.organization_id !== orgId/.test(TEAM), false);
-// Anywhere above them, not just directly above.
-check("the upline test walks the whole chain",
-  /rpc\("is_in_downline", \{\s*_upline: userId, _target: data\.agentId,?\s*\}\)/.test(TEAM), true);
+// A union, not a replacement: an owner may place somebody who is not under
+// them at all — a top-level agent, or one whose chain was never wired up.
+check("sharing an agency is still a route in",
+  /inAgency: inMyDownline \|\| sharesOrg/.test(TEAM), true);
 
 // The write crosses `profiles_org_manage` deliberately, behind the check above,
 // and still asserts its row count — a zero-row update must not report success.

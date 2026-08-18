@@ -288,8 +288,17 @@ async function postToDiscord(webhookUrl: string, body: unknown) {
  * delivery.
  */
 async function recordDelivery(opts: {
-  orgId: string;
-  integrationId: string;
+  /**
+   * Both nullable, because the rows worth having most are the ones with
+   * neither. A deal that reached no channel used to leave the ledger empty —
+   * the same picture as a deal that was never posted — so the one question an
+   * owner asks ("did that go out?") had no answer for exactly the deals where
+   * it mattered. Both columns are nullable in the schema; `discord_deliveries_read`
+   * only shows rows with an org, so a null-org row is a service-role record for
+   * a state that should not exist rather than something an owner reads.
+   */
+  orgId: string | null;
+  integrationId: string | null;
   eventType: string;
   status: "sent" | "failed" | "skipped";
   httpStatus?: number | null;
@@ -301,8 +310,8 @@ async function recordDelivery(opts: {
   eventKey?: string | null;
 }): Promise<void> {
   const row = {
-    organization_id: opts.orgId,
-    integration_id: opts.integrationId,
+    organization_id: opts.orgId ?? null,
+    integration_id: opts.integrationId ?? null,
     event_type: opts.eventType,
     policy_id: opts.policyId ?? null,
     status: opts.status,
@@ -397,12 +406,68 @@ export async function announceDeal(policyId: string): Promise<void> {
       .select("id, organization_id, agent_id, product, annual_premium, monthly_premium, face_amount, carrier_id, effective_date")
       .eq("id", policyId)
       .maybeSingle();
-    if (!policy?.organization_id) return;
+    if (!policy) {
+      // No ledger row is possible: `discord_deliveries.policy_id` is a foreign
+      // key, and this is the case where that policy does not exist. The log is
+      // the whole record, which is why it is not left silent.
+      console.error("[discord] announceDeal: no such policy", policyId);
+      return;
+    }
+
+    // ── The agency's deals were not reaching Discord; the owner's were ──
+    //
+    // `stamp_organization_id` fills `policies.organization_id` from the
+    // agent's active membership, falling back to `profiles.organization_id`.
+    // An agent with neither gets a null — and this function returned on that
+    // null, writing no ledger row and logging nothing. Every deal that agent
+    // posted was invisible, while the owner's own posted fine, which reads
+    // exactly as "it only announces my direct deals".
+    //
+    // `getMyOrgIds` is the resolution the rest of the server already uses for
+    // this, and it refuses a revoked profile — which a hand-rolled fallback
+    // here would not. A fourth opinion about which agency somebody is in is
+    // the last thing this codebase needs.
+    let orgId: string | null = policy.organization_id ?? null;
+    if (!orgId && policy.agent_id) {
+      const { getMyOrgIds } = await import("@/lib/org-guard");
+      orgId = (await getMyOrgIds(policy.agent_id))[0] ?? null;
+
+      // Repair the row while we know the answer. Guarded on the column still
+      // being null so it can never overwrite a real value, and idempotent. The
+      // same null hides this deal from the leaderboard and from every org-scoped
+      // RLS policy, so leaving it would fix Discord and nothing else. The
+      // durable fix is the missing membership row; this stops one more deal
+      // from being written into the same hole in the meantime.
+      if (orgId) {
+        const { error } = await supabaseAdmin
+          .from("policies")
+          .update({ organization_id: orgId })
+          .eq("id", policy.id)
+          .is("organization_id", null);
+        if (error) console.error("[discord] could not repair policy org", policy.id, error.message);
+      }
+    }
+    if (!orgId) {
+      // No org, no channels — but the ledger says so now rather than the deal
+      // simply never being mentioned again.
+      console.error("[discord] no organization for policy", policy.id, "agent", policy.agent_id);
+      await recordDelivery({
+        orgId: null, integrationId: null, eventType: "deal_posted",
+        status: "skipped", policyId: policy.id, skipReason: "no_organization",
+      });
+      return;
+    }
 
     // The far end of a webhook is a real Discord channel with real people in
     // it. Silent rather than thrown, matching this function's contract.
     const { refusedForDemo } = await import("@/lib/demo.server");
-    if (await refusedForDemo(policy.organization_id, "send a webhook")) return;
+    if (await refusedForDemo(orgId, "send a webhook")) {
+      await recordDelivery({
+        orgId, integrationId: null, eventType: "deal_posted",
+        status: "skipped", policyId: policy.id, skipReason: "demo_org",
+      });
+      return;
+    }
 
     // The owner's own-feed toggle. If the writing agent owns this org and
     // turned "show my own sales in the team sales feed" off, the deal is
@@ -410,14 +475,20 @@ export async function announceDeal(policyId: string): Promise<void> {
     // because the columns land with the imo-scope migration.
     try {
       const { data: org } = await supabaseAdmin
-        .from("organizations").select("owner_id").eq("id", policy.organization_id).maybeSingle();
+        .from("organizations").select("owner_id").eq("id", orgId).maybeSingle();
       if (org?.owner_id === policy.agent_id) {
         const { data: os } = await supabaseAdmin
           .from("organization_settings")
           .select("show_own_sales_in_feed")
-          .eq("organization_id", policy.organization_id)
+          .eq("organization_id", orgId)
           .maybeSingle();
-        if (os && os.show_own_sales_in_feed === false) return;
+        if (os && os.show_own_sales_in_feed === false) {
+          await recordDelivery({
+            orgId, integrationId: null, eventType: "deal_posted",
+            status: "skipped", policyId: policy.id, skipReason: "owner_feed_opt_out",
+          });
+          return;
+        }
       }
     } catch {
       // Column absent pre-migration: everyone participates, today's behaviour.
@@ -428,10 +499,10 @@ export async function announceDeal(policyId: string): Promise<void> {
     // (active + allow_sales_feed). The walk is depth-capped and cycle-guarded;
     // a parent that paused the child, or turned the feed off, simply is not
     // in the list. Wrapped for the window before agency_relationships exists.
-    const feedOrgIds = [policy.organization_id];
+    const feedOrgIds = [orgId];
     try {
       const seen = new Set<string>(feedOrgIds);
-      let cursor: string | null = policy.organization_id;
+      let cursor: string | null = orgId;
       for (let depth = 0; cursor && depth < 10; depth++) {
         const { data: rel }: { data: any } = await supabaseAdmin
           .from("agency_relationships")
@@ -469,7 +540,18 @@ export async function announceDeal(policyId: string): Promise<void> {
         status: "skipped", policyId: policy.id, skipReason: "in_backoff",
       });
     }
-    if (targets.length === 0) return;
+    if (targets.length === 0) {
+      // `in_backoff` was already recorded per channel above, so only the
+      // genuinely-unconfigured case needs a row here — otherwise a resting
+      // channel would be logged twice with two different reasons.
+      if (eligible.length === 0) {
+        await recordDelivery({
+          orgId, integrationId: null, eventType: "deal_posted",
+          status: "skipped", policyId: policy.id, skipReason: "no_channels",
+        });
+      }
+      return;
+    }
 
     const annual = Number(policy.annual_premium ?? 0);
 
@@ -566,8 +648,21 @@ export async function announceDeal(policyId: string): Promise<void> {
         }
       }),
     );
-  } catch {
-    // Same contract: the deal is already written, and nothing here may undo it.
+  } catch (e: any) {
+    // Same contract — the deal is already written and nothing here may undo it
+    // — but the catch was completely empty, so a throw anywhere in the hundred
+    // and seventy lines above vanished without a line in the logs or a row in
+    // the ledger. "It didn't post and there's nothing to look at" is the state
+    // that made this take three guesses to find.
+    console.error("[discord] announceDeal failed", policyId, e?.code, e?.message);
+    try {
+      await recordDelivery({
+        orgId: null, integrationId: null, eventType: "deal_posted",
+        status: "failed", policyId, error: String(e?.message ?? e).slice(0, 500),
+      });
+    } catch {
+      // Recording the failure must not itself throw.
+    }
   }
 }
 

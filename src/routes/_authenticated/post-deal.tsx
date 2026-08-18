@@ -229,8 +229,11 @@ function PostDealPage() {
   // than a broad one — most agencies have no grid yet, and they must still be
   // able to post a deal.
   const { data: dealOptions } = useQuery({
-    queryKey: ["carrier-deal-options", selectedCarrier?.id],
-    queryFn: () => getCarrierDealOptions({ data: { orgCarrierId: selectedCarrier!.id } }),
+    // Keyed on "carrier" as well as the id: this call used to be handed the
+    // same uuid under a different meaning, and a cache entry from the old
+    // shape must not answer the new one.
+    queryKey: ["carrier-deal-options", "carrier", selectedCarrier?.id],
+    queryFn: () => getCarrierDealOptions({ data: { carrierId: selectedCarrier!.id } }),
     enabled: Boolean(selectedCarrier?.id),
   });
   const gridProducts = dealOptions?.products ?? [];

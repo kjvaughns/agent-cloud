@@ -131,8 +131,38 @@ export async function loadDealFacts(
 
 export const getCarrierDealOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
+  /**
+   * A `carriers.id`, which is what every caller actually holds.
+   *
+   * ── The bug this signature is fixing ──
+   *
+   * This took `orgCarrierId` and looked it up as the PRIMARY KEY of
+   * `org_carriers`. Post a Deal passed `selectedCarrier.id`, and
+   * `listCarriersForDeal` maps `id: r.carrier_id` — a `carriers.id`. The two
+   * are different rows in different tables, so the lookup never matched, the
+   * function always answered `{ available: false, products: [] }`, and the form
+   * fell through to the generic catalogue without a word. The grid-products
+   * work shipped twice and has never once run in production.
+   *
+   * `carriers.id` is the id the rest of the system is keyed on —
+   * `commission_grids.carrier_id`, `agent_commission_levels.carrier_id`, the
+   * deal's own `carrier_id`. `org_carriers.id` is needed at exactly one point
+   * below, and this function is reading that row anyway, so it resolves it
+   * here rather than asking two screens to each work it out.
+   *
+   * `orgCarrierId` is still accepted so a client cached mid-deploy does not
+   * 400; it can go a release later.
+   */
   .inputValidator((d: unknown) =>
-    z.object({ orgCarrierId: z.string().uuid() }).parse(d),
+    z
+      .object({
+        carrierId: z.string().uuid().optional(),
+        orgCarrierId: z.string().uuid().optional(),
+      })
+      .refine((v) => Boolean(v.carrierId) !== Boolean(v.orgCarrierId), {
+        message: "Pass exactly one of carrierId or orgCarrierId",
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as Ctx;
@@ -142,14 +172,27 @@ export const getCarrierDealOptions = createServerFn({ method: "GET" })
     }
 
     // RLS-bound read: an agent asking about a carrier in another agency gets
-    // nothing back rather than a shaped-but-empty answer.
-    const { data: oc } = await supabase
+    // nothing back rather than a shaped-but-empty answer. `org_carriers` is
+    // unique on (organization_id, carrier_id), so either lookup is single-row.
+    //
+    // Deliberately NOT `resolveOrgCarrierId` — that one CREATES the link when
+    // it is missing, and a dropdown reading what a carrier offers must never
+    // enrol the agency on a carrier as a side effect of being looked at.
+    const link = supabase
       .from("org_carriers")
       .select("id, carrier_id, organization_id")
-      .eq("id", data.orgCarrierId)
-      .eq("organization_id", orgId)
-      .maybeSingle();
-    if (!oc?.carrier_id) {
+      .eq("organization_id", orgId);
+    const { data: oc } = await (data.carrierId
+      ? link.eq("carrier_id", data.carrierId)
+      : link.eq("id", data.orgCarrierId!)
+    ).maybeSingle();
+
+    // The grid is keyed on `carriers.id` and does not need the agency link
+    // row to exist. When the caller named the carrier we can answer even for a
+    // carrier the agency has no `org_carriers` row for; only the level mapping
+    // below needs the link, and that degrades to "no level" on its own.
+    const carrierId: string | null = data.carrierId ?? oc?.carrier_id ?? null;
+    if (!carrierId) {
       return { available: false as const, products: [], needsAge: false, needsState: false, needsRisk: false };
     }
 
@@ -160,13 +203,13 @@ export const getCarrierDealOptions = createServerFn({ method: "GET" })
         .from("agent_commission_levels")
         .select("commission_level")
         .eq("agent_id", userId)
-        .eq("carrier_id", oc.carrier_id)
+        .eq("carrier_id", carrierId)
         .maybeSingle(),
       supabase.from("profiles").select("agency_level_id").eq("id", userId).maybeSingle(),
     ]);
 
     let levelName: string | null = contract?.commission_level ?? null;
-    if (!levelName && profile?.agency_level_id) {
+    if (!levelName && profile?.agency_level_id && oc?.id) {
       const { data: mapping } = await supabase
         .from("agency_level_carrier_mappings")
         .select("carrier_level_name")
@@ -177,7 +220,7 @@ export const getCarrierDealOptions = createServerFn({ method: "GET" })
       levelName = mapping?.carrier_level_name ?? null;
     }
 
-    const rows = await loadGridRows(supabase, orgId, oc.carrier_id);
+    const rows = await loadGridRows(supabase, orgId, carrierId);
     const req = requirementsFor(rows, levelName);
 
     return {

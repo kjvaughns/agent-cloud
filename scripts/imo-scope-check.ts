@@ -84,8 +84,12 @@ const DASH = read("src/lib/dashboard.functions.ts");
 check("the leaderboard routes agency/imo through the scope layer",
   /scope: z\.enum\(\["mine", "team", "agency", "imo"\]\)\.optional\(\)/.test(DASH) &&
   /resolveScopeAgentIdsOrNone\(supabase, data\.scope as any\)/.test(DASH), true);
+// The lookup moved into `hiddenOwnersAmong` when a second way to build a board
+// arrived, so that both honour it — an opt-out obeyed on one path and not the
+// other is worse than one obeyed on neither. The requirement is unchanged: the
+// owner loses their own line, and never their own view of it.
 check("opted-out owners lose their own line only",
-  /eq\("show_own_on_leaderboards", false\)/.test(DASH) && /hiddenOwners\.delete\(userId\)/.test(DASH), true);
+  /eq\("show_own_on_leaderboards", false\)/.test(DASH) && /hidden\.delete\(viewerId\)/.test(DASH), true);
 check("…inside a catch for the pre-migration window",
   /catch \{\s*\n\s*\/\/ Column absent before the imo-scope migration/.test(DASH), true);
 check("the three levels come from the same resolver as every scoped page",
@@ -112,8 +116,13 @@ const DISCORD = read("src/lib/discord.functions.ts");
 check("the feed walks up only through willing relationships",
   /eq\("status", "active"\)\s*\n\s*\.eq\("allow_sales_feed", true\)/.test(DISCORD), true);
 check("…depth-capped", /depth < 10/.test(DISCORD), true);
+// The opt-out still stops the post; it now leaves an `owner_feed_opt_out` row
+// on the way out rather than returning silently, so the shape this matched
+// changed while the requirement did not.
 check("an opted-out owner's own deal posts nowhere",
-  /show_own_sales_in_feed/.test(DISCORD) && /os\.show_own_sales_in_feed === false\) return/.test(DISCORD), true);
+  /show_own_sales_in_feed/.test(DISCORD)
+  && /os\.show_own_sales_in_feed === false\) \{/.test(DISCORD)
+  && /skipReason: "owner_feed_opt_out"/.test(DISCORD), true);
 // The ledger insert moved into a helper taking `orgId`, so the literal this
 // used to match no longer appears anywhere. The requirement is unchanged and is
 // what gets asserted: a delivery row belongs to the org that owns the CHANNEL,
