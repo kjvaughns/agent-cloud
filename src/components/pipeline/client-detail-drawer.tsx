@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Phone, MessageSquare, Mail, CheckCircle2, Send, FileText, Plus, Trash2, Pencil,
   AlertTriangle, Heart, Eye, EyeOff,
@@ -33,6 +33,7 @@ import {
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
+import { encodePolicyDraft, postDealStatus, type PolicyDraft } from "@/lib/deals/policy-draft";
 import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
@@ -107,6 +108,12 @@ function DrawerBody({ clientId }: { clientId: string }) {
   const [activeTab, setActiveTab] = useState("contact");
   const { data, isLoading } = useQuery(detailQO(clientId));
 
+  // Shared between the Add Policy form, which writes it, and the header's
+  // "Post Deal" button, which carries it. Reset per client so one client's
+  // half-typed policy can never follow the agent onto another's deal.
+  const policyDraft = useRef<PolicyDraft>({});
+  useEffect(() => { policyDraft.current = {}; }, [clientId]);
+
   if (isLoading || !data?.client) {
     return (
       <div className="p-6 space-y-3">
@@ -121,6 +128,7 @@ function DrawerBody({ clientId }: { clientId: string }) {
   const notes = (data.contact_history ?? []).filter((h: any) => h.contact_type === "note" || h.contact_type === "medical_note" || h.contact_type === "imported_note");
 
   return (
+    <PolicyDraftContext.Provider value={policyDraft}>
     <div className="flex flex-col h-full overflow-hidden">
       {/* Compact header */}
       <DrawerHeader client={c} />
@@ -154,11 +162,27 @@ function DrawerBody({ clientId }: { clientId: string }) {
         </div>
       </div>
     </div>
+    </PolicyDraftContext.Provider>
   );
 }
 
+/**
+ * The policy the agent is part-way through typing, shared across the drawer.
+ *
+ * The Add Policy form and the header's "Post Deal" button are siblings, and
+ * the button used to navigate away with only the client id — throwing away
+ * whatever had been typed two inches below it. Neither component could see the
+ * other, so the loss was invisible from both sides.
+ *
+ * A ref rather than state: the header only reads this at the moment of the
+ * click, and re-rendering the whole drawer on every keystroke to keep a value
+ * nobody is displaying would be a real cost for no benefit.
+ */
+const PolicyDraftContext = createContext<{ current: PolicyDraft } | null>(null);
+
 // ============ Header ============
 function DrawerHeader({ client }: { client: any }) {
+  const draft = useContext(PolicyDraftContext);
   const qc = useQueryClient();
   const nav = useNavigate();
   const markSoldFn = useServerFn(markClientSold);
@@ -212,7 +236,15 @@ function DrawerHeader({ client }: { client: any }) {
             <Button
               size="sm"
               className="gap-1.5"
-              onClick={() => nav({ to: "/post-deal", search: { client_id: client.id } })}
+              onClick={() =>
+                nav({
+                  to: "/post-deal",
+                  // Whatever is already typed goes with them. An untouched
+                  // form encodes to nothing, so this is the old navigation
+                  // until the agent has actually started.
+                  search: { client_id: client.id, ...encodePolicyDraft(draft?.current) },
+                })
+              }
             >
               <Send className="h-3.5 w-3.5" /> Post Deal
             </Button>
@@ -995,10 +1027,32 @@ function PolicyFields({ detail }: { detail: any }) {
   );
 }
 
+/**
+ * An empty policy form.
+ *
+ * Named because it is now needed twice: once to open the form, and once to
+ * empty it after a successful post — which also clears the published draft,
+ * so the header's "Post Deal" button cannot carry a policy that has already
+ * been written and invite a second copy of it.
+ */
+const blankPolicyForm = () => ({
+  carrier_id: "", policy_number: "", product: "", status: "active",
+  monthly_premium: "", face_amount: "", effective_date: "", sale_date: todaySaleDate(),
+});
+
 function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client: any; onSaved: () => void; onCancel: () => void; showCancel: boolean }) {
   const qc = useQueryClient();
   const clientId = client.id as string;
-  const [form, setForm] = useState({ carrier_id: "", policy_number: "", product: "", status: "active", monthly_premium: "", face_amount: "", effective_date: "", sale_date: todaySaleDate() });
+  const [form, setForm] = useState(blankPolicyForm);
+
+  // Publish what has been typed so the header's "Post Deal" button can take it
+  // along instead of navigating away and losing it. Read-only from the
+  // header's side, and nothing here is ever written to the database — a draft
+  // stays a draft until one of the two forms is submitted.
+  const draft = useContext(PolicyDraftContext);
+  useEffect(() => {
+    if (draft) draft.current = { ...form, status: postDealStatus(form.status) };
+  }, [draft, form]);
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
@@ -1044,6 +1098,9 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       } else {
         toast.success("Deal posted");
       }
+      // The policy is written; the draft that described it must not survive to
+      // be carried into a second one.
+      setForm(blankPolicyForm());
       onSaved();
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to post deal"),

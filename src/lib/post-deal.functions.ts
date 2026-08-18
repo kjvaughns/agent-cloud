@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PAYMENT_METHODS } from "@/lib/deals/social-security";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { gridProductsByCarrier } from "@/lib/carriers/grid-products";
+import { postDealStatus } from "@/lib/deals/policy-draft";
 import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { announceDeal } from "@/lib/discord.functions";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
@@ -391,10 +392,10 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
             face_amount: policy.face_amount != null ? String(policy.face_amount) : "",
             monthly_premium: policy.monthly_premium != null ? String(policy.monthly_premium) : "",
             // Only the two statuses Post a Deal offers; anything else is a
-            // policy already past submission and should not preselect.
-            status: (policy.status === "in_review" ? "in_review" : "issued_not_paid") as
-              | "issued_not_paid"
-              | "in_review",
+            // policy already past submission and should not preselect. Shared
+            // with the drawer handoff, so the two ways of arriving at this form
+            // cannot disagree about what "active" preselects to.
+            status: postDealStatus(policy.status),
           }
         : null,
       beneficiaries: (bens ?? []).map((b: any) => ({
