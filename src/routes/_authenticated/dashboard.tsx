@@ -588,11 +588,92 @@ function HeroPanel({
   );
 }
 
-function LeaderboardPanel({ leaders, rangeLabel }: { leaders: any; rangeLabel: string }) {
+/**
+ * Per-agency production, for an owner whose agency has sub-agencies.
+ *
+ * Their own agency first, then each opted-in child. A child that is paused or
+ * excluded from the rollup is absent rather than zero — the server leaves it
+ * out, because "$0" beside an agency nobody is counting is a false statement
+ * about their month rather than a true one about the setting.
+ */
+function AgencyRollupPanel({ agencies, rangeLabel }: { agencies: any[]; rangeLabel: string }) {
+  const top = agencies[0]?.premium || 1;
+  const imoTotal = agencies.reduce((a, r) => a + (r.premium ?? 0), 0);
+  return (
+    <Panel
+      title="Total IMO by Agency"
+      action={<span className="text-[10.5px] text-muted-foreground">{rangeLabel} · {money(imoTotal)} ALP</span>}
+    >
+      <div className="flex flex-col gap-1.5">
+        {agencies.map((a) => (
+          <div
+            key={a.orgId}
+            className={cn(
+              "rounded-lg border px-3 py-2.5",
+              a.isMine ? "bg-gold-glow border-primary/30" : "border-border-soft bg-surface-2",
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <div className={cn("min-w-0 flex-1 truncate text-[12.5px]", a.isMine ? "font-bold text-gold-bright" : "font-medium")}>
+                {a.name}
+                {a.isMine && <span className="ml-2 rounded bg-primary px-1.5 py-0.5 text-[8.5px] font-extrabold tracking-[0.05em] text-gold-foreground">MINE</span>}
+              </div>
+              <div className="tnum font-display text-[12.5px] font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                {money(a.premium)}
+              </div>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border-soft">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(2, (a.premium / top) * 100)}%` }} />
+            </div>
+            <div className="mt-1 text-[10.5px] text-muted-foreground">
+              {number(a.policies)} {a.policies === 1 ? "policy" : "policies"} · {money(a.placed)} placed
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function LeaderboardPanel({
+  leaders, rangeLabel, scope, scopes, onScope,
+}: {
+  leaders: any;
+  rangeLabel: string;
+  scope: BoardScope;
+  scopes: { value: BoardScope; label: string }[];
+  onScope: (s: BoardScope) => void;
+}) {
   const agents: any[] = (leaders?.agents ?? []).slice(0, 5);
   const selfId = leaders?.selfId;
   return (
-    <Panel title="Leaderboard" action={<span className="text-[10.5px] text-muted-foreground">{rangeLabel} ALP</span>}>
+    <Panel
+      title="Leaderboard"
+      action={
+        <div className="flex items-center gap-2">
+          {scopes.length > 1 && (
+            <div className="flex gap-1">
+              {scopes.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => onScope(s.value)}
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors",
+                    scope === s.value
+                      ? "border-primary/40 bg-gold-glow text-gold-bright"
+                      : "border-border bg-surface-2 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <span className="text-[10.5px] text-muted-foreground">{rangeLabel} ALP</span>
+        </div>
+      }
+    >
+
       {agents.length === 0 ? (
         <div className="py-6 text-center text-sm text-muted-foreground">No production yet this period.</div>
       ) : (
