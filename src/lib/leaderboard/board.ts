@@ -39,6 +39,8 @@
  * sports table a person has ever read works.
  */
 
+import { productionWindowEnd, endOfProductionDay } from "@/lib/production/source";
+
 export type BoardAgent = {
   id: string;
   name: string;
@@ -94,6 +96,12 @@ export type Range = { start: Date; end: Date; prevStart: Date; prevEnd: Date };
 export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?: string }): Range {
   const day = 86_400_000;
 
+  // A production date is a DAY, stamped at midday UTC. Ending a window at the
+  // current instant therefore drops everything written today for the first
+  // twelve hours of each UTC day — the whole US working morning. Both the
+  // live window and the one it is compared against end at the end of a day.
+  const throughToday = productionWindowEnd(now);
+
   if (p === "today") {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     // Yesterday to the same time of day, so a comparison at 9am is against
@@ -101,9 +109,13 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
     const prevStart = new Date(start.getTime() - day);
     return {
       start,
-      end: now,
+      end: throughToday,
       prevStart,
-      prevEnd: new Date(prevStart.getTime() + (now.getTime() - start.getTime())),
+      // Yesterday, whole. This truncated to "the same time of day", which for a
+      // day-granular figure means it dropped yesterday's business entirely
+      // whenever the reader looked before midday UTC — so today read as up
+      // against nothing and every delta was meaningless.
+      prevEnd: endOfProductionDay(prevStart),
     };
   }
 
@@ -112,7 +124,7 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
     // where this one starts, which is the only comparison a custom range can
     // sensibly have.
     const start = custom?.from ? new Date(custom.from) : new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = custom?.to ? new Date(custom.to) : now;
+    const end = custom?.to ? endOfProductionDay(new Date(`${custom.to}T12:00:00Z`)) : throughToday;
     const span = Math.max(0, end.getTime() - start.getTime());
     return {
       start,
@@ -129,8 +141,15 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
     // The bug this fixes: prevEnd used to be `start`, a full seven days
     // against however much of this week has happened. Truncated to the same
     // elapsed length, two days compare against two days.
-    const elapsed = now.getTime() - start.getTime();
-    return { start, end: now, prevStart, prevEnd: new Date(prevStart.getTime() + elapsed) };
+    // Truncated to the same number of whole DAYS, ending at the end of that
+    // day: two days of this week against two days of last week.
+    const elapsedDays = Math.floor((throughToday.getTime() - start.getTime()) / day);
+    return {
+      start,
+      end: throughToday,
+      prevStart,
+      prevEnd: endOfProductionDay(new Date(prevStart.getTime() + elapsedDays * day)),
+    };
   }
 
   if (p === "month") {
@@ -140,14 +159,10 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
     // 31st of a month that has 30 days, which is the behaviour we want:
     // comparing against the whole prior month would be the same lie the week
     // case was telling.
-    const prevEnd = new Date(
-      now.getFullYear(),
-      now.getMonth() - 1,
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes(),
+    const prevEnd = endOfProductionDay(
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate())),
     );
-    return { start, end: now, prevStart, prevEnd };
+    return { start, end: throughToday, prevStart, prevEnd };
   }
 
   if (p === "last_month") {
@@ -164,8 +179,10 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
 
   const start = new Date(now.getFullYear(), 0, 1);
   const prevStart = new Date(now.getFullYear() - 1, 0, 1);
-  const prevEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-  return { start, end: now, prevStart, prevEnd };
+  const prevEnd = endOfProductionDay(
+    new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate())),
+  );
+  return { start, end: throughToday, prevStart, prevEnd };
 }
 
 /**

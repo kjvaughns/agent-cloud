@@ -93,10 +93,16 @@ check("…and compares to the same date a year earlier",
   [ytd.prevEnd.getMonth(), ytd.prevEnd.getDate()], [TUESDAY.getMonth(), TUESDAY.getDate()]);
 
 // A Sunday is the one day the old code was accidentally right; it must still be.
+//
+// Measured in DAYS now, not hours. This asserted the window was under an hour
+// long at 00:30 — true only while it ended at the current instant, which is
+// exactly the bug: a production date is a day stamped at midday UTC, so an
+// hours-long window contains none of the day it is meant to report. A Sunday
+// week still covers one day; that day is now whole.
 const SUNDAY = new Date(2026, 7, 9, 0, 30, 0);
 const sundayWeek = periodRanges("week", SUNDAY);
-check("on a Sunday the week has only just started",
-  hours(sundayWeek.start, sundayWeek.end) <= 1, true);
+check("on a Sunday the week covers that one day",
+  Math.round(hours(sundayWeek.start, sundayWeek.end) / 24), 1);
 check("…and the comparison is still the same length",
   hours(sundayWeek.start, sundayWeek.end),
   hours(sundayWeek.prevStart, sundayWeek.prevEnd));
