@@ -289,9 +289,20 @@ function Dashboard() {
           />
 
           <div className="duo">
-            <LeaderboardPanel leaders={leaders} rangeLabel={rangeLabel} />
+            <LeaderboardPanel
+              leaders={leaders}
+              rangeLabel={rangeLabel}
+              scope={boardScope}
+              scopes={boardScopes}
+              onScope={setBoard}
+            />
             <CommissionPanel c={commission} />
           </div>
+
+          {(byAgency?.agencies?.length ?? 0) > 1 && (
+            <AgencyRollupPanel agencies={byAgency!.agencies} rangeLabel={rangeLabel} />
+          )}
+
 
           <OnboardingPanel feed={agencyFeed} loading={agencyFeedLoading} />
 
