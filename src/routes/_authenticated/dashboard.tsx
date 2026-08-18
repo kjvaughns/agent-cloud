@@ -16,7 +16,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { money, number } from "@/lib/format";
 import { POLICY_STATUSES } from "@/lib/policy-status";
-import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal, getProductionSeries } from "@/lib/dashboard.functions";
+import { getDashboardMetrics, getAgencyFeed, getDashboardHero, getCommissionSummary, getAtRiskPolicies, getLeaderboardData, setMonthlyGoal, getProductionSeries, getProductionByAgency } from "@/lib/dashboard.functions";
+import { BOARD_SCOPES, type BoardScope } from "@/lib/leaderboard/board";
+import { useScopeCapabilities } from "@/hooks/use-scope";
+
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { WorkQueue } from "@/components/work-queue";
