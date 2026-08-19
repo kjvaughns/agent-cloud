@@ -1977,12 +1977,22 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (["ready_to_submit", "submitted"].includes(data.status)) {
       const readiness = await recomputeReadiness(data.id, orgId);
       if (readiness && !isSubmittable(readiness)) {
+        if (readiness.blockers.length === 0) {
+          // No blockers left, so the refusal has to name the real reason
+          // instead of counting to zero.
+          throw new Error(
+            readiness.state === "awaiting_approval"
+              ? "This request is waiting on an approval before it can be submitted."
+              : "This request can't be submitted yet — its readiness check hasn't cleared.",
+          );
+        }
         const first = readiness.blockers.slice(0, 3).map((b) => b.label).join(", ");
         throw new Error(
           `This request still has ${readiness.blockers.length} outstanding item${readiness.blockers.length === 1 ? "" : "s"}: ${first}.`,
         );
       }
     }
+
 
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = { status: data.status };
