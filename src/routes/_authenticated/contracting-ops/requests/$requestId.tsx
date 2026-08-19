@@ -576,6 +576,7 @@ function RequestDetailPage() {
       statusFn({ data: { id: requestId, ...vars } as any }),
     onSuccess: () => {
       toast.success("Request updated");
+      setComposing(null);
       qc.invalidateQueries({ queryKey: ["contracting-ops"] });
     },
     // The readiness gate throws with the outstanding items named, which is
@@ -1075,7 +1076,6 @@ function RequestDetailPage() {
                             ? { decline_reason: composing.reason.trim() }
                             : {}),
                         } as any);
-                        setComposing(null);
                       }}
                     >
                       Save status
