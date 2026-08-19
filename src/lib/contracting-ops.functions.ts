@@ -6,7 +6,7 @@ import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
 import { recordAudit, diff } from "@/lib/contracting-ops/audit";
 import {
-  evaluateReadiness, isSubmittable,
+  evaluateReadiness,
   type Requirement, type RequestContext, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
