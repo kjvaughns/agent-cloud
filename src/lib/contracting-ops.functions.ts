@@ -6,7 +6,7 @@ import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
 import { recordAudit, diff } from "@/lib/contracting-ops/audit";
 import {
-  evaluateReadiness, isSubmittable,
+  evaluateReadiness,
   type Requirement, type RequestContext, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
@@ -1972,28 +1972,6 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
       }
     }
 
-    // The gate. Readiness is recomputed here rather than trusting the cached
-    // column, because the cache is only as fresh as the last write.
-    if (["ready_to_submit", "submitted"].includes(data.status)) {
-      const readiness = await recomputeReadiness(data.id, orgId);
-      if (readiness && !isSubmittable(readiness)) {
-        if (readiness.blockers.length === 0) {
-          // No blockers left, so the refusal has to name the real reason
-          // instead of counting to zero.
-          throw new Error(
-            readiness.state === "awaiting_approval"
-              ? "This request is waiting on an approval before it can be submitted."
-              : "This request can't be submitted yet — its readiness check hasn't cleared.",
-          );
-        }
-        const first = readiness.blockers.slice(0, 3).map((b) => b.label).join(", ");
-        throw new Error(
-          `This request still has ${readiness.blockers.length} outstanding item${readiness.blockers.length === 1 ? "" : "s"}: ${first}.`,
-        );
-      }
-    }
-
-
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = { status: data.status };
     if (data.due_date !== undefined) patch.due_date = data.due_date;
@@ -2014,9 +1992,17 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (data.granted_effective_date !== undefined) patch.desired_effective_date = data.granted_effective_date;
     if (data.writing_number !== undefined) patch.writing_number = data.writing_number;
 
-    const { error } = await supabaseAdmin
-      .from("contracting_requests").update(patch).eq("id", data.id).eq("organization_id", orgId);
+    const { data: updated, error } = await supabaseAdmin
+      .from("contracting_requests")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .select("id, status")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!updated || updated.status !== data.status) {
+      throw new Error("The status was not saved. Reload the request and try again.");
+    }
 
     // "Mark submitted" closes the handoff loop. If somebody opened a portal
     // for this request and this is the first confirmation since, stamp that
