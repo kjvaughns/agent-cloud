@@ -346,13 +346,59 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           <span className="tnum block truncate text-[11px] text-muted-foreground">{row.reference ?? "—"}</span>
         </span>
 
-        <span className="w-32 min-w-0">
-          <span className="block truncate text-xs text-foreground">{row.comp_level ?? "—"}</span>
-          <span className="block truncate text-[10px] text-text-dim">{row.comp_source ?? "Not set"}</span>
+        <span className="w-40 min-w-0">
+          {access?.canUpdateStatus ? (
+            <>
+              <label className="sr-only" htmlFor={`lvl-${row.id}`}>Carrier level granted for {row.carrier_name}</label>
+              <select
+                id={`lvl-${row.id}`}
+                value={levelChoice}
+                onChange={(e) => setLevelChoice(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground"
+              >
+                <option value="">Level not recorded</option>
+                {options.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.level_name}{o.commission_pct != null ? ` · ${o.commission_pct}%` : ""}
+                  </option>
+                ))}
+                <option value="custom">Other level / percentage…</option>
+              </select>
+              <span className="block truncate text-[10px] text-text-dim">
+                {options.length === 0
+                  ? "This carrier has no comp levels configured yet"
+                  : `Asked at: ${row.comp_level ?? "—"}`}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="block truncate text-xs text-foreground">{row.comp_level ?? "—"}</span>
+              <span className="block truncate text-[10px] text-text-dim">{row.comp_source ?? "Not set"}</span>
+            </>
+          )}
         </span>
 
-        <span className="w-28 truncate text-xs text-muted-foreground">
-          {row.advance_option ? ADVANCE_OPTION_LABELS[row.advance_option as AdvanceOptionKey] ?? row.advance_option : "—"}
+        <span className="w-28 min-w-0">
+          {access?.canUpdateStatus ? (
+            <>
+              <label className="sr-only" htmlFor={`adv-${row.id}`}>Advance for {row.carrier_name}</label>
+              <select
+                id={`adv-${row.id}`}
+                value={advance}
+                onChange={(e) => setAdvance(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground"
+              >
+                <option value="">Advance —</option>
+                {Object.entries(ADVANCE_OPTION_LABELS).map(([k, label]) => (
+                  <option key={k} value={k}>{label}</option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <span className="truncate text-xs text-muted-foreground">
+              {row.advance_option ? ADVANCE_OPTION_LABELS[row.advance_option as AdvanceOptionKey] ?? row.advance_option : "—"}
+            </span>
+          )}
         </span>
 
         <span className="w-40">
