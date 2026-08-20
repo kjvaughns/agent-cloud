@@ -184,6 +184,7 @@ import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
+import { Route as AuthenticatedContractingOpsRequestsAgentAgentIdRouteImport } from './routes/_authenticated/contracting-ops/requests/agent.$agentId'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -1152,6 +1153,12 @@ const AuthenticatedAgencyAgentsAgentIdRoute =
     path: '/agency/agents/$agentId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedContractingOpsRequestsAgentAgentIdRoute =
+  AuthenticatedContractingOpsRequestsAgentAgentIdRouteImport.update({
+    id: '/agent/$agentId',
+    path: '/agent/$agentId',
+    getParentRoute: () => AuthenticatedContractingOpsRequestsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1328,6 +1335,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
+  '/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1499,6 +1507,7 @@ export interface FileRoutesByTo {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsIndexRoute
+  '/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1677,6 +1686,7 @@ export interface FileRoutesById {
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_authenticated/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
+  '/_authenticated/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1855,6 +1865,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/contracting-ops/requests/'
+    | '/contracting-ops/requests/agent/$agentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -2026,6 +2037,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/contracting-ops/requests'
+    | '/contracting-ops/requests/agent/$agentId'
   id:
     | '__root__'
     | '/'
@@ -2203,6 +2215,7 @@ export interface FileRouteTypes {
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
     | '/_authenticated/contracting-ops/requests/'
+    | '/_authenticated/contracting-ops/requests/agent/$agentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -3481,6 +3494,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgencyAgentsAgentIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/contracting-ops/requests/agent/$agentId': {
+      id: '/_authenticated/contracting-ops/requests/agent/$agentId'
+      path: '/agent/$agentId'
+      fullPath: '/contracting-ops/requests/agent/$agentId'
+      preLoaderRoute: typeof AuthenticatedContractingOpsRequestsAgentAgentIdRouteImport
+      parentRoute: typeof AuthenticatedContractingOpsRequestsRoute
+    }
   }
 }
 
@@ -3557,6 +3577,7 @@ const AuthenticatedContractingRouteWithChildren =
 interface AuthenticatedContractingOpsRequestsRouteChildren {
   AuthenticatedContractingOpsRequestsRequestIdRoute: typeof AuthenticatedContractingOpsRequestsRequestIdRoute
   AuthenticatedContractingOpsRequestsIndexRoute: typeof AuthenticatedContractingOpsRequestsIndexRoute
+  AuthenticatedContractingOpsRequestsAgentAgentIdRoute: typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
 
 const AuthenticatedContractingOpsRequestsRouteChildren: AuthenticatedContractingOpsRequestsRouteChildren =
@@ -3565,6 +3586,8 @@ const AuthenticatedContractingOpsRequestsRouteChildren: AuthenticatedContracting
       AuthenticatedContractingOpsRequestsRequestIdRoute,
     AuthenticatedContractingOpsRequestsIndexRoute:
       AuthenticatedContractingOpsRequestsIndexRoute,
+    AuthenticatedContractingOpsRequestsAgentAgentIdRoute:
+      AuthenticatedContractingOpsRequestsAgentAgentIdRoute,
   }
 
 const AuthenticatedContractingOpsRequestsRouteWithChildren =

@@ -1074,6 +1074,33 @@ export type Database = {
           },
         ]
       }
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -3908,6 +3935,113 @@ export type Database = {
             columns: ["submitted_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_sheet_links: {
+        Row: {
+          connected_by: string | null
+          created_at: string
+          health: string
+          last_error: string | null
+          last_pulled_at: string | null
+          last_pushed_at: string | null
+          last_success_at: string | null
+          organization_id: string
+          spreadsheet_id: string
+          spreadsheet_url: string | null
+          tab_name: string
+          updated_at: string
+        }
+        Insert: {
+          connected_by?: string | null
+          created_at?: string
+          health?: string
+          last_error?: string | null
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          last_success_at?: string | null
+          organization_id: string
+          spreadsheet_id: string
+          spreadsheet_url?: string | null
+          tab_name?: string
+          updated_at?: string
+        }
+        Update: {
+          connected_by?: string | null
+          created_at?: string
+          health?: string
+          last_error?: string | null
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          last_success_at?: string | null
+          organization_id?: string
+          spreadsheet_id?: string
+          spreadsheet_url?: string | null
+          tab_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_sheet_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_sheet_rows: {
+        Row: {
+          created_at: string
+          last_pulled_at: string | null
+          last_pushed_at: string | null
+          organization_id: string
+          pushed_updated_at: string | null
+          pushed_values: Json
+          request_id: string
+          sync_error: string | null
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          organization_id: string
+          pushed_updated_at?: string | null
+          pushed_values?: Json
+          request_id: string
+          sync_error?: string | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          organization_id?: string
+          pushed_updated_at?: string | null
+          pushed_values?: Json
+          request_id?: string
+          sync_error?: string | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_sheet_rows_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_sheet_rows_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "contracting_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -8214,7 +8348,13 @@ export type Database = {
           contracting_manage_comp_levels: boolean | null
           contracting_manage_hierarchy: boolean | null
           contracting_manage_licenses: boolean | null
+          contracting_manage_sheets: boolean
+          contracting_note_agent: boolean
+          contracting_note_internal: boolean
+          contracting_request_info: boolean
+          contracting_set_writing_number: boolean
           contracting_submit: boolean | null
+          contracting_update_status: boolean
           contracting_view_agency_comp: boolean | null
           contracting_view_audit: boolean | null
           contracting_view_banking: boolean | null
@@ -8276,7 +8416,13 @@ export type Database = {
           contracting_manage_comp_levels?: boolean | null
           contracting_manage_hierarchy?: boolean | null
           contracting_manage_licenses?: boolean | null
+          contracting_manage_sheets?: boolean
+          contracting_note_agent?: boolean
+          contracting_note_internal?: boolean
+          contracting_request_info?: boolean
+          contracting_set_writing_number?: boolean
           contracting_submit?: boolean | null
+          contracting_update_status?: boolean
           contracting_view_agency_comp?: boolean | null
           contracting_view_audit?: boolean | null
           contracting_view_banking?: boolean | null
@@ -8338,7 +8484,13 @@ export type Database = {
           contracting_manage_comp_levels?: boolean | null
           contracting_manage_hierarchy?: boolean | null
           contracting_manage_licenses?: boolean | null
+          contracting_manage_sheets?: boolean
+          contracting_note_agent?: boolean
+          contracting_note_internal?: boolean
+          contracting_request_info?: boolean
+          contracting_set_writing_number?: boolean
           contracting_submit?: boolean | null
+          contracting_update_status?: boolean
           contracting_view_agency_comp?: boolean | null
           contracting_view_audit?: boolean | null
           contracting_view_banking?: boolean | null
