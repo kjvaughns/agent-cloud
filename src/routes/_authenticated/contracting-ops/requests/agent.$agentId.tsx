@@ -297,7 +297,9 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           // The rung the carrier actually granted. A ladder pick carries the
           // carrier's own name and percentage; "custom" carries whatever staff
           // typed; empty clears the grant rather than guessing at one.
-          granted_comp_level_id: chosen ? chosen.id : null,
+          // Grid-derived rungs have no row in the comp-level table, so they are
+          // stored as a name + percentage instead of a level id.
+          granted_comp_level_id: chosen && !chosen.id.startsWith("grid:") ? chosen.id : null,
           granted_level_name: chosen
             ? chosen.level_name
             : levelChoice === "custom"
