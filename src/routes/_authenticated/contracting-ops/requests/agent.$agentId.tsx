@@ -163,7 +163,7 @@ function AgentWorkspace() {
           <>
             <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground lg:flex">
               <span className="flex-1">Carrier</span>
-              <span className="w-32">Compensation</span>
+              <span className="w-40">Level granted</span>
               <span className="w-28">Advance</span>
               <span className="w-40">Status</span>
               <span className="w-36">Writing number</span>
@@ -247,8 +247,28 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
   const [internal, setInternal] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
+  // What the carrier actually granted. "" means "not recorded"; "custom" lets
+  // staff type a percentage when the carrier put them somewhere off the ladder.
+  const options: { id: string; level_name: string; commission_pct: number | null }[] = row.comp_level_options ?? [];
+  const initialLevel = row.granted_comp_level_id
+    ? row.granted_comp_level_id
+    : row.granted_level_name || row.granted_pct != null
+      ? "custom"
+      : "";
+  const [levelChoice, setLevelChoice] = useState<string>(initialLevel);
+  const [customName, setCustomName] = useState<string>(row.granted_level_name ?? "");
+  const [customPct, setCustomPct] = useState<string>(row.granted_pct != null ? String(row.granted_pct) : "");
+  const [advance, setAdvance] = useState<string>(row.advance_option ?? "");
+
   const dirtyStatus = status !== row.status;
   const dirtyWriting = (row.writing_number ?? "") !== writing.trim();
+  const dirtyLevel =
+    levelChoice !== initialLevel ||
+    (levelChoice === "custom" &&
+      (customName !== (row.granted_level_name ?? "") ||
+        customPct !== (row.granted_pct != null ? String(row.granted_pct) : "")));
+  const dirtyAdvance = advance !== (row.advance_option ?? "");
+  const dirty = dirtyStatus || dirtyWriting || dirtyLevel || dirtyAdvance;
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["contracting-ops", "agent-workspace", agentId] });
@@ -257,6 +277,8 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
 
   const save = useMutation({
     mutationFn: async () => {
+      const chosen = options.find((o) => o.id === levelChoice);
+      const pctText = customPct.trim();
       await statusFn({
         data: {
           id: row.id,
@@ -265,6 +287,21 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           agent_visible_message: message.trim() || null,
           internal_message: internal.trim() || null,
           decline_reason: reason.trim() || null,
+          // The rung the carrier actually granted. A ladder pick carries the
+          // carrier's own name and percentage; "custom" carries whatever staff
+          // typed; empty clears the grant rather than guessing at one.
+          granted_comp_level_id: chosen ? chosen.id : null,
+          granted_level_name: chosen
+            ? chosen.level_name
+            : levelChoice === "custom"
+              ? customName.trim() || (pctText ? `${pctText}%` : null)
+              : null,
+          granted_pct: chosen
+            ? chosen.commission_pct ?? null
+            : levelChoice === "custom" && pctText
+              ? Number(pctText)
+              : null,
+          granted_advance_option: (advance || null) as any,
         },
       });
     },
@@ -309,13 +346,59 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           <span className="tnum block truncate text-[11px] text-muted-foreground">{row.reference ?? "—"}</span>
         </span>
 
-        <span className="w-32 min-w-0">
-          <span className="block truncate text-xs text-foreground">{row.comp_level ?? "—"}</span>
-          <span className="block truncate text-[10px] text-text-dim">{row.comp_source ?? "Not set"}</span>
+        <span className="w-40 min-w-0">
+          {access?.canUpdateStatus ? (
+            <>
+              <label className="sr-only" htmlFor={`lvl-${row.id}`}>Carrier level granted for {row.carrier_name}</label>
+              <select
+                id={`lvl-${row.id}`}
+                value={levelChoice}
+                onChange={(e) => setLevelChoice(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground"
+              >
+                <option value="">Level not recorded</option>
+                {options.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.level_name}{o.commission_pct != null ? ` · ${o.commission_pct}%` : ""}
+                  </option>
+                ))}
+                <option value="custom">Other level / percentage…</option>
+              </select>
+              <span className="block truncate text-[10px] text-text-dim">
+                {options.length === 0
+                  ? "This carrier has no comp levels configured yet"
+                  : `Asked at: ${row.comp_level ?? "—"}`}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="block truncate text-xs text-foreground">{row.comp_level ?? "—"}</span>
+              <span className="block truncate text-[10px] text-text-dim">{row.comp_source ?? "Not set"}</span>
+            </>
+          )}
         </span>
 
-        <span className="w-28 truncate text-xs text-muted-foreground">
-          {row.advance_option ? ADVANCE_OPTION_LABELS[row.advance_option as AdvanceOptionKey] ?? row.advance_option : "—"}
+        <span className="w-28 min-w-0">
+          {access?.canUpdateStatus ? (
+            <>
+              <label className="sr-only" htmlFor={`adv-${row.id}`}>Advance for {row.carrier_name}</label>
+              <select
+                id={`adv-${row.id}`}
+                value={advance}
+                onChange={(e) => setAdvance(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground"
+              >
+                <option value="">Advance —</option>
+                {Object.entries(ADVANCE_OPTION_LABELS).map(([k, label]) => (
+                  <option key={k} value={k}>{label}</option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <span className="truncate text-xs text-muted-foreground">
+              {row.advance_option ? ADVANCE_OPTION_LABELS[row.advance_option as AdvanceOptionKey] ?? row.advance_option : "—"}
+            </span>
+          )}
         </span>
 
         <span className="w-40">
@@ -393,8 +476,29 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
       </div>
 
       {/* What the chosen status still needs, and nothing more. */}
-      {(dirtyStatus || dirtyWriting) && (
+      {dirty && (
         <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-2/30 p-2.5">
+          {levelChoice === "custom" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label htmlFor={`lvn-${row.id}`} className="block text-[11px] text-muted-foreground">Level name</label>
+                <Input
+                  id={`lvn-${row.id}`} value={customName} onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="e.g. Street 90" className="h-8 w-40 text-xs"
+                />
+              </div>
+              <div>
+                <label htmlFor={`lvp-${row.id}`} className="block text-[11px] text-muted-foreground">Percentage</label>
+                <Input
+                  id={`lvp-${row.id}`} value={customPct} onChange={(e) => setCustomPct(e.target.value)}
+                  inputMode="decimal" placeholder="90" className="h-8 w-24 text-xs"
+                />
+              </div>
+              <p className="text-[11px] text-text-dim">
+                Use this only when the carrier put them somewhere that isn't on the configured ladder.
+              </p>
+            </div>
+          )}
           {needsNote && (
             <div>
               <label htmlFor={`msg-${row.id}`} className="text-[11px] font-medium text-warning">
@@ -438,7 +542,14 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
             </Button>
             <Button
               size="sm" variant="outline"
-              onClick={() => { setStatus(row.status); setWriting(row.writing_number ?? ""); setMessage(""); setReason(""); setInternal(""); }}
+              onClick={() => {
+                setStatus(row.status); setWriting(row.writing_number ?? "");
+                setLevelChoice(initialLevel);
+                setCustomName(row.granted_level_name ?? "");
+                setCustomPct(row.granted_pct != null ? String(row.granted_pct) : "");
+                setAdvance(row.advance_option ?? "");
+                setMessage(""); setReason(""); setInternal("");
+              }}
             >
               Cancel
             </Button>
@@ -448,7 +559,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
       )}
 
       {/* Notes without a status change. */}
-      {!dirtyStatus && !dirtyWriting && (message.trim() || internal.trim()) && (
+      {!dirty && (message.trim() || internal.trim()) && (
         <div className="mt-2 flex gap-2">
           {message.trim() && (
             <Button size="sm" disabled={note.isPending} onClick={() => note.mutate("agent")}>Send note to agent</Button>
@@ -461,7 +572,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
         </div>
       )}
 
-      {!dirtyStatus && !dirtyWriting && access?.canNoteAgent && (
+      {!dirty && access?.canNoteAgent && (
         <details className="mt-2">
           <summary className="cursor-pointer text-[11px] text-muted-foreground">Add a note</summary>
           <div className="mt-1.5 grid gap-2 sm:grid-cols-2">

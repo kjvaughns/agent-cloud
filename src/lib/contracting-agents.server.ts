@@ -276,6 +276,15 @@ export type WorkspaceRequest = {
   comp_level: string | null;
   comp_source: string | null;
   advance_option: string | null;
+  /** The rung the carrier actually granted, when one has been recorded. */
+  granted_comp_level_id: string | null;
+  granted_level_name: string | null;
+  granted_pct: number | null;
+  /**
+   * What this carrier actually offers, so the person recording a decision picks
+   * from the carrier's own ladder instead of typing a level from memory.
+   */
+  comp_level_options: { id: string; level_name: string; commission_pct: number | null }[];
   agent_note: string | null;
   internal_note: string | null;
   next_action: string | null;
@@ -330,6 +339,7 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       .select(`
         id, reference, status, writing_number, granted_advance_option,
         requested_advance_level, requested_comp_level_id, granted_comp_level_id,
+        granted_level_name, granted_pct,
         decline_reason, created_at, updated_at, agent_id, organization_id,
         org_carriers ( id, carrier_id, carriers ( name ) )
       `)
@@ -394,6 +404,29 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
     for (const l of lv ?? []) levelNames.set(l.id, l.level_name);
   }
 
+  // The ladders themselves: every active rung each of these carriers offers, so
+  // a decision is picked from what the carrier actually has rather than typed.
+  const orgCarrierIds = Array.from(new Set(
+    (rows ?? []).map((r: any) => r.org_carriers?.id).filter(Boolean),
+  )) as string[];
+  const ladders = new Map<string, { id: string; level_name: string; commission_pct: number | null }[]>();
+  if (orgCarrierIds.length) {
+    const { data: lv } = await supabaseAdmin
+      .from("carrier_comp_levels")
+      .select("id, org_carrier_id, level_name, commission_pct, status, sort_order")
+      .in("org_carrier_id", orgCarrierIds);
+    for (const l of (lv ?? []) as any[]) {
+      if (l.status && l.status !== "active") continue;
+      const list = ladders.get(l.org_carrier_id) ?? [];
+      list.push({ id: l.id, level_name: l.level_name, commission_pct: l.commission_pct ?? null });
+      ladders.set(l.org_carrier_id, list);
+      levelNames.set(l.id, l.level_name);
+    }
+    for (const list of ladders.values()) {
+      list.sort((a, b) => (b.commission_pct ?? 0) - (a.commission_pct ?? 0));
+    }
+  }
+
   const requests: WorkspaceRequest[] = (rows ?? []).map((r: any) => {
     const granted = r.granted_comp_level_id ? levelNames.get(r.granted_comp_level_id) ?? null : null;
     const asked = r.requested_comp_level_id ? levelNames.get(r.requested_comp_level_id) ?? null : null;
@@ -406,8 +439,8 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       org_carrier_id: r.org_carriers?.id ?? null,
       status: r.status,
       writing_number: r.writing_number ?? null,
-      comp_level: granted ?? asked ?? r.requested_advance_level ?? null,
-      comp_source: granted
+      comp_level: granted ?? r.granted_level_name ?? asked ?? r.requested_advance_level ?? null,
+      comp_source: granted || r.granted_level_name
         ? "Carrier level granted"
         : asked
           ? "Agency position → carrier level"
@@ -415,6 +448,10 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
             ? "Agency position percentage"
             : null,
       advance_option: r.granted_advance_option ?? null,
+      granted_comp_level_id: r.granted_comp_level_id ?? null,
+      granted_level_name: r.granted_level_name ?? granted ?? null,
+      granted_pct: r.granted_pct == null ? null : Number(r.granted_pct),
+      comp_level_options: r.org_carriers?.id ? ladders.get(r.org_carriers.id) ?? [] : [],
       agent_note: n?.agent ?? null,
       internal_note: access.canNoteInternal || access.canViewAudit ? n?.internal ?? null : null,
       next_action: n?.next ?? null,
