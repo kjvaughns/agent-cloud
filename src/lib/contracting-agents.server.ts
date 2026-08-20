@@ -404,6 +404,29 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
     for (const l of lv ?? []) levelNames.set(l.id, l.level_name);
   }
 
+  // The ladders themselves: every active rung each of these carriers offers, so
+  // a decision is picked from what the carrier actually has rather than typed.
+  const orgCarrierIds = Array.from(new Set(
+    (rows ?? []).map((r: any) => r.org_carriers?.id).filter(Boolean),
+  )) as string[];
+  const ladders = new Map<string, { id: string; level_name: string; commission_pct: number | null }[]>();
+  if (orgCarrierIds.length) {
+    const { data: lv } = await supabaseAdmin
+      .from("carrier_comp_levels")
+      .select("id, org_carrier_id, level_name, commission_pct, status, sort_order")
+      .in("org_carrier_id", orgCarrierIds);
+    for (const l of (lv ?? []) as any[]) {
+      if (l.status && l.status !== "active") continue;
+      const list = ladders.get(l.org_carrier_id) ?? [];
+      list.push({ id: l.id, level_name: l.level_name, commission_pct: l.commission_pct ?? null });
+      ladders.set(l.org_carrier_id, list);
+      levelNames.set(l.id, l.level_name);
+    }
+    for (const list of ladders.values()) {
+      list.sort((a, b) => (b.commission_pct ?? 0) - (a.commission_pct ?? 0));
+    }
+  }
+
   const requests: WorkspaceRequest[] = (rows ?? []).map((r: any) => {
     const granted = r.granted_comp_level_id ? levelNames.get(r.granted_comp_level_id) ?? null : null;
     const asked = r.requested_comp_level_id ? levelNames.get(r.requested_comp_level_id) ?? null : null;
