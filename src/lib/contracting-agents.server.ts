@@ -422,6 +422,52 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       ladders.set(l.org_carrier_id, list);
       levelNames.set(l.id, l.level_name);
     }
+    // Most agencies never fill in `carrier_comp_levels` — the rungs they
+    // actually work from are the level names on the uploaded commission grid.
+    // So when a carrier has no configured ladder, read its grid levels instead
+    // of telling the person "no comp levels configured" about a carrier whose
+    // levels are sitting right there. Grid-derived options carry a `grid:`
+    // id because they are not rows in `carrier_comp_levels`; the caller stores
+    // them as a name + percentage rather than a level FK.
+    const missing = orgCarrierIds.filter((id) => !ladders.has(id));
+    if (missing.length) {
+      const carrierByOrgCarrier = new Map<string, string>();
+      for (const r of (rows ?? []) as any[]) {
+        const ocId = r.org_carriers?.id;
+        if (ocId && missing.includes(ocId) && r.org_carriers?.carrier_id) {
+          carrierByOrgCarrier.set(ocId, r.org_carriers.carrier_id);
+        }
+      }
+      const carrierIds = Array.from(new Set(carrierByOrgCarrier.values()));
+      if (carrierIds.length) {
+        const { data: grids } = await supabaseAdmin
+          .from("commission_grids")
+          .select("carrier_id, level_name, year_1_pct, organization_id")
+          .in("carrier_id", carrierIds)
+          .not("level_name", "is", null);
+        // Highest year-one percentage wins per level name, so a level that
+        // appears once per product collapses to one rung.
+        const byCarrier = new Map<string, Map<string, number | null>>();
+        for (const g of (grids ?? []) as any[]) {
+          const name = String(g.level_name).trim();
+          if (!name) continue;
+          const m = byCarrier.get(g.carrier_id) ?? new Map<string, number | null>();
+          const pct = g.year_1_pct == null ? null : Number(g.year_1_pct);
+          const prev = m.get(name);
+          if (prev === undefined || (pct ?? 0) > (prev ?? 0)) m.set(name, pct);
+          byCarrier.set(g.carrier_id, m);
+        }
+        for (const [ocId, carrierId] of carrierByOrgCarrier) {
+          const m = byCarrier.get(carrierId);
+          if (!m?.size) continue;
+          ladders.set(ocId, Array.from(m.entries()).map(([level_name, commission_pct]) => ({
+            id: `grid:${level_name}`,
+            level_name,
+            commission_pct,
+          })));
+        }
+      }
+    }
     for (const list of ladders.values()) {
       list.sort((a, b) => (b.commission_pct ?? 0) - (a.commission_pct ?? 0));
     }

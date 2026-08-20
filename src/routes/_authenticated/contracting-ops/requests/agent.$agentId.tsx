@@ -250,11 +250,18 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
   // What the carrier actually granted. "" means "not recorded"; "custom" lets
   // staff type a percentage when the carrier put them somewhere off the ladder.
   const options: { id: string; level_name: string; commission_pct: number | null }[] = row.comp_level_options ?? [];
+  // A grant recorded as a bare name (carriers whose rungs come from the
+  // commission grid, not a configured ladder) still selects its own option.
+  const matchedByName = row.granted_level_name
+    ? options.find((o) => o.level_name.toLowerCase() === row.granted_level_name!.trim().toLowerCase())
+    : undefined;
   const initialLevel = row.granted_comp_level_id
     ? row.granted_comp_level_id
-    : row.granted_level_name || row.granted_pct != null
-      ? "custom"
-      : "";
+    : matchedByName
+      ? matchedByName.id
+      : row.granted_level_name || row.granted_pct != null
+        ? "custom"
+        : "";
   const [levelChoice, setLevelChoice] = useState<string>(initialLevel);
   const [customName, setCustomName] = useState<string>(row.granted_level_name ?? "");
   const [customPct, setCustomPct] = useState<string>(row.granted_pct != null ? String(row.granted_pct) : "");
@@ -290,7 +297,9 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           // The rung the carrier actually granted. A ladder pick carries the
           // carrier's own name and percentage; "custom" carries whatever staff
           // typed; empty clears the grant rather than guessing at one.
-          granted_comp_level_id: chosen ? chosen.id : null,
+          // Grid-derived rungs have no row in the comp-level table, so they are
+          // stored as a name + percentage instead of a level id.
+          granted_comp_level_id: chosen && !chosen.id.startsWith("grid:") ? chosen.id : null,
           granted_level_name: chosen
             ? chosen.level_name
             : levelChoice === "custom"
@@ -366,7 +375,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
               </select>
               <span className="block truncate text-[10px] text-text-dim">
                 {options.length === 0
-                  ? "This carrier has no comp levels configured yet"
+                  ? "No levels on file for this carrier — use “Other level / percentage”"
                   : `Asked at: ${row.comp_level ?? "—"}`}
               </span>
             </>
