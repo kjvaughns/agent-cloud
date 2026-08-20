@@ -542,7 +542,14 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
             </Button>
             <Button
               size="sm" variant="outline"
-              onClick={() => { setStatus(row.status); setWriting(row.writing_number ?? ""); setMessage(""); setReason(""); setInternal(""); }}
+              onClick={() => {
+                setStatus(row.status); setWriting(row.writing_number ?? "");
+                setLevelChoice(initialLevel);
+                setCustomName(row.granted_level_name ?? "");
+                setCustomPct(row.granted_pct != null ? String(row.granted_pct) : "");
+                setAdvance(row.advance_option ?? "");
+                setMessage(""); setReason(""); setInternal("");
+              }}
             >
               Cancel
             </Button>
