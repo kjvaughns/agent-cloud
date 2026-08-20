@@ -33,7 +33,7 @@ import {
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
-import { encodePolicyDraft, postDealStatus, type PolicyDraft } from "@/lib/deals/policy-draft";
+import { encodePolicyDraft, postDealStatus, stashPolicyDraft, clearStashedPolicyDraft, type PolicyDraft } from "@/lib/deals/policy-draft";
 import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
@@ -1051,8 +1051,13 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
   // stays a draft until one of the two forms is submitted.
   const draft = useContext(PolicyDraftContext);
   useEffect(() => {
-    if (draft) draft.current = { ...form, status: postDealStatus(form.status) };
-  }, [draft, form]);
+    const next: PolicyDraft = { ...form, status: postDealStatus((form as any).status) };
+    if (draft) draft.current = next;
+    // Also kept for the tab, so reaching Post a Deal from the sidebar, the top
+    // bar or a pipeline row restores it too — not just the one button that
+    // carries it in the URL.
+    stashPolicyDraft(clientId, next);
+  }, [draft, form, clientId]);
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
@@ -1101,6 +1106,9 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       // The policy is written; the draft that described it must not survive to
       // be carried into a second one.
       setForm(blankPolicyForm());
+      // The policy exists now; the stash that described it must not reappear
+      // on the next Post a Deal.
+      clearStashedPolicyDraft();
       onSaved();
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to post deal"),
