@@ -33,7 +33,7 @@ import {
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
-import { encodePolicyDraft, postDealStatus, type PolicyDraft } from "@/lib/deals/policy-draft";
+import { encodePolicyDraft, postDealStatus, stashPolicyDraft, clearStashedPolicyDraft, type PolicyDraft } from "@/lib/deals/policy-draft";
 import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
@@ -1106,6 +1106,9 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       // The policy is written; the draft that described it must not survive to
       // be carried into a second one.
       setForm(blankPolicyForm());
+      // The policy exists now; the stash that described it must not reappear
+      // on the next Post a Deal.
+      clearStashedPolicyDraft();
       onSaved();
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to post deal"),
