@@ -250,11 +250,18 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
   // What the carrier actually granted. "" means "not recorded"; "custom" lets
   // staff type a percentage when the carrier put them somewhere off the ladder.
   const options: { id: string; level_name: string; commission_pct: number | null }[] = row.comp_level_options ?? [];
+  // A grant recorded as a bare name (carriers whose rungs come from the
+  // commission grid, not a configured ladder) still selects its own option.
+  const matchedByName = row.granted_level_name
+    ? options.find((o) => o.level_name.toLowerCase() === row.granted_level_name!.trim().toLowerCase())
+    : undefined;
   const initialLevel = row.granted_comp_level_id
     ? row.granted_comp_level_id
-    : row.granted_level_name || row.granted_pct != null
-      ? "custom"
-      : "";
+    : matchedByName
+      ? matchedByName.id
+      : row.granted_level_name || row.granted_pct != null
+        ? "custom"
+        : "";
   const [levelChoice, setLevelChoice] = useState<string>(initialLevel);
   const [customName, setCustomName] = useState<string>(row.granted_level_name ?? "");
   const [customPct, setCustomPct] = useState<string>(row.granted_pct != null ? String(row.granted_pct) : "");
