@@ -339,6 +339,7 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       .select(`
         id, reference, status, writing_number, granted_advance_option,
         requested_advance_level, requested_comp_level_id, granted_comp_level_id,
+        granted_level_name, granted_pct,
         decline_reason, created_at, updated_at, agent_id, organization_id,
         org_carriers ( id, carrier_id, carriers ( name ) )
       `)
