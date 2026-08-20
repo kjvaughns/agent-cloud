@@ -328,7 +328,7 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
     supabaseAdmin.from("organizations").select("id, owner_id").eq("id", orgId).maybeSingle(),
     supabaseAdmin.from("contracting_requests")
       .select(`
-        id, reference, status, writing_number, advance_option, granted_advance_option,
+        id, reference, status, writing_number, granted_advance_option,
         requested_advance_level, requested_comp_level_id, granted_comp_level_id,
         decline_reason, created_at, updated_at, agent_id, organization_id,
         org_carriers ( id, carrier_id, carriers ( name ) )
@@ -409,7 +409,7 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
           : r.requested_advance_level
             ? "Agency position percentage"
             : null,
-      advance_option: r.granted_advance_option ?? r.advance_option ?? null,
+      advance_option: r.granted_advance_option ?? null,
       agent_note: n?.agent ?? null,
       internal_note: access.canNoteInternal || access.canViewAudit ? n?.internal ?? null : null,
       next_action: n?.next ?? null,
