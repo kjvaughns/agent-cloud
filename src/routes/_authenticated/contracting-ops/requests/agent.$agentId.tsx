@@ -375,7 +375,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
               </select>
               <span className="block truncate text-[10px] text-text-dim">
                 {options.length === 0
-                  ? "This carrier has no comp levels configured yet"
+                  ? "No levels on file for this carrier — use “Other level / percentage”"
                   : `Asked at: ${row.comp_level ?? "—"}`}
               </span>
             </>
