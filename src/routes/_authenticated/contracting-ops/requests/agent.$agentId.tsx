@@ -559,7 +559,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
       )}
 
       {/* Notes without a status change. */}
-      {!dirtyStatus && !dirtyWriting && (message.trim() || internal.trim()) && (
+      {!dirty && (message.trim() || internal.trim()) && (
         <div className="mt-2 flex gap-2">
           {message.trim() && (
             <Button size="sm" disabled={note.isPending} onClick={() => note.mutate("agent")}>Send note to agent</Button>
@@ -572,7 +572,7 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
         </div>
       )}
 
-      {!dirtyStatus && !dirtyWriting && access?.canNoteAgent && (
+      {!dirty && access?.canNoteAgent && (
         <details className="mt-2">
           <summary className="cursor-pointer text-[11px] text-muted-foreground">Add a note</summary>
           <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
