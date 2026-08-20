@@ -8,14 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { getContractingAgentWorkspace } from "@/lib/contracting-agents.functions";
+import { getContractingAgentWorkspace, getRequestHistory } from "@/lib/contracting-agents.functions";
 import { addRequestNote, updateRequestStatus } from "@/lib/contracting-ops.functions";
 import {
   ADVANCE_OPTION_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
   isAgentActionStatus, type AdvanceOptionKey, type RequestStatus,
 } from "@/lib/contracting-ops/types";
 import { EmptyState, StatusBadge } from "@/components/contracting/shared";
-import { RequestHistory } from "@/components/contracting/request-history";
 import { timeAgo } from "@/lib/time-ago";
 import { cn } from "@/lib/utils";
 
@@ -486,9 +485,54 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
 
       {showHistory && (
         <div className="mt-2 rounded-md border border-border bg-surface-2/20 p-2.5">
-          <RequestHistory requestId={row.id} />
+          <RequestTimeline requestId={row.id} />
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * A compact timeline for one carrier request.
+ *
+ * Statuses, notes, writing-number and level changes, and who did each one —
+ * loaded only when opened, because a workspace with a dozen carriers should not
+ * fetch a dozen histories nobody asked for.
+ */
+function RequestTimeline({ requestId }: { requestId: string }) {
+  const fn = useServerFn(getRequestHistory);
+  const { data, isLoading } = useQuery({
+    queryKey: ["contracting-ops", "request-history", requestId],
+    queryFn: () => fn({ data: { requestId } }),
+  });
+
+  if (isLoading) return <Skeleton className="h-16 rounded-md" />;
+  const rows = data?.rows ?? [];
+  if (!rows.length) return <p className="text-xs text-muted-foreground">Nothing has happened on this request yet.</p>;
+
+  return (
+    <ol className="space-y-2">
+      {rows.map((h: any) => (
+        <li key={h.id} className="flex gap-2">
+          <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
+          <div className="min-w-0">
+            <div className="text-xs text-foreground">
+              {h.field
+                ? `${h.field}: ${h.old_value ?? "—"} → ${h.new_value ?? "—"}`
+                : h.change_kind === "note" || h.change_kind === "internal_note"
+                  ? "Note added"
+                  : h.from_status
+                    ? `${REQUEST_STATUS_META[h.from_status as RequestStatus]?.label ?? h.from_status} → ${REQUEST_STATUS_META[h.to_status as RequestStatus]?.label ?? h.to_status}`
+                    : `Created as ${REQUEST_STATUS_META[h.to_status as RequestStatus]?.label ?? h.to_status}`}
+            </div>
+            {h.agent_visible_message && <div className="text-[11px] text-muted-foreground">{h.agent_visible_message}</div>}
+            {h.internal_message && <div className="text-[11px] text-warning">Internal: {h.internal_message}</div>}
+            <div className="text-[10px] text-text-dim">
+              {new Date(h.created_at).toLocaleString()}{h.changed_by_name ? ` · ${h.changed_by_name}` : ""}
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
