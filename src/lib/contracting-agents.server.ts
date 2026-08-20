@@ -448,6 +448,10 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
             ? "Agency position percentage"
             : null,
       advance_option: r.granted_advance_option ?? null,
+      granted_comp_level_id: r.granted_comp_level_id ?? null,
+      granted_level_name: r.granted_level_name ?? granted ?? null,
+      granted_pct: r.granted_pct == null ? null : Number(r.granted_pct),
+      comp_level_options: r.org_carriers?.id ? ladders.get(r.org_carriers.id) ?? [] : [],
       agent_note: n?.agent ?? null,
       internal_note: access.canNoteInternal || access.canViewAudit ? n?.internal ?? null : null,
       next_action: n?.next ?? null,
