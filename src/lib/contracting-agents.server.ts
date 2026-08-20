@@ -276,6 +276,15 @@ export type WorkspaceRequest = {
   comp_level: string | null;
   comp_source: string | null;
   advance_option: string | null;
+  /** The rung the carrier actually granted, when one has been recorded. */
+  granted_comp_level_id: string | null;
+  granted_level_name: string | null;
+  granted_pct: number | null;
+  /**
+   * What this carrier actually offers, so the person recording a decision picks
+   * from the carrier's own ladder instead of typing a level from memory.
+   */
+  comp_level_options: { id: string; level_name: string; commission_pct: number | null }[];
   agent_note: string | null;
   internal_note: string | null;
   next_action: string | null;
