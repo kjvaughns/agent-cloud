@@ -163,7 +163,7 @@ function AgentWorkspace() {
           <>
             <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground lg:flex">
               <span className="flex-1">Carrier</span>
-              <span className="w-32">Compensation</span>
+              <span className="w-40">Level granted</span>
               <span className="w-28">Advance</span>
               <span className="w-40">Status</span>
               <span className="w-36">Writing number</span>
