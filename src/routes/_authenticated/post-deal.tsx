@@ -207,7 +207,10 @@ function PostDealPage() {
     // which is what the agent typed in the drawer before arriving here by some
     // other door (sidebar, top bar, a pipeline row).
     const stashed = readStashedPolicyDraft();
-    const draft = Object.keys(fromUrl).length > 0 ? fromUrl : (stashed?.draft ?? {});
+    // A stash belongs to the client it was typed against: never let client A's
+    // half-typed policy prefill a deal being posted for client B.
+    const stashUsable = stashed && (!client_id || stashed.clientId === client_id);
+    const draft = Object.keys(fromUrl).length > 0 ? fromUrl : (stashUsable ? stashed!.draft : {});
     const entries = Object.entries(draft).filter(([, v]) => v !== undefined && v !== "");
     if (!entries.length) return;
     draftApplied.current = true;
@@ -329,6 +332,9 @@ function PostDealPage() {
         },
       }),
     onSuccess: (res: any) => {
+      // Posted: the drawer's stashed draft described this policy and must not
+      // prefill the next one.
+      clearStashedPolicyDraft();
       qc.invalidateQueries({ queryKey: ["pipeline"] });
       qc.invalidateQueries({ queryKey: ["bob", "list"] });
       qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
