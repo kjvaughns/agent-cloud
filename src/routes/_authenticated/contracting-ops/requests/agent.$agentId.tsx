@@ -476,8 +476,29 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
       </div>
 
       {/* What the chosen status still needs, and nothing more. */}
-      {(dirtyStatus || dirtyWriting) && (
+      {dirty && (
         <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-2/30 p-2.5">
+          {levelChoice === "custom" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label htmlFor={`lvn-${row.id}`} className="block text-[11px] text-muted-foreground">Level name</label>
+                <Input
+                  id={`lvn-${row.id}`} value={customName} onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="e.g. Street 90" className="h-8 w-40 text-xs"
+                />
+              </div>
+              <div>
+                <label htmlFor={`lvp-${row.id}`} className="block text-[11px] text-muted-foreground">Percentage</label>
+                <Input
+                  id={`lvp-${row.id}`} value={customPct} onChange={(e) => setCustomPct(e.target.value)}
+                  inputMode="decimal" placeholder="90" className="h-8 w-24 text-xs"
+                />
+              </div>
+              <p className="text-[11px] text-text-dim">
+                Use this only when the carrier put them somewhere that isn't on the configured ladder.
+              </p>
+            </div>
+          )}
           {needsNote && (
             <div>
               <label htmlFor={`msg-${row.id}`} className="text-[11px] font-medium text-warning">
