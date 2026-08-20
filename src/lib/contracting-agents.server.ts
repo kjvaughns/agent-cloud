@@ -439,8 +439,8 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       org_carrier_id: r.org_carriers?.id ?? null,
       status: r.status,
       writing_number: r.writing_number ?? null,
-      comp_level: granted ?? asked ?? r.requested_advance_level ?? null,
-      comp_source: granted
+      comp_level: granted ?? r.granted_level_name ?? asked ?? r.requested_advance_level ?? null,
+      comp_source: granted || r.granted_level_name
         ? "Carrier level granted"
         : asked
           ? "Agency position → carrier level"
