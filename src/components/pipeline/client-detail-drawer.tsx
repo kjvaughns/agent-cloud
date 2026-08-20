@@ -1051,8 +1051,13 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
   // stays a draft until one of the two forms is submitted.
   const draft = useContext(PolicyDraftContext);
   useEffect(() => {
-    if (draft) draft.current = { ...form, status: postDealStatus(form.status) };
-  }, [draft, form]);
+    const next: PolicyDraft = { ...form, status: postDealStatus((form as any).status) };
+    if (draft) draft.current = next;
+    // Also kept for the tab, so reaching Post a Deal from the sidebar, the top
+    // bar or a pipeline row restores it too — not just the one button that
+    // carries it in the URL.
+    stashPolicyDraft(clientId, next);
+  }, [draft, form, clientId]);
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
