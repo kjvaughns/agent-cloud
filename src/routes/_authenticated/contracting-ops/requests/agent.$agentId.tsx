@@ -247,8 +247,28 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
   const [internal, setInternal] = useState("");
   const [showHistory, setShowHistory] = useState(false);
 
+  // What the carrier actually granted. "" means "not recorded"; "custom" lets
+  // staff type a percentage when the carrier put them somewhere off the ladder.
+  const options: { id: string; level_name: string; commission_pct: number | null }[] = row.comp_level_options ?? [];
+  const initialLevel = row.granted_comp_level_id
+    ? row.granted_comp_level_id
+    : row.granted_level_name || row.granted_pct != null
+      ? "custom"
+      : "";
+  const [levelChoice, setLevelChoice] = useState<string>(initialLevel);
+  const [customName, setCustomName] = useState<string>(row.granted_level_name ?? "");
+  const [customPct, setCustomPct] = useState<string>(row.granted_pct != null ? String(row.granted_pct) : "");
+  const [advance, setAdvance] = useState<string>(row.advance_option ?? "");
+
   const dirtyStatus = status !== row.status;
   const dirtyWriting = (row.writing_number ?? "") !== writing.trim();
+  const dirtyLevel =
+    levelChoice !== initialLevel ||
+    (levelChoice === "custom" &&
+      (customName !== (row.granted_level_name ?? "") ||
+        customPct !== (row.granted_pct != null ? String(row.granted_pct) : "")));
+  const dirtyAdvance = advance !== (row.advance_option ?? "");
+  const dirty = dirtyStatus || dirtyWriting || dirtyLevel || dirtyAdvance;
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["contracting-ops", "agent-workspace", agentId] });
