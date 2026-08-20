@@ -277,6 +277,8 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
 
   const save = useMutation({
     mutationFn: async () => {
+      const chosen = options.find((o) => o.id === levelChoice);
+      const pctText = customPct.trim();
       await statusFn({
         data: {
           id: row.id,
@@ -285,6 +287,21 @@ function CarrierRow({ row, agentId, access }: { row: any; agentId: string; acces
           agent_visible_message: message.trim() || null,
           internal_message: internal.trim() || null,
           decline_reason: reason.trim() || null,
+          // The rung the carrier actually granted. A ladder pick carries the
+          // carrier's own name and percentage; "custom" carries whatever staff
+          // typed; empty clears the grant rather than guessing at one.
+          granted_comp_level_id: chosen ? chosen.id : null,
+          granted_level_name: chosen
+            ? chosen.level_name
+            : levelChoice === "custom"
+              ? customName.trim() || (pctText ? `${pctText}%` : null)
+              : null,
+          granted_pct: chosen
+            ? chosen.commission_pct ?? null
+            : levelChoice === "custom" && pctText
+              ? Number(pctText)
+              : null,
+          granted_advance_option: (advance || null) as any,
         },
       });
     },
