@@ -66,7 +66,7 @@ export const getContractingAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => resolveAccess((context as Ctx).userId));
 
-function requireOrg(access: ContractingAccess): string {
+function requireOrg(access: ContractingAccessValue): string {
   if (!access.orgId) throw new OrgAccessError("No organization on your account");
   return access.orgId;
 }
