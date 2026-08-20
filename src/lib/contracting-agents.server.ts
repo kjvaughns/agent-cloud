@@ -321,7 +321,7 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
   }
   const orgId = access.orgId;
 
-  const [{ data: agent }, { data: org }, { data: rows }] = await Promise.all([
+  const [{ data: agent }, { data: org }, { data: rows, error: rowsError }] = await Promise.all([
     supabaseAdmin.from("profiles")
       .select("id, first_name, last_name, email, phone, npn_number, upline_id, agency_level_id, organization_id")
       .eq("id", args.agentId).maybeSingle(),
@@ -338,7 +338,12 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
       .order("created_at", { ascending: true }),
   ]);
 
+  // Surfaced, not swallowed: a read that fails looks exactly like an agent with
+  // no carrier requests, and "no requests" for somebody with five is the worst
+  // possible thing for this screen to say.
+  if (rowsError) throw new Error(rowsError.message);
   if (!agent) throw new Error("That agent is not available to you.");
+
 
   // Position and its headline percentage.
   let position_name: string | null = null;
