@@ -448,3 +448,46 @@ export async function getAgentWorkspace(args: { userId: string; agentId: string 
     last_updated: requests.reduce<string | null>((acc, r) => (!acc || r.updated_at > acc ? r.updated_at : acc), null),
   };
 }
+
+/**
+ * One request's timeline: statuses, notes, field changes, sync events, errors.
+ *
+ * Lifted out of the per-request page so the workspace can show the same history
+ * inline. Internal notes are withheld from anybody without the staff-note
+ * capability — an agent must never read them.
+ */
+export async function getRequestTimeline(args: { userId: string; requestId: string }) {
+  const access = await resolveContractingAccess(args.userId);
+  if (!access.orgId) return { rows: [] as any[] };
+
+  const { data: request } = await supabaseAdmin
+    .from("contracting_requests").select("id, agent_id, organization_id")
+    .eq("id", args.requestId).maybeSingle();
+  const isOwnAgent = request?.agent_id === args.userId;
+  const inOrg = request?.organization_id === access.orgId;
+  if (!request || !inOrg || (!access.canView && !isOwnAgent)) return { rows: [] as any[] };
+
+  const { data } = await supabaseAdmin
+    .from("contracting_status_history")
+    .select("id, from_status, to_status, change_kind, field, old_value, new_value, agent_visible_message, internal_message, next_action, changed_by, created_at")
+    .eq("request_id", args.requestId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  const actorIds = Array.from(new Set((data ?? []).map((h: any) => h.changed_by).filter(Boolean))) as string[];
+  const names = new Map<string, string>();
+  if (actorIds.length) {
+    const { data: people } = await supabaseAdmin
+      .from("profiles").select("id, first_name, last_name").in("id", actorIds);
+    for (const p of people ?? []) names.set(p.id, fullName(p) || "Staff");
+  }
+
+  const showInternal = access.canNoteInternal || access.canViewAudit;
+  return {
+    rows: (data ?? []).map((h: any) => ({
+      ...h,
+      internal_message: showInternal ? h.internal_message : null,
+      changed_by_name: h.changed_by ? names.get(h.changed_by) ?? null : null,
+    })),
+  };
+}

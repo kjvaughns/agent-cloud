@@ -35,3 +35,11 @@ export const getContractingAgentWorkspace = createServerFn({ method: "GET" })
     const { getAgentWorkspace } = await import("@/lib/contracting-agents.server");
     return getAgentWorkspace({ agentId: data.agentId, userId: (context as unknown as Ctx).userId });
   });
+
+export const getRequestHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { requestId: string }) => ({ requestId: String(input.requestId) }))
+  .handler(async ({ data, context }) => {
+    const { getRequestTimeline } = await import("@/lib/contracting-agents.server");
+    return getRequestTimeline({ requestId: data.requestId, userId: (context as unknown as Ctx).userId });
+  });
