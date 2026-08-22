@@ -330,11 +330,21 @@ export async function agencyCarrierConfiguration(
  * than being dropped: the override maths skips them, which is different from
  * treating them as zero, and the distinction decides whether the person above
  * them earns their own spread or somebody else's too.
+ *
+ * ── Uplines are priced on the same deal as the writer ──
+ *
+ * `priced` was not passed here, so each upline resolved from flat percentages
+ * while the writing agent resolved from the carrier's grid — the two sides of
+ * a subtraction answered by different systems. An upline whose real level for
+ * this carrier and product is a 90 on the grid came back with their agency
+ * level's base instead, and the spread paid was not the spread they hold. Same
+ * grid rows, same age, state and risk class, so a 90 over a 60 is a 30.
  */
 export async function loadUplineChain(
   supabase: Client,
   agentId: string,
   orgCarrierId: string,
+  priced?: Parameters<typeof resolveForAgent>[3],
   maxDepth = 25,
 ): Promise<{ agentId: string; pct: number | null }[]> {
   const chain: { agentId: string; pct: number | null }[] = [];
@@ -351,12 +361,13 @@ export async function loadUplineChain(
     if (!uplineId || seen.has(uplineId)) break;
     seen.add(uplineId);
 
-    const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId);
+    const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId, priced);
     chain.push({ agentId: uplineId, pct: resolution.ok ? resolution.pct : null });
     cursor = uplineId;
   }
   return chain;
 }
+
 
 /**
  * Record — or clear — why a policy could not be paid.

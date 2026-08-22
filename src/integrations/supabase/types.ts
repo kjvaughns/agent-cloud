@@ -2821,6 +2821,7 @@ export type Database = {
           paid_at: string | null
           payment_date: string
           payment_type: string
+          pct_source: string | null
           policy_id: string
           policy_year: number | null
           product: string | null
@@ -2849,6 +2850,7 @@ export type Database = {
           paid_at?: string | null
           payment_date: string
           payment_type: string
+          pct_source?: string | null
           policy_id: string
           policy_year?: number | null
           product?: string | null
@@ -2877,6 +2879,7 @@ export type Database = {
           paid_at?: string | null
           payment_date?: string
           payment_type?: string
+          pct_source?: string | null
           policy_id?: string
           policy_year?: number | null
           product?: string | null
@@ -6535,7 +6538,9 @@ export type Database = {
           notify_new_agent: boolean
           notify_new_ticket: boolean
           organization_id: string
+          override_renewal_pct_default: number
           primary_admin_email: string | null
+          renewal_pct_default: number
           show_own_on_leaderboards: boolean
           show_own_sales_in_feed: boolean
           support_email: string | null
@@ -6552,7 +6557,9 @@ export type Database = {
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
           organization_id: string
+          override_renewal_pct_default?: number
           primary_admin_email?: string | null
+          renewal_pct_default?: number
           show_own_on_leaderboards?: boolean
           show_own_sales_in_feed?: boolean
           support_email?: string | null
@@ -6569,7 +6576,9 @@ export type Database = {
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
           organization_id?: string
+          override_renewal_pct_default?: number
           primary_admin_email?: string | null
+          renewal_pct_default?: number
           show_own_on_leaderboards?: boolean
           show_own_sales_in_feed?: boolean
           support_email?: string | null

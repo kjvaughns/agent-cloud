@@ -29,6 +29,7 @@ import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
 
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
+import { RenewalsPanel } from "@/components/settings/renewals-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
 import { SetupChecklist } from "@/components/settings/setup-checklist";
 import { ContractingSettingsPanel } from "@/components/settings/contracting-settings-panel";
@@ -536,7 +537,9 @@ function AgencySettingsPage() {
               blurb="Your ladder. Each position has a base percentage and a mapping to every active carrier's own levels."
             />
             <LevelsPanel />
+            <RenewalsPanel />
           </TabsContent>
+
 
           <TabsContent value="carriers" className="mt-4">
             {/* One surface. The comp grid editor used to sit open underneath

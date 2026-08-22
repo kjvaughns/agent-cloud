@@ -470,12 +470,19 @@ export type OverrideLeg = {
   pct: number;
   /** The spread this person is paid, in stored form. */
   spread: number;
+  /** The whole year-one spread — advance plus trail. */
   amount: number;
+  /** Fronted on the effective date, on the same advance the writer is on. */
+  advanceAmount: number;
+  /** What is left, per month, over `trailMonths`. */
+  trailAmount: number;
+  /** How many months the trail pays over, starting the month after the advance window. */
+  trailMonths: number;
   depth: number;
 };
 
 /**
- * Who gets paid what up the chain.
+ * Who gets paid what up the chain, and *when*.
  *
  * Each person earns the difference between their own percentage and the
  * highest already paid below them — not the difference from the immediate
@@ -488,6 +495,16 @@ export type OverrideLeg = {
  * an upline on the same level as their downline genuinely earns no override,
  * and writing a zero row would put a payment of nothing in somebody's ledger.
  *
+ * ── The advance applies to an override too ──
+ *
+ * An override used to be one lump on the effective date for the full annual
+ * spread: 30 points of $1,200 paid $360 on day one, while the writing agent on
+ * a six-month advance got $360 now and $360 across months 7-12. The carrier
+ * fronts half the year's premium to the whole hierarchy or to none of it, so
+ * the upline's money splits exactly the way the writer's does — $180 now,
+ * $180 trailed. `as_earned` fronts nothing, so all twelve months trail; that
+ * falls out of the arithmetic rather than needing a branch.
+ *
  * The walk covers the whole hierarchy rather than the old fixed five, with a
  * depth cap and a cycle guard that exist because `upline_id` is a plain
  * self-reference the database does not stop from looping.
@@ -496,8 +513,15 @@ export function resolveOverrides(
   writingPct: number,
   chain: { agentId: string; pct: number | null }[],
   annualPremium: number,
-  maxDepth = 25,
+  opts: { advanceMonths?: number; maxDepth?: number } = {},
 ): OverrideLeg[] {
+  const maxDepth = opts.maxDepth ?? 25;
+  // 12 keeps the old behaviour for any caller that does not say: the whole
+  // year fronted, nothing trailed.
+  const advanceMonths = Math.max(0, Math.min(12, opts.advanceMonths ?? 12));
+  const trailMonths = 12 - advanceMonths;
+  const monthly = annualPremium / 12;
+
   const legs: OverrideLeg[] = [];
   const seen = new Set<string>();
   let paidUpTo = writingPct;
@@ -514,11 +538,18 @@ export function resolveOverrides(
 
     const spread = link.pct - paidUpTo;
     if (spread > 0) {
+      const rate = asFraction(spread);
+      const amount = round2(annualPremium * rate);
+      const advanceAmount = round2(monthly * advanceMonths * rate);
+      const balance = round2(amount - advanceAmount);
       legs.push({
         agentId: link.agentId,
         pct: link.pct,
         spread,
-        amount: round2(annualPremium * asFraction(spread)),
+        amount,
+        advanceAmount,
+        trailAmount: trailMonths > 0 ? round2(balance / trailMonths) : 0,
+        trailMonths,
         depth: i + 1,
       });
       paidUpTo = link.pct;
@@ -526,3 +557,55 @@ export function resolveOverrides(
   }
   return legs;
 }
+
+// ── Renewals ────────────────────────────────────────────────────────────────
+
+/**
+ * When a renewal pays: the policy's 13th month, then every anniversary.
+ *
+ * Ten years, because that is how long the old two-branch schedule reached
+ * (13/25/37/49 then 61-109) — expressed as one list now, since a single
+ * default percentage no longer needs the years-2-5 / years-6+ split that only
+ * ever existed because carrier grids publish those bands separately.
+ */
+export const RENEWAL_MONTHS = [13, 25, 37, 49, 61, 73, 85, 97, 109, 121] as const;
+
+/** Which policy year a renewal month belongs to — month 13 is year 2. */
+export function policyYearForMonth(month: number): number {
+  return Math.floor((month - 1) / 12) + 1;
+}
+
+export type RenewalRate = {
+  /** Stored form: 3 means 3%. */
+  pct: number;
+  /** Whether the carrier published this rate or the agency default filled in. */
+  source: "grid" | "agency_default";
+};
+
+/**
+ * The renewal rate for a policy year: the carrier's grid if it publishes one,
+ * the agency's default if it does not.
+ *
+ * Before this, a carrier whose grid carried no policy-year-2 row produced no
+ * renewals at all — silently, for the life of every policy on that carrier.
+ * "No published rate" is not "no renewal"; it means nobody has typed the
+ * carrier's schedule in yet, and the agency's own default is a better answer
+ * than nothing. `source` travels with the number so a payment can be
+ * explained rather than argued about.
+ */
+export function renewalRate(
+  gridPct: number | null | undefined,
+  agencyDefaultPct: number | null | undefined,
+): RenewalRate | null {
+  if (gridPct != null && gridPct > 0) return { pct: gridPct, source: "grid" };
+  if (agencyDefaultPct != null && agencyDefaultPct > 0) {
+    return { pct: agencyDefaultPct, source: "agency_default" };
+  }
+  return null;
+}
+
+/** Renewal money on an annual premium at a stored-form percentage. */
+export function renewalAmount(annualPremium: number, pct: number): number {
+  return round2(annualPremium * asFraction(pct));
+}
+
