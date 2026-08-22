@@ -29,6 +29,7 @@ import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
 
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
+import { RenewalsPanel } from "@/components/settings/renewals-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
 import { SetupChecklist } from "@/components/settings/setup-checklist";
 import { ContractingSettingsPanel } from "@/components/settings/contracting-settings-panel";
