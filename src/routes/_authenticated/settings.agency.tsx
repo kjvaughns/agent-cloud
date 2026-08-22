@@ -489,7 +489,10 @@ function AgencySettingsPage() {
           subtitle="Your agency, your ladder, your carriers, and how this workspace connects"
         />
 
+        <InheritParentPanel />
+
         <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
+
 
         <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
           {/* A scrolling rail rather than a wrapping row. Seven pills that
