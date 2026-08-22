@@ -43,7 +43,10 @@ import {
   loadUplineChain,
   recordSetupIssue,
 } from "@/lib/compensation/lookup.server";
-import { planYearOne, resolveOverrides, asFraction } from "@/lib/compensation/resolve";
+import {
+  planYearOne, resolveOverrides, asFraction,
+  RENEWAL_MONTHS, policyYearForMonth, renewalRate, renewalAmount,
+} from "@/lib/compensation/resolve";
 import { loadGridRows, loadDealFacts } from "@/lib/compensation/deal-pricing.server";
 import { selectGridRule } from "@/lib/compensation/grid-rule";
 
