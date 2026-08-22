@@ -96,6 +96,19 @@ function ds(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * A configured number, or the fallback — never NaN.
+ *
+ * `numeric` columns arrive as strings through PostgREST, and `Number(null)` is
+ * 0, which would silently switch renewals off rather than use the default.
+ */
+function num(v: unknown, fallback: number): number {
+  if (v == null || v === "") return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+
 async function resolveOrgId(supabase: any, agentId: string): Promise<string | null> {
   const { data } = await supabase
     .from("profiles")
