@@ -73,7 +73,15 @@ const UpdateSchema = z.object({
    */
   show_own_sales_in_feed: z.boolean().optional(),
   show_own_on_leaderboards: z.boolean().optional(),
+  /**
+   * The renewal rates used wherever a carrier's grid publishes none. Capped at
+   * 100 because a renewal above the premium is a typo, not a contract, and the
+   * number multiplies every renewal on every policy for ten years.
+   */
+  renewal_pct_default: z.number().min(0).max(100).optional(),
+  override_renewal_pct_default: z.number().min(0).max(100).optional(),
 });
+
 
 /** Columns that may not exist yet, newest migration last. */
 const PENDING_COLUMNS = ["show_own_sales_in_feed", "show_own_on_leaderboards"];
