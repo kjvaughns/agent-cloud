@@ -17,6 +17,9 @@ export type OrgSettings = {
   notify_new_agent: boolean;
   notify_new_ticket: boolean;
   notify_contract_request: boolean;
+  /** Stored form: 3 means 3% of annual premium. */
+  renewal_pct_default: number;
+  override_renewal_pct_default: number;
 };
 
 const DEFAULTS = {
@@ -28,7 +31,13 @@ const DEFAULTS = {
   notify_new_agent: false,
   notify_new_ticket: false,
   notify_contract_request: false,
+  // Renewals, unlike mail, are opted IN by default: a carrier grid with no
+  // published renewal row used to mean no renewal ever, which is not what any
+  // agency means by leaving a field blank.
+  renewal_pct_default: 3,
+  override_renewal_pct_default: 1,
 };
+
 
 export const getOrgSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
