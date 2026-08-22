@@ -536,7 +536,9 @@ function AgencySettingsPage() {
               blurb="Your ladder. Each position has a base percentage and a mapping to every active carrier's own levels."
             />
             <LevelsPanel />
+            <RenewalsPanel />
           </TabsContent>
+
 
           <TabsContent value="carriers" className="mt-4">
             {/* One surface. The comp grid editor used to sit open underneath
