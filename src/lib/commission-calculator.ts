@@ -234,6 +234,9 @@ export async function calculateAndInsertAllCommissions(
       product,
       is_gtl: isGtl,
       commission_pct: resolution.pct,
+      pct_source: resolution.pctSource,
+      policy_year: 1,
+
       client_name: clientName,
       status: "pending",
       month_number: 0,
