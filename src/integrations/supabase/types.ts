@@ -2821,6 +2821,7 @@ export type Database = {
           paid_at: string | null
           payment_date: string
           payment_type: string
+          pct_source: string | null
           policy_id: string
           policy_year: number | null
           product: string | null
@@ -2849,6 +2850,7 @@ export type Database = {
           paid_at?: string | null
           payment_date: string
           payment_type: string
+          pct_source?: string | null
           policy_id: string
           policy_year?: number | null
           product?: string | null
@@ -2877,6 +2879,7 @@ export type Database = {
           paid_at?: string | null
           payment_date?: string
           payment_type?: string
+          pct_source?: string | null
           policy_id?: string
           policy_year?: number | null
           product?: string | null
