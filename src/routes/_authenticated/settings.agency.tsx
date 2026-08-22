@@ -25,6 +25,8 @@ import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
+import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
+
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
