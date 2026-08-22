@@ -25,6 +25,8 @@ import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
+import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
+
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
@@ -489,7 +491,10 @@ function AgencySettingsPage() {
           subtitle="Your agency, your ladder, your carriers, and how this workspace connects"
         />
 
+        <InheritParentPanel />
+
         <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
+
 
         <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
           {/* A scrolling rail rather than a wrapping row. Seven pills that
