@@ -72,6 +72,29 @@ export function ApiKeysPanel() {
   const [scopes, setScopes] = useState<ApiScope[]>(["production:read"]);
   const [issued, setIssued] = useState<string | null>(null);
 
+  // The test runs from the browser against the agency's own host, so the key
+  // never has to travel through our server to be checked.
+  const [probe, setProbe] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function runTest() {
+    setTesting(true);
+    setResult(null);
+    try {
+      const res = await fetch(`${origin()}/api/v1/whoami`, {
+        headers: { Authorization: `Bearer ${probe.trim()}` },
+      });
+      const body = await res.text();
+      setResult({ ok: res.ok, text: `HTTP ${res.status}\n${body}` });
+    } catch (e: any) {
+      setResult({ ok: false, text: e?.message ?? "The request could not be made." });
+    } finally {
+      setTesting(false);
+    }
+  }
+
+
   const createFn = useServerFn(createApiKey);
   const create = useMutation({
     mutationFn: () => createFn({ data: { name: name.trim(), scopes } }),
