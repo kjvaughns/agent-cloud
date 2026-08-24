@@ -206,15 +206,60 @@ export function ApiKeysPanel() {
       {/* ── How to call it ── */}
       <div className="mt-4 rounded-[var(--radius)] border border-border bg-surface-2 p-4">
         <p className="text-xs font-medium text-foreground">Using it</p>
-        <pre className="mt-2 overflow-x-auto rounded bg-background p-3 text-[11px] leading-relaxed">
-{`curl -H "Authorization: Bearer YOUR_KEY" \\
-  "${typeof window !== "undefined" ? window.location.origin : "https://useagentcloud.com"}/api/v1/production?start=2026-08-01&end=2026-08-31"`}
-        </pre>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          Leave the dates off for the current month to date. <code>/api/v1/whoami</code> confirms
-          a key works and what it can read.
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Every call sends the key as <code>Authorization: Bearer …</code>. Leave the dates
+          off and each endpoint uses a sensible default window.
         </p>
+
+        {EXAMPLES.map((ex) => {
+          const snippet = `curl -H "Authorization: Bearer ${issued ?? "YOUR_KEY"}" \\\n  "${origin()}${ex.path}"`;
+          return (
+            <div key={ex.path} className="mt-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-medium text-foreground">{ex.title}</p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 gap-1 px-2 text-[11px]"
+                  onClick={() => copy(snippet)}
+                >
+                  <Copy className="h-3 w-3" /> Copy
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{ex.detail}</p>
+              <pre className="mt-1.5 overflow-x-auto rounded bg-background p-3 text-[11px] leading-relaxed">{snippet}</pre>
+            </div>
+          );
+        })}
       </div>
+
+      {/* ── Prove it works before handing it over ── */}
+      <div className="mt-4 rounded-[var(--radius)] border border-border p-4">
+        <p className="text-xs font-medium text-foreground">Test a key</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Paste a key to check it is accepted and see exactly what it can read. Nothing is
+          stored — the check runs from this browser.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Input
+            value={probe}
+            onChange={(e) => setProbe(e.target.value)}
+            placeholder="ac_live_…"
+            className="max-w-xs font-mono text-xs"
+          />
+          <Button size="sm" variant="outline" disabled={!probe.trim() || testing} onClick={runTest}>
+            {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Test"}
+          </Button>
+        </div>
+        {result && (
+          <pre
+            className={`mt-2 overflow-x-auto rounded bg-surface-2 p-3 text-[11px] leading-relaxed ${
+              result.ok ? "text-success" : "text-warning"
+            }`}
+          >{result.text}</pre>
+        )}
+      </div>
+
     </Panel>
   );
 }
