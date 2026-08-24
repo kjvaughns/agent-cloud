@@ -46,7 +46,7 @@ export const Route = createFileRoute("/api/v1/whoami")({
           organization_id: auth.auth.orgId,
           organization: org?.name ?? null,
           scopes: auth.auth.key.scopes ?? [],
-          endpoints: ["/api/v1/whoami", "/api/v1/production"],
+          endpoints: ["/api/v1/whoami", "/api/v1/production", "/api/v1/leaderboard"],
         });
       },
     },
