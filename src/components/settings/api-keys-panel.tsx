@@ -27,6 +27,42 @@ function when(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** The agency's own host, so a copied snippet works as pasted. */
+function origin(): string {
+  return typeof window !== "undefined" ? window.location.origin : "https://useagentcloud.com";
+}
+
+function copy(text: string) {
+  navigator.clipboard.writeText(text).then(
+    () => toast.success("Copied"),
+    () => toast.error("Could not copy — select the text and copy it by hand"),
+  );
+}
+
+/**
+ * The three calls somebody wiring this up actually makes, in the order they
+ * make them: confirm the key, read the totals, read the board.
+ */
+const EXAMPLES = [
+  {
+    title: "Check the key",
+    path: "/api/v1/whoami",
+    detail: "Confirms the key is accepted and lists what it can read.",
+  },
+  {
+    title: "Agency totals",
+    path: "/api/v1/production?start=2026-01-01&end=2026-12-31",
+    detail: "Premium, policy count and placed premium. Defaults to this month to date.",
+  },
+  {
+    title: "Leaderboard",
+    path: "/api/v1/leaderboard?limit=25",
+    detail:
+      "Ranked producers with premium, policies and placed premium. Needs the per-agent scope; defaults to the year to date.",
+  },
+] as const;
+
+
 export function ApiKeysPanel() {
   const qc = useQueryClient();
   const listFn = useServerFn(listApiKeys);
