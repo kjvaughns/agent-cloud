@@ -692,7 +692,7 @@ export const getProductionSeries = createServerFn({ method: "POST" })
       if (bucket === "day") return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
       if (bucket === "week") {
         const w = new Date(d);
-        w.setDate(w.getDate() - w.getDay());
+        w.setDate(w.getDate() - ((w.getDay() + 6) % 7)); // weeks start Monday
         return `${w.getFullYear()}-${w.getMonth()}-${w.getDate()}`;
       }
       return `${d.getFullYear()}-${d.getMonth()}`;
