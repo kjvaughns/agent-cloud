@@ -105,7 +105,9 @@ export function PolicyDetailSheet({
     },
     onSuccess: () => toast.success("Status updated"),
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      // A status change moves production, retention and the money with it, so
+      // every policy-backed view refreshes, not just this list.
+      invalidatePolicyViews(qc);
       // The change just made is part of the history now.
       qc.invalidateQueries({ queryKey: ["bob", "events", row?.id] });
     },
