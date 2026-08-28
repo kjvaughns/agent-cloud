@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { money, phone as fmtPhone } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import { updatePolicyStatus, getPolicyCommissionTotal, listPolicyEvents } from "@/lib/book-of-business.functions";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
 import { supabase } from "@/integrations/supabase/client";
