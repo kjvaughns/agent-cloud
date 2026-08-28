@@ -158,10 +158,12 @@ export function PolicyDetailSheet({
                   <h3 className="font-semibold">Policy details</h3>
                   <Link
                     to="/pipeline"
+                    search={{ client: row.client_id ?? undefined }}
                     className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                   >
                     View client profile <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
+
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <Row k="Carrier" v={row.carrier_name ?? "—"} />
