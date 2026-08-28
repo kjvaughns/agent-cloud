@@ -1,0 +1,1 @@
+ALTER TYPE public.policy_status ADD VALUE IF NOT EXISTS 'submitted' BEFORE 'issued_not_paid';
