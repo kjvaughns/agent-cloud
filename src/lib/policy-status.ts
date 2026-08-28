@@ -2,6 +2,7 @@ import { toneSoft, toneSolid, type Tone } from "./tone";
 
 export type PolicyStatus =
   | "active"
+  | "submitted"
   | "issued_not_paid"
   | "in_review"
   | "lapse_pending"
