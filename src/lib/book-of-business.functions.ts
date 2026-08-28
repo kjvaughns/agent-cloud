@@ -59,11 +59,14 @@ export const updatePolicyStatus = createServerFn({ method: "POST" })
     }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    // Count the rows: RLS refuses silently, so a zero-row update would
+    // otherwise report success and leave the old status in place.
+    const { error, count } = await context.supabase
       .from("policies")
-      .update({ status: data.status })
+      .update({ status: data.status }, { count: "exact" })
       .eq("id", data.policyId);
     if (error) throw new Error(error.message);
+    if (!count) throw new Error("You do not have permission to edit this policy.");
     // What was, who changed it and when is recorded by
     // `trg_policy_events_status` on the table itself rather than here. Three
     // paths write this column and nothing stops a fourth; a trigger is the one
