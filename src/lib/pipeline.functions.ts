@@ -46,9 +46,14 @@ export const listPipelineClients = createServerFn({ method: "POST" })
     // set, including the beneficiary lookup — miss that one and a downline
     // client silently loses its beneficiary label, which is a wrong answer
     // rather than a missing one.
-    const agentIds = data.scope === "mine"
+    // Pipeline never crosses an agency boundary. A parent agency's owner
+    // administers its sub-agencies — levels, carriers, rollup production — but
+    // their clients are not the parent's to read, so "imo" narrows to the
+    // caller's own agency rather than resolving the sub-agency agents.
+    const readScope = data.scope === "imo" ? "agency" : data.scope;
+    const agentIds = readScope === "mine"
       ? [userId]
-      : await resolveScopeAgentIds(supabase, data.scope);
+      : await resolveScopeAgentIds(supabase, readScope);
 
     // `is_sample` drives the "Sample" chip on the card. It is a pending column,
     // so naming it would fail this whole query with 42703 and empty the
