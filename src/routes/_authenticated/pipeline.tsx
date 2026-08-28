@@ -82,7 +82,12 @@ function PipelineSkeleton() {
 function PipelinePage() {
   const qc = useQueryClient();
   const hydrated = useHydrated();
-  const { scope, ready: scopeReady } = useScope();
+  const { scope: rawScope, ready: scopeReady } = useScope();
+  // Client records never roll up across agency boundaries: a parent agency
+  // administers its sub-agencies but does not read their pipelines. Total IMO
+  // therefore narrows to the caller's own agency here (the server does the
+  // same, so this is a label fix, not the boundary).
+  const scope = rawScope === "imo" ? "agency" : rawScope;
   // Keyed by scope. A module-level constant key here would hand somebody the
   // previous scope's rows for a beat every time they switch.
   const { data: clients = [], isLoading } = useQuery({
@@ -187,7 +192,7 @@ function PipelinePage() {
           subtitle="Track every lead from first touch to sold."
           actions={
             <>
-              <ScopeToggle />
+              <ScopeToggle exclude={["imo"]} />
               {tabControls}
               <div className="relative w-full sm:w-56">
                 <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
