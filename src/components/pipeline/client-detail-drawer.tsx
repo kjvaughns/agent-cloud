@@ -1091,9 +1091,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       beneficiaries: [],
     }}),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      invalidatePolicyViews(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       if (res?.compensation && res.compensation.ok === false) {
         toast.warning("Deal posted — but the commission could not be worked out", {
