@@ -706,6 +706,17 @@ const updatePolicySchema = z.object({
   sale_date: z.string().nullable().optional().or(z.literal("")),
 });
 
+/** The fields whose changes are worth a line in the policy's history. */
+const TRACKED_FIELDS: [keyof any, string][] = [
+  ["policy_number", "Policy number"],
+  ["carrier_id", "Carrier"],
+  ["product", "Product"],
+  ["monthly_premium", "Monthly premium"],
+  ["annual_premium", "Annual premium"],
+  ["face_amount", "Face amount"],
+  ["effective_date", "Effective date"],
+];
+
 export const updatePolicy = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => updatePolicySchema.parse(d))
@@ -717,14 +728,21 @@ export const updatePolicy = createServerFn({ method: "POST" })
       if (payload[k] === "") payload[k] = null;
     }
 
-    // What the sale date is now, so a no-op edit does not pointlessly rebuild
-    // a commission schedule.
+    // What the policy says now. Read without an `agent_id` filter: an upline
+    // and an agency admin can legitimately edit somebody else's policy, and
+    // the database decides that — see `policies_org_update`. Filtering here as
+    // well is what made those edits match nothing and report success anyway.
     const { data: before } = await supabase
       .from("policies")
-      .select("production_date, effective_date, carrier_id, product, monthly_premium, client_id")
+      .select(
+        "id, agent_id, client_id, organization_id, production_date, effective_date, carrier_id, product, monthly_premium, annual_premium, face_amount, policy_number, status",
+      )
       .eq("id", id)
-      .eq("agent_id", userId)
       .maybeSingle();
+
+    if (!before) {
+      throw new Error("That policy could not be found, or you cannot see it.");
+    }
 
     let saleDateChanged = false;
     if (sale_date) {
@@ -739,12 +757,51 @@ export const updatePolicy = createServerFn({ method: "POST" })
       }
     }
 
-    const { error } = await supabase
+    // Counted, because a row-level rule that refuses the write returns no
+    // error — only zero rows. A save that changed nothing must not be
+    // reported as a save.
+    const { error, count } = await supabase
       .from("policies")
-      .update(payload)
-      .eq("id", id)
-      .eq("agent_id", userId);
+      .update(payload, { count: "exact" })
+      .eq("id", id);
     if (error) throw new Error(error.message);
+    if (!count) {
+      throw new Error(
+        "You do not have permission to edit this policy. Only the writing agent, their upline or an agency admin can change it.",
+      );
+    }
+
+    // Who changed what, on the same timeline the status trigger already
+    // writes to, so the detail sheet shows edits and not just status moves.
+    const changes = TRACKED_FIELDS.filter(([key]) => {
+      if (!(key in payload)) return false;
+      const next = (payload as any)[key] ?? null;
+      const prev = (before as any)[key as string] ?? null;
+      return String(next ?? "") !== String(prev ?? "");
+    }).map(([key, label]) => {
+      const next = (payload as any)[key] ?? null;
+      const prev = (before as any)[key as string] ?? null;
+      return `${label}: ${prev ?? "—"} → ${next ?? "—"}`;
+    });
+    if (saleDateChanged) changes.push(`Sale date set to ${sale_date}`);
+
+    if (changes.length > 0) {
+      try {
+        await (supabase as any).from("policy_events").insert({
+          policy_id: id,
+          client_id: before.client_id,
+          organization_id: before.organization_id,
+          agent_id: before.agent_id,
+          kind: "edited",
+          source: "pipeline",
+          note: changes.join("; "),
+          actor_id: userId,
+          occurred_at: new Date().toISOString(),
+        });
+      } catch (e: any) {
+        console.error("[policy] history write failed for", id, e?.message);
+      }
+    }
 
     // Moving the sale date moves the money with it: the advance and the trail
     // belong on the months the business was actually written. The calculator
@@ -762,7 +819,9 @@ export const updatePolicy = createServerFn({ method: "POST" })
           .maybeSingle();
         await calculateAndInsertAllCommissions(supabase, {
           policyId: id,
-          agentId: userId,
+          // The money belongs to whoever wrote the policy, not to whoever
+          // corrected a typo on it.
+          agentId: before.agent_id ?? userId,
           carrierId: payload.carrier_id ?? before?.carrier_id ?? null,
           product: payload.product ?? before?.product ?? "",
           monthlyPremium: Number(payload.monthly_premium ?? before?.monthly_premium ?? 0),

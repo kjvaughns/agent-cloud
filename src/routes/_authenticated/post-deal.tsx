@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
@@ -335,9 +336,7 @@ function PostDealPage() {
       // Posted: the drawer's stashed draft described this policy and must not
       // prefill the next one.
       clearStashedPolicyDraft();
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      invalidatePolicyViews(qc);
 
       // The deal is written either way — but if nothing could work out what it
       // pays, saying only "Deal posted!" is how an agent finds out weeks later

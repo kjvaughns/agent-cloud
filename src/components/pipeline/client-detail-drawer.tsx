@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
@@ -1091,9 +1092,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       beneficiaries: [],
     }}),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      invalidatePolicyViews(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       if (res?.compensation && res.compensation.ok === false) {
         toast.warning("Deal posted — but the commission could not be worked out", {
@@ -1227,15 +1226,11 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       sale_date: form.sale_date || null,
     }}),
     onSuccess: (res: any) => {
+      // Every policy-backed view, not a hand-kept subset: an edit here shows
+      // up in the book, on production, on the leaderboard and in finances.
+      invalidatePolicyViews(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
-      qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      // Moving the sale date moves production, the leaderboard and the
-      // commission schedule with it, so those views must not keep stale numbers.
       if (res?.saleDateChanged) {
-        qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-        qc.invalidateQueries({ queryKey: ["leaderboard"] });
-        qc.invalidateQueries({ queryKey: ["finances"] });
         toast.success(`Policy updated — now counts toward ${saleMonthLabel(form.sale_date)}`);
       } else {
         toast.success("Policy updated");
