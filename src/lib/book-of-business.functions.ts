@@ -53,7 +53,7 @@ export const updatePolicyStatus = createServerFn({ method: "POST" })
     z.object({
       policyId: z.string().uuid(),
       status: z.enum([
-        "active", "issued_not_paid", "in_review", "lapse_pending",
+        "active", "submitted", "issued_not_paid", "in_review", "lapse_pending",
         "lapsed", "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na",
       ]),
     }).parse(data),
