@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
