@@ -22,11 +22,15 @@ import { SCOPE_DESCRIPTIONS, SCOPE_LABELS, type Scope } from "@/lib/scope";
  * alternatives and costs two. Built on ToggleGroup so arrow keys and
  * `aria-pressed` come for free.
  */
-export function ScopeToggle({ className }: { className?: string }) {
-  const { scope, setScope, options } = useScope();
+export function ScopeToggle({ className, exclude }: { className?: string; exclude?: Scope[] }) {
+  const { scope, setScope, options: allOptions } = useScope();
   const { role } = useRole();
+  // Some surfaces are deliberately narrower than the person's widest scope —
+  // client records never roll up across agency boundaries, for instance.
+  const options = exclude?.length ? allOptions.filter((s) => !exclude.includes(s)) : allOptions;
 
   if (options.length < 2) {
+
     /*
      * Silent is right for an agent and wrong for a manager.
      *
