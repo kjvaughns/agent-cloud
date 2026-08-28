@@ -35,8 +35,14 @@ const POLICY_STATUS: Record<string, string> = {
   p: "issued_not_paid", pending: "issued_not_paid", "issued not paid": "issued_not_paid",
   inp: "issued_not_paid", "issued-not-paid": "issued_not_paid", unpaid: "issued_not_paid",
 
+  // Submitted to the carrier but not yet placed. This used to fold onto
+  // "in_review"; it is its own step now, so an imported book keeps the word
+  // the carrier report used.
+  submitted: "submitted", s: "submitted", sub: "submitted",
+  "submitted to carrier": "submitted", "app submitted": "submitted",
+
   ur: "in_review", "under review": "in_review", underwriting: "in_review",
-  uw: "in_review", "in review": "in_review", submitted: "in_review", app: "in_review",
+  uw: "in_review", "in review": "in_review", app: "in_review",
 
   lp: "lapse_pending", "lapse pending": "lapse_pending", grace: "lapse_pending",
   "grace period": "lapse_pending", delinquent: "lapse_pending",

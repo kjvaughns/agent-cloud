@@ -283,6 +283,7 @@ function ActionChip({ icon: Icon, label, href }: { icon: any; label: string; hre
 function PolicyStatusPill({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     active:          { cls: "bg-success text-success border-success", label: "Active" },
+    submitted:       { cls: "bg-primary/15 text-primary border-primary/30", label: "Submitted" },
     issued_not_paid: { cls: "bg-warning text-warning border-warning", label: "Not Taken" },
     in_review:       { cls: "bg-primary/15 text-primary border-primary/30", label: "In Review" },
     lapsed:          { cls: "bg-destructive text-destructive border-destructive", label: "Lapsed" },
