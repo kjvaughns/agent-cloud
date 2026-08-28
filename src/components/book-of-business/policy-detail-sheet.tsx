@@ -100,9 +100,9 @@ export function PolicyDetailSheet({
       );
       return { prev };
     },
-    onError: (_e, _v, ctx) => {
+    onError: (e: any, _v, ctx) => {
       ctx?.prev?.forEach(([k, v]) => qc.setQueryData(k, v));
-      toast.error("Failed to update status");
+      toast.error(e?.message ? `Failed to update status: ${e.message}` : "Failed to update status");
     },
     onSuccess: () => toast.success("Status updated"),
     onSettled: () => {
