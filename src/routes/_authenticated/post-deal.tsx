@@ -72,7 +72,7 @@ type FormData = {
   sale_date: string;
   face_amount: string;
   monthly_premium: string;
-  status: "issued_not_paid" | "in_review";
+  status: "submitted" | "issued_not_paid" | "in_review";
   beneficiaries: {
     first_name: string;
     last_name: string;
@@ -669,6 +669,7 @@ function PostDealPage() {
                     <SelectValue placeholder="Select status..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="submitted">Submitted</SelectItem>
                     <SelectItem value="issued_not_paid">Issued, Not Paid</SelectItem>
                     <SelectItem value="in_review">In Review</SelectItem>
                   </SelectContent>

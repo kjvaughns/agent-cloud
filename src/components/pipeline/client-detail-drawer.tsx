@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { POLICY_STATUSES } from "@/lib/policy-status";
 import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -1299,7 +1300,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {["active","issued_not_paid","in_review","lapsed","pending"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {POLICY_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

@@ -39,7 +39,7 @@ export type PolicyDraft = {
   effective_date?: string;
   face_amount?: string;
   monthly_premium?: string;
-  status?: "issued_not_paid" | "in_review";
+  status?: PostDealStatus;
   sale_date?: string;
 };
 
@@ -51,8 +51,12 @@ export type PolicyDraft = {
  * anything past submission is not a status this form is entitled to set, and
  * silently preselecting one would let an agent re-post a live policy as new.
  */
-export function postDealStatus(status: string | null | undefined): "issued_not_paid" | "in_review" {
-  return status === "in_review" ? "in_review" : "issued_not_paid";
+export type PostDealStatus = "submitted" | "issued_not_paid" | "in_review";
+
+export function postDealStatus(status: string | null | undefined): PostDealStatus {
+  if (status === "in_review") return "in_review";
+  if (status === "submitted") return "submitted";
+  return "issued_not_paid";
 }
 
 /**

@@ -420,6 +420,7 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
 function PolicyStatusDot({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     active:          { cls: "bg-success", label: "Active" },
+    submitted:       { cls: "bg-primary/60", label: "Submitted" },
     issued_not_paid: { cls: "bg-warning",   label: "Issued" },
     in_review:       { cls: "bg-primary",  label: "In Review" },
     lapsed:          { cls: "bg-destructive",     label: "Lapsed" },

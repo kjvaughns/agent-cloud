@@ -121,7 +121,7 @@ const PostDealSchema = z.object({
     effective_date: z.string().min(8),
     face_amount: z.number().min(0),
     monthly_premium: z.number().min(0),
-    status: z.enum(["issued_not_paid", "in_review"]).default("issued_not_paid"),
+    status: z.enum(["submitted", "issued_not_paid", "in_review"]).default("issued_not_paid"),
     /**
      * When the business was written, which is the month it counts in on
      * production, the dashboard and the leaderboard. Optional: omitted, the

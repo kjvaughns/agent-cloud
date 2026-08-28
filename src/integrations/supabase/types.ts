@@ -10498,6 +10498,7 @@ export type Database = {
       pipeline_stage: "new" | "callback" | "almost_there" | "sold"
       policy_status:
         | "active"
+        | "submitted"
         | "issued_not_paid"
         | "in_review"
         | "lapse_pending"
@@ -10697,6 +10698,7 @@ export const Constants = {
       pipeline_stage: ["new", "callback", "almost_there", "sold"],
       policy_status: [
         "active",
+        "submitted",
         "issued_not_paid",
         "in_review",
         "lapse_pending",
