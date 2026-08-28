@@ -29,6 +29,9 @@ type StatusDef = {
 
 const DEFS: StatusDef[] = [
   { value: "active",          label: "Active",           tone: "success", loud: true },
+  // Submitted to the carrier but not yet placed — the step before
+  // "Issued, Not Paid" and then "Active" once the first premium is paid.
+  { value: "submitted",       label: "Submitted",        tone: "info" },
   { value: "issued_not_paid", label: "Issued, Not Paid", tone: "success" },
   { value: "in_review",       label: "In Review",        tone: "info" },
   { value: "lapse_pending",   label: "Lapse Pending",    tone: "warning" },
