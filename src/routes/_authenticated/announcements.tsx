@@ -19,6 +19,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { MENTIONS, MENTION_LABELS, type PostMention } from "@/lib/discord/mention";
+import { getOrgEmailSettings } from "@/lib/email/org-settings.functions";
 import {
   listAnnouncements, canPostAnnouncements, createAnnouncement,
 } from "@/lib/announcements.functions";
@@ -132,8 +134,16 @@ function NewAnnouncementDialog({ hasSubAgencies }: { hasSubAgencies: boolean }) 
   const [audience, setAudience] = useState<Audience>("agency");
   // In the app is the feed itself, so it is not a choice. The other two are.
   const [channels, setChannels] = useState<Channel[]>(["in_app"]);
+  // "default" leaves the ping to each Discord channel's own setting.
+  const [discordMention, setDiscordMention] = useState<PostMention>("default");
   const create = useServerFn(createAnnouncement);
   const qc = useQueryClient();
+  // So "email" is not a checkbox that quietly does nothing when the agency's
+  // own email switch is off.
+  const emailQ = useQuery({
+    queryKey: ["org-email-settings"],
+    queryFn: () => getOrgEmailSettings(),
+  });
 
   const editor = useEditor({
     extensions: [StarterKit, Link.configure({ openOnClick: false })],
@@ -152,6 +162,7 @@ function NewAnnouncementDialog({ hasSubAgencies }: { hasSubAgencies: boolean }) 
         bodyHtml: editor?.getHTML() ?? "",
         audience,
         channels,
+        discordMention,
       } }),
     onSuccess: () => {
       toast.success("Announcement published");
@@ -160,6 +171,7 @@ function NewAnnouncementDialog({ hasSubAgencies }: { hasSubAgencies: boolean }) 
       setTitle("");
       setAudience("agency");
       setChannels(["in_app"]);
+      setDiscordMention("default");
       editor?.commands.clearContent();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -243,6 +255,33 @@ function NewAnnouncementDialog({ hasSubAgencies }: { hasSubAgencies: boolean }) 
                 </label>
               ))}
             </div>
+            {channels.includes("discord") && (
+              <div className="mt-3 rounded-md border bg-muted/30 p-3">
+                <Label className="mb-1.5 block text-xs uppercase text-muted-foreground">
+                  Discord ping
+                </Label>
+                <select
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  value={discordMention}
+                  onChange={(e) => setDiscordMention(e.target.value as PostMention)}
+                >
+                  <option value="default">Use each channel's setting</option>
+                  {MENTIONS.map((m) => (
+                    <option key={m} value={m}>{MENTION_LABELS[m]}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {channels.includes("email") && emailQ.data?.available && !emailQ.data.emailsEnabled && (
+              <p className="mt-2 text-xs text-warning">
+                Your agency currently sends no notification email, so this will reach
+                the app and Discord only.{" "}
+                <RouterLink to="/settings/agency" search={{ tab: "emails" } as any} className="underline">
+                  Turn email on
+                </RouterLink>
+                .
+              </p>
+            )}
             <p className="mt-1.5 text-xs text-muted-foreground">
               Email respects each person's notification preferences.{" "}
               <RouterLink to="/settings/agency" search={{ tab: "integrations" } as any} className="text-primary hover:underline">

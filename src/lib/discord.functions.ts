@@ -7,6 +7,10 @@ import { assertOrgOwner, getMyPrimaryOrgId } from "@/lib/org-guard";
 // the ladder can be exercised without a database.
 import { shouldAttempt, successPatch, failurePatch } from "@/lib/discord/retry";
 import { piiProblems, productCategory, eventKey } from "@/lib/discord/message";
+import {
+  MENTIONS, announcementPayload, resolveMention, type PostMention,
+} from "@/lib/discord/mention";
+
 import { assertTabPermission } from "@/lib/settings/tab-guard.server";
 
 const supabaseAdmin = _admin as any;
@@ -106,6 +110,9 @@ const WebhookSchema = z.object({
   post_deals: z.boolean().optional(),
   post_new_agents: z.boolean().optional(),
   post_announcements: z.boolean().optional(),
+  /** Default ping for announcements posted into this channel. */
+  announcement_mention: z.enum(MENTIONS).optional(),
+
   // `post_milestones` is deliberately absent. The column stays, but there is
   // no milestone or streak concept anywhere in the product for it to gate, so
   // the control is gone from Settings rather than left as a switch a person
@@ -923,7 +930,10 @@ export async function announceToDiscord(
   title: string,
   bodyHtml: string,
   subjectId?: string,
+  /** The post's own choice; "default" defers to each channel's setting. */
+  postMention: PostMention = "default",
 ): Promise<{ sent: number; failed: number }> {
+
   let sent = 0;
   let failed = 0;
   try {
@@ -963,11 +973,20 @@ export async function announceToDiscord(
       const key = eventKey(hook.id, "announcements", subjectId ?? title.slice(0, 80));
       try {
         if (await alreadySent(hook.id, key)) continue;
-        const status = await postToDiscord(hook.webhook_url, {
-          embeds: [{ title: title.slice(0, 256), description: text || "(no content)", color: GOLD }],
-        });
+        const status = await postToDiscord(
+          hook.webhook_url,
+          announcementPayload({
+            title,
+            text,
+            // The ping is decided per channel unless this post overrode it, so
+            // an owner can keep #general quiet and still ping #announcements.
+            mention: resolveMention(postMention, hook.announcement_mention),
+            color: GOLD,
+          }),
+        );
         await recordDelivery({
           orgId,
+
           integrationId: hook.id,
           eventType: "announcement",
           status: "sent",

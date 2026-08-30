@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { MessageSquare, Send, Trash2, Loader2, Plus, RotateCcw, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { MENTIONS, MENTION_LABELS, type Mention } from "@/lib/discord/mention";
 import { healthState, healthDetail, HEALTH_LABELS } from "@/lib/discord/retry";
 import { EVENT_LABEL, EVENT_PURPOSE, DISCORD_EVENTS, eventsFor, eventSummary } from "@/lib/discord/message";
 import type { DiscordEvent } from "@/lib/discord/message";
@@ -45,6 +46,7 @@ type Webhook = {
   post_deals: boolean;
   post_new_agents: boolean;
   post_announcements?: boolean;
+  announcement_mention?: string | null;
   min_annual_premium: number;
   last_error: string | null;
   last_error_at?: string | null;
@@ -87,6 +89,8 @@ type Draft = {
   events: DiscordEvent[];
   enabled: boolean;
   min_annual_premium: string;
+  /** Default ping when an announcement posts into this channel. */
+  announcement_mention: Mention;
 };
 
 const emptyDraft: Draft = {
@@ -97,6 +101,7 @@ const emptyDraft: Draft = {
   events: [],
   enabled: true,
   min_annual_premium: "0",
+  announcement_mention: "none",
 };
 
 function draftFrom(w: Webhook): Draft {
@@ -109,6 +114,9 @@ function draftFrom(w: Webhook): Draft {
     events: eventsFor(w),
     enabled: !!w.enabled,
     min_annual_premium: String(w.min_annual_premium ?? 0),
+    announcement_mention: (MENTIONS as readonly string[]).includes(w.announcement_mention ?? "")
+      ? (w.announcement_mention as Mention)
+      : "none",
   };
 }
 
@@ -205,6 +213,7 @@ export function DiscordSettings() {
       min_annual_premium: Number(draft.min_annual_premium || 0),
       post_deals: draft.events.includes("sales"),
       post_announcements: draft.events.includes("announcements"),
+      announcement_mention: draft.announcement_mention,
       post_new_agents: draft.events.includes("new_agents"),
     };
     if (draft.id) patch.id = draft.id;
@@ -429,6 +438,27 @@ export function DiscordSettings() {
                   })}
                 </div>
               </div>
+
+              {draft.events.includes("announcements") && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Ping this channel when an announcement posts
+                  </label>
+                  <select
+                    className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                    value={draft.announcement_mention}
+                    onChange={(e) =>
+                      setDraft({ ...draft, announcement_mention: e.target.value as Mention })}
+                  >
+                    {MENTIONS.map((m) => (
+                      <option key={m} value={m}>{MENTION_LABELS[m]}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    The person posting can override this per announcement.
+                  </p>
+                </div>
+              )}
 
               {draft.events.includes("sales") && (
                 <div>
