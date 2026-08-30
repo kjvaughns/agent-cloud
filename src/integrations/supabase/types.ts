@@ -1011,6 +1011,7 @@ export type Database = {
           body_html: string | null
           created_at: string
           created_by: string | null
+          discord_mention: string
           expires_at: string | null
           id: string
           organization_id: string | null
@@ -1026,6 +1027,7 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          discord_mention?: string
           expires_at?: string | null
           id?: string
           organization_id?: string | null
@@ -1041,6 +1043,7 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          discord_mention?: string
           expires_at?: string | null
           id?: string
           organization_id?: string | null
@@ -4717,6 +4720,7 @@ export type Database = {
       }
       discord_integrations: {
         Row: {
+          announcement_mention: string
           channel_label: string | null
           consecutive_failures: number
           created_at: string
@@ -4739,6 +4743,7 @@ export type Database = {
           webhook_url: string
         }
         Insert: {
+          announcement_mention?: string
           channel_label?: string | null
           consecutive_failures?: number
           created_at?: string
@@ -4761,6 +4766,7 @@ export type Database = {
           webhook_url: string
         }
         Update: {
+          announcement_mention?: string
           channel_label?: string | null
           consecutive_failures?: number
           created_at?: string

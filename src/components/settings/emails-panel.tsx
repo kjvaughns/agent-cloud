@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Eye } from "lucide-react";
+import { EmailSendingCard } from "@/components/settings/email-sending-card";
 import { toast } from "sonner";
 
 
@@ -69,6 +70,8 @@ export function EmailsPage() {
           Every email your agency sent, deduplicated to its latest status.
         </p>
       </div>
+
+      <EmailSendingCard />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (
