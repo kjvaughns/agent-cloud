@@ -112,22 +112,79 @@ function SyncWizard() {
   const previewFn = useServerFn(previewCarrierSync);
   const applyFn = useServerFn(applyCarrierSync);
 
+  /** A PDF, a scan or a photo: read the pages, then let the assistant pull the rows. */
+  async function rowsFromDocument(f: File): Promise<{ headers: string[]; rows: Record<string, string>[] } | null> {
+    const { extractDocument } = await import("@/lib/document-extract");
+    const doc = await extractDocument(f, { maxPages: 12 });
+    if (!doc.text.trim() && doc.images.length === 0) {
+      toast.error("We couldn't read anything in that file.");
+      return null;
+    }
+    const report = await extractReportFn({
+      data: {
+        images: doc.images.length ? doc.images : null,
+        text: doc.text || null,
+        file_name: f.name,
+        expected_kind: "policy_status_report",
+      },
+    });
+    const certs = report.certificates ?? [];
+    const lines = (report.lines ?? []).filter((l: any) => l.policy_number);
+    const source = certs.length
+      ? certs.map((c: any) => ({
+          "Policy #": c.policy_number ?? "",
+          Status: c.status_text ?? "",
+          Insured: c.insured_name ?? "",
+        }))
+      : lines.map((l: any) => ({
+          "Policy #": l.policy_number ?? "",
+          Status: "",
+          Insured: l.insured_name ?? "",
+        }));
+    const rows = source.filter((r) => r["Policy #"]);
+    if (!rows.length) {
+      toast.error("No policy rows found in that document.");
+      return null;
+    }
+    if (!certs.length) {
+      toast.warning("That file had no status column — set statuses on the next step.");
+    }
+    return { headers: ["Policy #", "Status", "Insured"], rows };
+  }
+
   async function handleFile(f: File) {
-    if (!f.name.match(/\.(csv|xls|xlsx)$/i)) {
-      toast.error("Upload a .csv, .xls, or .xlsx file");
-      return;
+    const isSheet = /\.(csv|xls|xlsx|tsv|txt)$/i.test(f.name);
+    let headers: string[];
+    let rows: Record<string, string>[];
+
+    if (isSheet) {
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+      if (!json.length) {
+        toast.error("No data rows found in the file");
+        return;
+      }
+      headers = Object.keys(json[0]);
+      rows = json.map((r) => Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "").trim()])));
+    } else {
+      setReading(true);
+      try {
+        const out = await rowsFromDocument(f);
+        if (!out) return;
+        headers = out.headers;
+        rows = out.rows;
+      } catch (e: any) {
+        toast.error(e?.message ?? "We couldn't read that file.");
+        return;
+      } finally {
+        setReading(false);
+      }
     }
-    const buf = await f.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
-    if (!json.length) {
-      toast.error("No data rows found in the file");
-      return;
-    }
-    const headers = Object.keys(json[0]);
-    const rows = json.map((r) => Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "").trim()])));
+
     setFile({ name: f.name, headers, rows });
+
 
     // Auto-detect columns, then let a saved template for this carrier win.
     let map: ColumnMap = {
