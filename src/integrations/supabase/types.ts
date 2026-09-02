@@ -2583,6 +2583,7 @@ export type Database = {
           phone_type: string | null
           preferred_contact: string | null
           score_pct: number | null
+          ssn_last4: string | null
           stage: Database["public"]["Enums"]["pipeline_stage"]
           state: string | null
           street_address: string | null
@@ -2611,6 +2612,7 @@ export type Database = {
           phone_type?: string | null
           preferred_contact?: string | null
           score_pct?: number | null
+          ssn_last4?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           state?: string | null
           street_address?: string | null
@@ -2639,6 +2641,7 @@ export type Database = {
           phone_type?: string | null
           preferred_contact?: string | null
           score_pct?: number | null
+          ssn_last4?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           state?: string | null
           street_address?: string | null
