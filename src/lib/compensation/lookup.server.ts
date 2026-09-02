@@ -144,6 +144,46 @@ export async function resolveForAgent(
 }
 
 /**
+ * The same resolution for a carrier the agency has not set up.
+ *
+ * Used for imported history: the book names carriers that were never configured
+ * here, and refusing to price them left hundreds of real policies showing no
+ * commission at all. There is no org_carrier row, so there is no mapping and no
+ * contract to read — the percentage is the agent's agency position base and the
+ * advance is as-earned. Marked provisional by the resolver, and the carrier is
+ * still reported as one to set up.
+ */
+export async function resolveProvisionalForAgent(
+  supabase: Client,
+  agentId: string,
+): Promise<Resolution> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("agency_level_id")
+    .eq("id", agentId)
+    .maybeSingle();
+
+  const { data: level } = profile?.agency_level_id
+    ? await supabase
+        .from("agency_levels")
+        .select("id, name, base_pct, sort_order, can_invite, active")
+        .eq("id", profile.agency_level_id)
+        .maybeSingle()
+    : { data: null };
+
+  return resolveCompensation({
+    agentId,
+    orgCarrierId: "",
+    level: (level as AgencyLevel) ?? null,
+    mapping: null,
+    contract: null,
+    carrier: null,
+    allowUnconfiguredCarrier: true,
+  });
+}
+
+
+/**
  * The same resolution, for a list, in a fixed number of queries.
  *
  * `resolveForAgent` is four round trips. A contract list is one row per
@@ -395,6 +435,28 @@ export async function recordSetupIssue(
   // that stops the deal being recorded. The policy is already written by the
   // time this runs.
   try {
+    // A provisional resolution paid something, but off the agent's agency
+    // position rather than the carrier's terms — so the issue stays open until
+    // the carrier is actually set up.
+    if (resolution.ok && resolution.provisional === true) {
+      await supabase.from("commission_setup_issues").upsert(
+        {
+          policy_id: policyId,
+          agent_id: agentId,
+          organization_id: orgId,
+          org_carrier_id: orgCarrierId,
+          failures: ["carrier_not_configured"],
+          messages: [
+            "Paid provisionally from this agent's agency position. Set this carrier up to price it on the carrier's own schedule.",
+          ],
+          resolved_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "policy_id" },
+      );
+      return;
+    }
+
     if (resolution.ok) {
       await supabase
         .from("commission_setup_issues")

@@ -161,6 +161,19 @@ export type ResolveInput = {
   contract: ContractOverride | null;
   carrier: AgencyCarrier | null;
   /**
+   * Resolve even when the agency has not set this carrier up yet.
+   *
+   * For imported history only. A backdated book routinely names carriers the
+   * agency never configured here, and refusing to resolve left those policies
+   * earning nothing at all on the Finances page — indistinguishable from a bug.
+   * With this on, the percentage still comes down the normal ladder (contract →
+   * level-and-carrier mapping → the agent's agency position base), the advance
+   * falls back to `as_earned` because no carrier term is known, and the result
+   * is marked `provisional` so nothing reads as final. The setup issue is still
+   * recorded, so the carrier shows up as one to configure.
+   */
+  allowUnconfiguredCarrier?: boolean;
+  /**
    * The carrier's published grid, and the deal to price against it.
    *
    * Both optional, and every caller that does not supply them resolves exactly
@@ -231,6 +244,13 @@ export type Resolution =
        */
       carrierLevelName: string | null;
       /**
+       * True when the carrier was not set up and the percentage came from the
+       * agent's agency position instead of the carrier's own terms. The money is
+       * real enough to show; it is replaced by the carrier's grid the moment the
+       * carrier is configured and the policy recalculates.
+       */
+      provisional?: boolean;
+      /**
        * Which grid row was used, in words, or null when none was.
        *
        * An owner reconciling a figure against a carrier statement needs to see
@@ -259,8 +279,9 @@ const fail = (...failures: ResolveFailure[]): Resolution => ({
 export function resolveCompensation(input: ResolveInput): Resolution {
   const { level, mapping, contract, carrier } = input;
 
-  if (!carrier) return fail("carrier_not_configured");
-  if (!carrier.enabled) return fail("carrier_disabled");
+  const provisional = !carrier && input.allowUnconfiguredCarrier === true;
+  if (!carrier && !provisional) return fail("carrier_not_configured");
+  if (carrier && !carrier.enabled) return fail("carrier_disabled");
 
   const failures: ResolveFailure[] = [];
 
@@ -305,8 +326,14 @@ export function resolveCompensation(input: ResolveInput): Resolution {
   } else if (mapping?.advance_option) {
     advance = mapping.advance_option;
     advanceSource = "level_carrier";
-  } else if (carrier.default_advance_option) {
+  } else if (carrier?.default_advance_option) {
     advance = carrier.default_advance_option;
+    advanceSource = "carrier_default";
+  } else if (provisional) {
+    // No carrier setup means no known advance term. As-earned fronts nothing,
+    // so the year pays month by month on its real months — the conservative
+    // answer, and the one a later recalculation can only improve on.
+    advance = "as_earned";
     advanceSource = "carrier_default";
   } else {
     failures.push("no_advance_option");
@@ -363,6 +390,7 @@ export function resolveCompensation(input: ResolveInput): Resolution {
     levelName: pctSource === "contract" ? (level?.name ?? "Contract override") : level!.name,
     carrierLevelName,
     gridRule,
+    ...(provisional ? { provisional: true } : {}),
   };
 }
 
