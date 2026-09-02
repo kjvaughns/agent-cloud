@@ -175,25 +175,30 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
       }
     };
 
-    const { data: teamPolicies, error } = await supabase
-      .from("policies")
-      .select(select)
-      .eq("carrier_id", data.carrier_id)
-      .in("agent_id", teamIds)
-      .not("policy_number", "is", null);
-    if (error) throw new Error(error.message);
-    collect(teamPolicies);
+    collect(
+      await fetchAllPages(() =>
+        supabase
+          .from("policies")
+          .select(select)
+          .eq("carrier_id", data.carrier_id)
+          .in("agent_id", teamIds)
+          .not("policy_number", "is", null),
+      ),
+    );
 
-    if (orgId) {
-      const { data: orgPolicies, error: orgErr } = await supabase
-        .from("policies")
-        .select(select)
-        .eq("carrier_id", data.carrier_id)
-        .eq("organization_id", orgId)
-        .not("policy_number", "is", null);
-      if (orgErr) throw new Error(orgErr.message);
-      collect(orgPolicies);
+    if (orgIds.length) {
+      collect(
+        await fetchAllPages(() =>
+          supabase
+            .from("policies")
+            .select(select)
+            .eq("carrier_id", data.carrier_id)
+            .in("organization_id", orgIds)
+            .not("policy_number", "is", null),
+        ),
+      );
     }
+
 
 
     const updates: SyncUpdate[] = [];
