@@ -629,6 +629,25 @@ export async function saveClientFullRecord(
       if (dupe) continue;
     }
 
+    /**
+     * `policies_agent_policy_number_uniq` is a unique index on
+     * (agent_id, policy_number). A placeholder like "000" appearing on thirty
+     * clients therefore inserts once and every later insert fails — silently,
+     * because the insert result was never checked. The placeholder is worth
+     * less than the policy, so it is dropped when it would collide.
+     */
+    let policyNumber = pol.policy_number?.trim() || null;
+    if (policyNumber) {
+      const { data: taken } = await supabase
+        .from("policies")
+        .select("id")
+        .eq("agent_id", agentId)
+        .eq("policy_number", policyNumber)
+        .limit(1)
+        .maybeSingle();
+      if (taken) policyNumber = null;
+    }
+
     const carrierId = await resolveCarrierId(supabase, pol.carrier_name);
 
     const monthly = Number(pol.monthly_premium ?? 0) || 0;
@@ -644,13 +663,13 @@ export async function saveClientFullRecord(
       ? new Date(`${pol.effective_date}T12:00:00Z`).toISOString()
       : now;
 
-    const { data: insertedPol } = await supabase.from("policies").insert({
+    const { data: insertedPol, error: polError } = await supabase.from("policies").insert({
       client_id: clientId,
       agent_id: agentId,
       assigned_to_email: c.assigned_to_email ?? null,
       carrier_id: carrierId,
       product: pol.product ?? "Final Expense",
-      policy_number: pol.policy_number ?? null,
+      policy_number: policyNumber,
       monthly_premium: monthly || null,
       annual_premium: annual || null,
       face_amount: Number(pol.face_amount ?? 0) || null,
@@ -662,6 +681,8 @@ export async function saveClientFullRecord(
       posted_at: productionDate,
       production_date: productionDate,
     }).select("id").maybeSingle();
+    // Never silent: a dropped policy is production the agency cannot see.
+    if (polError) console.error("Import: policy insert failed", policyNumber, polError.message);
 
     /**
      * An imported policy with no commission schedule is a policy that earns
