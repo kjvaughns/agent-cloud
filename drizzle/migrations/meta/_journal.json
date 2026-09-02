@@ -8,6 +8,13 @@
       "when": 1788130679409,
       "tag": "0000_announcement_discord_mention",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788379264034,
+      "tag": "0001_client_ssn_last4_and_pending_agent_email_unique",
+      "breakpoints": true
     }
   ]
 }
