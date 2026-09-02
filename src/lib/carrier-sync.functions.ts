@@ -132,19 +132,38 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = await getHierarchyIds(supabase, userId);
+    const orgId = await getOrgId(supabase, userId);
 
-    const { data: policies, error } = await supabase
+    const select =
+      "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
+
+    const byNumber = new Map<string, any>();
+    const collect = (rows: any[] | null) => {
+      for (const p of rows ?? []) {
+        if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+      }
+    };
+
+    const { data: teamPolicies, error } = await supabase
       .from("policies")
-      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)")
+      .select(select)
       .eq("carrier_id", data.carrier_id)
       .in("agent_id", teamIds)
       .not("policy_number", "is", null);
     if (error) throw new Error(error.message);
+    collect(teamPolicies);
 
-    const byNumber = new Map<string, any>();
-    for (const p of policies ?? []) {
-      if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+    if (orgId) {
+      const { data: orgPolicies, error: orgErr } = await supabase
+        .from("policies")
+        .select(select)
+        .eq("carrier_id", data.carrier_id)
+        .eq("organization_id", orgId)
+        .not("policy_number", "is", null);
+      if (orgErr) throw new Error(orgErr.message);
+      collect(orgPolicies);
     }
+
 
     const updates: SyncUpdate[] = [];
     const unmatched: SyncPreview["unmatched_rows"] = [];
