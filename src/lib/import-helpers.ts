@@ -615,7 +615,10 @@ export async function saveClientFullRecord(
       face_amount: Number(pol.face_amount ?? 0) || null,
       effective_date: pol.effective_date ?? null,
       status: mapPolicyStatus(pol.status ?? undefined),
-      posted_at: now,
+      // Book of Business sorts and dates on `posted_at`, so a backdated import
+      // has to stamp it with the effective date too — otherwise the book showed
+      // a year of history as posted the day of the upload.
+      posted_at: productionDate,
       production_date: productionDate,
     }).select("id").maybeSingle();
 

@@ -24,7 +24,56 @@ export const listBookOfBusiness = createServerFn({ method: "POST" })
       _agent_id: data.agentId ?? undefined,
     });
     if (error) throw new Error(error.message);
-    return (rows ?? []) as any[];
+    const list = (rows ?? []) as any[];
+    if (list.length === 0) return list;
+
+    // An imported policy written by an agent who has not signed up yet is held
+    // on the importer's id with the producer's email on the row. The book used
+    // to show the importer's name for all of it, so a book of 368 policies read
+    // as one person's. The roster name is shown instead, flagged as not yet
+    // having an account — the policy still belongs to whoever will claim it.
+    const ids = list.map((r) => r.id).filter(Boolean);
+    const { data: assigned } = await supabase
+      .from("policies")
+      .select("id, assigned_to_email")
+      .in("id", ids)
+      .not("assigned_to_email", "is", null);
+
+    const emails = Array.from(
+      new Set(((assigned ?? []) as any[]).map((p) => String(p.assigned_to_email).toLowerCase())),
+    );
+    if (emails.length === 0) return list;
+
+    const { data: pending } = await supabase
+      .from("pending_agents")
+      .select("email, first_name, last_name")
+      .in("email", emails);
+
+    const nameByEmail = new Map<string, string>();
+    for (const p of (pending ?? []) as any[]) {
+      const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+      if (p.email && full) nameByEmail.set(String(p.email).toLowerCase(), full);
+    }
+    const emailById = new Map<string, string>(
+      ((assigned ?? []) as any[]).map((p) => [p.id, String(p.assigned_to_email).toLowerCase()]),
+    );
+
+    return list.map((row) => {
+      const email = emailById.get(row.id);
+      if (!email) return row;
+      const full = nameByEmail.get(email);
+      // Even without a roster row the email is a truer label than the
+      // importer's name, so it is used as the fallback.
+      const label = full ?? email;
+      const [first, ...rest] = label.split(" ");
+      return {
+        ...row,
+        agent_first_name: first ?? label,
+        agent_last_name: rest.join(" ") || null,
+        assigned_to_email: email,
+        agent_has_account: false,
+      };
+    });
   });
 
 export const listDownlineAgents = createServerFn({ method: "GET" })

@@ -40,6 +40,7 @@
 
 import {
   resolveForAgent,
+  resolveProvisionalForAgent,
   loadUplineChain,
   recordSetupIssue,
 } from "@/lib/compensation/lookup.server";
@@ -173,11 +174,12 @@ export async function calculateAndInsertAllCommissions(
           riskClass: facts.riskClass,
         },
       })
-    : ({
-        ok: false,
-        failures: ["carrier_not_configured"],
-        messages: ["This carrier has not been set up for the agency yet."],
-      } as const);
+    // No org_carrier row: the agency has not set this carrier up. Rather than
+    // paying nothing — which read as broken finances on every imported policy —
+    // price it provisionally off the agent's agency position at as-earned. The
+    // setup issue below is still recorded, so the carrier surfaces as one to
+    // configure, and configuring it recalculates the policy properly.
+    : await resolveProvisionalForAgent(supabase, agentId);
 
   // Whatever happens, the agent and the owner get told. The old code wrote a
   // console warning and queued the policy silently, so an agent posted a deal,

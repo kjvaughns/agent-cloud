@@ -26,6 +26,7 @@ import { IntegrationsCatalog } from "@/components/settings/integrations-catalog"
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
 import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
+import { SuggestedCarriersPanel } from "@/components/settings/suggested-carriers-panel";
 
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
@@ -546,7 +547,10 @@ function AgencySettingsPage() {
                 this list, so the tab showed every carrier AND every rate at
                 once and neither was findable. The grid belongs to a carrier,
                 so it opens from that carrier. */}
-            <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
+            <SuggestedCarriersPanel />
+            <div className="mt-4">
+              <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
+            </div>
           </TabsContent>
 
           <TabsContent value="contracting" className="mt-4 space-y-6">
