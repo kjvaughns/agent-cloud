@@ -233,19 +233,25 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
+    const orgId = await getOrgId(supabase, userId);
 
-    // Re-verify every policy belongs to the caller's hierarchy + this carrier.
+    // Re-verify every policy belongs to the caller's agency + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
     const { data: pols, error } = await supabase
       .from("policies")
-      .select("id, agent_id, carrier_id")
+      .select("id, agent_id, carrier_id, organization_id")
       .in("id", ids);
     if (error) throw new Error(error.message);
     const allowed = new Set(
       (pols ?? [])
-        .filter((p: any) => teamIds.has(p.agent_id) && p.carrier_id === data.carrier_id)
+        .filter(
+          (p: any) =>
+            p.carrier_id === data.carrier_id &&
+            (teamIds.has(p.agent_id) || (orgId && p.organization_id === orgId)),
+        )
         .map((p: any) => p.id),
     );
+
 
     const now = new Date().toISOString();
     const source = `carrier_csv:${data.file_name}`;
