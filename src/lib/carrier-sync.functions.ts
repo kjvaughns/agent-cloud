@@ -163,7 +163,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = await getHierarchyIds(supabase, userId);
-    const orgId = await getOrgId(supabase, userId);
+    const orgIds = await getScopeOrgIds(supabase, userId);
 
     const select =
       "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
