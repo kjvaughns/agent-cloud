@@ -315,15 +315,18 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       pols.push(...(rows ?? []));
     }
+    // Carrier is deliberately NOT part of the check: a policy mis-filed under
+    // another carrier in our book is still the policy the file names. Hierarchy
+    // membership remains the authorization boundary.
     const allowed = new Set(
       pols
         .filter(
           (p: any) =>
-            p.carrier_id === data.carrier_id &&
-            (teamIds.has(p.agent_id) || (p.organization_id && orgIds.has(p.organization_id))),
+            teamIds.has(p.agent_id) || (p.organization_id && orgIds.has(p.organization_id)),
         )
         .map((p: any) => p.id),
     );
+
 
 
     const now = new Date().toISOString();
