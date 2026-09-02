@@ -405,6 +405,11 @@ function BookPage() {
                       {showAgentCol && (
                         <td className="p-3 text-muted-foreground text-xs">
                           {[r.agent_first_name, r.agent_last_name].filter(Boolean).join(" ")}
+                          {r.agent_has_account === false && (
+                            <span className="ml-1.5 rounded-full border border-border px-1.5 py-0.5 text-[10px]">
+                              no account
+                            </span>
+                          )}
                         </td>
                       )}
                       <td className="p-3">{r.carrier_name ?? "—"}</td>
