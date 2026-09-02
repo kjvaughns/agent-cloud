@@ -306,12 +306,15 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       byStatus.set(u.new_status, list);
     }
     for (const [status, list] of byStatus) {
-      const { error: upErr, count } = await supabase
-        .from("policies")
-        .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
-        .in("id", list);
-      if (upErr) throw new Error(upErr.message);
-      updated += count ?? list.length;
+      for (let i = 0; i < list.length; i += 500) {
+        const chunk = list.slice(i, i + 500);
+        const { error: upErr, count } = await supabase
+          .from("policies")
+          .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
+          .in("id", chunk);
+        if (upErr) throw new Error(upErr.message);
+        updated += count ?? chunk.length;
+      }
     }
 
     await supabase.from("carrier_sync_logs").insert({
