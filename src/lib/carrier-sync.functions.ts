@@ -21,6 +21,18 @@ async function getHierarchyIds(supabase: any, userId: string): Promise<string[]>
   return [userId, ...((data ?? []) as { id: string }[]).map((a) => a.id)];
 }
 
+/**
+ * The caller's agency. Imported policies are often held for producers who have
+ * no account yet, so they sit outside `get_team_downline` — scoping the sync to
+ * the org lets those match instead of landing in the unmatched pile.
+ */
+async function getOrgId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  return data?.organization_id ?? null;
+}
+
+
 // ── Status normalization ─────────────────────────────────────────────────────
 
 export const POLICY_STATUS_VALUES = [
