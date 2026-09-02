@@ -21,6 +21,18 @@ async function getHierarchyIds(supabase: any, userId: string): Promise<string[]>
   return [userId, ...((data ?? []) as { id: string }[]).map((a) => a.id)];
 }
 
+/**
+ * The caller's agency. Imported policies are often held for producers who have
+ * no account yet, so they sit outside `get_team_downline` — scoping the sync to
+ * the org lets those match instead of landing in the unmatched pile.
+ */
+async function getOrgId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  return data?.organization_id ?? null;
+}
+
+
 // ── Status normalization ─────────────────────────────────────────────────────
 
 export const POLICY_STATUS_VALUES = [
@@ -120,19 +132,38 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = await getHierarchyIds(supabase, userId);
+    const orgId = await getOrgId(supabase, userId);
 
-    const { data: policies, error } = await supabase
+    const select =
+      "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
+
+    const byNumber = new Map<string, any>();
+    const collect = (rows: any[] | null) => {
+      for (const p of rows ?? []) {
+        if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+      }
+    };
+
+    const { data: teamPolicies, error } = await supabase
       .from("policies")
-      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)")
+      .select(select)
       .eq("carrier_id", data.carrier_id)
       .in("agent_id", teamIds)
       .not("policy_number", "is", null);
     if (error) throw new Error(error.message);
+    collect(teamPolicies);
 
-    const byNumber = new Map<string, any>();
-    for (const p of policies ?? []) {
-      if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+    if (orgId) {
+      const { data: orgPolicies, error: orgErr } = await supabase
+        .from("policies")
+        .select(select)
+        .eq("carrier_id", data.carrier_id)
+        .eq("organization_id", orgId)
+        .not("policy_number", "is", null);
+      if (orgErr) throw new Error(orgErr.message);
+      collect(orgPolicies);
     }
+
 
     const updates: SyncUpdate[] = [];
     const unmatched: SyncPreview["unmatched_rows"] = [];
@@ -202,19 +233,25 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
+    const orgId = await getOrgId(supabase, userId);
 
-    // Re-verify every policy belongs to the caller's hierarchy + this carrier.
+    // Re-verify every policy belongs to the caller's agency + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
     const { data: pols, error } = await supabase
       .from("policies")
-      .select("id, agent_id, carrier_id")
+      .select("id, agent_id, carrier_id, organization_id")
       .in("id", ids);
     if (error) throw new Error(error.message);
     const allowed = new Set(
       (pols ?? [])
-        .filter((p: any) => teamIds.has(p.agent_id) && p.carrier_id === data.carrier_id)
+        .filter(
+          (p: any) =>
+            p.carrier_id === data.carrier_id &&
+            (teamIds.has(p.agent_id) || (orgId && p.organization_id === orgId)),
+        )
         .map((p: any) => p.id),
     );
+
 
     const now = new Date().toISOString();
     const source = `carrier_csv:${data.file_name}`;

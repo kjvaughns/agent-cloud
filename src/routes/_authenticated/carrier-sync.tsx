@@ -423,8 +423,10 @@ function SyncWizard() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    Usually policies not yet entered in Agent Cloud, or written outside your hierarchy. Nothing is changed for these.
+                    Sync only updates policies already in your book — it never creates new ones.
+                    These rows are skipped entirely.
                   </p>
+
                 </details>
               )}
 
