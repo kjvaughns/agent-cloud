@@ -32,6 +32,37 @@ async function getOrgId(supabase: any, userId: string): Promise<string | null> {
   return data?.organization_id ?? null;
 }
 
+/**
+ * Every organisation the caller's book spans: their own agency plus every
+ * sub-agency underneath it (IMO view). A sync run from the top must reach a
+ * downline agency's policies, which live under a *different* organization_id
+ * and often on producers with no portal account at all.
+ */
+async function getScopeOrgIds(supabase: any, userId: string): Promise<string[]> {
+  const ids = new Set<string>();
+  const own = await getOrgId(supabase, userId);
+  if (own) ids.add(own);
+  const { data } = await supabase.rpc("imo_org_ids");
+  for (const row of (data ?? []) as any[]) {
+    const id = typeof row === "string" ? row : row?.imo_org_ids ?? row?.id;
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+/** Supabase caps a select at 1000 rows; a full book needs every page. */
+async function fetchAllPages(build: () => any): Promise<any[]> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+  return out;
+}
+
 
 // ── Status normalization ─────────────────────────────────────────────────────
 
