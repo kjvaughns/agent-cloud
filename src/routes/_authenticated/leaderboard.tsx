@@ -367,6 +367,12 @@ function LeaderRow({ agent, rank, isYou, prior, sticky, rowRef }: { agent: Leade
           </Avatar>
           <span className={cn("font-medium", isYou && "text-gold-bright")}>{agent.name || "—"}</span>
           {isYou && <span className="text-[8.5px] px-1.5 py-0.5 bg-primary text-gold-foreground rounded font-extrabold tracking-[0.05em]">YOU</span>}
+          {/* A previous agent: their book is on ours, their account is not. */}
+          {(agent as any).inactive && (
+            <span className="text-[8.5px] px-1.5 py-0.5 rounded border border-border text-muted-foreground font-semibold tracking-[0.05em] uppercase">
+              Inactive
+            </span>
+          )}
         </div>
       </td>
       <td className="px-4 py-3 text-right tnum font-semibold font-display" style={{ fontFamily: "var(--font-display)" }}>{money(agent.premium)}</td>
