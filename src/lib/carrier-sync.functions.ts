@@ -123,7 +123,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
 
     const { data: policies, error } = await supabase
       .from("policies")
-      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles(first_name, last_name)")
+      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)")
       .eq("carrier_id", data.carrier_id)
       .in("agent_id", teamIds)
       .not("policy_number", "is", null);
@@ -152,7 +152,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
       }
       const newStatus = normalizeStatus(row.status_raw, data.status_overrides);
       if (newStatus === null) {
-        if (!data.status_overrides[row.status_raw.trim().toLowerCase()]) {
+        if (!data.status_overrides[statusKey(row.status_raw)]) {
           unknownStatuses.add(row.status_raw.trim());
         }
         continue;
