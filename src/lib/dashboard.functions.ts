@@ -16,6 +16,7 @@ import {
 // Every window on this page goes through this, so the pending-column fallback
 // is written once instead of four times. See the module header.
 import { selectProduction } from "@/lib/production/source.server";
+import { inactiveAgentId, inactiveAgentNames } from "@/lib/agents/inactive";
 
 const supabaseAdmin = _admin as any;
 
@@ -371,7 +372,80 @@ export type LeaderboardAgent = {
   policies: number;
   /** Of that premium, how much is on the books. */
   placed: number;
+  /** A previous agent: their book is here, their account is not. */
+  inactive?: boolean;
 };
+
+/**
+ * Previous agents earn their own lines on the board.
+ *
+ * Imported business written by somebody who never signed up is held on the
+ * importer's agent id, so a board built from `agent_id` alone credited one
+ * person with a whole agency's history. Their production still counts towards
+ * the agency — it is moved off the holder's line and onto theirs, not dropped.
+ */
+async function splitInactiveProducers(
+  supabase: any,
+  rows: LeaderboardAgent[],
+  holderIds: string[],
+  rangeStart: string,
+  rangeEnd: string,
+): Promise<LeaderboardAgent[]> {
+  if (!holderIds.length) return rows;
+  let held: any[] = [];
+  try {
+    held = await selectProduction<any>((col) =>
+      supabase
+        .from("policies")
+        .select("*")
+        .in("agent_id", holderIds)
+        .not("assigned_to_email", "is", null)
+        .gte(col, rangeStart)
+        .lte(col, rangeEnd),
+    );
+  } catch (e: any) {
+    console.warn("[leaderboard] previous-agent split unavailable:", e?.message);
+    return rows;
+  }
+  if (!held.length) return rows;
+
+  // Keyed on the producer, and on the holder so the holder's own line can give
+  // the same figures back.
+  const byProducer = tallyByAgent(
+    held.map((r) => ({ ...r, agent_id: inactiveAgentId(String(r.assigned_to_email)) })) as ProductionRow[],
+  );
+  const byHolder = tallyByAgent(held as ProductionRow[]);
+  const names = await inactiveAgentNames(
+    supabase,
+    held.map((r) => String(r.assigned_to_email)),
+  );
+
+  const adjusted = rows.map((r) => {
+    const t = byHolder.get(r.id);
+    if (!t) return r;
+    return {
+      ...r,
+      premium: Math.max(0, r.premium - t.premium),
+      policies: Math.max(0, r.policies - t.policies),
+      placed: Math.max(0, r.placed - t.placed),
+    };
+  });
+
+  const added: LeaderboardAgent[] = Array.from(byProducer.entries()).map(([id, t]) => ({
+    id,
+    name: names.get(id.replace("inactive:", "")) ?? id,
+    premium: t.premium,
+    policies: t.policies,
+    placed: t.placed,
+    inactive: true,
+  }));
+
+  // Only producers who actually have business here — nobody wants a board
+  // padded with names that never wrote anything.
+  return [...adjusted, ...added]
+    .filter((a) => a.policies > 0 || !a.inactive)
+    .sort((a, b) => b.premium - a.premium);
+}
 
 const LeaderboardSchema = RangeSchema.extend({
   /**
@@ -465,6 +539,14 @@ async function agencyBoard(
     }))
     .sort((a, b) => b.premium - a.premium) as LeaderboardAgent[];
 
+  const withInactive = await splitInactiveProducers(
+    supabase,
+    agents,
+    Array.from(new Set([...agents.map((a) => a.id), userId])),
+    rangeStart,
+    rangeEnd,
+  );
+
   // The viewer's own name, so the board can place them even when they wrote
   // nothing in the window — this function lists producers only, so somebody
   // quiet this month is legitimately not in `agents`.
@@ -475,7 +557,7 @@ async function agencyBoard(
     selfName = `${(me as any)?.first_name ?? ""} ${(me as any)?.last_name ?? ""}`.trim() || null;
   }
 
-  return { agents, selfId: userId, selfName };
+  return { agents: withInactive, selfId: userId, selfName };
 }
 
 export const getLeaderboardData = createServerFn({ method: "POST" })
@@ -590,8 +672,16 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
       selfName = `${(me as any)?.first_name ?? ""} ${(me as any)?.last_name ?? ""}`.trim() || null;
     }
 
+    const withInactive = await splitInactiveProducers(
+      supabase,
+      sorted as LeaderboardAgent[],
+      teamIds,
+      data.rangeStart,
+      data.rangeEnd,
+    );
+
     return {
-      agents: sorted as LeaderboardAgent[],
+      agents: withInactive,
       selfId: userId as string,
       selfName,
     };
