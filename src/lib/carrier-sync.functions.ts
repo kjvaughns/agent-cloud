@@ -205,6 +205,27 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
       );
     }
 
+    // Last pass: a policy filed under the WRONG carrier in our book still is
+    // that policy. Look up any number the file mentions that we haven't matched
+    // yet, across the caller's hierarchy, ignoring carrier_id.
+    const missing = data.rows
+      .map((r) => r.policy_number.trim())
+      .filter((n) => n && !byNumber.has(normalizePolicyNumber(n)));
+    if (missing.length) {
+      const CHUNK = 200;
+      for (let i = 0; i < missing.length; i += CHUNK) {
+        const slice = missing.slice(i, i + CHUNK);
+        const base = () =>
+          supabaseAdmin.from("policies").select(select).in("policy_number", slice);
+        collect(await fetchAllPages(() => base().in("agent_id", teamIds)));
+        if (orgIds.length) {
+          collect(await fetchAllPages(() => base().in("organization_id", orgIds)));
+        }
+      }
+    }
+
+
+
 
 
     const updates: SyncUpdate[] = [];
