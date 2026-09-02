@@ -269,21 +269,26 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
-    const orgId = await getOrgId(supabase, userId);
+    const orgIds = new Set(await getScopeOrgIds(supabase, userId));
 
-    // Re-verify every policy belongs to the caller's agency + this carrier.
+    // Re-verify every policy belongs to the caller's hierarchy + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
-    const { data: pols, error } = await supabase
-      .from("policies")
-      .select("id, agent_id, carrier_id, organization_id")
-      .in("id", ids);
-    if (error) throw new Error(error.message);
+    const pols: any[] = [];
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { data: rows, error } = await supabase
+        .from("policies")
+        .select("id, agent_id, carrier_id, organization_id")
+        .in("id", chunk);
+      if (error) throw new Error(error.message);
+      pols.push(...(rows ?? []));
+    }
     const allowed = new Set(
-      (pols ?? [])
+      pols
         .filter(
           (p: any) =>
             p.carrier_id === data.carrier_id &&
-            (teamIds.has(p.agent_id) || (orgId && p.organization_id === orgId)),
+            (teamIds.has(p.agent_id) || (p.organization_id && orgIds.has(p.organization_id))),
         )
         .map((p: any) => p.id),
     );
