@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { track } from "@/lib/landing-analytics";
@@ -109,11 +111,14 @@ export const Route = createFileRoute("/")({
  */
 function useSignedInRedirect(enabled: boolean) {
   const navigate = useNavigate();
-  const [checking, setChecking] = useState(enabled);
+  // Starts false so the first client render matches the server-rendered
+  // landing markup; the effect flips it before anything is painted.
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    setChecking(true);
 
     (async () => {
       let session = (await supabase.auth.getSession()).data.session;
