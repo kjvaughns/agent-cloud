@@ -29,6 +29,13 @@
       "when": 1788384132576,
       "tag": "0003_bob_mine_excludes_other_agents_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788387390266,
+      "tag": "0004_leaderboard_include_inactive_producers",
+      "breakpoints": true
     }
   ]
 }
