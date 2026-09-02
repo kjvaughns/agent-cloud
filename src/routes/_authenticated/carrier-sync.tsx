@@ -239,7 +239,11 @@ function SyncWizard() {
           file_name: file!.name,
           total_rows: preview!.total_rows,
           unmatched: preview!.unmatched_rows.length,
-          updates: preview!.updates.map((u) => ({ policy_id: u.policy_id, new_status: u.new_status })),
+          updates: preview!.updates.map((u) => ({
+            policy_id: u.policy_id,
+            new_status: u.new_status,
+            ...(u.set_policy_number ? { set_policy_number: u.set_policy_number } : {}),
+          })),
         },
       }),
     onSuccess: async (r: any) => {
