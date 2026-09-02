@@ -111,10 +111,34 @@ function normalizeStatus(raw: string, overrides: Record<string, string>): Policy
   return null;
 }
 
+/**
+ * Carrier files and our own book disagree on punctuation ("#AMH6335747",
+ * "AMH-633 5747"), so identity is the alphanumeric core only.
+ */
 function normalizePolicyNumber(v: string): string {
-  return v.replace(/[\s-]/g, "").toUpperCase();
+  return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
+/** A policy number too weak to identify anything ("AMH", "000", blank). */
+function isWeakNumber(v: string | null | undefined): boolean {
+  const core = normalizePolicyNumber(v ?? "");
+  return core.length < 6 || !/\d/.test(core);
+}
+
+/** "Last|First" key for matching an insured name against a client record. */
+function nameKey(first: string | null | undefined, last: string | null | undefined): string {
+  const n = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  return `${n(last ?? "")}|${n(first ?? "")}`;
+}
+
+/** Keys an insured name from a carrier file could produce ("John A Smith"). */
+function nameKeysFromFull(full: string): string[] {
+  const parts = full.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [];
+  const first = parts[0], last = parts[parts.length - 1];
+  // Also handle "Smith, John" ordering.
+  return [`${last}|${first}`, `${first}|${last}`];
+}
 
 function nameSimilar(a: string, b: string): boolean {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
@@ -123,6 +147,7 @@ function nameSimilar(a: string, b: string): boolean {
   const aw = new Set(na.split(/\s+/));
   return nb.split(/\s+/).some((w) => w.length > 1 && aw.has(w));
 }
+
 
 // ── Preview (read-only) ──────────────────────────────────────────────────────
 
@@ -146,7 +171,12 @@ export type SyncUpdate = {
   current_status: string;
   new_status: PolicyStatus;
   name_mismatch: boolean;
+  /** How the row was tied to the policy. */
+  matched_by?: "policy_number" | "insured_name";
+  /** Real carrier number to write onto a policy that only had a placeholder. */
+  set_policy_number?: string;
 };
+
 
 export type SyncPreview = {
   updates: SyncUpdate[];
@@ -228,18 +258,50 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
 
 
 
+    // Many rows in our own book carry a placeholder number ("AMH", "000") or
+    // none at all — those policies exist, they just cannot be found by number.
+    // Match those by insured name within this carrier + the caller's hierarchy.
+    const byName = new Map<string, any>();
+    const nameBase = () =>
+      supabaseAdmin.from("policies").select(select).eq("carrier_id", data.carrier_id);
+    const collectNames = (rows: any[] | null) => {
+      for (const p of rows ?? []) {
+        if (!isWeakNumber(p.policy_number)) continue;
+        if (!p.clients) continue;
+        const k = nameKey(p.clients.first_name, p.clients.last_name);
+        if (k !== "|" && !byName.has(k)) byName.set(k, p);
+      }
+    };
+    collectNames(await fetchAllPages(() => nameBase().in("agent_id", teamIds)));
+    if (orgIds.length) {
+      collectNames(await fetchAllPages(() => nameBase().in("organization_id", orgIds)));
+    }
+
     const updates: SyncUpdate[] = [];
     const unmatched: SyncPreview["unmatched_rows"] = [];
     const unknownStatuses = new Set<string>();
     let noChange = 0;
     const seen = new Set<string>();
+    const usedByName = new Set<string>();
 
     for (const row of data.rows) {
       const key = normalizePolicyNumber(row.policy_number);
       if (seen.has(key)) continue; // duplicate row in the file — first wins
       seen.add(key);
 
-      const pol = byNumber.get(key);
+      let matchedBy: SyncUpdate["matched_by"] = "policy_number";
+      let pol = byNumber.get(key);
+      if (!pol && row.client_name) {
+        for (const nk of nameKeysFromFull(row.client_name)) {
+          const cand = byName.get(nk);
+          if (cand && !usedByName.has(cand.id)) {
+            pol = cand;
+            usedByName.add(cand.id);
+            matchedBy = "insured_name";
+            break;
+          }
+        }
+      }
       if (!pol) {
         unmatched.push({ policy_number: row.policy_number, status_raw: row.status_raw, client_name: row.client_name });
         continue;
@@ -251,21 +313,25 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
         }
         continue;
       }
-      if (pol.status === newStatus) {
+      const clientName = pol.clients ? `${pol.clients.first_name ?? ""} ${pol.clients.last_name ?? ""}`.trim() : "";
+      const fillNumber = matchedBy === "insured_name" ? row.policy_number.trim() : undefined;
+      if (pol.status === newStatus && !fillNumber) {
         noChange++;
         continue;
       }
-      const clientName = pol.clients ? `${pol.clients.first_name ?? ""} ${pol.clients.last_name ?? ""}`.trim() : "";
       updates.push({
         policy_id: pol.id,
-        policy_number: pol.policy_number,
+        policy_number: pol.policy_number ?? "—",
         client_name: clientName || "—",
         agent_name: pol.profiles ? `${pol.profiles.first_name ?? ""} ${pol.profiles.last_name ?? ""}`.trim() : "—",
         current_status: pol.status,
         new_status: newStatus,
-        name_mismatch: row.client_name ? !nameSimilar(clientName, row.client_name) : false,
+        name_mismatch: matchedBy === "policy_number" && row.client_name ? !nameSimilar(clientName, row.client_name) : false,
+        matched_by: matchedBy,
+        ...(fillNumber ? { set_policy_number: fillNumber } : {}),
       });
     }
+
 
     return {
       updates,
@@ -286,7 +352,9 @@ const ApplySchema = z.object({
   updates: z.array(z.object({
     policy_id: z.string().uuid(),
     new_status: z.enum(POLICY_STATUS_VALUES),
+    set_policy_number: z.string().trim().max(60).optional(),
   })).max(20000),
+
 });
 
 export const applyCarrierSync = createServerFn({ method: "POST" })
@@ -351,6 +419,18 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
         updated += count ?? chunk.length;
       }
     }
+
+    // Policies matched by insured name only had a placeholder number — write the
+    // carrier's real number so later syncs match on number directly.
+    for (const u of data.updates) {
+      if (!u.set_policy_number || !allowed.has(u.policy_id)) continue;
+      await supabaseAdmin
+        .from("policies")
+        .update({ policy_number: u.set_policy_number })
+        .eq("id", u.policy_id);
+    }
+
+
 
     await supabaseAdmin.from("carrier_sync_logs").insert({
       uploaded_by: userId,

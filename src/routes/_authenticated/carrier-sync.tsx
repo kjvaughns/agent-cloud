@@ -239,7 +239,11 @@ function SyncWizard() {
           file_name: file!.name,
           total_rows: preview!.total_rows,
           unmatched: preview!.unmatched_rows.length,
-          updates: preview!.updates.map((u) => ({ policy_id: u.policy_id, new_status: u.new_status })),
+          updates: preview!.updates.map((u) => ({
+            policy_id: u.policy_id,
+            new_status: u.new_status,
+            ...(u.set_policy_number ? { set_policy_number: u.set_policy_number } : {}),
+          })),
         },
       }),
     onSuccess: async (r: any) => {
@@ -447,7 +451,14 @@ function SyncWizard() {
                     <tbody>
                       {preview.updates.map((u) => (
                         <tr key={u.policy_id} className="border-t border-border-soft">
-                          <td className="px-2 py-2 tnum font-medium">{u.policy_number}</td>
+                          <td className="px-2 py-2 tnum font-medium">
+                            {u.set_policy_number ?? u.policy_number}
+                            {u.matched_by === "insured_name" && (
+                              <span className="ml-1.5 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                                matched by name
+                              </span>
+                            )}
+                          </td>
                           <td className="px-2 py-2">
                             {u.client_name}
                             {u.name_mismatch && (
