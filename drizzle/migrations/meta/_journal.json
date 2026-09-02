@@ -15,6 +15,13 @@
       "when": 1788379264034,
       "tag": "0001_client_ssn_last4_and_pending_agent_email_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788383993993,
+      "tag": "0002_bob_posted_uses_production_date",
+      "breakpoints": true
     }
   ]
 }
