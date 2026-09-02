@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { inactiveAgentId, inactiveAgentNames } from "@/lib/agents/inactive";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   complianceLevel, daysSince, lifecycleStage, riskFlags,
@@ -300,7 +301,7 @@ export const getTeamRoster = createServerFn({ method: "GET" })
     // how the roster used to be able to disagree with both.
     const ownTally = tallyByAgent(
       ((policies.data ?? []) as any[]).filter((p) =>
-        inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null),
+        inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null) && !p.assigned_to_email,
       ),
     );
     const teamTally = rollUpDownline(
@@ -327,9 +328,69 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       contractCount.set(c.agent_id, (contractCount.get(c.agent_id) ?? 0) + 1);
     }
 
+    // ── Previous agents ──────────────────────────────────────────────────
+    //
+    // Business imported for somebody who never signed up is held on the
+    // importer's id with the producer's email on the row. They are agents, they
+    // wrote the business, and their production is the agency's production — so
+    // they belong on this roster, marked inactive, rather than folded silently
+    // into whoever ran the import. Only producers with business on the books
+    // appear; a name with nothing behind it is noise.
+    const heldAll = ((policies.data ?? []) as any[]).filter((p) => p.assigned_to_email);
+    const heldWindow = heldAll.filter((p) => inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null));
+    const heldTally = tallyByAgent(
+      heldWindow.map((r) => ({ ...r, agent_id: inactiveAgentId(String(r.assigned_to_email)) })) as any,
+    );
+    const heldNames = heldAll.length
+      ? await inactiveAgentNames(supabase, heldAll.map((r) => String(r.assigned_to_email)))
+      : new Map<string, string>();
+    const heldCounts = new Map<string, { policies: number; last: string | null }>();
+    for (const p of heldAll) {
+      const key = String(p.assigned_to_email).toLowerCase();
+      const held = heldCounts.get(key) ?? { policies: 0, last: null };
+      held.policies += 1;
+      const when = p.production_date ?? p.posted_at ?? null;
+      if (when && (!held.last || when > held.last)) held.last = when;
+      heldCounts.set(key, held);
+    }
+    const inactiveRows: RosterAgent[] = Array.from(heldCounts.entries()).map(([email, c]) => {
+      const id = inactiveAgentId(email);
+      const label = heldNames.get(email) ?? email;
+      const [first, ...rest] = label.split(" ");
+      const own = heldTally.get(id) ?? ZERO;
+      return {
+        id,
+        first_name: first ?? label,
+        last_name: rest.join(" ") || null,
+        email,
+        phone: null,
+        upline_id: userId,
+        status: "inactive",
+        last_active_at: null,
+        created_at: c.last,
+        depth_level: 1,
+        contracts_count: 0,
+        policies_count: c.policies,
+        premium_total: own.premium,
+        completion_pct: 0,
+        missing: [],
+        stage: "dormant",
+        compliance: "unknown",
+        flags: [],
+        active_carriers: 0,
+        days_since_sale: daysSince(c.last, Date.now()),
+        agency_level_id: null,
+        position_name: null,
+        position_pct: null,
+        own,
+        team: ZERO,
+        at_risk_monthly: 0,
+        at_risk_cases: 0,
+      } as unknown as RosterAgent;
+    });
+
     const now = Date.now();
-    return {
-      rows: agents.map((a): RosterAgent => {
+    const rosterRows = agents.map((a): RosterAgent => {
         const policiesCount = a.is_self
           ? (policyCount.get(a.id) ?? 0)
           : Number(a.policies_count ?? 0);
@@ -371,8 +432,9 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           at_risk_monthly: atRisk.get(a.id)?.monthly ?? 0,
           at_risk_cases: atRisk.get(a.id)?.cases ?? 0,
         };
-      }),
-    };
+    });
+
+    return { rows: [...rosterRows, ...inactiveRows] };
   });
 
 export const getTeamKpis = createServerFn({ method: "GET" })
