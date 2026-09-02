@@ -22,6 +22,7 @@ import {
   reassignPolicies,
 } from "@/lib/book-of-business.functions";
 import { listScopeAgents } from "@/lib/scope.functions";
+import { inactiveAgentEmail, inactiveAgentId, isInactiveAgentId } from "@/lib/agents/inactive";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -263,22 +264,26 @@ function BookPage() {
             {/* How wide, and which one person — two questions, two controls.
                 They used to share one select, which is why "one agent" was a
                 scope value that behaved unlike the other two. */}
-            <ScopeAgentFilter value={selectedAgentId} onChange={(id) => { setSelectedAgentId(id); setPage(0); }} />
-
-            {/* Previous agents — producers with no account yet. */}
-            {(producersQ.data?.length ?? 0) > 0 && (
-              <Select value={producerFilter} onValueChange={(v) => { setProducerFilter(v); setPage(0); }}>
-                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Previous agents" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All producers</SelectItem>
-                  {producersQ.data!.map((p) => (
-                    <SelectItem key={p.email} value={p.email}>
-                      {p.name} ({p.policies})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            {/* One list of people. Previous agents — whose book is on ours
+                but who never signed up — sit in it marked inactive rather than
+                in a filter of their own. */}
+            <ScopeAgentFilter
+              value={producerFilter !== "all" ? inactiveAgentId(producerFilter) : selectedAgentId}
+              extra={(producersQ.data ?? []).map((p) => ({
+                id: inactiveAgentId(p.email),
+                label: `${p.name} (Inactive)`,
+              }))}
+              onChange={(id) => {
+                if (id && isInactiveAgentId(id)) {
+                  setProducerFilter(inactiveAgentEmail(id));
+                  setSelectedAgentId(undefined);
+                } else {
+                  setProducerFilter("all");
+                  setSelectedAgentId(id);
+                }
+                setPage(0);
+              }}
+            />
 
             {producerFilter !== "all" && canCarrierSync && (
               <Button variant="outline" onClick={() => setMoveOpen(true)}>
@@ -407,7 +412,7 @@ function BookPage() {
                           {[r.agent_first_name, r.agent_last_name].filter(Boolean).join(" ")}
                           {r.agent_has_account === false && (
                             <span className="ml-1.5 rounded-full border border-border px-1.5 py-0.5 text-[10px]">
-                              no account
+                              inactive
                             </span>
                           )}
                         </td>
