@@ -111,10 +111,34 @@ function normalizeStatus(raw: string, overrides: Record<string, string>): Policy
   return null;
 }
 
+/**
+ * Carrier files and our own book disagree on punctuation ("#AMH6335747",
+ * "AMH-633 5747"), so identity is the alphanumeric core only.
+ */
 function normalizePolicyNumber(v: string): string {
-  return v.replace(/[\s-]/g, "").toUpperCase();
+  return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
+/** A policy number too weak to identify anything ("AMH", "000", blank). */
+function isWeakNumber(v: string | null | undefined): boolean {
+  const core = normalizePolicyNumber(v ?? "");
+  return core.length < 6 || !/\d/.test(core);
+}
+
+/** "Last|First" key for matching an insured name against a client record. */
+function nameKey(first: string | null | undefined, last: string | null | undefined): string {
+  const n = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  return `${n(last ?? "")}|${n(first ?? "")}`;
+}
+
+/** Keys an insured name from a carrier file could produce ("John A Smith"). */
+function nameKeysFromFull(full: string): string[] {
+  const parts = full.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [];
+  const first = parts[0], last = parts[parts.length - 1];
+  // Also handle "Smith, John" ordering.
+  return [`${last}|${first}`, `${first}|${last}`];
+}
 
 function nameSimilar(a: string, b: string): boolean {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
@@ -123,6 +147,7 @@ function nameSimilar(a: string, b: string): boolean {
   const aw = new Set(na.split(/\s+/));
   return nb.split(/\s+/).some((w) => w.length > 1 && aw.has(w));
 }
+
 
 // ── Preview (read-only) ──────────────────────────────────────────────────────
 
