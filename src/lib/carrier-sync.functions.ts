@@ -24,29 +24,40 @@ async function getHierarchyIds(supabase: any, userId: string): Promise<string[]>
 // ── Status normalization ─────────────────────────────────────────────────────
 
 export const POLICY_STATUS_VALUES = [
-  "active", "issued_not_paid", "in_review", "lapse_pending", "lapsed",
+  "active", "submitted", "issued_not_paid", "in_review", "lapse_pending", "lapsed",
   "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na",
 ] as const;
 export type PolicyStatus = (typeof POLICY_STATUS_VALUES)[number];
 
 /** Best-effort mapping of common carrier status wording to our enum. */
 const STATUS_DICTIONARY: [RegExp, PolicyStatus][] = [
-  [/in\s*-?\s*force|inforce|^active$|^paid(\s*up)?$|premium\s*paying|current/i, "active"],
-  [/issued.*not.*paid|delivery|delivered.*unpaid/i, "issued_not_paid"],
+  [/in\s*-?\s*force|inforce|^active$|^paid(\s*up)?$|premium\s*paying|renewal\s*premium|current/i, "active"],
+  [/not\s*taken|^nto$|initial\s*premium\s*failed|unissued/i, "not_taken"],
+  [/issued.*not.*paid|pending\s*initial\s*premium|delivery|delivered.*unpaid/i, "issued_not_paid"],
   [/grace|past\s*due|payment\s*due|delinquen|lapse\s*pend|pending\s*lapse|nsf|returned\s*payment|draft\s*fail/i, "lapse_pending"],
   [/^lapsed?$|terminated.*non.*pay|term.*lapse/i, "lapsed"],
-  [/cancel/i, "cancelled"],
+  [/cancel|surrender/i, "cancelled"],
   [/withdraw/i, "withdrawn"],
-  [/not\s*taken|nto|free\s*look/i, "not_taken"],
+  [/free\s*look/i, "not_taken"],
   [/postpone|deferred/i, "postponed"],
-  [/decline|reject|closed.*incomplete|incomplete/i, "carrier_na"],
-  [/underwriting|in\s*review|pending|submitted|processing|application/i, "in_review"],
+  [/decline|reject|closed|incomplete|expired|quote|lead/i, "carrier_na"],
+  [/submitted|approved/i, "submitted"],
+  [/underwriting|in\s*review|pending|processing|application|started/i, "in_review"],
 ];
 
+/**
+ * Carrier exports write statuses as SCREAMING_SNAKE ("PREMIUM_PAYING"), so the
+ * separators become spaces before the dictionary sees them — otherwise every
+ * multi-word status looked "unrecognized" and the sync found nothing to do.
+ */
+export function statusKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function normalizeStatus(raw: string, overrides: Record<string, string>): PolicyStatus | null {
-  const key = raw.trim().toLowerCase();
+  const key = statusKey(raw);
   if (!key) return null;
-  const override = overrides[key];
+  const override = overrides[key] ?? overrides[raw.trim().toLowerCase()];
   if (override && (POLICY_STATUS_VALUES as readonly string[]).includes(override)) {
     return override as PolicyStatus;
   }
@@ -60,6 +71,7 @@ function normalizeStatus(raw: string, overrides: Record<string, string>): Policy
 function normalizePolicyNumber(v: string): string {
   return v.replace(/[\s-]/g, "").toUpperCase();
 }
+
 
 function nameSimilar(a: string, b: string): boolean {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
@@ -111,7 +123,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
 
     const { data: policies, error } = await supabase
       .from("policies")
-      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles(first_name, last_name)")
+      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)")
       .eq("carrier_id", data.carrier_id)
       .in("agent_id", teamIds)
       .not("policy_number", "is", null);
@@ -140,7 +152,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
       }
       const newStatus = normalizeStatus(row.status_raw, data.status_overrides);
       if (newStatus === null) {
-        if (!data.status_overrides[row.status_raw.trim().toLowerCase()]) {
+        if (!data.status_overrides[statusKey(row.status_raw)]) {
           unknownStatuses.add(row.status_raw.trim());
         }
         continue;

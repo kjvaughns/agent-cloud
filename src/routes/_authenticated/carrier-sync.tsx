@@ -16,7 +16,7 @@ import { useRole } from "@/hooks/use-role";
 import { listCarriersForFilter } from "@/lib/book-of-business.functions";
 import {
   previewCarrierSync, applyCarrierSync, getMappingTemplate, saveMappingTemplate,
-  listSyncLogs, POLICY_STATUS_VALUES, type SyncPreview,
+  listSyncLogs, POLICY_STATUS_VALUES, statusKey, type SyncPreview,
 } from "@/lib/carrier-sync.functions";
 import { POLICY_STATUSES } from "@/lib/policy-status";
 
@@ -340,8 +340,8 @@ function SyncWizard() {
                       <Badge variant="warning" className="shrink-0">{s}</Badge>
                       <ArrowRight className="h-3 w-3 text-text-dim shrink-0" />
                       <Select
-                        value={statusOverrides[s.toLowerCase()] ?? ""}
-                        onValueChange={(v) => setStatusOverrides((o) => ({ ...o, [s.toLowerCase()]: v }))}
+                        value={statusOverrides[statusKey(s)] ?? ""}
+                        onValueChange={(v) => setStatusOverrides((o) => ({ ...o, [statusKey(s)]: v }))}
                       >
                         <SelectTrigger className="max-w-[220px]"><SelectValue placeholder="Choose status…" /></SelectTrigger>
                         <SelectContent>
