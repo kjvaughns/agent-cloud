@@ -368,6 +368,32 @@ export interface FullClientRecord {
   }>;
 }
 
+/**
+ * Is this policy number trustworthy enough to dedupe a whole policy on?
+ *
+ * Exports written by hand are full of placeholders: "000", "AHL", "RN",
+ * "Trans", "12345" — a carrier abbreviation or a row of zeros standing in for a
+ * number nobody had at the time. Treating those as identity means the second
+ * client with "000" is read as the first client's policy and silently dropped;
+ * one import lost 45 real policies (~$52k of annual premium) that way, all of
+ * them different people who shared a placeholder.
+ *
+ * A number counts as real when it is at least six characters and contains a
+ * digit, and is not a run of one repeated character or a keyboard sequence.
+ * Anything weaker falls back to matching within the client.
+ */
+export function isRealPolicyNumber(raw?: string | null): boolean {
+  const t = String(raw ?? "").trim();
+  if (t.length < 6) return false;
+  const compact = t.replace(/[^a-z0-9]/gi, "");
+  if (compact.length < 6) return false;
+  if (!/[0-9]/.test(compact)) return false;
+  if (/^(.)\1+$/.test(compact)) return false; // 000000, aaaaaa
+  if (/^0+$/.test(compact)) return false;
+  if ("0123456789012345678901234567890".includes(compact) && /^[0-9]+$/.test(compact)) return false; // 12345678
+  return true;
+}
+
 export async function saveClientFullRecord(
   supabase: any,
   agentId: string,
@@ -574,7 +600,7 @@ export async function saveClientFullRecord(
   for (const pol of c.policies ?? []) {
     if (!pol.policy_number && !pol.carrier_name && !pol.monthly_premium) continue;
 
-    if (pol.policy_number) {
+    if (pol.policy_number && isRealPolicyNumber(pol.policy_number)) {
       // Agency-wide first: a policy the upline imported is the one most likely
       // to arrive again in the agent's own export, and re-inserting it doubles
       // the production it counts toward.
@@ -586,6 +612,21 @@ export async function saveClientFullRecord(
         .limit(1)
         .maybeSingle();
       if (existingPol) continue;
+    } else {
+      // Placeholder or missing number: identity is the client, the carrier and
+      // the premium. Scoped to this client, so two people sharing "000" are two
+      // policies rather than one.
+      const monthlyGuess = Number(pol.monthly_premium ?? 0) || 0;
+      const { data: sameClient } = await supabase
+        .from("policies")
+        .select("id, monthly_premium, effective_date, carrier_id")
+        .eq("client_id", clientId)
+        .limit(50);
+      const dupe = (sameClient ?? []).some((p: any) =>
+        (monthlyGuess > 0 && Math.abs(Number(p.monthly_premium ?? 0) - monthlyGuess) < 0.5) &&
+        (!pol.effective_date || !p.effective_date || String(p.effective_date) === String(pol.effective_date)),
+      );
+      if (dupe) continue;
     }
 
     const carrierId = await resolveCarrierId(supabase, pol.carrier_name);
