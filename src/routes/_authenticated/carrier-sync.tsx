@@ -297,12 +297,13 @@ function SyncWizard() {
                   onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
                 >
                   <input
-                    type="file" className="hidden" accept=".csv,.xls,.xlsx"
+                    type="file" className="hidden" accept=".csv,.tsv,.txt,.xls,.xlsx,.pdf,image/*"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
                   />
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <div className="mt-2 text-sm font-medium">{carrierId ? "Drop your carrier export here, or click to choose" : "Select a carrier first"}</div>
-                  <div className="text-xs text-muted-foreground mt-1">.csv, .xls, or .xlsx — the book-of-business extract from the carrier portal</div>
+                  <div className="mt-2 text-sm font-medium">{reading ? "Reading your file…" : carrierId ? "Drop your carrier export here, or click to choose" : "Select a carrier first"}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Spreadsheet, CSV, PDF or a photo — PDFs and scans are read for you, which takes a few seconds</div>
+
                 </label>
               </div>
             </Panel>
