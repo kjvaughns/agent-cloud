@@ -411,10 +411,28 @@ async function splitInactiveProducers(
 
   // Keyed on the producer, and on the holder so the holder's own line can give
   // the same figures back.
-  const byProducer = tallyByAgent(
+  // A leaderboard ranks everything written, including withdrawn, not-taken,
+  // and carrier-N/A applications. Those statuses affect placement/retention,
+  // not written production. Keep this intentionally separate from the shared
+  // production tally used by operational KPI screens.
+  const tallyWrittenByAgent = (items: ProductionRow[]) => {
+    const out = new Map<string, { premium: number; policies: number; placed: number }>();
+    for (const item of items) {
+      if (!item.agent_id) continue;
+      const prior = out.get(item.agent_id) ?? { premium: 0, policies: 0, placed: 0 };
+      const premium = premiumOf(item);
+      out.set(item.agent_id, {
+        premium: prior.premium + premium,
+        policies: prior.policies + 1,
+        placed: prior.placed + (isPlaced(item) ? premium : 0),
+      });
+    }
+    return out;
+  };
+  const byProducer = tallyWrittenByAgent(
     held.map((r) => ({ ...r, agent_id: inactiveAgentId(String(r.assigned_to_email)) })) as ProductionRow[],
   );
-  const byHolder = tallyByAgent(held as ProductionRow[]);
+  const byHolder = tallyWrittenByAgent(held as ProductionRow[]);
   const names = await inactiveAgentNames(
     supabase,
     held.map((r) => String(r.assigned_to_email)),
@@ -652,7 +670,20 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
         names.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim());
       }
     }
-    const sorted = Array.from(tallyByAgent((agents ?? []) as ProductionRow[]).entries())
+    // The leaderboard is a written-business board: every status counts toward
+    // ALP and policy count. Placement remains the narrower on-book figure.
+    const writtenByAgent = new Map<string, { premium: number; policies: number; placed: number }>();
+    for (const policy of (agents ?? []) as ProductionRow[]) {
+      if (!policy.agent_id) continue;
+      const prior = writtenByAgent.get(policy.agent_id) ?? { premium: 0, policies: 0, placed: 0 };
+      const premium = premiumOf(policy);
+      writtenByAgent.set(policy.agent_id, {
+        premium: prior.premium + premium,
+        policies: prior.policies + 1,
+        placed: prior.placed + (isPlaced(policy) ? premium : 0),
+      });
+    }
+    const sorted = Array.from(writtenByAgent.entries())
       .map(([id, t]) => ({
         id,
         name: names.get(id) ?? "",
