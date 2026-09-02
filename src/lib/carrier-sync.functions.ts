@@ -50,7 +50,7 @@ const STATUS_DICTIONARY: [RegExp, PolicyStatus][] = [
  * separators become spaces before the dictionary sees them — otherwise every
  * multi-word status looked "unrecognized" and the sync found nothing to do.
  */
-function statusKey(raw: string): string {
+export function statusKey(raw: string): string {
   return raw.trim().toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
