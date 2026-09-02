@@ -171,7 +171,12 @@ export type SyncUpdate = {
   current_status: string;
   new_status: PolicyStatus;
   name_mismatch: boolean;
+  /** How the row was tied to the policy. */
+  matched_by?: "policy_number" | "insured_name";
+  /** Real carrier number to write onto a policy that only had a placeholder. */
+  set_policy_number?: string;
 };
+
 
 export type SyncPreview = {
   updates: SyncUpdate[];
