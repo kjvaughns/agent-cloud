@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { track } from "@/lib/landing-analytics";
@@ -92,11 +94,62 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  validateSearch: (search): { stay?: string } => ({
+    stay: search.stay === "1" ? "1" : undefined,
+  }),
   component: LandingPage,
 });
 
+/**
+ * Somebody already signed in on this browser should not have to walk past the
+ * marketing page to reach their own numbers. The check is client-only on
+ * purpose: the session lives in localStorage, so SSR cannot see it, and a
+ * server-side gate here would loop. Crawlers and signed-out visitors get the
+ * landing page exactly as before.
+ *
+ * `?stay=1` opts out, so an owner can still read pricing or share the site.
+ */
+function useSignedInRedirect(enabled: boolean) {
+  const navigate = useNavigate();
+  // Starts false so the first client render matches the server-rendered
+  // landing markup; the effect flips it before anything is painted.
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    setChecking(true);
+
+    (async () => {
+      let session = (await supabase.auth.getSession()).data.session;
+      if (!session) {
+        // Same tolerance as the authenticated guard: a stale access token is
+        // not the same thing as being signed out.
+        try {
+          session = (await supabase.auth.refreshSession()).data.session;
+        } catch {
+          session = null;
+        }
+      }
+      if (cancelled) return;
+      if (session) {
+        navigate({ to: "/dashboard", replace: true });
+        return;
+      }
+      setChecking(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, navigate]);
+
+  return checking;
+}
 
 function LandingPage() {
+  const { stay } = Route.useSearch();
+  const checking = useSignedInRedirect(stay !== "1");
   const { pricing, checkoutReady } = useLandingPricing();
 
   // A CTA must never lead into a workflow that cannot complete. Until Stripe
@@ -104,6 +157,15 @@ function LandingPage() {
   // demo form instead of a dead-ended signup.
   const ctaLabel = checkoutReady ? "Start Free" : "Request a Demo";
   const ctaHref = checkoutReady ? "/signup" : "/demo";
+
+  if (checking) {
+    return (
+      <div className="dark min-h-screen grid place-items-center bg-background text-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
 
   return (
     <div id="top" className="dark min-h-screen bg-background text-foreground antialiased">
