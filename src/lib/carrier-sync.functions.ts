@@ -32,6 +32,37 @@ async function getOrgId(supabase: any, userId: string): Promise<string | null> {
   return data?.organization_id ?? null;
 }
 
+/**
+ * Every organisation the caller's book spans: their own agency plus every
+ * sub-agency underneath it (IMO view). A sync run from the top must reach a
+ * downline agency's policies, which live under a *different* organization_id
+ * and often on producers with no portal account at all.
+ */
+async function getScopeOrgIds(supabase: any, userId: string): Promise<string[]> {
+  const ids = new Set<string>();
+  const own = await getOrgId(supabase, userId);
+  if (own) ids.add(own);
+  const { data } = await supabase.rpc("imo_org_ids");
+  for (const row of (data ?? []) as any[]) {
+    const id = typeof row === "string" ? row : row?.imo_org_ids ?? row?.id;
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+/** Supabase caps a select at 1000 rows; a full book needs every page. */
+async function fetchAllPages(build: () => any): Promise<any[]> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+  return out;
+}
+
 
 // ── Status normalization ─────────────────────────────────────────────────────
 
@@ -132,7 +163,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = await getHierarchyIds(supabase, userId);
-    const orgId = await getOrgId(supabase, userId);
+    const orgIds = await getScopeOrgIds(supabase, userId);
 
     const select =
       "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
@@ -144,25 +175,30 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
       }
     };
 
-    const { data: teamPolicies, error } = await supabase
-      .from("policies")
-      .select(select)
-      .eq("carrier_id", data.carrier_id)
-      .in("agent_id", teamIds)
-      .not("policy_number", "is", null);
-    if (error) throw new Error(error.message);
-    collect(teamPolicies);
+    collect(
+      await fetchAllPages(() =>
+        supabase
+          .from("policies")
+          .select(select)
+          .eq("carrier_id", data.carrier_id)
+          .in("agent_id", teamIds)
+          .not("policy_number", "is", null),
+      ),
+    );
 
-    if (orgId) {
-      const { data: orgPolicies, error: orgErr } = await supabase
-        .from("policies")
-        .select(select)
-        .eq("carrier_id", data.carrier_id)
-        .eq("organization_id", orgId)
-        .not("policy_number", "is", null);
-      if (orgErr) throw new Error(orgErr.message);
-      collect(orgPolicies);
+    if (orgIds.length) {
+      collect(
+        await fetchAllPages(() =>
+          supabase
+            .from("policies")
+            .select(select)
+            .eq("carrier_id", data.carrier_id)
+            .in("organization_id", orgIds)
+            .not("policy_number", "is", null),
+        ),
+      );
     }
+
 
 
     const updates: SyncUpdate[] = [];
@@ -233,21 +269,26 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
-    const orgId = await getOrgId(supabase, userId);
+    const orgIds = new Set(await getScopeOrgIds(supabase, userId));
 
-    // Re-verify every policy belongs to the caller's agency + this carrier.
+    // Re-verify every policy belongs to the caller's hierarchy + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
-    const { data: pols, error } = await supabase
-      .from("policies")
-      .select("id, agent_id, carrier_id, organization_id")
-      .in("id", ids);
-    if (error) throw new Error(error.message);
+    const pols: any[] = [];
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { data: rows, error } = await supabase
+        .from("policies")
+        .select("id, agent_id, carrier_id, organization_id")
+        .in("id", chunk);
+      if (error) throw new Error(error.message);
+      pols.push(...(rows ?? []));
+    }
     const allowed = new Set(
-      (pols ?? [])
+      pols
         .filter(
           (p: any) =>
             p.carrier_id === data.carrier_id &&
-            (teamIds.has(p.agent_id) || (orgId && p.organization_id === orgId)),
+            (teamIds.has(p.agent_id) || (p.organization_id && orgIds.has(p.organization_id))),
         )
         .map((p: any) => p.id),
     );
@@ -265,12 +306,15 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       byStatus.set(u.new_status, list);
     }
     for (const [status, list] of byStatus) {
-      const { error: upErr, count } = await supabase
-        .from("policies")
-        .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
-        .in("id", list);
-      if (upErr) throw new Error(upErr.message);
-      updated += count ?? list.length;
+      for (let i = 0; i < list.length; i += 500) {
+        const chunk = list.slice(i, i + 500);
+        const { error: upErr, count } = await supabase
+          .from("policies")
+          .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
+          .in("id", chunk);
+        if (upErr) throw new Error(upErr.message);
+        updated += count ?? chunk.length;
+      }
     }
 
     await supabase.from("carrier_sync_logs").insert({
