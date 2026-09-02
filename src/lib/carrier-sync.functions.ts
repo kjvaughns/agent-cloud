@@ -309,7 +309,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const source = `carrier_csv:${data.file_name}`;
     let updated = 0;
     // Group by target status so each status is one UPDATE.
-    const byStatus = new Map<string, string[]>();
+    const byStatus = new Map<PolicyStatus, string[]>();
     for (const u of data.updates) {
       if (!allowed.has(u.policy_id)) continue;
       const list = byStatus.get(u.new_status) ?? [];
