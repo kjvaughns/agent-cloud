@@ -7,6 +7,7 @@ import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
 // to bucket on a different date field from the tiles above it.
 import {
   countsAsProduction,
+  isPlaced,
   productionDate,
   premiumOf,
   sumPremium,
