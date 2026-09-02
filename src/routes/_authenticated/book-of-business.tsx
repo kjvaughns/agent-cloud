@@ -18,7 +18,14 @@ import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } fro
 import {
   listBookOfBusiness,
   listCarriersForFilter,
+  listUnclaimedProducers,
+  reassignPolicies,
 } from "@/lib/book-of-business.functions";
+import { listScopeAgents } from "@/lib/scope.functions";
+import { useServerFn } from "@/hooks/use-server-fn";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PolicyDetailSheet } from "@/components/book-of-business/policy-detail-sheet";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
@@ -51,6 +58,8 @@ type SortKey =
 
 function BookPage() {
   const hydrated = useHydrated();
+  const { isAdmin, isAgencyOwner } = useRole();
+  const canCarrierSync = isAdmin || isAgencyOwner;
   const [source, setSource] = useState<Source>("agent");
   const { scope, ready: scopeReady } = useScope();
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
@@ -61,6 +70,9 @@ function BookPage() {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "posted_at", dir: "desc" });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+  const [producerFilter, setProducerFilter] = useState<string>("all");
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<string | undefined>(undefined);
   const { policy: policyParam } = Route.useSearch();
   const [openRowId, setOpenRowId] = useState<string | null>(policyParam ?? null);
   useEffect(() => { if (policyParam) setOpenRowId(policyParam); }, [policyParam]);
@@ -77,6 +89,33 @@ function BookPage() {
     queryKey: ["bob", "carriers"],
     queryFn: () => listCarriersForFilter(),
   });
+  // Previous agents: producers with policies in this book who never signed up.
+  // Their history is still the agency's history, so it has to be findable.
+  const producersFn = useServerFn(listUnclaimedProducers);
+  const producersQ = useQuery({
+    enabled: hydrated && scopeReady && scope !== "mine",
+    queryKey: ["bob", "producers", scope],
+    queryFn: () => producersFn({ data: { scope } }),
+  });
+  const scopeAgentsFn = useServerFn(listScopeAgents);
+  const scopeAgentsQ = useQuery({
+    enabled: hydrated && scopeReady && moveOpen,
+    queryKey: ["scope", "agents", scope],
+    queryFn: () => scopeAgentsFn({ data: { scope } }),
+  });
+  const qc = useQueryClient();
+  const reassignFn = useServerFn(reassignPolicies);
+  const moveMut = useMutation({
+    mutationFn: (vars: { producerEmail: string; targetAgentId: string }) =>
+      reassignFn({ data: { scope, ...vars } }),
+    onSuccess: (res: any) => {
+      toast.success(`Moved ${res?.moved ?? 0} policies onto that agent's book.`);
+      setMoveOpen(false);
+      setProducerFilter("all");
+      qc.invalidateQueries({ queryKey: ["bob"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Could not move those policies."),
+  });
 
   const allRows = listQ.data ?? [];
 
@@ -84,6 +123,7 @@ function BookPage() {
     let r = allRows.slice();
     if (carrierFilter !== "all") r = r.filter((x: any) => x.carrier_id === carrierFilter);
     if (statusFilter !== "all") r = r.filter((x: any) => x.status === statusFilter);
+    if (producerFilter !== "all") r = r.filter((x: any) => (x.assigned_to_email ?? "") === producerFilter);
     if (statusToggles.size > 0) r = r.filter((x: any) => statusToggles.has(x.status));
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -101,7 +141,7 @@ function BookPage() {
       return 0;
     });
     return r;
-  }, [allRows, carrierFilter, statusFilter, statusToggles, query, sort]);
+  }, [allRows, carrierFilter, statusFilter, statusToggles, query, sort, producerFilter]);
 
   const totals = useMemo(() => {
     const totalPremium = filtered.reduce((s: number, x: any) => s + Number(x.annual_premium ?? 0), 0);
@@ -138,7 +178,7 @@ function BookPage() {
     setPage(0);
   }
   function clearFilters() {
-    setCarrierFilter("all"); setStatusFilter("all"); setStatusToggles(new Set()); setQuery("");
+    setCarrierFilter("all"); setStatusFilter("all"); setStatusToggles(new Set()); setQuery(""); setProducerFilter("all");
   }
   function exportCSV() {
     const rows = filtered.map((r: any) => ({
@@ -168,9 +208,13 @@ function BookPage() {
   if (carrierName) activeChips.push({ label: carrierName, clear: () => setCarrierFilter("all") });
   if (statusFilter !== "all") activeChips.push({ label: statusLabel(statusFilter), clear: () => setStatusFilter("all") });
   statusToggles.forEach((s) => activeChips.push({ label: statusLabel(s), clear: () => toggleStatusCard(s) }));
-
-  const { isAdmin, isAgencyOwner } = useRole();
-  const canCarrierSync = isAdmin || isAgencyOwner;
+  const selectedProducer = producersQ.data?.find((p) => p.email === producerFilter);
+  if (producerFilter !== "all") {
+    activeChips.push({
+      label: selectedProducer?.name ?? producerFilter,
+      clear: () => setProducerFilter("all"),
+    });
+  }
 
   return (
     <PageShell>
@@ -220,6 +264,27 @@ function BookPage() {
                 They used to share one select, which is why "one agent" was a
                 scope value that behaved unlike the other two. */}
             <ScopeAgentFilter value={selectedAgentId} onChange={(id) => { setSelectedAgentId(id); setPage(0); }} />
+
+            {/* Previous agents — producers with no account yet. */}
+            {(producersQ.data?.length ?? 0) > 0 && (
+              <Select value={producerFilter} onValueChange={(v) => { setProducerFilter(v); setPage(0); }}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Previous agents" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All producers</SelectItem>
+                  {producersQ.data!.map((p) => (
+                    <SelectItem key={p.email} value={p.email}>
+                      {p.name} ({p.policies})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {producerFilter !== "all" && canCarrierSync && (
+              <Button variant="outline" onClick={() => setMoveOpen(true)}>
+                Put this book on an agent
+              </Button>
+            )}
 
             <div className="flex-1" />
 
@@ -387,6 +452,39 @@ function BookPage() {
           )}
         </Panel>
       </div>
+
+      <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Put this book on an agent</DialogTitle>
+            <DialogDescription>
+              {selectedProducer
+                ? `${selectedProducer.policies} policies written by ${selectedProducer.name} will move onto the agent you pick.`
+                : "These policies will move onto the agent you pick."}
+            </DialogDescription>
+          </DialogHeader>
+          <Select value={moveTarget} onValueChange={setMoveTarget}>
+            <SelectTrigger><SelectValue placeholder="Choose an agent" /></SelectTrigger>
+            <SelectContent>
+              {(scopeAgentsQ.data ?? []).map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMoveOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!moveTarget || moveMut.isPending}
+              onClick={() => moveTarget && producerFilter !== "all" &&
+                moveMut.mutate({ producerEmail: producerFilter, targetAgentId: moveTarget })}
+            >
+              {moveMut.isPending ? "Moving…" : "Move policies"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PolicyDetailSheet row={openRow} open={!!openRowId} onOpenChange={(v) => !v && setOpenRowId(null)} />
     </PageShell>
