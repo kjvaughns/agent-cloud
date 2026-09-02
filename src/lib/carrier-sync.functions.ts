@@ -165,6 +165,12 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const teamIds = await getHierarchyIds(supabase, userId);
     const orgIds = await getScopeOrgIds(supabase, userId);
 
+    // The caller's RLS view intentionally stops at their own organisation.
+    // A hierarchy sync can also include policies held by child agencies, so
+    // authorize the caller and calculate their permitted ids above, then use
+    // the trusted client for the strictly carrier/team/org-scoped lookup.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     const select =
       "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
 
@@ -177,7 +183,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
 
     collect(
       await fetchAllPages(() =>
-        supabase
+         supabaseAdmin
           .from("policies")
           .select(select)
           .eq("carrier_id", data.carrier_id)
@@ -189,7 +195,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     if (orgIds.length) {
       collect(
         await fetchAllPages(() =>
-          supabase
+           supabaseAdmin
             .from("policies")
             .select(select)
             .eq("carrier_id", data.carrier_id)
@@ -271,12 +277,17 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
     const orgIds = new Set(await getScopeOrgIds(supabase, userId));
 
+    // Re-verification and writes must see child-agency rows that the normal
+    // authenticated policy SELECT hides. The allowed ids remain bounded by
+    // the caller-derived hierarchy sets below.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     // Re-verify every policy belongs to the caller's hierarchy + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
     const pols: any[] = [];
     for (let i = 0; i < ids.length; i += 500) {
       const chunk = ids.slice(i, i + 500);
-      const { data: rows, error } = await supabase
+      const { data: rows, error } = await supabaseAdmin
         .from("policies")
         .select("id, agent_id, carrier_id, organization_id")
         .in("id", chunk);
@@ -298,7 +309,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const source = `carrier_csv:${data.file_name}`;
     let updated = 0;
     // Group by target status so each status is one UPDATE.
-    const byStatus = new Map<string, string[]>();
+    const byStatus = new Map<PolicyStatus, string[]>();
     for (const u of data.updates) {
       if (!allowed.has(u.policy_id)) continue;
       const list = byStatus.get(u.new_status) ?? [];
@@ -308,7 +319,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     for (const [status, list] of byStatus) {
       for (let i = 0; i < list.length; i += 500) {
         const chunk = list.slice(i, i + 500);
-        const { error: upErr, count } = await supabase
+        const { error: upErr, count } = await supabaseAdmin
           .from("policies")
           .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
           .in("id", chunk);
@@ -317,7 +328,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       }
     }
 
-    await supabase.from("carrier_sync_logs").insert({
+    await supabaseAdmin.from("carrier_sync_logs").insert({
       uploaded_by: userId,
       carrier_id: data.carrier_id,
       file_name: data.file_name,
