@@ -420,6 +420,18 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       }
     }
 
+    // Policies matched by insured name only had a placeholder number — write the
+    // carrier's real number so later syncs match on number directly.
+    for (const u of data.updates) {
+      if (!u.set_policy_number || !allowed.has(u.policy_id)) continue;
+      await supabaseAdmin
+        .from("policies")
+        .update({ policy_number: u.set_policy_number })
+        .eq("id", u.policy_id);
+    }
+
+
+
     await supabaseAdmin.from("carrier_sync_logs").insert({
       uploaded_by: userId,
       carrier_id: data.carrier_id,
