@@ -100,6 +100,7 @@ function SyncWizard() {
   const [saveTemplate, setSaveTemplate] = useState(true);
   const [preview, setPreview] = useState<SyncPreview | null>(null);
   const [result, setResult] = useState<{ updated: number; skipped: number } | null>(null);
+  const [reading, setReading] = useState(false);
 
   const carriersFn = useServerFn(listCarriersForFilter);
   const { data: carriers } = useQuery({ queryKey: ["carriers-filter"], queryFn: () => carriersFn() });
@@ -111,6 +112,8 @@ function SyncWizard() {
   const saveTemplateFn = useServerFn(saveMappingTemplate);
   const previewFn = useServerFn(previewCarrierSync);
   const applyFn = useServerFn(applyCarrierSync);
+  const extractReportFn = useServerFn(extractCarrierReport);
+
 
   /** A PDF, a scan or a photo: read the pages, then let the assistant pull the rows. */
   async function rowsFromDocument(f: File): Promise<{ headers: string[]; rows: Record<string, string>[] } | null> {
