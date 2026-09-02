@@ -352,7 +352,9 @@ const ApplySchema = z.object({
   updates: z.array(z.object({
     policy_id: z.string().uuid(),
     new_status: z.enum(POLICY_STATUS_VALUES),
+    set_policy_number: z.string().trim().max(60).optional(),
   })).max(20000),
+
 });
 
 export const applyCarrierSync = createServerFn({ method: "POST" })
