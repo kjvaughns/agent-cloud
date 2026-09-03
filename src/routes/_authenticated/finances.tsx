@@ -143,12 +143,14 @@ function FinancesPage() {
       const d = new Date(r.payment_date + "T00:00:00");
       const isTrail = r.payment_type === "trail" || r.payment_type === "deferred";
       const isDirect = r.payment_type === "advance" || isTrail;
-      const isEarned = r.status === "paid";
-      if (r.payment_date === todayStr && isEarned) todayTotal += r.amount;
+      // Statement reconciliation changes a due row from pending to paid. The
+      // scheduled date still determines when it enters income totals.
+      const isEarnedOrDue = r.status === "paid" || r.payment_date <= todayStr;
+      if (r.payment_date === todayStr && isEarnedOrDue) todayTotal += r.amount;
       if (r.status === "pending" && d > today && d <= in90) forecast90 += r.amount;
-      if (d >= startOfMonth && d <= today && isEarned) mtd += r.amount;
-      if (d >= startOfYear && d <= today && isEarned) ytd += r.amount;
-      if (isDirect && d >= startOfYear && d <= today && isEarned) directYtd += r.amount;
+      if (d >= startOfMonth && d <= today && isEarnedOrDue) mtd += r.amount;
+      if (d >= startOfYear && d <= today && isEarnedOrDue) ytd += r.amount;
+      if (isDirect && d >= startOfYear && d <= today && isEarnedOrDue) directYtd += r.amount;
       if (r.status === "pending" && r.payment_type === "override") overridePending += r.amount;
       if (r.status === "pending" && isTrail) trailPending += r.amount;
       if (r.status === "pending" && r.payment_type === "renewal") renewalPending += r.amount;
