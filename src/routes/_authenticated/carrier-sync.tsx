@@ -32,7 +32,7 @@ const STATUS_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 type ParsedFile = { name: string; headers: string[]; rows: Record<string, string>[] };
-type ColumnMap = { policy_number: string; status: string; client_name: string };
+type ColumnMap = { policy_number: string; status: string; client_name: string; status_effective_date: string };
 
 const STEPS = ["Upload", "Map Columns", "Preview", "Apply"];
 
@@ -97,7 +97,7 @@ function SyncWizard() {
   const [step, setStep] = useState(0);
   const [carrierId, setCarrierId] = useState("");
   const [file, setFile] = useState<ParsedFile | null>(null);
-  const [colMap, setColMap] = useState<ColumnMap>({ policy_number: "", status: "", client_name: "" });
+  const [colMap, setColMap] = useState<ColumnMap>({ policy_number: "", status: "", client_name: "", status_effective_date: "" });
   const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
   const [saveTemplate, setSaveTemplate] = useState(true);
   const [preview, setPreview] = useState<SyncPreview | null>(null);
@@ -196,6 +196,7 @@ function SyncWizard() {
       policy_number: guessColumn(headers, [/policy\s*(#|no|num)/i, /^policy$/i, /contract\s*(#|no|num)/i, /cert(ificate)?\s*(#|no)/i]),
       status: guessColumn(headers, [/status/i, /state\s*of\s*policy/i]),
       client_name: guessColumn(headers, [/insured/i, /client/i, /owner/i, /^name$/i, /full\s*name/i]),
+      status_effective_date: guessColumn(headers, [/status.*date/i, /effective.*status/i, /termination.*date/i, /lapse.*date/i]),
     };
     if (carrierId) {
       try {
@@ -206,6 +207,7 @@ function SyncWizard() {
             policy_number: headers.includes(t.policy_number) ? t.policy_number : map.policy_number,
             status: headers.includes(t.status) ? t.status : map.status,
             client_name: headers.includes(t.client_name) ? t.client_name : map.client_name,
+            status_effective_date: headers.includes(t.status_effective_date) ? t.status_effective_date : map.status_effective_date,
           };
           if (template.status_map) setStatusOverrides(template.status_map as Record<string, string>);
           toast.success("Loaded your saved mapping for this carrier");
@@ -223,6 +225,7 @@ function SyncWizard() {
           policy_number: r[colMap.policy_number] ?? "",
           status_raw: r[colMap.status] ?? "",
           client_name: colMap.client_name ? r[colMap.client_name] : undefined,
+          status_effective_date: colMap.status_effective_date ? r[colMap.status_effective_date] : undefined,
         }))
         .filter((r) => r.policy_number && r.status_raw);
       return previewFn({ data: { carrier_id: carrierId, rows, status_overrides: statusOverrides } });
@@ -243,6 +246,7 @@ function SyncWizard() {
             policy_id: u.policy_id,
             new_status: u.new_status,
             ...(u.set_policy_number ? { set_policy_number: u.set_policy_number } : {}),
+            ...(u.status_effective_date ? { status_effective_date: u.status_effective_date } : {}),
           })),
         },
       }),
@@ -346,11 +350,12 @@ function SyncWizard() {
               <p className="text-sm text-muted-foreground">
                 Tell Agent Cloud which columns hold each field. Detected automatically where possible — <span className="tnum">{file.rows.length.toLocaleString()}</span> rows found.
               </p>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {([
                   ["policy_number", "Policy Number *"],
                   ["status", "Policy Status *"],
                   ["client_name", "Client / Insured Name"],
+                  ["status_effective_date", "Status Effective Date"],
                 ] as const).map(([key, label]) => (
                   <div key={key}>
                     <div className="text-sm font-medium mb-1.5">{label}</div>

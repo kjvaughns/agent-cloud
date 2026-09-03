@@ -703,6 +703,7 @@ export async function saveClientFullRecord(
           carrierId,
           product: pol.product ?? "Final Expense",
           monthlyPremium: monthly,
+           annualPremium: annual || null,
           effectiveDate: pol.effective_date,
           clientName: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim(),
         });

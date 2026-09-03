@@ -678,6 +678,7 @@ export const addPolicy = createServerFn({ method: "POST" })
         carrierId: data.carrier_id ?? null,
         product: data.product ?? "",
         monthlyPremium: data.monthly_premium ?? 0,
+         annualPremium: data.annual_premium ?? null,
         effectiveDate: data.effective_date ?? null,
         clientName,
       });
@@ -815,7 +816,9 @@ export const updatePolicy = createServerFn({ method: "POST" })
     const effChanged =
       payload.effective_date !== undefined &&
       payload.effective_date !== (before?.effective_date ?? null);
-    if (saleDateChanged || effChanged) {
+    const compensationChanged = ["carrier_id", "product", "monthly_premium", "annual_premium", "effective_date", "status"]
+      .some((key) => key in payload && String(payload[key] ?? "") !== String((before as any)?.[key] ?? ""));
+    if (saleDateChanged || effChanged || compensationChanged) {
       try {
         const { data: clientRow } = await supabase
           .from("clients")
@@ -830,6 +833,7 @@ export const updatePolicy = createServerFn({ method: "POST" })
           carrierId: payload.carrier_id ?? before?.carrier_id ?? null,
           product: payload.product ?? before?.product ?? "",
           monthlyPremium: Number(payload.monthly_premium ?? before?.monthly_premium ?? 0),
+          annualPremium: Number(payload.annual_premium ?? before?.annual_premium ?? 0),
           // The schedule is anchored on the effective date when there is one;
           // a policy backdated with no effective date falls back to the sale
           // date rather than producing nothing.

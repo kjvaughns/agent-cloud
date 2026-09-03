@@ -88,8 +88,10 @@ type CommissionInput = {
 };
 
 function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
+  const day = date.getUTCDate();
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
   return d;
 }
 
@@ -103,13 +105,6 @@ function ds(date: Date): string {
  * `numeric` columns arrive as strings through PostgREST, and `Number(null)` is
  * 0, which would silently switch renewals off rather than use the default.
  */
-function num(v: unknown, fallback: number): number {
-  if (v == null || v === "") return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-
 async function resolveOrgId(supabase: any, agentId: string): Promise<string | null> {
   const { data } = await supabase
     .from("profiles")
@@ -132,8 +127,15 @@ export async function calculateAndInsertAllCommissions(
   // path a recalculation takes.
   const calcRunId = crypto.randomUUID();
 
-  const annualPremium = Number((monthlyPremium * 12).toFixed(2));
-  const effDate = new Date(effectiveDate);
+  const annualPremium = Number((input.annualPremium && input.annualPremium > 0
+    ? input.annualPremium
+    : monthlyPremium * 12).toFixed(2));
+  const effDate = new Date(`${effectiveDate.slice(0, 10)}T00:00:00.000Z`);
+  const { data: policyState } = await supabase
+    .from("policies")
+    .select("status,status_effective_date")
+    .eq("id", policyId)
+    .maybeSingle();
 
   // Get carrier info
   const { data: carrier } = await supabase
@@ -214,7 +216,7 @@ export async function calculateAndInsertAllCommissions(
   // for `advanceMonths` of premium at this agent's rate; the rest falls to
   // as-earned over the remainder. The old code split 75/25 into three fixed
   // months regardless of what any agency had configured.
-  const plan = planYearOne(monthlyPremium, resolution.pct, resolution.advanceMonths);
+  const plan = planYearOne(monthlyPremium, resolution.pct, resolution.advanceMonths, annualPremium);
   const yr1Total = plan.yearOneTotal;
 
   // A fixed-cap carrier is a configured fact, not a code constant. The old
@@ -236,6 +238,8 @@ export async function calculateAndInsertAllCommissions(
       product,
       is_gtl: isGtl,
       commission_pct: resolution.pct,
+      annual_premium: annualPremium,
+      advance_pct: resolution.advanceMonths / 12,
       pct_source: resolution.pctSource,
       policy_year: 1,
 
@@ -258,7 +262,7 @@ export async function calculateAndInsertAllCommissions(
         policy_id: policyId,
         agent_id: agentId,
         writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, month)),
+        payment_date: ds(addMonths(effDate, month - 1)),
         // The table's allowed payment types call the un-advanced balance
         // "deferred"; that is what Finances and the dashboard read.
         payment_type: "deferred",
@@ -267,6 +271,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: isGtl,
         commission_pct: resolution.pct,
+        annual_premium: annualPremium,
+        advance_pct: resolution.advanceMonths / 12,
         pct_source: resolution.pctSource,
         policy_year: 1,
 
@@ -323,6 +329,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: false,
         commission_pct: leg.spread,
+        annual_premium: annualPremium,
+        advance_pct: resolution.advanceMonths / 12,
         pct_source: resolution.pctSource,
         client_name: clientName,
         status: "pending",
@@ -341,13 +349,15 @@ export async function calculateAndInsertAllCommissions(
           agent_id: leg.agentId,
           source_agent_id: agentId,
           writing_agent_id: agentId,
-          payment_date: ds(addMonths(effDate, month)),
+          payment_date: ds(addMonths(effDate, month - 1)),
           payment_type: "override",
           amount: leg.trailAmount,
           carrier: carrierName,
           product,
           is_gtl: false,
           commission_pct: leg.spread,
+          annual_premium: annualPremium,
+          advance_pct: resolution.advanceMonths / 12,
           pct_source: resolution.pctSource,
           client_name: clientName,
           status: "pending",
@@ -369,21 +379,6 @@ export async function calculateAndInsertAllCommissions(
   //
   // So: the grid still wins wherever it speaks, the agency's own default fills
   // in wherever it does not, and every renewal month asks the same question.
-  const { data: orgSettings } = orgIdEarly
-    ? await supabase
-        .from("organization_settings")
-        // select("*") because these two columns arrive with a migration and
-        // PostgREST rejects the whole select with 42703 when one is missing.
-        .select("*")
-        .eq("organization_id", orgIdEarly)
-        .maybeSingle()
-    : { data: null };
-
-  // Absent settings row → the same numbers the column defaults carry, so an
-  // agency that has never opened the page still gets renewals.
-  const defaultRenewalPct = num(orgSettings?.renewal_pct_default, 3);
-  const defaultOverrideRenewalPct = num(orgSettings?.override_renewal_pct_default, 1);
-
   const renewalQuery = {
     levelName: myLevelName,
     productName: product,
@@ -395,8 +390,9 @@ export async function calculateAndInsertAllCommissions(
   for (const month of RENEWAL_MONTHS) {
     const policyYear = policyYearForMonth(month);
     const gridRow = selectGridRule(grid, { ...renewalQuery, policyYear });
-    const personal = renewalRate(gridRow?.pct ?? null, defaultRenewalPct);
-    const date = ds(addMonths(effDate, month));
+    const personal = renewalRate(gridRow?.pct ?? null);
+    // Month 13 is the first anniversary: 12 calendar months after issue.
+    const date = ds(addMonths(effDate, month - 1));
 
     if (personal) {
       rows.push({
@@ -410,6 +406,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: false,
         commission_pct: personal.pct,
+        annual_premium: annualPremium,
+        advance_pct: null,
         pct_source: personal.source,
         client_name: clientName,
         status: "pending",
@@ -418,11 +416,18 @@ export async function calculateAndInsertAllCommissions(
       });
     }
 
-    // Every upline earns the override renewal — each of them the same
-    // percentage of ALP, not one percent shared out. A renewal is a servicing
-    // payment on a policy that stayed on the books, and everyone who supports
-    // that agent is still supporting it in year six.
+    // Renewal overrides are the consecutive carrier-grid spread, exactly like
+    // year-one overrides. No configured grid rate means no invented payout.
+    let renewalPaidUpTo = personal?.pct ?? 0;
     for (const leg of legs) {
+      const upline = chain.find((link) => link.agentId === leg.agentId);
+      const uplineRow = selectGridRule(grid, {
+        ...renewalQuery,
+        levelName: upline?.carrierLevelName ?? null,
+        policyYear,
+      });
+      const spread = Math.max(0, Number(uplineRow?.pct ?? 0) - renewalPaidUpTo);
+      if (spread <= 0) continue;
       rows.push({
         policy_id: policyId,
         agent_id: leg.agentId,
@@ -430,22 +435,36 @@ export async function calculateAndInsertAllCommissions(
         writing_agent_id: agentId,
         payment_date: date,
         payment_type: "renewal",
-        amount: renewalAmount(annualPremium, defaultOverrideRenewalPct),
+        amount: renewalAmount(annualPremium, spread),
         carrier: carrierName,
         product,
         is_gtl: false,
-        commission_pct: defaultOverrideRenewalPct,
-        pct_source: "agency_default",
+        commission_pct: spread,
+        annual_premium: annualPremium,
+        advance_pct: null,
+        pct_source: "grid",
         client_name: clientName,
         status: "pending",
         policy_year: policyYear,
         month_number: month,
       });
+      renewalPaidUpTo = Number(uplineRow?.pct ?? renewalPaidUpTo);
     }
   }
 
 
-  const keyed = rows.map((r) => ({
+  const stopStatuses = new Set(["lapsed", "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na"]);
+  const stopDate = stopStatuses.has(policyState?.status ?? "")
+    ? (policyState?.status_effective_date ?? new Date().toISOString().slice(0, 10))
+    : null;
+  const payableRows = stopDate
+    ? rows.filter((r) => {
+        const contingent = r.payment_type === "deferred" || r.payment_type === "trail" ||
+          r.payment_type === "renewal" || (r.payment_type === "override" && Number(r.month_number ?? 0) > 0);
+        return !contingent || r.payment_date < stopDate;
+      })
+    : rows;
+  const keyed = payableRows.map((r) => ({
     ...r,
     organization_id: orgIdEarly,
     idempotency_key: commissionKey(r),
@@ -454,26 +473,39 @@ export async function calculateAndInsertAllCommissions(
   }));
 
   if (keyed.length > 0) {
+    const { data: paidRows } = await supabase
+      .from("commission_schedule")
+      .select("idempotency_key")
+      .eq("policy_id", policyId)
+      .eq("status", "paid")
+      .in("idempotency_key", keyed.map((r) => r.idempotency_key));
+    const paidKeys = new Set((paidRows ?? []).map((r: any) => r.idempotency_key));
+    const writable = keyed.filter((r) => !paidKeys.has(r.idempotency_key));
     // Upsert on the key: a retry rewrites the same values, a recalculation
     // corrects the amounts, and neither can duplicate a payment.
-    const { error } = await supabase
-      .from("commission_schedule")
-      .upsert(keyed, { onConflict: "idempotency_key" });
-    if (error) throw new Error(`Commission write failed: ${error.message}`);
+    if (writable.length > 0) {
+      const { error } = await supabase
+        .from("commission_schedule")
+        .upsert(writable, { onConflict: "idempotency_key" });
+      if (error) throw new Error(`Commission write failed: ${error.message}`);
+    }
   }
 
   // Any leg this run no longer produces is superseded rather than deleted. A
   // commission that was promised and then withdrawn is something an agent will
   // ask about, and "it is not in the table" is not an answer.
   const liveKeys = keyed.map((r) => r.idempotency_key);
-  if (liveKeys.length > 0) {
-    await supabase
+  {
+    let stale = supabase
       .from("commission_schedule")
       .update({ superseded_at: new Date().toISOString() })
       .eq("policy_id", policyId)
       .is("superseded_at", null)
-      .not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`)
-      .then(
+      .eq("status", "pending");
+    if (liveKeys.length > 0) {
+      stale = stale.not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`);
+    }
+    await stale.then(
         () => {},
         (e: any) => console.error("[commissions] supersede failed:", e?.message),
       );

@@ -7128,6 +7128,7 @@ export type Database = {
           production_date_set_at: string | null
           production_date_set_by: string | null
           status: Database["public"]["Enums"]["policy_status"]
+          status_effective_date: string | null
           sync_source: string | null
         }
         Insert: {
@@ -7153,6 +7154,7 @@ export type Database = {
           production_date_set_at?: string | null
           production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          status_effective_date?: string | null
           sync_source?: string | null
         }
         Update: {
@@ -7178,6 +7180,7 @@ export type Database = {
           production_date_set_at?: string | null
           production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          status_effective_date?: string | null
           sync_source?: string | null
         }
         Relationships: [
@@ -7232,6 +7235,7 @@ export type Database = {
           organization_id: string | null
           policy_id: string
           source: string | null
+          status_effective_date: string | null
           to_status: string | null
         }
         Insert: {
@@ -7247,6 +7251,7 @@ export type Database = {
           organization_id?: string | null
           policy_id: string
           source?: string | null
+          status_effective_date?: string | null
           to_status?: string | null
         }
         Update: {
@@ -7262,6 +7267,7 @@ export type Database = {
           organization_id?: string | null
           policy_id?: string
           source?: string | null
+          status_effective_date?: string | null
           to_status?: string | null
         }
         Relationships: [

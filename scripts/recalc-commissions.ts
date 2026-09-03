@@ -29,27 +29,33 @@ if (error) throw error;
 
 console.log(`Recalculating ${policies?.length ?? 0} policies`);
 
-let ok = 0, skipped = 0, fail = 0;
+let ok = 0, skipped = 0, fail = 0, next = 0;
 const failures: any[] = [];
-for (const p of policies ?? []) {
-  const c = (p as any).clients;
-  try {
-    const r = await calculateAndInsertAllCommissions(supabase, {
-      policyId: p.id,
-      agentId: p.agent_id,
-      carrierId: p.carrier_id,
-      product: p.product ?? "Unknown",
-      monthlyPremium: Number(p.monthly_premium ?? 0),
-      annualPremium: Number(p.annual_premium ?? 0),
-      effectiveDate: p.effective_date,
-      clientName: c ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() : "",
-    });
-    if (r?.ok === false) { skipped++; failures.push({ id: p.id, reason: r.reason }); }
-    else ok++;
-  } catch (e: any) {
-    fail++;
-    failures.push({ id: p.id, error: e.message });
+async function worker() {
+  while (next < (policies?.length ?? 0)) {
+    const p = policies![next++];
+    const c = (p as any).clients;
+    try {
+      const r = await calculateAndInsertAllCommissions(supabase, {
+        policyId: p.id,
+        agentId: p.agent_id,
+        carrierId: p.carrier_id,
+        product: p.product ?? "Unknown",
+        monthlyPremium: Number(p.monthly_premium ?? 0),
+        annualPremium: Number(p.annual_premium ?? 0),
+        effectiveDate: p.effective_date,
+        clientName: c ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() : "",
+      });
+      if (r?.ok === false) { skipped++; failures.push({ id: p.id, reason: r.reason }); }
+      else ok++;
+    } catch (e: any) {
+      fail++;
+      failures.push({ id: p.id, error: e.message });
+    }
+    const done = ok + skipped + fail;
+    if (done % 50 === 0) console.log(`${done}/${policies?.length ?? 0}`);
   }
 }
+await Promise.all(Array.from({ length: 8 }, () => worker()));
 console.log(JSON.stringify({ ok, skipped, fail }, null, 2));
 if (failures.length) console.log("First 10:", failures.slice(0, 10));

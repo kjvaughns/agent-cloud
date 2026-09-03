@@ -18,19 +18,29 @@ type Row = {
   client_name: string | null;
   commission_pct: number | null;
   writing_agent_id: string | null;
+  paid_at: string | null;
+  policy_year: number | null;
+  month_number: number | null;
+  pct_source: string | null;
+  annual_premium: number | null;
+  advance_pct: number | null;
 };
 
 async function fetchAll(supabase: any, userId: string): Promise<Row[]> {
-  const { data, error } = await supabase
-    .from("commission_schedule")
-    .select("id,policy_id,agent_id,source_agent_id,payment_date,payment_type,amount,status,carrier,product,client_name,commission_pct,writing_agent_id")
-    .eq("agent_id", userId)
-    // Superseded legs are kept for history; they must never be counted twice.
-    .is("superseded_at", null)
-    .order("payment_date", { ascending: true })
-    .range(0, 9999);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as Row[];
+  const rows: Row[] = [];
+  for (let page = 0; ; page++) {
+    const { data, error } = await supabase
+      .from("commission_schedule")
+      .select("id,policy_id,agent_id,source_agent_id,payment_date,payment_type,amount,status,paid_at,carrier,product,client_name,commission_pct,writing_agent_id,policy_year,month_number,pct_source,annual_premium,advance_pct")
+      .eq("agent_id", userId)
+      .is("superseded_at", null)
+      .order("payment_date", { ascending: true })
+      .range(page * 1000, page * 1000 + 999);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as Row[]));
+    if ((data?.length ?? 0) < 1000) break;
+  }
+  return rows;
 }
 
 
@@ -161,12 +171,12 @@ async function incomeReport(
   const ids = Array.from(new Set([...agentIds, userId]));
   if (!ids.length) return [];
 
-  const rows: { agent_id: string; amount: any; payment_type: string; payment_date: string }[] = [];
+  const rows: { agent_id: string; amount: any; payment_type: string; payment_date: string; status: string }[] = [];
   for (const group of chunk(ids, CHUNK)) {
     for (let page = 0; ; page++) {
       let q = supabase
         .from("commission_schedule")
-        .select("agent_id, amount, payment_type, payment_date")
+        .select("agent_id, amount, payment_type, payment_date, status")
         .in("agent_id", group)
         .is("superseded_at", null)
         .order("payment_date", { ascending: true })
@@ -201,11 +211,12 @@ async function incomeReport(
     const e = byId.get(r.agent_id);
     if (!e) continue;
     const amt = Number(r.amount ?? 0);
-    e.total += amt;
-    if (r.payment_type === "override") e.override += amt;
-    else if (r.payment_type === "renewal") e.renewal += amt;
-    else e.direct += amt;
-    if (r.payment_date > today) e.pending += amt;
+    const isPaid = r.status === "paid";
+    if (isPaid) e.total += amt;
+    if (isPaid && r.payment_type === "override") e.override += amt;
+    else if (isPaid && r.payment_type === "renewal") e.renewal += amt;
+    else if (isPaid) e.direct += amt;
+    if (!isPaid) e.pending += amt;
   }
 
   // Somebody with nothing in the window is not a ranking entry; they would

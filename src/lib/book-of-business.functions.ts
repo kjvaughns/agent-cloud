@@ -159,7 +159,8 @@ export const getPolicyCommissionTotal = createServerFn({ method: "POST" })
     const { data: rows, error } = await context.supabase
       .from("commission_schedule")
       .select("amount, status")
-      .eq("policy_id", data.policyId);
+      .eq("policy_id", data.policyId)
+      .is("superseded_at", null);
     if (error) throw new Error(error.message);
     const total = (rows ?? []).reduce((s, r: any) => s + Number(r.amount ?? 0), 0);
     const paid = (rows ?? []).filter((r: any) => r.status === "paid").reduce((s, r: any) => s + Number(r.amount ?? 0), 0);

@@ -41,6 +41,10 @@ function mockClient(tables: Tables) {
         rows = rows.filter((r) => (val === null ? r[col] == null : r[col] === val));
         return chain;
       },
+      in: (col: string, vals: any[]) => {
+        rows = rows.filter((r) => vals.includes(r[col]));
+        return chain;
+      },
       not: (col: string, op: string, _v: any) => {
         // `not(col, "in", "(...)")` is the supersede sweep; the rest is the
         // grid's "level is set" filter.
@@ -224,12 +228,17 @@ function check(label: string, ok: boolean, detail = "") {
   const renewals = rows.filter((r) => r.payment_type === "renewal");
 
   console.log("\n1. Multi-level carrier");
-  check("renewal rows generated", renewals.length === 9, `got ${renewals.length}, expected 9`);
+  const personalRenewals = renewals.filter((r) => r.agent_id === AGENT);
+  const overrideRenewals = renewals.filter((r) => r.agent_id === UPLINE);
+  check("personal renewal rows generated", personalRenewals.length === 9, `got ${personalRenewals.length}, expected 9`);
+  check("upline renewal spread rows generated", overrideRenewals.length === 9, `got ${overrideRenewals.length}, expected 9`);
   // 1200 * 5% — the agent's own rung, not the 100% row sitting beside it. The
   // match is on the CARRIER's name for the level ("80%"), not the agency's
   // ("General Agent"), which is why the mapping carries both.
-  const yr2 = renewals.find((r) => r.payment_date === "2027-04-01");
+  const yr2 = personalRenewals.find((r) => r.payment_date === "2027-03-01");
   check("matched the agent's own level", yr2?.amount === 60, `got ${yr2?.amount}, expected 60`);
+  const uplineYr2 = overrideRenewals.find((r) => r.payment_date === "2027-03-01");
+  check("renewal override is the grid spread", uplineYr2?.amount === 24, `got ${uplineYr2?.amount}, expected 24`);
 }
 
 // ── 2. The ladder alone is enough: no per-agent row required ───────────────
@@ -313,15 +322,20 @@ function check(label: string, ok: boolean, detail = "") {
   );
 
   console.log("\n5. Upline override");
-  // The 100% Owner over an 80% writer on 1200 = 240.
+  // The 100% Owner over an 80% writer gets 20% of the same nine-month
+  // advanceable premium, then three monthly trail legs.
   check(
     "override written to the upline",
-    overrides.length === 1 && overrides[0].agent_id === UPLINE,
+    overrides.length === 4 && overrides.every((r) => r.agent_id === UPLINE),
   );
   check(
-    "spread is the difference in levels",
-    overrides[0]?.amount === 240,
-    `got ${overrides[0]?.amount}, expected 240`,
+    "advance override uses the consecutive spread",
+    overrides.find((r) => r.month_number === 0)?.amount === 180,
+    `got ${overrides.find((r) => r.month_number === 0)?.amount}, expected 180`,
+  );
+  check(
+    "remaining override pays in months ten through twelve",
+    overrides.filter((r) => Number(r.month_number) > 0).every((r) => r.amount === 20),
   );
 }
 

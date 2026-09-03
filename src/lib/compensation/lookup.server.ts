@@ -386,8 +386,8 @@ export async function loadUplineChain(
   orgCarrierId: string,
   priced?: Parameters<typeof resolveForAgent>[3],
   maxDepth = 25,
-): Promise<{ agentId: string; pct: number | null }[]> {
-  const chain: { agentId: string; pct: number | null }[] = [];
+): Promise<{ agentId: string; pct: number | null; carrierLevelName: string | null }[]> {
+  const chain: { agentId: string; pct: number | null; carrierLevelName: string | null }[] = [];
   const seen = new Set<string>([agentId]);
   let cursor = agentId;
 
@@ -402,7 +402,11 @@ export async function loadUplineChain(
     seen.add(uplineId);
 
     const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId, priced);
-    chain.push({ agentId: uplineId, pct: resolution.ok ? resolution.pct : null });
+    chain.push({
+      agentId: uplineId,
+      pct: resolution.ok ? resolution.pct : null,
+      carrierLevelName: resolution.ok ? resolution.carrierLevelName : null,
+    });
     cursor = uplineId;
   }
   return chain;
