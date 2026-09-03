@@ -334,24 +334,85 @@ export async function calculateAndInsertAllCommissions(
   // percentage already paid below them, so the chain can never pay out more
   // than the top contract, and a non-positive spread writes nothing rather
   // than a payment of zero.
-  const chain = orgCarrier?.id ? await loadUplineChain(supabase, agentId, orgCarrier.id) : [];
+  //
+  // ── Priced the same way the writing agent was ──
+  //
+  // An override is a SPREAD, and a spread between two numbers computed on
+  // different bases is not a spread. The writing agent is resolved against the
+  // grid, so a young non-tobacco case can price them at the carrier's 110%
+  // row; the chain was resolved without it, from flat level percentages. Put
+  // those together and a 100% owner is 10 BELOW their own agent, which
+  // `resolveOverrides` correctly declines to pay — so the override silently
+  // disappeared on exactly the deals that paid best.
+  const chain = orgCarrier?.id
+    ? await loadUplineChain(supabase, agentId, orgCarrier.id, {
+        grid,
+        deal: {
+          productName: product,
+          age: facts.age,
+          policyYear: 1,
+          state: facts.state,
+          riskClass: facts.riskClass,
+        },
+      })
+    : [];
+
   for (const leg of resolveOverrides(resolution.pct, chain, annualPremium)) {
-    rows.push({
+    // ── An override is advanced and deferred like any other year-one money ──
+    //
+    // This wrote ONE row for the full twelve months of spread, dated the
+    // effective date, while the writing agent's own year one was advanced for
+    // `advanceMonths` and the remainder paid monthly. So on a $100/month
+    // policy the agent at 80% received $720 up front and $240 over three
+    // months, and their upline received the entire $240 of override on day
+    // one — paid on nine months of premium the carrier had advanced and three
+    // it had not.
+    //
+    // Two things follow from that. The agency carried the chargeback if the
+    // policy lapsed in month two, and Finances told everybody the opposite:
+    // its own explainer says the advance and trail split applies to overrides.
+    //
+    // `planYearOne` is the function that already splits year one, so the
+    // override uses it with the spread as the rate. The advance months are the
+    // POLICY's — the carrier advances one policy on one schedule, and every
+    // link in the chain is paid out of that same advance.
+    const legPlan = planYearOne(monthlyPremium, leg.spread, resolution.advanceMonths);
+
+    const base = {
       policy_id: policyId,
       agent_id: leg.agentId,
       source_agent_id: agentId,
       writing_agent_id: agentId,
-      payment_date: ds(effDate),
-      payment_type: "override",
-      amount: leg.amount,
+      payment_type: "override" as const,
       carrier: carrierName,
       product,
       is_gtl: false,
       commission_pct: leg.spread,
       client_name: clientName,
-      status: "pending",
-      month_number: 0,
-    });
+      status: "pending" as const,
+    };
+
+    if (legPlan.advanceAmount > 0) {
+      rows.push({
+        ...base,
+        payment_date: ds(effDate),
+        amount: legPlan.advanceAmount,
+        month_number: 0,
+      });
+    }
+
+    if (legPlan.balance > 0 && legPlan.asEarnedMonths > 0) {
+      const per = Number((legPlan.balance / legPlan.asEarnedMonths).toFixed(2));
+      for (let i = 1; i <= legPlan.asEarnedMonths; i++) {
+        const month = resolution.advanceMonths + i;
+        rows.push({
+          ...base,
+          payment_date: ds(addMonths(effDate, month)),
+          amount: per,
+          month_number: month,
+        });
+      }
+    }
   }
 
   const keyed = rows.map((r) => ({

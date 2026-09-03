@@ -363,34 +363,54 @@ function FinancesPage() {
                 </span>
               </AccordionTrigger>
               <AccordionContent className="px-3 space-y-4 text-sm">
+                {/* Written from what the calculator does, not from what it used
+                    to do. This described a fixed 75/25 split and a $600 GTL cap
+                    long after both were removed in favour of the advance months
+                    and cap each agency configures per carrier — so an agent
+                    reading it to understand their own money was reading the
+                    previous system. */}
                 <section>
-                  <h4 className="font-semibold mb-1">Standard Products (most carriers)</h4>
+                  <h4 className="font-semibold mb-1">Year one</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                    <li>75% of first-year commission is paid on the effective date (advance)</li>
-                    <li>Remaining 25% is split equally across months 10, 11, and 12 (trail)</li>
+                    <li>
+                      The carrier advances the months your agency has configured for that
+                      carrier, at your commission rate, on the effective date
+                    </li>
+                    <li>The rest of year one pays monthly, one month at a time, after those</li>
+                    <li>
+                      A carrier set to as-earned advances nothing, so the whole year pays
+                      monthly
+                    </li>
                   </ul>
-                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Annual Premium: $1,200
-Agent Commission Level: 80%
-Total Year 1: $1,200 × 80% = $960
-Advance: $960 × 75% = $720
-Month 10/11/12 (trail): $960 × 25% / 3 = $80 each`}</pre>
+                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Monthly premium: $100          Annual: $1,200
+Your rate: 80%                 Advanced months: 9
+
+Year one total: $1,200 × 80%      = $960
+Advance:        $100 × 9 × 80%    = $720   on the effective date
+Balance:        $960 − $720       = $240   over 3 months = $80 each`}</pre>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Your rate comes from your contract on that carrier, or the carrier's own
+                    grid for that product, age, state and tobacco class when one is loaded.
+                  </p>
                 </section>
                 <section>
-                  <h4 className="font-semibold mb-1">GTL (Group Term Life) Exception</h4>
-                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                    <li>Advance = 50% of first-year commission, capped at $600</li>
-                    <li>Balance split equally across months 7–12 (trail)</li>
-                  </ul>
-                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Total Year 1: $900
-Advance: MIN($900 × 50%, $600) = $450
-Balance: $900 - $450 = $450
-Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
+                  <h4 className="font-semibold mb-1">Carriers with a capped advance</h4>
+                  <p className="text-muted-foreground">
+                    Some carriers cap what they will advance at a fixed amount. When your
+                    agency has set a cap for that carrier, the advance is whichever is
+                    smaller — the calculated advance or the cap — and the remainder pays
+                    monthly like any other balance.
+                  </p>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">Override Commissions</h4>
                   <p className="text-muted-foreground">
-                    Override = Downline annual premium × (Your level % − Direct downline's level %).
-                    You at 80%, downline at 70% → you earn 10% override. Same 75/25 advance/trail split applies.
+                    Override = Downline annual premium × (your rate − the rate already paid
+                    below you). You at 80%, downline at 70% → you earn the 10% spread. It is
+                    advanced and paid down exactly like your own year one: the same advanced
+                    months up front, the remainder monthly after them. Both rates are priced
+                    against the same carrier grid for that deal, so the spread compares like
+                    with like.
                   </p>
                 </section>
                 <section>

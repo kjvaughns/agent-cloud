@@ -335,6 +335,25 @@ export async function loadUplineChain(
   supabase: Client,
   agentId: string,
   orgCarrierId: string,
+  /**
+   * The same grid and deal the writing agent was priced against.
+   *
+   * ── Why this is not optional in practice ──
+   *
+   * An override is a SPREAD — the upline's percentage minus the writing
+   * agent's — and a spread between two numbers computed on different bases is
+   * not a spread at all. The writing agent is resolved with the grid, so a
+   * young non-tobacco case can price them at the carrier's 110% row; each
+   * upline was resolved without it, from their flat level. Put those two
+   * together and the agency's 100% owner earns MINUS ten on a deal, which
+   * `resolveOverrides` correctly refuses to pay — so the override silently
+   * vanished on exactly the deals that paid best.
+   *
+   * Passing the same context prices every link at their OWN level against the
+   * same grid, for the same product, age, state and risk class. Both sides of
+   * the subtraction then mean the same thing.
+   */
+  priced?: Parameters<typeof resolveForAgent>[3],
   maxDepth = 25,
 ): Promise<{ agentId: string; pct: number | null }[]> {
   const chain: { agentId: string; pct: number | null }[] = [];
@@ -351,7 +370,7 @@ export async function loadUplineChain(
     if (!uplineId || seen.has(uplineId)) break;
     seen.add(uplineId);
 
-    const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId);
+    const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId, priced);
     chain.push({ agentId: uplineId, pct: resolution.ok ? resolution.pct : null });
     cursor = uplineId;
   }

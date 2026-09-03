@@ -67,9 +67,13 @@ check(
   /resolveOverrides\(resolution\.pct, chain, annualPremium\)/.test(CODE),
   true,
 );
+// The call gained the grid and deal it prices against, so this matches the
+// call rather than its exact argument list. That the walk covers the WHOLE
+// hierarchy rather than a fixed five is a property of `loadUplineChain` and
+// `resolveOverrides`, and is asserted in compensation-check where they live.
 check(
   "the chain is loaded for the whole hierarchy",
-  /loadUplineChain\(supabase, agentId, orgCarrier\.id\)/.test(CODE),
+  /loadUplineChain\(\s*supabase,\s*agentId,\s*orgCarrier\.id/.test(CODE),
   true,
 );
 
@@ -206,6 +210,36 @@ check(
   true,
 );
 check("nothing is dropped or deleted", /drop (table|column)|delete from/i.test(SQL), false);
+
+// ── The override is priced and paid like the rest of year one ─────────────
+//
+// Two separate faults, one report. The spread was computed between a writing
+// rate that had been priced against the carrier's grid and an upline rate that
+// had not, so a grid row above the upline's level silently wiped the override
+// out. And the whole twelve months of spread was written as one row on the
+// effective date, while the writing agent's own year one was advanced and
+// deferred — the agency paying override on premium the carrier had not
+// advanced, and Finances describing the opposite in its own explainer.
+
+check("the upline chain is priced against the same grid and deal",
+  /loadUplineChain\(\s*supabase,\s*agentId,\s*orgCarrier\.id,\s*\{\s*grid,/.test(CODE), true);
+check("…and no longer resolved from flat levels alone",
+  /loadUplineChain\(supabase, agentId, orgCarrier\.id\)/.test(CODE), false);
+check("each override leg goes through the year-one planner",
+  /planYearOne\(monthlyPremium, leg\.spread, resolution\.advanceMonths\)/.test(CODE), true);
+check("…so an override is no longer a single lump on the effective date",
+  /amount: leg\.amount,/.test(CODE), false);
+check("the deferred override months follow the advance",
+  /month = resolution\.advanceMonths \+ i;/.test(CODE), true);
+
+// Finances documented a fixed 75/25 split and a $600 GTL cap long after both
+// were removed in favour of configured values, which is what an agent read to
+// understand their own money.
+const FIN = readFileSync(join(ROOT, "src/routes/_authenticated/finances.tsx"), "utf8");
+check("Finances no longer claims a fixed 75/25 split", /75% of first-year/.test(FIN), false);
+check("…nor a hard-coded GTL cap", /capped at \$600/.test(FIN), false);
+check("…and says the override follows the same schedule",
+  /advanced and paid down exactly like your own year one/.test(FIN), true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

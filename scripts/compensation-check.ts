@@ -416,5 +416,68 @@ check(
   false,
 );
 
+// ── An override is advanced and deferred like any other year-one money ─────
+//
+// Reported as "overrides aren't being calculated properly for finances". They
+// were not: the calculator wrote ONE row for the full twelve months of spread,
+// dated the effective date, while the writing agent's own year one was
+// advanced for the configured months and the remainder paid monthly.
+//
+// So on a $100/month policy the agent at 80% got $720 up front and $240 over
+// three months, and their upline got the whole $240 of override on day one —
+// paid on three months of premium the carrier had not advanced. Finances told
+// everybody the opposite: its own explainer said the advance and trail split
+// applied to overrides.
+//
+// The spread is now put through `planYearOne`, the same function that splits
+// the writing agent's year one, so the two agree by construction.
+
+console.log("");
+
+{
+  const MONTHLY = 100, MONTHS = 9;
+  const direct = planYearOne(MONTHLY, 80, MONTHS);
+  const [leg] = resolveOverrides(80, [{ agentId: "up", pct: 100 }], MONTHLY * 12);
+  const override = planYearOne(MONTHLY, leg.spread, MONTHS);
+
+  check("the override's year-one total is still the full spread",
+    override.yearOneTotal, leg.amount);
+  check("…but only the advanced months are paid up front",
+    override.advanceAmount, 180);
+  check("…and the rest is deferred", [override.balance, override.asEarnedMonths], [60, 3]);
+  check("the upline no longer receives twelve months on day one",
+    override.advanceAmount < leg.amount, true);
+
+  // The two schedules must line up, or Finances shows an override arriving in
+  // a month the writing agent's own money does not.
+  check("override and direct advance the same months",
+    override.asEarnedMonths, direct.asEarnedMonths);
+  check("…and both advance on the same proportion of the year",
+    round4(override.advanceAmount / override.yearOneTotal),
+    round4(direct.advanceAmount / direct.yearOneTotal));
+
+  // As-earned carriers advance nothing — for the upline too.
+  const asEarned = planYearOne(MONTHLY, leg.spread, 0);
+  check("an as-earned carrier advances no override either",
+    [asEarned.advanceAmount, asEarned.asEarnedMonths], [0, 12]);
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}
+
+// ── Both sides of the spread are priced the same way ───────────────────────
+//
+// The writing agent is resolved against the carrier's grid, so a young
+// non-tobacco case can price them at the 110% row. Each upline was resolved
+// WITHOUT the grid, from their flat level — so a 100% owner came out ten
+// points BELOW their own agent and earned nothing, on exactly the deals that
+// paid best. This is the arithmetic that produced it.
+check("a grid rate above the upline's level wipes out the override",
+  resolveOverrides(110, [{ agentId: "owner", pct: 100 }], 1200).length, 0);
+// …which is correct arithmetic on numbers that were never comparable, so the
+// repair is upstream in how the chain is priced. commission-wiring-check
+// asserts that end, since it is the script that reads the calculator.
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -313,15 +313,38 @@ function check(label: string, ok: boolean, detail = "") {
   );
 
   console.log("\n5. Upline override");
-  // The 100% Owner over an 80% writer on 1200 = 240.
+  // The 100% Owner over an 80% writer on 1200 = 240 of spread.
   check(
     "override written to the upline",
-    overrides.length === 1 && overrides[0].agent_id === UPLINE,
+    overrides.length > 0 && overrides.every((r: any) => r.agent_id === UPLINE),
   );
+
+  // ── Paid on the policy's schedule, not all on day one ──
+  //
+  // This asserted ONE row of 240, which is what the calculator wrote: the
+  // whole twelve months of spread on the effective date, while the writing
+  // agent's own year one was advanced for the configured months and the rest
+  // paid monthly. The agency was paying override on premium the carrier had
+  // not advanced, and Finances told everybody the opposite in its own
+  // explainer. The total is unchanged; when it arrives is not.
+  const total = Number(
+    overrides.reduce((a: number, r: any) => a + Number(r.amount), 0).toFixed(2),
+  );
+  check("the spread still totals the difference in levels", total === 240, `got ${total}, expected 240`);
+
+  const advances = overrides.filter((r: any) => Number(r.month_number) === 0);
+  const deferred = overrides.filter((r: any) => Number(r.month_number) > 0);
+  check("one advance on the effective date", advances.length === 1, `got ${advances.length}`);
   check(
-    "spread is the difference in levels",
-    overrides[0]?.amount === 240,
-    `got ${overrides[0]?.amount}, expected 240`,
+    "…for less than the whole year",
+    advances[0] && Number(advances[0].amount) < total,
+    `advance ${advances[0]?.amount} of ${total}`,
+  );
+  check("the balance is deferred over later months", deferred.length > 0, `got ${deferred.length}`);
+  check(
+    "…every one of them after the advanced months",
+    deferred.every((r: any) => Number(r.month_number) > 0) &&
+      deferred.every((r: any) => r.payment_date > advances[0].payment_date),
   );
 }
 
