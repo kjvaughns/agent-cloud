@@ -126,13 +126,13 @@ export const getFinancesData = createServerFn({ method: "POST" })
 export type AgentIncome = {
   agent_id: string;
   name: string;
-  /** Everything scheduled inside the window, earned or not. */
+  /** Paid or currently due inside the window; future rows are excluded. */
   total: number;
   /** Advance plus the trail/deferred balance: their own production. */
   direct: number;
   override: number;
   renewal: number;
-  /** Of `total`, what is dated after today and so not yet earned. */
+  /** Future scheduled commission inside the selected window. */
   pending: number;
   is_self: boolean;
 };
@@ -211,12 +211,15 @@ async function incomeReport(
     const e = byId.get(r.agent_id);
     if (!e) continue;
     const amt = Number(r.amount ?? 0);
-    const isPaid = r.status === "paid";
-    if (isPaid) e.total += amt;
-    if (isPaid && r.payment_type === "override") e.override += amt;
-    else if (isPaid && r.payment_type === "renewal") e.renewal += amt;
-    else if (isPaid) e.direct += amt;
-    if (!isPaid) e.pending += amt;
+    // Recalculated schedules remain pending until a carrier statement confirms
+    // payment. Once their payment date arrives they are nevertheless due and
+    // must appear in income/overview figures; only future rows are projected.
+    const isDue = r.status === "paid" || r.payment_date <= today;
+    if (isDue) e.total += amt;
+    if (isDue && r.payment_type === "override") e.override += amt;
+    else if (isDue && r.payment_type === "renewal") e.renewal += amt;
+    else if (isDue) e.direct += amt;
+    if (!isDue) e.pending += amt;
   }
 
   // Somebody with nothing in the window is not a ranking entry; they would

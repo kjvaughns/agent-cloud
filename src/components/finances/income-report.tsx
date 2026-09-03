@@ -139,7 +139,7 @@ export function IncomeReport({
       ) : (
         <>
           <div className="mt-3 grid grid-cols-2 gap-[var(--gap)] sm:grid-cols-4">
-            <Figure label="Paid" value={total} />
+            <Figure label="Earned / due" value={total} />
             <Figure label="Direct" value={list.reduce((s, r) => s + r.direct, 0)} />
             <Figure label="Overrides" value={list.reduce((s, r) => s + r.override, 0)} />
             <Figure label="Renewals" value={list.reduce((s, r) => s + r.renewal, 0)} />
@@ -151,7 +151,7 @@ export function IncomeReport({
                 <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2 font-medium">#</th>
                   <th className="pb-2 font-medium">Agent</th>
-                  <th className="pb-2 text-right font-medium">Paid</th>
+                  <th className="pb-2 text-right font-medium">Earned / due</th>
                   <th className="hidden pb-2 text-right font-medium sm:table-cell">Direct</th>
                   <th className="hidden pb-2 text-right font-medium sm:table-cell">Override</th>
                   <th className="hidden pb-2 text-right font-medium sm:table-cell">Renewal</th>
