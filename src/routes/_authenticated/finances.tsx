@@ -63,8 +63,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
-  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope; agent?: string } => ({
     scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+    agent: typeof s.agent === "string" && s.agent ? s.agent : undefined,
   }),
   head: () => ({
     meta: [
@@ -86,15 +87,33 @@ function monthKey(d: Date) {
 function FinancesPage() {
   const fn = useServerFn(getFinancesData);
   const { scope, ready: scopeReady } = useScope();
-  const { data, isLoading } = useQuery({
+  const { agent } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // The report's window is its own control; the ledger below is unaffected.
+  const [range, setRange] = useState("ytd");
+  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
+  const bounds = useMemo(() => incomeBounds(range, custom), [range, custom]);
+
+  const { data, isLoading, isFetching } = useQuery({
     enabled: scopeReady,
-    queryKey: ["finances", scope],
-    queryFn: () => fn({ data: { scope } }),
+    queryKey: ["finances", scope, agent ?? "me", bounds.from ?? "", bounds.to ?? ""],
+    queryFn: () => fn({ data: { scope, agentId: agent, from: bounds.from, to: bounds.to } }),
   });
+
+  const report = data?.report ?? null;
+  const viewingId = data?.viewing_agent_id;
+  const viewingOther = Boolean(viewingId && agent && viewingId === agent);
+  const viewingName = report?.find((r) => r.agent_id === viewingId)?.name ?? null;
+
+  function setAgent(agentId?: string) {
+    navigate({ search: (prev: any) => ({ ...prev, agent: agentId }), replace: true });
+  }
 
   // Always the caller's own rows, at every scope. See the note on
   // getFinancesData: widening these would double-count every override.
   const rows: Row[] = data?.rows ?? [];
+
   const team = data?.team ?? null;
 
   const [section, setSection] = useState<string>("overview");
