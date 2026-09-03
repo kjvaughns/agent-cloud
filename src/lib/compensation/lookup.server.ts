@@ -148,39 +148,66 @@ export async function resolveForAgent(
  *
  * Used for imported history: the book names carriers that were never configured
  * here, and refusing to price them left hundreds of real policies showing no
- * commission at all. There is no org_carrier row, so there is no mapping and no
- * contract to read — the percentage is the agent's agency position base and the
- * advance is as-earned. Marked provisional by the resolver, and the carrier is
- * still reported as one to set up.
+ * commission at all. There is no org_carrier row, so there is no mapping — but
+ * there may still be a real contract: `agent_commission_levels` is keyed on
+ * carrier_id, so an agent appointed at a carrier with a 6-month advance has
+ * that fact recorded even when the carrier was never configured in the agency's
+ * setup. When it exists it wins, exactly as it does on the configured path;
+ * only when it does not do we fall back to the agency position percentage and
+ * the provisional advance term. Marked provisional by the resolver either way,
+ * so the carrier still surfaces as one to set up.
  */
 export async function resolveProvisionalForAgent(
   supabase: Client,
   agentId: string,
+  carrierId?: string | null,
 ): Promise<Resolution> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("agency_level_id")
+    .select("agency_level_id, organization_id")
     .eq("id", agentId)
     .maybeSingle();
 
-  const { data: level } = profile?.agency_level_id
-    ? await supabase
-        .from("agency_levels")
-        .select("id, name, base_pct, sort_order, can_invite, active")
-        .eq("id", profile.agency_level_id)
-        .maybeSingle()
-    : { data: null };
+  const [levelRes, contractRes] = await Promise.all([
+    profile?.agency_level_id
+      ? supabase
+          .from("agency_levels")
+          .select("id, name, base_pct, sort_order, can_invite, active")
+          .eq("id", profile.agency_level_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    carrierId
+      ? supabase
+          .from("agent_commission_levels")
+          .select("*")
+          .eq("agent_id", agentId)
+          .eq("carrier_id", carrierId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const c = contractRes.data as any | null;
 
   return resolveCompensation({
     agentId,
     orgCarrierId: "",
-    level: (level as AgencyLevel) ?? null,
+    level: (levelRes.data as AgencyLevel) ?? null,
     mapping: null,
-    contract: null,
+    contract: c
+      ? {
+          agent_id: agentId,
+          org_carrier_id: "",
+          assigned_pct: c.assigned_pct ?? null,
+          advance_option: isAdvanceOption(c.advance_option) ? c.advance_option : null,
+          commission_level: c.commission_level ?? null,
+          status: c.status ?? "active",
+        }
+      : null,
     carrier: null,
     allowUnconfiguredCarrier: true,
   });
 }
+
 
 
 /**
@@ -402,6 +429,47 @@ export async function loadUplineChain(
     seen.add(uplineId);
 
     const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId, priced);
+    chain.push({
+      agentId: uplineId,
+      pct: resolution.ok ? resolution.pct : null,
+      carrierLevelName: resolution.ok ? resolution.carrierLevelName : null,
+    });
+    cursor = uplineId;
+  }
+  return chain;
+}
+
+
+/**
+ * The upline chain for a carrier the agency never configured.
+ *
+ * Imported history is full of these, and returning an empty chain meant no
+ * upline was ever paid an override on any of it. Each upline resolves the same
+ * provisional way the writer does — their own contract for that carrier when
+ * one exists (so a 6-month, 100% appointment is used as written), otherwise
+ * their agency position base.
+ */
+export async function loadProvisionalUplineChain(
+  supabase: Client,
+  agentId: string,
+  carrierId: string | null,
+  maxDepth = 25,
+): Promise<{ agentId: string; pct: number | null; carrierLevelName: string | null }[]> {
+  const chain: { agentId: string; pct: number | null; carrierLevelName: string | null }[] = [];
+  const seen = new Set<string>([agentId]);
+  let cursor = agentId;
+
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("upline_id")
+      .eq("id", cursor)
+      .maybeSingle();
+    const uplineId: string | undefined = profile?.upline_id ?? undefined;
+    if (!uplineId || seen.has(uplineId)) break;
+    seen.add(uplineId);
+
+    const resolution = await resolveProvisionalForAgent(supabase, uplineId, carrierId);
     chain.push({
       agentId: uplineId,
       pct: resolution.ok ? resolution.pct : null,
