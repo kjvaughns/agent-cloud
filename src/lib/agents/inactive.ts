@@ -47,3 +47,32 @@ export async function inactiveAgentNames(
   for (const e of wanted) if (!out.has(e)) out.set(e, e);
   return out;
 }
+
+/**
+ * Agents who have been switched off on the Team page.
+ *
+ * A deactivated profile is the same kind of thing as a previous agent with no
+ * account: their business stays on the books and their name stays in every
+ * list, marked inactive. The only difference is where the fact comes from —
+ * `profiles.status` rather than the absence of a profile — so it is resolved
+ * here and read by every surface that already understands "inactive".
+ */
+export const DEACTIVATED_STATUSES = ["inactive", "terminated"] as const;
+
+export async function deactivatedProfileIds(
+  supabase: any,
+  ids: (string | null | undefined)[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const wanted = Array.from(
+    new Set(ids.filter((id): id is string => !!id && !isInactiveAgentId(id))),
+  );
+  if (!wanted.length) return out;
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, status")
+    .in("id", wanted)
+    .in("status", DEACTIVATED_STATUSES as unknown as string[]);
+  for (const p of ((data ?? []) as any[])) out.add(String(p.id));
+  return out;
+}
