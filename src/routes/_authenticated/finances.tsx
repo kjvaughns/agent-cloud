@@ -251,41 +251,50 @@ function FinancesPage() {
       <div className="col">
         <HeroBand
           title="Finances"
-          subtitle="Commissions, forecasts & payouts"
-          actions={<ScopeToggle />}
+          subtitle={viewingOther && viewingName
+            ? `Viewing ${viewingName}'s commissions`
+            : "Commissions, forecasts & payouts"}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <ScopeToggle />
+              {data?.may_see_others && (
+                <ScopeAgentFilter value={agent} onChange={setAgent} />
+              )}
+            </div>
+          }
         />
+
+        {viewingOther && (
+          <Panel>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                Viewing <span className="font-medium">{viewingName}</span>&apos;s finances. Every
+                figure below is theirs, not yours.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setAgent(undefined)}>
+                Back to my finances
+              </Button>
+            </div>
+          </Panel>
+        )}
 
         {/* Deliberately beside the personal figures rather than folded into
             them. Your override on a downline policy and their advance on the
             same policy are both real; adding them together is not. */}
-        {team && team.length > 0 && (
-          <Panel title={scope === "agency" ? "What the agency earned" : "What your team earned"}>
-            <p className="text-xs text-muted-foreground">
-              Separate from your own figures above — your overrides on their business are already
-              counted there.
-            </p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th className="pb-2 font-medium">Agent</th>
-                    <th className="pb-2 text-right font-medium">Paid</th>
-                    <th className="pb-2 text-right font-medium">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.map((t) => (
-                    <tr key={t.agent_id} className="border-t border-border-soft">
-                      <td className="py-2">{t.name}</td>
-                      <td className="tnum py-2 text-right">{fmtCurrency(t.paid)}</td>
-                      <td className="tnum py-2 text-right text-muted-foreground">{fmtCurrency(t.pending)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
+        {data?.may_see_others && (
+          <IncomeReport
+            report={report}
+            loading={isFetching}
+            range={range}
+            onRange={(v) => setRange(v)}
+            onCustom={(from, to) => { setCustom({ from, to }); setRange("__custom"); }}
+            rangeLabel={bounds.label}
+            scopeLabel={scope === "agency" ? "Agency" : "Team"}
+            selectedAgentId={agent}
+            onSelectAgent={(id) => setAgent(id === agent ? undefined : id)}
+          />
         )}
+
 
         {/* Reconciliation was a separate nav item; it belongs with the money. */}
         <Tabs value={section} onValueChange={setSection} className="w-full">
