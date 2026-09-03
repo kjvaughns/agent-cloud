@@ -43,6 +43,13 @@
       "when": 1788387547143,
       "tag": "0005_leaderboard_counts_all_policy_statuses",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788408973043,
+      "tag": "0006_policy_status_effective_commission_stopping",
+      "breakpoints": true
     }
   ]
 }
