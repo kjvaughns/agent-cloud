@@ -41,6 +41,10 @@ function mockClient(tables: Tables) {
         rows = rows.filter((r) => (val === null ? r[col] == null : r[col] === val));
         return chain;
       },
+      in: (col: string, vals: any[]) => {
+        rows = rows.filter((r) => vals.includes(r[col]));
+        return chain;
+      },
       not: (col: string, op: string, _v: any) => {
         // `not(col, "in", "(...)")` is the supersede sweep; the rest is the
         // grid's "level is set" filter.
