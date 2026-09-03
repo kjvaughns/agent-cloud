@@ -17,7 +17,7 @@ import {
 // Every window on this page goes through this, so the pending-column fallback
 // is written once instead of four times. See the module header.
 import { selectProduction } from "@/lib/production/source.server";
-import { inactiveAgentId, inactiveAgentNames } from "@/lib/agents/inactive";
+import { deactivatedProfileIds, inactiveAgentId, inactiveAgentNames } from "@/lib/agents/inactive";
 
 const supabaseAdmin = _admin as any;
 
@@ -466,6 +466,22 @@ async function splitInactiveProducers(
     .sort((a, b) => b.premium - a.premium);
 }
 
+/**
+ * Agents switched off on the Team page read as inactive here too.
+ *
+ * Their production stays on the board — deactivating somebody is not a reason
+ * to lose their history — it is only labelled, exactly like a previous agent
+ * whose account never existed.
+ */
+async function markDeactivated(
+  supabase: any,
+  rows: LeaderboardAgent[],
+): Promise<LeaderboardAgent[]> {
+  const off = await deactivatedProfileIds(supabase, rows.map((r) => r.id));
+  if (!off.size) return rows;
+  return rows.map((r) => (off.has(r.id) ? { ...r, inactive: true } : r));
+}
+
 const LeaderboardSchema = RangeSchema.extend({
   /**
    * Which population to rank. Absent = the legacy behaviour: self plus
@@ -576,7 +592,7 @@ async function agencyBoard(
     selfName = `${(me as any)?.first_name ?? ""} ${(me as any)?.last_name ?? ""}`.trim() || null;
   }
 
-  return { agents: withInactive, selfId: userId, selfName };
+  return { agents: await markDeactivated(supabase, withInactive), selfId: userId, selfName };
 }
 
 export const getLeaderboardData = createServerFn({ method: "POST" })
@@ -713,7 +729,7 @@ export const getLeaderboardData = createServerFn({ method: "POST" })
     );
 
     return {
-      agents: withInactive,
+      agents: await markDeactivated(supabase, withInactive),
       selfId: userId as string,
       selfName,
     };

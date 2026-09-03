@@ -134,6 +134,7 @@ export function ScopeAgentFilter({
         {others.map((a) => (
           <SelectItem key={a.id} value={a.id}>
             {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed"}
+            {(a as any).inactive ? " (Inactive)" : ""}
           </SelectItem>
         ))}
         {extras.map((a) => (
