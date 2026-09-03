@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
 import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
+import { deactivatedProfileIds } from "@/lib/agents/inactive";
 
 const ScopeSchema = z.object({
   scope: scopeSchema,
@@ -25,8 +26,16 @@ export const listBookOfBusiness = createServerFn({ method: "POST" })
       _agent_id: data.agentId ?? undefined,
     });
     if (error) throw new Error(error.message);
-    const list = (rows ?? []) as any[];
+    let list = (rows ?? []) as any[];
     if (list.length === 0) return list;
+
+    // Somebody switched off on the Team page is inactive everywhere, including
+    // here: their policies stay on the book, their name carries the same badge
+    // as a producer who never had an account.
+    const off = await deactivatedProfileIds(supabase, list.map((r) => r.agent_id));
+    if (off.size) {
+      list = list.map((r) => (off.has(r.agent_id) ? { ...r, agent_inactive: true } : r));
+    }
 
     // An imported policy written by an agent who has not signed up yet is held
     // on the importer's id with the producer's email on the row. The book used
