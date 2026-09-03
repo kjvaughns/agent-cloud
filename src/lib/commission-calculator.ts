@@ -105,13 +105,6 @@ function ds(date: Date): string {
  * `numeric` columns arrive as strings through PostgREST, and `Number(null)` is
  * 0, which would silently switch renewals off rather than use the default.
  */
-function num(v: unknown, fallback: number): number {
-  if (v == null || v === "") return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-
 async function resolveOrgId(supabase: any, agentId: string): Promise<string | null> {
   const { data } = await supabase
     .from("profiles")
@@ -138,6 +131,11 @@ export async function calculateAndInsertAllCommissions(
     ? input.annualPremium
     : monthlyPremium * 12).toFixed(2));
   const effDate = new Date(`${effectiveDate.slice(0, 10)}T00:00:00.000Z`);
+  const { data: policyState } = await supabase
+    .from("policies")
+    .select("status,status_effective_date")
+    .eq("id", policyId)
+    .maybeSingle();
 
   // Get carrier info
   const { data: carrier } = await supabase
@@ -240,6 +238,8 @@ export async function calculateAndInsertAllCommissions(
       product,
       is_gtl: isGtl,
       commission_pct: resolution.pct,
+      annual_premium: annualPremium,
+      advance_pct: resolution.advanceMonths / 12,
       pct_source: resolution.pctSource,
       policy_year: 1,
 
@@ -271,6 +271,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: isGtl,
         commission_pct: resolution.pct,
+        annual_premium: annualPremium,
+        advance_pct: resolution.advanceMonths / 12,
         pct_source: resolution.pctSource,
         policy_year: 1,
 
@@ -327,6 +329,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: false,
         commission_pct: leg.spread,
+        annual_premium: annualPremium,
+        advance_pct: resolution.advanceMonths / 12,
         pct_source: resolution.pctSource,
         client_name: clientName,
         status: "pending",
@@ -352,6 +356,8 @@ export async function calculateAndInsertAllCommissions(
           product,
           is_gtl: false,
           commission_pct: leg.spread,
+          annual_premium: annualPremium,
+          advance_pct: resolution.advanceMonths / 12,
           pct_source: resolution.pctSource,
           client_name: clientName,
           status: "pending",
@@ -400,6 +406,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: false,
         commission_pct: personal.pct,
+        annual_premium: annualPremium,
+        advance_pct: null,
         pct_source: personal.source,
         client_name: clientName,
         status: "pending",
@@ -432,6 +440,8 @@ export async function calculateAndInsertAllCommissions(
         product,
         is_gtl: false,
         commission_pct: spread,
+        annual_premium: annualPremium,
+        advance_pct: null,
         pct_source: "grid",
         client_name: clientName,
         status: "pending",
@@ -443,7 +453,18 @@ export async function calculateAndInsertAllCommissions(
   }
 
 
-  const keyed = rows.map((r) => ({
+  const stopStatuses = new Set(["lapsed", "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na"]);
+  const stopDate = stopStatuses.has(policyState?.status ?? "")
+    ? (policyState?.status_effective_date ?? new Date().toISOString().slice(0, 10))
+    : null;
+  const payableRows = stopDate
+    ? rows.filter((r) => {
+        const contingent = r.payment_type === "deferred" || r.payment_type === "trail" ||
+          r.payment_type === "renewal" || (r.payment_type === "override" && Number(r.month_number ?? 0) > 0);
+        return !contingent || r.payment_date < stopDate;
+      })
+    : rows;
+  const keyed = payableRows.map((r) => ({
     ...r,
     organization_id: orgIdEarly,
     idempotency_key: commissionKey(r),
@@ -452,12 +473,22 @@ export async function calculateAndInsertAllCommissions(
   }));
 
   if (keyed.length > 0) {
+    const { data: paidRows } = await supabase
+      .from("commission_schedule")
+      .select("idempotency_key")
+      .eq("policy_id", policyId)
+      .eq("status", "paid")
+      .in("idempotency_key", keyed.map((r) => r.idempotency_key));
+    const paidKeys = new Set((paidRows ?? []).map((r: any) => r.idempotency_key));
+    const writable = keyed.filter((r) => !paidKeys.has(r.idempotency_key));
     // Upsert on the key: a retry rewrites the same values, a recalculation
     // corrects the amounts, and neither can duplicate a payment.
-    const { error } = await supabase
-      .from("commission_schedule")
-      .upsert(keyed, { onConflict: "idempotency_key" });
-    if (error) throw new Error(`Commission write failed: ${error.message}`);
+    if (writable.length > 0) {
+      const { error } = await supabase
+        .from("commission_schedule")
+        .upsert(writable, { onConflict: "idempotency_key" });
+      if (error) throw new Error(`Commission write failed: ${error.message}`);
+    }
   }
 
   // Any leg this run no longer produces is superseded rather than deleted. A
@@ -470,6 +501,7 @@ export async function calculateAndInsertAllCommissions(
       .update({ superseded_at: new Date().toISOString() })
       .eq("policy_id", policyId)
       .is("superseded_at", null)
+      .eq("status", "pending")
       .not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`)
       .then(
         () => {},
