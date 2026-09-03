@@ -558,12 +558,13 @@ export function resolveOverrides(
   writingPct: number,
   chain: { agentId: string; pct: number | null }[],
   annualPremium: number,
-  opts: { advanceMonths?: number; maxDepth?: number } = {},
+  opts: { advanceMonths?: number; maxDepth?: number } | number = {},
 ): OverrideLeg[] {
-  const maxDepth = opts.maxDepth ?? 25;
+  const normalized = typeof opts === "number" ? { maxDepth: opts } : opts;
+  const maxDepth = normalized.maxDepth ?? 25;
   // 12 keeps the old behaviour for any caller that does not say: the whole
   // year fronted, nothing trailed.
-  const advanceMonths = Math.max(0, Math.min(12, opts.advanceMonths ?? 12));
+  const advanceMonths = Math.max(0, Math.min(12, normalized.advanceMonths ?? 12));
   const trailMonths = 12 - advanceMonths;
   const monthly = annualPremium / 12;
 
