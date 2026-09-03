@@ -69,6 +69,15 @@ export const ADVANCE_LABELS: Record<AdvanceOption, string> = {
 };
 
 /**
+ * The advance assumed for a policy whose carrier is not configured yet.
+ *
+ * Nine months is what nearly every life carrier fronts, so a provisional
+ * calculation reads as advanced-and-paid rather than as a year of trail.
+ */
+export const PROVISIONAL_ADVANCE: AdvanceOption = "9_months";
+
+
+/**
  * Where a resolved number came from, in words.
  *
  * Deliberately neutral rather than second-person: these render on a contract
@@ -330,11 +339,15 @@ export function resolveCompensation(input: ResolveInput): Resolution {
     advance = carrier.default_advance_option;
     advanceSource = "carrier_default";
   } else if (provisional) {
-    // No carrier setup means no known advance term. As-earned fronts nothing,
-    // so the year pays month by month on its real months — the conservative
-    // answer, and the one a later recalculation can only improve on.
-    advance = "as_earned";
+    // No carrier setup means no known advance term. As-earned was the old
+    // guess and it was the wrong one: it fronts nothing, so a policy written
+    // in March read as twelve months of trail income instead of a commission
+    // that was in fact advanced and already paid. Nine months is the term
+    // almost every life carrier writes, so it is the honest default until the
+    // carrier is configured and a recalculation replaces it.
+    advance = PROVISIONAL_ADVANCE;
     advanceSource = "carrier_default";
+
   } else {
     failures.push("no_advance_option");
   }
