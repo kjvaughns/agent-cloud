@@ -1,99 +1,129 @@
-# Make Finances accurate and auditable
+# Rebuild Finances around the real payout model
 
 ## Confirmed problems
 
-The live schedule has 8,528 rows totaling $664,337.44, but every row is still marked `pending`. The Finances page nevertheless calls $300,777.06 dated through today “earned,” so scheduled estimates are being presented as actual payments.
+- The calculator currently creates schedules for advance, deferred/trail, override, and renewal, but the Finances page treats any pending row dated through today as earned even though all 8,528 live rows are still marked pending.
+- The personal ledger is fetched in one request while the team report is paginated, so high-volume ledgers can be silently truncated.
+- Inactive policy statuses still carry future trail and renewal projections because status changes do not stop future schedule rows.
+- `annualPremium` is accepted by the calculator but discarded in favor of monthly premium × 12.
+- The current renewal list includes month 121 (policy year 11), regardless of whether that carrier grid actually defines that year.
+- Date arithmetic uses JavaScript month rollover, which can shift policies issued on the 29th–31st into the wrong month.
+- The page’s explanation and adjacent reports use conflicting formulas, date windows, and meanings for earned, pending, and projected.
 
-The other confirmed issues are:
+## Correct payout model
 
-- The personal ledger uses one non-paginated read. Kaeden alone has 4,751 live schedule rows, so the KPIs, charts, and breakdowns can silently omit most of the ledger.
-- All 420 policies have schedules regardless of policy disposition. Lapsed, cancelled, withdrawn, not-taken, postponed, and carrier-N/A policies still carry $52,583.08 of future payments.
-- Renewal projections total $185,305.60. The engine creates default renewals for 419 policies through policy year 11, although the UI says years 2–10.
-- 197 policies are still using provisional compensation because their carriers are not configured. Those estimates are mixed into ordinary commission totals with no visible distinction.
-- The team report applies its selected date window, while the personal carrier/product breakdowns use lifetime rows and the “By Month” tab uses only the next 12 months. Adjacent totals therefore answer different questions.
-- The calculator accepts `annualPremium` but discards it and always rebuilds annual premium as monthly premium × 12. The current imported rows happen to match, but future annual/modal cases will be wrong.
-- Month arithmetic can roll dates such as January 31 into March, and per-month rounding can leave a few cents over or under the intended commission.
-- GTL cap metadata is only partially applied; override rows are also incorrectly marked non-GTL.
-- The explanation panel still documents obsolete fixed 75/25 and GTL formulas rather than the configured contract/carrier terms actually used.
+Every policy produces only four kinds of compensation:
+
+1. **Advance** — paid from advanceable premium.
+2. **Override** — each upline’s carrier-level spread, paid on the same advance/trail timing as the writer.
+3. **Trail** — monthly as-earned compensation after the advance window, only while premium continues.
+4. **Renewal** — annual anniversary compensation from the carrier grid for that policy year, only while premium continues.
+
+For a $100 monthly / $1,200 ALP policy, 80% writer, 9-month advance:
+
+```text
+Advanceable premium: $1,200 × 9/12 = $900
+Writer advance:      $900 × 80% = $720
+Writer trail:        $100 × 80% = $80 in policy months 10, 11, and 12
+Year-2 renewal:      $1,200 × carrier grid year-2 renewal %
+```
+
+For uplines at 100% and 125%:
+
+```text
+Upline 1 spread: 100% - 80%  = 20%
+Advance: $900 × 20% = $180; trail: $20 in months 10, 11, 12
+
+Upline 2 spread: 125% - 100% = 25%
+Advance: $900 × 25% = $225; trail: $25 in months 10, 11, 12
+```
+
+The override spread is calculated between consecutive payable carrier levels in the chain. A non-increasing level earns no override, and the hierarchy cannot pay more than the highest carrier level.
 
 ## Repair
 
-### 1. Establish one money vocabulary
+### 1. Correct schedule arithmetic
 
-Split every figure into explicit, non-overlapping states:
+- Use annual premium as the premium basis when supplied; derive it from monthly premium only when absent.
+- Advance = `ALP × advance months / 12 × compensation rate`.
+- Trail = `monthly premium × compensation rate` for each remaining policy month through month 12.
+- Use policy-month semantics explicitly: a 9-month advance produces trail on the 9th, 10th, and 11th monthly anniversaries (policy months 10–12), followed by the first renewal on the 12th monthly anniversary (start of policy year 2).
+- Apply that same advance window to every override spread.
+- Resolve the writer and each upline against the same carrier, product, age, state, risk class, and policy year.
+- Use end-of-month-safe anniversary dates.
+- Put any rounding remainder on the final trail installment so year-one compensation reconciles to the cent.
 
-- **Projected** — eligible future schedule rows.
-- **Scheduled to date** — eligible rows whose scheduled date has arrived, but which are not confirmed paid.
-- **Paid** — only rows confirmed from a carrier statement or an explicit payment action.
-- **Stopped / reversed** — rows suppressed because the policy no longer qualifies.
+### 2. Calculate renewals from the carrier grid
 
-Do not relabel a pending row as paid or earned merely because its date passed. Use the same definitions in personal KPIs, the agency income report, exports, charts, and breakdown tables.
+- On each annual anniversary, resolve the carrier grid row for that agent’s carrier level and that policy year.
+- Personal renewal = `ALP × personal renewal rate for that policy year`.
+- Renewal override = `ALP × that upline’s renewal-override rate for that carrier and policy year`.
+- Do not present a flat agency fallback as an ordinary carrier renewal when the grid is missing. Flag the policy as needing renewal setup and omit a guaranteed renewal amount until configured.
+- Stop at the last policy year configured by the carrier grid rather than generating an unconditional lifetime schedule.
 
-### 2. Fix the ledger reads and range consistency
+### 3. Make trail and renewal conditional on premium persistence
 
-- Page through the complete personal ledger just as the agency report already does.
-- Move range/status/type filtering into the server query and return shared summaries so every section uses the same source rows.
-- Give the personal overview and all breakdown tabs one visible date-range control.
-- Make “By Month” use the selected range; reserve the next-12-month dataset for the forecast chart only.
-- Ensure paid rows are excluded from pending totals and today is not counted again in “next 90 days.”
+- Persist and use the carrier status effective date supplied by carrier sync or status history.
+- When a policy becomes lapsed, cancelled, withdrawn, not-taken, postponed, or carrier-N/A, supersede every unpaid trail, override-trail, and renewal due on or after that carrier status date.
+- Preserve advances and payments confirmed before that date; do not erase history.
+- If a carrier reports reinstatement, recalculate only eligible future installments from the reinstatement/status-effective date.
+- Submitted, in-review, issued-not-paid, and lapse-pending schedules remain projected—not paid—until carrier evidence confirms eligibility.
 
-### 3. Make policy status control future money
+### 4. Establish one money vocabulary
 
-- Define payout eligibility centrally and apply it whenever a policy status changes.
-- Keep projections for submitted/in-review/issued-not-paid/active policies according to the existing workflow.
-- Stop future deferred, override, and renewal rows for lapsed, cancelled, withdrawn, not-taken, postponed, and carrier-N/A policies without deleting history.
-- Preserve already confirmed statement payments; record reversals/chargebacks rather than silently erasing paid history.
-- Re-enable future rows only through an explicit recovery/reactivation recalculation.
+- **Projected** — an eligible future advance, override, trail, or renewal.
+- **Due / unconfirmed** — its scheduled date arrived, but no statement confirmed payment.
+- **Paid** — matched to a carrier statement or explicitly reconciled.
+- **Stopped / reversed** — suppressed after a carrier status date or represented by a carrier-statement chargeback.
 
-### 4. Correct schedule generation
+Never call a pending row paid or earned just because its date passed. Keep provisional estimates from unconfigured carriers visibly separate from configured compensation.
 
-- Honor the supplied annual premium and derive it from monthly premium only when annual premium is absent.
-- Generate renewals for the documented policy years 2–10, eliminating the current year-11 row.
-- Use configured carrier/grid renewal rates where available. Keep agency defaults as clearly labeled projections, not confirmed income.
-- Keep provisional, unconfigured-carrier schedules visibly provisional and exclude them from “paid” figures.
-- Apply carrier cap metadata consistently to applicable direct and override schedules and preserve the correct carrier classification on every leg.
-- Use end-of-month-safe date arithmetic.
-- Put any rounding remainder on the final deferred payment so each policy’s year-one direct rows exactly equal annual premium × resolved rate.
-- Recalculate when premium, carrier, effective date, writing agent, contract level, advance option, or relevant grid terms change.
+### 5. Fix Finances totals and filtering
 
-### 5. Make each number explainable
+- Page through the complete personal ledger.
+- Give personal and team reports one shared date range and one shared eligibility/status definition.
+- Apply the same filtered rows to headline totals, carrier/product/month breakdowns, exports, and ranked reports.
+- Keep future projections out of paid totals, paid rows out of pending totals, and today out of “next 90 days.”
+- Use historical selected-range data for “By Month”; reserve the next-12-month dataset for forecast only.
+- Label the four categories exactly as Advance, Override, Trail, and Renewal.
 
-For every payout row expose:
+### 6. Make every amount explainable
 
-- policy and writing agent;
-- annual premium used;
-- compensation percentage and source;
-- advance option and source;
-- projected/paid/stopped state;
-- provisional/default-rate warning where applicable;
-- formula components for direct, override, and renewal amounts.
+Show on each payout row:
 
-Replace the stale fixed-formula accordion with the actual rules used for the selected row or policy.
+- policy, writing agent, and recipient;
+- monthly premium and ALP used;
+- carrier level, compensation/override spread, and source;
+- advance months and advanceable premium;
+- policy month/year and scheduled anniversary;
+- projected, due, paid, or stopped state;
+- formula used and any missing-grid/provisional warning.
 
-### 6. Backfill safely
+Replace the stale fixed-formula explainer with these exact rules and examples.
+
+### 7. Recalculate safely
 
 - Snapshot aggregate totals and per-policy schedules before recalculation.
-- Recalculate all policies through the existing `calculateAndInsertAllCommissions` path; do not introduce a second commission writer.
-- Supersede obsolete year-11 renewals and future rows for ineligible policies rather than deleting them.
-- Preserve carrier-statement matches and confirmed payment history.
-- Produce a reconciliation report showing changed policies, old/new totals, stopped future money, provisional policies, and unresolved setup issues.
+- Recalculate through the existing single commission calculator only.
+- Supersede obsolete rows instead of deleting them.
+- Preserve statement matches and confirmed payment history.
+- Produce a reconciliation report showing old/new totals, stopped future money, policies missing carrier grids, and changed formulas.
 
 ## Verification
 
-- Kaeden’s full 4,751-row ledger is available without truncation.
-- Personal, team, carrier, product, month, export, and schedule totals reconcile for the same filters.
+- The worked $100/month, 80% writer, 9-month advance example yields exactly $720 advance plus three $80 trails.
+- The 100% upline yields $180 advance plus three $20 trails; the 125% upline yields $225 plus three $25 trails.
+- First renewal lands on the one-year anniversary and uses the year-2 carrier-grid percentage; later anniversaries use their own configured policy-year rows.
+- A carrier-reported lapse stops unpaid trail and renewal rows on or after its effective status date while preserving earlier confirmed payments.
 - No pending row is labeled paid or earned solely because its date passed.
-- Dead policies contribute no future projected payout; paid history remains intact.
-- Renewals stop at policy year 10 and use either a named grid rate or a visibly provisional agency default.
-- For every policy, year-one direct commission equals the premium basis × resolved percentage to the cent.
-- Re-running recalculation creates no duplicate live rows and leaves unchanged schedules unchanged.
-- Reconciliation against a carrier statement can move matched rows to paid and retain chargebacks as negative actuals.
+- Personal, team, carrier, product, month, export, and payout totals reconcile for identical filters.
+- Recalculation creates no duplicate live rows and unchanged schedules remain unchanged.
 
 ## Technical scope
 
-- `src/lib/finances.functions.ts`: paginated/filtered ledger reads and canonical summary buckets.
-- `src/routes/_authenticated/finances.tsx` and `src/components/finances/income-report.tsx`: consistent range semantics, labels, breakdowns, and formula details.
-- `src/lib/commission-calculator.ts` and `src/lib/compensation/resolve.ts`: premium basis, renewal horizon, dates, rounding, cap handling, and provenance.
-- Policy update/sync paths: status-aware superseding/reactivation and recalculation triggers.
-- Reconciliation functions and a database migration: explicit schedule state transitions while retaining immutable history.
-- One-off audited backfill using the canonical calculator, followed by aggregate and per-policy checks.
+- `src/lib/commission-calculator.ts` and `src/lib/compensation/resolve.ts`: premium basis, policy-month dates, advances, trails, consecutive-level overrides, grid renewals, and rounding.
+- Compensation grid/lookup code: per-agent, per-policy-year personal and override renewal resolution.
+- Policy status and carrier-sync paths: carrier status effective date, stopping/reinstating future rows, and recalculation triggers.
+- `src/lib/finances.functions.ts`: complete paginated reads and canonical payout-state/date filtering.
+- `src/routes/_authenticated/finances.tsx` and the income report: shared ranges, accurate labels/totals, four categories, and formula provenance.
+- A schema migration only where needed for carrier status-effective dates and payout-state provenance, followed by an audited data recalculation through the canonical calculator.
