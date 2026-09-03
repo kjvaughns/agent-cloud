@@ -49,10 +49,31 @@ async function fetchAll(supabase: any, userId: string): Promise<Row[]> {
  */
 export const getFinancesData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ scope: scopeSchema.default("mine") }).parse(d ?? {}))
+  .inputValidator((d: unknown) => z.object({
+    scope: scopeSchema.default("mine"),
+    /** Whose ledger to show. Only honoured for somebody you may see pay for. */
+    agentId: z.string().uuid().optional(),
+    /** The income report's own window, independent of the page below it. */
+    from: z.string().optional(),
+    to: z.string().optional(),
+  }).parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context as { supabase: any; userId: string };
-    const rows = await fetchAll(supabase, userId);
+
+    // Somebody else's pay is a permission, not a consequence of being senior
+    // to them. mgr_view_agent_commissions has existed on the Roles page all
+    // along without anything reading it; this is what it was for.
+    const maySeeOthers = data.scope !== "mine" && await canSeeTeamPay(supabase, userId);
+    const scopeIds = maySeeOthers ? await resolveScopeAgentIds(supabase, data.scope) : [];
+
+    // An id nobody authorised falls back to your own ledger rather than
+    // erroring: the request is answerable, just not as asked.
+    const viewingId = data.agentId && maySeeOthers && scopeIds.includes(data.agentId)
+      ? data.agentId
+      : userId;
+
+    const rows = await fetchAll(supabase, viewingId);
+
 
     // Enrich with client names from policies
     const policyIds = Array.from(new Set(rows.map((r) => r.policy_id)));
