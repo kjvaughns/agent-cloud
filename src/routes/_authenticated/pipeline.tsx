@@ -143,19 +143,20 @@ function PipelinePage() {
   }, [qc]);
 
   const filtered = useMemo(() => {
+    const base = agentId ? clients.filter((c: any) => c.agent_id === agentId) : clients;
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
+    if (!q) return base;
     // Digits only count as a phone search when there are enough of them.
     // Stripping letters to "" made every phone "match" — so search matched all.
     const digits = q.replace(/\D/g, "");
-    return clients.filter((c: any) => {
+    return base.filter((c: any) => {
       const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase();
       if (name.includes(q)) return true;
       if ((c.email ?? "").toLowerCase().includes(q)) return true;
       const phone = (c.phone ?? "").replace(/\D/g, "");
       return digits.length >= 3 && phone.length > 0 && phone.includes(digits);
     });
-  }, [clients, query]);
+  }, [clients, query, agentId]);
 
 
   const pipelineClients = filtered.filter((c: any) => c.stage !== "sold");
