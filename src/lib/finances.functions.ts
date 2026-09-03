@@ -215,4 +215,3 @@ async function incomeReport(
     .sort((a, b) => b.total - a.total);
 }
 
-}
