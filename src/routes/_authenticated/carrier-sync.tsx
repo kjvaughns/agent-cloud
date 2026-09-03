@@ -350,11 +350,12 @@ function SyncWizard() {
               <p className="text-sm text-muted-foreground">
                 Tell Agent Cloud which columns hold each field. Detected automatically where possible — <span className="tnum">{file.rows.length.toLocaleString()}</span> rows found.
               </p>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {([
                   ["policy_number", "Policy Number *"],
                   ["status", "Policy Status *"],
                   ["client_name", "Client / Insured Name"],
+                  ["status_effective_date", "Status Effective Date"],
                 ] as const).map(([key, label]) => (
                   <div key={key}>
                     <div className="text-sm font-medium mb-1.5">{label}</div>
