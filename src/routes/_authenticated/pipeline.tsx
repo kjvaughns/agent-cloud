@@ -25,7 +25,7 @@ import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { BookImportDialog } from "@/components/pipeline/book-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
 import { PageShell, HeroBand } from "@/components/page-shell";
-import { ScopeToggle } from "@/components/scope-toggle";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 
@@ -96,6 +96,11 @@ function PipelinePage() {
     enabled: hydrated && scopeReady,
   });
   const [query, setQuery] = useState("");
+  // Narrow a team/agency board to one person. Cleared when the scope changes,
+  // since the picked agent may not be in the new scope's list.
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
+  useEffect(() => { setAgentId(undefined); }, [scope]);
+
   const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
   const { client: clientParam } = Route.useSearch();
@@ -138,19 +143,20 @@ function PipelinePage() {
   }, [qc]);
 
   const filtered = useMemo(() => {
+    const base = agentId ? clients.filter((c: any) => c.agent_id === agentId) : clients;
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
+    if (!q) return base;
     // Digits only count as a phone search when there are enough of them.
     // Stripping letters to "" made every phone "match" — so search matched all.
     const digits = q.replace(/\D/g, "");
-    return clients.filter((c: any) => {
+    return base.filter((c: any) => {
       const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase();
       if (name.includes(q)) return true;
       if ((c.email ?? "").toLowerCase().includes(q)) return true;
       const phone = (c.phone ?? "").replace(/\D/g, "");
       return digits.length >= 3 && phone.length > 0 && phone.includes(digits);
     });
-  }, [clients, query]);
+  }, [clients, query, agentId]);
 
 
   const pipelineClients = filtered.filter((c: any) => c.stage !== "sold");
@@ -200,6 +206,8 @@ function PipelinePage() {
           actions={
             <>
               <ScopeToggle exclude={["imo"]} />
+              <ScopeAgentFilter value={agentId} onChange={setAgentId} />
+
               {tabControls}
               <div className="relative w-full sm:w-56">
                 <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
