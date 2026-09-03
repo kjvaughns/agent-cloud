@@ -99,22 +99,32 @@ export const getFinancesData = createServerFn({ method: "POST" })
       policy_number: clientMap.get(r.policy_id)?.policy_number ?? null,
     }));
 
-    // Somebody else's pay is a permission, not a consequence of being senior
-    // to them. mgr_view_agent_commissions has existed on the Roles page all
-    // along without anything reading it; this is what it was for.
-    let team: TeamEarnings[] | null = null;
-    if (data.scope !== "mine" && await canSeeTeamPay(supabase, userId)) {
-      team = await earningsByAgent(supabase, await resolveScopeAgentIds(supabase, data.scope), userId);
-    }
+    const report = maySeeOthers
+      ? await incomeReport(supabase, scopeIds, userId, data.from ?? null, data.to ?? null)
+      : null;
 
-    return { rows: enriched, team };
+    return {
+      rows: enriched,
+      /** Ranked income for everyone in scope, including the caller. */
+      report,
+      /** Whose ledger `rows` belongs to — may differ from the caller. */
+      viewing_agent_id: viewingId,
+      may_see_others: maySeeOthers,
+    };
   });
 
-export type TeamEarnings = {
+export type AgentIncome = {
   agent_id: string;
   name: string;
-  paid: number;
+  /** Everything scheduled inside the window, earned or not. */
+  total: number;
+  /** Advance plus the trail/deferred balance: their own production. */
+  direct: number;
+  override: number;
+  renewal: number;
+  /** Of `total`, what is dated after today and so not yet earned. */
   pending: number;
+  is_self: boolean;
 };
 
 async function canSeeTeamPay(supabase: any, userId: string): Promise<boolean> {
@@ -126,32 +136,83 @@ async function canSeeTeamPay(supabase: any, userId: string): Promise<boolean> {
   return Boolean(perms?.mgr_view_agent_commissions);
 }
 
-/** What each person was paid, one row each — never summed with the caller's own. */
-async function earningsByAgent(
+const CHUNK = 200;
+
+function chunk<T>(xs: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n));
+  return out;
+}
+
+/**
+ * What each person earned in a window, one row each.
+ *
+ * Never summed into the caller's own figures: an override on a downline policy
+ * and their advance on the same policy are both real, and adding them together
+ * is not. This is a separate question and is presented as one.
+ *
+ * A full agency year is well past PostgREST's 1,000-row default, so every page
+ * is read explicitly — a truncated read here would silently under-report pay.
+ */
+async function incomeReport(
   supabase: any, agentIds: string[], userId: string,
-): Promise<TeamEarnings[]> {
-  const others = agentIds.filter((id) => id !== userId);
-  if (!others.length) return [];
+  from: string | null, to: string | null,
+): Promise<AgentIncome[]> {
+  const ids = Array.from(new Set([...agentIds, userId]));
+  if (!ids.length) return [];
 
-  const [{ data: rows }, { data: people }] = await Promise.all([
-    supabase.from("commission_schedule").select("agent_id, amount, status").in("agent_id", others),
-    supabase.from("profiles").select("id, first_name, last_name").in("id", others),
-  ]);
+  const rows: { agent_id: string; amount: any; payment_type: string; payment_date: string }[] = [];
+  for (const group of chunk(ids, CHUNK)) {
+    for (let page = 0; ; page++) {
+      let q = supabase
+        .from("commission_schedule")
+        .select("agent_id, amount, payment_type, payment_date")
+        .in("agent_id", group)
+        .is("superseded_at", null)
+        .order("payment_date", { ascending: true })
+        .range(page * 1000, page * 1000 + 999);
+      if (from) q = q.gte("payment_date", from);
+      if (to) q = q.lte("payment_date", to);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      rows.push(...(data ?? []));
+      if ((data?.length ?? 0) < 1000) break;
+    }
+  }
 
-  const byId = new Map<string, TeamEarnings>();
-  for (const p of people ?? []) {
+  const people: { id: string; first_name: string | null; last_name: string | null }[] = [];
+  for (const group of chunk(ids, CHUNK)) {
+    const { data } = await supabase
+      .from("profiles").select("id, first_name, last_name").in("id", group);
+    people.push(...(data ?? []));
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const byId = new Map<string, AgentIncome>();
+  for (const p of people) {
     byId.set(p.id, {
       agent_id: p.id,
       name: `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Unnamed",
-      paid: 0,
-      pending: 0,
+      total: 0, direct: 0, override: 0, renewal: 0, pending: 0,
+      is_self: p.id === userId,
     });
   }
-  for (const r of rows ?? []) {
-    const entry = byId.get(r.agent_id);
-    if (!entry) continue;
-    if (r.status === "paid") entry.paid += Number(r.amount ?? 0);
-    else entry.pending += Number(r.amount ?? 0);
+  for (const r of rows) {
+    const e = byId.get(r.agent_id);
+    if (!e) continue;
+    const amt = Number(r.amount ?? 0);
+    e.total += amt;
+    if (r.payment_type === "override") e.override += amt;
+    else if (r.payment_type === "renewal") e.renewal += amt;
+    else e.direct += amt;
+    if (r.payment_date > today) e.pending += amt;
   }
-  return Array.from(byId.values()).sort((a, b) => (b.paid + b.pending) - (a.paid + a.pending));
+
+  // Somebody with nothing in the window is not a ranking entry; they would
+  // read as "earned nothing" when the honest answer is "no business dated here".
+  return Array.from(byId.values())
+    .filter((e) => e.total !== 0)
+    .sort((a, b) => b.total - a.total);
+}
+
 }
