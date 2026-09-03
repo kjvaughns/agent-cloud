@@ -96,6 +96,11 @@ function PipelinePage() {
     enabled: hydrated && scopeReady,
   });
   const [query, setQuery] = useState("");
+  // Narrow a team/agency board to one person. Cleared when the scope changes,
+  // since the picked agent may not be in the new scope's list.
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
+  useEffect(() => { setAgentId(undefined); }, [scope]);
+
   const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
   const { client: clientParam } = Route.useSearch();
