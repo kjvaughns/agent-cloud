@@ -441,6 +441,47 @@ export async function loadUplineChain(
 
 
 /**
+ * The upline chain for a carrier the agency never configured.
+ *
+ * Imported history is full of these, and returning an empty chain meant no
+ * upline was ever paid an override on any of it. Each upline resolves the same
+ * provisional way the writer does — their own contract for that carrier when
+ * one exists (so a 6-month, 100% appointment is used as written), otherwise
+ * their agency position base.
+ */
+export async function loadProvisionalUplineChain(
+  supabase: Client,
+  agentId: string,
+  carrierId: string | null,
+  maxDepth = 25,
+): Promise<{ agentId: string; pct: number | null; carrierLevelName: string | null }[]> {
+  const chain: { agentId: string; pct: number | null; carrierLevelName: string | null }[] = [];
+  const seen = new Set<string>([agentId]);
+  let cursor = agentId;
+
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("upline_id")
+      .eq("id", cursor)
+      .maybeSingle();
+    const uplineId: string | undefined = profile?.upline_id ?? undefined;
+    if (!uplineId || seen.has(uplineId)) break;
+    seen.add(uplineId);
+
+    const resolution = await resolveProvisionalForAgent(supabase, uplineId, carrierId);
+    chain.push({
+      agentId: uplineId,
+      pct: resolution.ok ? resolution.pct : null,
+      carrierLevelName: resolution.ok ? resolution.carrierLevelName : null,
+    });
+    cursor = uplineId;
+  }
+  return chain;
+}
+
+
+/**
  * Record — or clear — why a policy could not be paid.
  *
  * The old calculator wrote a console warning and queued the policy silently.

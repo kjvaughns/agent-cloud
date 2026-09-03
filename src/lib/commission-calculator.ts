@@ -41,6 +41,7 @@
 import {
   resolveForAgent,
   resolveProvisionalForAgent,
+  loadProvisionalUplineChain,
   loadUplineChain,
   recordSetupIssue,
 } from "@/lib/compensation/lookup.server";
@@ -304,7 +305,10 @@ export async function calculateAndInsertAllCommissions(
           riskClass: facts.riskClass,
         },
       })
-    : [];
+    // Unconfigured carrier: the hierarchy still exists and still holds
+    // contracts, so price the chain provisionally rather than paying no
+    // override at all on imported history.
+    : await loadProvisionalUplineChain(supabase, agentId, carrierId);
 
   // An override is fronted on the same advance the writer is on. Six months
   // means half the year's spread now and half across months 7-12; nine months
