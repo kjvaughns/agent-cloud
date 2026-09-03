@@ -181,7 +181,7 @@ export async function calculateAndInsertAllCommissions(
     // price it provisionally off the agent's agency position at as-earned. The
     // setup issue below is still recorded, so the carrier surfaces as one to
     // configure, and configuring it recalculates the policy properly.
-    : await resolveProvisionalForAgent(supabase, agentId);
+    : await resolveProvisionalForAgent(supabase, agentId, carrierId);
 
   // Whatever happens, the agent and the owner get told. The old code wrote a
   // console warning and queued the policy silently, so an agent posted a deal,
