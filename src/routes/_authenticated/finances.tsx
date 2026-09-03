@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { ScopeToggle } from "@/components/scope-toggle";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
+import { IncomeReport, incomeBounds } from "@/components/finances/income-report";
+
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -63,8 +65,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
-  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope; agent?: string } => ({
     scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+    agent: typeof s.agent === "string" && s.agent ? s.agent : undefined,
   }),
   head: () => ({
     meta: [
@@ -86,16 +89,34 @@ function monthKey(d: Date) {
 function FinancesPage() {
   const fn = useServerFn(getFinancesData);
   const { scope, ready: scopeReady } = useScope();
-  const { data, isLoading } = useQuery({
+  const { agent } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // The report's window is its own control; the ledger below is unaffected.
+  const [range, setRange] = useState("ytd");
+  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
+  const bounds = useMemo(() => incomeBounds(range, custom), [range, custom]);
+
+  const { data, isLoading, isFetching } = useQuery({
     enabled: scopeReady,
-    queryKey: ["finances", scope],
-    queryFn: () => fn({ data: { scope } }),
+    queryKey: ["finances", scope, agent ?? "me", bounds.from ?? "", bounds.to ?? ""],
+    queryFn: () => fn({ data: { scope, agentId: agent, from: bounds.from, to: bounds.to } }),
   });
+
+  const report = data?.report ?? null;
+  const viewingId = data?.viewing_agent_id;
+  const viewingOther = Boolean(viewingId && agent && viewingId === agent);
+  const viewingName = report?.find((r) => r.agent_id === viewingId)?.name ?? null;
+
+  function setAgent(agentId?: string) {
+    navigate({ search: (prev: any) => ({ ...prev, agent: agentId }), replace: true });
+  }
 
   // Always the caller's own rows, at every scope. See the note on
   // getFinancesData: widening these would double-count every override.
   const rows: Row[] = data?.rows ?? [];
-  const team = data?.team ?? null;
+
+  
 
   const [section, setSection] = useState<string>("overview");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -232,41 +253,50 @@ function FinancesPage() {
       <div className="col">
         <HeroBand
           title="Finances"
-          subtitle="Commissions, forecasts & payouts"
-          actions={<ScopeToggle />}
+          subtitle={viewingOther && viewingName
+            ? `Viewing ${viewingName}'s commissions`
+            : "Commissions, forecasts & payouts"}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <ScopeToggle />
+              {data?.may_see_others && (
+                <ScopeAgentFilter value={agent} onChange={setAgent} />
+              )}
+            </div>
+          }
         />
+
+        {viewingOther && (
+          <Panel>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                Viewing <span className="font-medium">{viewingName}</span>&apos;s finances. Every
+                figure below is theirs, not yours.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setAgent(undefined)}>
+                Back to my finances
+              </Button>
+            </div>
+          </Panel>
+        )}
 
         {/* Deliberately beside the personal figures rather than folded into
             them. Your override on a downline policy and their advance on the
             same policy are both real; adding them together is not. */}
-        {team && team.length > 0 && (
-          <Panel title={scope === "agency" ? "What the agency earned" : "What your team earned"}>
-            <p className="text-xs text-muted-foreground">
-              Separate from your own figures above — your overrides on their business are already
-              counted there.
-            </p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th className="pb-2 font-medium">Agent</th>
-                    <th className="pb-2 text-right font-medium">Paid</th>
-                    <th className="pb-2 text-right font-medium">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.map((t) => (
-                    <tr key={t.agent_id} className="border-t border-border-soft">
-                      <td className="py-2">{t.name}</td>
-                      <td className="tnum py-2 text-right">{fmtCurrency(t.paid)}</td>
-                      <td className="tnum py-2 text-right text-muted-foreground">{fmtCurrency(t.pending)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
+        {data?.may_see_others && (
+          <IncomeReport
+            report={report}
+            loading={isFetching}
+            range={range}
+            onRange={(v) => setRange(v)}
+            onCustom={(from, to) => { setCustom({ from, to }); setRange("__custom"); }}
+            rangeLabel={bounds.label}
+            scopeLabel={scope === "agency" ? "Agency" : "Team"}
+            selectedAgentId={agent}
+            onSelectAgent={(id) => setAgent(id === agent ? undefined : id)}
+          />
         )}
+
 
         {/* Reconciliation was a separate nav item; it belongs with the money. */}
         <Tabs value={section} onValueChange={setSection} className="w-full">
