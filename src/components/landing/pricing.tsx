@@ -47,7 +47,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
       key: "agency",
       name: "Agency",
       price: money(pricing.agencyBase),
-      blurb: `Everything in Solo, for your whole team. Includes up to ${pricing.includedSeats} active users.`,
+      blurb: "Everything in Solo, for your whole team — every agent included, however many you have.",
       features: [
         "Recruiting and onboarding",
         "Licensing and contracting",
@@ -111,8 +111,7 @@ export function PricingSection({ pricing, checkoutReady }: Props) {
 
               {p.featured && (
                 <p className="mt-5 text-xs text-muted-foreground leading-relaxed">
-                  {money(pricing.seatOverage)}/month per additional active user. An active user is
-                  anyone with workspace access — pending invitations are not billed until accepted.
+                  One price for the whole agency. Adding an agent does not change the bill.
                 </p>
               )}
 

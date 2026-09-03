@@ -9,12 +9,34 @@
  * backlog — see docs/PHASE1-AUDIT.md.
  */
 export const PRICING = {
+  /**
+   * Flat, for as many agents as the agency has.
+   *
+   * ── The seat charge nobody was ever charged ──
+   *
+   * This carried `includedSeats: 15` and `seatOverage: 25`, and the billing
+   * overview added `overageSeats * seatOverage` to the total it displayed. The
+   * agency checkout has always been `line_items: [{ price: agency_plan,
+   * quantity: 1 }]` — one flat subscription — and nothing anywhere updates a
+   * subscription quantity. `PRICE_IDS.seat_overage` is declared and never read.
+   *
+   * So the overage existed in two places: a number shown to owners in
+   * Settings ▸ Billing, and a promise on the public pricing page. Stripe never
+   * billed a cent of it. Removing it takes no revenue and stops the product
+   * quoting a charge it does not make.
+   */
   agencyBase: 399,
-  includedSeats: 15,
-  seatOverage: 25,
   novaPro: 49,
+  /**
+   * What an AGENCY pays to sponsor Nova for one of its agents, per agent.
+   *
+   * A separate Stripe price already existed for this (`nova_pro_agency_seat`);
+   * only the figure the product quoted was the personal one. An agency
+   * sponsoring a seat does not also earn profit share on it.
+   */
+  novaSponsored: 39,
   /** Solo plan does NOT include Nova Pro — it is bought separately at novaPro. */
-  soloAgent: 50,
+  soloAgent: 49,
   whiteLabelSetup: 999,
   whiteLabelMonthly: 499,
   novaPartnerRate: 0.2, // default; per-org override in organizations.nova_partner_commission_rate
@@ -74,12 +96,14 @@ export function pricingFromPlans(rows: PlanRow[] | null | undefined): Pricing {
   const nova = by.get("nova_pro");
   const white = by.get("white_label");
 
+  // `included_seats` and `seat_overage_price` are deliberately NOT read. The
+  // columns stay on the table — dropping them would destroy data for no gain —
+  // but an operator setting them can no longer reintroduce a charge the
+  // checkout does not make.
   return {
     ...PRICING,
     soloAgent:         num(solo?.monthly_price, PRICING.soloAgent),
     agencyBase:        num(agency?.monthly_price, PRICING.agencyBase),
-    includedSeats:     num(agency?.included_seats, PRICING.includedSeats),
-    seatOverage:       num(agency?.seat_overage_price, PRICING.seatOverage),
     novaPro:           num(nova?.monthly_price, PRICING.novaPro),
     whiteLabelMonthly: num(white?.monthly_price, PRICING.whiteLabelMonthly),
     whiteLabelSetup:   num(white?.setup_price, PRICING.whiteLabelSetup),

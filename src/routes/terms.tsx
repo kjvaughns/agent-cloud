@@ -24,8 +24,7 @@ export const Route = createFileRoute("/terms")({
       <h2>Subscriptions and billing</h2>
       <ul>
         <li>Plans bill monthly in advance through Stripe.</li>
-        <li>The Agency Plan includes a set number of active users; additional active users bill at the published per-seat rate.</li>
-        <li>An <strong>active user</strong> is anyone with access to the workspace. Pending invitations are not billed until accepted.</li>
+        <li>The Agency Plan is a flat monthly price covering every agent in the agency. There is no per-seat charge and no cap on active users.</li>
         <li>Nova AI Pro is a separate per-user add-on and is not included in any plan.</li>
       </ul>
 
