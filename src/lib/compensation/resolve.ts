@@ -480,13 +480,17 @@ export function planYearOne(
   monthlyPremium: number,
   pct: number,
   advanceMonths: number,
+  annualPremium?: number | null,
 ): YearOnePlan {
   const rate = asFraction(pct);
-  const annual = monthlyPremium * 12;
+  const annual = annualPremium != null && annualPremium > 0
+    ? annualPremium
+    : monthlyPremium * 12;
   const yearOneTotal = round2(annual * rate);
 
   const months = Math.max(0, Math.min(12, advanceMonths));
-  const advanceAmount = round2(monthlyPremium * months * rate);
+  const advanceablePremium = annual * (months / 12);
+  const advanceAmount = round2(advanceablePremium * rate);
   const balance = round2(yearOneTotal - advanceAmount);
   const asEarnedMonths = 12 - months;
 
@@ -609,7 +613,7 @@ export function resolveOverrides(
  * default percentage no longer needs the years-2-5 / years-6+ split that only
  * ever existed because carrier grids publish those bands separately.
  */
-export const RENEWAL_MONTHS = [13, 25, 37, 49, 61, 73, 85, 97, 109, 121] as const;
+export const RENEWAL_MONTHS = [13, 25, 37, 49, 61, 73, 85, 97, 109] as const;
 
 /** Which policy year a renewal month belongs to — month 13 is year 2. */
 export function policyYearForMonth(month: number): number {
@@ -620,7 +624,7 @@ export type RenewalRate = {
   /** Stored form: 3 means 3%. */
   pct: number;
   /** Whether the carrier published this rate or the agency default filled in. */
-  source: "grid" | "agency_default";
+  source: "grid";
 };
 
 /**
@@ -636,12 +640,8 @@ export type RenewalRate = {
  */
 export function renewalRate(
   gridPct: number | null | undefined,
-  agencyDefaultPct: number | null | undefined,
 ): RenewalRate | null {
   if (gridPct != null && gridPct > 0) return { pct: gridPct, source: "grid" };
-  if (agencyDefaultPct != null && agencyDefaultPct > 0) {
-    return { pct: agencyDefaultPct, source: "agency_default" };
-  }
   return null;
 }
 

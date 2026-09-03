@@ -88,8 +88,10 @@ type CommissionInput = {
 };
 
 function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
+  const day = date.getUTCDate();
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last));
   return d;
 }
 
@@ -132,8 +134,10 @@ export async function calculateAndInsertAllCommissions(
   // path a recalculation takes.
   const calcRunId = crypto.randomUUID();
 
-  const annualPremium = Number((monthlyPremium * 12).toFixed(2));
-  const effDate = new Date(effectiveDate);
+  const annualPremium = Number((input.annualPremium && input.annualPremium > 0
+    ? input.annualPremium
+    : monthlyPremium * 12).toFixed(2));
+  const effDate = new Date(`${effectiveDate.slice(0, 10)}T00:00:00.000Z`);
 
   // Get carrier info
   const { data: carrier } = await supabase
@@ -214,7 +218,7 @@ export async function calculateAndInsertAllCommissions(
   // for `advanceMonths` of premium at this agent's rate; the rest falls to
   // as-earned over the remainder. The old code split 75/25 into three fixed
   // months regardless of what any agency had configured.
-  const plan = planYearOne(monthlyPremium, resolution.pct, resolution.advanceMonths);
+  const plan = planYearOne(monthlyPremium, resolution.pct, resolution.advanceMonths, annualPremium);
   const yr1Total = plan.yearOneTotal;
 
   // A fixed-cap carrier is a configured fact, not a code constant. The old
@@ -258,7 +262,7 @@ export async function calculateAndInsertAllCommissions(
         policy_id: policyId,
         agent_id: agentId,
         writing_agent_id: agentId,
-        payment_date: ds(addMonths(effDate, month)),
+        payment_date: ds(addMonths(effDate, month - 1)),
         // The table's allowed payment types call the un-advanced balance
         // "deferred"; that is what Finances and the dashboard read.
         payment_type: "deferred",
@@ -341,7 +345,7 @@ export async function calculateAndInsertAllCommissions(
           agent_id: leg.agentId,
           source_agent_id: agentId,
           writing_agent_id: agentId,
-          payment_date: ds(addMonths(effDate, month)),
+          payment_date: ds(addMonths(effDate, month - 1)),
           payment_type: "override",
           amount: leg.trailAmount,
           carrier: carrierName,
@@ -369,21 +373,6 @@ export async function calculateAndInsertAllCommissions(
   //
   // So: the grid still wins wherever it speaks, the agency's own default fills
   // in wherever it does not, and every renewal month asks the same question.
-  const { data: orgSettings } = orgIdEarly
-    ? await supabase
-        .from("organization_settings")
-        // select("*") because these two columns arrive with a migration and
-        // PostgREST rejects the whole select with 42703 when one is missing.
-        .select("*")
-        .eq("organization_id", orgIdEarly)
-        .maybeSingle()
-    : { data: null };
-
-  // Absent settings row → the same numbers the column defaults carry, so an
-  // agency that has never opened the page still gets renewals.
-  const defaultRenewalPct = num(orgSettings?.renewal_pct_default, 3);
-  const defaultOverrideRenewalPct = num(orgSettings?.override_renewal_pct_default, 1);
-
   const renewalQuery = {
     levelName: myLevelName,
     productName: product,
@@ -395,8 +384,9 @@ export async function calculateAndInsertAllCommissions(
   for (const month of RENEWAL_MONTHS) {
     const policyYear = policyYearForMonth(month);
     const gridRow = selectGridRule(grid, { ...renewalQuery, policyYear });
-    const personal = renewalRate(gridRow?.pct ?? null, defaultRenewalPct);
-    const date = ds(addMonths(effDate, month));
+    const personal = renewalRate(gridRow?.pct ?? null);
+    // Month 13 is the first anniversary: 12 calendar months after issue.
+    const date = ds(addMonths(effDate, month - 1));
 
     if (personal) {
       rows.push({
@@ -418,11 +408,18 @@ export async function calculateAndInsertAllCommissions(
       });
     }
 
-    // Every upline earns the override renewal — each of them the same
-    // percentage of ALP, not one percent shared out. A renewal is a servicing
-    // payment on a policy that stayed on the books, and everyone who supports
-    // that agent is still supporting it in year six.
+    // Renewal overrides are the consecutive carrier-grid spread, exactly like
+    // year-one overrides. No configured grid rate means no invented payout.
+    let renewalPaidUpTo = personal?.pct ?? 0;
     for (const leg of legs) {
+      const upline = chain.find((link) => link.agentId === leg.agentId);
+      const uplineRow = selectGridRule(grid, {
+        ...renewalQuery,
+        levelName: upline?.carrierLevelName ?? null,
+        policyYear,
+      });
+      const spread = Math.max(0, Number(uplineRow?.pct ?? 0) - renewalPaidUpTo);
+      if (spread <= 0) continue;
       rows.push({
         policy_id: policyId,
         agent_id: leg.agentId,
@@ -430,17 +427,18 @@ export async function calculateAndInsertAllCommissions(
         writing_agent_id: agentId,
         payment_date: date,
         payment_type: "renewal",
-        amount: renewalAmount(annualPremium, defaultOverrideRenewalPct),
+        amount: renewalAmount(annualPremium, spread),
         carrier: carrierName,
         product,
         is_gtl: false,
-        commission_pct: defaultOverrideRenewalPct,
-        pct_source: "agency_default",
+        commission_pct: spread,
+        pct_source: "grid",
         client_name: clientName,
         status: "pending",
         policy_year: policyYear,
         month_number: month,
       });
+      renewalPaidUpTo = Number(uplineRow?.pct ?? renewalPaidUpTo);
     }
   }
 
