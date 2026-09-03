@@ -1087,6 +1087,7 @@ export const runCommissionBackfill = createServerFn({ method: "POST" })
           carrierId: policy.carrier_id,
           product: policy.product ?? "",
           monthlyPremium: Number(policy.monthly_premium ?? 0),
+           annualPremium: Number(policy.annual_premium ?? 0) || null,
           effectiveDate: policy.effective_date || new Date().toISOString().slice(0, 10),
           clientName,
         });

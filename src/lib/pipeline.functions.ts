@@ -678,6 +678,7 @@ export const addPolicy = createServerFn({ method: "POST" })
         carrierId: data.carrier_id ?? null,
         product: data.product ?? "",
         monthlyPremium: data.monthly_premium ?? 0,
+         annualPremium: data.annual_premium ?? null,
         effectiveDate: data.effective_date ?? null,
         clientName,
       });

@@ -382,7 +382,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
       const chunk = ids.slice(i, i + 500);
       const { data: rows, error } = await supabaseAdmin
         .from("policies")
-        .select("id, agent_id, carrier_id, organization_id")
+        .select("id, agent_id, carrier_id, organization_id, status, product, monthly_premium, annual_premium, effective_date, clients(first_name,last_name)")
         .in("id", chunk);
       if (error) throw new Error(error.message);
       pols.push(...(rows ?? []));
@@ -425,6 +425,27 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
         if (upErr) throw new Error(upErr.message);
         updated += count ?? chunk.length;
       }
+    }
+
+    // A reinstated policy earns only through the canonical calculator. Its
+    // stable keys reactivate the valid future legs without resurrecting rows
+    // that no longer match the carrier grid or hierarchy.
+    for (const update of data.updates) {
+      if (update.new_status !== "active" || !allowed.has(update.policy_id)) continue;
+      const policy = pols.find((p) => p.id === update.policy_id);
+      if (!policy || policy.status === "active") continue;
+      const { calculateAndInsertAllCommissions } = await import("@/lib/commission-calculator");
+      const client = policy.clients;
+      await calculateAndInsertAllCommissions(supabaseAdmin, {
+        policyId: policy.id,
+        agentId: policy.agent_id,
+        carrierId: policy.carrier_id,
+        product: policy.product ?? "",
+        monthlyPremium: Number(policy.monthly_premium ?? 0),
+        annualPremium: Number(policy.annual_premium ?? 0) || null,
+        effectiveDate: policy.effective_date,
+        clientName: client ? `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() : "",
+      });
     }
 
     // Policies matched by insured name only had a placeholder number — write the

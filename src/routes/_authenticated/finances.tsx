@@ -636,7 +636,7 @@ function PayoutRow({ row }: { row: Row }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <TypeBadge type={row.payment_type} />
-          <StatusBadge status={row.status} />
+          <StatusBadge status={row.status} paymentDate={row.payment_date} />
           <span className="tnum font-display font-bold" style={{ fontFamily: "var(--font-display)" }}>{fmtCurrency(row.amount)}</span>
         </div>
       </div>
@@ -652,11 +652,16 @@ function PayoutRow({ row }: { row: Row }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, paymentDate }: { status: string; paymentDate: string }) {
+  const display = status === "paid"
+    ? "Paid"
+    : paymentDate <= new Date().toISOString().slice(0, 10)
+      ? "Due / unconfirmed"
+      : "Projected";
   const cls = status === "paid"
     ? "bg-success/15 text-success border-success/30"
     : "bg-warning/15 text-warning border-warning/30";
-  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{status}</span>;
+  return <span className={`text-xs px-2 py-0.5 rounded-full border ${cls}`}>{display}</span>;
 }
 
 function EmptyState({ title, body, cta }: { title: string; body: string; cta?: React.ReactNode }) {

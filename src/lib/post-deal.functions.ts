@@ -258,6 +258,7 @@ export const postDeal = createServerFn({ method: "POST" })
         carrierId: data.policy.carrier_id,
         product: data.policy.product,
         monthlyPremium: data.policy.monthly_premium,
+         annualPremium: annual,
         effectiveDate: data.policy.effective_date,
         clientName,
       });
