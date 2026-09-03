@@ -25,7 +25,7 @@ import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { BookImportDialog } from "@/components/pipeline/book-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
 import { PageShell, HeroBand } from "@/components/page-shell";
-import { ScopeToggle } from "@/components/scope-toggle";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 
