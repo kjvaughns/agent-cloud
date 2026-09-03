@@ -70,12 +70,16 @@ export function SoldTab({ clients, onOpen }: { clients: any[]; onOpen: (id: stri
     let list = [...clients];
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter(
-        (c) =>
-          `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-          (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")),
-      );
+      const digits = q.replace(/\D/g, "");
+      list = list.filter((c) => {
+        const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase();
+        if (name.includes(q)) return true;
+        if ((c.email ?? "").toLowerCase().includes(q)) return true;
+        const phone = (c.phone ?? "").replace(/\D/g, "");
+        return digits.length >= 3 && phone.length > 0 && phone.includes(digits);
+      });
     }
+
     if (carrier !== "all") list = list.filter((c) => c.latest_policy?.carriers?.name === carrier);
     if (filter === "needs_review") list = list.filter((c) => c.latest_policy?.status === "in_review");
     if (filter === "needs_contact")
