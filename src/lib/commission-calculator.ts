@@ -495,15 +495,17 @@ export async function calculateAndInsertAllCommissions(
   // commission that was promised and then withdrawn is something an agent will
   // ask about, and "it is not in the table" is not an answer.
   const liveKeys = keyed.map((r) => r.idempotency_key);
-  if (liveKeys.length > 0) {
-    await supabase
+  {
+    let stale = supabase
       .from("commission_schedule")
       .update({ superseded_at: new Date().toISOString() })
       .eq("policy_id", policyId)
       .is("superseded_at", null)
-      .eq("status", "pending")
-      .not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`)
-      .then(
+      .eq("status", "pending");
+    if (liveKeys.length > 0) {
+      stale = stale.not("idempotency_key", "in", `(${liveKeys.map((k) => `"${k}"`).join(",")})`);
+    }
+    await stale.then(
         () => {},
         (e: any) => console.error("[commissions] supersede failed:", e?.message),
       );
