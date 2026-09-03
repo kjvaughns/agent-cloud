@@ -155,6 +155,7 @@ const RowSchema = z.object({
   policy_number: z.string().trim().min(1),
   status_raw: z.string().trim().min(1),
   client_name: z.string().optional(),
+  status_effective_date: z.string().optional(),
 });
 
 const PreviewSchema = z.object({
@@ -175,6 +176,7 @@ export type SyncUpdate = {
   matched_by?: "policy_number" | "insured_name";
   /** Real carrier number to write onto a policy that only had a placeholder. */
   set_policy_number?: string;
+  status_effective_date?: string;
 };
 
 
@@ -329,6 +331,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
         name_mismatch: matchedBy === "policy_number" && row.client_name ? !nameSimilar(clientName, row.client_name) : false,
         matched_by: matchedBy,
         ...(fillNumber ? { set_policy_number: fillNumber } : {}),
+        ...(row.status_effective_date ? { status_effective_date: row.status_effective_date.slice(0, 10) } : {}),
       });
     }
 
@@ -353,6 +356,7 @@ const ApplySchema = z.object({
     policy_id: z.string().uuid(),
     new_status: z.enum(POLICY_STATUS_VALUES),
     set_policy_number: z.string().trim().max(60).optional(),
+    status_effective_date: z.string().optional(),
   })).max(20000),
 
 });
@@ -400,20 +404,23 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     const source = `carrier_csv:${data.file_name}`;
     let updated = 0;
-    // Group by target status so each status is one UPDATE.
-    const byStatus = new Map<PolicyStatus, string[]>();
+    // Group by target status and effective date so every policy records when
+    // the carrier says the status took effect, not merely when this file ran.
+    const byStatus = new Map<string, string[]>();
     for (const u of data.updates) {
       if (!allowed.has(u.policy_id)) continue;
-      const list = byStatus.get(u.new_status) ?? [];
+      const key = `${u.new_status}|${u.status_effective_date ?? now.slice(0, 10)}`;
+      const list = byStatus.get(key) ?? [];
       list.push(u.policy_id);
-      byStatus.set(u.new_status, list);
+      byStatus.set(key, list);
     }
-    for (const [status, list] of byStatus) {
+    for (const [key, list] of byStatus) {
+      const [status, statusEffectiveDate] = key.split("|") as [PolicyStatus, string];
       for (let i = 0; i < list.length; i += 500) {
         const chunk = list.slice(i, i + 500);
         const { error: upErr, count } = await supabaseAdmin
           .from("policies")
-          .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
+          .update({ status, status_effective_date: statusEffectiveDate, last_synced_at: now, sync_source: source }, { count: "exact" })
           .in("id", chunk);
         if (upErr) throw new Error(upErr.message);
         updated += count ?? chunk.length;

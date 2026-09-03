@@ -143,18 +143,15 @@ function FinancesPage() {
       const d = new Date(r.payment_date + "T00:00:00");
       const isTrail = r.payment_type === "trail" || r.payment_type === "deferred";
       const isDirect = r.payment_type === "advance" || isTrail;
-      // Treat any scheduled commission whose payment_date is today or earlier as
-      // earned. status='paid' is reserved for a future settlement flow; without
-      // this, every imported policy would show $0 earned.
-      const isEarned = r.status === "paid" || d <= today;
+      const isEarned = r.status === "paid";
       if (r.payment_date === todayStr && isEarned) todayTotal += r.amount;
-      if (d >= today && d <= in90) forecast90 += r.amount;
+      if (r.status === "pending" && d > today && d <= in90) forecast90 += r.amount;
       if (d >= startOfMonth && d <= today && isEarned) mtd += r.amount;
       if (d >= startOfYear && d <= today && isEarned) ytd += r.amount;
       if (isDirect && d >= startOfYear && d <= today && isEarned) directYtd += r.amount;
-      if (r.payment_type === "override" && d > today) overridePending += r.amount;
-      if (isTrail && d > today) trailPending += r.amount;
-      if (r.payment_type === "renewal" && d > today) renewalPending += r.amount;
+      if (r.status === "pending" && r.payment_type === "override") overridePending += r.amount;
+      if (r.status === "pending" && isTrail) trailPending += r.amount;
+      if (r.status === "pending" && r.payment_type === "renewal") renewalPending += r.amount;
     }
     return { todayTotal, forecast90, mtd, ytd, directYtd, overridePending, trailPending, renewalPending };
   }, [rows]);
@@ -167,6 +164,7 @@ function FinancesPage() {
     }
     const idx = new Map(months.map((m, i) => [m.key, i]));
     for (const r of rows) {
+      if (r.status !== "pending" || r.payment_date <= todayStr) continue;
       const d = new Date(r.payment_date + "T00:00:00");
       const k = monthKey(d);
       const i = idx.get(k);
@@ -177,6 +175,21 @@ function FinancesPage() {
       else months[i].direct += r.amount;
     }
     return months;
+  }, [rows]);
+
+  const monthlyData = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; direct: number; override: number; trail: number; renewal: number }>();
+    for (const r of rows) {
+      const d = new Date(`${r.payment_date}T00:00:00`);
+      const key = monthKey(d);
+      const entry = map.get(key) ?? { key, label: `${MONTH_LABELS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`, direct: 0, override: 0, trail: 0, renewal: 0 };
+      if (r.payment_type === "override") entry.override += r.amount;
+      else if (r.payment_type === "renewal") entry.renewal += r.amount;
+      else if (r.payment_type === "trail" || r.payment_type === "deferred") entry.trail += r.amount;
+      else entry.direct += r.amount;
+      map.set(key, entry);
+    }
+    return [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [rows]);
 
   const monthRows = useMemo(() => {
@@ -394,10 +407,10 @@ function FinancesPage() {
               </AccordionTrigger>
               <AccordionContent className="px-3 space-y-4 text-sm">
                 <section>
-                  <h4 className="font-semibold mb-1">Standard Products (most carriers)</h4>
+                  <h4 className="font-semibold mb-1">Advance and trail</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                    <li>75% of first-year commission is paid on the effective date (advance)</li>
-                    <li>Remaining 25% is split equally across months 10, 11, and 12 (trail)</li>
+                    <li>The carrier-configured advance months determine how much premium is advanced.</li>
+                    <li>The remaining first-year months pay as trail only while the policy stays active and premiums continue.</li>
                   </ul>
                   <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Annual Premium: $1,200
 Agent Commission Level: 80%
@@ -406,28 +419,15 @@ Advance: $960 × 75% = $720
 Month 10/11/12 (trail): $960 × 25% / 3 = $80 each`}</pre>
                 </section>
                 <section>
-                  <h4 className="font-semibold mb-1">GTL (Group Term Life) Exception</h4>
-                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                    <li>Advance = 50% of first-year commission, capped at $600</li>
-                    <li>Balance split equally across months 7–12 (trail)</li>
-                  </ul>
-                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Total Year 1: $900
-Advance: MIN($900 × 50%, $600) = $450
-Balance: $900 - $450 = $450
-Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
-                </section>
-                <section>
                   <h4 className="font-semibold mb-1">Override Commissions</h4>
                   <p className="text-muted-foreground">
-                    Override = Downline annual premium × (Your level % − Direct downline's level %).
-                    You at 80%, downline at 70% → you earn 10% override. Same 75/25 advance/trail split applies.
+                    Override = advanceable premium × the consecutive carrier-level spread. The same configured advance window and conditional trail months apply to every upline leg.
                   </p>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">Renewals</h4>
                   <p className="text-muted-foreground">
-                    Renewal commissions are paid at the start of policy years 2–5 and 6–10, at the rate
-                    specified in your commission grid for each carrier.
+                     Renewals are paid on the policy anniversary only while the policy remains active. Personal and upline renewal rates come from that carrier, product, level, age, state, risk class, and policy-year grid; no missing rate is invented.
                   </p>
                 </section>
               </AccordionContent>
@@ -580,7 +580,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
 
             <TabsContent value="month" className="space-y-4 pt-4">
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={forecastData}>
+                <AreaChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
@@ -593,7 +593,7 @@ Months 7-12 (trail): $450 / 6 = $75/month`}</pre>
               </ResponsiveContainer>
               <Table>
                 <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                <TableBody>{forecastData.map((m) => (
+                <TableBody>{monthlyData.map((m) => (
                   <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.trail)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.renewal)}</TableCell><TableCell className="text-right tnum font-semibold">{fmtCurrency(m.direct + m.trail + m.override + m.renewal)}</TableCell></TableRow>
                 ))}</TableBody>
               </Table>
