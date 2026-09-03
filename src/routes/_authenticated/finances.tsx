@@ -114,7 +114,7 @@ function FinancesPage() {
   // getFinancesData: widening these would double-count every override.
   const rows: Row[] = data?.rows ?? [];
 
-  const team = data?.team ?? null;
+  
 
   const [section, setSection] = useState<string>("overview");
   const [typeFilter, setTypeFilter] = useState<string>("all");
