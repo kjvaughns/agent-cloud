@@ -27,10 +27,12 @@ async function fetchAll(supabase: any, userId: string): Promise<Row[]> {
     .eq("agent_id", userId)
     // Superseded legs are kept for history; they must never be counted twice.
     .is("superseded_at", null)
-    .order("payment_date", { ascending: true });
+    .order("payment_date", { ascending: true })
+    .range(0, 9999);
   if (error) throw new Error(error.message);
   return (data ?? []) as Row[];
 }
+
 
 /**
  * Money is not a scope you can widen in place.
