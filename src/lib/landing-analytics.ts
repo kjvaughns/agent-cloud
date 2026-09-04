@@ -23,7 +23,19 @@ export type LandingEvent =
   | "role_tab_viewed"
   | "lifecycle_viewed"
   | "tour_viewed"
-  | "tour_screen_viewed";
+  | "tour_screen_viewed"
+  // The redesign asks the page to answer "who is this for" explicitly, so the
+  // two audiences and the paths out of them are counted separately — an agency
+  // owner and a solo agent convert on different sections and different words.
+  | "workflow_viewed"
+  | "agents_viewed"
+  | "agencies_viewed"
+  | "solo_cta_clicked"
+  | "agency_cta_clicked"
+  | "demo_cta_clicked"
+  | "nova_cta_clicked"
+  | "profit_share_viewed"
+  | "comparison_viewed";
 
 declare global {
   interface Window {

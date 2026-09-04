@@ -5,12 +5,12 @@ import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { track } from "@/lib/landing-analytics";
 import { display } from "@/components/landing/primitives";
 import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
-import { ProblemSection, OwnershipSection } from "@/components/landing/story";
-import { LifecycleSection } from "@/components/landing/lifecycle";
-import { FeatureBands } from "@/components/landing/tour";
+import { OwnershipSection } from "@/components/landing/story";
+import { WorkflowSection } from "@/components/landing/workflow";
+import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
+import { NovaSection, ProfitShareSection } from "@/components/landing/nova-section";
 import { PricingSection } from "@/components/landing/pricing";
 import { LiveDemos, LiveDashboard } from "@/components/landing/live-demos";
-import { FloatingOrbs, Parallax } from "@/components/landing/motion";
 import {
   FaqSection, FinalCta, LandingFooter, faqItems,
 } from "@/components/landing/support";
@@ -32,7 +32,7 @@ const STRUCTURED_DATA = {
       "@id": `${SITE}/#organization`,
       name: "Agent Cloud",
       url: SITE,
-      description: "The operating system for independent insurance agencies.",
+      description: "The operating system for life insurance agents and agencies.",
     },
     {
       "@type": "SoftwareApplication",
@@ -44,7 +44,8 @@ const STRUCTURED_DATA = {
       offers: [
         { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
         { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
-        { "@type": "Offer", name: "Nova AI Pro", price: String(PRICING.novaPro), priceCurrency: "USD" },
+        { "@type": "Offer", name: "Nova AI", price: String(PRICING.novaPro), priceCurrency: "USD" },
+        { "@type": "Offer", name: "Nova AI (agency sponsored)", price: String(PRICING.novaSponsored), priceCurrency: "USD" },
       ],
     },
     {
@@ -62,23 +63,23 @@ export const Route = createFileRoute("/")({
   head: () => ({
     links: [{ rel: "canonical", href: SITE }],
     meta: [
-      { title: "Agent Cloud | Insurance Agency Management Software" },
+      { title: "Agent Cloud | Life Insurance CRM and Agency Management Software" },
       {
         name: "description",
         content:
-          "Contracting, placement, persistency, chargebacks and overrides in one place. Check every carrier statement against your comp grid, rank the in-force book for lapse risk, and show every agent their own numbers.",
+          "One place for life insurance agents and agencies to manage clients, post deals, track the book of business, run a live leaderboard, handle contracts and hierarchy, and automate client follow-up with Nova AI. Unlimited agents on the Agency licence.",
       },
-      { property: "og:title", content: "Agent Cloud | Insurance Agency Management Software" },
+      { property: "og:title", content: "Agent Cloud | Life Insurance CRM and Agency Management Software" },
       {
         property: "og:description",
         content:
-          "One record per agent, from the day you recruit them to the renewal you're still getting paid on. We're software, not an IMO — we never take an override.",
+          "Run your whole life insurance business from one place — pipeline, deals, book of business, leaderboard, contracts, finances and Nova AI. Software, not an IMO: we never take an override.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
       { property: "og:image", content: `${SITE}/og-image.svg` },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Agent Cloud | Insurance Agency Management Software" },
+      { name: "twitter:title", content: "Agent Cloud | Life Insurance CRM and Agency Management Software" },
       {
         name: "twitter:description",
         content: "The operating system for independent insurance agencies.",
@@ -99,31 +100,42 @@ export const Route = createFileRoute("/")({
 function LandingPage() {
   const { pricing, checkoutReady } = useLandingPricing();
 
-  // A CTA must never lead into a workflow that cannot complete. Until Stripe
-  // is configured, checkout would fail, so the primary action becomes the
-  // demo form instead of a dead-ended signup.
-  const ctaLabel = checkoutReady ? "Start Free" : "Request a Demo";
+  /**
+   * "Get started", never "Start free".
+   *
+   * There is no free trial in billing — no trial period on any Stripe price,
+   * no trial state in signup. The page said "Start Free", which is a promise
+   * checkout cannot keep, and the first thing a visitor met after clicking it
+   * was a card form.
+   *
+   * A CTA must also never lead into a workflow that cannot complete, so until
+   * Stripe is configured the primary action is the demo rather than a signup
+   * that would dead-end.
+   */
+  const ctaLabel = checkoutReady ? "Get started" : "Book a demo";
   const ctaHref = checkoutReady ? "/signup" : "/demo";
 
   return (
-    <div id="top" className="dark min-h-screen bg-background text-foreground antialiased">
+    /* Light, per the redesign: warm neutral ground, charcoal type, gold used
+       as an accent rather than a wash. The product itself is dark, so each
+       rendered product screen carries `.dark` locally — which is what makes
+       them read as the application rather than as illustrations of it. */
+    <div id="top" className="min-h-screen bg-background text-foreground antialiased">
       <AnnouncementBar />
       <LandingNav ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
       <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
-      {/* The argument, in order: here is the pain, here is the specific reason
-          it happens, here is the mechanism that fixes it, here is that
-          mechanism doing three jobs, here is the product to touch.
-          
-          The page used to inventory the product three times over — a 12-card
-          map, a 15-tab gallery and a 25-chip grid, back to back, with three
-          different counts of the same thing. A visitor passed four complete
-          pitches before reaching a price. One inventory now: the bands. */}
-      <ProblemSection />
-      <LifecycleSection />
-      <FeatureBands />
+      {/* The order answers the questions in the order they are asked: what is
+          it, how does the work connect, what do I use every day, which of the
+          two am I, what does Nova do, what does it cost, what do I do next. */}
+      <WorkflowSection />
+      <ProductStories />
       <LiveDemos />
+      <AudienceSplit ctaHref={ctaHref} />
+
+      <NovaSection novaPrice={pricing.novaPro} />
+      <ProfitShareSection novaPrice={pricing.novaPro} rate={pricing.novaPartnerRate ?? 0.2} />
 
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
       <OwnershipSection />
@@ -138,45 +150,36 @@ function LandingPage() {
 
 function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
   return (
-    <section className="relative overflow-hidden">
-      <FloatingOrbs />
+    <section className="relative overflow-hidden border-b border-border">
+      {/* One restrained wash of brand gold. No orbs, no parallax: the product
+          screen below is the thing worth looking at, and motion behind it
+          competes with it while costing frames on a phone. */}
       <div
         aria-hidden
-        className="absolute inset-0 -z-10 opacity-60"
+        className="absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(700px 400px at 15% 0%, color-mix(in srgb, var(--gold) 12%, transparent), transparent 60%)",
+            "radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%)",
         }}
       />
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-10 pb-14 md:pt-14 md:pb-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16 md:pt-16 md:pb-20">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-            Now taking founding agencies
-          </div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+            Built for life insurance agents and agencies
+          </p>
 
-          {/*
-            Back to the ten-tools headline, chosen over two later rewrites.
-
-            The copy deck argued this one "describes our category rather than
-            their problem", and that its replacement — "none of them tell you
-            what stuck" — was sharper. It is sharper, and it also asks the
-            visitor to already believe there is something they are not seeing.
-            This one names the thing they can see from where they are standing,
-            and the subhead is the answer to it. Picked on the strength of the
-            page as a whole rather than the line on its own.
-          */}
           <h1
-            className="mt-6 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.02] text-foreground"
+            className="mt-5 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.03] text-foreground"
             style={display}
           >
-            Stop running your agency across{" "}
-            <span className="text-primary">ten different tools.</span>
+            Run your entire insurance business{" "}
+            <span className="text-primary">from one place.</span>
           </h1>
 
           <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            One record per person, from applicant to producing agent. Nothing retyped between
-            recruiting, licensing, contracting and commissions.
+            Manage your pipeline, post deals, track your book of business, compete on a live
+            leaderboard, handle contracts and hierarchy, and automate client follow-up with
+            Nova AI.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -185,39 +188,38 @@ function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
                 {ctaLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
               </Button>
             </Link>
-            <a href="#demo">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">Try the demo</Button>
-            </a>
+            <Link to="/demo" onClick={() => track("demo_cta_clicked")}>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                Book a demo
+              </Button>
+            </Link>
           </div>
 
-          {/*
-            Risk reversal, above the fold. An earlier pass deleted the chips
-            that sat here for duplicating the ownership section, and that was
-            right about the two it had — "no overrides" and "you own your
-            data" both get said properly further down.
-
-            These earn the space because the third one is new and is the one
-            this audience has actually been burned by: non-refundable
-            prepayment and an upline who will not release you. "Month to
-            month" answers that in three words, and it has to be answered
-            before they scroll, not after.
-          */}
-          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+          {/* Proof we can actually stand behind. No agent counts, no premium
+              totals, no logos and no testimonials — none of those exist to
+              quote yet, and inventing them is the one thing this page must
+              not do. What is true is where it was built and how it is sold. */}
+          <p className="mt-7 text-sm text-muted-foreground">
+            Built inside a working life insurance agency, and used every day by real agents.
+          </p>
+          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
             {[
               "We don't take an override",
               "Your book, your data, export any time",
               "Month to month — no contract",
             ].map((r) => (
               <li key={r} className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-success" /> {r}
+                <Check className="h-3.5 w-3.5 text-success" aria-hidden /> {r}
               </li>
             ))}
           </ul>
         </div>
 
-        <Parallax strength={14}>
+        {/* The dashboard is the frame that says "this is a real platform".
+            Dark, because that is what the product looks like. */}
+        <div className="dark mt-12">
           <LiveDashboard />
-        </Parallax>
+        </div>
       </div>
     </section>
   );
