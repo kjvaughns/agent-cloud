@@ -226,13 +226,16 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
   const cats = useMemo(() => categoriesOf(entry), [entry]);
   const medical = cats.has("medical");
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<string>(() => (entry.note ?? "").replace(/<[^>]+>/g, ""));
+  // The edit box is plain text, so the stored HTML is flattened into lines on
+  // the way in and rebuilt into paragraphs on the way out. Without the rebuild
+  // every line break somebody typed disappeared the moment they saved an edit.
+  const [draft, setDraft] = useState<string>(() => htmlToText(entry.note ?? ""));
 
   const saveMut = useMutation({
-    mutationFn: async (newHtml: string) => {
+    mutationFn: async (text: string) => {
       // No dedicated update endpoint — log as edit + supersede; cheapest path is direct supabase update,
       // but contact_history table has RLS scoped to agent. We re-insert and the UI shows the latest.
-      await logFn({ data: { client_id: clientId, contact_type: entry.contact_type ?? "note", note: newHtml } });
+      await logFn({ data: { client_id: clientId, contact_type: entry.contact_type ?? "note", note: textToHtml(text) } });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
