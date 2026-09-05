@@ -530,5 +530,5 @@
 .rich-note h1 { font-size: 1.125rem; }
 .rich-note h2 { font-size: 1.0625rem; }
 .rich-note h3 { font-size: 1rem; }
-.rich-note blockquote { border-left: 2px solid hsl(var(--border)); padding-left: 0.75rem; margin: 0 0 0.5rem; }
+.rich-note blockquote { border-left: 2px solid var(--border); padding-left: 0.75rem; margin: 0 0 0.5rem; }
 .rich-note strong { font-weight: 600; }
