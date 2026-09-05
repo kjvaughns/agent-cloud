@@ -111,7 +111,7 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm dark:prose-invert max-w-none min-h-32 p-3 focus:outline-none transition-colors",
+          "rich-note text-sm max-w-none min-h-32 p-3 focus:outline-none transition-colors",
         ),
       },
     },
