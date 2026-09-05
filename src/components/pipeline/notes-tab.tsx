@@ -311,7 +311,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
         </div>
       ) : (
         <div
-          className="prose prose-sm dark:prose-invert max-w-none"
+          className="rich-note max-w-none"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(stripImportPrefix(entry.note ?? "")) }}
         />
       )}
