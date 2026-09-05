@@ -513,3 +513,22 @@
   .ac-lift:hover { transform: none; }
   .ac-drop-in, .ac-pulse, .ac-screen-in, .ac-float { animation: none; }
 }
+
+/*
+ * Notes written in the pipeline note editor.
+ *
+ * The editor emits a <p> per line, but Tailwind's preflight zeroes paragraph
+ * margins, so every line ran together and blank lines vanished entirely —
+ * pressing Enter looked like it did nothing once the note was saved.
+ */
+.rich-note p { margin: 0 0 0.5rem; min-height: 1em; }
+.rich-note p:last-child { margin-bottom: 0; }
+.rich-note ul { list-style: disc; padding-left: 1.25rem; margin: 0 0 0.5rem; }
+.rich-note ol { list-style: decimal; padding-left: 1.25rem; margin: 0 0 0.5rem; }
+.rich-note li { margin: 0.125rem 0; }
+.rich-note h1, .rich-note h2, .rich-note h3 { font-weight: 600; margin: 0.25rem 0 0.5rem; }
+.rich-note h1 { font-size: 1.125rem; }
+.rich-note h2 { font-size: 1.0625rem; }
+.rich-note h3 { font-size: 1rem; }
+.rich-note blockquote { border-left: 2px solid var(--border); padding-left: 0.75rem; margin: 0 0 0.5rem; }
+.rich-note strong { font-weight: 600; }

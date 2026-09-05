@@ -94,6 +94,31 @@ function stripImportPrefix(note: string): string {
   return (note ?? "").replace(IMPORT_PREFIX, "");
 }
 
+/** Stored note HTML -> plain text with the line breaks intact. */
+function htmlToText(html: string): string {
+  return (html ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Plain text -> paragraphs, so typed line breaks survive a save. */
+function textToHtml(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (/<[a-z][\s\S]*>/i.test(text)) return text; // already HTML
+  return (text ?? "")
+    .split(/\n/)
+    .map((line) => `<p>${esc(line) || "<br>"}</p>`)
+    .join("");
+}
+
 
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
   const qc = useQueryClient();
@@ -111,7 +136,7 @@ export function NotesTab({ clientId, entries }: { clientId: string; entries: any
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm dark:prose-invert max-w-none min-h-32 p-3 focus:outline-none transition-colors",
+          "rich-note text-sm max-w-none min-h-32 p-3 focus:outline-none transition-colors",
         ),
       },
     },
@@ -226,13 +251,16 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
   const cats = useMemo(() => categoriesOf(entry), [entry]);
   const medical = cats.has("medical");
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<string>(() => (entry.note ?? "").replace(/<[^>]+>/g, ""));
+  // The edit box is plain text, so the stored HTML is flattened into lines on
+  // the way in and rebuilt into paragraphs on the way out. Without the rebuild
+  // every line break somebody typed disappeared the moment they saved an edit.
+  const [draft, setDraft] = useState<string>(() => htmlToText(entry.note ?? ""));
 
   const saveMut = useMutation({
-    mutationFn: async (newHtml: string) => {
+    mutationFn: async (text: string) => {
       // No dedicated update endpoint — log as edit + supersede; cheapest path is direct supabase update,
       // but contact_history table has RLS scoped to agent. We re-insert and the UI shows the latest.
-      await logFn({ data: { client_id: clientId, contact_type: entry.contact_type ?? "note", note: newHtml } });
+      await logFn({ data: { client_id: clientId, contact_type: entry.contact_type ?? "note", note: textToHtml(text) } });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
@@ -283,7 +311,7 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
         </div>
       ) : (
         <div
-          className="prose prose-sm dark:prose-invert max-w-none"
+          className="rich-note max-w-none"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(stripImportPrefix(entry.note ?? "")) }}
         />
       )}
