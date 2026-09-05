@@ -94,6 +94,31 @@ function stripImportPrefix(note: string): string {
   return (note ?? "").replace(IMPORT_PREFIX, "");
 }
 
+/** Stored note HTML -> plain text with the line breaks intact. */
+function htmlToText(html: string): string {
+  return (html ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Plain text -> paragraphs, so typed line breaks survive a save. */
+function textToHtml(text: string): string {
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  if (/<[a-z][\s\S]*>/i.test(text)) return text; // already HTML
+  return (text ?? "")
+    .split(/\n/)
+    .map((line) => `<p>${esc(line) || "<br>"}</p>`)
+    .join("");
+}
+
 
 export function NotesTab({ clientId, entries }: { clientId: string; entries: any[] }) {
   const qc = useQueryClient();
