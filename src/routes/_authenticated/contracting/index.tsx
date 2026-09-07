@@ -39,6 +39,7 @@ import { useNavContext } from "@/hooks/use-my-access";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 // The wording for a resolved percentage lives beside the rule that resolved
 // it — a second copy here would be a second thing to keep true.
 import {

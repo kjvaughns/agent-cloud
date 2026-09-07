@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Cloud, CheckCircle2 } from "lucide-react";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 
 export const Route = createFileRoute("/join/$slug")({
   head: () => ({

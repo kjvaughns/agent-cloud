@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Cloud, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 
 export const Route = createFileRoute("/invite/$token")({
   component: PublicInvitePage,
