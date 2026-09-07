@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Globe, GraduationCap, AlertTriangle, RefreshCw, Upload, ExternalLink, ShieldCheck, CheckCircle2, X } from "lucide-react";
 import { toast } from "sonner";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 
 /**
  * Your own state licences.
@@ -152,8 +153,8 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
                 </div>
               ))}
             </div>
-            <a href="https://nipr.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
-              <ExternalLink className="h-3.5 w-3.5" /> Open NIPR.com
+            <a href="https://nipr.com/licensing-center/look-up-a-national-producer-number" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+              <ExternalLink className="h-3.5 w-3.5" /> Look up your NPN
             </a>
             <div className="flex items-center gap-2 rounded-md border border-success bg-success px-3 py-2 text-xs text-success">
               <ShieldCheck className="h-4 w-4 flex-shrink-0" />
@@ -217,6 +218,9 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
                   onChange={(e) => setEditedNpn(e.target.value)}
                   className="w-44 h-8 text-sm mt-1"
                 />
+                <div className="mt-1">
+                  <NpnLookupLink />
+                </div>
               </div>
               <div className="ml-auto text-sm text-muted-foreground">{editedLicenses.length} license rows</div>
             </div>
@@ -350,18 +354,21 @@ function AgentSyncNpnButton({ onSynced }: { onSynced: () => void }) {
   }
 
   return (
-    <div className="flex items-center gap-2 flex-shrink-0">
-      <Input
-        placeholder="Your NPN..."
-        value={npnInput}
-        onChange={(e) => setNpnInput(e.target.value.replace(/\D/g, ""))}
-        className="w-36"
-        maxLength={10}
-      />
-      <Button onClick={() => doSync(npnInput)} disabled={syncing || !npnInput}>
-        {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-        Auto-Sync
-      </Button>
+    <div className="flex flex-col gap-1 flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Your NPN..."
+          value={npnInput}
+          onChange={(e) => setNpnInput(e.target.value.replace(/\D/g, ""))}
+          className="w-36"
+          maxLength={10}
+        />
+        <Button onClick={() => doSync(npnInput)} disabled={syncing || !npnInput}>
+          {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Auto-Sync
+        </Button>
+      </div>
+      <NpnLookupLink />
     </div>
   );
 }
