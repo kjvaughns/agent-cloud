@@ -273,11 +273,9 @@ function JoinForm({
               onChange={(e) => set("npn_number", e.target.value.replace(/\D/g, "").slice(0, 20))}
               placeholder="Optional — you can add it later"
             />
-            {/* Says where to find it rather than assuming they know. A new
-                agent frequently does not have it to hand. */}
-            <p className="mt-1 text-xs text-muted-foreground">
-              Your National Producer Number. On your licence, or look it up at nipr.com.
-            </p>
+            <div className="mt-1">
+              <NpnLookupLink />
+            </div>
           </div>
           <div>
             <Label>Create a password *</Label>

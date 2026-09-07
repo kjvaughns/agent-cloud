@@ -152,8 +152,8 @@ function NiprSyncDialog({ open, onClose, onImported }: { open: boolean; onClose:
                 </div>
               ))}
             </div>
-            <a href="https://nipr.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
-              <ExternalLink className="h-3.5 w-3.5" /> Open NIPR.com
+            <a href="https://nipr.com/licensing-center/look-up-a-national-producer-number" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+              <ExternalLink className="h-3.5 w-3.5" /> Look up your NPN
             </a>
             <div className="flex items-center gap-2 rounded-md border border-success bg-success px-3 py-2 text-xs text-success">
               <ShieldCheck className="h-4 w-4 flex-shrink-0" />

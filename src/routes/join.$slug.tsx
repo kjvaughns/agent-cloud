@@ -120,7 +120,13 @@ function JoinPage() {
               <div><Label htmlFor="email">Email *</Label><Input id="email" name="email" type="email" required maxLength={120} /></div>
               <div><Label htmlFor="phone">Phone *</Label><Input id="phone" name="phone" type="tel" required maxLength={30} /></div>
               <div><Label htmlFor="state">State *</Label><Input id="state" name="state" required maxLength={60} /></div>
-              <div><Label htmlFor="npn_number">NPN Number (optional)</Label><Input id="npn_number" name="npn_number" maxLength={40} /></div>
+              <div>
+                <Label htmlFor="npn_number">NPN Number (optional)</Label>
+                <Input id="npn_number" name="npn_number" maxLength={40} />
+                <div className="mt-1">
+                  <NpnLookupLink />
+                </div>
+              </div>
             </div>
             <div>
               <Label htmlFor="message">Message (optional)</Label>

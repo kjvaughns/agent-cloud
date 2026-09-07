@@ -428,6 +428,9 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
               </Button>
             )}
           </div>
+          <div className="flex items-center gap-2">
+            <NpnLookupLink />
+          </div>
           {!agentSyncAvailable && (
             <p className="text-xs text-muted-foreground">Verify pulls basic NPN info from NIPR. For full license import, use Licensing → Sync from NIPR.</p>
           )}

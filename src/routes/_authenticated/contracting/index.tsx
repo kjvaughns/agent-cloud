@@ -784,6 +784,9 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
                   <div>
                     <Label>NPN *</Label>
                     <Input value={npn} onChange={(e) => setNpn(e.target.value.slice(0, 20))} className="mt-1" placeholder="e.g. 12345678" />
+                    <div className="mt-1.5">
+                      <NpnLookupLink />
+                    </div>
                   </div>
                   <div>
                     <Label>Email *</Label>
