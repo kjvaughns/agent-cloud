@@ -178,10 +178,9 @@ function LandingPage() {
 
 
   return (
-    /* Light, per the redesign: warm neutral ground, charcoal type, gold used
-       as an accent rather than a wash. The product itself is dark, so each
-       rendered product screen carries `.dark` locally — which is what makes
-       them read as the application rather than as illustrations of it. */
+    /* Dark, matching the product itself. Warm charcoal ground, gold used as an
+       accent rather than a wash — the rendered product screens carry `.dark`
+       locally too, so they read as the application rather than illustrations. */
     <div id="top" className="min-h-screen bg-background text-foreground antialiased">
       <AnnouncementBar />
       <LandingNav ctaLabel={ctaLabel} ctaHref={ctaHref} />
@@ -189,11 +188,13 @@ function LandingPage() {
       <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
       {/* The order answers the questions in the order they are asked: what is
-          it, how does the work connect, what do I use every day, which of the
-          two am I, what does Nova do, what does it cost, what do I do next. */}
+          it, what do I use every day, show me it working, which of the two am
+          I, what does Nova do, what does it cost, what do I do next. The demo
+          sits directly after the product section because it is the proof of
+          the claim that section just made. */}
       <WorkflowSection />
       <ProductStories />
-      <LiveDemos />
+      <DealJourney />
       <AudienceSplit ctaHref={ctaHref} />
 
       <NovaSection novaPrice={pricing.novaPro} />
@@ -210,79 +211,3 @@ function LandingPage() {
   );
 }
 
-function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
-  return (
-    <section className="relative overflow-hidden border-b border-border">
-      {/* One restrained wash of brand gold. No orbs, no parallax: the product
-          screen below is the thing worth looking at, and motion behind it
-          competes with it while costing frames on a phone. */}
-      <div
-        aria-hidden
-        className="absolute inset-0 -z-10"
-        style={{
-          background:
-            "radial-gradient(900px 420px at 50% -10%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%)",
-        }}
-      />
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 pt-12 pb-16 md:pt-16 md:pb-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Built for life insurance agents and agencies
-          </p>
-
-          <h1
-            className="mt-5 font-bold tracking-tight text-balance text-4xl sm:text-5xl md:text-6xl leading-[1.03] text-foreground"
-            style={display}
-          >
-            Run your entire insurance business{" "}
-            <span className="text-primary">from one place.</span>
-          </h1>
-
-          <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Manage your pipeline, post deals, track your book of business, compete on a live
-            leaderboard, handle contracts and hierarchy, and automate client follow-up with
-            Nova AI.
-          </p>
-
-          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to={ctaHref} onClick={() => track("hero_cta_clicked", { label: ctaLabel })}>
-              <Button size="lg" className="w-full sm:w-auto">
-                {ctaLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
-              </Button>
-            </Link>
-            <Link to="/demo" onClick={() => track("demo_cta_clicked")}>
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                Book a demo
-              </Button>
-            </Link>
-          </div>
-
-          {/* Proof we can actually stand behind. No agent counts, no premium
-              totals, no logos and no testimonials — none of those exist to
-              quote yet, and inventing them is the one thing this page must
-              not do. What is true is where it was built and how it is sold. */}
-          <p className="mt-7 text-sm text-muted-foreground">
-            Built inside a working life insurance agency, and used every day by real agents.
-          </p>
-          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-            {[
-              "We don't take an override",
-              "Your book, your data, export any time",
-              "Month to month — no contract",
-            ].map((r) => (
-              <li key={r} className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-success" aria-hidden /> {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* The dashboard is the frame that says "this is a real platform".
-            Dark, because that is what the product looks like. */}
-        <div className="dark mt-12">
-          <LiveDashboard />
-        </div>
-      </div>
-    </section>
-  );
-}
