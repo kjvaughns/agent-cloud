@@ -41,7 +41,9 @@ const strip = (s: string) =>
   s.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
 const INDEX = strip(read("src/routes/index.tsx"));
-const ALL = files.map((f) => strip(readFileSync(join(LANDING_DIR, f), "utf8"))).join("\n") + INDEX;
+const PROOF_SRC = strip(read("src/lib/landing/proof.ts"));
+const ALL =
+  files.map((f) => strip(readFileSync(join(LANDING_DIR, f), "utf8"))).join("\n") + INDEX + PROOF_SRC;
 
 // ── No price is typed into the page ────────────────────────────────────────
 //
@@ -94,7 +96,66 @@ check("there are no testimonials", /testimonial|—\s*[A-Z][a-z]+ [A-Z][a-z]+, (
 check("there are no customer logos", /logos?\/|customer-logo|trusted by [A-Z]/i.test(ALL), false);
 // The proof line that IS true, and is the one the brief allows in their place.
 check("the honest proof line is the one used",
-  /Built inside a working life insurance agency/.test(INDEX), true);
+  /Built inside a working life insurance agency/.test(ALL), true);
+
+// ── The rebuild's own invariants ───────────────────────────────────────────
+//
+// Each of these is a defect the live page actually shipped, so each one gets a
+// test rather than a comment.
+
+const HERO = strip(read("src/components/landing/hero.tsx"));
+const JOURNEY = strip(read("src/components/landing/deal-journey.tsx"));
+const PRIMITIVES = strip(read("src/components/landing/primitives.tsx"));
+const MOTION = strip(read("src/components/landing/motion.tsx"));
+
+// The hero showed two buttons both reading "Book a demo", because the primary
+// label falls back to the demo and the secondary was hard-coded to it. The
+// secondary is now derived from the primary, so they cannot collide.
+check("the hero's second action is derived from the first, never hard-coded",
+  /ctaHref === "\/demo"/.test(HERO), true);
+check("…so the demo link is not printed a second time next to it",
+  (HERO.match(/Book a demo/g) ?? []).length, 1);
+
+// Every KPI in the hero frame read $0 with a green "+23%" beside it, because
+// the count-up never started. No invented deltas, and the count-up settles on
+// the real figure whether or not a frame ever renders.
+check("no invented percentage or dollar deltas in the hero frame",
+  /\+23%|\+\$1,240|\+18%|\+11% MoM/.test(HERO), false);
+check("the count-up always lands on its value",
+  /setTimeout\(\(\) => setN\(value\)/.test(MOTION), true);
+check("…and a reveal can never leave content invisible",
+  /setTimeout\(\(\) => setShown\(true\)/.test(PRIMITIVES), true);
+
+// Whole screens of the page were blank because FadeUp waited for 15% of a
+// block taller than the viewport to be visible.
+check("the reveal fires on any intersection, not a fraction of a tall block",
+  /threshold: 0, rootMargin/.test(PRIMITIVES), true);
+
+// Motion nothing rendered: orbs and scroll parallax shipped in the bundle.
+check("the unused orb and parallax code is gone",
+  /FloatingOrbs|export function Parallax/.test(MOTION), false);
+
+// Temperature tags were removed from Pipeline; the demo still showed them.
+check("no lead temperature tags anywhere on the page",
+  /temp: "(hot|warm|cold)"|"hot"|"warm"/.test(JOURNEY), false);
+
+// One demo, and it is the connected sale.
+check("there is exactly one demo, and it walks a single sale",
+  /id="demo"/.test(JOURNEY) && /Post one deal/.test(JOURNEY), true);
+check("…covering pipeline through the agency owner's view",
+  ["pipeline", "post", "book", "leaderboard", "finances", "nova", "agency"]
+    .every((k) => new RegExp(`case "${k}":`).test(JOURNEY)),
+  true);
+// Its commission figures are the real model: $1,200 ALP, 9/12 advanced = $900,
+// 80% writer = $720, and consecutive upline spreads of 20% and 25%.
+for (const fig of ["\\$900\\.00", "\\$720\\.00", "\\$180\\.00", "\\$225\\.00"]) {
+  check(`the demo shows ${fig.replace(/\\\\/g, "")} from the real advance model`,
+    new RegExp(fig).test(JOURNEY), true);
+}
+
+// Proof numbers live in one file, are measured, and are rounded down.
+check("proof figures come from one reviewed constant",
+  /PROOF_ROWS/.test(HERO) && /Rounded/i.test(PROOF_SRC), true);
 
 // ── Nova says what is live and what is not ─────────────────────────────────
 

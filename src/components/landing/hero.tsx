@@ -14,7 +14,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing-analytics";
@@ -90,6 +90,19 @@ export function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string 
           </div>
 
           <p className="mt-6 text-sm text-muted-foreground">{PROOF_LINE}</p>
+          {/* The three things an agency owner actually asks in the first
+              minute, none of which we have to invent to answer. */}
+          <ul className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            {[
+              "We don't take an override",
+              "Your book, your data, export any time",
+              "Month to month — no contract",
+            ].map((r) => (
+              <li key={r} className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-success" aria-hidden /> {r}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <DashboardFrame />
