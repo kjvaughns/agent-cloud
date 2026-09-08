@@ -1,12 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WritingNumbersPage } from "@/components/contracting/writing-numbers-panel";
 import { HierarchiesPage } from "@/components/contracting/hierarchies-panel";
 import { HierarchyChangesPage } from "@/components/contracting/hierarchy-changes-panel";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Plus, Search } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -15,29 +14,64 @@ import {
 } from "@/components/ui/dialog";
 import { createContractingRequest, listOrgCarriers } from "@/lib/contracting-ops.functions";
 import { listOrgAgents } from "@/lib/contracting-records.functions";
-import { CONTRACT_TYPES } from "@/lib/contracting-ops/types";
 import { Panel } from "@/components/page-shell";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { listContractingRequests } from "@/lib/contracting-ops.functions";
+import { listContractingAgents } from "@/lib/contracting-agents.functions";
 import {
-  CONTRACT_TYPE_LABELS, REQUEST_STATUSES, REQUEST_STATUS_META, type ContractType, type RequestStatus,
+  CONTRACT_TYPES, CONTRACT_TYPE_LABELS, PRIMARY_REQUEST_STATUSES, REQUEST_STATUS_META,
 } from "@/lib/contracting-ops/types";
-import { AgePill, EmptyState, OwnerChip, StatusBadge } from "@/components/contracting/shared";
+import { EmptyState, StatusBadge } from "@/components/contracting/shared";
 import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/time-ago";
 
 const TABS = ["requests", "numbers", "hierarchies", "changes"] as const;
 type Tab = (typeof TABS)[number];
 
+const FILTERS = [
+  { key: "all", label: "All agents" },
+  { key: "needs_attention", label: "Needs attention" },
+  { key: "new_requests", label: "New requests" },
+  ...PRIMARY_REQUEST_STATUSES.map((s) => ({ key: s, label: REQUEST_STATUS_META[s].label })),
+  { key: "fully_contracted", label: "Fully contracted" },
+] as const;
+
+const SORTS = [
+  { key: "updated", label: "Last updated" },
+  { key: "newest", label: "Newest request" },
+  { key: "oldest", label: "Oldest request" },
+  { key: "name", label: "Agent name" },
+  { key: "carriers", label: "Carriers" },
+  { key: "attention", label: "Needs attention" },
+] as const;
+
+type SearchParams = { tab?: Tab; q?: string; filter?: string; sort?: string; page?: number };
+
 export const Route = createFileRoute("/_authenticated/contracting-ops/requests/")({
   component: RequestsTabs,
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab } =>
-    TABS.includes(s.tab as Tab) ? { tab: s.tab as Tab } : {},
-  head: () => ({ meta: [{ title: "Contract Requests | Agent Cloud" }] }),
+  /**
+   * Filters live in the URL, not in component state.
+   *
+   * Opening an agent and coming back used to reset the list to its default —
+   * which, halfway through working a filtered queue, means finding your place
+   * again every single time. In the URL they survive the round trip, a refresh
+   * and a shared link.
+   */
+  validateSearch: (s: Record<string, unknown>): SearchParams => ({
+    ...(TABS.includes(s.tab as Tab) ? { tab: s.tab as Tab } : {}),
+    ...(typeof s.q === "string" && s.q ? { q: s.q } : {}),
+    ...(typeof s.filter === "string" && s.filter ? { filter: s.filter } : {}),
+    ...(typeof s.sort === "string" && s.sort ? { sort: s.sort } : {}),
+    ...(Number(s.page) > 1 ? { page: Number(s.page) } : {}),
+  }),
+  head: () => ({
+    meta: [
+      { title: "Contract Requests | Agent Cloud" },
+      { name: "description", content: "Every agent's carrier contracting, grouped by agent: status, writing numbers, notes and history." },
+    ],
+  }),
 });
-
-type Scope = "open" | "all" | "mine" | "unassigned";
 
 /**
  * Contract requests, and the hierarchy they sit in.
@@ -52,12 +86,12 @@ function RequestsTabs() {
   return (
     <Tabs defaultValue={tab ?? "requests"} className="space-y-4">
       <TabsList>
-        <TabsTrigger value="requests">Requests</TabsTrigger>
+        <TabsTrigger value="requests">Agents</TabsTrigger>
         <TabsTrigger value="numbers">Writing numbers</TabsTrigger>
         <TabsTrigger value="hierarchies">Current hierarchy</TabsTrigger>
         <TabsTrigger value="changes">Change requests</TabsTrigger>
       </TabsList>
-      <TabsContent value="requests"><RequestsPage /></TabsContent>
+      <TabsContent value="requests"><AgentsQueue /></TabsContent>
       <TabsContent value="numbers"><WritingNumbersPage /></TabsContent>
       <TabsContent value="hierarchies"><HierarchiesPage /></TabsContent>
       <TabsContent value="changes"><HierarchyChangesPage /></TabsContent>
@@ -65,21 +99,52 @@ function RequestsTabs() {
   );
 }
 
-function RequestsPage() {
+/**
+ * One row per agent, not one row per carrier request.
+ *
+ * An agent contracting with five carriers appeared five times here, and the
+ * question this page exists to answer — "where is this person up to?" — had to
+ * be reassembled by eye. The agent is the object now; the five carrier records
+ * live inside their workspace, each with its own status, writing number, level
+ * and history.
+ *
+ * Grouping, search, filtering, sorting and paging all happen on the server: an
+ * agency with thousands of requests must not ship all of them to the browser to
+ * filter them there.
+ */
+function AgentsQueue() {
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const qc = useQueryClient();
-  const fn = useServerFn(listContractingRequests);
+
+  const fn = useServerFn(listContractingAgents);
   const carriersFn = useServerFn(listOrgCarriers);
   const agentsFn = useServerFn(listOrgAgents);
   const createFn = useServerFn(createContractingRequest);
-  const [creating, setCreating] = useState(false);
-  const [scope, setScope] = useState<Scope>("open");
-  const [status, setStatus] = useState<RequestStatus | "">("");
-  const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["contracting-ops", "requests", status],
-    queryFn: () => fn({ data: status ? { status } : {} }),
+  const [creating, setCreating] = useState(false);
+  const [draftQuery, setDraftQuery] = useState(search.q ?? "");
+
+  // Typing shouldn't hit the server on every keystroke, and it shouldn't push a
+  // history entry per character either — the URL catches up once you stop.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if ((search.q ?? "") === draftQuery) return;
+      navigate({ search: (p: any) => ({ ...p, q: draftQuery || undefined, page: undefined }), replace: true });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [draftQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filter = search.filter ?? "all";
+  const sort = search.sort ?? "updated";
+  const page = search.page ?? 1;
+
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ["contracting-ops", "agents-queue", search.q ?? "", filter, sort, page],
+    queryFn: () => fn({ data: { search: search.q, filter: filter as any, sort: sort as any, page } }),
+    placeholderData: keepPreviousData,
   });
+
   const { data: carrierData } = useQuery({
     queryKey: ["contracting-ops", "carriers"], queryFn: () => carriersFn(), enabled: creating,
   });
@@ -94,201 +159,203 @@ function RequestsPage() {
       setCreating(false);
       qc.invalidateQueries({ queryKey: ["contracting-ops"] });
     },
-    // The duplicate guard is a partial unique index; this surfaces its message
-    // rather than a Postgres constraint name.
     onError: (e: any) => toast.error(e?.message ?? "Could not create the request"),
   });
 
-  const rows = useMemo(() => {
-    let out = (data?.rows ?? []) as any[];
-    if (scope === "open") out = out.filter((r) => REQUEST_STATUS_META[r.status as RequestStatus]?.open);
-    if (scope === "unassigned") out = out.filter((r) => !r.assigned_to);
-    if (search.trim()) {
-      const s = search.toLowerCase();
-      out = out.filter((r) =>
-        r.agent_name.toLowerCase().includes(s) ||
-        r.carrier_name.toLowerCase().includes(s) ||
-        String(r.reference ?? "").toLowerCase().includes(s) ||
-        String(r.agent_npn ?? "").includes(s));
-    }
-    return out;
-  }, [data, scope, search]);
+  const rows = data?.rows ?? [];
+  const counts = data?.counts;
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.pageSize ?? 50)));
 
-  // Status options are limited to statuses actually present, so the filter
-  // never offers a choice that returns nothing.
-  const presentStatuses = useMemo(() => {
-    const set = new Set((data?.rows ?? []).map((r: any) => r.status));
-    return REQUEST_STATUSES.filter((s) => set.has(s));
-  }, [data]);
+  const setSearchParam = (patch: Record<string, unknown>) =>
+    navigate({ search: (p: any) => ({ ...p, ...patch }) });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {(["open", "unassigned", "all"] as Scope[]).map((s) => (
-          <button
-            key={s}
-            onClick={() => setScope(s)}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-              scope === s
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {s === "open" ? "Open" : s === "unassigned" ? "Unassigned" : "All"}
-          </button>
-        ))}
-
-        <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> New request
-        </Button>
-
-        <div className="relative w-full sm:w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-dim" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Agent, NPN, carrier or reference"
-            className="pl-8"
-          />
-        </div>
-      </div>
-
-      {presentStatuses.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            onClick={() => setStatus("")}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-medium",
-              status === "" ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
-            )}
-          >
-            Any status
-          </button>
-          {presentStatuses.map((s) => (
+    <div className="space-y-3">
+      {/* Summary counts: compact, one line, and each one is a filter. */}
+      {counts && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {[
+            { label: "Needs attention", value: counts.needs_attention, key: "needs_attention", tone: "warning" },
+            { label: "New requests", value: counts.new_requests, key: "new_requests", tone: "neutral" },
+            { label: "Waiting on agent", value: counts.waiting_on_agent, key: "awaiting_agent", tone: "neutral" },
+            { label: "Waiting on carrier", value: counts.waiting_on_carrier, key: "submitted", tone: "neutral" },
+            { label: "Fully contracted", value: counts.fully_contracted, key: "fully_contracted", tone: "success" },
+          ].map((c) => (
             <button
-              key={s}
-              onClick={() => setStatus(status === s ? "" : s)}
+              key={c.key}
+              onClick={() => setSearchParam({ filter: filter === c.key ? undefined : c.key, page: undefined })}
               className={cn(
-                "rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                status === s ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                "rounded-lg border px-3 py-2 text-left transition-colors",
+                filter === c.key ? "border-primary/50 bg-primary/5" : "border-border bg-card hover:bg-surface-2/40",
               )}
             >
-              {REQUEST_STATUS_META[s].label}
+              <span className={cn(
+                "tnum block text-lg font-semibold leading-none",
+                c.tone === "warning" && c.value > 0 ? "text-warning" : c.tone === "success" ? "text-success" : "text-foreground",
+              )}>
+                {c.value}
+              </span>
+              <span className="mt-1 block text-[11px] text-muted-foreground">{c.label}</span>
             </button>
           ))}
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-dim" />
+          <Input
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
+            placeholder="Agent, NPN, email, phone, upline, carrier or writing number"
+            aria-label="Search agents"
+            className="pl-8"
+          />
+        </div>
+
+        <label className="sr-only" htmlFor="agent-sort">Sort agents</label>
+        <select
+          id="agent-sort"
+          value={sort}
+          onChange={(e) => setSearchParam({ sort: e.target.value, page: undefined })}
+          className="h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+        >
+          {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+        </select>
+
+        <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> New request
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setSearchParam({ filter: f.key === "all" ? undefined : f.key, page: undefined })}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+              (filter === f.key || (f.key === "all" && filter === "all"))
+                ? "border-primary/50 bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <Panel pad={false}>
         {isLoading ? (
           <div className="space-y-2 p-4">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)}
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-[52px] rounded-lg" />)}
+          </div>
+        ) : error ? (
+          <div className="p-4">
+            <EmptyState
+              title="That list didn't load"
+              body={(error as Error)?.message ?? "Something went wrong reading contracting requests."}
+              action={<Button size="sm" variant="outline" onClick={() => refetch()}>Try again</Button>}
+            />
           </div>
         ) : rows.length === 0 ? (
           <div className="p-4">
             <EmptyState
-              title="No contracting requests here"
-              body="Create a contracting request when an agent needs a new carrier contract, transfer, state appointment or hierarchy change."
-              action={<Button size="sm" onClick={() => setCreating(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create one</Button>}
+              title={search.q || filter !== "all" ? "No agents match that" : "No contracting requests yet"}
+              body={
+                search.q || filter !== "all"
+                  ? "Clear the search or filter to see every agent with a carrier request."
+                  : "Create a contracting request when an agent needs a new carrier contract, transfer, state appointment or hierarchy change."
+              }
+              action={
+                search.q || filter !== "all"
+                  ? <Button size="sm" variant="outline" onClick={() => { setDraftQuery(""); navigate({ search: {} as any }); }}>Clear filters</Button>
+                  : <Button size="sm" onClick={() => setCreating(true)}><Plus className="mr-1.5 h-3.5 w-3.5" /> Create one</Button>
+              }
             />
           </div>
         ) : (
           <>
-            {/* Column headers on desktop only — on a phone each row reads as a
-                card, where headers would be noise. */}
             <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground lg:flex">
               <span className="flex-[2]">Agent</span>
-              <span className="flex-1">Carrier</span>
-              <span className="flex-1">Type</span>
+              <span className="w-24">NPN</span>
+              <span className="flex-1">Upline</span>
+              <span className="w-16 text-right">Carriers</span>
+              <span className="w-24">Progress</span>
+              <span className="w-24">Attention</span>
               <span className="flex-1">Status</span>
-              <span className="w-20">Waiting on</span>
-              <span className="w-32">Outstanding</span>
-              <span className="w-24">Owner</span>
-              <span className="w-24">Age</span>
+              <span className="w-24">Updated</span>
               <span className="w-5" />
             </div>
 
-            <ul className="divide-y divide-border-soft">
-              {rows.map((r) => (
-                <li key={r.id}>
+            <ul className={cn("divide-y divide-border-soft", isFetching && "opacity-60 transition-opacity")}>
+              {rows.map((a) => (
+                <li key={a.agent_id}>
                   <Link
-                    to="/contracting-ops/requests/$requestId"
-                    params={{ requestId: r.id }}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 transition-colors hover:bg-surface-2/40 lg:flex-nowrap"
+                    to="/contracting-ops/requests/agent/$agentId"
+                    params={{ agentId: a.agent_id }}
+                    search={search as any}
+                    className="flex min-h-[52px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-surface-2/40 focus-visible:bg-surface-2/60 lg:flex-nowrap"
                   >
-                    <span className="min-w-0 flex-[2]">
-                      <span className="block truncate text-sm font-medium text-foreground">{r.agent_name}</span>
-                      <span className="tnum block truncate text-[11px] text-muted-foreground">
-                        {r.reference ?? "—"}{r.agent_npn ? ` · NPN ${r.agent_npn}` : ""}
+                    <span className="flex min-w-0 flex-[2] items-center gap-2.5">
+                      <span
+                        aria-hidden
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-[11px] font-semibold text-foreground"
+                      >
+                        {a.initials}
                       </span>
-                      {/* Who the agent sits under for this carrier. A hierarchy
-                          that is wrong is the commonest reason a carrier sends
-                          a submission back, and it was only visible by opening
-                          the request. */}
-                      {r.upline_name && (
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          under {r.upline_name}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-foreground">{a.agent_name}</span>
+                        <span className="block truncate text-[11px] text-muted-foreground lg:hidden">
+                          {a.active_count} of {a.carrier_count} active
+                          {a.needs_attention > 0 ? ` · ${a.needs_attention} need attention` : ""}
                         </span>
+                        <span className="hidden truncate text-[11px] text-muted-foreground lg:block">
+                          {a.carrier_names.slice(0, 3).join(", ")}
+                          {a.carrier_names.length > 3 ? ` +${a.carrier_names.length - 3}` : ""}
+                        </span>
+                      </span>
+                    </span>
+
+                    <span className="tnum hidden w-24 truncate text-[11px] text-muted-foreground lg:block">
+                      {a.npn ?? "—"}
+                    </span>
+
+                    <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block">
+                      {a.upline_name ?? "—"}
+                    </span>
+
+                    <span className="tnum hidden w-16 text-right text-sm text-foreground lg:block">
+                      {a.carrier_count}
+                    </span>
+
+                    <span className="hidden w-24 lg:block">
+                      <span className="tnum block text-[11px] text-muted-foreground">
+                        {a.active_count} of {a.carrier_count} active
+                      </span>
+                      <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                        <span
+                          className={cn("block h-full rounded-full", a.fully_contracted ? "bg-success" : "bg-primary")}
+                          style={{ width: `${a.carrier_count ? (a.active_count / a.carrier_count) * 100 : 0}%` }}
+                        />
+                      </span>
+                    </span>
+
+                    <span className="hidden w-24 lg:block">
+                      {a.needs_attention > 0 ? (
+                        <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+                          {a.needs_attention} to fix
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-text-dim">Clear</span>
                       )}
                     </span>
 
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-muted-foreground">{r.carrier_name}</span>
-                      {/* The writing number once there is one, the level being
-                          asked for until then — the two facts that say what
-                          this request is actually about. */}
-                      {r.writing_number ? (
-                        <span className="tnum block truncate text-[11px] text-success">
-                          {r.writing_number}
-                        </span>
-                      ) : r.requested_level_name ? (
-                        <span className="block truncate text-[11px] text-muted-foreground">
-                          {r.requested_level_name}
-                        </span>
-                      ) : null}
+                    <span className="flex-1"><StatusBadge status={a.urgent_status} /></span>
+
+                    <span className="hidden w-24 truncate text-[11px] text-muted-foreground lg:block">
+                      {timeAgo(a.last_updated)}
                     </span>
-
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {CONTRACT_TYPE_LABELS[r.contract_type as ContractType] ?? r.contract_type}
-                    </span>
-
-                    <span className="flex-1"><StatusBadge status={r.status} /></span>
-
-                    <span className="w-20"><OwnerChip status={r.status} /></span>
-
-                    <span className="w-32">
-                      <span className="flex items-center gap-1.5">
-                        <span className="h-1.5 w-12 overflow-hidden rounded-full bg-surface-2">
-                          <span
-                            className={cn("block h-full rounded-full", r.readiness_pct === 100 ? "bg-success" : "bg-primary")}
-                            style={{ width: `${r.readiness_pct}%` }}
-                          />
-                        </span>
-                        <span className="tnum text-[11px] text-muted-foreground">{r.readiness_pct}%</span>
-                      </span>
-                      {/* The percentage says how far along a request is. It
-                          does not say what to chase, which is the only thing
-                          somebody working this list needs — so the first
-                          outstanding item is named, with a count when there
-                          are more. */}
-                      {(r.blockers?.length ?? 0) > 0 && (
-                        <span className="block truncate text-[11px] text-warning" title={r.blockers.join(", ")}>
-                          {r.blockers[0]}
-                          {r.blockers.length > 1 ? ` +${r.blockers.length - 1}` : ""}
-                        </span>
-                      )}
-                    </span>
-
-                    {/* Who is working it. Assignment already existed on the
-                        queue; this list showed "waiting on" — a role — and
-                        never the person, so the same request looked unowned
-                        here and claimed there. */}
-                    <span className="w-24 truncate text-[11px] text-muted-foreground">
-                      {r.assignee_name ?? <span className="text-text-dim">Unassigned</span>}
-                    </span>
-
-                    <span className="w-24"><AgePill days={r.days_open} overdue={r.is_overdue} /></span>
 
                     <ChevronRight className="hidden h-4 w-4 shrink-0 text-text-dim lg:block" />
                   </Link>
@@ -299,6 +366,31 @@ function RequestsPage() {
         )}
       </Panel>
 
+      {(data?.total ?? 0) > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] text-text-dim">
+            {data!.total} agent{data!.total === 1 ? "" : "s"} · page {page} of {totalPages}. You see the agents your
+            role covers.
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm" variant="outline" disabled={page <= 1}
+                onClick={() => setSearchParam({ page: page - 1 <= 1 ? undefined : page - 1 })}
+              >
+                Previous
+              </Button>
+              <Button
+                size="sm" variant="outline" disabled={page >= totalPages}
+                onClick={() => setSearchParam({ page: page + 1 })}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <CreateRequestDialog
         open={creating}
         carriers={(carrierData?.carriers ?? []) as any[]}
@@ -307,13 +399,6 @@ function RequestsPage() {
         onClose={() => setCreating(false)}
         onSave={(p) => create.mutate(p)}
       />
-
-      {rows.length > 0 && (
-        <p className="text-[11px] text-text-dim">
-          Showing {rows.length} request{rows.length === 1 ? "" : "s"}. You see the agents your role covers —
-          agents see their own, managers see their downline.
-        </p>
-      )}
     </div>
   );
 }

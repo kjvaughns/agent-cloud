@@ -6,7 +6,7 @@ import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { getMyPrimaryOrgId, assertSameOrg, OrgAccessError } from "@/lib/org-guard";
 import { recordAudit, diff } from "@/lib/contracting-ops/audit";
 import {
-  evaluateReadiness, isSubmittable,
+  evaluateReadiness,
   type Requirement, type RequestContext, type ProducerFacts, type HierarchyFacts,
 } from "@/lib/contracting-ops/readiness";
 import type { Packet } from "@/lib/contracting-ops/packet";
@@ -43,85 +43,30 @@ type Ctx = { supabase: any; userId: string };
 
 // ── Capability resolution ───────────────────────────────────────────────────
 
-export type ContractingAccess = {
-  orgId: string | null;
-  isOwner: boolean;
-  canView: boolean;
-  canManageCarriers: boolean;
-  canManageCompLevels: boolean;
-  canManageHierarchy: boolean;
-  canManageLicenses: boolean;
-  canSubmit: boolean;
-  canApprove: boolean;
-  canAssign: boolean;
-  canViewAgencyComp: boolean;
-  canViewSensitiveDocs: boolean;
-  canExport: boolean;
-  canViewAudit: boolean;
-};
-
-const NO_ACCESS: ContractingAccess = {
-  orgId: null, isOwner: false, canView: false, canManageCarriers: false,
-  canManageCompLevels: false, canManageHierarchy: false, canManageLicenses: false,
-  canSubmit: false, canApprove: false, canAssign: false, canViewAgencyComp: false,
-  canViewSensitiveDocs: false, canExport: false, canViewAudit: false,
-};
+export type { ContractingAccess } from "@/lib/contracting-ops/access.server";
 
 /**
  * Resolves what the caller may do, mirroring the SQL helpers exactly.
  *
- * The database enforces these rules; this function exists so the UI can hide
- * what it must not offer. It is never the only gate — every mutation below
- * re-checks before writing.
+ * The rule itself lives in `contracting-ops/access.server.ts` so the
+ * agent-grouped workspace and the Google Sheets sync resolve the same
+ * capabilities from the same place. Loaded inside the call rather than at module
+ * scope: this file is imported by routes, and a server-only module at module
+ * scope leaks into the client bundle.
  */
-async function resolveAccess(userId: string): Promise<ContractingAccess> {
-  const orgId = await getMyPrimaryOrgId(userId);
-  if (!orgId) return NO_ACCESS;
-
-  const [{ data: org }, { data: roleRows }, { data: perms }] = await Promise.all([
-    supabaseAdmin.from("organizations").select("owner_id").eq("id", orgId).maybeSingle(),
-    supabaseAdmin.from("user_roles").select("role").eq("user_id", userId),
-    supabaseAdmin.from("role_permissions").select("*")
-      .eq("profile_id", userId).eq("organization_id", orgId).maybeSingle(),
-  ]);
-
-  const roles: string[] = (roleRows ?? []).map((r: any) => String(r.role));
-  const isOwner = org?.owner_id === userId;
-  const isOrgAdmin =
-    isOwner ||
-    roles.some((r) => ["agency_owner", "admin", "super_admin"].includes(r)) ||
-    Boolean(perms?.staff_is_admin && perms?.admin_manage_staff_configs);
-
-  const flag = (k: string) => Boolean(perms?.[k]);
-  const or = (...vals: boolean[]) => isOrgAdmin || vals.some(Boolean);
-
-  return {
-    orgId,
-    isOwner,
-    canManageCarriers: or(flag("contracting_manage_carriers")),
-    canManageCompLevels: or(flag("contracting_manage_comp_levels")),
-    canManageHierarchy: or(flag("contracting_manage_hierarchy")),
-    canManageLicenses: or(flag("contracting_manage_licenses")),
-    canSubmit: or(flag("contracting_submit"), flag("staff_submit_carrier_requests"), flag("mgr_submit_carrier_requests")),
-    canApprove: or(flag("contracting_approve")),
-    canAssign: or(flag("contracting_assign_staff")),
-    canViewAgencyComp: or(flag("contracting_view_agency_comp"), flag("contracting_manage_comp_levels")),
-    canViewSensitiveDocs: or(flag("contracting_view_sensitive_docs")),
-    canExport: or(flag("contracting_export")),
-    canViewAudit: or(flag("contracting_view_audit")),
-    canView: or(
-      flag("staff_view_contracts"), flag("contracting_manage_carriers"),
-      flag("contracting_submit"), flag("contracting_approve"),
-      flag("contracting_assign_staff"), flag("contracting_manage_licenses"),
-    ),
-  };
+async function resolveAccess(userId: string) {
+  const { resolveContractingAccess } = await import("@/lib/contracting-ops/access.server");
+  return resolveContractingAccess(userId);
 }
+
+type ContractingAccessValue = Awaited<ReturnType<typeof resolveAccess>>;
+
 
 export const getContractingAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => resolveAccess((context as Ctx).userId));
 
-function requireOrg(access: ContractingAccess): string {
+function requireOrg(access: ContractingAccessValue): string {
   if (!access.orgId) throw new OrgAccessError("No organization on your account");
   return access.orgId;
 }
@@ -1972,18 +1917,6 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
       }
     }
 
-    // The gate. Readiness is recomputed here rather than trusting the cached
-    // column, because the cache is only as fresh as the last write.
-    if (["ready_to_submit", "submitted"].includes(data.status)) {
-      const readiness = await recomputeReadiness(data.id, orgId);
-      if (readiness && !isSubmittable(readiness)) {
-        const first = readiness.blockers.slice(0, 3).map((b) => b.label).join(", ");
-        throw new Error(
-          `This request still has ${readiness.blockers.length} outstanding item${readiness.blockers.length === 1 ? "" : "s"}: ${first}.`,
-        );
-      }
-    }
-
     const now = new Date().toISOString();
     const patch: Record<string, unknown> = { status: data.status };
     if (data.due_date !== undefined) patch.due_date = data.due_date;
@@ -2004,9 +1937,17 @@ export const updateRequestStatus = createServerFn({ method: "POST" })
     if (data.granted_effective_date !== undefined) patch.desired_effective_date = data.granted_effective_date;
     if (data.writing_number !== undefined) patch.writing_number = data.writing_number;
 
-    const { error } = await supabaseAdmin
-      .from("contracting_requests").update(patch).eq("id", data.id).eq("organization_id", orgId);
+    const { data: updated, error } = await supabaseAdmin
+      .from("contracting_requests")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("organization_id", orgId)
+      .select("id, status")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!updated || updated.status !== data.status) {
+      throw new Error("The status was not saved. Reload the request and try again.");
+    }
 
     // "Mark submitted" closes the handoff loop. If somebody opened a portal
     // for this request and this is the first confirmation since, stamp that

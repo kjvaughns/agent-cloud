@@ -41,6 +41,10 @@ function mockClient(tables: Tables) {
         rows = rows.filter((r) => (val === null ? r[col] == null : r[col] === val));
         return chain;
       },
+      in: (col: string, vals: any[]) => {
+        rows = rows.filter((r) => vals.includes(r[col]));
+        return chain;
+      },
       not: (col: string, op: string, _v: any) => {
         // `not(col, "in", "(...)")` is the supersede sweep; the rest is the
         // grid's "level is set" filter.
@@ -224,12 +228,17 @@ function check(label: string, ok: boolean, detail = "") {
   const renewals = rows.filter((r) => r.payment_type === "renewal");
 
   console.log("\n1. Multi-level carrier");
-  check("renewal rows generated", renewals.length === 9, `got ${renewals.length}, expected 9`);
+  const personalRenewals = renewals.filter((r) => r.agent_id === AGENT);
+  const overrideRenewals = renewals.filter((r) => r.agent_id === UPLINE);
+  check("personal renewal rows generated", personalRenewals.length === 9, `got ${personalRenewals.length}, expected 9`);
+  check("upline renewal spread rows generated", overrideRenewals.length === 9, `got ${overrideRenewals.length}, expected 9`);
   // 1200 * 5% — the agent's own rung, not the 100% row sitting beside it. The
   // match is on the CARRIER's name for the level ("80%"), not the agency's
   // ("General Agent"), which is why the mapping carries both.
-  const yr2 = renewals.find((r) => r.payment_date === "2027-04-01");
+  const yr2 = personalRenewals.find((r) => r.payment_date === "2027-03-01");
   check("matched the agent's own level", yr2?.amount === 60, `got ${yr2?.amount}, expected 60`);
+  const uplineYr2 = overrideRenewals.find((r) => r.payment_date === "2027-03-01");
+  check("renewal override is the grid spread", uplineYr2?.amount === 24, `got ${uplineYr2?.amount}, expected 24`);
 }
 
 // ── 2. The ladder alone is enough: no per-agent row required ───────────────
@@ -313,38 +322,20 @@ function check(label: string, ok: boolean, detail = "") {
   );
 
   console.log("\n5. Upline override");
-  // The 100% Owner over an 80% writer on 1200 = 240 of spread.
+  // The 100% Owner over an 80% writer gets 20% of the same nine-month
+  // advanceable premium, then three monthly trail legs.
   check(
     "override written to the upline",
-    overrides.length > 0 && overrides.every((r: any) => r.agent_id === UPLINE),
+    overrides.length === 4 && overrides.every((r) => r.agent_id === UPLINE),
   );
-
-  // ── Paid on the policy's schedule, not all on day one ──
-  //
-  // This asserted ONE row of 240, which is what the calculator wrote: the
-  // whole twelve months of spread on the effective date, while the writing
-  // agent's own year one was advanced for the configured months and the rest
-  // paid monthly. The agency was paying override on premium the carrier had
-  // not advanced, and Finances told everybody the opposite in its own
-  // explainer. The total is unchanged; when it arrives is not.
-  const total = Number(
-    overrides.reduce((a: number, r: any) => a + Number(r.amount), 0).toFixed(2),
-  );
-  check("the spread still totals the difference in levels", total === 240, `got ${total}, expected 240`);
-
-  const advances = overrides.filter((r: any) => Number(r.month_number) === 0);
-  const deferred = overrides.filter((r: any) => Number(r.month_number) > 0);
-  check("one advance on the effective date", advances.length === 1, `got ${advances.length}`);
   check(
-    "…for less than the whole year",
-    advances[0] && Number(advances[0].amount) < total,
-    `advance ${advances[0]?.amount} of ${total}`,
+    "advance override uses the consecutive spread",
+    overrides.find((r) => r.month_number === 0)?.amount === 180,
+    `got ${overrides.find((r) => r.month_number === 0)?.amount}, expected 180`,
   );
-  check("the balance is deferred over later months", deferred.length > 0, `got ${deferred.length}`);
   check(
-    "…every one of them after the advanced months",
-    deferred.every((r: any) => Number(r.month_number) > 0) &&
-      deferred.every((r: any) => r.payment_date > advances[0].payment_date),
+    "remaining override pays in months ten through twelve",
+    overrides.filter((r) => Number(r.month_number) > 0).every((r) => r.amount === 20),
   );
 }
 

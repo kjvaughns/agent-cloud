@@ -37,19 +37,38 @@ const ROOT_DOMAIN = "useagentcloud.com"
 const FROM_DOMAIN = "notify.useagentcloud.com"
 const SITE_URL = `https://${ROOT_DOMAIN}`
 
+/**
+ * The link in the email must stay on the auth verify host — that is the URL
+ * that consumes the token. Rewriting its hostname to the app domain produced a
+ * 404 (`https://useagentcloud.com/auth/v1/verify?...` is not an app route).
+ * What we do normalise is where the user lands afterwards: `redirect_to` is
+ * pointed at the production domain so preview/localhost URLs never leak into a
+ * real email.
+ */
 function toAgentCloudUrl(rawUrl: string | null | undefined): string {
   if (!rawUrl) return SITE_URL
 
   try {
     const url = new URL(rawUrl)
-    url.protocol = 'https:'
-    url.hostname = ROOT_DOMAIN
-    url.port = ''
+    const redirectTo = url.searchParams.get('redirect_to')
+    if (redirectTo) {
+      try {
+        const dest = new URL(redirectTo)
+        dest.protocol = 'https:'
+        dest.hostname = ROOT_DOMAIN
+        dest.port = ''
+        url.searchParams.set('redirect_to', dest.toString())
+      } catch {
+        // Relative or malformed redirect: resolve it against the site.
+        url.searchParams.set('redirect_to', new URL(redirectTo, SITE_URL).toString())
+      }
+    }
     return url.toString()
   } catch {
     return rawUrl
   }
 }
+
 
 function redactEmail(email: string | null | undefined): string {
   if (!email) return '***'

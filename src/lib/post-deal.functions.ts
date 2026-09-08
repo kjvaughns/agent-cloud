@@ -121,7 +121,7 @@ const PostDealSchema = z.object({
     effective_date: z.string().min(8),
     face_amount: z.number().min(0),
     monthly_premium: z.number().min(0),
-    status: z.enum(["issued_not_paid", "in_review"]).default("issued_not_paid"),
+    status: z.enum(["submitted", "issued_not_paid", "in_review"]).default("issued_not_paid"),
     /**
      * When the business was written, which is the month it counts in on
      * production, the dashboard and the leaderboard. Optional: omitted, the
@@ -258,6 +258,7 @@ export const postDeal = createServerFn({ method: "POST" })
         carrierId: data.policy.carrier_id,
         product: data.policy.product,
         monthlyPremium: data.policy.monthly_premium,
+         annualPremium: annual,
         effectiveDate: data.policy.effective_date,
         clientName,
       });

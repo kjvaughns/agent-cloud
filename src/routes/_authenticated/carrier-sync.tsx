@@ -16,9 +16,11 @@ import { useRole } from "@/hooks/use-role";
 import { listCarriersForFilter } from "@/lib/book-of-business.functions";
 import {
   previewCarrierSync, applyCarrierSync, getMappingTemplate, saveMappingTemplate,
-  listSyncLogs, POLICY_STATUS_VALUES, type SyncPreview,
+  listSyncLogs, POLICY_STATUS_VALUES, statusKey, type SyncPreview,
 } from "@/lib/carrier-sync.functions";
 import { POLICY_STATUSES } from "@/lib/policy-status";
+import { extractCarrierReport } from "@/lib/import-carrier-reports.functions";
+
 
 export const Route = createFileRoute("/_authenticated/carrier-sync")({
   head: () => ({ meta: [{ title: "Carrier Book Sync — Agent Cloud" }] }),
@@ -30,7 +32,7 @@ const STATUS_LABEL: Record<string, string> = Object.fromEntries(
 );
 
 type ParsedFile = { name: string; headers: string[]; rows: Record<string, string>[] };
-type ColumnMap = { policy_number: string; status: string; client_name: string };
+type ColumnMap = { policy_number: string; status: string; client_name: string; status_effective_date: string };
 
 const STEPS = ["Upload", "Map Columns", "Preview", "Apply"];
 
@@ -95,11 +97,12 @@ function SyncWizard() {
   const [step, setStep] = useState(0);
   const [carrierId, setCarrierId] = useState("");
   const [file, setFile] = useState<ParsedFile | null>(null);
-  const [colMap, setColMap] = useState<ColumnMap>({ policy_number: "", status: "", client_name: "" });
+  const [colMap, setColMap] = useState<ColumnMap>({ policy_number: "", status: "", client_name: "", status_effective_date: "" });
   const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
   const [saveTemplate, setSaveTemplate] = useState(true);
   const [preview, setPreview] = useState<SyncPreview | null>(null);
   const [result, setResult] = useState<{ updated: number; skipped: number } | null>(null);
+  const [reading, setReading] = useState(false);
 
   const carriersFn = useServerFn(listCarriersForFilter);
   const { data: carriers } = useQuery({ queryKey: ["carriers-filter"], queryFn: () => carriersFn() });
@@ -111,29 +114,89 @@ function SyncWizard() {
   const saveTemplateFn = useServerFn(saveMappingTemplate);
   const previewFn = useServerFn(previewCarrierSync);
   const applyFn = useServerFn(applyCarrierSync);
+  const extractReportFn = useServerFn(extractCarrierReport);
+
+
+  /** A PDF, a scan or a photo: read the pages, then let the assistant pull the rows. */
+  async function rowsFromDocument(f: File): Promise<{ headers: string[]; rows: Record<string, string>[] } | null> {
+    const { extractDocument } = await import("@/lib/document-extract");
+    const doc = await extractDocument(f, { maxPages: 12 });
+    if (!doc.text.trim() && doc.images.length === 0) {
+      toast.error("We couldn't read anything in that file.");
+      return null;
+    }
+    const report = await extractReportFn({
+      data: {
+        images: doc.images.length ? doc.images : null,
+        text: doc.text || null,
+        file_name: f.name,
+        expected_kind: "policy_status_report",
+      },
+    });
+    const certs = report.certificates ?? [];
+    const lines = (report.lines ?? []).filter((l: any) => l.policy_number);
+    const source = certs.length
+      ? certs.map((c: any) => ({
+          "Policy #": c.policy_number ?? "",
+          Status: c.status_text ?? "",
+          Insured: c.insured_name ?? "",
+        }))
+      : lines.map((l: any) => ({
+          "Policy #": l.policy_number ?? "",
+          Status: "",
+          Insured: l.insured_name ?? "",
+        }));
+    const rows = source.filter((r) => r["Policy #"]);
+    if (!rows.length) {
+      toast.error("No policy rows found in that document.");
+      return null;
+    }
+    if (!certs.length) {
+      toast.warning("That file had no status column — set statuses on the next step.");
+    }
+    return { headers: ["Policy #", "Status", "Insured"], rows };
+  }
 
   async function handleFile(f: File) {
-    if (!f.name.match(/\.(csv|xls|xlsx)$/i)) {
-      toast.error("Upload a .csv, .xls, or .xlsx file");
-      return;
+    const isSheet = /\.(csv|xls|xlsx|tsv|txt)$/i.test(f.name);
+    let headers: string[];
+    let rows: Record<string, string>[];
+
+    if (isSheet) {
+      const buf = await f.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
+      if (!json.length) {
+        toast.error("No data rows found in the file");
+        return;
+      }
+      headers = Object.keys(json[0]);
+      rows = json.map((r) => Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "").trim()])));
+    } else {
+      setReading(true);
+      try {
+        const out = await rowsFromDocument(f);
+        if (!out) return;
+        headers = out.headers;
+        rows = out.rows;
+      } catch (e: any) {
+        toast.error(e?.message ?? "We couldn't read that file.");
+        return;
+      } finally {
+        setReading(false);
+      }
     }
-    const buf = await f.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "" });
-    if (!json.length) {
-      toast.error("No data rows found in the file");
-      return;
-    }
-    const headers = Object.keys(json[0]);
-    const rows = json.map((r) => Object.fromEntries(headers.map((h) => [h, String(r[h] ?? "").trim()])));
+
     setFile({ name: f.name, headers, rows });
+
 
     // Auto-detect columns, then let a saved template for this carrier win.
     let map: ColumnMap = {
       policy_number: guessColumn(headers, [/policy\s*(#|no|num)/i, /^policy$/i, /contract\s*(#|no|num)/i, /cert(ificate)?\s*(#|no)/i]),
       status: guessColumn(headers, [/status/i, /state\s*of\s*policy/i]),
       client_name: guessColumn(headers, [/insured/i, /client/i, /owner/i, /^name$/i, /full\s*name/i]),
+      status_effective_date: guessColumn(headers, [/status.*date/i, /effective.*status/i, /termination.*date/i, /lapse.*date/i]),
     };
     if (carrierId) {
       try {
@@ -144,6 +207,7 @@ function SyncWizard() {
             policy_number: headers.includes(t.policy_number) ? t.policy_number : map.policy_number,
             status: headers.includes(t.status) ? t.status : map.status,
             client_name: headers.includes(t.client_name) ? t.client_name : map.client_name,
+            status_effective_date: headers.includes(t.status_effective_date) ? t.status_effective_date : map.status_effective_date,
           };
           if (template.status_map) setStatusOverrides(template.status_map as Record<string, string>);
           toast.success("Loaded your saved mapping for this carrier");
@@ -161,6 +225,7 @@ function SyncWizard() {
           policy_number: r[colMap.policy_number] ?? "",
           status_raw: r[colMap.status] ?? "",
           client_name: colMap.client_name ? r[colMap.client_name] : undefined,
+          status_effective_date: colMap.status_effective_date ? r[colMap.status_effective_date] : undefined,
         }))
         .filter((r) => r.policy_number && r.status_raw);
       return previewFn({ data: { carrier_id: carrierId, rows, status_overrides: statusOverrides } });
@@ -177,7 +242,12 @@ function SyncWizard() {
           file_name: file!.name,
           total_rows: preview!.total_rows,
           unmatched: preview!.unmatched_rows.length,
-          updates: preview!.updates.map((u) => ({ policy_id: u.policy_id, new_status: u.new_status })),
+          updates: preview!.updates.map((u) => ({
+            policy_id: u.policy_id,
+            new_status: u.new_status,
+            ...(u.set_policy_number ? { set_policy_number: u.set_policy_number } : {}),
+            ...(u.status_effective_date ? { status_effective_date: u.status_effective_date } : {}),
+          })),
         },
       }),
     onSuccess: async (r: any) => {
@@ -237,12 +307,13 @@ function SyncWizard() {
                   onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
                 >
                   <input
-                    type="file" className="hidden" accept=".csv,.xls,.xlsx"
+                    type="file" className="hidden" accept=".csv,.tsv,.txt,.xls,.xlsx,.pdf,image/*"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
                   />
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <div className="mt-2 text-sm font-medium">{carrierId ? "Drop your carrier export here, or click to choose" : "Select a carrier first"}</div>
-                  <div className="text-xs text-muted-foreground mt-1">.csv, .xls, or .xlsx — the book-of-business extract from the carrier portal</div>
+                  <div className="mt-2 text-sm font-medium">{reading ? "Reading your file…" : carrierId ? "Drop your carrier export here, or click to choose" : "Select a carrier first"}</div>
+                  <div className="text-xs text-muted-foreground mt-1">Spreadsheet, CSV, PDF or a photo — PDFs and scans are read for you, which takes a few seconds</div>
+
                 </label>
               </div>
             </Panel>
@@ -279,11 +350,12 @@ function SyncWizard() {
               <p className="text-sm text-muted-foreground">
                 Tell Agent Cloud which columns hold each field. Detected automatically where possible — <span className="tnum">{file.rows.length.toLocaleString()}</span> rows found.
               </p>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {([
                   ["policy_number", "Policy Number *"],
                   ["status", "Policy Status *"],
                   ["client_name", "Client / Insured Name"],
+                  ["status_effective_date", "Status Effective Date"],
                 ] as const).map(([key, label]) => (
                   <div key={key}>
                     <div className="text-sm font-medium mb-1.5">{label}</div>
@@ -340,8 +412,8 @@ function SyncWizard() {
                       <Badge variant="warning" className="shrink-0">{s}</Badge>
                       <ArrowRight className="h-3 w-3 text-text-dim shrink-0" />
                       <Select
-                        value={statusOverrides[s.toLowerCase()] ?? ""}
-                        onValueChange={(v) => setStatusOverrides((o) => ({ ...o, [s.toLowerCase()]: v }))}
+                        value={statusOverrides[statusKey(s)] ?? ""}
+                        onValueChange={(v) => setStatusOverrides((o) => ({ ...o, [statusKey(s)]: v }))}
                       >
                         <SelectTrigger className="max-w-[220px]"><SelectValue placeholder="Choose status…" /></SelectTrigger>
                         <SelectContent>
@@ -384,7 +456,14 @@ function SyncWizard() {
                     <tbody>
                       {preview.updates.map((u) => (
                         <tr key={u.policy_id} className="border-t border-border-soft">
-                          <td className="px-2 py-2 tnum font-medium">{u.policy_number}</td>
+                          <td className="px-2 py-2 tnum font-medium">
+                            {u.set_policy_number ?? u.policy_number}
+                            {u.matched_by === "insured_name" && (
+                              <span className="ml-1.5 text-[10px] uppercase tracking-[0.06em] text-muted-foreground">
+                                matched by name
+                              </span>
+                            )}
+                          </td>
                           <td className="px-2 py-2">
                             {u.client_name}
                             {u.name_mismatch && (
@@ -423,8 +502,10 @@ function SyncWizard() {
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    Usually policies not yet entered in Agent Cloud, or written outside your hierarchy. Nothing is changed for these.
+                    Sync only updates policies already in your book — it never creates new ones.
+                    These rows are skipped entirely.
                   </p>
+
                 </details>
               )}
 

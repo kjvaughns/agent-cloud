@@ -7,6 +7,7 @@ import {
   AUDIENCES, resolveAudience, normalizeChannels, collapseGroups,
   type Audience, type Channel,
 } from "@/lib/announcements/audience";
+import { POST_MENTIONS, type PostMention } from "@/lib/discord/mention";
 import {
   ANNOUNCEMENT_STATUSES, validate, dueForDispatch,
 } from "@/lib/announcements/lifecycle";
@@ -107,6 +108,8 @@ const CreateSchema = z.object({
   title: z.string().trim().min(1).max(200),
   bodyHtml: z.string().min(1).max(50000),
   audience: z.enum(AUDIENCES).default("agency"),
+  /** Discord ping for this post: "default" defers to each channel's setting. */
+  discordMention: z.enum(POST_MENTIONS).default("default"),
   channels: z.array(z.string()).default([]),
   // Everything below defaults to exactly today's behaviour: published now, to
   // everybody, forever.
@@ -166,6 +169,9 @@ export const createAnnouncement = createServerFn({ method: "POST" })
       organization_id: target,
       audience: data.audience,
       announcement_group_id: groupId,
+      // Stored rather than passed only to deliver(), so a scheduled post pings
+      // the same way when cron dispatches it hours after the composer closed.
+      discord_mention: data.discordMention,
     }));
 
     let { data: inserted, error } = await supabaseAdmin
@@ -221,6 +227,7 @@ export const createAnnouncement = createServerFn({ method: "POST" })
         expires_at: data.expiresAt ?? null,
         target_roles: data.targetRoles,
         target_upline_id: data.targetUplineId ?? null,
+        discord_mention: data.discordMention,
         agencies: targets.length,
       },
     });
@@ -239,6 +246,7 @@ export const createAnnouncement = createServerFn({ method: "POST" })
           bodyHtml: data.bodyHtml,
           fromName: org?.name ?? "Your agency",
           channels,
+          discordMention: data.discordMention,
         }).catch((e: any) =>
           console.error("[announcements] delivery failed:", e?.message));
       }
@@ -343,6 +351,7 @@ export const updateAnnouncement = createServerFn({ method: "POST" })
           // that configured neither gets two skip rows in the ledger and
           // nothing else.
           channels: normalizeChannels(["in_app", "email", "discord"]),
+          discordMention: before.discord_mention ?? "default",
         }).catch((e: any) => console.error("[announcements] delivery failed:", e?.message));
       }
     }
@@ -413,6 +422,7 @@ export async function dispatchAllDueAnnouncements(): Promise<{
       // consent layers, and Discord has nothing to post to unless a channel
       // is set up with announcements enabled.
       channels: normalizeChannels(["in_app", "email", "discord"]),
+      discordMention: (row as any).discord_mention ?? "default",
     }).catch((e: any) => console.error("[announcements] cron dispatch failed:", e?.message));
   }
 
@@ -470,6 +480,7 @@ async function deliver(opts: {
   bodyHtml: string;
   fromName: string;
   channels: Channel[];
+  discordMention?: PostMention;
 }) {
   const { announcementId, orgId, title, bodyHtml, fromName, channels } = opts;
 
@@ -511,6 +522,11 @@ async function deliver(opts: {
     try {
       const { sendTransactionalEmail } = await import("@/lib/email/send.server");
       let sent = 0;
+      // Why nobody was emailed is the whole question when a send goes quiet.
+      // "0 of 10" with no reason forced a cross-reference against
+      // email_send_log to learn that the agency's own email switch was off —
+      // which is exactly the answer that should have been in this row.
+      const reasons = new Map<string, number>();
       for (const id of recipients) {
         // Both consent layers — the agency's category switch and the
         // individual's may_notify — are enforced inside the sender.
@@ -524,8 +540,15 @@ async function deliver(opts: {
           data: { title, bodyHtml, fromName },
         });
         if (res.sent) sent += 1;
+        else reasons.set(res.reason, (reasons.get(res.reason) ?? 0) + 1);
       }
-      await log("email", sent > 0 ? "sent" : "skipped", `${sent} of ${recipients.length}`);
+      const dominant = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0];
+      await log(
+        "email",
+        sent > 0 ? "sent" : "skipped",
+        `${sent} of ${recipients.length}`,
+        sent === 0 && dominant ? `${dominant[0]} (${dominant[1]})` : undefined,
+      );
     } catch (e: any) {
       await log("email", "failed", undefined, e?.message);
     }
@@ -535,10 +558,13 @@ async function deliver(opts: {
   if (channels.includes("discord")) {
     try {
       const { announceToDiscord } = await import("@/lib/discord.functions");
-      const result = await announceToDiscord(orgId, title, bodyHtml, announcementId);
+      const result = await announceToDiscord(
+        orgId, title, bodyHtml, announcementId, opts.discordMention ?? "default",
+      );
       await log("discord", result.sent > 0 ? "sent" : "skipped", `${result.sent} channel(s)`);
     } catch (e: any) {
       await log("discord", "failed", undefined, e?.message);
     }
   }
 }
+

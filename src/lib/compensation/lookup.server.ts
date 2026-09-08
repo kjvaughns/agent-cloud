@@ -144,6 +144,73 @@ export async function resolveForAgent(
 }
 
 /**
+ * The same resolution for a carrier the agency has not set up.
+ *
+ * Used for imported history: the book names carriers that were never configured
+ * here, and refusing to price them left hundreds of real policies showing no
+ * commission at all. There is no org_carrier row, so there is no mapping — but
+ * there may still be a real contract: `agent_commission_levels` is keyed on
+ * carrier_id, so an agent appointed at a carrier with a 6-month advance has
+ * that fact recorded even when the carrier was never configured in the agency's
+ * setup. When it exists it wins, exactly as it does on the configured path;
+ * only when it does not do we fall back to the agency position percentage and
+ * the provisional advance term. Marked provisional by the resolver either way,
+ * so the carrier still surfaces as one to set up.
+ */
+export async function resolveProvisionalForAgent(
+  supabase: Client,
+  agentId: string,
+  carrierId?: string | null,
+): Promise<Resolution> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("agency_level_id, organization_id")
+    .eq("id", agentId)
+    .maybeSingle();
+
+  const [levelRes, contractRes] = await Promise.all([
+    profile?.agency_level_id
+      ? supabase
+          .from("agency_levels")
+          .select("id, name, base_pct, sort_order, can_invite, active")
+          .eq("id", profile.agency_level_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    carrierId
+      ? supabase
+          .from("agent_commission_levels")
+          .select("*")
+          .eq("agent_id", agentId)
+          .eq("carrier_id", carrierId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const c = contractRes.data as any | null;
+
+  return resolveCompensation({
+    agentId,
+    orgCarrierId: "",
+    level: (levelRes.data as AgencyLevel) ?? null,
+    mapping: null,
+    contract: c
+      ? {
+          agent_id: agentId,
+          org_carrier_id: "",
+          assigned_pct: c.assigned_pct ?? null,
+          advance_option: isAdvanceOption(c.advance_option) ? c.advance_option : null,
+          commission_level: c.commission_level ?? null,
+          status: c.status ?? "active",
+        }
+      : null,
+    carrier: null,
+    allowUnconfiguredCarrier: true,
+  });
+}
+
+
+
+/**
  * The same resolution, for a list, in a fixed number of queries.
  *
  * `resolveForAgent` is four round trips. A contract list is one row per
@@ -330,33 +397,24 @@ export async function agencyCarrierConfiguration(
  * than being dropped: the override maths skips them, which is different from
  * treating them as zero, and the distinction decides whether the person above
  * them earns their own spread or somebody else's too.
+ *
+ * ── Uplines are priced on the same deal as the writer ──
+ *
+ * `priced` was not passed here, so each upline resolved from flat percentages
+ * while the writing agent resolved from the carrier's grid — the two sides of
+ * a subtraction answered by different systems. An upline whose real level for
+ * this carrier and product is a 90 on the grid came back with their agency
+ * level's base instead, and the spread paid was not the spread they hold. Same
+ * grid rows, same age, state and risk class, so a 90 over a 60 is a 30.
  */
 export async function loadUplineChain(
   supabase: Client,
   agentId: string,
   orgCarrierId: string,
-  /**
-   * The same grid and deal the writing agent was priced against.
-   *
-   * ── Why this is not optional in practice ──
-   *
-   * An override is a SPREAD — the upline's percentage minus the writing
-   * agent's — and a spread between two numbers computed on different bases is
-   * not a spread at all. The writing agent is resolved with the grid, so a
-   * young non-tobacco case can price them at the carrier's 110% row; each
-   * upline was resolved without it, from their flat level. Put those two
-   * together and the agency's 100% owner earns MINUS ten on a deal, which
-   * `resolveOverrides` correctly refuses to pay — so the override silently
-   * vanished on exactly the deals that paid best.
-   *
-   * Passing the same context prices every link at their OWN level against the
-   * same grid, for the same product, age, state and risk class. Both sides of
-   * the subtraction then mean the same thing.
-   */
   priced?: Parameters<typeof resolveForAgent>[3],
   maxDepth = 25,
-): Promise<{ agentId: string; pct: number | null }[]> {
-  const chain: { agentId: string; pct: number | null }[] = [];
+): Promise<{ agentId: string; pct: number | null; carrierLevelName: string | null }[]> {
+  const chain: { agentId: string; pct: number | null; carrierLevelName: string | null }[] = [];
   const seen = new Set<string>([agentId]);
   let cursor = agentId;
 
@@ -371,11 +429,57 @@ export async function loadUplineChain(
     seen.add(uplineId);
 
     const resolution = await resolveForAgent(supabase, uplineId, orgCarrierId, priced);
-    chain.push({ agentId: uplineId, pct: resolution.ok ? resolution.pct : null });
+    chain.push({
+      agentId: uplineId,
+      pct: resolution.ok ? resolution.pct : null,
+      carrierLevelName: resolution.ok ? resolution.carrierLevelName : null,
+    });
     cursor = uplineId;
   }
   return chain;
 }
+
+
+/**
+ * The upline chain for a carrier the agency never configured.
+ *
+ * Imported history is full of these, and returning an empty chain meant no
+ * upline was ever paid an override on any of it. Each upline resolves the same
+ * provisional way the writer does — their own contract for that carrier when
+ * one exists (so a 6-month, 100% appointment is used as written), otherwise
+ * their agency position base.
+ */
+export async function loadProvisionalUplineChain(
+  supabase: Client,
+  agentId: string,
+  carrierId: string | null,
+  maxDepth = 25,
+): Promise<{ agentId: string; pct: number | null; carrierLevelName: string | null }[]> {
+  const chain: { agentId: string; pct: number | null; carrierLevelName: string | null }[] = [];
+  const seen = new Set<string>([agentId]);
+  let cursor = agentId;
+
+  for (let depth = 0; depth < maxDepth; depth++) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("upline_id")
+      .eq("id", cursor)
+      .maybeSingle();
+    const uplineId: string | undefined = profile?.upline_id ?? undefined;
+    if (!uplineId || seen.has(uplineId)) break;
+    seen.add(uplineId);
+
+    const resolution = await resolveProvisionalForAgent(supabase, uplineId, carrierId);
+    chain.push({
+      agentId: uplineId,
+      pct: resolution.ok ? resolution.pct : null,
+      carrierLevelName: resolution.ok ? resolution.carrierLevelName : null,
+    });
+    cursor = uplineId;
+  }
+  return chain;
+}
+
 
 /**
  * Record — or clear — why a policy could not be paid.
@@ -403,6 +507,28 @@ export async function recordSetupIssue(
   // that stops the deal being recorded. The policy is already written by the
   // time this runs.
   try {
+    // A provisional resolution paid something, but off the agent's agency
+    // position rather than the carrier's terms — so the issue stays open until
+    // the carrier is actually set up.
+    if (resolution.ok && resolution.provisional === true) {
+      await supabase.from("commission_setup_issues").upsert(
+        {
+          policy_id: policyId,
+          agent_id: agentId,
+          organization_id: orgId,
+          org_carrier_id: orgCarrierId,
+          failures: ["carrier_not_configured"],
+          messages: [
+            "Paid provisionally from this agent's agency position. Set this carrier up to price it on the carrier's own schedule.",
+          ],
+          resolved_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "policy_id" },
+      );
+      return;
+    }
+
     if (resolution.ok) {
       await supabase
         .from("commission_setup_issues")

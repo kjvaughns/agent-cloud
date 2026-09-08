@@ -39,6 +39,7 @@ import { useNavContext } from "@/hooks/use-my-access";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 // The wording for a resolved percentage lives beside the rule that resolved
 // it — a second copy here would be a second thing to keep true.
 import {
@@ -784,6 +785,9 @@ function AddCarrierDialog({ onAdded }: { onAdded: () => void }) {
                   <div>
                     <Label>NPN *</Label>
                     <Input value={npn} onChange={(e) => setNpn(e.target.value.slice(0, 20))} className="mt-1" placeholder="e.g. 12345678" />
+                    <div className="mt-1.5">
+                      <NpnLookupLink />
+                    </div>
                   </div>
                   <div>
                     <Label>Email *</Label>

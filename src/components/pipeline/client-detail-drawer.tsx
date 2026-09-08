@@ -1,4 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { POLICY_STATUSES } from "@/lib/policy-status";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
@@ -33,7 +35,7 @@ import {
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
 import { postDeal } from "@/lib/post-deal.functions";
-import { encodePolicyDraft, postDealStatus, type PolicyDraft } from "@/lib/deals/policy-draft";
+import { encodePolicyDraft, postDealStatus, stashPolicyDraft, clearStashedPolicyDraft, type PolicyDraft } from "@/lib/deals/policy-draft";
 import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
 import { ClientAiPanel } from "@/components/ai/client-ai-panel";
@@ -1051,8 +1053,13 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
   // stays a draft until one of the two forms is submitted.
   const draft = useContext(PolicyDraftContext);
   useEffect(() => {
-    if (draft) draft.current = { ...form, status: postDealStatus(form.status) };
-  }, [draft, form]);
+    const next: PolicyDraft = { ...form, status: postDealStatus((form as any).status) };
+    if (draft) draft.current = next;
+    // Also kept for the tab, so reaching Post a Deal from the sidebar, the top
+    // bar or a pipeline row restores it too — not just the one button that
+    // carries it in the URL.
+    stashPolicyDraft(clientId, next);
+  }, [draft, form, clientId]);
 
   const listCarriersFn = useServerFn(listCarriers);
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => listCarriersFn(), staleTime: 5 * 60_000 });
@@ -1086,9 +1093,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       beneficiaries: [],
     }}),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      invalidatePolicyViews(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       if (res?.compensation && res.compensation.ok === false) {
         toast.warning("Deal posted — but the commission could not be worked out", {
@@ -1101,6 +1106,9 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
       // The policy is written; the draft that described it must not survive to
       // be carried into a second one.
       setForm(blankPolicyForm());
+      // The policy exists now; the stash that described it must not reappear
+      // on the next Post a Deal.
+      clearStashedPolicyDraft();
       onSaved();
     },
     onError: (e: any) => toast.error(e?.message ?? "Failed to post deal"),
@@ -1219,15 +1227,11 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       sale_date: form.sale_date || null,
     }}),
     onSuccess: (res: any) => {
+      // Every policy-backed view, not a hand-kept subset: an edit here shows
+      // up in the book, on production, on the leaderboard and in finances.
+      invalidatePolicyViews(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
-      qc.invalidateQueries({ queryKey: ["pipeline", "list"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      // Moving the sale date moves production, the leaderboard and the
-      // commission schedule with it, so those views must not keep stale numbers.
       if (res?.saleDateChanged) {
-        qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
-        qc.invalidateQueries({ queryKey: ["leaderboard"] });
-        qc.invalidateQueries({ queryKey: ["finances"] });
         toast.success(`Policy updated — now counts toward ${saleMonthLabel(form.sale_date)}`);
       } else {
         toast.success("Policy updated");
@@ -1296,7 +1300,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
           <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {["active","issued_not_paid","in_review","lapsed","pending"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {POLICY_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

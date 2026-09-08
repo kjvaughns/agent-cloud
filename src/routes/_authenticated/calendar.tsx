@@ -216,7 +216,7 @@ function MonthView({
           lever on a phone is how much each cell spends on itself. Three-letter
           day names do not fit in a 53px column; one letter does. */}
       <div className="grid grid-cols-7 border-b border-border-soft bg-surface-2">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
           <div key={d} className="px-1 py-2 text-center text-xs font-semibold text-muted-foreground sm:px-3 sm:text-left">
             <span className="sm:hidden">{d[0]}</span>
             <span className="hidden sm:inline">{d}</span>
@@ -779,7 +779,7 @@ function SkeletonGrid() {
 function buildMonth(cursor: Date) {
   const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const start = new Date(first);
-  start.setDate(start.getDate() - first.getDay());
+  start.setDate(start.getDate() - ((first.getDay() + 6) % 7)); // weeks start Monday
   const today = new Date();
   const todayIso = today.toDateString();
   const out: { day: number; iso: string; inMonth: boolean; isToday: boolean; isPast: boolean; date: Date }[] = [];
@@ -830,7 +830,7 @@ function combineDateTime(date: Date, hhmm: string) {
 
 function startOfWeek(d: Date) {
   const x = new Date(d);
-  x.setDate(x.getDate() - x.getDay());
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // weeks start Monday
   x.setHours(0, 0, 0, 0);
   return x;
 }
@@ -859,7 +859,7 @@ function computeRange(view: ViewMode, cursor: Date) {
   if (view === "month") {
     const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
     const start = new Date(first);
-    start.setDate(start.getDate() - first.getDay() - 7);
+    start.setDate(start.getDate() - ((first.getDay() + 6) % 7) - 7);
     const end = new Date(first);
     end.setMonth(end.getMonth() + 1);
     end.setDate(end.getDate() + 14);

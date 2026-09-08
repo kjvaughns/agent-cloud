@@ -17,6 +17,9 @@ export type OrgSettings = {
   notify_new_agent: boolean;
   notify_new_ticket: boolean;
   notify_contract_request: boolean;
+  /** Stored form: 3 means 3% of annual premium. */
+  renewal_pct_default: number;
+  override_renewal_pct_default: number;
 };
 
 const DEFAULTS = {
@@ -28,7 +31,13 @@ const DEFAULTS = {
   notify_new_agent: false,
   notify_new_ticket: false,
   notify_contract_request: false,
+  // Renewals, unlike mail, are opted IN by default: a carrier grid with no
+  // published renewal row used to mean no renewal ever, which is not what any
+  // agency means by leaving a field blank.
+  renewal_pct_default: 3,
+  override_renewal_pct_default: 1,
 };
+
 
 export const getOrgSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -64,7 +73,15 @@ const UpdateSchema = z.object({
    */
   show_own_sales_in_feed: z.boolean().optional(),
   show_own_on_leaderboards: z.boolean().optional(),
+  /**
+   * The renewal rates used wherever a carrier's grid publishes none. Capped at
+   * 100 because a renewal above the premium is a typo, not a contract, and the
+   * number multiplies every renewal on every policy for ten years.
+   */
+  renewal_pct_default: z.number().min(0).max(100).optional(),
+  override_renewal_pct_default: z.number().min(0).max(100).optional(),
 });
+
 
 /** Columns that may not exist yet, newest migration last. */
 const PENDING_COLUMNS = ["show_own_sales_in_feed", "show_own_on_leaderboards"];

@@ -121,7 +121,7 @@ function rangeBounds(range: string, custom: { from: string; to: string } | null)
       return { start: startOfToday, end: throughToday, label: "Today", headline: "Today's ALP" };
     case "week": {
       const d = new Date(startOfToday);
-      d.setDate(d.getDate() - d.getDay());
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // weeks start Monday
       return { start: d, end: throughToday, label: "This Week", headline: "Week-to-date ALP" };
     }
     case "quarter": {

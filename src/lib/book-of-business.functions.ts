@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { scopeSchema } from "@/lib/scope";
+import { resolveScopeAgentIdsOrNone } from "@/lib/scope.functions";
+import { deactivatedProfileIds } from "@/lib/agents/inactive";
 
 const ScopeSchema = z.object({
   scope: scopeSchema,
@@ -24,7 +26,64 @@ export const listBookOfBusiness = createServerFn({ method: "POST" })
       _agent_id: data.agentId ?? undefined,
     });
     if (error) throw new Error(error.message);
-    return (rows ?? []) as any[];
+    let list = (rows ?? []) as any[];
+    if (list.length === 0) return list;
+
+    // Somebody switched off on the Team page is inactive everywhere, including
+    // here: their policies stay on the book, their name carries the same badge
+    // as a producer who never had an account.
+    const off = await deactivatedProfileIds(supabase, list.map((r) => r.agent_id));
+    if (off.size) {
+      list = list.map((r) => (off.has(r.agent_id) ? { ...r, agent_inactive: true } : r));
+    }
+
+    // An imported policy written by an agent who has not signed up yet is held
+    // on the importer's id with the producer's email on the row. The book used
+    // to show the importer's name for all of it, so a book of 368 policies read
+    // as one person's. The roster name is shown instead, flagged as not yet
+    // having an account — the policy still belongs to whoever will claim it.
+    const ids = list.map((r) => r.id).filter(Boolean);
+    const { data: assigned } = await supabase
+      .from("policies")
+      .select("id, assigned_to_email")
+      .in("id", ids)
+      .not("assigned_to_email", "is", null);
+
+    const emails = Array.from(
+      new Set(((assigned ?? []) as any[]).map((p) => String(p.assigned_to_email).toLowerCase())),
+    );
+    if (emails.length === 0) return list;
+
+    const { data: pending } = await supabase
+      .from("pending_agents")
+      .select("email, first_name, last_name")
+      .in("email", emails);
+
+    const nameByEmail = new Map<string, string>();
+    for (const p of (pending ?? []) as any[]) {
+      const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+      if (p.email && full) nameByEmail.set(String(p.email).toLowerCase(), full);
+    }
+    const emailById = new Map<string, string>(
+      ((assigned ?? []) as any[]).map((p) => [p.id, String(p.assigned_to_email).toLowerCase()]),
+    );
+
+    return list.map((row) => {
+      const email = emailById.get(row.id);
+      if (!email) return row;
+      const full = nameByEmail.get(email);
+      // Even without a roster row the email is a truer label than the
+      // importer's name, so it is used as the fallback.
+      const label = full ?? email;
+      const [first, ...rest] = label.split(" ");
+      return {
+        ...row,
+        agent_first_name: first ?? label,
+        agent_last_name: rest.join(" ") || null,
+        assigned_to_email: email,
+        agent_has_account: false,
+      };
+    });
   });
 
 export const listDownlineAgents = createServerFn({ method: "GET" })
@@ -53,17 +112,20 @@ export const updatePolicyStatus = createServerFn({ method: "POST" })
     z.object({
       policyId: z.string().uuid(),
       status: z.enum([
-        "active", "issued_not_paid", "in_review", "lapse_pending",
+        "active", "submitted", "issued_not_paid", "in_review", "lapse_pending",
         "lapsed", "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na",
       ]),
     }).parse(data),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    // Count the rows: RLS refuses silently, so a zero-row update would
+    // otherwise report success and leave the old status in place.
+    const { error, count } = await context.supabase
       .from("policies")
-      .update({ status: data.status })
+      .update({ status: data.status }, { count: "exact" })
       .eq("id", data.policyId);
     if (error) throw new Error(error.message);
+    if (!count) throw new Error("You do not have permission to edit this policy.");
     // What was, who changed it and when is recorded by
     // `trg_policy_events_status` on the table itself rather than here. Three
     // paths write this column and nothing stops a fourth; a trigger is the one
@@ -106,9 +168,100 @@ export const getPolicyCommissionTotal = createServerFn({ method: "POST" })
     const { data: rows, error } = await context.supabase
       .from("commission_schedule")
       .select("amount, status")
-      .eq("policy_id", data.policyId);
+      .eq("policy_id", data.policyId)
+      .is("superseded_at", null);
     if (error) throw new Error(error.message);
     const total = (rows ?? []).reduce((s, r: any) => s + Number(r.amount ?? 0), 0);
     const paid = (rows ?? []).filter((r: any) => r.status === "paid").reduce((s, r: any) => s + Number(r.amount ?? 0), 0);
     return { total, paid, count: rows?.length ?? 0 };
+  });
+
+/**
+ * Producers with policies in the book who have no account yet.
+ *
+ * An imported policy written by somebody who never signed up sits on the
+ * importer's agent id with the producer's email on the row. Those books are
+ * real history — they have to be findable, and somebody has to be able to move
+ * them onto a live agent's book.
+ */
+export const listUnclaimedProducers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ scope: scopeSchema }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as any;
+    const agentIds = await resolveScopeAgentIdsOrNone(supabase, data.scope);
+    if (agentIds.length === 0) return [] as UnclaimedProducer[];
+    const { data: rows } = await supabase
+      .from("policies")
+      .select("assigned_to_email, annual_premium")
+      .in("agent_id", agentIds)
+      .not("assigned_to_email", "is", null);
+    const list = (rows ?? []) as any[];
+    if (list.length === 0) return [] as UnclaimedProducer[];
+
+    const agg = new Map<string, { policies: number; premium: number }>();
+    for (const r of list) {
+      const email = String(r.assigned_to_email).toLowerCase();
+      const cur = agg.get(email) ?? { policies: 0, premium: 0 };
+      cur.policies += 1;
+      cur.premium += Number(r.annual_premium ?? 0);
+      agg.set(email, cur);
+    }
+    const { data: pending } = await supabase
+      .from("pending_agents")
+      .select("email, first_name, last_name")
+      .in("email", Array.from(agg.keys()));
+    const nameByEmail = new Map<string, string>();
+    for (const p of (pending ?? []) as any[]) {
+      const full = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+      if (p.email && full) nameByEmail.set(String(p.email).toLowerCase(), full);
+    }
+    return Array.from(agg.entries())
+      .map(([email, v]) => ({ email, name: nameByEmail.get(email) ?? email, ...v }))
+      .sort((a, b) => b.policies - a.policies) as UnclaimedProducer[];
+  });
+
+export type UnclaimedProducer = { email: string; name: string; policies: number; premium: number };
+
+/**
+ * Put a previous agent's book back on somebody's books.
+ *
+ * Either one policy or a whole producer's book. The write is scoped by the
+ * caller's own scope set, so a producer outside their reach matches nothing,
+ * and RLS still has the final say.
+ */
+export const reassignPolicies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        scope: scopeSchema,
+        targetAgentId: z.string().uuid(),
+        policyIds: z.array(z.string().uuid()).optional(),
+        producerEmail: z.string().email().optional(),
+      })
+      .refine((v) => !!v.policyIds?.length || !!v.producerEmail, {
+        message: "Pick a policy or a producer to move.",
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as any;
+    const agentIds = await resolveScopeAgentIdsOrNone(supabase, data.scope);
+    if (agentIds.length === 0) throw new Error("You cannot move these policies.");
+
+    let q = supabase
+      .from("policies")
+      .update(
+        { agent_id: data.targetAgentId, assigned_to_email: null },
+        { count: "exact" },
+      )
+      .in("agent_id", agentIds);
+    if (data.policyIds?.length) q = q.in("id", data.policyIds);
+    if (data.producerEmail) q = q.eq("assigned_to_email", data.producerEmail.toLowerCase());
+
+    const { error, count } = await q;
+    if (error) throw new Error(error.message);
+    if (!count) throw new Error("Nothing was moved — you may not have permission on these policies.");
+    return { moved: count };
   });

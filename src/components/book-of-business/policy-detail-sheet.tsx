@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { money, phone as fmtPhone } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import { updatePolicyStatus, getPolicyCommissionTotal, listPolicyEvents } from "@/lib/book-of-business.functions";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,13 +100,15 @@ export function PolicyDetailSheet({
       );
       return { prev };
     },
-    onError: (_e, _v, ctx) => {
+    onError: (e: any, _v, ctx) => {
       ctx?.prev?.forEach(([k, v]) => qc.setQueryData(k, v));
-      toast.error("Failed to update status");
+      toast.error(e?.message ? `Failed to update status: ${e.message}` : "Failed to update status");
     },
     onSuccess: () => toast.success("Status updated"),
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
+      // A status change moves production, retention and the money with it, so
+      // every policy-backed view refreshes, not just this list.
+      invalidatePolicyViews(qc);
       // The change just made is part of the history now.
       qc.invalidateQueries({ queryKey: ["bob", "events", row?.id] });
     },
@@ -155,10 +158,12 @@ export function PolicyDetailSheet({
                   <h3 className="font-semibold">Policy details</h3>
                   <Link
                     to="/pipeline"
+                    search={{ client: row.client_id ?? undefined }}
                     className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                   >
                     View client profile <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
+
                 </div>
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <Row k="Carrier" v={row.carrier_name ?? "—"} />

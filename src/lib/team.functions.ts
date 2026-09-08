@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { inactiveAgentId, inactiveAgentNames } from "@/lib/agents/inactive";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   complianceLevel, daysSince, lifecycleStage, riskFlags,
@@ -300,7 +301,7 @@ export const getTeamRoster = createServerFn({ method: "GET" })
     // how the roster used to be able to disagree with both.
     const ownTally = tallyByAgent(
       ((policies.data ?? []) as any[]).filter((p) =>
-        inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null),
+        inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null) && !p.assigned_to_email,
       ),
     );
     const teamTally = rollUpDownline(
@@ -327,9 +328,69 @@ export const getTeamRoster = createServerFn({ method: "GET" })
       contractCount.set(c.agent_id, (contractCount.get(c.agent_id) ?? 0) + 1);
     }
 
+    // ── Previous agents ──────────────────────────────────────────────────
+    //
+    // Business imported for somebody who never signed up is held on the
+    // importer's id with the producer's email on the row. They are agents, they
+    // wrote the business, and their production is the agency's production — so
+    // they belong on this roster, marked inactive, rather than folded silently
+    // into whoever ran the import. Only producers with business on the books
+    // appear; a name with nothing behind it is noise.
+    const heldAll = ((policies.data ?? []) as any[]).filter((p) => p.assigned_to_email);
+    const heldWindow = heldAll.filter((p) => inWindow(p, data.rangeStart ?? null, data.rangeEnd ?? null));
+    const heldTally = tallyByAgent(
+      heldWindow.map((r) => ({ ...r, agent_id: inactiveAgentId(String(r.assigned_to_email)) })) as any,
+    );
+    const heldNames = heldAll.length
+      ? await inactiveAgentNames(supabase, heldAll.map((r) => String(r.assigned_to_email)))
+      : new Map<string, string>();
+    const heldCounts = new Map<string, { policies: number; last: string | null }>();
+    for (const p of heldAll) {
+      const key = String(p.assigned_to_email).toLowerCase();
+      const held = heldCounts.get(key) ?? { policies: 0, last: null };
+      held.policies += 1;
+      const when = p.production_date ?? p.posted_at ?? null;
+      if (when && (!held.last || when > held.last)) held.last = when;
+      heldCounts.set(key, held);
+    }
+    const inactiveRows: RosterAgent[] = Array.from(heldCounts.entries()).map(([email, c]) => {
+      const id = inactiveAgentId(email);
+      const label = heldNames.get(email) ?? email;
+      const [first, ...rest] = label.split(" ");
+      const own = heldTally.get(id) ?? ZERO;
+      return {
+        id,
+        first_name: first ?? label,
+        last_name: rest.join(" ") || null,
+        email,
+        phone: null,
+        upline_id: userId,
+        status: "inactive",
+        last_active_at: null,
+        created_at: c.last,
+        depth_level: 1,
+        contracts_count: 0,
+        policies_count: c.policies,
+        premium_total: own.premium,
+        completion_pct: 0,
+        missing: [],
+        stage: "dormant",
+        compliance: "unknown",
+        flags: [],
+        active_carriers: 0,
+        days_since_sale: daysSince(c.last, Date.now()),
+        agency_level_id: null,
+        position_name: null,
+        position_pct: null,
+        own,
+        team: ZERO,
+        at_risk_monthly: 0,
+        at_risk_cases: 0,
+      } as unknown as RosterAgent;
+    });
+
     const now = Date.now();
-    return {
-      rows: agents.map((a): RosterAgent => {
+    const rosterRows = agents.map((a): RosterAgent => {
         const policiesCount = a.is_self
           ? (policyCount.get(a.id) ?? 0)
           : Number(a.policies_count ?? 0);
@@ -371,8 +432,9 @@ export const getTeamRoster = createServerFn({ method: "GET" })
           at_risk_monthly: atRisk.get(a.id)?.monthly ?? 0,
           at_risk_cases: atRisk.get(a.id)?.cases ?? 0,
         };
-      }),
-    };
+    });
+
+    return { rows: [...rosterRows, ...inactiveRows] };
   });
 
 export const getTeamKpis = createServerFn({ method: "GET" })
@@ -400,18 +462,57 @@ export const sendAgentReminder = createServerFn({ method: "POST" })
     return res as { ok: boolean; reason?: string };
   });
 
+/**
+ * One agent, as their drawer shows them.
+ *
+ * The RLS-bound client was the only reader here, and it blanked the drawer for
+ * an upline whose downline agent had no `organization_id` recorded: `same_org`
+ * needs a membership on both sides and the downline walk used to drop a child
+ * whose org column was null. The roster listed them, the drawer showed nothing.
+ *
+ * So standing is established the same way the roster is built — `get_team_downline`,
+ * which walks `upline_id` and nothing else — and the read then crosses the
+ * policy deliberately, behind that check. Anyone who is not on the caller's
+ * roster and is not an agency admin is refused outright.
+ */
 export const getAgentDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { agentId: string }) => z.object({ agentId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context as any;
+    const admin = supabaseAdmin as any;
+
+    const { data: downlineRows } = await supabase.rpc("get_team_downline");
+    let allowed =
+      data.agentId === userId ||
+      ((downlineRows ?? []) as any[]).some((r) => r.id === data.agentId);
+
+    if (!allowed) {
+      // An agency admin may open anybody in their own agency, downline or not.
+      const { data: me } = await admin
+        .from("profiles").select("organization_id, is_platform_admin").eq("id", userId).maybeSingle();
+      if (me?.is_platform_admin) allowed = true;
+      else if (me?.organization_id) {
+        const [{ data: org }, { data: perms }, { data: them }] = await Promise.all([
+          admin.from("organizations").select("owner_id").eq("id", me.organization_id).maybeSingle(),
+          admin.from("role_permissions").select("admin_manage_levels")
+            .eq("organization_id", me.organization_id).eq("profile_id", userId).maybeSingle(),
+          admin.from("profiles").select("organization_id").eq("id", data.agentId).maybeSingle(),
+        ]);
+        const isAgencyAdmin =
+          org?.owner_id === userId || Boolean(perms?.admin_manage_levels);
+        allowed = isAgencyAdmin && them?.organization_id === me.organization_id;
+      }
+    }
+    if (!allowed) throw new Error("That agent is not on your roster.");
+
     const [profile, contracts, policies] = await Promise.all([
-      supabase.from("profiles").select("id, first_name, last_name, email, phone, created_at, upline_id, status, last_active_at").eq("id", data.agentId).maybeSingle(),
-      supabase.from("agent_commission_levels").select("carrier_id, assigned_pct, commission_level, carriers(name)").eq("agent_id", data.agentId),
-      supabase.from("policies").select("id, status, annual_premium, monthly_premium, posted_at, product, carriers(name)").eq("agent_id", data.agentId).order("posted_at", { ascending: false }).limit(50),
+      admin.from("profiles").select("id, first_name, last_name, email, phone, created_at, upline_id, status, last_active_at").eq("id", data.agentId).maybeSingle(),
+      admin.from("agent_commission_levels").select("carrier_id, assigned_pct, commission_level, carriers(name)").eq("agent_id", data.agentId),
+      admin.from("policies").select("id, status, annual_premium, monthly_premium, posted_at, product, carriers(name)").eq("agent_id", data.agentId).order("posted_at", { ascending: false }).limit(50),
     ]);
     if (profile.error) throw new Error(profile.error.message);
-    const pols = policies.data ?? [];
+    const pols: any[] = (policies.data ?? []) as any[];
     const breakdown = {
       total: pols.length,
       active: pols.filter((p) => p.status === "active").length,
@@ -421,7 +522,7 @@ export const getAgentDetail = createServerFn({ method: "GET" })
     };
     return {
       profile: profile.data,
-      contracts: contracts.data ?? [],
+      contracts: ((contracts.data ?? []) as any[]),
       breakdown,
       recent: pols.slice(0, 5),
     };

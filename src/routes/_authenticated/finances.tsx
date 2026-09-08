@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { ScopeToggle } from "@/components/scope-toggle";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
+import { IncomeReport, incomeBounds } from "@/components/finances/income-report";
+
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -63,8 +65,9 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/finances")({
-  validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
+  validateSearch: (s: Record<string, unknown>): { scope?: Scope; agent?: string } => ({
     scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
+    agent: typeof s.agent === "string" && s.agent ? s.agent : undefined,
   }),
   head: () => ({
     meta: [
@@ -86,16 +89,34 @@ function monthKey(d: Date) {
 function FinancesPage() {
   const fn = useServerFn(getFinancesData);
   const { scope, ready: scopeReady } = useScope();
-  const { data, isLoading } = useQuery({
+  const { agent } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // The report's window is its own control; the ledger below is unaffected.
+  const [range, setRange] = useState("ytd");
+  const [custom, setCustom] = useState<{ from: string; to: string } | null>(null);
+  const bounds = useMemo(() => incomeBounds(range, custom), [range, custom]);
+
+  const { data, isLoading, isFetching } = useQuery({
     enabled: scopeReady,
-    queryKey: ["finances", scope],
-    queryFn: () => fn({ data: { scope } }),
+    queryKey: ["finances", scope, agent ?? "me", bounds.from ?? "", bounds.to ?? ""],
+    queryFn: () => fn({ data: { scope, agentId: agent, from: bounds.from, to: bounds.to } }),
   });
+
+  const report = data?.report ?? null;
+  const viewingId = data?.viewing_agent_id;
+  const viewingOther = Boolean(viewingId && agent && viewingId === agent);
+  const viewingName = report?.find((r) => r.agent_id === viewingId)?.name ?? null;
+
+  function setAgent(agentId?: string) {
+    navigate({ search: (prev: any) => ({ ...prev, agent: agentId }), replace: true });
+  }
 
   // Always the caller's own rows, at every scope. See the note on
   // getFinancesData: widening these would double-count every override.
   const rows: Row[] = data?.rows ?? [];
-  const team = data?.team ?? null;
+
+  
 
   const [section, setSection] = useState<string>("overview");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -122,18 +143,17 @@ function FinancesPage() {
       const d = new Date(r.payment_date + "T00:00:00");
       const isTrail = r.payment_type === "trail" || r.payment_type === "deferred";
       const isDirect = r.payment_type === "advance" || isTrail;
-      // Treat any scheduled commission whose payment_date is today or earlier as
-      // earned. status='paid' is reserved for a future settlement flow; without
-      // this, every imported policy would show $0 earned.
-      const isEarned = r.status === "paid" || d <= today;
-      if (r.payment_date === todayStr && isEarned) todayTotal += r.amount;
-      if (d >= today && d <= in90) forecast90 += r.amount;
-      if (d >= startOfMonth && d <= today && isEarned) mtd += r.amount;
-      if (d >= startOfYear && d <= today && isEarned) ytd += r.amount;
-      if (isDirect && d >= startOfYear && d <= today && isEarned) directYtd += r.amount;
-      if (r.payment_type === "override" && d > today) overridePending += r.amount;
-      if (isTrail && d > today) trailPending += r.amount;
-      if (r.payment_type === "renewal" && d > today) renewalPending += r.amount;
+      // Statement reconciliation changes a due row from pending to paid. The
+      // scheduled date still determines when it enters income totals.
+      const isEarnedOrDue = r.status === "paid" || r.payment_date <= todayStr;
+      if (r.payment_date === todayStr && isEarnedOrDue) todayTotal += r.amount;
+      if (r.status === "pending" && d > today && d <= in90) forecast90 += r.amount;
+      if (d >= startOfMonth && d <= today && isEarnedOrDue) mtd += r.amount;
+      if (d >= startOfYear && d <= today && isEarnedOrDue) ytd += r.amount;
+      if (isDirect && d >= startOfYear && d <= today && isEarnedOrDue) directYtd += r.amount;
+      if (r.status === "pending" && r.payment_type === "override") overridePending += r.amount;
+      if (r.status === "pending" && isTrail) trailPending += r.amount;
+      if (r.status === "pending" && r.payment_type === "renewal") renewalPending += r.amount;
     }
     return { todayTotal, forecast90, mtd, ytd, directYtd, overridePending, trailPending, renewalPending };
   }, [rows]);
@@ -146,6 +166,7 @@ function FinancesPage() {
     }
     const idx = new Map(months.map((m, i) => [m.key, i]));
     for (const r of rows) {
+      if (r.status !== "pending" || r.payment_date <= todayStr) continue;
       const d = new Date(r.payment_date + "T00:00:00");
       const k = monthKey(d);
       const i = idx.get(k);
@@ -156,6 +177,21 @@ function FinancesPage() {
       else months[i].direct += r.amount;
     }
     return months;
+  }, [rows]);
+
+  const monthlyData = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; direct: number; override: number; trail: number; renewal: number }>();
+    for (const r of rows) {
+      const d = new Date(`${r.payment_date}T00:00:00`);
+      const key = monthKey(d);
+      const entry = map.get(key) ?? { key, label: `${MONTH_LABELS[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`, direct: 0, override: 0, trail: 0, renewal: 0 };
+      if (r.payment_type === "override") entry.override += r.amount;
+      else if (r.payment_type === "renewal") entry.renewal += r.amount;
+      else if (r.payment_type === "trail" || r.payment_type === "deferred") entry.trail += r.amount;
+      else entry.direct += r.amount;
+      map.set(key, entry);
+    }
+    return [...map.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [rows]);
 
   const monthRows = useMemo(() => {
@@ -232,41 +268,50 @@ function FinancesPage() {
       <div className="col">
         <HeroBand
           title="Finances"
-          subtitle="Commissions, forecasts & payouts"
-          actions={<ScopeToggle />}
+          subtitle={viewingOther && viewingName
+            ? `Viewing ${viewingName}'s commissions`
+            : "Commissions, forecasts & payouts"}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <ScopeToggle />
+              {data?.may_see_others && (
+                <ScopeAgentFilter value={agent} onChange={setAgent} />
+              )}
+            </div>
+          }
         />
+
+        {viewingOther && (
+          <Panel>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                Viewing <span className="font-medium">{viewingName}</span>&apos;s finances. Every
+                figure below is theirs, not yours.
+              </p>
+              <Button size="sm" variant="outline" onClick={() => setAgent(undefined)}>
+                Back to my finances
+              </Button>
+            </div>
+          </Panel>
+        )}
 
         {/* Deliberately beside the personal figures rather than folded into
             them. Your override on a downline policy and their advance on the
             same policy are both real; adding them together is not. */}
-        {team && team.length > 0 && (
-          <Panel title={scope === "agency" ? "What the agency earned" : "What your team earned"}>
-            <p className="text-xs text-muted-foreground">
-              Separate from your own figures above — your overrides on their business are already
-              counted there.
-            </p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                    <th className="pb-2 font-medium">Agent</th>
-                    <th className="pb-2 text-right font-medium">Paid</th>
-                    <th className="pb-2 text-right font-medium">Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {team.map((t) => (
-                    <tr key={t.agent_id} className="border-t border-border-soft">
-                      <td className="py-2">{t.name}</td>
-                      <td className="tnum py-2 text-right">{fmtCurrency(t.paid)}</td>
-                      <td className="tnum py-2 text-right text-muted-foreground">{fmtCurrency(t.pending)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
+        {data?.may_see_others && (
+          <IncomeReport
+            report={report}
+            loading={isFetching}
+            range={range}
+            onRange={(v) => setRange(v)}
+            onCustom={(from, to) => { setCustom({ from, to }); setRange("__custom"); }}
+            rangeLabel={bounds.label}
+            scopeLabel={scope === "agency" ? "Agency" : "Team"}
+            selectedAgentId={agent}
+            onSelectAgent={(id) => setAgent(id === agent ? undefined : id)}
+          />
         )}
+
 
         {/* Reconciliation was a separate nav item; it belongs with the money. */}
         <Tabs value={section} onValueChange={setSection} className="w-full">
@@ -363,61 +408,28 @@ function FinancesPage() {
                 </span>
               </AccordionTrigger>
               <AccordionContent className="px-3 space-y-4 text-sm">
-                {/* Written from what the calculator does, not from what it used
-                    to do. This described a fixed 75/25 split and a $600 GTL cap
-                    long after both were removed in favour of the advance months
-                    and cap each agency configures per carrier — so an agent
-                    reading it to understand their own money was reading the
-                    previous system. */}
                 <section>
-                  <h4 className="font-semibold mb-1">Year one</h4>
+                  <h4 className="font-semibold mb-1">Advance and trail</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                    <li>
-                      The carrier advances the months your agency has configured for that
-                      carrier, at your commission rate, on the effective date
-                    </li>
-                    <li>The rest of year one pays monthly, one month at a time, after those</li>
-                    <li>
-                      A carrier set to as-earned advances nothing, so the whole year pays
-                      monthly
-                    </li>
+                    <li>The carrier-configured advance months determine how much premium is advanced.</li>
+                    <li>The remaining first-year months pay as trail only while the policy stays active and premiums continue.</li>
                   </ul>
-                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Monthly premium: $100          Annual: $1,200
-Your rate: 80%                 Advanced months: 9
-
-Year one total: $1,200 × 80%      = $960
-Advance:        $100 × 9 × 80%    = $720   on the effective date
-Balance:        $960 − $720       = $240   over 3 months = $80 each`}</pre>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Your rate comes from your contract on that carrier, or the carrier's own
-                    grid for that product, age, state and tobacco class when one is loaded.
-                  </p>
-                </section>
-                <section>
-                  <h4 className="font-semibold mb-1">Carriers with a capped advance</h4>
-                  <p className="text-muted-foreground">
-                    Some carriers cap what they will advance at a fixed amount. When your
-                    agency has set a cap for that carrier, the advance is whichever is
-                    smaller — the calculated advance or the cap — and the remainder pays
-                    monthly like any other balance.
-                  </p>
+                  <pre className="mt-2 bg-muted/50 p-3 rounded text-xs overflow-x-auto">{`Annual Premium: $1,200
+Agent Commission Level: 80%
+Total Year 1: $1,200 × 80% = $960
+Advance: $960 × 75% = $720
+Month 10/11/12 (trail): $960 × 25% / 3 = $80 each`}</pre>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">Override Commissions</h4>
                   <p className="text-muted-foreground">
-                    Override = Downline annual premium × (your rate − the rate already paid
-                    below you). You at 80%, downline at 70% → you earn the 10% spread. It is
-                    advanced and paid down exactly like your own year one: the same advanced
-                    months up front, the remainder monthly after them. Both rates are priced
-                    against the same carrier grid for that deal, so the spread compares like
-                    with like.
+                    Override = advanceable premium × the consecutive carrier-level spread. The same configured advance window and conditional trail months apply to every upline leg.
                   </p>
                 </section>
                 <section>
                   <h4 className="font-semibold mb-1">Renewals</h4>
                   <p className="text-muted-foreground">
-                    Renewal commissions are paid at the start of policy years 2–5 and 6–10, at the rate
-                    specified in your commission grid for each carrier.
+                     Renewals are paid on the policy anniversary only while the policy remains active. Personal and upline renewal rates come from that carrier, product, level, age, state, risk class, and policy-year grid; no missing rate is invented.
                   </p>
                 </section>
               </AccordionContent>
@@ -570,7 +582,7 @@ Balance:        $960 − $720       = $240   over 3 months = $80 each`}</pre>
 
             <TabsContent value="month" className="space-y-4 pt-4">
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={forecastData}>
+                <AreaChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
                   <XAxis dataKey="label" stroke="var(--color-muted-foreground)" fontSize={12} />
                   <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `$${Math.round(v / 1000)}k`} />
@@ -583,7 +595,7 @@ Balance:        $960 − $720       = $240   over 3 months = $80 each`}</pre>
               </ResponsiveContainer>
               <Table>
                 <TableHeader><TableRow><TableHead>Month</TableHead><TableHead className="text-right">Direct</TableHead><TableHead className="text-right">Trail</TableHead><TableHead className="text-right">Override</TableHead><TableHead className="text-right">Renewal</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader>
-                <TableBody>{forecastData.map((m) => (
+                <TableBody>{monthlyData.map((m) => (
                   <TableRow key={m.key}><TableCell>{m.label}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.direct)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.trail)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.override)}</TableCell><TableCell className="text-right tnum">{fmtCurrency(m.renewal)}</TableCell><TableCell className="text-right tnum font-semibold">{fmtCurrency(m.direct + m.trail + m.override + m.renewal)}</TableCell></TableRow>
                 ))}</TableBody>
               </Table>
@@ -626,7 +638,7 @@ function PayoutRow({ row }: { row: Row }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <TypeBadge type={row.payment_type} />
-          <StatusBadge status={row.status} />
+          <StatusBadge status={row.status} paymentDate={row.payment_date} />
           <span className="tnum font-display font-bold" style={{ fontFamily: "var(--font-display)" }}>{fmtCurrency(row.amount)}</span>
         </div>
       </div>
@@ -642,11 +654,16 @@ function PayoutRow({ row }: { row: Row }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, paymentDate }: { status: string; paymentDate: string }) {
+  const display = status === "paid"
+    ? "Paid"
+    : paymentDate <= new Date().toISOString().slice(0, 10)
+      ? "Due / unconfirmed"
+      : "Projected";
   const cls = status === "paid"
     ? "bg-success/15 text-success border-success/30"
     : "bg-warning/15 text-warning border-warning/30";
-  return <span className={`text-xs px-2 py-0.5 rounded-full border capitalize ${cls}`}>{status}</span>;
+  return <span className={`text-xs px-2 py-0.5 rounded-full border ${cls}`}>{display}</span>;
 }
 
 function EmptyState({ title, body, cta }: { title: string; body: string; cta?: React.ReactNode }) {

@@ -538,8 +538,25 @@ export const acceptInviteCreateAccount = createServerFn({ method: "POST" })
       }).select("id").single();
       if (newOrg) {
         await (supabaseAdmin as any).from("profiles").update({ organization_id: newOrg.id }).eq("id", newUserId);
+
+        // A sub agency opens with its parent's ladder, carriers, grids and
+        // contracting policy already in place — as its own editable rows, so
+        // neither side's edits reach the other. Never fatal: a failed copy
+        // leaves an empty-but-working agency, not a broken signup.
+        if (inv.organization_id) {
+          try {
+            const { seedOrgFromParent } = await import("@/lib/agency-seed/seed-from-parent.server");
+            await seedOrgFromParent(newOrg.id, inv.organization_id);
+          } catch (e) {
+            console.error("[onboarding] sub-agency seed failed", {
+              childOrgId: newOrg.id, parentOrgId: inv.organization_id,
+              message: (e as any)?.message,
+            });
+          }
+        }
       }
     }
+
 
     // If invited as staff, link to the inviter as their principal
     if (roleToAssign === "staff") {

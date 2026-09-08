@@ -59,12 +59,15 @@ check(
 );
 check(
   "year one comes from the pure planner",
-  /planYearOne\(monthlyPremium, resolution\.pct, resolution\.advanceMonths\)/.test(CODE),
+  // Prefix-matched. Pinning the closing paren made this fail when the planner
+  // gained an argument — a passing check breaking on an improvement to the
+  // thing it guards, which teaches people to edit the check.
+  /planYearOne\(monthlyPremium, resolution\.pct, resolution\.advanceMonths[,)]/.test(CODE),
   true,
 );
 check(
   "overrides come from the pure chain resolver",
-  /resolveOverrides\(resolution\.pct, chain, annualPremium\)/.test(CODE),
+  /resolveOverrides\(resolution\.pct, chain, annualPremium[,)]/.test(CODE),
   true,
 );
 // The call gained the grid and deal it prices against, so this matches the
@@ -121,7 +124,8 @@ check(
 );
 check(
   "writes upsert on that key rather than inserting",
-  /\.upsert\(keyed, \{ onConflict: "idempotency_key" \}\)/.test(CODE),
+  // The requirement is the conflict target, not what the array is called.
+  /\.upsert\(\w+, \{ onConflict: "idempotency_key" \}\)/.test(CODE),
   true,
 );
 check(
@@ -175,9 +179,11 @@ check("a missing client_health does not fail the calculation",
 // `nullsFirst` to take the band-less row on purpose, because the age was not
 // available. Two selectors over one table is the duplication this codebase
 // keeps removing, and it made a renewal disagree with year one of its own policy.
+// Two fixed lookups became a loop over the renewal months, which is the same
+// requirement expressed better: every renewal year is priced by the same
+// selector that priced year one, rather than two of them being special.
 check("renewals go through the same selector as year one",
-  /const yr25 = selectGridRule\(grid, \{ \.\.\.renewalQuery, policyYear: 2 \}\)/.test(CALC) &&
-  /const yr6 = selectGridRule\(grid, \{ \.\.\.renewalQuery, policyYear: 6 \}\)/.test(CALC), true);
+  /selectGridRule\(grid, \{ \.\.\.renewalQuery, policyYear \}\)/.test(CALC), true);
 check("…keyed on the carrier's level name, not the agency's",
   /levelName: myLevelName/.test(CALC), true);
 check("…and the hand-written renewal query is gone",
@@ -187,7 +193,7 @@ check("…including its deliberate band-less ordering",
 // Stored form is 0–500 where 80 means 80%. The old renewal code divided by 100
 // inline; `asFraction` is the one place that conversion is allowed to live.
 check("the renewal rate converts through asFraction, not by hand",
-  /const yr25pct = yr25 \? asFraction\(yr25\.pct\) : 0/.test(CALC), true);
+  /asFraction/.test(CALC) && /renewalRate\(gridRow\?\.pct \?\? null\)/.test(CALC), true);
 check("…with no second /100 left behind",
   /years_2_5_pct \?\? 0\) \/ 100/.test(CALC), false);
 
@@ -225,8 +231,14 @@ check("the upline chain is priced against the same grid and deal",
   /loadUplineChain\(\s*supabase,\s*agentId,\s*orgCarrier\.id,\s*\{\s*grid,/.test(CODE), true);
 check("…and no longer resolved from flat levels alone",
   /loadUplineChain\(supabase, agentId, orgCarrier\.id\)/.test(CODE), false);
-check("each override leg goes through the year-one planner",
-  /planYearOne\(monthlyPremium, leg\.spread, resolution\.advanceMonths\)/.test(CODE), true);
+// The requirement is that an override is fronted on the same advance the
+// writer is on, not that the split happens at this particular call site. It
+// moved INTO `resolveOverrides`, which is a better home for it — the legs come
+// back already split, so a caller cannot forget to do it.
+check("each override leg is split on the policy's own advance",
+  /resolveOverrides\([\s\S]{0,120}advanceMonths: resolution\.advanceMonths/.test(CODE), true);
+check("…and the legs arrive already advanced and trailed",
+  /leg\.advanceAmount/.test(CODE) && /leg\.trailAmount/.test(CODE), true);
 check("…so an override is no longer a single lump on the effective date",
   /amount: leg\.amount,/.test(CODE), false);
 check("the deferred override months follow the advance",
@@ -239,7 +251,8 @@ const FIN = readFileSync(join(ROOT, "src/routes/_authenticated/finances.tsx"), "
 check("Finances no longer claims a fixed 75/25 split", /75% of first-year/.test(FIN), false);
 check("…nor a hard-coded GTL cap", /capped at \$600/.test(FIN), false);
 check("…and says the override follows the same schedule",
-  /advanced and paid down exactly like your own year one/.test(FIN), true);
+  /The same configured advance window and conditional trail months apply to every upline leg/.test(FIN),
+  true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

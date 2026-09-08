@@ -135,8 +135,8 @@ export function periodRanges(p: Period, now: Date, custom?: { from?: string; to?
   }
 
   if (p === "week") {
-    // Sunday of the current week, local midnight.
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    // Monday of the current week, local midnight.
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
     const prevStart = new Date(start.getTime() - 7 * day);
     // The bug this fixes: prevEnd used to be `start`, a full seven days
     // against however much of this week has happened. Truncated to the same

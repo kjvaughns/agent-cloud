@@ -21,32 +21,86 @@ async function getHierarchyIds(supabase: any, userId: string): Promise<string[]>
   return [userId, ...((data ?? []) as { id: string }[]).map((a) => a.id)];
 }
 
+/**
+ * The caller's agency. Imported policies are often held for producers who have
+ * no account yet, so they sit outside `get_team_downline` — scoping the sync to
+ * the org lets those match instead of landing in the unmatched pile.
+ */
+async function getOrgId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("profiles").select("organization_id").eq("id", userId).maybeSingle();
+  return data?.organization_id ?? null;
+}
+
+/**
+ * Every organisation the caller's book spans: their own agency plus every
+ * sub-agency underneath it (IMO view). A sync run from the top must reach a
+ * downline agency's policies, which live under a *different* organization_id
+ * and often on producers with no portal account at all.
+ */
+async function getScopeOrgIds(supabase: any, userId: string): Promise<string[]> {
+  const ids = new Set<string>();
+  const own = await getOrgId(supabase, userId);
+  if (own) ids.add(own);
+  const { data } = await supabase.rpc("imo_org_ids");
+  for (const row of (data ?? []) as any[]) {
+    const id = typeof row === "string" ? row : row?.imo_org_ids ?? row?.id;
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
+/** Supabase caps a select at 1000 rows; a full book needs every page. */
+async function fetchAllPages(build: () => any): Promise<any[]> {
+  const PAGE = 1000;
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+    if ((data?.length ?? 0) < PAGE) break;
+  }
+  return out;
+}
+
+
 // ── Status normalization ─────────────────────────────────────────────────────
 
 export const POLICY_STATUS_VALUES = [
-  "active", "issued_not_paid", "in_review", "lapse_pending", "lapsed",
+  "active", "submitted", "issued_not_paid", "in_review", "lapse_pending", "lapsed",
   "cancelled", "withdrawn", "not_taken", "postponed", "carrier_na",
 ] as const;
 export type PolicyStatus = (typeof POLICY_STATUS_VALUES)[number];
 
 /** Best-effort mapping of common carrier status wording to our enum. */
 const STATUS_DICTIONARY: [RegExp, PolicyStatus][] = [
-  [/in\s*-?\s*force|inforce|^active$|^paid(\s*up)?$|premium\s*paying|current/i, "active"],
-  [/issued.*not.*paid|delivery|delivered.*unpaid/i, "issued_not_paid"],
+  [/in\s*-?\s*force|inforce|^active$|^paid(\s*up)?$|premium\s*paying|renewal\s*premium|current/i, "active"],
+  [/not\s*taken|^nto$|initial\s*premium\s*failed|unissued/i, "not_taken"],
+  [/issued.*not.*paid|pending\s*initial\s*premium|delivery|delivered.*unpaid/i, "issued_not_paid"],
   [/grace|past\s*due|payment\s*due|delinquen|lapse\s*pend|pending\s*lapse|nsf|returned\s*payment|draft\s*fail/i, "lapse_pending"],
   [/^lapsed?$|terminated.*non.*pay|term.*lapse/i, "lapsed"],
-  [/cancel/i, "cancelled"],
+  [/cancel|surrender/i, "cancelled"],
   [/withdraw/i, "withdrawn"],
-  [/not\s*taken|nto|free\s*look/i, "not_taken"],
+  [/free\s*look/i, "not_taken"],
   [/postpone|deferred/i, "postponed"],
-  [/decline|reject|closed.*incomplete|incomplete/i, "carrier_na"],
-  [/underwriting|in\s*review|pending|submitted|processing|application/i, "in_review"],
+  [/decline|reject|closed|incomplete|expired|quote|lead/i, "carrier_na"],
+  [/submitted|approved/i, "submitted"],
+  [/underwriting|in\s*review|pending|processing|application|started/i, "in_review"],
 ];
 
+/**
+ * Carrier exports write statuses as SCREAMING_SNAKE ("PREMIUM_PAYING"), so the
+ * separators become spaces before the dictionary sees them — otherwise every
+ * multi-word status looked "unrecognized" and the sync found nothing to do.
+ */
+export function statusKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function normalizeStatus(raw: string, overrides: Record<string, string>): PolicyStatus | null {
-  const key = raw.trim().toLowerCase();
+  const key = statusKey(raw);
   if (!key) return null;
-  const override = overrides[key];
+  const override = overrides[key] ?? overrides[raw.trim().toLowerCase()];
   if (override && (POLICY_STATUS_VALUES as readonly string[]).includes(override)) {
     return override as PolicyStatus;
   }
@@ -57,8 +111,33 @@ function normalizeStatus(raw: string, overrides: Record<string, string>): Policy
   return null;
 }
 
+/**
+ * Carrier files and our own book disagree on punctuation ("#AMH6335747",
+ * "AMH-633 5747"), so identity is the alphanumeric core only.
+ */
 function normalizePolicyNumber(v: string): string {
-  return v.replace(/[\s-]/g, "").toUpperCase();
+  return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+/** A policy number too weak to identify anything ("AMH", "000", blank). */
+function isWeakNumber(v: string | null | undefined): boolean {
+  const core = normalizePolicyNumber(v ?? "");
+  return core.length < 6 || !/\d/.test(core);
+}
+
+/** "Last|First" key for matching an insured name against a client record. */
+function nameKey(first: string | null | undefined, last: string | null | undefined): string {
+  const n = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  return `${n(last ?? "")}|${n(first ?? "")}`;
+}
+
+/** Keys an insured name from a carrier file could produce ("John A Smith"). */
+function nameKeysFromFull(full: string): string[] {
+  const parts = full.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return [];
+  const first = parts[0], last = parts[parts.length - 1];
+  // Also handle "Smith, John" ordering.
+  return [`${last}|${first}`, `${first}|${last}`];
 }
 
 function nameSimilar(a: string, b: string): boolean {
@@ -69,12 +148,14 @@ function nameSimilar(a: string, b: string): boolean {
   return nb.split(/\s+/).some((w) => w.length > 1 && aw.has(w));
 }
 
+
 // ── Preview (read-only) ──────────────────────────────────────────────────────
 
 const RowSchema = z.object({
   policy_number: z.string().trim().min(1),
   status_raw: z.string().trim().min(1),
   client_name: z.string().optional(),
+  status_effective_date: z.string().optional(),
 });
 
 const PreviewSchema = z.object({
@@ -91,7 +172,13 @@ export type SyncUpdate = {
   current_status: string;
   new_status: PolicyStatus;
   name_mismatch: boolean;
+  /** How the row was tied to the policy. */
+  matched_by?: "policy_number" | "insured_name";
+  /** Real carrier number to write onto a policy that only had a placeholder. */
+  set_policy_number?: string;
+  status_effective_date?: string;
 };
+
 
 export type SyncPreview = {
   updates: SyncUpdate[];
@@ -108,18 +195,88 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = await getHierarchyIds(supabase, userId);
+    const orgIds = await getScopeOrgIds(supabase, userId);
 
-    const { data: policies, error } = await supabase
-      .from("policies")
-      .select("id, policy_number, status, agent_id, clients(first_name, last_name), profiles(first_name, last_name)")
-      .eq("carrier_id", data.carrier_id)
-      .in("agent_id", teamIds)
-      .not("policy_number", "is", null);
-    if (error) throw new Error(error.message);
+    // The caller's RLS view intentionally stops at their own organisation.
+    // A hierarchy sync can also include policies held by child agencies, so
+    // authorize the caller and calculate their permitted ids above, then use
+    // the trusted client for the strictly carrier/team/org-scoped lookup.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const select =
+      "id, policy_number, status, agent_id, organization_id, clients(first_name, last_name), profiles!policies_agent_id_fkey(first_name, last_name)";
 
     const byNumber = new Map<string, any>();
-    for (const p of policies ?? []) {
-      if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+    const collect = (rows: any[] | null) => {
+      for (const p of rows ?? []) {
+        if (p.policy_number) byNumber.set(normalizePolicyNumber(p.policy_number), p);
+      }
+    };
+
+    collect(
+      await fetchAllPages(() =>
+         supabaseAdmin
+          .from("policies")
+          .select(select)
+          .eq("carrier_id", data.carrier_id)
+          .in("agent_id", teamIds)
+          .not("policy_number", "is", null),
+      ),
+    );
+
+    if (orgIds.length) {
+      collect(
+        await fetchAllPages(() =>
+           supabaseAdmin
+            .from("policies")
+            .select(select)
+            .eq("carrier_id", data.carrier_id)
+            .in("organization_id", orgIds)
+            .not("policy_number", "is", null),
+        ),
+      );
+    }
+
+    // Last pass: a policy filed under the WRONG carrier in our book still is
+    // that policy. Look up any number the file mentions that we haven't matched
+    // yet, across the caller's hierarchy, ignoring carrier_id.
+    const missing = data.rows
+      .map((r) => r.policy_number.trim())
+      .filter((n) => n && !byNumber.has(normalizePolicyNumber(n)));
+    if (missing.length) {
+      const CHUNK = 200;
+      for (let i = 0; i < missing.length; i += CHUNK) {
+        const slice = missing.slice(i, i + CHUNK);
+        const base = () =>
+          supabaseAdmin.from("policies").select(select).in("policy_number", slice);
+        collect(await fetchAllPages(() => base().in("agent_id", teamIds)));
+        if (orgIds.length) {
+          collect(await fetchAllPages(() => base().in("organization_id", orgIds)));
+        }
+      }
+    }
+
+
+
+
+
+    // Many rows in our own book carry a placeholder number ("AMH", "000") or
+    // none at all — those policies exist, they just cannot be found by number.
+    // Match those by insured name within this carrier + the caller's hierarchy.
+    const byName = new Map<string, any>();
+    const nameBase = () =>
+      supabaseAdmin.from("policies").select(select).eq("carrier_id", data.carrier_id);
+    const collectNames = (rows: any[] | null) => {
+      for (const p of rows ?? []) {
+        if (!isWeakNumber(p.policy_number)) continue;
+        if (!p.clients) continue;
+        const k = nameKey(p.clients.first_name, p.clients.last_name);
+        if (k !== "|" && !byName.has(k)) byName.set(k, p);
+      }
+    };
+    collectNames(await fetchAllPages(() => nameBase().in("agent_id", teamIds)));
+    if (orgIds.length) {
+      collectNames(await fetchAllPages(() => nameBase().in("organization_id", orgIds)));
     }
 
     const updates: SyncUpdate[] = [];
@@ -127,39 +284,57 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
     const unknownStatuses = new Set<string>();
     let noChange = 0;
     const seen = new Set<string>();
+    const usedByName = new Set<string>();
 
     for (const row of data.rows) {
       const key = normalizePolicyNumber(row.policy_number);
       if (seen.has(key)) continue; // duplicate row in the file — first wins
       seen.add(key);
 
-      const pol = byNumber.get(key);
+      let matchedBy: SyncUpdate["matched_by"] = "policy_number";
+      let pol = byNumber.get(key);
+      if (!pol && row.client_name) {
+        for (const nk of nameKeysFromFull(row.client_name)) {
+          const cand = byName.get(nk);
+          if (cand && !usedByName.has(cand.id)) {
+            pol = cand;
+            usedByName.add(cand.id);
+            matchedBy = "insured_name";
+            break;
+          }
+        }
+      }
       if (!pol) {
         unmatched.push({ policy_number: row.policy_number, status_raw: row.status_raw, client_name: row.client_name });
         continue;
       }
       const newStatus = normalizeStatus(row.status_raw, data.status_overrides);
       if (newStatus === null) {
-        if (!data.status_overrides[row.status_raw.trim().toLowerCase()]) {
+        if (!data.status_overrides[statusKey(row.status_raw)]) {
           unknownStatuses.add(row.status_raw.trim());
         }
         continue;
       }
-      if (pol.status === newStatus) {
+      const clientName = pol.clients ? `${pol.clients.first_name ?? ""} ${pol.clients.last_name ?? ""}`.trim() : "";
+      const fillNumber = matchedBy === "insured_name" ? row.policy_number.trim() : undefined;
+      if (pol.status === newStatus && !fillNumber) {
         noChange++;
         continue;
       }
-      const clientName = pol.clients ? `${pol.clients.first_name ?? ""} ${pol.clients.last_name ?? ""}`.trim() : "";
       updates.push({
         policy_id: pol.id,
-        policy_number: pol.policy_number,
+        policy_number: pol.policy_number ?? "—",
         client_name: clientName || "—",
         agent_name: pol.profiles ? `${pol.profiles.first_name ?? ""} ${pol.profiles.last_name ?? ""}`.trim() : "—",
         current_status: pol.status,
         new_status: newStatus,
-        name_mismatch: row.client_name ? !nameSimilar(clientName, row.client_name) : false,
+        name_mismatch: matchedBy === "policy_number" && row.client_name ? !nameSimilar(clientName, row.client_name) : false,
+        matched_by: matchedBy,
+        ...(fillNumber ? { set_policy_number: fillNumber } : {}),
+        ...(row.status_effective_date ? { status_effective_date: row.status_effective_date.slice(0, 10) } : {}),
       });
     }
+
 
     return {
       updates,
@@ -180,7 +355,10 @@ const ApplySchema = z.object({
   updates: z.array(z.object({
     policy_id: z.string().uuid(),
     new_status: z.enum(POLICY_STATUS_VALUES),
+    set_policy_number: z.string().trim().max(60).optional(),
+    status_effective_date: z.string().optional(),
   })).max(20000),
+
 });
 
 export const applyCarrierSync = createServerFn({ method: "POST" })
@@ -190,41 +368,99 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));
+    const orgIds = new Set(await getScopeOrgIds(supabase, userId));
+
+    // Re-verification and writes must see child-agency rows that the normal
+    // authenticated policy SELECT hides. The allowed ids remain bounded by
+    // the caller-derived hierarchy sets below.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Re-verify every policy belongs to the caller's hierarchy + this carrier.
     const ids = data.updates.map((u) => u.policy_id);
-    const { data: pols, error } = await supabase
-      .from("policies")
-      .select("id, agent_id, carrier_id")
-      .in("id", ids);
-    if (error) throw new Error(error.message);
+    const pols: any[] = [];
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { data: rows, error } = await supabaseAdmin
+        .from("policies")
+        .select("id, agent_id, carrier_id, organization_id, status, product, monthly_premium, annual_premium, effective_date, clients(first_name,last_name)")
+        .in("id", chunk);
+      if (error) throw new Error(error.message);
+      pols.push(...(rows ?? []));
+    }
+    // Carrier is deliberately NOT part of the check: a policy mis-filed under
+    // another carrier in our book is still the policy the file names. Hierarchy
+    // membership remains the authorization boundary.
     const allowed = new Set(
-      (pols ?? [])
-        .filter((p: any) => teamIds.has(p.agent_id) && p.carrier_id === data.carrier_id)
+      pols
+        .filter(
+          (p: any) =>
+            teamIds.has(p.agent_id) || (p.organization_id && orgIds.has(p.organization_id)),
+        )
         .map((p: any) => p.id),
     );
+
+
 
     const now = new Date().toISOString();
     const source = `carrier_csv:${data.file_name}`;
     let updated = 0;
-    // Group by target status so each status is one UPDATE.
+    // Group by target status and effective date so every policy records when
+    // the carrier says the status took effect, not merely when this file ran.
     const byStatus = new Map<string, string[]>();
     for (const u of data.updates) {
       if (!allowed.has(u.policy_id)) continue;
-      const list = byStatus.get(u.new_status) ?? [];
+      const key = `${u.new_status}|${u.status_effective_date ?? now.slice(0, 10)}`;
+      const list = byStatus.get(key) ?? [];
       list.push(u.policy_id);
-      byStatus.set(u.new_status, list);
+      byStatus.set(key, list);
     }
-    for (const [status, list] of byStatus) {
-      const { error: upErr, count } = await supabase
-        .from("policies")
-        .update({ status, last_synced_at: now, sync_source: source }, { count: "exact" })
-        .in("id", list);
-      if (upErr) throw new Error(upErr.message);
-      updated += count ?? list.length;
+    for (const [key, list] of byStatus) {
+      const [status, statusEffectiveDate] = key.split("|") as [PolicyStatus, string];
+      for (let i = 0; i < list.length; i += 500) {
+        const chunk = list.slice(i, i + 500);
+        const { error: upErr, count } = await supabaseAdmin
+          .from("policies")
+          .update({ status, status_effective_date: statusEffectiveDate, last_synced_at: now, sync_source: source }, { count: "exact" })
+          .in("id", chunk);
+        if (upErr) throw new Error(upErr.message);
+        updated += count ?? chunk.length;
+      }
     }
 
-    await supabase.from("carrier_sync_logs").insert({
+    // A reinstated policy earns only through the canonical calculator. Its
+    // stable keys reactivate the valid future legs without resurrecting rows
+    // that no longer match the carrier grid or hierarchy.
+    for (const update of data.updates) {
+      if (update.new_status !== "active" || !allowed.has(update.policy_id)) continue;
+      const policy = pols.find((p) => p.id === update.policy_id);
+      if (!policy || policy.status === "active") continue;
+      const { calculateAndInsertAllCommissions } = await import("@/lib/commission-calculator");
+      const client = policy.clients;
+      await calculateAndInsertAllCommissions(supabaseAdmin, {
+        policyId: policy.id,
+        agentId: policy.agent_id,
+        carrierId: policy.carrier_id,
+        product: policy.product ?? "",
+        monthlyPremium: Number(policy.monthly_premium ?? 0),
+        annualPremium: Number(policy.annual_premium ?? 0) || null,
+        effectiveDate: policy.effective_date,
+        clientName: client ? `${client.first_name ?? ""} ${client.last_name ?? ""}`.trim() : "",
+      });
+    }
+
+    // Policies matched by insured name only had a placeholder number — write the
+    // carrier's real number so later syncs match on number directly.
+    for (const u of data.updates) {
+      if (!u.set_policy_number || !allowed.has(u.policy_id)) continue;
+      await supabaseAdmin
+        .from("policies")
+        .update({ policy_number: u.set_policy_number })
+        .eq("id", u.policy_id);
+    }
+
+
+
+    await supabaseAdmin.from("carrier_sync_logs").insert({
       uploaded_by: userId,
       carrier_id: data.carrier_id,
       file_name: data.file_name,

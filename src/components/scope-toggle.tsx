@@ -22,11 +22,15 @@ import { SCOPE_DESCRIPTIONS, SCOPE_LABELS, type Scope } from "@/lib/scope";
  * alternatives and costs two. Built on ToggleGroup so arrow keys and
  * `aria-pressed` come for free.
  */
-export function ScopeToggle({ className }: { className?: string }) {
-  const { scope, setScope, options } = useScope();
+export function ScopeToggle({ className, exclude }: { className?: string; exclude?: Scope[] }) {
+  const { scope, setScope, options: allOptions } = useScope();
   const { role } = useRole();
+  // Some surfaces are deliberately narrower than the person's widest scope —
+  // client records never roll up across agency boundaries, for instance.
+  const options = exclude?.length ? allOptions.filter((s) => !exclude.includes(s)) : allOptions;
 
   if (options.length < 2) {
+
     /*
      * Silent is right for an agent and wrong for a manager.
      *
@@ -95,11 +99,17 @@ export function ScopeToggle({ className }: { className?: string }) {
  * Hidden in `mine` scope, where there is nobody else to pick.
  */
 export function ScopeAgentFilter({
-  value, onChange, className,
+  value, onChange, className, extra,
 }: {
   value?: string;
   onChange: (agentId?: string) => void;
   className?: string;
+  /**
+   * People who belong in this list without having an account — previous agents
+   * whose book is still on ours. They are listed with everybody else rather
+   * than in a filter of their own.
+   */
+  extra?: { id: string; label: string }[];
 }) {
   const { scope } = useScope();
   const fn = useServerFn(listScopeAgents);
@@ -111,7 +121,8 @@ export function ScopeAgentFilter({
   });
 
   const others = (agents ?? []).filter((a) => a.id);
-  if (scope === "mine" || others.length < 2) return null;
+  const extras = extra ?? [];
+  if (scope === "mine" || others.length + extras.length < 2) return null;
 
   return (
     <Select value={value ?? "all"} onValueChange={(v) => onChange(v === "all" ? undefined : v)}>
@@ -123,6 +134,12 @@ export function ScopeAgentFilter({
         {others.map((a) => (
           <SelectItem key={a.id} value={a.id}>
             {[a.first_name, a.last_name].filter(Boolean).join(" ") || "Unnamed"}
+            {(a as any).inactive ? " (Inactive)" : ""}
+          </SelectItem>
+        ))}
+        {extras.map((a) => (
+          <SelectItem key={a.id} value={a.id}>
+            {a.label}
           </SelectItem>
         ))}
       </SelectContent>

@@ -25,8 +25,12 @@ import { SampleDataPanel } from "@/components/settings/sample-data-panel";
 import { IntegrationsCatalog } from "@/components/settings/integrations-catalog";
 import { ApiKeysPanel } from "@/components/settings/api-keys-panel";
 import { AgencySetupProgress } from "@/components/settings/agency-setup-progress";
+import { InheritParentPanel } from "@/components/settings/inherit-parent-panel";
+import { SuggestedCarriersPanel } from "@/components/settings/suggested-carriers-panel";
+
 import { AgencyTeamPage } from "@/components/agency-team-page";
 import { LevelsPanel } from "@/components/contracting/levels-panel";
+import { RenewalsPanel } from "@/components/settings/renewals-panel";
 import { CarrierDirectoryPage } from "@/components/contracting/carrier-setup";
 import { SetupChecklist } from "@/components/settings/setup-checklist";
 import { ContractingSettingsPanel } from "@/components/settings/contracting-settings-panel";
@@ -489,7 +493,10 @@ function AgencySettingsPage() {
           subtitle="Your agency, your ladder, your carriers, and how this workspace connects"
         />
 
+        <InheritParentPanel />
+
         <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
+
 
         <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
           {/* A scrolling rail rather than a wrapping row. Seven pills that
@@ -531,14 +538,19 @@ function AgencySettingsPage() {
               blurb="Your ladder. Each position has a base percentage and a mapping to every active carrier's own levels."
             />
             <LevelsPanel />
+            <RenewalsPanel />
           </TabsContent>
+
 
           <TabsContent value="carriers" className="mt-4">
             {/* One surface. The comp grid editor used to sit open underneath
                 this list, so the tab showed every carrier AND every rate at
                 once and neither was findable. The grid belongs to a carrier,
                 so it opens from that carrier. */}
-            <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
+            <SuggestedCarriersPanel />
+            <div className="mt-4">
+              <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
+            </div>
           </TabsContent>
 
           <TabsContent value="contracting" className="mt-4 space-y-6">

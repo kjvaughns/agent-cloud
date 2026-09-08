@@ -141,7 +141,17 @@ check(
   /search: \{ client_id: client\.id \}\s*\)/.test(DRAWER),
   false,
 );
-check("the add-policy form publishes what is typed", /draft\.current = \{ \.\.\.form/.test(DRAWER), true);
+check(
+  "the add-policy form publishes what is typed",
+  /const next: PolicyDraft = \{ \.\.\.form/.test(DRAWER) && /draft\.current = next/.test(DRAWER),
+  true,
+);
+// And keeps it for the tab, so arriving at Post a Deal by any other door
+// (sidebar, top bar, a pipeline row) restores it too.
+check("…and stashes it for the tab", /stashPolicyDraft\(clientId, next\)/.test(DRAWER), true);
+check("post a deal falls back to the stash", /readStashedPolicyDraft\(/.test(DEAL), true);
+check("…only for the client it was typed against", /stashed\.clientId === client_id/.test(DEAL), true);
+check("…and clears it once the deal is posted", /clearStashedPolicyDraft\(\)/.test(DEAL), true);
 check(
   "the draft is cleared when the drawer moves to another client",
   /policyDraft\.current = \{\};/.test(DRAWER),

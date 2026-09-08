@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
@@ -8,7 +9,7 @@ import {
   suggestedDraftDay,
 } from "@/lib/deals/social-security";
 import { useState, useMemo, useEffect, useRef } from "react";
-import { decodePolicyDraft } from "@/lib/deals/policy-draft";
+import { decodePolicyDraft, readStashedPolicyDraft, clearStashedPolicyDraft } from "@/lib/deals/policy-draft";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -71,7 +72,7 @@ type FormData = {
   sale_date: string;
   face_amount: string;
   monthly_premium: string;
-  status: "issued_not_paid" | "in_review";
+  status: "submitted" | "issued_not_paid" | "in_review";
   beneficiaries: {
     first_name: string;
     last_name: string;
@@ -202,7 +203,15 @@ function PostDealPage() {
   const draftApplied = useRef(false);
   useEffect(() => {
     if (draftApplied.current) return;
-    const draft = decodePolicyDraft(search as Record<string, unknown>);
+    const fromUrl = decodePolicyDraft(search as Record<string, unknown>);
+    // The URL wins when it carries anything; otherwise the tab's own stash,
+    // which is what the agent typed in the drawer before arriving here by some
+    // other door (sidebar, top bar, a pipeline row).
+    const stashed = readStashedPolicyDraft();
+    // A stash belongs to the client it was typed against: never let client A's
+    // half-typed policy prefill a deal being posted for client B.
+    const stashUsable = stashed && (!client_id || stashed.clientId === client_id);
+    const draft = Object.keys(fromUrl).length > 0 ? fromUrl : (stashUsable ? stashed!.draft : {});
     const entries = Object.entries(draft).filter(([, v]) => v !== undefined && v !== "");
     if (!entries.length) return;
     draftApplied.current = true;
@@ -324,9 +333,10 @@ function PostDealPage() {
         },
       }),
     onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ["pipeline"] });
-      qc.invalidateQueries({ queryKey: ["bob", "list"] });
-      qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
+      // Posted: the drawer's stashed draft described this policy and must not
+      // prefill the next one.
+      clearStashedPolicyDraft();
+      invalidatePolicyViews(qc);
 
       // The deal is written either way — but if nothing could work out what it
       // pays, saying only "Deal posted!" is how an agent finds out weeks later
@@ -659,6 +669,7 @@ function PostDealPage() {
                     <SelectValue placeholder="Select status..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="submitted">Submitted</SelectItem>
                     <SelectItem value="issued_not_paid">Issued, Not Paid</SelectItem>
                     <SelectItem value="in_review">In Review</SelectItem>
                   </SelectContent>

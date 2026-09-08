@@ -31,6 +31,7 @@ import { AddressAutocomplete } from "@/components/address-autocomplete";
 import { CompLevelEditor } from "@/components/admin/comp-level-editor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { NpnLookupLink } from "@/components/npn-lookup-link";
 import { PageShell, HeroBand } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
@@ -427,6 +428,9 @@ function PersonalCard({ profile, onSave }: { profile: any; onSave: (p: Record<st
                 {lookupMut.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : "Verify"}
               </Button>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            <NpnLookupLink />
           </div>
           {!agentSyncAvailable && (
             <p className="text-xs text-muted-foreground">Verify pulls basic NPN info from NIPR. For full license import, use Licensing → Sync from NIPR.</p>

@@ -39,7 +39,7 @@ export type PolicyDraft = {
   effective_date?: string;
   face_amount?: string;
   monthly_premium?: string;
-  status?: "issued_not_paid" | "in_review";
+  status?: PostDealStatus;
   sale_date?: string;
 };
 
@@ -51,8 +51,12 @@ export type PolicyDraft = {
  * anything past submission is not a status this form is entitled to set, and
  * silently preselecting one would let an agent re-post a live policy as new.
  */
-export function postDealStatus(status: string | null | undefined): "issued_not_paid" | "in_review" {
-  return status === "in_review" ? "in_review" : "issued_not_paid";
+export type PostDealStatus = "submitted" | "issued_not_paid" | "in_review";
+
+export function postDealStatus(status: string | null | undefined): PostDealStatus {
+  if (status === "in_review") return "in_review";
+  if (status === "submitted") return "submitted";
+  return "issued_not_paid";
 }
 
 /**
@@ -96,4 +100,52 @@ export function decodePolicyDraft(search: Record<string, unknown>): PolicyDraft 
     else out[k] = raw;
   }
   return out;
+}
+
+/**
+ * The same draft, kept for the trip through any other door.
+ *
+ * The URL handoff only works for the one button that knows about the draft.
+ * An agent who types a policy in the drawer and then reaches Post a Deal from
+ * the sidebar, the top bar or the pipeline row lands on an empty form, which
+ * from their side is identical to losing the lot.
+ *
+ * Session storage, not local: this is a half-finished thought inside one tab,
+ * and it must not resurface tomorrow. Stale after 30 minutes for the same
+ * reason. Still never written to the database.
+ */
+const SESSION_KEY = "agentcloud:policy-draft";
+const MAX_AGE_MS = 30 * 60_000;
+
+export function stashPolicyDraft(clientId: string, draft: PolicyDraft | null | undefined): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    if (!draftHasContent(draft)) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return;
+    }
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ clientId, draft, at: Date.now() }));
+  } catch {
+    /* private mode, quota — a lost draft is not worth an exception */
+  }
+}
+
+export function clearStashedPolicyDraft(): void {
+  if (typeof sessionStorage === "undefined") return;
+  try { sessionStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+}
+
+/** The stashed draft, if there is a fresh one. */
+export function readStashedPolicyDraft(): { clientId: string; draft: PolicyDraft } | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { clientId?: string; draft?: PolicyDraft; at?: number };
+    if (!parsed?.draft || !draftHasContent(parsed.draft)) return null;
+    if (!parsed.at || Date.now() - parsed.at > MAX_AGE_MS) return null;
+    return { clientId: String(parsed.clientId ?? ""), draft: parsed.draft };
+  } catch {
+    return null;
+  }
 }

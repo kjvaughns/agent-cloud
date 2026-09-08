@@ -25,7 +25,7 @@ import { ClientDetailDrawer } from "@/components/pipeline/client-detail-drawer";
 import { BookImportDialog } from "@/components/pipeline/book-import-dialog";
 import { SoldTab } from "@/components/pipeline/sold-tab";
 import { PageShell, HeroBand } from "@/components/page-shell";
-import { ScopeToggle } from "@/components/scope-toggle";
+import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
 
@@ -82,7 +82,12 @@ function PipelineSkeleton() {
 function PipelinePage() {
   const qc = useQueryClient();
   const hydrated = useHydrated();
-  const { scope, ready: scopeReady } = useScope();
+  const { scope: rawScope, ready: scopeReady } = useScope();
+  // Client records never roll up across agency boundaries: a parent agency
+  // administers its sub-agencies but does not read their pipelines. Total IMO
+  // therefore narrows to the caller's own agency here (the server does the
+  // same, so this is a label fix, not the boundary).
+  const scope = rawScope === "imo" ? "agency" : rawScope;
   // Keyed by scope. A module-level constant key here would hand somebody the
   // previous scope's rows for a beat every time they switch.
   const { data: clients = [], isLoading } = useQuery({
@@ -91,6 +96,11 @@ function PipelinePage() {
     enabled: hydrated && scopeReady,
   });
   const [query, setQuery] = useState("");
+  // Narrow a team/agency board to one person. Cleared when the scope changes,
+  // since the picked agent may not be in the new scope's list.
+  const [agentId, setAgentId] = useState<string | undefined>(undefined);
+  useEffect(() => { setAgentId(undefined); }, [scope]);
+
   const { tab: initialTab = "pipeline" } = Route.useSearch();
   const [tab, setTab] = useState<"pipeline" | "sold">(initialTab ?? "pipeline");
   const { client: clientParam } = Route.useSearch();
@@ -133,13 +143,21 @@ function PipelinePage() {
   }, [qc]);
 
   const filtered = useMemo(() => {
+    const base = agentId ? clients.filter((c: any) => c.agent_id === agentId) : clients;
     const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c: any) =>
-      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-      (c.phone ?? "").replace(/\D/g, "").includes(q.replace(/\D/g, "")),
-    );
-  }, [clients, query]);
+    if (!q) return base;
+    // Digits only count as a phone search when there are enough of them.
+    // Stripping letters to "" made every phone "match" — so search matched all.
+    const digits = q.replace(/\D/g, "");
+    return base.filter((c: any) => {
+      const name = `${c.first_name ?? ""} ${c.last_name ?? ""}`.toLowerCase();
+      if (name.includes(q)) return true;
+      if ((c.email ?? "").toLowerCase().includes(q)) return true;
+      const phone = (c.phone ?? "").replace(/\D/g, "");
+      return digits.length >= 3 && phone.length > 0 && phone.includes(digits);
+    });
+  }, [clients, query, agentId]);
+
 
   const pipelineClients = filtered.filter((c: any) => c.stage !== "sold");
   const soldClients = filtered.filter((c: any) => c.stage === "sold");
@@ -187,7 +205,9 @@ function PipelinePage() {
           subtitle="Track every lead from first touch to sold."
           actions={
             <>
-              <ScopeToggle />
+              <ScopeToggle exclude={["imo"]} />
+              <ScopeAgentFilter value={agentId} onChange={setAgentId} />
+
               {tabControls}
               <div className="relative w-full sm:w-56">
                 <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -420,6 +440,7 @@ function LeadCard({ client, draggable = true, onClick }: { client: any; draggabl
 function PolicyStatusDot({ status }: { status: string }) {
   const map: Record<string, { cls: string; label: string }> = {
     active:          { cls: "bg-success", label: "Active" },
+    submitted:       { cls: "bg-primary/60", label: "Submitted" },
     issued_not_paid: { cls: "bg-warning",   label: "Issued" },
     in_review:       { cls: "bg-primary",  label: "In Review" },
     lapsed:          { cls: "bg-destructive",     label: "Lapsed" },

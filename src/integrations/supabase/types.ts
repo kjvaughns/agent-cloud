@@ -1011,6 +1011,7 @@ export type Database = {
           body_html: string | null
           created_at: string
           created_by: string | null
+          discord_mention: string
           expires_at: string | null
           id: string
           organization_id: string | null
@@ -1026,6 +1027,7 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          discord_mention?: string
           expires_at?: string | null
           id?: string
           organization_id?: string | null
@@ -1041,6 +1043,7 @@ export type Database = {
           body_html?: string | null
           created_at?: string
           created_by?: string | null
+          discord_mention?: string
           expires_at?: string | null
           id?: string
           organization_id?: string | null
@@ -1073,6 +1076,145 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      api_key_usage: {
+        Row: {
+          api_key_id: string | null
+          created_at: string
+          endpoint: string
+          id: string
+          ip: string | null
+          organization_id: string | null
+          status: number
+        }
+        Insert: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+          status: number
+        }
+        Update: {
+          api_key_id?: string | null
+          created_at?: string
+          endpoint?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+          status?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_usage_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_usage_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          organization_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+          scopes: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          organization_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          organization_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scopes?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_keys_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       audit_log: {
         Row: {
@@ -2441,6 +2583,7 @@ export type Database = {
           phone_type: string | null
           preferred_contact: string | null
           score_pct: number | null
+          ssn_last4: string | null
           stage: Database["public"]["Enums"]["pipeline_stage"]
           state: string | null
           street_address: string | null
@@ -2469,6 +2612,7 @@ export type Database = {
           phone_type?: string | null
           preferred_contact?: string | null
           score_pct?: number | null
+          ssn_last4?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           state?: string | null
           street_address?: string | null
@@ -2497,6 +2641,7 @@ export type Database = {
           phone_type?: string | null
           preferred_contact?: string | null
           score_pct?: number | null
+          ssn_last4?: string | null
           stage?: Database["public"]["Enums"]["pipeline_stage"]
           state?: string | null
           street_address?: string | null
@@ -2794,6 +2939,7 @@ export type Database = {
           paid_at: string | null
           payment_date: string
           payment_type: string
+          pct_source: string | null
           policy_id: string
           policy_year: number | null
           product: string | null
@@ -2822,6 +2968,7 @@ export type Database = {
           paid_at?: string | null
           payment_date: string
           payment_type: string
+          pct_source?: string | null
           policy_id: string
           policy_year?: number | null
           product?: string | null
@@ -2850,6 +2997,7 @@ export type Database = {
           paid_at?: string | null
           payment_date?: string
           payment_type?: string
+          pct_source?: string | null
           policy_id?: string
           policy_year?: number | null
           product?: string | null
@@ -3912,6 +4060,113 @@ export type Database = {
           },
         ]
       }
+      contracting_sheet_links: {
+        Row: {
+          connected_by: string | null
+          created_at: string
+          health: string
+          last_error: string | null
+          last_pulled_at: string | null
+          last_pushed_at: string | null
+          last_success_at: string | null
+          organization_id: string
+          spreadsheet_id: string
+          spreadsheet_url: string | null
+          tab_name: string
+          updated_at: string
+        }
+        Insert: {
+          connected_by?: string | null
+          created_at?: string
+          health?: string
+          last_error?: string | null
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          last_success_at?: string | null
+          organization_id: string
+          spreadsheet_id: string
+          spreadsheet_url?: string | null
+          tab_name?: string
+          updated_at?: string
+        }
+        Update: {
+          connected_by?: string | null
+          created_at?: string
+          health?: string
+          last_error?: string | null
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          last_success_at?: string | null
+          organization_id?: string
+          spreadsheet_id?: string
+          spreadsheet_url?: string | null
+          tab_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_sheet_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracting_sheet_rows: {
+        Row: {
+          created_at: string
+          last_pulled_at: string | null
+          last_pushed_at: string | null
+          organization_id: string
+          pushed_updated_at: string | null
+          pushed_values: Json
+          request_id: string
+          sync_error: string | null
+          sync_status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          organization_id: string
+          pushed_updated_at?: string | null
+          pushed_values?: Json
+          request_id: string
+          sync_error?: string | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_pulled_at?: string | null
+          last_pushed_at?: string | null
+          organization_id?: string
+          pushed_updated_at?: string | null
+          pushed_values?: Json
+          request_id?: string
+          sync_error?: string | null
+          sync_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracting_sheet_rows_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracting_sheet_rows_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: true
+            referencedRelation: "contracting_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contracting_spreadsheet_templates: {
         Row: {
           active: boolean
@@ -4468,6 +4723,7 @@ export type Database = {
       }
       discord_integrations: {
         Row: {
+          announcement_mention: string
           channel_label: string | null
           consecutive_failures: number
           created_at: string
@@ -4490,6 +4746,7 @@ export type Database = {
           webhook_url: string
         }
         Insert: {
+          announcement_mention?: string
           channel_label?: string | null
           consecutive_failures?: number
           created_at?: string
@@ -4512,6 +4769,7 @@ export type Database = {
           webhook_url: string
         }
         Update: {
+          announcement_mention?: string
           channel_label?: string | null
           consecutive_failures?: number
           created_at?: string
@@ -6401,7 +6659,9 @@ export type Database = {
           notify_new_agent: boolean
           notify_new_ticket: boolean
           organization_id: string
+          override_renewal_pct_default: number
           primary_admin_email: string | null
+          renewal_pct_default: number
           show_own_on_leaderboards: boolean
           show_own_sales_in_feed: boolean
           support_email: string | null
@@ -6418,7 +6678,9 @@ export type Database = {
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
           organization_id: string
+          override_renewal_pct_default?: number
           primary_admin_email?: string | null
+          renewal_pct_default?: number
           show_own_on_leaderboards?: boolean
           show_own_sales_in_feed?: boolean
           support_email?: string | null
@@ -6435,7 +6697,9 @@ export type Database = {
           notify_new_agent?: boolean
           notify_new_ticket?: boolean
           organization_id?: string
+          override_renewal_pct_default?: number
           primary_admin_email?: string | null
+          renewal_pct_default?: number
           show_own_on_leaderboards?: boolean
           show_own_sales_in_feed?: boolean
           support_email?: string | null
@@ -6864,6 +7128,7 @@ export type Database = {
           production_date_set_at: string | null
           production_date_set_by: string | null
           status: Database["public"]["Enums"]["policy_status"]
+          status_effective_date: string | null
           sync_source: string | null
         }
         Insert: {
@@ -6889,6 +7154,7 @@ export type Database = {
           production_date_set_at?: string | null
           production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          status_effective_date?: string | null
           sync_source?: string | null
         }
         Update: {
@@ -6914,6 +7180,7 @@ export type Database = {
           production_date_set_at?: string | null
           production_date_set_by?: string | null
           status?: Database["public"]["Enums"]["policy_status"]
+          status_effective_date?: string | null
           sync_source?: string | null
         }
         Relationships: [
@@ -6968,6 +7235,7 @@ export type Database = {
           organization_id: string | null
           policy_id: string
           source: string | null
+          status_effective_date: string | null
           to_status: string | null
         }
         Insert: {
@@ -6983,6 +7251,7 @@ export type Database = {
           organization_id?: string | null
           policy_id: string
           source?: string | null
+          status_effective_date?: string | null
           to_status?: string | null
         }
         Update: {
@@ -6998,6 +7267,7 @@ export type Database = {
           organization_id?: string | null
           policy_id?: string
           source?: string | null
+          status_effective_date?: string | null
           to_status?: string | null
         }
         Relationships: [
@@ -8214,7 +8484,13 @@ export type Database = {
           contracting_manage_comp_levels: boolean | null
           contracting_manage_hierarchy: boolean | null
           contracting_manage_licenses: boolean | null
+          contracting_manage_sheets: boolean
+          contracting_note_agent: boolean
+          contracting_note_internal: boolean
+          contracting_request_info: boolean
+          contracting_set_writing_number: boolean
           contracting_submit: boolean | null
+          contracting_update_status: boolean
           contracting_view_agency_comp: boolean | null
           contracting_view_audit: boolean | null
           contracting_view_banking: boolean | null
@@ -8276,7 +8552,13 @@ export type Database = {
           contracting_manage_comp_levels?: boolean | null
           contracting_manage_hierarchy?: boolean | null
           contracting_manage_licenses?: boolean | null
+          contracting_manage_sheets?: boolean
+          contracting_note_agent?: boolean
+          contracting_note_internal?: boolean
+          contracting_request_info?: boolean
+          contracting_set_writing_number?: boolean
           contracting_submit?: boolean | null
+          contracting_update_status?: boolean
           contracting_view_agency_comp?: boolean | null
           contracting_view_audit?: boolean | null
           contracting_view_banking?: boolean | null
@@ -8338,7 +8620,13 @@ export type Database = {
           contracting_manage_comp_levels?: boolean | null
           contracting_manage_hierarchy?: boolean | null
           contracting_manage_licenses?: boolean | null
+          contracting_manage_sheets?: boolean
+          contracting_note_agent?: boolean
+          contracting_note_internal?: boolean
+          contracting_request_info?: boolean
+          contracting_set_writing_number?: boolean
           contracting_submit?: boolean | null
+          contracting_update_status?: boolean
           contracting_view_agency_comp?: boolean | null
           contracting_view_audit?: boolean | null
           contracting_view_banking?: boolean | null
@@ -10145,6 +10433,7 @@ export type Database = {
       my_org_ids: { Args: never; Returns: string[] }
       my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
+      org_of_my_chain: { Args: { _org: string }; Returns: boolean }
       policy_counts_as_production: {
         Args: { _status: string }
         Returns: boolean
@@ -10224,6 +10513,7 @@ export type Database = {
       pipeline_stage: "new" | "callback" | "almost_there" | "sold"
       policy_status:
         | "active"
+        | "submitted"
         | "issued_not_paid"
         | "in_review"
         | "lapse_pending"
@@ -10271,12 +10561,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10300,11 +10590,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10325,11 +10615,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10350,11 +10640,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10367,11 +10657,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -10423,6 +10713,7 @@ export const Constants = {
       pipeline_stage: ["new", "callback", "almost_there", "sold"],
       policy_status: [
         "active",
+        "submitted",
         "issued_not_paid",
         "in_review",
         "lapse_pending",

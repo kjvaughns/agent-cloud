@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { deactivatedProfileIds } from "@/lib/agents/inactive";
 import {
   NO_SCOPE_CAPABILITIES, scopeSchema, type Scope, type ScopeCapabilities,
 } from "@/lib/scope";
@@ -91,5 +92,11 @@ export const listScopeAgents = createServerFn({ method: "POST" })
     const { supabase } = context as Ctx;
     const { data, error } = await supabase.rpc("get_scope_agents", { _scope: scope });
     if (error) throw new Error(error.message);
-    return (data ?? []) as { id: string; first_name: string | null; last_name: string | null }[];
+    const rows = (data ?? []) as {
+      id: string; first_name: string | null; last_name: string | null;
+    }[];
+    // Deactivated people stay in the picker — their book is still on ours —
+    // and are labelled inactive, the same as producers with no account.
+    const off = await deactivatedProfileIds(supabase, rows.map((r) => r.id));
+    return rows.map((r) => ({ ...r, inactive: off.has(r.id) }));
   });

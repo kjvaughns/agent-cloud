@@ -328,7 +328,15 @@ export function evaluateReadiness(input: {
  * The gate. Nothing may be marked submitted or moved to ready_to_submit unless
  * this returns true, and it is re-run server-side rather than trusting the
  * cached readiness_state column.
+ *
+ * `not_started` is submittable on purpose: that state is only ever returned
+ * when the carrier has NO applicable requirements configured, so there is
+ * nothing for the request to be missing. Blocking it produced the nonsense
+ * refusal "this request still has 0 outstanding items" — a gate with no
+ * requirements behind it, which staff could not clear from anywhere.
  */
 export function isSubmittable(result: ReadinessResult): boolean {
-  return result.blockers.length === 0 && result.state === "ready_to_submit";
+  if (result.blockers.length > 0) return false;
+  return result.state === "ready_to_submit" || result.state === "not_started";
 }
+

@@ -4,6 +4,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { isInactiveAgentId } from "@/lib/agents/inactive";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,6 +109,9 @@ function timeAgo(iso: string | null) {
   const d = Math.floor(h / 24);
   return `${d}d ago`;
 }
+
+/** A previous agent has no profile to open. */
+function canOpen(id: string) { return !isInactiveAgentId(id); }
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -386,7 +390,7 @@ function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) 
               <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
                 <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                 <div className="min-w-0 flex-1">
-                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
+                  <button onClick={() => canOpen(a.id) && onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
                     {a.first_name} {a.last_name}
                   </button>
                   <p className="truncate text-xs text-muted-foreground">
@@ -419,7 +423,7 @@ function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) 
               <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border-soft bg-surface-2 p-2.5">
                 <Avatar className="h-8 w-8 shrink-0"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                 <div className="min-w-0 flex-1">
-                  <button onClick={() => onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
+                  <button onClick={() => canOpen(a.id) && onOpen(a.id)} className="block truncate text-sm font-medium hover:underline text-left">
                     {a.first_name} {a.last_name}
                   </button>
                   <p className="truncate text-xs text-muted-foreground tnum">
@@ -428,7 +432,7 @@ function NeedsYou({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (id: string) 
                     {a.last_active_at ? ` · last seen ${timeAgo(a.last_active_at)}` : ""}
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onOpen(a.id)}>
+                <Button size="sm" variant="ghost" className="shrink-0" onClick={() => canOpen(a.id) && onOpen(a.id)}>
                   <Eye className="mr-1 h-3 w-3" /> Open
                 </Button>
               </div>
@@ -554,7 +558,7 @@ function RowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onClick={() => onOpen(agent.id)}>
+          <DropdownMenuItem onClick={() => canOpen(agent.id) && onOpen(agent.id)}>
             <Eye className="mr-2 h-4 w-4" /> Open dashboard
           </DropdownMenuItem>
           {agent.email && (
@@ -655,12 +659,20 @@ function RosterTable({
 
   // The catalog, in the shape the pill model wants. base_pct IS the ladder
   // number — see lib/team/positions.ts for why there is no separate integer.
-  const positions: Position[] = useMemo(
-    () => (((levelData as any)?.rows ?? []) as any[])
+  //
+  // An upline who does not manage the ladder may only place somebody BELOW
+  // their own rung — the same ceiling invitations enforce. `listAgencyLevels`
+  // already hands them their own rung and everything under it, so their own is
+  // dropped here: offering a choice the server will refuse is worse than not
+  // offering it.
+  const positions: Position[] = useMemo(() => {
+    const canManage = Boolean((levelData as any)?.canManage);
+    const myLevelId = (levelData as any)?.myLevelId ?? null;
+    return (((levelData as any)?.rows ?? []) as any[])
       .filter((r) => r.active !== false)
-      .map((r) => ({ id: r.id, name: r.name, pct: Number(r.base_pct) })),
-    [levelData],
-  );
+      .filter((r) => canManage || r.id !== myLevelId)
+      .map((r) => ({ id: r.id, name: r.name, pct: Number(r.base_pct) }));
+  }, [levelData]);
 
   const assign = useMutation({
     mutationFn: (v: { agentId: string; agencyLevelId: string | null }) => assignFn({ data: v }),
@@ -908,7 +920,7 @@ function RosterTable({
                 return (
                 <TableRow key={a.id}>
                   <TableCell>
-                    <button onClick={() => onOpen(a.id)} className="flex items-center gap-2 text-left hover:underline">
+                    <button onClick={() => canOpen(a.id) && onOpen(a.id)} className="flex items-center gap-2 text-left hover:underline">
                       <Avatar className="h-8 w-8"><AvatarFallback>{initials(a.first_name, a.last_name)}</AvatarFallback></Avatar>
                       <div>
                         <div className="font-medium">
@@ -926,7 +938,13 @@ function RosterTable({
                       positionPct={a.position_pct}
                       agencyLevelId={a.agency_level_id}
                       positions={positions}
-                      canAssign={canAssign}
+                      // An agency admin may place anybody on the roster; an
+                      // upline may place their own people, which is every row
+                      // this table shows them except themselves. The server
+                      // enforces the same rule and the rung ceiling, so a
+                      // refusal surfaces as its own message rather than a
+                      // hidden control that contradicts the hierarchy.
+                      canAssign={canAssign || !(a as any).is_self}
                       pending={assign.isPending}
                       onAssign={(agencyLevelId) => assign.mutate({ agentId: a.id, agencyLevelId })}
                     />
