@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing-analytics";
 import { LandingSection, SectionHead, FadeUp, display } from "./primitives";
 import { Screen, type ScreenKey } from "./screens";
-import { LiveDashboard } from "./live-demos";
+import { DashboardFrame } from "./hero";
 
 type Story = {
   id: string;
@@ -96,7 +96,7 @@ export function ProductStories() {
         copy="Four screens carry most of the work. Here they are, doing it."
       />
 
-      <div className="mt-12 space-y-16 lg:space-y-24">
+      <div className="mt-10 space-y-12 lg:space-y-24">
         {STORIES.map((s, i) => (
           <Story key={s.id} story={s} flip={i % 2 === 1} />
         ))}
@@ -110,7 +110,7 @@ function Story({ story, flip }: { story: Story; flip: boolean }) {
     <FadeUp>
       <div
         id={story.id}
-        className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14 scroll-mt-24"
+        className="grid items-center gap-6 lg:grid-cols-2 lg:gap-14 scroll-mt-24"
       >
         <div className={cn(flip && "lg:order-2")}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
@@ -138,7 +138,7 @@ function Story({ story, flip }: { story: Story; flip: boolean }) {
             rather than as an illustration of it. */}
         <div className={cn("dark", flip && "lg:order-1")}>
           {story.visual === "dashboard" ? (
-            <LiveDashboard />
+            <DashboardFrame className="mt-0" />
           ) : (
             <Screen screen={story.visual} />
           )}

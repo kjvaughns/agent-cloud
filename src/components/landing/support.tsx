@@ -150,7 +150,7 @@ export function LandingFooter() {
     {
       title: "Product",
       links: [
-        { label: "Product", href: "#features" },
+        { label: "Product", href: "#product" },
         { label: "Live demo", href: "#demo" },
         { label: "Pricing", href: "#pricing" },
         { label: "FAQ", href: "#faq" },
@@ -159,8 +159,8 @@ export function LandingFooter() {
     {
       title: "For",
       links: [
-        { label: "Agency lifecycle", href: "#lifecycle" },
-        { label: "Solo agents", href: "#pricing" },
+        { label: "Agencies", href: "#for-agencies" },
+        { label: "Solo agents", href: "#for-agents" },
       ],
     },
     {

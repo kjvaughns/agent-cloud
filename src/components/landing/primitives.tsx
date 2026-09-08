@@ -40,7 +40,7 @@ export function LandingSection({
     // page spent 1,344px — a viewport and a half — on nothing at all. Every
     // section is separated by a border-t as well, so the whitespace was doing
     // a job that was already done.
-    <section id={id} ref={ref} className={cn("py-12 md:py-16", className)}>
+    <section id={id} ref={ref} className={cn("py-10 md:py-16", className)}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6">{children}</div>
     </section>
   );
@@ -82,7 +82,16 @@ export function StatusPill({ status }: { status: "available" | "beta" | "soon" }
   );
 }
 
-/** Reveal-on-scroll. Respects prefers-reduced-motion. */
+/**
+ * Reveal-on-scroll that cannot leave content invisible.
+ *
+ * The previous version observed at a 0.15 threshold. Several of the blocks it
+ * wraps are taller than a phone screen, so 15% of them was never on screen at
+ * once and they stayed at opacity 0 forever — which is why the live page had
+ * whole blank screens in the middle of it. Now it fires as soon as any part of
+ * the block enters the viewport, and a timer reveals it regardless after a
+ * moment. Reduced motion skips the animation entirely.
+ */
 export function FadeUp({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
@@ -92,15 +101,17 @@ export function FadeUp({ children, delay = 0, className }: { children: React.Rea
       setShown(true);
       return;
     }
+    const timer = window.setTimeout(() => setShown(true), 1200);
     const el = ref.current;
-    if (!el) return;
+    if (!el) return () => window.clearTimeout(timer);
     const io = new IntersectionObserver(
       ([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect(); } },
-      { threshold: 0.15 },
+      { threshold: 0, rootMargin: "0px 0px -5% 0px" },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => { window.clearTimeout(timer); io.disconnect(); };
   }, []);
+
 
   return (
     <div

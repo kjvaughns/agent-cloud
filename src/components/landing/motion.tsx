@@ -1,44 +1,75 @@
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
 
-/** True once the element has been on screen. Used to start animations. */
-export function useInView<T extends HTMLElement>(threshold = 0.2) {
+/**
+ * Motion helpers for the marketing page.
+ *
+ * ── The rule these were rewritten around ──
+ *
+ * Animation may never be the reason content is missing. The old versions
+ * broke that rule twice on the live page: the hero dashboard sat at $0 because
+ * the count-up never started, and several sections rendered as blank screens
+ * because their reveal never fired. A visitor cannot tell a stuck animation
+ * from an empty product.
+ *
+ * So both hooks below carry a timer that finishes the job regardless of
+ * whether the observer ever fires: `useInView` reveals after 900ms even if no
+ * intersection is reported, and `useCountUp` snaps to the final value once the
+ * duration has elapsed. Worst case the animation is skipped. The value is
+ * always on screen.
+ *
+ * The floating orbs and the scroll parallax that used to live here were
+ * deleted — no page called them, and they were shipping in the bundle.
+ */
+
+/** True once the element has been seen, or after a short grace period. */
+export function useInView<T extends HTMLElement>(threshold = 0.15) {
   const ref = useRef<T>(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
+    let done = false;
+    const show = () => {
+      if (done) return;
+      done = true;
+      setInView(true);
+    };
+
+    // The safety net. If IntersectionObserver is unavailable, throttled, or
+    // the element never crosses the threshold, the content still appears.
+    const timer = window.setTimeout(show, 900);
+
     const el = ref.current;
-    if (!el) return;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      return () => window.clearTimeout(timer);
+    }
+
     const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setInView(true); io.disconnect(); } },
-      { threshold },
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            show();
+            io.disconnect();
+          }
+        }
+      },
+      { threshold, rootMargin: "0px 0px -8% 0px" },
     );
     io.observe(el);
-    return () => io.disconnect();
+
+    return () => {
+      window.clearTimeout(timer);
+      io.disconnect();
+    };
   }, [threshold]);
 
   return { ref, inView };
 }
 
-export function prefersReducedMotion() {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-}
-
 /**
- * The same answer, safe to read during render.
+ * The reduced-motion setting, safe to read during render.
  *
- * Calling `prefersReducedMotion()` directly in a component body is a hydration
- * bug: the server has no matchMedia and returns false, so it renders the
- * animated `style` prop, while a client that prefers reduced motion renders no
- * style at all. React logs a mismatch and — worse — keeps whichever tree it
- * decided on, so the setting can end up ignored on the very machines that
- * asked for it.
- *
- * So: false on the first render, matching the server exactly, then the real
- * answer from an effect. One frame of the animated start state is the cost,
- * and since these components also start hidden until they scroll into view,
- * that frame is not visible anyway.
+ * False on the first render so the server and client agree, then the real
+ * answer from an effect.
  */
 export function useReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -47,7 +78,6 @@ export function useReducedMotion() {
     const mq = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!mq) return;
     setReduced(mq.matches);
-    // Someone can flip the OS setting with the page open.
     const onChange = (e: MediaQueryListEvent) => setReduced(e.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
@@ -57,95 +87,42 @@ export function useReducedMotion() {
 }
 
 /**
- * Counts up to `value` once visible.
+ * Counts up to `value` once `start` is true — and lands on `value` either way.
  *
- * Eases out so the number decelerates into place instead of ticking linearly,
- * and snaps straight to the final value when the visitor prefers reduced
- * motion — a counting number is decoration, not information.
+ * Reduced motion, a missing rAF, a backgrounded tab: all of them end with the
+ * real number rendered, because a marketing page that reports $0 production is
+ * worse than one with no animation at all.
  */
 export function useCountUp(value: number, duration = 1200, start = false) {
   const [n, setN] = useState(0);
 
   useEffect(() => {
     if (!start) return;
-    if (prefersReducedMotion()) { setN(value); return; }
+
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || typeof requestAnimationFrame === "undefined") {
+      setN(value);
+      return;
+    }
 
     let raf = 0;
     let t0: number | null = null;
     const tick = (t: number) => {
       if (t0 === null) t0 = t;
       const p = Math.min(1, (t - t0) / duration);
-      // easeOutCubic
-      setN(value * (1 - Math.pow(1 - p, 3)));
+      setN(value * (1 - Math.pow(1 - p, 3))); // easeOutCubic
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    // Whatever happened to the frames, the figure is correct after this.
+    const settle = window.setTimeout(() => setN(value), duration + 250);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(settle);
+    };
   }, [value, duration, start]);
 
   return n;
 }
-
-/**
- * Ambient floating orbs behind a section.
- *
- * Purely decorative, so it is aria-hidden, pointer-events-none, and disabled
- * entirely under reduced-motion.
- */
-export function FloatingOrbs({ className }: { className?: string }) {
-  const [on, setOn] = useState(false);
-  useEffect(() => { setOn(!prefersReducedMotion()); }, []);
-  if (!on) return null;
-
-  return (
-    <div aria-hidden className={cn("pointer-events-none absolute inset-0 -z-10 overflow-hidden", className)}>
-      <span className="ac-orb ac-orb-1" />
-      <span className="ac-orb ac-orb-2" />
-      <span className="ac-orb ac-orb-3" />
-    </div>
-  );
-}
-
-/** Subtle parallax on scroll. Skipped under reduced motion. */
-export function Parallax({
-  children, strength = 18, className,
-}: { children: React.ReactNode; strength?: number; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [offset, setOffset] = useState(0);
-
-  useEffect(() => {
-    if (prefersReducedMotion()) return;
-    const el = ref.current;
-    if (!el) return;
-
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const r = el.getBoundingClientRect();
-        const vh = window.innerHeight || 1;
-        // -1 .. 1 across the viewport
-        const p = (r.top + r.height / 2 - vh / 2) / vh;
-        setOffset(Math.max(-1, Math.min(1, p)) * strength);
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
-  }, [strength]);
-
-  return (
-    <div ref={ref} className={className} style={{ transform: `translate3d(0, ${offset}px, 0)` }}>
-      {children}
-    </div>
-  );
-}
-
-/*
- * `useDrawPath` lived here — an SVG stroke-dashoffset reveal — and nothing
- * ever called it. The obvious home was the lifecycle's connecting line, but
- * that line is not a scroll reveal: it fills to chase the active stage, which
- * is the claim the section is making. Drawing it once on entry would replace a
- * meaningful animation with a decorative one. Deleted rather than given a use
- * it does not have.
- */
