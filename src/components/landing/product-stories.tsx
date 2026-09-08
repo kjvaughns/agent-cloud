@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing-analytics";
 import { LandingSection, SectionHead, FadeUp, display } from "./primitives";
 import { Screen, type ScreenKey } from "./screens";
-import { LiveDashboard } from "./live-demos";
+import { DashboardFrame } from "./hero";
 
 type Story = {
   id: string;
@@ -138,7 +138,7 @@ function Story({ story, flip }: { story: Story; flip: boolean }) {
             rather than as an illustration of it. */}
         <div className={cn("dark", flip && "lg:order-1")}>
           {story.visual === "dashboard" ? (
-            <LiveDashboard />
+            <DashboardFrame className="mt-0" />
           ) : (
             <Screen screen={story.visual} />
           )}
