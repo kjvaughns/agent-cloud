@@ -207,7 +207,7 @@ function SoloBilling({ access }: { access: any }) {
                 Upgrade to the Agency Plan to unlock team management, recruiting pipeline, leaderboard, and multi-agent analytics.
                 Your clients, policies, and commissions stay exactly as they are.
               </p>
-              <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(PRICING.agencyBase)}/month (includes {PRICING.includedSeats} agents)</p>
+              <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(PRICING.agencyBase)}/month, unlimited agents</p>
               <Button className="mt-3" onClick={() => upgrade.mutate()} disabled={upgrade.isPending}>
                 Upgrade to Agency Plan →
               </Button>
@@ -289,8 +289,9 @@ function OwnerBilling() {
 
         {/* Plan + totals */}
         <div className="grid sm:grid-cols-4 gap-[var(--gap)]">
-          <Panel><StatTile label="Active Agents" value={String(d.seats.active)} delta={`${d.seats.included} included`} /></Panel>
-          <Panel><StatTile label="Seat Overage" value={String(d.seats.overage)} delta={d.seats.overage > 0 ? `+${money(d.seats.overageCost)}/mo` : "no overage"} deltaUp={d.seats.overage === 0} /></Panel>
+          {/* The Agency plan is flat, so there is no overage tile to sit beside
+              this one — the count is information, not a charge. */}
+          <Panel><StatTile label="Active Agents" value={String(d.seats.active)} delta="all included" /></Panel>
           <Panel><StatTile label="Nova Seats" value={String(d.org.nova_seats_purchased)} delta={`${d.nova.assignedSeats} assigned`} /></Panel>
           <Panel><StatTile label="Est. Monthly Total" value={money(d.estimatedMonthlyTotal)} tone="gold" delta="after partner credit" /></Panel>
         </div>
@@ -298,12 +299,12 @@ function OwnerBilling() {
         {/* Line items */}
         <Panel title="Monthly Breakdown">
           <div className="text-sm divide-y divide-border-soft">
-            <Row label={`Agency Plan (includes ${d.seats.included} agents)`} value={money(d.pricing.agencyBase)} />
-            {d.seats.overage > 0 && (
-              <Row label={`${d.seats.overage} additional agents × ${money(d.pricing.seatOverage)}`} value={money(d.seats.overageCost)} />
-            )}
+            <Row label={`Agency Plan (${d.seats.active} agents, all included)`} value={money(d.pricing.agencyBase)} />
+            {/* Seats an agency sponsors bill at the agency rate, which is what
+                the separate Stripe price has always charged — the breakdown
+                quoted the personal figure. */}
             {d.org.nova_seats_purchased > 0 && (
-              <Row label={`${d.org.nova_seats_purchased} Nova Pro seats × ${money(d.pricing.novaPro)}`} value={money(d.org.nova_seats_purchased * d.pricing.novaPro)} />
+              <Row label={`${d.org.nova_seats_purchased} sponsored Nova seats × ${money(d.pricing.novaSponsored)}`} value={money(d.org.nova_seats_purchased * d.pricing.novaSponsored)} />
             )}
             {d.org.plan_type === "white_label" && (
               <Row label="White-Label" value={money(d.pricing.whiteLabelMonthly)} />

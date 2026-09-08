@@ -130,8 +130,9 @@ export const getBillingOverview = createServerFn({ method: "GET" })
     const { supabase, userId } = context as Ctx;
     const org = await getOwnedOrg(supabase, userId);
     const PRICING = await resolvePricing();
+    // Still counted, still shown — an owner wants to know how many producers
+    // they have. It is no longer priced: the Agency plan is flat.
     const seatCount = await countBillableSeats(org.id, org.owner_id ?? userId);
-    const overageSeats = Math.max(0, seatCount - PRICING.includedSeats);
 
     // Nova subscribers in this org (any active source), excluding the owner —
     // owners never earn partner commission on their own subscription.
@@ -149,8 +150,10 @@ export const getBillingOverview = createServerFn({ method: "GET" })
     const assignedSeats = (novaSubs ?? []).filter((p: any) => p.nova_pro_source === "agency").length;
 
     const whiteLabel = org.plan_type === "white_label";
-    const base = PRICING.agencyBase + overageSeats * PRICING.seatOverage
-      + (org.nova_seats_purchased ?? 0) * PRICING.novaPro
+    // Sponsored Nova seats bill at the agency rate, not the personal one —
+    // they go through a different Stripe price and always have.
+    const base = PRICING.agencyBase
+      + (org.nova_seats_purchased ?? 0) * PRICING.novaSponsored
       + (whiteLabel ? PRICING.whiteLabelMonthly : 0);
 
     return {
@@ -165,9 +168,9 @@ export const getBillingOverview = createServerFn({ method: "GET" })
       },
       seats: {
         active: seatCount,
-        included: PRICING.includedSeats,
-        overage: overageSeats,
-        overageCost: overageSeats * PRICING.seatOverage,
+        /** No ceiling, so nothing above one. Kept as a field so the shape is
+         *  explicit rather than the absence of a number meaning "unlimited". */
+        unlimited: true as const,
       },
       nova: {
         subscribers: (novaSubs ?? []).length,

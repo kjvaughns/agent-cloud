@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { money } from "@/lib/format";
 import { track } from "@/lib/landing-analytics";
 import { BrandLogo } from "@/components/brand-logo";
 import { LandingSection, SectionHead, display } from "./primitives";
@@ -27,11 +28,35 @@ import { LandingSection, SectionHead, display } from "./primitives";
  * in to build the FAQPage structured data from this same list. Google requires
  * schema questions to be visible on the page, so the two cannot diverge.
  */
-export function faqItems(_pricing: Record<string, number>) {
+export function faqItems(pricing: Record<string, number>) {
   return [
+    {
+      q: "Is there a limit on how many agents an agency can have?",
+      a: "No. The Agency Licence covers unlimited agents with no seat charges, subject to reasonable platform usage. Adding an agent does not change the bill.",
+    },
+    {
+      q: "Can a solo agent use Agent Cloud?",
+      a: `Yes. The Solo Licence is ${money(pricing.soloAgent)} a month and includes the tools to manage clients, policies, contracts, production and finances for your own business.`,
+    },
+    {
+      q: "Is Nova AI required?",
+      a: "No. Agent Cloud is a complete platform without it — the pipeline, the book, contracting, production and finances are all in the licence. Nova adds automation, prioritisation and AI assistance on top.",
+    },
+    {
+      q: "How does the agency profit share work?",
+      a: `Eligible paid agencies earn ${Math.round((pricing.novaPartnerRate ?? 0.2) * 100)}% recurring profit share on Nova subscriptions their agents buy, attributed to the agency. It runs while the Agency Licence is active and is governed by the programme terms. Seats an agency sponsors on an agent's behalf do not also earn profit share.`,
+    },
+    {
+      q: "What happens if an agent leaves the agency?",
+      a: "The agent keeps their account and records according to the platform's ownership and transfer rules. Profit share attribution follows the active agency relationship and the programme terms.",
+    },
     {
       q: "Are you an IMO? Do you take an override?",
       a: "No and no. Agent Cloud is software you pay for. Your hierarchy, your carrier contracts and your comp are yours — we never sit in them and we never take a piece.",
+    },
+    {
+      q: "Can Agent Cloud work out commissions and overrides?",
+      a: "Yes, from the compensation levels and comp grid you configure: the writing agent's advance and deferral, and the override spread up the hierarchy. It does not automatically reconcile carrier statements — you upload those and check them against what was expected.",
     },
     {
       q: "Who owns my data if I leave?",
@@ -39,11 +64,15 @@ export function faqItems(_pricing: Record<string, number>) {
     },
     {
       q: "Can my agents see each other's numbers?",
-      a: "Only if you say so. Every agent sees their own book by default. You set what managers and staff can see, per role — enforced in the database, not just hidden in the interface.",
+      a: "The agency leaderboard is visible to everyone in the agency — that is the point of it. Client and policy records are not: every agent sees their own book by default, and you set what managers and staff can see per role, enforced in the database rather than hidden in the interface.",
     },
     {
       q: "Do you submit contracting to the carriers for me?",
       a: "Not yet. You prepare the packet here — requests, documents, hierarchy, comp level — and submit it through whatever each carrier requires, whether that's SureLC, their portal, or email. We keep the record, the status and the writing number once it's issued.",
+    },
+    {
+      q: "Are messages, calls and AI usage unlimited?",
+      a: "No. Nova includes a monthly allowance for calling minutes, SMS, AI queries and automation runs, and usage beyond it is charged at published per-unit rates. The current allowances are shown in your Nova settings.",
     },
   ];
 }

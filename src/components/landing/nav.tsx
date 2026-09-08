@@ -16,11 +16,16 @@ import { display } from "./primitives";
  * than a missing one: the visitor concludes the page is broken, on the one
  * click they chose to spend.
  */
+// The five the page is actually organised around. "For agents" and "For
+// agencies" are there because the two buyers arrive with different questions,
+// and a visitor who cannot find their own half leaves rather than reading the
+// other one.
 const LINKS = [
-  { label: "Product", href: "#features" },
-  { label: "Live demo", href: "#demo" },
+  { label: "Product", href: "#product" },
+  { label: "For agents", href: "#for-agents" },
+  { label: "For agencies", href: "#for-agencies" },
+  { label: "Nova AI", href: "#nova" },
   { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
 ];
 
 export function AnnouncementBar() {
@@ -44,7 +49,7 @@ export function AnnouncementBar() {
         <span className="text-muted-foreground">
           Agent Cloud is now accepting founding agencies.
         </span>
-        <a href="#features" className="font-semibold text-primary hover:underline whitespace-nowrap">
+        <a href="#product" className="font-semibold text-primary hover:underline whitespace-nowrap">
           See the product →
         </a>
       </div>
@@ -115,7 +120,17 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
             to="/login"
             className="hidden sm:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2"
           >
-            Sign in
+            Log in
+          </Link>
+          {/* Two actions, because the two buyers convert differently: a solo
+              agent signs up, an agency owner wants to be shown it first.
+              One dominant action survives on a phone — see StickyMobileCta. */}
+          <Link
+            to="/demo"
+            onClick={() => track("demo_cta_clicked")}
+            className="hidden lg:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2"
+          >
+            Book a demo
           </Link>
           <div className="hidden sm:block">{cta}</div>
 
@@ -168,8 +183,11 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
                 {l.label}
               </a>
             ))}
+            <Link to="/demo" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
+              Book a demo
+            </Link>
             <Link to="/login" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
-              Sign in
+              Log in
             </Link>
             <Link to={ctaHref} onClick={() => { setOpen(false); track("nav_cta_clicked", { label: ctaLabel, surface: "mobile" }); }} className="mt-4">
               <Button className="w-full h-12 text-base">{ctaLabel}</Button>

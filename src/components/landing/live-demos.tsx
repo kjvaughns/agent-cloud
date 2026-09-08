@@ -63,7 +63,11 @@ export function LiveDemos() {
         {TABS.find((t) => t.key === tab)!.caption}
       </p>
 
-      <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-6 overflow-hidden">
+      {/* `.dark` locally: the page around it is light, and this panel is the
+          application. Rendering it on the page's palette would make the one
+          genuinely interactive proof on the page look like a diagram of the
+          product rather than the product. */}
+      <div className="dark mt-6 rounded-2xl border border-border bg-card p-4 sm:p-6 overflow-hidden text-foreground">
         {tab === "pipeline" && <PipelineDemo />}
         {tab === "commissions" && <CommissionDemo />}
         {tab === "retention" && <RetentionDemo />}

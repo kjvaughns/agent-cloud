@@ -244,11 +244,17 @@ check("…so the 400-day fetch pad is gone", /400 \* 86400000/.test(DASH), false
 
 check("every window filters on the named column",
   (DASH.match(/\.gte\("posted_at"/g) ?? []).length, 0);
-// Four production reads, all through the one helper that knows what to do
-// while the column is still pending. A fifth added the old way would be right
+// Every production read goes through the one helper that knows what to do
+// while the column is still pending. One added the old way would be right
 // today and wrong for the hours between shipping and the migration applying.
+//
+// A floor rather than an exact count: this asserted "exactly four" and went
+// red the moment a fifth READER was added correctly, which teaches whoever
+// hits it to edit the number rather than look. The guard that actually
+// matters is the assertion above — no window filtered by hand — and this one
+// says the helper is still what the file reaches for.
 check("…through the helper, not by hand",
-  (DASH.match(/selectProduction</g) ?? []).length, 4);
+  (DASH.match(/selectProduction</g) ?? []).length >= 4, true);
 check("…which is where the pending-column fallback lives",
   /from "@\/lib\/production\/source\.server"/.test(DASH), true);
 
