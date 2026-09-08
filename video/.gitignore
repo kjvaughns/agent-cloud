@@ -1,0 +1,9 @@
+node_modules/
+
+# Renders and audit stills. Everything here is reproducible from source in one
+# command, and none of it belongs in git — a single 24-second cut at CRF 18 is
+# 6MB, and it changes on every edit.
+out/
+
+# Remotion's bundle cache.
+.remotion/
