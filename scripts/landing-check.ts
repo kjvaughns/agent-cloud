@@ -155,7 +155,7 @@ for (const fig of ["\\$900\\.00", "\\$720\\.00", "\\$180\\.00", "\\$225\\.00"]) 
 
 // Proof numbers live in one file, are measured, and are rounded down.
 check("proof figures come from one reviewed constant",
-  /PROOF_ROWS/.test(HERO) && /Rounded/i.test(PROOF_SRC), true);
+  /PROOF_ROWS/.test(HERO) && /ROUNDED DOWN/.test(read("src/lib/landing/proof.ts")), true);
 
 // ── Nova says what is live and what is not ─────────────────────────────────
 
