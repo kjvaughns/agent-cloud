@@ -206,7 +206,7 @@ function PipelinePanel() {
         </div>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        No hot / warm / cold tags. A stage you move someone through, and a note that says what happened.
+        A stage you actually move someone through, and a note that says what happened last.
       </p>
     </div>
   );
