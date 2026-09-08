@@ -5,7 +5,7 @@ import { money } from "@/lib/format";
 import { Bloom, Canvas, CardSweep, Grain, Vignette } from "./components/Atmosphere";
 import { Burst } from "./components/Burst";
 import { Cursor } from "./components/Cursor";
-import { CloudGlyph, DealCard, Readout, RowContent } from "./components/DealCard";
+import { DealCard, Readout, RowContent } from "./components/DealCard";
 import { ScreenStage } from "./components/ScreenStage";
 import { Caption, Fine, MaskUp, PunchWords } from "./components/Type";
 import { CountUp, Typewriter } from "./components/Typewriter";
@@ -32,7 +32,7 @@ import { C, CX, D, H, K, LAYOUT, R, T, alpha } from "./timeline";
  * Layout follows the motion grammar in the build plan:
  *
  *   - every rectangle is rounded, one radius scale (`R`)
- *   - vertical motion is always UP; the card climbs 1180 → 640 and the screens
+ *   - vertical motion is always UP; the card climbs 1120 → 700 and the screens
  *     position themselves around it (see `stageForCardY`)
  *   - the camera only pushes in, with exactly one pull-back at the very end
  *   - the card stays near frame centre at a similar size across every handover,
@@ -124,13 +124,6 @@ export const Launch: React.FC = () => {
             finances: <PayoutRow h={PHASE_H.finances} />,
             nova: <NovaStrip h={PHASE_H.nova} />,
             agency: <BoardRow h={PHASE_H.agency} frame={frame} settled />,
-            logo: (
-              <div
-                style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center" }}
-              >
-                <CloudGlyph size={PHASE_H.logo * 0.56} draw={card.weight.logo} />
-              </div>
-            ),
           }}
         />
 

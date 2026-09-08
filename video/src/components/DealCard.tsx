@@ -3,6 +3,7 @@ import { C, alpha } from "../timeline";
 import { BODY, DISPLAY } from "../lib/fonts";
 import type { Rect } from "../lib/space";
 import type { Phase } from "../card-path";
+import logoUrl from "@/assets/agent-cloud-logo.jpg";
 
 /**
  * The main character.
@@ -69,14 +70,27 @@ export const DealCard: React.FC<{
         overflow: "hidden",
       }}
     >
-      {/* The gold fill, arriving. */}
+      {/*
+        The brand mark, arriving — the application's own asset, not a redraw.
+
+        `object-fit: cover` matters here. The card is still 1036x47 when the
+        morph starts and only becomes a 236px square at the end of it, so for
+        most of the transition this shows a horizontal slice through the middle
+        of the mark: a gold band with a sliver of cloud in it, resolving into
+        the whole logo as the box squares up. Contain would letterbox the mark
+        inside a wide dark row and read as a bug.
+      */}
       {logo > 0.01 ? (
-        <div
+        <img
+          src={logoUrl}
+          alt=""
           style={{
             position: "absolute",
             inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
             opacity: logo,
-            background: `linear-gradient(145deg, ${C.accentLt}, ${C.accent})`,
           }}
         />
       ) : null}
@@ -158,33 +172,6 @@ export const RowContent: React.FC<{
     ))}
   </div>
 );
-
-/**
- * The cloud, drawn rather than faded in.
- *
- * `strokeDashoffset` walks the outline on, then the fill arrives behind it. A
- * mark that draws itself reads as the video arriving somewhere; a mark that
- * fades in reads as a slide transition.
- */
-export const CloudGlyph: React.FC<{ size: number; draw: number }> = ({ size, draw }) => {
-  const LEN = 46;
-  const t = Math.max(0, Math.min(1, (draw - 0.35) / 0.65));
-
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M6.6 18.5a4.1 4.1 0 0 1-.5-8.17 5.6 5.6 0 0 1 10.83-1.5 3.9 3.9 0 0 1 .57-.04 4.85 4.85 0 0 1 .3 9.71H6.6Z"
-        fill={C.bg}
-        opacity={t}
-        stroke={C.bg}
-        strokeWidth="0.9"
-        strokeLinejoin="round"
-        strokeDasharray={LEN}
-        strokeDashoffset={LEN * (1 - Math.max(0, Math.min(1, draw / 0.7)))}
-      />
-    </svg>
-  );
-};
 
 /**
  * The one number a beat is about, at a size you can actually read.

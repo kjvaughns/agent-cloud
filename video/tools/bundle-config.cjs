@@ -50,7 +50,7 @@ const webpackOverride = (current) => {
     ...withTailwind,
     module: {
       ...withTailwind.module,
-      rules: [...rules, { test: /\.woff2$/, type: "asset/inline" }],
+      rules: [...rules, { test: /\.(woff2|jpe?g)$/, type: "asset/inline" }],
     },
     resolve: {
       ...withTailwind.resolve,

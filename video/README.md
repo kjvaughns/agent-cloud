@@ -430,14 +430,30 @@ while a screen is still on shot drags its right edge 34px into frame.
 
 Palette, radii and type sizes in `timeline.ts`. Two things to know:
 
-**The gold is the brief's `#C9A227`.** The product's own dark-mode `--gold` is
-`#CBA35A`, and the screens inside the frame render themselves from that token —
-so the UI's gold and the video furniture's gold are close but not identical. Set
-`C.accent` to `#CBA35A` and `C.accentLt` to `#E7C877` if you want them the same;
-it is a two-line change and nothing else moves. The bloom is built from
-`accentLt` rather than `accent` regardless, because a saturated olive gold
+**There were three golds and now there is one family.** The brief specified
+`#C9A227`. The product's own dark-mode `--gold` is `#CBA35A`, and every screen
+inside the frame renders itself from that token. The brand mark — the asset this
+video ends on — is `#C09F40`, sampled from the file rather than guessed.
+`#C9A227` was the outlier of the three, more saturated and yellower than either
+thing actually on screen, which showed up as the endcard tile reading a
+different colour from the bursts that led into it. So `C.accent` is the mark's
+own gold and `C.accentLt` is the product's `--gold-bright`, which makes a
+`Readout` figure literally the same colour as the gold numbers in the
+application behind it. Set `accent` back to `#C9A227` if the brief's value was
+deliberate; it is a one-line change and nothing else moves. The bloom is built
+from `accentLt` rather than `accent` regardless, because a saturated olive gold
 spread thinly on near-black stops reading as light and starts reading as a brown
 smear.
+
+**The logo is the application's own asset,** `src/assets/agent-cloud-logo.jpg` —
+the same file `BrandLogo` renders — inlined as a data URI by the same
+`asset/inline` rule the fonts use. It is deliberately not a traced SVG: a redraw
+is a second source of truth for the mark, and it is the one nobody remembers to
+update the day the brand changes. It is drawn `object-fit: cover`, because the
+card is still 1036x47 when the morph begins and only squares up at the end of
+it — so most of the transition is a horizontal slice through the middle of the
+mark, resolving into the whole logo. `contain` would letterbox it inside a wide
+dark row and read as a bug.
 
 **Display type is Space Grotesk, not Sora.** The slop rule being guarded against
 is "Inter or Roboto or system fonts for display text" — a face with no character

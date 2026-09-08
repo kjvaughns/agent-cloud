@@ -333,11 +333,21 @@ export const LAYOUT = {
  * here is what makes the gold land; used as decoration it stops meaning
  * anything.
  *
- * Note this is the brief's #C9A227. The product's own dark-mode `--gold` is
- * #CBA35A, and the screens inside the frame render themselves from that token —
- * so the UI's gold and the video furniture's gold are close but not identical.
- * Set `accent` to '#CBA35A' and `accentLt` to '#E7C877' if you want them to be
- * the same colour; it is a one-line change and nothing else needs to move.
+ * There were three golds in this project and now there is one family.
+ *
+ * The brief specified #C9A227. The product's own dark-mode `--gold` is #CBA35A,
+ * and every screen inside the frame renders itself from that token. The brand
+ * mark — `src/assets/agent-cloud-logo.jpg`, which this video ends on — is
+ * #C09F40, sampled from the asset rather than guessed. #C9A227 was the outlier
+ * of the three: more saturated and yellower than either thing actually on
+ * screen, which showed up as the endcard tile reading a different colour from
+ * the bursts that led into it.
+ *
+ * So `accent` is the brand mark's own gold and `accentLt` is the product's
+ * `--gold-bright`, which means a Readout figure is literally the same colour as
+ * the gold numbers inside the application behind it. Set `accent` back to
+ * '#C9A227' if the brief's value was deliberate; it is a one-line change and
+ * nothing else needs to move.
  */
 export const C = {
   bg: "#08080A",
@@ -345,8 +355,8 @@ export const C = {
   line: "#1E1E24",
   text: "#FAFAF9",
   muted: "#8B8B93",
-  accent: "#C9A227",
-  accentLt: "#E8C75A",
+  accent: "#C09F40",
+  accentLt: "#E7C877",
   good: "#4ADE80",
   bad: "#F87171",
 } as const;
