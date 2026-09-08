@@ -1,22 +1,21 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
-import { track } from "@/lib/landing-analytics";
-import { display } from "@/components/landing/primitives";
 import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
+import { Hero } from "@/components/landing/hero";
 import { OwnershipSection } from "@/components/landing/story";
 import { WorkflowSection } from "@/components/landing/workflow";
 import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
 import { NovaSection, ProfitShareSection } from "@/components/landing/nova-section";
 import { PricingSection } from "@/components/landing/pricing";
-import { LiveDemos, LiveDashboard } from "@/components/landing/live-demos";
+import { DealJourney } from "@/components/landing/deal-journey";
 import {
   FaqSection, FinalCta, LandingFooter, faqItems,
 } from "@/components/landing/support";
 import { PRICING } from "@/lib/billing/pricing";
+
 
 const SITE = "https://useagentcloud.com";
 
