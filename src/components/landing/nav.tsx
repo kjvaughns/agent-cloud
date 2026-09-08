@@ -123,8 +123,11 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
             Log in
           </Link>
           {/* Two actions, because the two buyers convert differently: a solo
-              agent signs up, an agency owner wants to be shown it first.
-              One dominant action survives on a phone — see StickyMobileCta. */}
+              agent signs up, an agency owner wants to be shown it first. But
+              when checkout is unconfigured the primary action IS the demo, and
+              printing "Book a demo" twice in one header reads as a bug — so
+              this link only appears when the two differ. */}
+          {ctaHref !== "/demo" && (
           <Link
             to="/demo"
             onClick={() => track("demo_cta_clicked")}
@@ -132,6 +135,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
           >
             Book a demo
           </Link>
+          )}
           <div className="hidden sm:block">{cta}</div>
 
           {/* Mobile: the previous nav was hidden below md with no drawer, so
@@ -183,9 +187,11 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
                 {l.label}
               </a>
             ))}
-            <Link to="/demo" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
-              Book a demo
-            </Link>
+            {ctaHref !== "/demo" && (
+              <Link to="/demo" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
+                Book a demo
+              </Link>
+            )}
             <Link to="/login" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
               Log in
             </Link>
