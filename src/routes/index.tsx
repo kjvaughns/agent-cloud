@@ -41,7 +41,7 @@ const STRUCTURED_DATA = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       description:
-        "Insurance agency management software that carries one record per agent from recruit to renewal — contracting, licensing, placement, persistency, commission reconciliation against your comp grid, and chargebacks.",
+        "Life insurance CRM and agency management software: pipeline, posted deals, book of business, contracting and hierarchy, a live agency leaderboard, commission and override tracking, and Nova AI client follow-up. Unlimited agents on the Agency licence.",
       offers: [
         { "@type": "Offer", name: "Solo Agent", price: String(PRICING.soloAgent), priceCurrency: "USD" },
         { "@type": "Offer", name: "Agency", price: String(PRICING.agencyBase), priceCurrency: "USD" },
