@@ -6,7 +6,6 @@ import { useLandingPricing } from "@/hooks/use-landing-pricing";
 import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
 import { Hero } from "@/components/landing/hero";
 import { OwnershipSection } from "@/components/landing/story";
-import { WorkflowSection } from "@/components/landing/workflow";
 import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
 import { NovaSection, ProfitShareSection } from "@/components/landing/nova-section";
 import { PricingSection } from "@/components/landing/pricing";
@@ -191,7 +190,9 @@ function LandingPage() {
           I, what does Nova do, what does it cost, what do I do next. The demo
           sits directly after the product section because it is the proof of
           the claim that section just made. */}
-      <WorkflowSection />
+      {/* The old "one connected record" step strip lived here. The demo
+          below makes the same point by doing it, so keeping both cost a
+          viewport and a half of phone height to say it twice. */}
       <ProductStories />
       <DealJourney />
       <AudienceSplit ctaHref={ctaHref} />
