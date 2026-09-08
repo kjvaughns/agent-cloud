@@ -219,7 +219,14 @@ function ComparisonTable() {
         automation and prioritisation on top of them.
       </p>
 
-      <div className="mt-6 overflow-x-auto rounded-[var(--radius)] border border-border">
+      {/* `relative` is load-bearing. The screen-reader <caption> below is
+          absolutely positioned by `sr-only`, and with no positioned ancestor it
+          resolved against the viewport — its 521px of nowrap text made the
+          whole document 524px wide inside a 390px phone, which is why the page
+          scrolled sideways. Confining it here fixes that without hiding it
+          from assistive technology. */}
+      <div className="relative mt-6 overflow-x-auto rounded-[var(--radius)] border border-border">
+
         <table className="w-full min-w-[36rem] text-sm">
           <caption className="sr-only">
             Features included in the Solo licence, the Agency licence, and the Nova AI add-on
