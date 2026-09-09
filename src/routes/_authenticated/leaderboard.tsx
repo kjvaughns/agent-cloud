@@ -383,8 +383,22 @@ function LeaderboardPage() {
             </div>
           </Panel>
         )}
+
+        {/* The record book, below the current standings: one is this period,
+            the other is every period there has ever been. */}
+        <TrophyCase
+          loading={trophies.loading}
+          records={trophies.records}
+          subtitle={
+            scope === "imo"
+              ? "All-time records across your agency and every opted-in sub-agency"
+              : "All-time records for your agency"
+          }
+        />
+        <RecordBurst items={trophies.celebrate} onDone={trophies.onDone} />
       </div>
     </PageShell>
+
   );
 }
 
