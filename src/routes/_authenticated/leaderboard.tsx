@@ -147,6 +147,11 @@ function LeaderboardPage() {
   );
   const scope: BoardScope = availableScopes.some((s) => s.value === board) ? board : "agency";
   const { current, prior } = usePeriodData(period, scope, custom);
+  // Records follow the IMO switch and nothing else: the board's period picker
+  // narrows a window, and a record book has no window.
+  const trophies = useTrophyCase(scope === "imo" ? "imo" : "agency");
+
+
 
   const selfId = current.data?.selfId ?? "";
   const priorMap = useMemo(
