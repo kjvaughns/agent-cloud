@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Trophy, ArrowUp, ArrowDown, Minus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { money, number } from "@/lib/format";
 import { getLeaderboardData, getProductionByScope, type LeaderboardAgent } from "@/lib/dashboard.functions";
+import { getTrophyCase, markRecordsSeen } from "@/lib/records.functions";
+import { TrophyCase } from "@/components/leaderboard/trophy-case";
+import { RecordBurst } from "@/components/leaderboard/record-burst";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useMyAccess } from "@/hooks/use-my-access";
@@ -25,6 +28,7 @@ import {
   type Period,
   type BoardScope,
 } from "@/lib/leaderboard/board";
+
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard — Agent Cloud" }] }),
@@ -97,6 +101,33 @@ function ThreeLevels() {
   );
 }
 
+/**
+ * The record book, plus the one celebration a record breaker is owed.
+ *
+ * The records themselves are computed from the policies on the books, so this
+ * needs no period and no range — a record is the best day there has ever been,
+ * not the best day inside whatever window the board above is showing.
+ */
+function useTrophyCase(scope: "agency" | "imo") {
+  const fetchCase = useServerFn(getTrophyCase);
+  const seen = useServerFn(markRecordsSeen);
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["trophy-case", scope],
+    queryFn: () => fetchCase({ data: { scope } }),
+  });
+  const [dismissed, setDismissed] = useState(false);
+  const celebrate = dismissed ? [] : q.data?.celebrate ?? [];
+  const onDone = useCallback(() => {
+    setDismissed(true);
+    // Stamped server-side so the burst does not follow them from device to
+    // device. Failure is silent: seeing it twice is better than an error.
+    void seen({}).then(() => qc.invalidateQueries({ queryKey: ["trophy-case"] }));
+  }, [seen, qc]);
+  return { records: q.data?.records, loading: q.isLoading, celebrate, onDone };
+}
+
+
 function LeaderboardPage() {
   const { access } = useMyAccess();
   const { caps } = useScopeCapabilities();
@@ -116,6 +147,11 @@ function LeaderboardPage() {
   );
   const scope: BoardScope = availableScopes.some((s) => s.value === board) ? board : "agency";
   const { current, prior } = usePeriodData(period, scope, custom);
+  // Records follow the IMO switch and nothing else: the board's period picker
+  // narrows a window, and a record book has no window.
+  const trophies = useTrophyCase(scope === "imo" ? "imo" : "agency");
+
+
 
   const selfId = current.data?.selfId ?? "";
   const priorMap = useMemo(
@@ -236,6 +272,16 @@ function LeaderboardPage() {
               <StatTile label="Avg premium" value={money(me?.policies ? (me.premium / me.policies) : 0)} />
             </div>
           </Panel>
+          {/* A solo agent has no team and no agency to compare with, so their
+              book is their own personal bests only. */}
+          <TrophyCase
+            title="My Records"
+            subtitle="Your best day, week and month so far"
+            loading={trophies.loading}
+            records={(trophies.records ?? []).filter((r) => r.kind === "producer")}
+          />
+          <RecordBurst items={trophies.celebrate} onDone={trophies.onDone} />
+
           <Panel title="Grow Your Team">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-lg bg-gold-glow grid place-items-center text-gold-bright shrink-0"><TrendingUp className="h-5 w-5" /></div>
@@ -337,8 +383,22 @@ function LeaderboardPage() {
             </div>
           </Panel>
         )}
+
+        {/* The record book, below the current standings: one is this period,
+            the other is every period there has ever been. */}
+        <TrophyCase
+          loading={trophies.loading}
+          records={trophies.records}
+          subtitle={
+            scope === "imo"
+              ? "All-time records across your agency and every opted-in sub-agency"
+              : "All-time records for your agency"
+          }
+        />
+        <RecordBurst items={trophies.celebrate} onDone={trophies.onDone} />
       </div>
     </PageShell>
+
   );
 }
 

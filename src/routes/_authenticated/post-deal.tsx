@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
+import { syncRecordsAfterPolicyWrite } from "@/lib/queries/record-sync";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABELS,
@@ -337,6 +338,9 @@ function PostDealPage() {
       // prefill the next one.
       clearStashedPolicyDraft();
       invalidatePolicyViews(qc);
+      // A posted deal can take a record. Fire-and-forget: the sale is already
+      // written and the celebration must not be able to undo it.
+      void syncRecordsAfterPolicyWrite(qc);
 
       // The deal is written either way — but if nothing could work out what it
       // pays, saying only "Deal posted!" is how an agent finds out weeks later

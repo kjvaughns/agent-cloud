@@ -22,7 +22,11 @@ const POLICY_VIEW_KEYS: readonly unknown[][] = [
   ["retention"],
   ["timeline"],
   ["search"],
+  // The record book is computed from policies, so an edited premium or date
+  // can move a record just as a new deal can.
+  ["trophy-case"],
 ];
+
 
 export function invalidatePolicyViews(qc: QueryClient) {
   for (const queryKey of POLICY_VIEW_KEYS) qc.invalidateQueries({ queryKey });

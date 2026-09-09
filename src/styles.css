@@ -461,6 +461,19 @@
 }
 .ac-pulse { animation: ac-pulse-gold 1s ease-out; }
 
+/* The record celebration's gold sparks. Kept to opacity and transform so the
+   burst costs no layout, and suppressed entirely under reduced motion — the
+   component also renders the plain banner in that case. */
+@keyframes record-spark {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.6); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(0, -46px) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes record-spark { 0%, 100% { opacity: 0; } }
+}
+
+
 /* A product screen arriving after a tab change, so the swap reads as a
    transition rather than a broken image. */
 @keyframes ac-screen-in {
