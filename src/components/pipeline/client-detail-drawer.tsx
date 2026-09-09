@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { POLICY_STATUSES } from "@/lib/policy-status";
 import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
+import { syncRecordsAfterPolicyWrite } from "@/lib/queries/record-sync";
 import { draftSummary, ssPayWeekFromDob, ssWeekLabel, nthWednesday } from "@/lib/deals/social-security";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useNavigate } from "@tanstack/react-router";
@@ -1094,6 +1095,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
     }}),
     onSuccess: (res: any) => {
       invalidatePolicyViews(qc);
+      void syncRecordsAfterPolicyWrite(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       if (res?.compensation && res.compensation.ok === false) {
         toast.warning("Deal posted — but the commission could not be worked out", {
@@ -1230,6 +1232,7 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
       // Every policy-backed view, not a hand-kept subset: an edit here shows
       // up in the book, on production, on the leaderboard and in finances.
       invalidatePolicyViews(qc);
+      void syncRecordsAfterPolicyWrite(qc);
       qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
       if (res?.saleDateChanged) {
         toast.success(`Policy updated — now counts toward ${saleMonthLabel(form.sale_date)}`);

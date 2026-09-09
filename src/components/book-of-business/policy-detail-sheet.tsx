@@ -15,6 +15,7 @@ import { money, phone as fmtPhone } from "@/lib/format";
 import { POLICY_STATUSES, statusBadgeClass, statusLabel, type PolicyStatus } from "@/lib/policy-status";
 import { updatePolicyStatus, getPolicyCommissionTotal, listPolicyEvents } from "@/lib/book-of-business.functions";
 import { invalidatePolicyViews } from "@/lib/queries/policy-invalidation";
+import { syncRecordsAfterPolicyWrite } from "@/lib/queries/record-sync";
 import { buildTimeline } from "@/lib/timeline/build";
 import { TimelineList } from "@/components/timeline/timeline-list";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,6 +110,7 @@ export function PolicyDetailSheet({
       // A status change moves production, retention and the money with it, so
       // every policy-backed view refreshes, not just this list.
       invalidatePolicyViews(qc);
+      void syncRecordsAfterPolicyWrite(qc);
       // The change just made is part of the history now.
       qc.invalidateQueries({ queryKey: ["bob", "events", row?.id] });
     },
