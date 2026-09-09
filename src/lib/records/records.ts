@@ -229,7 +229,7 @@ export function computeRecords(
       // record, and listing them twice tells an owner nothing.
       const totals = subtreeTotals(bucket, children, people);
       for (const [agent, premium] of totals) {
-        if (!hasDownline.has(agent) || hidden.has(agent)) continue;
+        if (!hasDownline.has(agent) || hidden.has(agent) || owners.has(agent)) continue;
         if (premium > 0 && (!bestLeader || premium > bestLeader.premium)) {
           bestLeader = { kind: "leader", period, holderId: agent, premium, periodStart: key };
         }
