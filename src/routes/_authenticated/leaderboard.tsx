@@ -272,6 +272,16 @@ function LeaderboardPage() {
               <StatTile label="Avg premium" value={money(me?.policies ? (me.premium / me.policies) : 0)} />
             </div>
           </Panel>
+          {/* A solo agent has no team and no agency to compare with, so their
+              book is their own personal bests only. */}
+          <TrophyCase
+            title="My Records"
+            subtitle="Your best day, week and month so far"
+            loading={trophies.loading}
+            records={(trophies.records ?? []).filter((r) => r.kind === "producer")}
+          />
+          <RecordBurst items={trophies.celebrate} onDone={trophies.onDone} />
+
           <Panel title="Grow Your Team">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-lg bg-gold-glow grid place-items-center text-gold-bright shrink-0"><TrendingUp className="h-5 w-5" /></div>
