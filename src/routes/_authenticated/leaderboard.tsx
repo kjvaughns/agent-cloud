@@ -101,6 +101,33 @@ function ThreeLevels() {
   );
 }
 
+/**
+ * The record book, plus the one celebration a record breaker is owed.
+ *
+ * The records themselves are computed from the policies on the books, so this
+ * needs no period and no range — a record is the best day there has ever been,
+ * not the best day inside whatever window the board above is showing.
+ */
+function useTrophyCase(scope: "agency" | "imo") {
+  const fetchCase = useServerFn(getTrophyCase);
+  const seen = useServerFn(markRecordsSeen);
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ["trophy-case", scope],
+    queryFn: () => fetchCase({ data: { scope } }),
+  });
+  const [dismissed, setDismissed] = useState(false);
+  const celebrate = dismissed ? [] : q.data?.celebrate ?? [];
+  const onDone = useCallback(() => {
+    setDismissed(true);
+    // Stamped server-side so the burst does not follow them from device to
+    // device. Failure is silent: seeing it twice is better than an error.
+    void seen({}).then(() => qc.invalidateQueries({ queryKey: ["trophy-case"] }));
+  }, [seen, qc]);
+  return { records: q.data?.records, loading: q.isLoading, celebrate, onDone };
+}
+
+
 function LeaderboardPage() {
   const { access } = useMyAccess();
   const { caps } = useScopeCapabilities();
