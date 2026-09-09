@@ -55,19 +55,36 @@ async function rosterFor(supabase: any, agentIds: string[]) {
   return ((data ?? []) as any[]).map((r) => ({ id: r.id, upline_id: r.upline_id ?? null }));
 }
 
-/** Every policy those people have ever written. Windowing happens in buckets. */
+/**
+ * Every policy those people have ever written. Windowing happens in buckets.
+ *
+ * Six named columns rather than `*`, and paged past PostgREST's 1000-row
+ * default — an agency with an imported back-book has more policies than that,
+ * and a silently truncated read would produce a record book that is merely
+ * plausible.
+ */
+const RECORD_COLS = "annual_premium, production_date, posted_at, effective_date, agent_id, status";
+
 async function policiesFor(supabase: any, agentIds: string[]): Promise<ProductionRow[]> {
   if (!agentIds.length) return [];
   const rows: ProductionRow[] = [];
   const size = 200;
+  const PAGE = 1000;
   for (let i = 0; i < agentIds.length; i += size) {
-    const { data, error } = await supabase
-      .from("policies").select("*").in("agent_id", agentIds.slice(i, i + size));
-    if (error) throw new Error(error.message);
-    rows.push(...((data ?? []) as ProductionRow[]));
+    const slice = agentIds.slice(i, i + size);
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("policies").select(RECORD_COLS).in("agent_id", slice)
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as ProductionRow[];
+      rows.push(...page);
+      if (page.length < PAGE) break;
+    }
   }
   return rows;
 }
+
 
 async function namesFor(supabase: any, ids: (string | null)[]) {
   const wanted = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
