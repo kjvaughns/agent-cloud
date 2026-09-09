@@ -225,15 +225,19 @@ export function computeRecords(
         }
       }
 
-      // Leaders only: an agent with nobody under them is already the producer
-      // record, and listing them twice tells an owner nothing.
+      // Leaders only: the record is a *team* record, so someone under the
+      // agent must have written business in this same bucket. An agent whose
+      // subtree total is just their own pen belongs in Top Producer.
       const totals = subtreeTotals(bucket, children, people);
       for (const [agent, premium] of totals) {
         if (!hasDownline.has(agent) || hidden.has(agent) || owners.has(agent)) continue;
+        const fromDownline = premium - (bucket.get(agent) ?? 0);
+        if (fromDownline <= 0) continue;
         if (premium > 0 && (!bestLeader || premium > bestLeader.premium)) {
           bestLeader = { kind: "leader", period, holderId: agent, premium, periodStart: key };
         }
       }
+
     }
 
     if (bestProducer) out.set(slot("producer", period), bestProducer);
