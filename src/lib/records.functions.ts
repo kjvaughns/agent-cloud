@@ -129,14 +129,33 @@ async function myOrgId(supabase: any, userId: string): Promise<string | null> {
   return (data as any)?.organization_id ?? null;
 }
 
+/**
+ * Agency owners among these agents. An owner's team is the whole agency, so
+ * they are struck from the leader records — see `computeRecords`.
+ */
+async function agencyOwners(supabase: any, ids: string[]): Promise<Set<string>> {
+  const owners = new Set<string>();
+  if (!ids.length) return owners;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: orgs } = await (supabaseAdmin as any)
+      .from("organizations").select("owner_id").in("owner_id", ids);
+    for (const o of (orgs ?? []) as any[]) if (o.owner_id) owners.add(o.owner_id);
+  } catch {
+    // Owner lookup unavailable: no exclusions.
+  }
+  return owners;
+}
+
 /** The nine records, computed for a set of agents. */
 async function computeFor(supabase: any, agentIds: string[], viewerId: string) {
-  const [roster, rows, hidden] = await Promise.all([
+  const [roster, rows, hidden, owners] = await Promise.all([
     rosterFor(supabase, agentIds),
     policiesFor(supabase, agentIds),
     hiddenOwners(supabase, agentIds, viewerId),
+    agencyOwners(supabase, agentIds),
   ]);
-  return computeRecords(rows, roster, hidden);
+  return computeRecords(rows, roster, hidden, owners);
 }
 
 export const getTrophyCase = createServerFn({ method: "POST" })

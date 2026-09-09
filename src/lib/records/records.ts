@@ -182,6 +182,11 @@ export function childrenOf(
  * from the two per-person records. Their production still counts towards the
  * agency's, which is a total and names nobody.
  *
+ * `owners` are excluded from the leader records only. An owner's "team" is
+ * the whole agency, so letting them hold Top Leader would hand the same
+ * record to the same person in every agency, every period. They can still
+ * hold Top Producer — their own pen is their own pen.
+ *
  * Ties go to the earlier bucket: the record stands until it is beaten, not
  * merely matched.
  */
@@ -189,6 +194,7 @@ export function computeRecords(
   rows: ProductionRow[],
   roster: { id: string; upline_id: string | null }[],
   hidden: Set<string> = new Set(),
+  owners: Set<string> = new Set(),
 ): Map<RecordSlot, ComputedRecord> {
   const children = childrenOf(roster);
   const hasDownline = new Set(children.keys());
@@ -223,7 +229,7 @@ export function computeRecords(
       // record, and listing them twice tells an owner nothing.
       const totals = subtreeTotals(bucket, children, people);
       for (const [agent, premium] of totals) {
-        if (!hasDownline.has(agent) || hidden.has(agent)) continue;
+        if (!hasDownline.has(agent) || hidden.has(agent) || owners.has(agent)) continue;
         if (premium > 0 && (!bestLeader || premium > bestLeader.premium)) {
           bestLeader = { kind: "leader", period, holderId: agent, premium, periodStart: key };
         }
