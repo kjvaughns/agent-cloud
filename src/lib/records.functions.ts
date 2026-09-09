@@ -193,7 +193,7 @@ export const syncProductionRecords = createServerFn({ method: "POST" })
     const { supabase, userId } = context as Ctx;
     try {
       const orgId = await myOrgId(supabase, userId);
-      if (!orgId) return { broken: [] as BrokenRecord[], announced: 0 };
+      if (!orgId) return { broken: [] as any[], announced: 0 };
 
       let agentIds = await resolveScopeAgentIdsOrNone(supabase, "agency");
       if (!agentIds.length) agentIds = [userId];
@@ -205,7 +205,7 @@ export const syncProductionRecords = createServerFn({ method: "POST" })
       const { data: existing } = await admin
         .from("production_records").select("*").eq("organization_id", orgId);
       const broken = diffRecords((existing ?? []) as StoredRecord[], computed);
-      if (!broken.length) return { broken: [], announced: 0 };
+      if (!broken.length) return { broken: [] as any[], announced: 0 };
 
       const announce = data.silent ? [] : broken.filter(announceable);
       const now = new Date().toISOString();
@@ -227,7 +227,7 @@ export const syncProductionRecords = createServerFn({ method: "POST" })
       );
       if (error) {
         console.error("[records] upsert failed", error.message);
-        return { broken: [], announced: 0 };
+        return { broken: [] as any[], announced: 0 };
       }
 
       let announced = 0;
@@ -239,12 +239,15 @@ export const syncProductionRecords = createServerFn({ method: "POST" })
           kind: r.kind, period: r.period, premium: r.premium,
           holderId: r.holderId, title: recordTitle(r.kind, r.period),
           announced: announce.includes(r),
+          // So the caller can tell "you set this" from "somebody in your agency
+          // did" without a second round trip.
+          isMine: r.holderId === userId,
         })),
         announced,
       };
     } catch (e: any) {
       console.error("[records] sync failed", e?.message);
-      return { broken: [], announced: 0 };
+      return { broken: [] as any[], announced: 0 };
     }
   });
 

@@ -26,7 +26,7 @@ export async function syncRecordsAfterPolicyWrite(
     if (opts.silent) return;
     // Only records that were actually announced are worth a toast: the first
     // sync writes the whole book from history and beat nothing.
-    const mine = ((res?.broken ?? []) as any[]).filter((r) => r.announced);
+    const mine = ((res?.broken ?? []) as any[]).filter((r) => r.announced && r.isMine);
     if (!mine.length) return;
     const first = mine[0];
     toast.success(`New record — ${first.title}!`, {
