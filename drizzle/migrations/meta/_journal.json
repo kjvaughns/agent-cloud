@@ -50,6 +50,13 @@
       "when": 1788408973043,
       "tag": "0006_policy_status_effective_commission_stopping",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788978637109,
+      "tag": "0007_create_production_records",
+      "breakpoints": true
     }
   ]
 }

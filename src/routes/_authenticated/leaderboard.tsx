@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo, useRef, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { Trophy, ArrowUp, ArrowDown, Minus, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { money, number } from "@/lib/format";
 import { getLeaderboardData, getProductionByScope, type LeaderboardAgent } from "@/lib/dashboard.functions";
+import { getTrophyCase, markRecordsSeen } from "@/lib/records.functions";
+import { TrophyCase } from "@/components/leaderboard/trophy-case";
+import { RecordBurst } from "@/components/leaderboard/record-burst";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useMyAccess } from "@/hooks/use-my-access";
@@ -25,6 +28,7 @@ import {
   type Period,
   type BoardScope,
 } from "@/lib/leaderboard/board";
+
 
 export const Route = createFileRoute("/_authenticated/leaderboard")({
   head: () => ({ meta: [{ title: "Leaderboard — Agent Cloud" }] }),

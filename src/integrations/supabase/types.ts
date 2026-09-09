@@ -7783,6 +7783,73 @@ export type Database = {
           },
         ]
       }
+      production_records: {
+        Row: {
+          announced_at: string | null
+          holder_id: string | null
+          id: string
+          kind: string
+          organization_id: string
+          period: string
+          period_start: string
+          premium: number
+          previous_holder_id: string | null
+          previous_premium: number | null
+          seen_at: string | null
+          set_at: string
+        }
+        Insert: {
+          announced_at?: string | null
+          holder_id?: string | null
+          id?: string
+          kind: string
+          organization_id: string
+          period: string
+          period_start: string
+          premium?: number
+          previous_holder_id?: string | null
+          previous_premium?: number | null
+          seen_at?: string | null
+          set_at?: string
+        }
+        Update: {
+          announced_at?: string | null
+          holder_id?: string | null
+          id?: string
+          kind?: string
+          organization_id?: string
+          period?: string
+          period_start?: string
+          premium?: number
+          previous_holder_id?: string | null
+          previous_premium?: number | null
+          seen_at?: string | null
+          set_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_records_holder_id_fkey"
+            columns: ["holder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_records_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_records_previous_holder_id_fkey"
+            columns: ["previous_holder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           agency_level_id: string | null
