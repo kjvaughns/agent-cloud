@@ -34,7 +34,6 @@ export type LandingEvent =
   | "agency_cta_clicked"
   | "demo_cta_clicked"
   | "nova_cta_clicked"
-  | "profit_share_viewed"
   | "comparison_viewed";
 
 declare global {
