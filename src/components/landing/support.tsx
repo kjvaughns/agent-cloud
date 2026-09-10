@@ -43,12 +43,8 @@ export function faqItems(pricing: Record<string, number>) {
       a: "No. Agent Cloud is a complete platform without it — the pipeline, the book, contracting, production and finances are all in the licence. Nova adds automation, prioritisation and AI assistance on top.",
     },
     {
-      q: "How does the agency profit share work?",
-      a: `Eligible paid agencies earn ${Math.round((pricing.novaPartnerRate ?? 0.2) * 100)}% recurring profit share on Nova subscriptions their agents buy, attributed to the agency. It runs while the Agency Licence is active and is governed by the programme terms. Seats an agency sponsors on an agent's behalf do not also earn profit share.`,
-    },
-    {
       q: "What happens if an agent leaves the agency?",
-      a: "The agent keeps their account and records according to the platform's ownership and transfer rules. Profit share attribution follows the active agency relationship and the programme terms.",
+      a: "The agent keeps their account and records according to the platform's ownership and transfer rules.",
     },
     {
       q: "Are you an IMO? Do you take an override?",

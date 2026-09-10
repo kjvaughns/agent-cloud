@@ -7,7 +7,7 @@ import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landi
 import { Hero } from "@/components/landing/hero";
 import { OwnershipSection } from "@/components/landing/story";
 import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
-import { NovaSection, ProfitShareSection } from "@/components/landing/nova-section";
+import { NovaSection } from "@/components/landing/nova-section";
 import { PricingSection } from "@/components/landing/pricing";
 import { DealJourney } from "@/components/landing/deal-journey";
 import {
@@ -198,7 +198,7 @@ function LandingPage() {
       <AudienceSplit ctaHref={ctaHref} />
 
       <NovaSection novaPrice={pricing.novaPro} />
-      <ProfitShareSection novaPrice={pricing.novaPro} rate={pricing.novaPartnerRate ?? 0.2} />
+      
 
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
       <OwnershipSection />

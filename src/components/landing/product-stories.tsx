@@ -227,7 +227,7 @@ export function AudienceSplit({ ctaHref }: { ctaHref: string }) {
                 "Contracting visibility across every carrier and producer",
                 "Compensation levels and hierarchy override tracking",
                 "Agent invitations and onboarding",
-                "Nova profit share eligibility on agent subscriptions",
+                
               ].map((b) => (
                 <li key={b} className="flex gap-2.5 text-sm text-muted-foreground">
                   <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden />

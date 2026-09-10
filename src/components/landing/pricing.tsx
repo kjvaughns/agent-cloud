@@ -77,7 +77,7 @@ export function PricingSection({
         "Contracting operations",
         "Compensation levels and override tracking",
         "Agency reporting and administration",
-        "Nova profit share eligibility",
+        
       ],
       cta: { label: "Book a demo", href: "/demo", event: "agency_cta_clicked" },
       note: "One flat price however many agents you have. Adding an agent does not change the bill.",
@@ -176,7 +176,7 @@ export function PricingSection({
               <span className="tnum font-semibold text-foreground">
                 {money(pricing.novaSponsored)}/month per active agent
               </span>
-              . Sponsored subscriptions do not also earn profit share.
+              .
             </p>
           </div>
         </div>
