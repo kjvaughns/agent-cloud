@@ -29,7 +29,7 @@ backed by mock data.
 | D-2 | `src/routes/_authenticated/tools/leads.tsx:1-26` | Whole route is `<ComingSoonPage>` yet reachable from Tools nav | Minor (labelled) |
 | D-3 | `src/routes/admin.analytics.tsx:8-21` | Static "coming soon" page, no data or controls | Minor (labelled) |
 | D-4 | `src/routes/_authenticated/back-office/advanced-desk.tsx:212` | One tab of a working page is inert | Minor (labelled) |
-| D-5 | `src/lib/surelc.functions.ts:97` | "Submit to SureLC" silently becomes a no-op returning "coming soon" when `SURELC_*` env is unset — confirm production config | Major if unset |
+| D-5 | `src/lib/surelc.functions.ts:97` | "Submit to SureLC" silently becomes a no-op returning "coming soon" when `SURELC_*` env is unset — confirmed unset in this environment (`SURELC_API_TOKEN`/`SURELC_AGENCY_ID` absent, `surelc.service.ts:13`), so the button is a no-op today | Major |
 
 No `href="#"`, empty `onClick`, `alert()` placeholders, or `TODO`/`FIXME` markers exist in
 `src/routes` or `src/components`.

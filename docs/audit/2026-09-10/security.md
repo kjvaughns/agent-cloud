@@ -74,5 +74,6 @@ actions fail with a `console.error` only. An audit trail can be missing with no 
 ## Follow-up still open
 - A route-by-route pass over `isAdmin`/`canX` conditionals in `src/routes/**` cross-referenced
   against the server functions they call.
-- Confirm the public lead-capture endpoints (`landing-lead`, `lead-submit`, `funnel-apply`,
-  `waitlist-signup`, `demo-request`) are all rate-limited and never echo other leads back.
+- Public lead-capture endpoints: **checked and closed.** `landing-lead:28`, `lead-submit:30`,
+  `funnel-apply:30`, `funnel-view:21`, `waitlist-signup:131`, `demo-request:47`, `page-data:25`,
+  `branding:39`, `plans:27` all call `guardPublicEndpoint` with per-IP and global caps.
