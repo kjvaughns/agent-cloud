@@ -73,14 +73,17 @@ live comp-grid UI.
 | Carriers, comp grids, levels, contracting policy | manage | manage (`isOwner \|\| canManageCarriers`, `contracting-ops.functions.ts:143`) | only if granted | none | none |
 | Contract requests (approve) | yes | yes | admin-flagged only | none | `staff_view_contracts` + `staff_is_admin` (server) |
 | Invite an agent | yes | yes | `canInvite` by ladder (`permissions.functions.ts:471-482`) | if ladder allows | none |
-| Billing / Nova Pro purchase | yes | yes (owner) | **nav-hidden only — server block unconfirmed** | nav-hidden only | spend flag only |
-| Comp grids manage | yes | yes | **nav-hidden only — server block unconfirmed** | none | none |
+| Billing / Nova Pro purchase | yes | yes (owner) | blocked server-side (`getOwnedOrg`) | blocked server-side | spend flag only |
+| Comp grids manage | yes | yes | blocked by RLS `commission_grids_write` (owner only) | blocked | blocked |
 | White label, sub-agencies | yes | yes (owner tier) | none | none | none |
 | Roles and permissions | yes | yes | none | none | see N-3 |
 | Writing numbers, document review | yes | yes | permission-gated | none | `staff_is_admin` / `staff_view_contracts` (server) |
 | Admin console (`admin.*`) | only role with a route | none | none | none | none |
 
-### N-6 Nav-hidden but not server-confirmed (Critical to verify)
-Billing/subscription management and comp-grid management were not found to have explicit
-server-side role rejection in the files sampled. Hidden buttons are not security. These must be
-confirmed or fixed before the audit closes.
+### N-6 Nav-hidden items — checked, not a finding
+Both flagged cases are enforced below the UI. Billing mutations all run through
+`getOwnedOrg` (`billing.functions.ts:19-29`, used at `:59,131,194,208,268,389,454`), which throws
+for anyone who does not own an organization; the super-admin path additionally checks a role row
+(`:559`). Comp-grid writes are owner-only at the database: `commission_grids_write`
+(USING/WITH CHECK `is_org_owner(organization_id)`), with read scoped to `my_org_ids()`.
+Nav hiding is decoration in both cases, not the boundary.
