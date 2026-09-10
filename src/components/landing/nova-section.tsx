@@ -106,21 +106,3 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
     </LandingSection>
   );
 }
-
-function Line({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={
-          accent
-            ? "tnum text-2xl font-bold text-primary"
-            : "tnum text-lg font-semibold text-foreground"
-        }
-        style={accent ? display : undefined}
-      >
-        {value}/mo
-      </dd>
-    </div>
-  );
-}
