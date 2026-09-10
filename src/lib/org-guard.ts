@@ -89,14 +89,11 @@ export async function getMyOrgIds(userId: string): Promise<string[]> {
   // archived, suspended, invited — is answered by that row and nothing else.
   if (rows.length > 0) return [];
 
-  const { data: profile } = await supabaseAdmin
-    .from("profiles")
-    .select("organization_id, status")
-    .eq("id", userId)
-    .maybeSingle();
+  const profile = homeProfile as { organization_id: string | null; status: string } | null;
   if (!profile?.organization_id) return [];
   if (REVOKED.has(String(profile.status))) return [];
   return [profile.organization_id];
+
 }
 
 /** The user's primary org, or null. */
