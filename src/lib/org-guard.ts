@@ -50,17 +50,39 @@ export async function getMyOrgIds(userId: string): Promise<string[]> {
   // to `status = 'active'` here and then falling back on an empty result hands
   // the agency straight back to somebody who was revoked — the same hole the
   // SQL twin had, caught on a scratch database while fixing it there.
-  const { data: memberships } = await supabaseAdmin
-    .from("organization_memberships")
-    .select("organization_id, status")
-    .eq("profile_id", userId);
+  const [{ data: memberships }, { data: homeProfile }] = await Promise.all([
+    supabaseAdmin
+      .from("organization_memberships")
+      .select("organization_id, status")
+      .eq("profile_id", userId),
+    supabaseAdmin
+      .from("profiles")
+      .select("organization_id, status")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
 
   const rows = (memberships ?? []) as { organization_id: string; status: string }[];
   const ids = rows
     .filter((m) => m.status === "active")
     .map((m) => m.organization_id)
     .filter(Boolean);
-  if (ids.length > 0) return ids;
+
+  // ── Which org is "primary" when somebody belongs to two ──
+  //
+  // `getMyPrimaryOrgId` takes `ids[0]`, and PostgREST returns membership rows
+  // in no guaranteed order. Somebody who owns two agencies — a parent and a
+  // sub-agency they also spun up — was getting whichever row came back first,
+  // which is how the roster's Position column went blank for an owner: the
+  // arbitrary winner was the agency with no `agency_levels`, so the catalog
+  // read as empty and every cell fell back to an em dash.
+  //
+  // `profiles.organization_id` is the person's home agency, so it goes first.
+  const home = (homeProfile as any)?.organization_id as string | null | undefined;
+  if (ids.length > 0) {
+    return home && ids.includes(home) ? [home, ...ids.filter((id) => id !== home)] : ids;
+  }
+
 
   // The fallback is for people the membership table has never heard of, which
   // is the state 20260818140000 repairs and prevents. Anybody who HAS a row —
