@@ -783,10 +783,6 @@ function BankingFields({ detail }: { detail: any }) {
   );
 
   if (isCard) {
-    const savedCard = bankingForm.card_last4
-      ? `${bankingForm.card_brand ?? "Card"} •••• ${bankingForm.card_last4}`
-      : null;
-
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {methodField}
@@ -801,33 +797,18 @@ function BankingFields({ detail }: { detail: any }) {
         </Field>
 
         <Field label={`Card Number${brand ? ` · ${brand}` : ""}`}>
-          <div className="relative">
-            <Input
-              type={showCard ? "text" : "password"}
-              inputMode="numeric"
-              autoComplete="off"
-              value={cardNumber}
-              onChange={e => setCardNumber(formatCard(e.target.value))}
-              onBlur={saveCard}
-              placeholder={savedCard ?? "•••• •••• •••• ••••"}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCard(v => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showCard ? "Hide card number" : "Show card number"}
-            >
-              {showCard ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <Input
+            inputMode="numeric"
+            autoComplete="off"
+            value={cardNumber}
+            onChange={e => setBankingForm(f => ({ ...f, card_number: formatCard(e.target.value) }))}
+            onBlur={saveCard}
+            placeholder="1234 5678 9012 3456"
+          />
           {cardTouched && cardComplete && !luhnValid(cardNumber) && (
             <p className="mt-1 text-[11px] text-destructive">
               That number doesn't check out — worth re-reading it back.
             </p>
-          )}
-          {!cardTouched && savedCard && (
-            <p className="mt-1 text-[11px] text-muted-foreground">On file: {savedCard}</p>
           )}
         </Field>
 
@@ -835,11 +816,13 @@ function BankingFields({ detail }: { detail: any }) {
           <Input
             inputMode="numeric"
             autoComplete="off"
-            value={cvc}
-            onChange={e => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            value={bankingForm.card_cvc ?? ""}
+            onChange={e => setBankingForm(f => ({ ...f, card_cvc: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+            onBlur={e => save("card_cvc", e.target.value || null)}
             placeholder="3–4 digits"
           />
         </Field>
+
 
         <Field label="Expiration Month">
           <Select
