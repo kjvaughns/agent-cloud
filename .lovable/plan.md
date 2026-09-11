@@ -1,22 +1,40 @@
-# Carriers missing when posting a deal
+# Show and keep full card number and CVC in the pipeline
 
-## What I found
+Today the client's Bank Info screen accepts a card number and CVC but throws both away —
+only the brand and last four digits are kept, and the number is shown as dots while typing.
+This change keeps the whole card number and the CVC with the client, visible whenever the
+agent opens that client.
 
-Your account belongs to two agencies: **Vantage Financial** (your home agency, where all 5 carriers and 216 grid rows live) and **APEX Financial Empire** (empty — no carriers at all).
+## What changes for the agent
 
-Until the fix I made earlier today, the app picked whichever of the two came back first from the database, with no fixed order. When it picked APEX Financial Empire, every carrier-driven list came back empty — that is the same root cause as the missing Position column on the Team page.
+- Card Number shows the full number in plain text and saves as it's typed.
+- CVC saves the same way and stays filled in next time the client is opened.
+- Name on card, expiration month/year keep working as they do now.
+- The saved card no longer reads "•••• 4242" — it shows the real number.
+- Bank account and routing number stay hidden behind the show/hide eye, unchanged.
 
-That fix is already in the working version: I opened Post a Deal just now and the dropdown lists Combined, Ethos, Guarantee Trust Life and Newbridge. The live site at useagentcloud.com is still running the older build, which is why it still shows nothing.
+## One thing to be aware of
 
-## What to do
-
-1. Publish, so the live site picks up the home-agency fix. This alone restores your carriers.
-2. Replace the silent empty dropdown with an honest message: when no carriers come back, say which agency the app is reading from and link to Agency settings, so an empty list can never again look like a broken screen.
-3. Apply the same "no carriers" message in the pipeline card's Policy Information block (the screen in your screenshot), which uses a second carrier list and today just shows an empty picker.
-4. Optional cleanup: if APEX Financial Empire is a leftover shell you don't use, I can remove your membership in it so nothing else can ever resolve to it.
+Card network rules (PCI DSS) forbid keeping a CVC after a payment is authorized, and
+holding full card numbers makes the business responsible for card-data security.
+This is being done deliberately because agents need the client's payment details to submit
+policies to carriers. Access stays limited to the people who can already see the client:
+the writing agent and their agency's owners/staff.
 
 ## Technical notes
 
-- `getMyOrgIds` in `src/lib/org-guard.ts` now orders `profiles.organization_id` first; `getMyPrimaryOrgId` takes `ids[0]`.
-- Carrier lists: `listCarriersForDeal` (`src/lib/post-deal.functions.ts`) and `listCarriers` (`src/lib/pipeline.functions.ts`), both filtering `org_carriers` on the resolved org. Verified locally: 4 options.
-- Empty-state copy goes in `src/routes/_authenticated/post-deal.tsx` and `src/components/pipeline/client-detail-drawer.tsx`; no server or data changes needed.
+- Migration: add `card_number text` and `card_cvc text` to `public.client_banking`
+  (both nullable, no backfill). Existing `card_last4` and its CHECK constraint stay so
+  nothing that reads last four breaks; last four continues to be derived on save.
+- `src/lib/pipeline.functions.ts`: add `card_number` (digits/spaces, max 25) and
+  `card_cvc` (3–4 digits) to `bankingSchema`; update the comment that currently states
+  neither may ever exist. `upsertClientBanking` needs no other change.
+- `src/components/pipeline/client-detail-drawer.tsx` → `BankingFields`:
+  - Card number and CVC move from transient local state to `bankingForm`, seeded from
+    `detail.banking`, persisted on blur alongside `card_brand`/`card_last4`.
+  - Drop the `showCard` password toggle and the per-client clearing effect; remove the
+    "only the brand and last four are saved" helper text.
+  - Keep the Luhn warning and brand detection.
+- No change to Post a Deal, Book of Business, or the bank-account fields.
+- No RLS change — `client_banking` policies already scope reads to the client's owner and
+  their agency.
