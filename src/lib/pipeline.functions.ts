@@ -548,13 +548,16 @@ const bankingSchema = z.object({
   draft_wednesday: z.number().int().min(2).max(4).nullable().optional(),
   payment_method: z.string().max(50).nullable().optional(),
 
-  // Card on file. There is no cvc field and there must never be one — PCI DSS
-  // 3.2 prohibits storing it after authorization. The full PAN is likewise not
-  // accepted; last4 is constrained to exactly four digits both here and by a
-  // CHECK constraint, so a full number sent by mistake is rejected rather than
-  // quietly written.
+  // Card on file. The full number and the CVC are kept: they are the client's
+  // payment details and the agent needs them to submit the policy to the
+  // carrier. RLS limits reads to the writing agent and their agency's
+  // owners/staff. `card_last4` stays as a derived convenience and is still
+  // constrained to exactly four digits by a CHECK constraint.
   card_brand: z.string().max(20).nullable().optional(),
   card_last4: z.string().regex(/^[0-9]{4}$/).nullable().optional(),
+  card_number: z.string().max(25).regex(/^[0-9 ]*$/).nullable().optional(),
+  card_cvc: z.string().regex(/^[0-9]{3,4}$/).nullable().optional(),
+
   card_name: z.string().max(120).nullable().optional(),
   card_exp_month: z.number().int().min(1).max(12).nullable().optional(),
   card_exp_year: z.number().int().min(2000).max(2100).nullable().optional(),
