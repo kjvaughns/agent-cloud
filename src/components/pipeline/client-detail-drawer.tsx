@@ -729,20 +729,11 @@ function BankingFields({ detail }: { detail: any }) {
   const [showAcct, setShowAcct] = useState(false);
 
   /**
-   * Card number and CVC live in local state only and are never sent to the
-   * server. PCI DSS 3.2 prohibits storing the CVC after authorization, and
-   * keeping full PANs would put the whole platform in PCI scope. The agent
-   * types them to read to the carrier during the call; only the brand and
-   * last four are persisted. Closing the drawer discards both.
+   * The card number and CVC are the client's payment details for submitting the
+   * policy to the carrier, so they are kept with the client and shown in plain
+   * text. Access is limited by RLS to the writing agent and their agency.
    */
-  const [cardNumber, setCardNumber] = useState("");
-  const [cvc, setCvc] = useState("");
-  const [showCard, setShowCard] = useState(false);
-
   useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
-
-  // Clear the transient card entry whenever a different client is opened.
-  useEffect(() => { setCardNumber(""); setCvc(""); setShowCard(false); }, [detail?.client?.id]);
 
   const upsertBankingFn = useServerFn(upsertClientBanking);
   const bankingMut = useMutation({
@@ -754,19 +745,25 @@ function BankingFields({ detail }: { detail: any }) {
   const method = bankingForm.payment_method ?? "";
   const isCard = method === "credit_card";
 
+  const cardNumber = bankingForm.card_number ?? "";
   const digits = cardNumber.replace(/\D/g, "");
   const brand = cardBrand(cardNumber);
   const cardTouched = digits.length > 0;
   const cardComplete = digits.length >= 13;
 
-  /** Persist only what is allowed to be kept. */
+  /** Keep the full number plus the derived brand and last four. */
   const saveCard = () => {
-    if (!cardComplete) return;
+    if (!cardTouched) {
+      bankingMut.mutate({ card_number: null, card_last4: null, card_brand: null });
+      return;
+    }
     bankingMut.mutate({
-      card_last4: digits.slice(-4),
+      card_number: cardNumber,
+      card_last4: cardComplete ? digits.slice(-4) : null,
       card_brand: brand,
     });
   };
+
 
   const methodField = (
     <Field label="Payment Method">
