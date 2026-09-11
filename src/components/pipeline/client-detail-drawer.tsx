@@ -855,10 +855,10 @@ function BankingFields({ detail }: { detail: any }) {
         <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
 
         <p className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-          Only the card brand and last four digits are saved. The full number and CVC stay on
-          this screen for the call and are cleared when you close it — card security codes may
-          not be stored.
+          The full card number and CVC are saved with this client so you can submit the policy.
+          Only you and your agency's owners and staff can see them.
         </p>
+
       </div>
     );
   }
