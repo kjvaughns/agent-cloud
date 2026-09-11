@@ -729,20 +729,11 @@ function BankingFields({ detail }: { detail: any }) {
   const [showAcct, setShowAcct] = useState(false);
 
   /**
-   * Card number and CVC live in local state only and are never sent to the
-   * server. PCI DSS 3.2 prohibits storing the CVC after authorization, and
-   * keeping full PANs would put the whole platform in PCI scope. The agent
-   * types them to read to the carrier during the call; only the brand and
-   * last four are persisted. Closing the drawer discards both.
+   * The card number and CVC are the client's payment details for submitting the
+   * policy to the carrier, so they are kept with the client and shown in plain
+   * text. Access is limited by RLS to the writing agent and their agency.
    */
-  const [cardNumber, setCardNumber] = useState("");
-  const [cvc, setCvc] = useState("");
-  const [showCard, setShowCard] = useState(false);
-
   useEffect(() => { if (detail?.banking) setBankingForm(detail.banking); }, [detail?.banking]);
-
-  // Clear the transient card entry whenever a different client is opened.
-  useEffect(() => { setCardNumber(""); setCvc(""); setShowCard(false); }, [detail?.client?.id]);
 
   const upsertBankingFn = useServerFn(upsertClientBanking);
   const bankingMut = useMutation({
@@ -754,19 +745,25 @@ function BankingFields({ detail }: { detail: any }) {
   const method = bankingForm.payment_method ?? "";
   const isCard = method === "credit_card";
 
+  const cardNumber = bankingForm.card_number ?? "";
   const digits = cardNumber.replace(/\D/g, "");
   const brand = cardBrand(cardNumber);
   const cardTouched = digits.length > 0;
   const cardComplete = digits.length >= 13;
 
-  /** Persist only what is allowed to be kept. */
+  /** Keep the full number plus the derived brand and last four. */
   const saveCard = () => {
-    if (!cardComplete) return;
+    if (!cardTouched) {
+      bankingMut.mutate({ card_number: null, card_last4: null, card_brand: null });
+      return;
+    }
     bankingMut.mutate({
-      card_last4: digits.slice(-4),
+      card_number: cardNumber,
+      card_last4: cardComplete ? digits.slice(-4) : null,
       card_brand: brand,
     });
   };
+
 
   const methodField = (
     <Field label="Payment Method">
@@ -786,10 +783,6 @@ function BankingFields({ detail }: { detail: any }) {
   );
 
   if (isCard) {
-    const savedCard = bankingForm.card_last4
-      ? `${bankingForm.card_brand ?? "Card"} •••• ${bankingForm.card_last4}`
-      : null;
-
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {methodField}
@@ -804,33 +797,18 @@ function BankingFields({ detail }: { detail: any }) {
         </Field>
 
         <Field label={`Card Number${brand ? ` · ${brand}` : ""}`}>
-          <div className="relative">
-            <Input
-              type={showCard ? "text" : "password"}
-              inputMode="numeric"
-              autoComplete="off"
-              value={cardNumber}
-              onChange={e => setCardNumber(formatCard(e.target.value))}
-              onBlur={saveCard}
-              placeholder={savedCard ?? "•••• •••• •••• ••••"}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCard(v => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={showCard ? "Hide card number" : "Show card number"}
-            >
-              {showCard ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+          <Input
+            inputMode="numeric"
+            autoComplete="off"
+            value={cardNumber}
+            onChange={e => setBankingForm(f => ({ ...f, card_number: formatCard(e.target.value) }))}
+            onBlur={saveCard}
+            placeholder="1234 5678 9012 3456"
+          />
           {cardTouched && cardComplete && !luhnValid(cardNumber) && (
             <p className="mt-1 text-[11px] text-destructive">
               That number doesn't check out — worth re-reading it back.
             </p>
-          )}
-          {!cardTouched && savedCard && (
-            <p className="mt-1 text-[11px] text-muted-foreground">On file: {savedCard}</p>
           )}
         </Field>
 
@@ -838,11 +816,13 @@ function BankingFields({ detail }: { detail: any }) {
           <Input
             inputMode="numeric"
             autoComplete="off"
-            value={cvc}
-            onChange={e => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            value={bankingForm.card_cvc ?? ""}
+            onChange={e => setBankingForm(f => ({ ...f, card_cvc: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+            onBlur={e => save("card_cvc", e.target.value || null)}
             placeholder="3–4 digits"
           />
         </Field>
+
 
         <Field label="Expiration Month">
           <Select
@@ -875,10 +855,10 @@ function BankingFields({ detail }: { detail: any }) {
         <DraftDateField form={bankingForm} setForm={setBankingForm} saveMany={p => bankingMut.mutate(p)} dob={detail?.client?.date_of_birth} />
 
         <p className="col-span-2 rounded-lg border border-border bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-          Only the card brand and last four digits are saved. The full number and CVC stay on
-          this screen for the call and are cleared when you close it — card security codes may
-          not be stored.
+          The full card number and CVC are saved with this client so you can submit the policy.
+          Only you and your agency's owners and staff can see them.
         </p>
+
       </div>
     );
   }
