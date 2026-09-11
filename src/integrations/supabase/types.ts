@@ -2401,10 +2401,12 @@ export type Database = {
           account_type: string | null
           bank_name: string | null
           card_brand: string | null
+          card_cvc: string | null
           card_exp_month: number | null
           card_exp_year: number | null
           card_last4: string | null
           card_name: string | null
+          card_number: string | null
           client_id: string
           created_at: string | null
           draft_date: number | null
@@ -2420,10 +2422,12 @@ export type Database = {
           account_type?: string | null
           bank_name?: string | null
           card_brand?: string | null
+          card_cvc?: string | null
           card_exp_month?: number | null
           card_exp_year?: number | null
           card_last4?: string | null
           card_name?: string | null
+          card_number?: string | null
           client_id: string
           created_at?: string | null
           draft_date?: number | null
@@ -2439,10 +2443,12 @@ export type Database = {
           account_type?: string | null
           bank_name?: string | null
           card_brand?: string | null
+          card_cvc?: string | null
           card_exp_month?: number | null
           card_exp_year?: number | null
           card_last4?: string | null
           card_name?: string | null
+          card_number?: string | null
           client_id?: string
           created_at?: string | null
           draft_date?: number | null
