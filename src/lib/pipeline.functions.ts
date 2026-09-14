@@ -594,7 +594,7 @@ export const listCarriers = createServerFn({ method: "GET" })
 
     const { data, error } = await supabase
       .from("org_carriers")
-      .select("carrier_id, product_types, carriers ( id, name, active )")
+      .select("carrier_id, product_types, enabled, available_for_post_deal, carriers ( id, name, active )")
       .eq("organization_id", orgId)
       .eq("status", "active");
     if (error) throw new Error(error.message);
@@ -609,6 +609,10 @@ export const listCarriers = createServerFn({ method: "GET" })
 
     return (data ?? [])
       .filter((r: any) => r.carriers?.active !== false)
+      // Same two switches Post a Deal respects: a carrier the owner has not
+      // switched on in Agency Settings must not be writable from the pipeline
+      // either, or the two screens offer different lists.
+      .filter((r: any) => r.enabled !== false && r.available_for_post_deal !== false)
       .map((r: any) => {
         const fromGrid = gridProducts.get(String(r.carrier_id)) ?? [];
         const configured = (r.product_types ?? []) as string[];
