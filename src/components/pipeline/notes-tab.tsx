@@ -309,6 +309,8 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
             {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
           </button>
         )}
+      </div>
+
 
       {editing ? (
         <div className="space-y-2">
