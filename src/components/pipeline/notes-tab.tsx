@@ -292,15 +292,26 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
           <span className="text-muted-foreground font-normal">
             {new Date(entry.created_at).toLocaleString()}
           </span>
+          {/* Notes are personal; a name only appears when this one is somebody
+              else's, which an upline or owner can see and a co-agent cannot. */}
+          {entry.author_name && (
+            <span className="text-text-dim font-normal">· {entry.author_name}</span>
+          )}
+
         </div>
-        <button
-          className="p-1 rounded hover:bg-muted text-muted-foreground"
-          onClick={() => setEditing((v) => !v)}
-          aria-label={editing ? "Cancel" : "Edit"}
-        >
-          {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-        </button>
+        {/* Only the author edits their own note. */}
+        {!entry.author_name && (
+          <button
+            className="p-1 rounded hover:bg-muted text-muted-foreground"
+            onClick={() => setEditing((v) => !v)}
+            aria-label={editing ? "Cancel" : "Edit"}
+          >
+            {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+          </button>
+        )}
       </div>
+
+
       {editing ? (
         <div className="space-y-2">
           <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} />

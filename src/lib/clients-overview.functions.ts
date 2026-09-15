@@ -48,10 +48,14 @@ export const getClientsOverview = createServerFn({ method: "GET" })
     try { await supabase.rpc("promote_policy_status"); } catch { /* read-only fallback */ }
 
     const [leadsRes, bookRes, retentionRes] = await Promise.all([
+      // Every client attached to this agent, not just the ones they created —
+      // a household sold by two agents belongs on both of their boards, so both
+      // counts have to agree with the pipeline.
       supabase
         .from("clients")
-        .select("stage, temperature, last_opened_at, created_at")
-        .eq("agent_id", userId),
+        .select("stage, temperature, last_opened_at, created_at, client_agents!inner(agent_id)")
+        .eq("client_agents.agent_id", userId),
+
       // Deliberately the legacy alias rather than "agency".
       //
       // Both the old function and the new one understand "hierarchy", and both

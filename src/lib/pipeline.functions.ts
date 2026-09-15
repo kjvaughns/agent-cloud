@@ -60,29 +60,58 @@ export const listPipelineClients = createServerFn({ method: "POST" })
     // pipeline for everybody until the migration lands — hence the retry. A
     // database without the column has no sample rows either, so the fallback
     // answers the question correctly rather than approximately.
+    //
+    // Clients are reached through `client_agents`, not `clients.agent_id`: one
+    // household can be sold by several agents, and each of them needs that
+    // person on their own board. The primary contact is attached too, so the
+    // join is a superset of the old owner filter rather than a different answer.
     const COLUMNS =
       "id,first_name,last_name,phone,phone_type,email,date_of_birth,street_address,city,state,zip_code,stage,temperature,score_pct,last_opened_at,created_at,agent_id";
     const readClients = (columns: string) =>
       supabase
         .from("clients")
-        .select(columns)
-        .in("agent_id", agentIds)
+        .select(`${columns},client_agents!inner(agent_id)`)
+        .in("client_agents.agent_id", agentIds)
         .order("created_at", { ascending: false })
         .limit(AGENCY_ROW_CAP);
 
     let { data: clients, error } = await readClients(`${COLUMNS},is_sample`);
     if (error) ({ data: clients, error } = await readClients(COLUMNS));
+    // Attachment rows are new; if that join is unavailable for any reason the
+    // board still has to load, so fall back to ownership.
+    if (error) {
+      const ownedRead = (columns: string) =>
+        supabase
+          .from("clients")
+          .select(columns)
+          .in("agent_id", agentIds)
+          .order("created_at", { ascending: false })
+          .limit(AGENCY_ROW_CAP);
+      ({ data: clients, error } = await ownedRead(`${COLUMNS},is_sample`));
+      if (error) ({ data: clients, error } = await ownedRead(COLUMNS));
+    }
     if (error) throw new Error(error.message);
+
+    // One row per client, even when two agents in scope are attached to them.
+    {
+      const seen = new Set<string>();
+      clients = (clients ?? []).filter((c: any) => {
+        delete c.client_agents;
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+    }
 
     // Find beneficiary back-refs: which of these clients are beneficiaries of other clients?
     const ids = (clients ?? []).map((c: any) => c.id);
     const benefMap = new Map<string, string>();
     if (ids.length) {
-      // beneficiaries are linked to clients via client_id (the owner). To know if a client is a beneficiary, we'd need to match by name + agent. Use first/last name match on agent's clients.
+      // beneficiaries are linked to clients via client_id (the owner). To know if a client is a beneficiary, we match on name against the clients in scope.
       const { data: benefRows } = await supabase
         .from("beneficiaries")
-        .select("first_name,last_name,client_id,clients!inner(first_name,last_name,agent_id)")
-        .in("clients.agent_id", agentIds);
+        .select("first_name,last_name,client_id,clients!inner(first_name,last_name)")
+        .in("client_id", ids);
       for (const c of clients ?? []) {
         const hit = (benefRows ?? []).find(
           (b: any) =>
@@ -92,6 +121,7 @@ export const listPipelineClients = createServerFn({ method: "POST" })
         if (hit) benefMap.set(c.id, `${hit.clients.first_name} ${hit.clients.last_name}`);
       }
     }
+
 
     // Latest policy per sold client
     const soldIds = (clients ?? []).filter((c: any) => c.stage === "sold").map((c: any) => c.id);
@@ -277,7 +307,8 @@ export const getClientDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context as Ctx;
+    const { supabase, userId } = context as Ctx;
+
     const [
       { data: client },
       { data: financials },
@@ -331,7 +362,51 @@ export const getClientDetail = createServerFn({ method: "GET" })
       }
     }
 
-    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: contact_history ?? [], life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [], health: health ?? null, banking: banking ?? null, policy_events, retention_cases };
+    /*
+      Notes belong to whoever wrote them.
+
+      A client can now be sold by several agents, and each of them keeps their
+      own notes on that person — a co-agent reading somebody else's call notes
+      is not what "shared client" means. Uplines, agency owners and staff still
+      see everything, with the author named, because that is their job.
+    */
+    let history = contact_history ?? [];
+    const authors = Array.from(
+      new Set(history.map((h: any) => h.agent_id).filter((id: string) => id && id !== userId)),
+    ) as string[];
+    if (authors.length) {
+      const supervises = new Map<string, boolean>();
+      const names = new Map<string, string>();
+      const [{ data: people }, ...checks] = await Promise.all([
+        supabase.from("profiles").select("id, first_name, last_name").in("id", authors),
+        ...authors.map((id) =>
+          (supabase as any).rpc("is_in_downline", { _upline: userId, _target: id }),
+        ),
+      ]);
+      for (const p of people ?? []) {
+        names.set(p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim());
+      }
+      authors.forEach((id, i) => supervises.set(id, checks[i]?.data === true));
+      const orgOwner = client?.organization_id
+        ? (await (supabase as any).rpc("is_org_owner", { _org: client.organization_id })).data === true
+        : false;
+      history = history
+        .filter((h: any) => !h.agent_id || h.agent_id === userId || orgOwner || supervises.get(h.agent_id))
+        .map((h: any) => ({
+          ...h,
+          author_name: h.agent_id && h.agent_id !== userId ? names.get(h.agent_id) ?? null : null,
+        }));
+    }
+
+    // Every agent attached to this client, so the screen can say who else is
+    // working them.
+    const { data: attached } = await supabase
+      .from("client_agents")
+      .select("agent_id, role, profiles:profiles!client_agents_agent_id_fkey(first_name, last_name)")
+      .eq("client_id", data.id);
+
+    return { client, financials, beneficiaries: beneficiaries ?? [], contact_history: history, life_events: life_events ?? [], needs_analysis: needs_analysis ?? [], policies: policies ?? [], events: events ?? [], health: health ?? null, banking: banking ?? null, policy_events, retention_cases, agents: (attached ?? []).map((a: any) => ({ agent_id: a.agent_id, role: a.role, name: `${a.profiles?.first_name ?? ""} ${a.profiles?.last_name ?? ""}`.trim() || null })) };
+
   });
 
 export const touchLastOpened = createServerFn({ method: "POST" })
