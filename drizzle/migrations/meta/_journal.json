@@ -71,6 +71,13 @@
       "when": 1789499396387,
       "tag": "0009_client_agents_shared_clients",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789499610440,
+      "tag": "0010_attach_client_owner_on_reassign",
+      "breakpoints": true
     }
   ]
 }
