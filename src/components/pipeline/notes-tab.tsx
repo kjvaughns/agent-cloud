@@ -299,14 +299,17 @@ function SavedNote({ entry, clientId }: { entry: any; clientId: string }) {
           )}
 
         </div>
-        <button
-          className="p-1 rounded hover:bg-muted text-muted-foreground"
-          onClick={() => setEditing((v) => !v)}
-          aria-label={editing ? "Cancel" : "Edit"}
-        >
-          {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
-        </button>
-      </div>
+        {/* Only the author edits their own note. */}
+        {!entry.author_name && (
+          <button
+            className="p-1 rounded hover:bg-muted text-muted-foreground"
+            onClick={() => setEditing((v) => !v)}
+            aria-label={editing ? "Cancel" : "Edit"}
+          >
+            {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
       {editing ? (
         <div className="space-y-2">
           <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} />
