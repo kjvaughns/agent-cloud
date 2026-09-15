@@ -70,7 +70,7 @@ async function buildAgentContext(ctx: Ctx): Promise<string> {
     // Only the first name is read. `status` fed the pending-agent guidance
     // that no longer exists, and `npn_number` was never used at all.
     supabase.from("profiles").select("first_name").eq("id", userId).maybeSingle(),
-    supabase.from("clients").select("stage, temperature, last_opened_at, created_at").eq("agent_id", userId).limit(2000),
+    supabase.from("clients").select("stage, temperature, last_opened_at, created_at, client_agents!inner(agent_id)").eq("client_agents.agent_id", userId).limit(2000),
     supabase.from("policies").select("status, monthly_premium, annual_premium, posted_at, carriers(name)").eq("agent_id", userId).limit(2000),
     supabase.from("retention_cases").select("status, risk_reason, premium_at_risk").eq("agent_id", userId).in("status", ["open", "working"]).limit(200),
     supabase.from("contract_requests").select("status, carriers(name)").eq("agent_id", userId).limit(200),
