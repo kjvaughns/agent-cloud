@@ -60,29 +60,58 @@ export const listPipelineClients = createServerFn({ method: "POST" })
     // pipeline for everybody until the migration lands — hence the retry. A
     // database without the column has no sample rows either, so the fallback
     // answers the question correctly rather than approximately.
+    //
+    // Clients are reached through `client_agents`, not `clients.agent_id`: one
+    // household can be sold by several agents, and each of them needs that
+    // person on their own board. The primary contact is attached too, so the
+    // join is a superset of the old owner filter rather than a different answer.
     const COLUMNS =
       "id,first_name,last_name,phone,phone_type,email,date_of_birth,street_address,city,state,zip_code,stage,temperature,score_pct,last_opened_at,created_at,agent_id";
     const readClients = (columns: string) =>
       supabase
         .from("clients")
-        .select(columns)
-        .in("agent_id", agentIds)
+        .select(`${columns},client_agents!inner(agent_id)`)
+        .in("client_agents.agent_id", agentIds)
         .order("created_at", { ascending: false })
         .limit(AGENCY_ROW_CAP);
 
     let { data: clients, error } = await readClients(`${COLUMNS},is_sample`);
     if (error) ({ data: clients, error } = await readClients(COLUMNS));
+    // Attachment rows are new; if that join is unavailable for any reason the
+    // board still has to load, so fall back to ownership.
+    if (error) {
+      const ownedRead = (columns: string) =>
+        supabase
+          .from("clients")
+          .select(columns)
+          .in("agent_id", agentIds)
+          .order("created_at", { ascending: false })
+          .limit(AGENCY_ROW_CAP);
+      ({ data: clients, error } = await ownedRead(`${COLUMNS},is_sample`));
+      if (error) ({ data: clients, error } = await ownedRead(COLUMNS));
+    }
     if (error) throw new Error(error.message);
+
+    // One row per client, even when two agents in scope are attached to them.
+    {
+      const seen = new Set<string>();
+      clients = (clients ?? []).filter((c: any) => {
+        delete c.client_agents;
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+    }
 
     // Find beneficiary back-refs: which of these clients are beneficiaries of other clients?
     const ids = (clients ?? []).map((c: any) => c.id);
     const benefMap = new Map<string, string>();
     if (ids.length) {
-      // beneficiaries are linked to clients via client_id (the owner). To know if a client is a beneficiary, we'd need to match by name + agent. Use first/last name match on agent's clients.
+      // beneficiaries are linked to clients via client_id (the owner). To know if a client is a beneficiary, we match on name against the clients in scope.
       const { data: benefRows } = await supabase
         .from("beneficiaries")
-        .select("first_name,last_name,client_id,clients!inner(first_name,last_name,agent_id)")
-        .in("clients.agent_id", agentIds);
+        .select("first_name,last_name,client_id,clients!inner(first_name,last_name)")
+        .in("client_id", ids);
       for (const c of clients ?? []) {
         const hit = (benefRows ?? []).find(
           (b: any) =>
@@ -92,6 +121,7 @@ export const listPipelineClients = createServerFn({ method: "POST" })
         if (hit) benefMap.set(c.id, `${hit.clients.first_name} ${hit.clients.last_name}`);
       }
     }
+
 
     // Latest policy per sold client
     const soldIds = (clients ?? []).filter((c: any) => c.stage === "sold").map((c: any) => c.id);
