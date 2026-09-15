@@ -2395,6 +2395,55 @@ export type Database = {
         }
         Relationships: []
       }
+      client_agents: {
+        Row: {
+          agent_id: string
+          client_id: string
+          created_at: string
+          id: string
+          organization_id: string | null
+          role: string
+        }
+        Insert: {
+          agent_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role?: string
+        }
+        Update: {
+          agent_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string | null
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_agents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_agents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_banking: {
         Row: {
           account_number_masked: string | null
@@ -10324,6 +10373,7 @@ export type Database = {
         Args: { _email_lower: string; _user_id: string }
         Returns: Json
       }
+      client_ids_for_agents: { Args: { _agents: string[] }; Returns: string[] }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -10469,6 +10519,10 @@ export type Database = {
       increment_landing_leads: { Args: { _id: string }; Returns: undefined }
       is_admin_of_agent: { Args: { _agent: string }; Returns: boolean }
       is_admin_of_agent_folder: { Args: { _folder: string }; Returns: boolean }
+      is_client_agent: {
+        Args: { _client: string; _user: string }
+        Returns: boolean
+      }
       is_in_downline: {
         Args: { _target: string; _upline: string }
         Returns: boolean

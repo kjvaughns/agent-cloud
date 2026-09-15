@@ -64,6 +64,13 @@
       "when": 1789162178427,
       "tag": "0008_client_banking_full_card",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789499396387,
+      "tag": "0009_client_agents_shared_clients",
+      "breakpoints": true
     }
   ]
 }
