@@ -307,7 +307,8 @@ export const getClientDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { id: string }) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context as Ctx;
+    const { supabase, userId } = context as Ctx;
+
     const [
       { data: client },
       { data: financials },
