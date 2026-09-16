@@ -8,6 +8,10 @@ import {
   mapStage,
   mapTemperature,
 } from "@/lib/import-helpers";
+// Dates from another platform arrive in every shape a spreadsheet can hold,
+// including bare day-count serials with a time fraction. Written raw they fail
+// the whole insert, so nothing here touches a date column directly.
+import { toIsoDate, toIsoTimestamp } from "@/lib/import-normalize";
 
 const AL_BASE = "https://agentlink.insuracloud.ai";
 
