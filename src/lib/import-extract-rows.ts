@@ -20,6 +20,7 @@
 import { readBlock, readDocument, type SheetBlock } from "./sheet-shape";
 import { carrierFromLabel } from "./sheet-shape";
 import type { CarrierRecord } from "./carrier-match";
+import { toIsoDate } from "@/lib/import-normalize";
 
 /** Header spellings we accept, per field. Compared after normalisation. */
 const CLIENT_FIELDS: Record<string, string[]> = {
@@ -78,20 +79,9 @@ function num(v: string | undefined): number | null {
  * what these exports use.
  */
 function isoDate(v: string | undefined): string | null {
-  const s = (v ?? "").trim();
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (m) {
-    const [, a, b, c] = m;
-    const year = c.length === 2 ? (Number(c) > 30 ? `19${c}` : `20${c}`) : c;
-    const mm = a.padStart(2, "0");
-    const dd = b.padStart(2, "0");
-    if (Number(mm) > 12) return null;
-    return `${year}-${mm}-${dd}`;
-  }
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  // One shared reader, so a spreadsheet day-count with a time on it
+  // (`46295.7916`) reads the same here as everywhere else.
+  return toIsoDate(v);
 }
 
 /** "Yes"/"Y"/"true"/"1" → true, "No"/"N" → false, blank → null (not false). */
