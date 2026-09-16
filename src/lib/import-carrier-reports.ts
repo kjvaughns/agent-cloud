@@ -25,7 +25,7 @@
  */
 
 import { readDocument, type SheetBlock } from "./sheet-shape";
-import { normalizePolicyStatus } from "./import-normalize";
+import { normalizePolicyStatus, toIsoDate } from "./import-normalize";
 
 // ── Shared cell readers ──────────────────────────────────────────────────────
 
