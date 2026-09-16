@@ -237,6 +237,91 @@ export function splitName(raw: string | null | undefined): {
 }
 
 /**
+ * The one place a spreadsheet's idea of a date becomes a date column's.
+ *
+ * A spreadsheet stores a date as a count of days since 1899-12-30, and a date
+ * *with a time on it* as that count plus a fraction — `46295.7916`. Written
+ * straight into a `date` column Postgres rejects the whole statement
+ * (`invalid input syntax for type date`), which fails an entire import over one
+ * cell. Whole serials were already handled in several places; the fractional
+ * ones were not, and some writers converted nothing at all.
+ *
+ * The fraction is dropped rather than rounded: 46295.7916 is late in the day
+ * UTC, and rounding it would move the date forward for anybody east of London.
+ *
+ * Returns null for anything it cannot read confidently. A blank date is
+ * recoverable later; a failed import is not.
+ */
+export function toIsoDate(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") return null;
+
+  // A real date, which is what `cellDates: true` parsers hand over.
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+
+  const fromSerial = (serial: number): string | null => {
+    // Sanity band: 1990-01-01 (32874) to 2100-01-01 (73051). Outside it this is
+    // a number that merely looks like a date — an amount, an age, an ID.
+    if (!Number.isFinite(serial) || serial < 32874 || serial > 73051) return null;
+    const ms = Date.UTC(1899, 11, 30) + Math.floor(serial) * 86_400_000;
+    return new Date(ms).toISOString().slice(0, 10);
+  };
+
+  if (typeof value === "number") return fromSerial(value);
+
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // Bare serial, whole or with a time fraction.
+  if (/^\d{5}(\.\d+)?$/.test(s)) return fromSerial(Number(s));
+
+  // ISO, possibly with a time on the end.
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) {
+    // `1/1/1800`-style sentinels mean "never happened"; so does an 18xx ISO date.
+    return Number(iso[1]) < 1900 ? null : `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+
+  const parsed = parseImportDate(s, { assume: "US" });
+  if (parsed) return Number(parsed.iso.slice(0, 4)) < 1900 ? null : parsed.iso;
+
+  // `05-Jan-2026`, which carrier exports use and the numeric rules above miss.
+  const named = /^(\d{1,2})[-\s]([A-Za-z]{3,})[-\s](\d{2}|\d{4})$/.exec(s);
+  if (named) {
+    const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+    const mi = months.indexOf(named[2].slice(0, 3).toLowerCase());
+    if (mi >= 0) {
+      const y = named[3].length === 2
+        ? (Number(named[3]) >= 70 ? `19${named[3]}` : `20${named[3]}`)
+        : named[3];
+      if (Number(y) < 1900) return null;
+      return `${y}-${String(mi + 1).padStart(2, "0")}-${named[1].padStart(2, "0")}`;
+    }
+  }
+
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime()) || d.getUTCFullYear() < 1900) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The same reading, as a full timestamp for `timestamptz` columns.
+ *
+ * Midday UTC so that the calendar day is the same one everywhere the app is
+ * read from — the choice `sale-date.ts` already makes.
+ */
+export function toIsoTimestamp(value: unknown): string | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value.trim())) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  const day = toIsoDate(value);
+  return day ? `${day}T12:00:00.000Z` : null;
+}
+
+/**
  * Parse a date without guessing between day and month.
  *
  * `03/04/2026` is 3 April in most of the world and 4 March in the United

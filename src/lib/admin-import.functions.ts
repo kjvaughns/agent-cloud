@@ -10,7 +10,7 @@ import {
   saveClientFullRecord,
   upsertPendingAgent,
 } from "@/lib/import-helpers";
-import { normalizePremiumMode } from "@/lib/import-normalize";
+import { normalizePremiumMode, toIsoDate } from "@/lib/import-normalize";
 
 type Ctx = { supabase: any; userId: string };
 
@@ -123,45 +123,10 @@ function annualIncomeFrom(monthly: string | null | undefined): number | null {
 
 
 function parseDateMaybe(v: any): string | null {
-  if (v === null || v === undefined || v === "") return null;
-  // Real Date object (from XLSX cellDates:true)
-  if (v instanceof Date && !isNaN(v.getTime())) {
-    return v.toISOString().slice(0, 10);
-  }
-  // Excel serial number (days since 1899-12-30)
-  if (typeof v === "number" && Number.isFinite(v) && v > 59 && v < 80000) {
-    const ms = Math.round((v - 25569) * 86400 * 1000);
-    const d = new Date(ms);
-    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  }
-  const s = String(v).trim();
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  // MM/DD/YYYY or M/D/YY
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
-  if (m) {
-    const [, mm, dd, rawYear] = m;
-    // A two-digit year is windowed rather than reassigned in place, so the
-    // three parts of the match can all stay const.
-    const yyyy = rawYear.length === 2
-      ? (Number(rawYear) >= 50 ? "19" : "20") + rawYear
-      : rawYear;
-    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
-  }
-  // DD-MMM-YYYY (e.g. 05-Jan-2026)
-  const m2 = s.match(/^(\d{1,2})[-\s]([A-Za-z]{3,})[-\s](\d{2}|\d{4})$/);
-  if (m2) {
-    const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
-    const mi = months.indexOf(m2[2].slice(0, 3).toLowerCase());
-    if (mi >= 0) {
-      let yyyy = m2[3];
-      if (yyyy.length === 2) yyyy = (Number(yyyy) >= 50 ? "19" : "20") + yyyy;
-      return `${yyyy}-${String(mi + 1).padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
-    }
-  }
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  return null;
+  // Shared reader: handles real Date values, day-count serials whole or with a
+  // time fraction, ISO, M/D/YY(YY) and `05-Jan-2026`, and returns null rather
+  // than coercing anything it cannot read.
+  return toIsoDate(v);
 }
 
 function rowsToObjects(rows: any[][], headerRowIdx: number): Record<string, any>[] {

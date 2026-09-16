@@ -8,6 +8,10 @@ import {
   mapStage,
   mapTemperature,
 } from "@/lib/import-helpers";
+// Dates from another platform arrive in every shape a spreadsheet can hold,
+// including bare day-count serials with a time fraction. Written raw they fail
+// the whole insert, so nothing here touches a date column directly.
+import { toIsoDate, toIsoTimestamp } from "@/lib/import-normalize";
 
 const AL_BASE = "https://agentlink.insuracloud.ai";
 
@@ -190,8 +194,9 @@ export const importBook = createServerFn({ method: "POST" })
           ""
         ).trim();
         const email = (contact.email ?? "").trim();
-        const dob =
-          contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
+        const dob = toIsoDate(
+          contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null,
+        );
         const street =
           contact.address?.street ??
           contact.street_address ??
@@ -215,7 +220,7 @@ export const importBook = createServerFn({ method: "POST" })
           phone,
           first_name: firstName,
           last_name: lastName,
-          dob: typeof dob === "string" ? dob : undefined,
+          dob: dob ?? undefined,
         });
 
         if (dupMatch) {
@@ -321,7 +326,8 @@ export const importBook = createServerFn({ method: "POST" })
             agent_id: userId,
             contact_type: "note",
             note: `[Imported from a previous platform] ${body}`,
-            created_at: note.created_at ?? note.createdAt ?? new Date().toISOString(),
+            created_at:
+              toIsoTimestamp(note.created_at ?? note.createdAt) ?? new Date().toISOString(),
           });
           note_count++;
         }
@@ -383,8 +389,8 @@ function buildPolicy(clientId: string, agentId: string, pol: any) {
       pol.monthly_premium ?? pol.monthlyPremium ?? pol.premium ?? 0
     ),
     face_amount: Number(pol.face_amount ?? pol.faceAmount ?? pol.coverage ?? 0),
-    effective_date: pol.effective_date ?? pol.effectiveDate ?? null,
-    posted_at: pol.created_at ?? new Date().toISOString(),
+    effective_date: toIsoDate(pol.effective_date ?? pol.effectiveDate),
+    posted_at: toIsoTimestamp(pol.created_at) ?? new Date().toISOString(),
   };
 }
 
@@ -433,7 +439,7 @@ export const resolveDuplicate = createServerFn({ method: "POST" })
         last_name: inc.last_name ?? "",
         phone: inc.phone ?? null,
         email: inc.email ?? null,
-        date_of_birth: inc.dob ?? inc.date_of_birth ?? null,
+        date_of_birth: toIsoDate(inc.dob ?? inc.date_of_birth),
         stage: "new",
         temperature: "cold",
       });
@@ -502,7 +508,7 @@ export const basicImportFromBookImport = createServerFn({ method: "POST" })
       const rawPhone  = (contact.phone ?? contact.phone_number ?? contact.mobile ?? "").trim();
       const phone     = rawPhone ? normalizePhone(rawPhone) : null;
       const email     = (contact.email ?? "").trim();
-      const dob       = contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth ?? null;
+      const dob       = toIsoDate(contact.date_of_birth ?? contact.dob ?? contact.dateOfBirth);
       const street    = contact.address?.street ?? contact.street_address ?? contact.address ?? "";
       const city      = contact.address?.city  ?? contact.city  ?? "";
       const state     = contact.address?.state ?? contact.state ?? "";

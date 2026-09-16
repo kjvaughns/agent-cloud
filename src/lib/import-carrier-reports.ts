@@ -25,7 +25,7 @@
  */
 
 import { readDocument, type SheetBlock } from "./sheet-shape";
-import { normalizePolicyStatus } from "./import-normalize";
+import { normalizePolicyStatus, toIsoDate } from "./import-normalize";
 
 // ── Shared cell readers ──────────────────────────────────────────────────────
 
@@ -61,33 +61,10 @@ function int(v: string | undefined): number | null {
  * over a period.
  */
 export function reportDate(v: string | undefined): string | null {
-  const s = (v ?? "").trim();
-  if (!s) return null;
-
-  if (/^\d{5}$/.test(s)) {
-    const serial = Number(s);
-    // Sanity band: 1990-01-01 (32874) to 2100-01-01 (73051). Outside it, this
-    // is a number that merely looks like a date serial — an amount, an age, an
-    // ID — and coercing it would be worse than reading nothing.
-    if (serial < 32874 || serial > 73051) return null;
-    const ms = Date.UTC(1899, 11, 30) + serial * 86_400_000;
-    return new Date(ms).toISOString().slice(0, 10);
-  }
-
-  const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (m) {
-    const [, a, b, c] = m;
-    const year = c.length === 2 ? (Number(c) > 30 ? `19${c}` : `20${c}`) : c;
-    if (Number(year) < 1900) return null; // the "never happened" sentinel
-    if (Number(a) > 12) return null;
-    return `${year}-${a.padStart(2, "0")}-${b.padStart(2, "0")}`;
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.startsWith("18") ? null : s;
-
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime()) || d.getUTCFullYear() < 1900) return null;
-  return d.toISOString().slice(0, 10);
+  // Delegated so the serial-with-time-fraction case lives in one place. The
+  // `1/1/1800` "never activated" sentinel and every other pre-1900 value still
+  // come back null, which is what the callers rely on.
+  return toIsoDate(v);
 }
 
 /** "SMITH, SHERYL" or "Sheryl Smith" → first/last. Carrier reports use both. */
