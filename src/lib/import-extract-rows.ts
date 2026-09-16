@@ -79,10 +79,18 @@ function num(v: string | undefined): number | null {
  * what these exports use.
  */
 function isoDate(v: string | undefined): string | null {
-  // One shared reader, so a spreadsheet day-count with a time on it
-  // (`46295.7916`) reads the same here as everywhere else.
-  return toIsoDate(v);
+  const s = (v ?? "").trim();
+  // These exports are written in US order, and this field is only ever used for
+  // matching — so `13/05/1990` is rejected rather than re-read as 13 May. A
+  // consistent reading is worth more here than a clever one.
+  if (/^(\d{1,2})[/-]\d{1,2}[/-]\d{2,4}$/.test(s) && Number(s.split(/[/-]/)[0]) > 12) {
+    return null;
+  }
+  // Otherwise the one shared reader, so a spreadsheet day-count with a time on
+  // it (`46295.7916`) reads the same here as everywhere else.
+  return toIsoDate(s);
 }
+
 
 /** "Yes"/"Y"/"true"/"1" → true, "No"/"N" → false, blank → null (not false). */
 function yesNo(v: string | undefined): boolean | null {
