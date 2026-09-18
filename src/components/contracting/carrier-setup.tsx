@@ -722,6 +722,25 @@ function CarrierDialog({
             </div>
           ))}
 
+          <CarrierDirectoryFields
+            carrierName={
+              carrier?.name
+              ?? newName.trim()
+              ?? ""
+              ?? ""
+            }
+            values={directory}
+            onChange={(k, v) => setDirectory((d) => ({ ...d, [k]: v }))}
+            onSuggested={(s) => {
+              if (s.contracting_email && !form.contracting_email) set("contracting_email", s.contracting_email);
+              if (s.support_email && !form.support_email) set("support_email", s.support_email);
+              if (Array.isArray(s.product_types) && productTypes.length === 0) {
+                setProductTypes(s.product_types);
+              }
+            }}
+          />
+
+
           <div>
             <Label htmlFor="max-advance-option">The most this carrier advances</Label>
             <select
