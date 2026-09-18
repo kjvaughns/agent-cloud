@@ -68,10 +68,14 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
     // so the gateway helper must not be reachable from the client bundle.
     const { callAiJson } = await import("@/lib/ai-gateway");
 
+    // The token ceiling matters more than it looks: this model thinks before it
+    // answers, and at 800 the answer was being cut off mid-object — so the JSON
+    // never closed and every lookup came back as a JSON error. Room to finish,
+    // and "no prose, no explanation" so the budget goes on the answer.
     const raw = await callAiJson<Record<string, unknown>>({
       model: "google/gemini-3.8-flash",
       temperature: 0,
-      maxTokens: 800,
+      maxTokens: 4000,
       messages: [
         {
           role: "system",
@@ -79,10 +83,12 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
             "You help an insurance agency fill in a carrier's public contact details.",
             "Answer only with facts you are confident about for the named US life insurance carrier.",
             "Use null for anything you are not sure of. Never guess a URL, email, or phone number.",
-            "Return JSON with exactly these keys:",
+            "Reply with one JSON object and nothing else — no prose, no explanation, no markdown.",
+            "Keep every value short. Use exactly these keys:",
             "website, agent_portal_url, training_url, contracting_email, support_email,",
-            "phone, business_hours, pay_frequency, contracting_speed_days, product_types, notes.",
-            "pay_frequency is 'weekly', 'monthly', or null. contracting_speed_days is a number of days or null.",
+            "phone, business_hours, pay_frequency, contracting_speed_days, product_types.",
+            "pay_frequency is a short phrase such as 'Weekly', 'Monthly', 'Twice a month', or null.",
+            "contracting_speed_days is a number of days or null.",
             "product_types is an array of product names (e.g. Final Expense, Term Life) or null.",
             "business_hours is a short string such as 'Mon-Fri 8am-6pm ET'.",
           ].join(" "),
