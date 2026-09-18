@@ -277,6 +277,48 @@ async function extractPdf(
   };
 }
 
+/**
+ * The page as lines, with cells separated.
+ *
+ * pdfjs hands back text runs with a transform matrix; the y translation tells
+ * you which line a run sits on and the x translation where across it. Runs are
+ * bucketed by y (rounded, because a table row's glyphs rarely share an exact
+ * baseline), ordered by x within the bucket, and joined with " | " so a column
+ * boundary survives into the prompt. A wide run of whitespace between two runs
+ * is a column gap and produces a separator even when the runs are on the same
+ * line, which is how "Product  105  100  95" keeps its shape.
+ */
+function layoutText(items: any[]): string {
+  const lines = new Map<number, { x: number; str: string }[]>();
+  for (const it of items) {
+    const str = typeof it?.str === "string" ? it.str : "";
+    if (!str.trim()) continue;
+    const t = it.transform ?? [];
+    const x = Number(t[4] ?? 0);
+    const y = Number(t[5] ?? 0);
+    // 2pt buckets: tight enough to keep two table rows apart, loose enough to
+    // keep one row together when glyphs sit a hair off the baseline.
+    const key = Math.round(y / 2);
+    const list = lines.get(key) ?? [];
+    list.push({ x, str });
+    lines.set(key, list);
+  }
+
+  return [...lines.entries()]
+    // PDF y grows upward, so the top of the page is the largest y.
+    .sort((a, b) => b[0] - a[0])
+    .map(([, runs]) =>
+      runs
+        .sort((a, b) => a.x - b.x)
+        .map((r) => r.str.trim())
+        .filter(Boolean)
+        .join(" | "),
+    )
+    .filter((line) => line.trim().length > 0)
+    .join("\n")
+    .trim();
+}
+
 async function renderPage(page: any): Promise<string> {
   const base = page.getViewport({ scale: 1 });
   const scale = Math.min(MAX_EDGE / Math.max(base.width, base.height), 3);
