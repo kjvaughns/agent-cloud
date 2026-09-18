@@ -120,7 +120,6 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
             .filter((p): p is string => Boolean(p))
             .slice(0, 20)
         : null,
-      notes: cleanText(raw.notes, 400),
     };
 
     return { suggestion };
