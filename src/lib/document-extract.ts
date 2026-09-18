@@ -79,11 +79,16 @@ export type ExtractedDoc = {
 export type ExtractOptions = {
   maxPages?: number;
   /**
-   * Force rasterization even when a text layer exists. The comp grid extractor
-   * wants this: a rate table's meaning is in its layout, and the text layer
-   * gives you the numbers in reading order with the columns lost.
+   * How to read a PDF.
+   *
+   * `"text"` — text layer where there is one, a picture where there is not.
+   * `"image"` — always rasterize.
+   * `"both"` — rasterize AND keep a layout-aware text rendering of the same
+   *   page. This is what a rate table wants: the picture carries the shape, and
+   *   the text carries the exact digits. Reading a 15-column grid off a JPEG
+   *   alone is where columns go missing.
    */
-  prefer?: "text" | "image";
+  prefer?: "text" | "image" | "both";
 };
 
 function isPdf(file: File): boolean {
