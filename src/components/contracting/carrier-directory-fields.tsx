@@ -24,6 +24,16 @@ import { cn } from "@/lib/utils";
  */
 export type DirectoryValues = Record<string, string>;
 
+/** Suggestions for the pay frequency box. Any other wording is accepted. */
+export const PAY_FREQUENCY_PRESETS = [
+  "Daily",
+  "Weekly",
+  "Every two weeks",
+  "Twice a month",
+  "Monthly",
+  "Monthly, with a lag",
+] as const;
+
 export const DIRECTORY_KEYS = [
   "phone",
   "business_hours",
