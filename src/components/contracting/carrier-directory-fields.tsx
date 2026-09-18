@@ -146,18 +146,24 @@ export function CarrierDirectoryFields({
         {text("phone", "Phone number", "(800) 555-0100")}
         {text("business_hours", "Business hours", "Mon–Fri 8am–6pm ET")}
         {text("contracting_speed_days", "Contracting speed (days)", "7")}
+        {/* Type anything. The presets are the common answers, not the only
+            allowed ones — plenty of carriers pay daily, twice a month, every
+            two weeks, or on a lag, and a two-option dropdown forced an agency
+            to record something that was not true. */}
         <div>
           <Label htmlFor="dir-pay_frequency">Pay frequency</Label>
-          <select
+          <Input
             id="dir-pay_frequency"
+            list="pay-frequency-options"
             value={values.pay_frequency ?? ""}
             onChange={(e) => onChange("pay_frequency", e.target.value)}
-            className="mt-1 h-9 w-full rounded-md border border-border bg-card px-2 text-sm"
-          >
-            <option value="">Not set</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
+            placeholder="Weekly, daily, twice a month…"
+            maxLength={60}
+            className={cn("mt-1", filled.includes("pay_frequency") && "border-primary/60")}
+          />
+          <datalist id="pay-frequency-options">
+            {PAY_FREQUENCY_PRESETS.map((p) => <option key={p} value={p} />)}
+          </datalist>
         </div>
         {text("website", "Website", "carrier.com")}
         {text("agent_portal_url", "Agent portal link", "agents.carrier.com")}
