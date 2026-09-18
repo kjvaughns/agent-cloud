@@ -183,7 +183,7 @@ export function CarrierDirectoryFields({
     <div className="space-y-4 rounded-lg border border-border bg-surface-2/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-text">Carrier directory details</p>
+          <p className="text-sm font-medium text-foreground">Carrier directory details</p>
           <p className="mt-0.5 text-xs text-text-dim">
             What your agents see on the Carriers page for {carrierName || "this carrier"}.
           </p>
