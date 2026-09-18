@@ -202,7 +202,7 @@ async function extractSpreadsheet(file: File): Promise<ExtractedDoc> {
 async function extractPdf(
   file: File,
   maxPages: number,
-  prefer: "text" | "image",
+  prefer: "text" | "image" | "both",
 ): Promise<ExtractedDoc> {
   const pdfjs: any = await import("pdfjs-dist");
 
@@ -224,23 +224,37 @@ async function extractPdf(
     const page = await doc.getPage(i);
 
     let pageText = "";
-    if (prefer === "text") {
+    if (prefer !== "image") {
       const content = await page.getTextContent();
-      pageText = (content.items ?? [])
-        .map((it: any) => (typeof it.str === "string" ? it.str : ""))
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
+      // Layout-aware for "both", reading-order for "text". A rate card read in
+      // reading order is a stream of numbers with the columns lost; grouped by
+      // line and ordered across the line, the header row and each product row
+      // line up the way they do on paper.
+      pageText = prefer === "both"
+        ? layoutText(content.items ?? [])
+        : (content.items ?? [])
+            .map((it: any) => (typeof it.str === "string" ? it.str : ""))
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
-    if (prefer === "text" && pageText.length >= SCANNED_PAGE_CHAR_THRESHOLD) {
+    const hasText = pageText.length >= SCANNED_PAGE_CHAR_THRESHOLD;
+    if (hasText) {
       texts.push(`=== Page ${i} ===\n${pageText}`);
-      pagesRead++;
-    } else if (images.length < maxPages) {
+    }
+
+    // "both" wants the picture as well — unless the page is already fully
+    // described by its text layer and we are near the raster budget.
+    const wantImage = prefer === "image" || prefer === "both" || !hasText;
+    if (wantImage && images.length < maxPages) {
       images.push(await renderPage(page));
       pagesRead++;
-    } else {
+    } else if (wantImage) {
       rasterSkipped++;
+      if (hasText) pagesRead++;
+    } else {
+      pagesRead++;
     }
   }
 
