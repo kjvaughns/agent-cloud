@@ -21,6 +21,9 @@ import {
 import { carrierState } from "@/lib/carriers/status";
 import { ADVANCE_OPTIONS, ADVANCE_LABELS, type AdvanceOption } from "@/lib/compensation/resolve";
 import { PRODUCT_TYPES } from "@/lib/products";
+import {
+  CarrierDirectoryFields, directoryPayload, directorySeed, type DirectoryValues,
+} from "@/components/contracting/carrier-directory-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,6 +72,9 @@ export function CarrierWizard({
 
   const [details, setDetails] = useState<Record<string, string>>({});
   const [productTypes, setProductTypes] = useState<string[]>([]);
+  // Phone, hours, contracting speed, pay frequency, portal and training links —
+  // the facts the Carriers directory shows, owned by this agency.
+  const [directory, setDirectory] = useState<DirectoryValues>({});
   const [maxAdvance, setMaxAdvance] = useState<AdvanceOption | "">("");
   const [defaultAdvance, setDefaultAdvance] = useState<AdvanceOption | "">("");
 
@@ -84,6 +90,7 @@ export function CarrierWizard({
       turnaround_days: carrier?.turnaround_days ? String(carrier.turnaround_days) : "",
       internal_instructions: carrier?.internal_instructions ?? "",
     });
+    setDirectory(directorySeed(carrier));
     setProductTypes(carrier?.product_types ?? []);
     setMaxAdvance((carrier?.max_advance_option as AdvanceOption) ?? "");
     setDefaultAdvance((carrier?.default_advance_option as AdvanceOption) ?? "");
