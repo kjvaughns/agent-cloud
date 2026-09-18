@@ -431,6 +431,21 @@ const OrgCarrierSchema = z.object({
    * only allows 6.
    */
   max_advance_option: z.enum(ADVANCE_OPTIONS).nullable().optional(),
+
+  // ── The carrier directory fields, per agency ──
+  //
+  // The Carriers directory has always read these off the shared `carriers`
+  // library row, which an agency cannot edit — so a wrong phone number or a
+  // missing agent portal link could not be corrected, and a private carrier
+  // showed almost nothing. These are the agency's own values; the library row
+  // stays read-only and is only ever a fallback.
+  phone: z.string().trim().max(40).nullable().optional(),
+  business_hours: z.string().trim().max(120).nullable().optional(),
+  contracting_speed_days: z.number().int().min(0).max(365).nullable().optional(),
+  pay_frequency: z.enum(["weekly", "monthly"]).nullable().optional(),
+  website: z.string().trim().url().max(300).nullable().optional(),
+  agent_portal_url: z.string().trim().url().max(300).nullable().optional(),
+  training_url: z.string().trim().url().max(300).nullable().optional(),
 });
 
 export const saveOrgCarrier = createServerFn({ method: "POST" })
