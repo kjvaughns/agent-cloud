@@ -44,27 +44,65 @@ export const DIRECTORY_KEYS = [
   "training_url",
 ] as const;
 
+const clean = (s?: string) => (s && s.trim() !== "" ? s.trim() : null);
+
+/**
+ * "5-10", "about a week", "7 days" — people (and the AI) answer contracting
+ * speed in words. Take the first number and ignore the rest; anything with no
+ * number in it is simply not a number of days.
+ */
+function parseDays(s?: string): number | null {
+  const t = clean(s);
+  if (!t) return null;
+  const n = Number(t.match(/\d+/)?.[0] ?? NaN);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(365, Math.max(0, Math.round(n)));
+}
+
+/** A link only counts if it can actually be opened. */
+function parseUrl(s?: string): string | null {
+  const t = clean(s);
+  if (!t) return null;
+  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    if (!u.hostname.includes(".") || /\s/.test(u.hostname)) return null;
+    return withScheme.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
 /** Turn the form's strings into what `saveOrgCarrier` accepts. */
 export function directoryPayload(v: DirectoryValues) {
-  const clean = (s?: string) => (s && s.trim() !== "" ? s.trim() : null);
-  const url = (s?: string) => {
-    const t = clean(s);
-    if (!t) return null;
-    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  };
-  const days = clean(v.contracting_speed_days);
   const freq = clean(v.pay_frequency);
   return {
     phone: clean(v.phone),
     business_hours: clean(v.business_hours),
-    contracting_speed_days: days ? Number(days) : null,
+    contracting_speed_days: parseDays(v.contracting_speed_days),
     // Whatever the carrier actually does — the presets are suggestions, not
     // the only permitted answers.
     pay_frequency: freq ? freq.slice(0, 60) : null,
-    website: url(v.website),
-    agent_portal_url: url(v.agent_portal_url),
-    training_url: url(v.training_url),
+    website: parseUrl(v.website),
+    agent_portal_url: parseUrl(v.agent_portal_url),
+    training_url: parseUrl(v.training_url),
   };
+}
+
+/**
+ * What the owner is told before saving. Saving never fails on these fields —
+ * an unusable value is left out rather than rejected — so the warning has to
+ * appear while they are typing, or a link would vanish without explanation.
+ */
+export function directoryErrors(v: DirectoryValues): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const k of ["website", "agent_portal_url", "training_url"]) {
+    if (clean(v[k]) && !parseUrl(v[k])) errors[k] = "Doesn't look like a web address";
+  }
+  if (clean(v.contracting_speed_days) && parseDays(v.contracting_speed_days) === null) {
+    errors.contracting_speed_days = "Enter a number of days";
+  }
+  return errors;
 }
 
 /** Seed the form from a saved org_carrier row, falling back to the library. */
