@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { callAiJson } from "@/lib/ai-gateway";
+import { callAiJson, callAiJsonFull } from "@/lib/ai-gateway";
 import { assertCanEditGrids } from "@/lib/settings/tab-guard.server";
 import { preferOwnGridRows } from "@/lib/compensation/own-grid";
 
