@@ -295,6 +295,23 @@ export function CarrierWizard({
                     </div>
                   </div>
 
+                  <CarrierDirectoryFields
+                    carrierName={carrier?.name ?? newName.trim()}
+                    values={directory}
+                    onChange={(k, v) => setDirectory((d) => ({ ...d, [k]: v }))}
+                    onSuggested={(s) => {
+                      setDetails((d) => ({
+                        ...d,
+                        contracting_email: d.contracting_email || (s.contracting_email ?? ""),
+                        support_email: d.support_email || (s.support_email ?? ""),
+                      }));
+                      if (Array.isArray(s.product_types) && productTypes.length === 0) {
+                        setProductTypes(s.product_types);
+                      }
+                    }}
+                  />
+
+
                   {gridProducts.length > 0 ? (
                     <div>
                       <Label>Products this carrier writes</Label>
@@ -523,6 +540,7 @@ export function CarrierWizard({
                           turnaround_days: details.turnaround_days ? Number(details.turnaround_days) : null,
                           internal_instructions: clean(details.internal_instructions ?? ""),
                           product_types: productTypes,
+                          ...directoryPayload(directory),
                           __then: to,
                         });
                         return;
