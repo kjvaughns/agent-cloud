@@ -44,27 +44,65 @@ export const DIRECTORY_KEYS = [
   "training_url",
 ] as const;
 
+const clean = (s?: string) => (s && s.trim() !== "" ? s.trim() : null);
+
+/**
+ * "5-10", "about a week", "7 days" — people (and the AI) answer contracting
+ * speed in words. Take the first number and ignore the rest; anything with no
+ * number in it is simply not a number of days.
+ */
+function parseDays(s?: string): number | null {
+  const t = clean(s);
+  if (!t) return null;
+  const n = Number(t.match(/\d+/)?.[0] ?? NaN);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(365, Math.max(0, Math.round(n)));
+}
+
+/** A link only counts if it can actually be opened. */
+function parseUrl(s?: string): string | null {
+  const t = clean(s);
+  if (!t) return null;
+  const withScheme = /^https?:\/\//i.test(t) ? t : `https://${t}`;
+  try {
+    const u = new URL(withScheme);
+    if (!u.hostname.includes(".") || /\s/.test(u.hostname)) return null;
+    return withScheme.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
 /** Turn the form's strings into what `saveOrgCarrier` accepts. */
 export function directoryPayload(v: DirectoryValues) {
-  const clean = (s?: string) => (s && s.trim() !== "" ? s.trim() : null);
-  const url = (s?: string) => {
-    const t = clean(s);
-    if (!t) return null;
-    return /^https?:\/\//i.test(t) ? t : `https://${t}`;
-  };
-  const days = clean(v.contracting_speed_days);
   const freq = clean(v.pay_frequency);
   return {
     phone: clean(v.phone),
     business_hours: clean(v.business_hours),
-    contracting_speed_days: days ? Number(days) : null,
+    contracting_speed_days: parseDays(v.contracting_speed_days),
     // Whatever the carrier actually does — the presets are suggestions, not
     // the only permitted answers.
     pay_frequency: freq ? freq.slice(0, 60) : null,
-    website: url(v.website),
-    agent_portal_url: url(v.agent_portal_url),
-    training_url: url(v.training_url),
+    website: parseUrl(v.website),
+    agent_portal_url: parseUrl(v.agent_portal_url),
+    training_url: parseUrl(v.training_url),
   };
+}
+
+/**
+ * What the owner is told before saving. Saving never fails on these fields —
+ * an unusable value is left out rather than rejected — so the warning has to
+ * appear while they are typing, or a link would vanish without explanation.
+ */
+export function directoryErrors(v: DirectoryValues): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const k of ["website", "agent_portal_url", "training_url"]) {
+    if (clean(v[k]) && !parseUrl(v[k])) errors[k] = "Doesn't look like a web address";
+  }
+  if (clean(v.contracting_speed_days) && parseDays(v.contracting_speed_days) === null) {
+    errors.contracting_speed_days = "Enter a number of days";
+  }
+  return errors;
 }
 
 /** Seed the form from a saved org_carrier row, falling back to the library. */
@@ -116,25 +154,37 @@ export function CarrierDirectoryFields({
     onError: (e: any) => toast.error(e?.message ?? "Could not look that carrier up"),
   });
 
-  const text = (key: string, label: string, placeholder?: string) => (
+  const errors = directoryErrors(values);
+
+  const text = (key: string, label: string, placeholder?: string, hint?: string) => (
     <div>
-      <Label htmlFor={`dir-${key}`}>{label}</Label>
+      <Label htmlFor={`dir-${key}`} className="text-xs text-text-dim">{label}</Label>
       <Input
         id={`dir-${key}`}
         value={values[key] ?? ""}
         onChange={(e) => onChange(key, e.target.value)}
         placeholder={placeholder}
-        className={cn("mt-1", filled.includes(key) && "border-primary/60")}
+        aria-invalid={Boolean(errors[key])}
+        className={cn(
+          "mt-1",
+          filled.includes(key) && !errors[key] && "border-primary/60",
+          errors[key] && "border-destructive",
+        )}
       />
+      {errors[key]
+        ? <p className="mt-1 text-[11px] text-destructive">{errors[key]}</p>
+        : hint
+          ? <p className="mt-1 text-[11px] text-text-dim">{hint}</p>
+          : null}
     </div>
   );
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-surface-2/40 p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <Label className="text-sm">Carrier directory details</Label>
-          <p className="mt-0.5 text-[11px] text-text-dim">
+    <div className="space-y-4 rounded-lg border border-border bg-surface-2/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">Carrier directory details</p>
+          <p className="mt-0.5 text-xs text-text-dim">
             What your agents see on the Carriers page for {carrierName || "this carrier"}.
           </p>
         </div>
@@ -142,38 +192,40 @@ export function CarrierDirectoryFields({
           type="button"
           size="sm"
           variant="outline"
+          className="shrink-0"
           disabled={lookup.isPending || !carrierName.trim()}
           onClick={() => lookup.mutate()}
         >
           {lookup.isPending
             ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-          Find links with AI
+          {lookup.isPending ? "Looking…" : "Find links with AI"}
         </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {text("phone", "Phone number", "(800) 555-0100")}
         {text("business_hours", "Business hours", "Mon–Fri 8am–6pm ET")}
-        {text("contracting_speed_days", "Contracting speed (days)", "7")}
+        {text("contracting_speed_days", "Contracting speed", "7", "Days until contracts come back")}
         {/* Type anything. The presets are the common answers, not the only
             allowed ones — plenty of carriers pay daily, twice a month, every
             two weeks, or on a lag, and a two-option dropdown forced an agency
             to record something that was not true. */}
         <div>
-          <Label htmlFor="dir-pay_frequency">Pay frequency</Label>
+          <Label htmlFor="dir-pay_frequency" className="text-xs text-text-dim">Pay frequency</Label>
           <Input
             id="dir-pay_frequency"
             list="pay-frequency-options"
             value={values.pay_frequency ?? ""}
             onChange={(e) => onChange("pay_frequency", e.target.value)}
-            placeholder="Weekly, daily, twice a month…"
+            placeholder="Weekly"
             maxLength={60}
             className={cn("mt-1", filled.includes("pay_frequency") && "border-primary/60")}
           />
           <datalist id="pay-frequency-options">
             {PAY_FREQUENCY_PRESETS.map((p) => <option key={p} value={p} />)}
           </datalist>
+          <p className="mt-1 text-[11px] text-text-dim">Pick one or type your own</p>
         </div>
         {text("website", "Website", "carrier.com")}
         {text("agent_portal_url", "Agent portal link", "agents.carrier.com")}
