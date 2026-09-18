@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { callAiJson } from "@/lib/ai-gateway";
+import { callAiJsonFull } from "@/lib/ai-gateway";
 import { assertCanEditGrids } from "@/lib/settings/tab-guard.server";
 import { preferOwnGridRows } from "@/lib/compensation/own-grid";
 
@@ -140,23 +140,151 @@ export const listGridUploads = createServerFn({ method: "GET" })
 
 // ── AI extraction ────────────────────────────────────────────────────────────
 
+/**
+ * One record per PRODUCT, carrying a rates map keyed by level.
+ *
+ * It used to be one record per cell, which is how a 15-column grid stopped
+ * being readable: 11 products x 15 levels is ~165 records, the reply ran out
+ * of tokens partway through, and what survived was the first level column. The
+ * owner saw "it only read one column". The same grid in this shape is ~11
+ * records and fits with room to spare. Expanded back to per-level rows below,
+ * so nothing downstream — storage, editor, calculator — changes.
+ */
 const EXTRACT_SYSTEM = `You read insurance carrier commission grids and return structured data.
 
-Return JSON: {"rows":[{"product_name","level_name","year_1_pct","years_2_5_pct","years_6_plus_pct","age_group_min","age_group_max"}],"carrier_name":string|null,"confidence":0..1,"notes":string}
+Return JSON:
+{"levels":["105","100",...],
+ "products":[{"product_name":"Senior Choice (FE)","age_group_min":null,"age_group_max":null,
+              "rates":{"105":105,"100":100},
+              "renewals_2_5":{"105":10},"renewals_6_plus":{"105":2}}],
+ "carrier_name":string|null,"confidence":0..1,"notes":string}
 
 Rules:
-- Percentages as numbers, not strings. 110% -> 110. "LOA" or a blank cell -> 0.
-- level_name is the contract level column header, e.g. "Agent", "SA", "GA", "MGA", "110".
+- "levels" is EVERY contract level column header in the table, left to right,
+  exactly as printed — e.g. "Agent", "SA", "GA", "MGA", "110", "105", "LOA".
+  List them all even if you cannot read every cell underneath.
+- For each product, "rates" maps EVERY level header to that product's first
+  year percentage. Do not stop after the first few columns. Do not omit a
+  column because its value repeats.
+- Percentages as numbers, not strings. 110% -> 110. "LOA", "-", "N/A" or a
+  blank cell -> 0.
 - product_name is the row label, e.g. "Final Expense", "Term 20", "GUL".
-- Age bands only when the grid actually splits by age; otherwise null.
-- When a product lists different rates by age range — "Ages 18-59: 54%,
-  Ages 60-80: 90%, Ages 81-85: 54%" — return one row PER age range with
-  age_group_min and age_group_max set. Never flatten age-banded rates into a
-  single row; picking one of the rates silently misstates the others.
-- years_2_5_pct / years_6_plus_pct null when the grid does not show renewals.
-- Return every product/level pair you can read. Do not invent rows.
+- Age bands only when the grid actually splits by age; otherwise null. When a
+  product lists different rates by age range — "Ages 18-59: 54%, Ages 60-80:
+  90%" — return one product entry PER age range with age_group_min and
+  age_group_max set. Never flatten age-banded rates into one entry.
+- "renewals_2_5" / "renewals_6_plus" only when the grid shows renewal rates;
+  omit them entirely otherwise.
+- Read every product row and every level column. Do not invent any.
 - confidence reflects how legible the document was. Be honest — a blurry photo
   should score low.`;
+
+const RateMap = z.record(z.string(), z.union([z.number(), z.string(), z.null()]));
+
+const CompactSchema = z.object({
+  levels: z.array(z.string()).nullable().optional(),
+  products: z.array(z.object({
+    product_name: z.string().trim().min(1).max(120),
+    age_group_min: z.number().nullable().optional(),
+    age_group_max: z.number().nullable().optional(),
+    rates: RateMap.nullable().optional(),
+    renewals_2_5: RateMap.nullable().optional(),
+    renewals_6_plus: RateMap.nullable().optional(),
+  })).nullable().optional(),
+  // Older shape, kept so a model that answers per-cell is still understood.
+  rows: z.array(z.any()).nullable().optional(),
+  carrier_name: z.string().nullable().optional(),
+  confidence: z.number().nullable().optional(),
+  notes: z.string().nullable().optional(),
+});
+
+type Compact = z.infer<typeof CompactSchema>;
+
+/** "105%" / "-" / "LOA" / 105 → 105 / 0. Null when there is nothing to read. */
+function toPct(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return clampPct(v);
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  if (/^(loa|n\/?a|-+|—|none)$/i.test(s)) return 0;
+  const m = s.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
+  if (!m) return null;
+  return clampPct(Number(m[0]));
+}
+
+function clampPct(n: number): number {
+  return Math.max(0, Math.min(300, n));
+}
+
+/** Compact answer → the per-level rows the rest of the app already speaks. */
+function expandCompact(out: Compact): GridRow[] {
+  const rows: GridRow[] = [];
+  const levelOrder = (out.levels ?? []).map((l) => String(l).trim()).filter(Boolean);
+
+  (out.products ?? []).forEach((p, productIndex) => {
+    const rates = p.rates ?? {};
+    for (const [rawLevel, rawPct] of Object.entries(rates)) {
+      const level = String(rawLevel).trim();
+      const pct = toPct(rawPct);
+      if (!level || pct == null) continue;
+      const levelSort = levelOrder.indexOf(level);
+      rows.push({
+        product_name: p.product_name.trim(),
+        level_name: level.slice(0, 60),
+        year_1_pct: pct,
+        years_2_5_pct: toPct(p.renewals_2_5?.[rawLevel]),
+        years_6_plus_pct: toPct(p.renewals_6_plus?.[rawLevel]),
+        age_group_min: p.age_group_min ?? null,
+        age_group_max: p.age_group_max ?? null,
+        sort_order: productIndex,
+        level_sort: levelSort >= 0 ? levelSort : null,
+      });
+    }
+  });
+
+  // A model that answered in the old per-cell shape still lands here.
+  for (const r of out.rows ?? []) {
+    const parsed = RowSchema.safeParse(r);
+    if (!parsed.success) continue;
+    rows.push({
+      ...parsed.data,
+      years_2_5_pct: parsed.data.years_2_5_pct ?? null,
+      years_6_plus_pct: parsed.data.years_6_plus_pct ?? null,
+      age_group_min: parsed.data.age_group_min ?? null,
+      age_group_max: parsed.data.age_group_max ?? null,
+    });
+  }
+
+  return rows;
+}
+
+/** Peel a one-element array or a single wrapper key off the answer. */
+function unwrapAnswer(value: unknown): unknown {
+  let v: any = value;
+  for (let i = 0; i < 3; i++) {
+    if (Array.isArray(v) && v.length === 1) { v = v[0]; continue; }
+    if (v && typeof v === "object" && !("products" in v) && !("rows" in v) && !("levels" in v)) {
+      const keys = Object.keys(v);
+      if (keys.length === 1 && v[keys[0]] && typeof v[keys[0]] === "object") { v = v[keys[0]]; continue; }
+    }
+    break;
+  }
+  return v;
+}
+
+/** Levels the answer actually filled in, across every product. */
+function coveredLevels(out: Compact): Set<string> {
+  const seen = new Set<string>();
+  for (const p of out.products ?? []) {
+    for (const [level, v] of Object.entries(p.rates ?? {})) {
+      if (toPct(v) != null) seen.add(String(level).trim());
+    }
+  }
+  for (const r of out.rows ?? []) {
+    const name = String((r as any)?.level_name ?? "").trim();
+    if (name) seen.add(name);
+  }
+  return seen;
+}
 
 export const extractGrid = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -204,53 +332,96 @@ export const extractGrid = createServerFn({ method: "POST" })
       .single();
 
     try {
-      const out = await callAiJson<{
-        rows: GridRow[]; carrier_name: string | null; confidence: number; notes: string;
-      }>({
-        // 4000 silently truncated large multi-level grids mid-JSON — the parse
-        // failed or, worse, succeeded on a prefix and the trailing products
-        // simply never appeared. A 15-product × 6-level grid with age bands is
-        // ~90 rows of JSON; 8000 covers it with headroom.
-        maxTokens: 8000,
-        messages: [
-          { role: "system", content: EXTRACT_SYSTEM },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: pages.length > 1
-                  ? `Extract the commission grid from this ${pages.length}-page document. Products continue across pages; return every one you find.`
-                  : "Extract the commission grid from this document.",
-              },
-              ...(data.text ? [{ type: "text" as const, text: data.text.slice(0, 150_000) }] : []),
-              ...pages.map((url) => ({ type: "image_url" as const, image_url: { url } })),
-            ],
-          },
-        ],
-      });
+      /** One read. `only` restricts it to a group of level columns. */
+      const read = async (only: string[] | null) => {
+        const ask = only?.length
+          ? `Read ONLY these level columns: ${only.join(", ")}. Return every product row with a rate for each of those columns, and list those columns in "levels".`
+          : pages.length > 1
+            ? `Extract the commission grid from this ${pages.length}-page document. Products continue across pages; return every one you find, with every level column.`
+            : "Extract the commission grid from this document, with every level column.";
 
-      // Validate row by row and keep what parses. A grid with three unreadable
-      // rows is still worth showing; failing the whole page is not helpful.
-      const rows: GridRow[] = [];
-      for (const r of out.rows ?? []) {
-        const parsed = RowSchema.safeParse(r);
-        if (parsed.success) {
-          rows.push({
-            ...parsed.data,
-            years_2_5_pct: parsed.data.years_2_5_pct ?? null,
-            years_6_plus_pct: parsed.data.years_6_plus_pct ?? null,
-            age_group_min: parsed.data.age_group_min ?? null,
-            age_group_max: parsed.data.age_group_max ?? null,
-          });
+        const { value, truncated } = await callAiJsonFull<unknown>({
+          // The reply carries one record per product now rather than one per
+          // cell, so this budget is generous; the model also spends part of it
+          // thinking, which is what made 8000 run out on a wide grid.
+          maxTokens: 16000,
+          // Transcription, not writing.
+          temperature: 0,
+          messages: [
+            { role: "system", content: EXTRACT_SYSTEM },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: ask },
+                ...(data.text ? [{ type: "text" as const, text: data.text.slice(0, 150_000) }] : []),
+                ...pages.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+              ],
+            },
+          ],
+        });
+        // Models sometimes wrap the object in a one-element array, or under a
+        // key like "grid". Unwrap before validating rather than calling a
+        // perfectly good answer malformed.
+        const unwrapped = unwrapAnswer(value);
+        const parsed = CompactSchema.safeParse(unwrapped);
+        if (!parsed.success) throw new Error("Couldn't make sense of that grid — try a clearer copy.");
+        return { out: parsed.data, truncated };
+      };
+
+      const first = await read(null);
+      const merged: Compact = first.out;
+
+      // Every level column the document shows, against the ones that actually
+      // came back. A wide grid whose answer stopped early used to be reported
+      // as a complete read; now the missing columns are re-read in groups.
+      const headerLevels = (merged.levels ?? []).map((l) => String(l).trim()).filter(Boolean);
+      let missing = headerLevels.filter((l) => !coveredLevels(merged).has(l));
+
+      if (first.truncated || missing.length) {
+        const groups: string[][] = [];
+        const todo = missing.length ? missing : headerLevels;
+        for (let i = 0; i < todo.length; i += 5) groups.push(todo.slice(i, i + 5));
+
+        for (const group of groups.slice(0, 4)) {
+          try {
+            const extra = await read(group);
+            const byName = new Map(
+              (merged.products ?? []).map((p) => [`${p.product_name.trim().toLowerCase()}|${p.age_group_min ?? ""}|${p.age_group_max ?? ""}`, p]),
+            );
+            for (const p of extra.out.products ?? []) {
+              const key = `${p.product_name.trim().toLowerCase()}|${p.age_group_min ?? ""}|${p.age_group_max ?? ""}`;
+              const existing = byName.get(key);
+              if (existing) {
+                existing.rates = { ...(existing.rates ?? {}), ...(p.rates ?? {}) };
+                if (p.renewals_2_5) existing.renewals_2_5 = { ...(existing.renewals_2_5 ?? {}), ...p.renewals_2_5 };
+                if (p.renewals_6_plus) existing.renewals_6_plus = { ...(existing.renewals_6_plus ?? {}), ...p.renewals_6_plus };
+              } else {
+                merged.products = [...(merged.products ?? []), p];
+                byName.set(key, p);
+              }
+            }
+          } catch {
+            // A failed group is reported as a missing column below rather than
+            // failing the whole read — the columns already in hand are useful.
+          }
         }
+        missing = headerLevels.filter((l) => !coveredLevels(merged).has(l));
       }
+
+      const rows = expandCompact(merged);
+
+      const notes = [
+        merged.notes ?? null,
+        missing.length
+          ? `Couldn't read ${missing.length === 1 ? "the level column" : "these level columns"} ${missing.join(", ")} — check ${missing.length === 1 ? "it" : "them"} by hand.`
+          : null,
+      ].filter(Boolean).join(" ") || null;
 
       await supabase.from("commission_grid_uploads").update({
         status: rows.length ? "review" : "failed",
-        extracted: { rows, notes: out.notes ?? null },
+        extracted: { rows, notes },
         row_count: rows.length,
-        carrier_name: data.carrier_name ?? out.carrier_name ?? null,
+        carrier_name: data.carrier_name ?? merged.carrier_name ?? null,
         error: rows.length ? null : "Couldn't read any rows from that file.",
         updated_at: new Date().toISOString(),
       }).eq("id", upload.id);
@@ -258,9 +429,10 @@ export const extractGrid = createServerFn({ method: "POST" })
       return {
         upload_id: upload.id as string,
         rows,
-        carrier_name: out.carrier_name ?? null,
-        confidence: out.confidence ?? null,
-        notes: out.notes ?? null,
+        carrier_name: merged.carrier_name ?? null,
+        confidence: merged.confidence ?? null,
+        notes,
+        missing_levels: missing,
       };
     } catch (e: any) {
       await supabase.from("commission_grid_uploads").update({

@@ -111,7 +111,7 @@ export function ManageGridsPage({
       const images: string[] = [];
       const texts: string[] = [];
       for (const file of files) {
-        const doc = await extractDocument(file, { prefer: "image", maxPages: 8 });
+        const doc = await extractDocument(file, { prefer: "both", maxPages: 8 });
         const notice = truncationNotice(doc);
         if (notice) toast.warning(`${file.name}: ${notice}`);
         if (doc.images?.length) images.push(...doc.images);

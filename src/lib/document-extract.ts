@@ -79,11 +79,16 @@ export type ExtractedDoc = {
 export type ExtractOptions = {
   maxPages?: number;
   /**
-   * Force rasterization even when a text layer exists. The comp grid extractor
-   * wants this: a rate table's meaning is in its layout, and the text layer
-   * gives you the numbers in reading order with the columns lost.
+   * How to read a PDF.
+   *
+   * `"text"` — text layer where there is one, a picture where there is not.
+   * `"image"` — always rasterize.
+   * `"both"` — rasterize AND keep a layout-aware text rendering of the same
+   *   page. This is what a rate table wants: the picture carries the shape, and
+   *   the text carries the exact digits. Reading a 15-column grid off a JPEG
+   *   alone is where columns go missing.
    */
-  prefer?: "text" | "image";
+  prefer?: "text" | "image" | "both";
 };
 
 function isPdf(file: File): boolean {
@@ -197,7 +202,7 @@ async function extractSpreadsheet(file: File): Promise<ExtractedDoc> {
 async function extractPdf(
   file: File,
   maxPages: number,
-  prefer: "text" | "image",
+  prefer: "text" | "image" | "both",
 ): Promise<ExtractedDoc> {
   const pdfjs: any = await import("pdfjs-dist");
 
@@ -219,23 +224,37 @@ async function extractPdf(
     const page = await doc.getPage(i);
 
     let pageText = "";
-    if (prefer === "text") {
+    if (prefer !== "image") {
       const content = await page.getTextContent();
-      pageText = (content.items ?? [])
-        .map((it: any) => (typeof it.str === "string" ? it.str : ""))
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
+      // Layout-aware for "both", reading-order for "text". A rate card read in
+      // reading order is a stream of numbers with the columns lost; grouped by
+      // line and ordered across the line, the header row and each product row
+      // line up the way they do on paper.
+      pageText = prefer === "both"
+        ? layoutText(content.items ?? [])
+        : (content.items ?? [])
+            .map((it: any) => (typeof it.str === "string" ? it.str : ""))
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
-    if (prefer === "text" && pageText.length >= SCANNED_PAGE_CHAR_THRESHOLD) {
+    const hasText = pageText.length >= SCANNED_PAGE_CHAR_THRESHOLD;
+    if (hasText) {
       texts.push(`=== Page ${i} ===\n${pageText}`);
-      pagesRead++;
-    } else if (images.length < maxPages) {
+    }
+
+    // "both" wants the picture as well — unless the page is already fully
+    // described by its text layer and we are near the raster budget.
+    const wantImage = prefer === "image" || prefer === "both" || !hasText;
+    if (wantImage && images.length < maxPages) {
       images.push(await renderPage(page));
       pagesRead++;
-    } else {
+    } else if (wantImage) {
       rasterSkipped++;
+      if (hasText) pagesRead++;
+    } else {
+      pagesRead++;
     }
   }
 
@@ -256,6 +275,48 @@ async function extractPdf(
     truncated: rasterSkipped > 0 || joined.length > MAX_TEXT_CHARS,
     source,
   };
+}
+
+/**
+ * The page as lines, with cells separated.
+ *
+ * pdfjs hands back text runs with a transform matrix; the y translation tells
+ * you which line a run sits on and the x translation where across it. Runs are
+ * bucketed by y (rounded, because a table row's glyphs rarely share an exact
+ * baseline), ordered by x within the bucket, and joined with " | " so a column
+ * boundary survives into the prompt. A wide run of whitespace between two runs
+ * is a column gap and produces a separator even when the runs are on the same
+ * line, which is how "Product  105  100  95" keeps its shape.
+ */
+function layoutText(items: any[]): string {
+  const lines = new Map<number, { x: number; str: string }[]>();
+  for (const it of items) {
+    const str = typeof it?.str === "string" ? it.str : "";
+    if (!str.trim()) continue;
+    const t = it.transform ?? [];
+    const x = Number(t[4] ?? 0);
+    const y = Number(t[5] ?? 0);
+    // 2pt buckets: tight enough to keep two table rows apart, loose enough to
+    // keep one row together when glyphs sit a hair off the baseline.
+    const key = Math.round(y / 2);
+    const list = lines.get(key) ?? [];
+    list.push({ x, str });
+    lines.set(key, list);
+  }
+
+  return [...lines.entries()]
+    // PDF y grows upward, so the top of the page is the largest y.
+    .sort((a, b) => b[0] - a[0])
+    .map(([, runs]) =>
+      runs
+        .sort((a, b) => a.x - b.x)
+        .map((r) => r.str.trim())
+        .filter(Boolean)
+        .join(" | "),
+    )
+    .filter((line) => line.trim().length > 0)
+    .join("\n")
+    .trim();
 }
 
 async function renderPage(page: any): Promise<string> {
