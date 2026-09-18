@@ -22,10 +22,9 @@ const Suggestion = z.object({
   support_email: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   business_hours: z.string().nullable().optional(),
-  pay_frequency: z.enum(["weekly", "monthly"]).nullable().optional(),
+  pay_frequency: z.string().nullable().optional(),
   contracting_speed_days: z.number().nullable().optional(),
   product_types: z.array(z.string()).nullable().optional(),
-  notes: z.string().nullable().optional(),
 });
 
 export type CarrierSuggestion = z.infer<typeof Suggestion>;
@@ -103,7 +102,6 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
     });
 
     const speed = Number(raw.contracting_speed_days);
-    const freq = String(raw.pay_frequency ?? "").toLowerCase();
 
     const suggestion: CarrierSuggestion = {
       website: cleanUrl(raw.website),
@@ -113,7 +111,7 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
       support_email: cleanEmail(raw.support_email),
       phone: cleanText(raw.phone, 40),
       business_hours: cleanText(raw.business_hours, 120),
-      pay_frequency: freq === "weekly" || freq === "monthly" ? (freq as "weekly" | "monthly") : null,
+      pay_frequency: cleanText(raw.pay_frequency, 60),
       contracting_speed_days:
         Number.isFinite(speed) && speed >= 0 && speed <= 365 ? Math.round(speed) : null,
       product_types: Array.isArray(raw.product_types)
