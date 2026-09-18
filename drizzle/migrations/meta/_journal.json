@@ -78,6 +78,13 @@
       "when": 1789499610440,
       "tag": "0010_attach_client_owner_on_reassign",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789735343667,
+      "tag": "0011_org_carrier_directory_fields",
+      "breakpoints": true
     }
   ]
 }

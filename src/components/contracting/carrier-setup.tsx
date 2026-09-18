@@ -31,6 +31,9 @@ import { MethodsEditor } from "@/components/contracting/carrier-methods-editor";
 import { CarrierWizard } from "@/components/contracting/carrier-wizard";
 import { EmptyState } from "@/components/contracting/shared";
 import { PRODUCT_TYPES } from "@/lib/products";
+import {
+  CarrierDirectoryFields, directoryPayload, directorySeed, type DirectoryValues,
+} from "@/components/contracting/carrier-directory-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -570,6 +573,10 @@ function CarrierDialog({
   // always accepted it — the dialog simply never offered a way to change it,
   // so every carrier kept whatever product_types it was created with (none).
   const [productTypes, setProductTypes] = useState<string[]>([]);
+  // The directory facts — phone, hours, speed, pay frequency, portal and
+  // training links. Held here rather than read off the shared library row,
+  // which an agency has no way to correct.
+  const [directory, setDirectory] = useState<DirectoryValues>({});
 
   // Reset when the dialog opens on a different carrier.
   const key = carrier?.id ?? (open ? "new" : "closed");
@@ -585,6 +592,7 @@ function CarrierDialog({
       internal_instructions: carrier?.internal_instructions ?? "",
     });
     setProductTypes(carrier?.product_types ?? []);
+    setDirectory(directorySeed(carrier));
     // `?? null` on the advance, `!== false` on the booleans: absent means
     // "never chosen" for one and "on, as it always has been" for the others.
     setAdvance((carrier?.default_advance_option as AdvanceOption | null) ?? null);
@@ -638,6 +646,8 @@ function CarrierDialog({
       default_advance_option: advance,
       visible_to_agents: publish.visible_to_agents,
       available_for_post_deal: publish.available_for_post_deal,
+      // The directory facts, owned by this agency.
+      ...directoryPayload(directory),
     });
   };
 
@@ -711,6 +721,24 @@ function CarrierDialog({
               />
             </div>
           ))}
+
+          <CarrierDirectoryFields
+            carrierName={
+              carrier?.name
+              || available.find((c) => c.id === carrierId)?.name
+              || newName.trim()
+            }
+            values={directory}
+            onChange={(k, v) => setDirectory((d) => ({ ...d, [k]: v }))}
+            onSuggested={(s) => {
+              if (s.contracting_email && !form.contracting_email) set("contracting_email", s.contracting_email);
+              if (s.support_email && !form.support_email) set("support_email", s.support_email);
+              if (Array.isArray(s.product_types) && productTypes.length === 0) {
+                setProductTypes(s.product_types);
+              }
+            }}
+          />
+
 
           <div>
             <Label htmlFor="max-advance-option">The most this carrier advances</Label>

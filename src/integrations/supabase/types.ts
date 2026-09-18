@@ -6345,11 +6345,14 @@ export type Database = {
       }
       org_carriers: {
         Row: {
+          agent_portal_url: string | null
           available_for_post_deal: boolean
+          business_hours: string | null
           carrier_id: string
           contracting_email: string | null
           contracting_phone: string | null
           contracting_portal_url: string | null
+          contracting_speed_days: number | null
           created_at: string
           created_by: string | null
           custom_statuses: Json
@@ -6374,6 +6377,8 @@ export type Database = {
           min_issue_age: number | null
           min_production_requirements: string | null
           organization_id: string
+          pay_frequency: string | null
+          phone: string | null
           product_types: string[]
           release_required: boolean
           release_requirements: string | null
@@ -6385,19 +6390,24 @@ export type Database = {
           surelc_url: string | null
           sync_error: string | null
           sync_source: string | null
+          training_url: string | null
           transfers_allowed: boolean
           turnaround_days: number | null
           updated_at: string
           updated_by: string | null
           visible_to_agents: boolean
+          website: string | null
           writing_number_scope: string
         }
         Insert: {
+          agent_portal_url?: string | null
           available_for_post_deal?: boolean
+          business_hours?: string | null
           carrier_id: string
           contracting_email?: string | null
           contracting_phone?: string | null
           contracting_portal_url?: string | null
+          contracting_speed_days?: number | null
           created_at?: string
           created_by?: string | null
           custom_statuses?: Json
@@ -6422,6 +6432,8 @@ export type Database = {
           min_issue_age?: number | null
           min_production_requirements?: string | null
           organization_id: string
+          pay_frequency?: string | null
+          phone?: string | null
           product_types?: string[]
           release_required?: boolean
           release_requirements?: string | null
@@ -6433,19 +6445,24 @@ export type Database = {
           surelc_url?: string | null
           sync_error?: string | null
           sync_source?: string | null
+          training_url?: string | null
           transfers_allowed?: boolean
           turnaround_days?: number | null
           updated_at?: string
           updated_by?: string | null
           visible_to_agents?: boolean
+          website?: string | null
           writing_number_scope?: string
         }
         Update: {
+          agent_portal_url?: string | null
           available_for_post_deal?: boolean
+          business_hours?: string | null
           carrier_id?: string
           contracting_email?: string | null
           contracting_phone?: string | null
           contracting_portal_url?: string | null
+          contracting_speed_days?: number | null
           created_at?: string
           created_by?: string | null
           custom_statuses?: Json
@@ -6470,6 +6487,8 @@ export type Database = {
           min_issue_age?: number | null
           min_production_requirements?: string | null
           organization_id?: string
+          pay_frequency?: string | null
+          phone?: string | null
           product_types?: string[]
           release_required?: boolean
           release_requirements?: string | null
@@ -6481,11 +6500,13 @@ export type Database = {
           surelc_url?: string | null
           sync_error?: string | null
           sync_source?: string | null
+          training_url?: string | null
           transfers_allowed?: boolean
           turnaround_days?: number | null
           updated_at?: string
           updated_by?: string | null
           visible_to_agents?: boolean
+          website?: string | null
           writing_number_scope?: string
         }
         Relationships: [
