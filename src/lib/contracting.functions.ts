@@ -108,20 +108,28 @@ export const listCarriers = createServerFn({ method: "GET" })
     const orgId = await getOrgId(supabase, userId);
     if (!orgId) return { carriers: [] as any[] };
 
+    // Only what the agency has actually switched on. "Not archived" was too
+    // generous: a paused or not-contracted carrier still sat in the directory as
+    // if agents could write it, and the agency had no control that removed it.
     const { data: orgRows, error: orgErr } = await supabase
       .from("org_carriers")
-      .select("carrier_id, status")
-      .eq("organization_id", orgId);
+      .select(
+        "carrier_id, status, enabled, phone, business_hours, website," +
+        " contracting_speed_days, pay_frequency, agent_portal_url, training_url," +
+        " turnaround_days, support_phone",
+      )
+      .eq("organization_id", orgId)
+      .eq("status", "active")
+      .eq("enabled", true);
     if (orgErr) throw new Error(orgErr.message);
 
-    const allowed = Array.from(
-      new Set(
-        (orgRows ?? [])
-          .filter((r: any) => r.status !== "archived" && r.status !== "terminated")
-          .map((r: any) => r.carrier_id)
-          .filter(Boolean),
-      ),
-    ) as string[];
+    // The agency's own values, keyed by carrier. These win over the shared
+    // library row, which an agency cannot edit and which is only a fallback.
+    const overrides = new Map<string, any>();
+    for (const r of (orgRows ?? []) as any[]) {
+      if (r.carrier_id) overrides.set(r.carrier_id, r);
+    }
+    const allowed = Array.from(overrides.keys());
     if (allowed.length === 0) return { carriers: [] as any[] };
 
     const { data, error } = await supabase
@@ -139,7 +147,28 @@ export const listCarriers = createServerFn({ method: "GET" })
       .eq("status", "active");
     const activeSet = new Set((active ?? []).map((r: any) => r.carrier_id));
 
-    return { carriers: (data ?? []).map((c: any) => ({ ...c, my_active: activeSet.has(c.id) })) };
+    const pick = <T,>(mine: T | null | undefined, library: T | null | undefined) =>
+      mine === null || mine === undefined || mine === "" ? library : mine;
+
+    return {
+      carriers: (data ?? []).map((c: any) => {
+        const o = overrides.get(c.id) ?? {};
+        return {
+          ...c,
+          phone: pick(o.phone, c.phone),
+          hours: pick(o.business_hours, c.hours),
+          website: pick(o.website, c.website),
+          contracting_speed_days: pick(
+            o.contracting_speed_days ?? o.turnaround_days,
+            c.contracting_speed_days,
+          ),
+          pay_frequency: pick(o.pay_frequency, c.pay_frequency),
+          agent_portal_url: pick(o.agent_portal_url, c.agent_portal_url),
+          training_url: pick(o.training_url, c.training_url),
+          my_active: activeSet.has(c.id),
+        };
+      }),
+    };
   });
 
 
