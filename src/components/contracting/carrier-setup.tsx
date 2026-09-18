@@ -31,6 +31,9 @@ import { MethodsEditor } from "@/components/contracting/carrier-methods-editor";
 import { CarrierWizard } from "@/components/contracting/carrier-wizard";
 import { EmptyState } from "@/components/contracting/shared";
 import { PRODUCT_TYPES } from "@/lib/products";
+import {
+  CarrierDirectoryFields, directoryPayload, directorySeed, type DirectoryValues,
+} from "@/components/contracting/carrier-directory-fields";
 import { cn } from "@/lib/utils";
 
 /**
@@ -643,6 +646,8 @@ function CarrierDialog({
       default_advance_option: advance,
       visible_to_agents: publish.visible_to_agents,
       available_for_post_deal: publish.available_for_post_deal,
+      // The directory facts, owned by this agency.
+      ...directoryPayload(directory),
     });
   };
 
