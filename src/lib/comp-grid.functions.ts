@@ -257,6 +257,20 @@ function expandCompact(out: Compact): GridRow[] {
   return rows;
 }
 
+/** Peel a one-element array or a single wrapper key off the answer. */
+function unwrapAnswer(value: unknown): unknown {
+  let v: any = value;
+  for (let i = 0; i < 3; i++) {
+    if (Array.isArray(v) && v.length === 1) { v = v[0]; continue; }
+    if (v && typeof v === "object" && !("products" in v) && !("rows" in v) && !("levels" in v)) {
+      const keys = Object.keys(v);
+      if (keys.length === 1 && v[keys[0]] && typeof v[keys[0]] === "object") { v = v[keys[0]]; continue; }
+    }
+    break;
+  }
+  return v;
+}
+
 /** Levels the answer actually filled in, across every product. */
 function coveredLevels(out: Compact): Set<string> {
   const seen = new Set<string>();
@@ -345,7 +359,11 @@ export const extractGrid = createServerFn({ method: "POST" })
             },
           ],
         });
-        const parsed = CompactSchema.safeParse(value);
+        // Models sometimes wrap the object in a one-element array, or under a
+        // key like "grid". Unwrap before validating rather than calling a
+        // perfectly good answer malformed.
+        const unwrapped = unwrapAnswer(value);
+        const parsed = CompactSchema.safeParse(unwrapped);
         if (!parsed.success) throw new Error("Couldn't make sense of that grid — try a clearer copy.");
         return { out: parsed.data, truncated };
       };
