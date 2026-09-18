@@ -223,8 +223,10 @@ check("estimates are saved as estimates", /is_estimated: r\.is_estimated \?\? fa
 check("the model keys rows on (product, band)", /bandIdent/.test(MODEL), true);
 check("the age-null hardcoding cannot return",
   /age_group_min: null,\s*\n\s*age_group_max: null,\s*\n\s*\}\);/.test(strip(MODEL)), false);
+// Wording moved from per-cell rows to per-product entries when the extraction
+// answer was compacted; the rule it enforces is the same one.
 check("the extraction prompt forbids flattening age bands",
-  /one row PER age range/.test(FNS), true);
+  /one (row|product entry) PER age range/.test(FNS), true);
 check("extraction output can no longer be truncated at 4000 tokens", /maxTokens: 4000/.test(strip(FNS)), false);
 
 // Reordering.
