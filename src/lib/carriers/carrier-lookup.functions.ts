@@ -22,10 +22,9 @@ const Suggestion = z.object({
   support_email: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   business_hours: z.string().nullable().optional(),
-  pay_frequency: z.enum(["weekly", "monthly"]).nullable().optional(),
+  pay_frequency: z.string().nullable().optional(),
   contracting_speed_days: z.number().nullable().optional(),
   product_types: z.array(z.string()).nullable().optional(),
-  notes: z.string().nullable().optional(),
 });
 
 export type CarrierSuggestion = z.infer<typeof Suggestion>;
@@ -68,10 +67,14 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
     // so the gateway helper must not be reachable from the client bundle.
     const { callAiJson } = await import("@/lib/ai-gateway");
 
+    // The token ceiling matters more than it looks: this model thinks before it
+    // answers, and at 800 the answer was being cut off mid-object — so the JSON
+    // never closed and every lookup came back as a JSON error. Room to finish,
+    // and "no prose, no explanation" so the budget goes on the answer.
     const raw = await callAiJson<Record<string, unknown>>({
       model: "google/gemini-3.8-flash",
       temperature: 0,
-      maxTokens: 800,
+      maxTokens: 4000,
       messages: [
         {
           role: "system",
@@ -79,10 +82,12 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
             "You help an insurance agency fill in a carrier's public contact details.",
             "Answer only with facts you are confident about for the named US life insurance carrier.",
             "Use null for anything you are not sure of. Never guess a URL, email, or phone number.",
-            "Return JSON with exactly these keys:",
+            "Reply with one JSON object and nothing else — no prose, no explanation, no markdown.",
+            "Keep every value short. Use exactly these keys:",
             "website, agent_portal_url, training_url, contracting_email, support_email,",
-            "phone, business_hours, pay_frequency, contracting_speed_days, product_types, notes.",
-            "pay_frequency is 'weekly', 'monthly', or null. contracting_speed_days is a number of days or null.",
+            "phone, business_hours, pay_frequency, contracting_speed_days, product_types.",
+            "pay_frequency is a short phrase such as 'Weekly', 'Monthly', 'Twice a month', or null.",
+            "contracting_speed_days is a number of days or null.",
             "product_types is an array of product names (e.g. Final Expense, Term Life) or null.",
             "business_hours is a short string such as 'Mon-Fri 8am-6pm ET'.",
           ].join(" "),
@@ -96,8 +101,13 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
       ],
     });
 
-    const speed = Number(raw.contracting_speed_days);
-    const freq = String(raw.pay_frequency ?? "").toLowerCase();
+    // Often answered as a range ("5-10 days"). Take the first number rather
+    // than dropping a usable answer on the floor.
+    const speed = Number(
+      typeof raw.contracting_speed_days === "number"
+        ? raw.contracting_speed_days
+        : (String(raw.contracting_speed_days ?? "").match(/\d+/)?.[0] ?? NaN),
+    );
 
     const suggestion: CarrierSuggestion = {
       website: cleanUrl(raw.website),
@@ -107,7 +117,7 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
       support_email: cleanEmail(raw.support_email),
       phone: cleanText(raw.phone, 40),
       business_hours: cleanText(raw.business_hours, 120),
-      pay_frequency: freq === "weekly" || freq === "monthly" ? (freq as "weekly" | "monthly") : null,
+      pay_frequency: cleanText(raw.pay_frequency, 60),
       contracting_speed_days:
         Number.isFinite(speed) && speed >= 0 && speed <= 365 ? Math.round(speed) : null,
       product_types: Array.isArray(raw.product_types)
@@ -116,7 +126,6 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
             .filter((p): p is string => Boolean(p))
             .slice(0, 20)
         : null,
-      notes: cleanText(raw.notes, 400),
     };
 
     return { suggestion };
