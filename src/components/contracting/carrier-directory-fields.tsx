@@ -48,8 +48,9 @@ export function directoryPayload(v: DirectoryValues) {
     phone: clean(v.phone),
     business_hours: clean(v.business_hours),
     contracting_speed_days: days ? Number(days) : null,
-    pay_frequency: (freq === "weekly" || freq === "monthly" ? freq : null) as
-      | "weekly" | "monthly" | null,
+    // Whatever the carrier actually does — the presets are suggestions, not
+    // the only permitted answers.
+    pay_frequency: freq ? freq.slice(0, 60) : null,
     website: url(v.website),
     agent_portal_url: url(v.agent_portal_url),
     training_url: url(v.training_url),
