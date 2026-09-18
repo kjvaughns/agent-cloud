@@ -154,16 +154,28 @@ export function CarrierDirectoryFields({
     onError: (e: any) => toast.error(e?.message ?? "Could not look that carrier up"),
   });
 
-  const text = (key: string, label: string, placeholder?: string) => (
+  const errors = directoryErrors(values);
+
+  const text = (key: string, label: string, placeholder?: string, hint?: string) => (
     <div>
-      <Label htmlFor={`dir-${key}`}>{label}</Label>
+      <Label htmlFor={`dir-${key}`} className="text-xs text-text-dim">{label}</Label>
       <Input
         id={`dir-${key}`}
         value={values[key] ?? ""}
         onChange={(e) => onChange(key, e.target.value)}
         placeholder={placeholder}
-        className={cn("mt-1", filled.includes(key) && "border-primary/60")}
+        aria-invalid={Boolean(errors[key])}
+        className={cn(
+          "mt-1",
+          filled.includes(key) && !errors[key] && "border-primary/60",
+          errors[key] && "border-destructive",
+        )}
       />
+      {errors[key]
+        ? <p className="mt-1 text-[11px] text-destructive">{errors[key]}</p>
+        : hint
+          ? <p className="mt-1 text-[11px] text-text-dim">{hint}</p>
+          : null}
     </div>
   );
 
