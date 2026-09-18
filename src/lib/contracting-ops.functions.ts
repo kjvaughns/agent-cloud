@@ -442,7 +442,9 @@ const OrgCarrierSchema = z.object({
   phone: z.string().trim().max(40).nullable().optional(),
   business_hours: z.string().trim().max(120).nullable().optional(),
   contracting_speed_days: z.number().int().min(0).max(365).nullable().optional(),
-  pay_frequency: z.enum(["weekly", "monthly"]).nullable().optional(),
+  // Free text, not two options: carriers pay daily, twice a month, every two
+  // weeks, on a lag. A closed list made an agency store something untrue.
+  pay_frequency: z.string().trim().max(60).nullable().optional(),
   website: z.string().trim().url().max(300).nullable().optional(),
   agent_portal_url: z.string().trim().url().max(300).nullable().optional(),
   training_url: z.string().trim().url().max(300).nullable().optional(),
