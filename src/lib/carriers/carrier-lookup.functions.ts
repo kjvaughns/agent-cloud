@@ -101,7 +101,13 @@ export const lookupCarrierDetails = createServerFn({ method: "POST" })
       ],
     });
 
-    const speed = Number(raw.contracting_speed_days);
+    // Often answered as a range ("5-10 days"). Take the first number rather
+    // than dropping a usable answer on the floor.
+    const speed = Number(
+      typeof raw.contracting_speed_days === "number"
+        ? raw.contracting_speed_days
+        : (String(raw.contracting_speed_days ?? "").match(/\d+/)?.[0] ?? NaN),
+    );
 
     const suggestion: CarrierSuggestion = {
       website: cleanUrl(raw.website),
