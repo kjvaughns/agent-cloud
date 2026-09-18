@@ -725,9 +725,8 @@ function CarrierDialog({
           <CarrierDirectoryFields
             carrierName={
               carrier?.name
-              ?? newName.trim()
-              ?? ""
-              ?? ""
+              || available.find((c) => c.id === carrierId)?.name
+              || newName.trim()
             }
             values={directory}
             onChange={(k, v) => setDirectory((d) => ({ ...d, [k]: v }))}
