@@ -1,3 +1,4 @@
+import { toIsoDate } from "./import-normalize";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -331,7 +332,7 @@ export const previewCarrierSync = createServerFn({ method: "POST" })
         name_mismatch: matchedBy === "policy_number" && row.client_name ? !nameSimilar(clientName, row.client_name) : false,
         matched_by: matchedBy,
         ...(fillNumber ? { set_policy_number: fillNumber } : {}),
-        ...(row.status_effective_date ? { status_effective_date: row.status_effective_date.slice(0, 10) } : {}),
+        ...(toIsoDate(row.status_effective_date) ? { status_effective_date: toIsoDate(row.status_effective_date)! } : {}),
       });
     }
 
@@ -409,7 +410,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
     const byStatus = new Map<string, string[]>();
     for (const u of data.updates) {
       if (!allowed.has(u.policy_id)) continue;
-      const key = `${u.new_status}|${u.status_effective_date ?? now.slice(0, 10)}`;
+      const key = `${u.new_status}|${toIsoDate(u.status_effective_date) ?? now.slice(0, 10)}`;
       const list = byStatus.get(key) ?? [];
       list.push(u.policy_id);
       byStatus.set(key, list);
