@@ -25,13 +25,14 @@
  * has not necessarily agreed to name which of their agents wrote what. The
  * narrower key is the default the UI offers first.
  */
-export const API_SCOPES = ["production:read", "producers:read", "carriers:read"] as const;
+export const API_SCOPES = ["production:read", "producers:read", "carriers:read", "policies:read"] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 
 export const SCOPE_LABEL: Record<ApiScope, string> = {
   "production:read": "Agency totals — premium, policies and placed premium for a period",
   "producers:read": "Per-agent breakdown — each producer's name and their totals",
   "carriers:read": "Carrier directory — the agency's live carriers with contacts and links",
+  "policies:read": "Policy detail — each policy's number, carrier, product, status, premium and agent",
 };
 
 /**
