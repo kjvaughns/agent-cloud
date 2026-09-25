@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/v1/carriers")({
         const { data: rows, error } = await supabaseAdmin
           .from("org_carriers")
           .select(
-            "id, status, enabled, phone, business_hours, contracting_speed_days, pay_frequency, website, agent_portal_url, training_url, product_types, carrier:carriers(name, logo_url, website, phone, hours, pay_frequency, contracting_speed_days, agent_portal_url, training_url)",
+            "id, status, enabled, phone, business_hours, contracting_speed_days, pay_frequency, website, agent_portal_url, training_url, product_types, carriers(name, logo_url, website, phone, hours, pay_frequency, contracting_speed_days, agent_portal_url, training_url)",
           )
           .eq("organization_id", orgId)
           .eq("enabled", true)
