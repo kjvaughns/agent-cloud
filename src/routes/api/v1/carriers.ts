@@ -60,7 +60,7 @@ export const Route = createFileRoute("/api/v1/carriers")({
 
         const carriers = ((rows ?? []) as any[])
           .map((r) => {
-            const lib = r.carrier ?? {};
+            const lib = r.carriers ?? {};
             const pick = (own: unknown, fallback: unknown) =>
               own !== null && own !== undefined && own !== "" ? own : (fallback ?? null);
             return {
