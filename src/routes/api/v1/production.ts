@@ -159,6 +159,42 @@ export const Route = createFileRoute("/api/v1/production")({
             .sort((a, b) => b.premium - a.premium);
         }
 
+        // Opt-in policy-level detail: policy number, carrier, product, etc.
+        // No client names or contact data are ever included.
+        if ((key.scopes ?? []).includes("policies:read")) {
+          const all = rows as any[];
+          const carrierIds = [...new Set(all.map((r) => r.carrier_id).filter(Boolean))];
+          const agentIdsInRows = [...new Set(all.map((r) => r.agent_id).filter(Boolean))];
+          const [{ data: carriers }, { data: people }] = await Promise.all([
+            carrierIds.length
+              ? supabaseAdmin.from("carriers").select("id, name").in("id", carrierIds)
+              : Promise.resolve({ data: [] }),
+            agentIdsInRows.length
+              ? supabaseAdmin.from("profiles").select("id, first_name, last_name").in("id", agentIdsInRows)
+              : Promise.resolve({ data: [] }),
+          ]);
+          const cName = new Map<string, string>(((carriers ?? []) as any[]).map((c) => [c.id, c.name]));
+          const aName = new Map<string, string>(((people ?? []) as any[]).map((p) => [
+            p.id, `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim(),
+          ]));
+          body.policies = all.map((r) => ({
+            id: r.id,
+            policy_number: r.policy_number ?? null,
+            carrier_id: r.carrier_id ?? null,
+            carrier: (r.carrier_id && cName.get(r.carrier_id)) || r.carrier_name || null,
+            product: r.product ?? null,
+            status: r.status ?? null,
+            agent_id: r.agent_id ?? null,
+            agent_name: (r.agent_id && aName.get(r.agent_id)) || null,
+            annual_premium: r.annual_premium != null ? round2(Number(r.annual_premium)) : null,
+            monthly_premium: r.monthly_premium != null ? round2(Number(r.monthly_premium)) : null,
+            face_amount: r.face_amount != null ? Number(r.face_amount) : null,
+            effective_date: r.effective_date ?? null,
+            production_date: r.production_date ?? null,
+            posted_at: r.posted_at ?? null,
+          }));
+        }
+
         return apiJson(body);
       },
     },
