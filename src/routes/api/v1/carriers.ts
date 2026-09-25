@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/v1/carriers")({
         const { data: rows, error } = await supabaseAdmin
           .from("org_carriers")
           .select(
-            "id, status, enabled, phone, business_hours, contracting_speed_days, pay_frequency, website, agent_portal_url, training_url, products, carrier:carriers(name, logo_url, website, phone, hours, pay_frequency, contracting_speed_days, agent_portal_url, training_url)",
+            "id, status, enabled, phone, business_hours, contracting_speed_days, pay_frequency, website, agent_portal_url, training_url, product_types, carrier:carriers(name, logo_url, website, phone, hours, pay_frequency, contracting_speed_days, agent_portal_url, training_url)",
           )
           .eq("organization_id", orgId)
           .eq("enabled", true)
@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/v1/carriers")({
               website: pick(r.website, lib.website),
               agent_portal_url: pick(r.agent_portal_url, lib.agent_portal_url),
               training_url: pick(r.training_url, lib.training_url),
-              products: Array.isArray(r.products) ? r.products : [],
+              products: Array.isArray(r.product_types) ? r.product_types : [],
             };
           })
           .sort((a, b) => a.name.localeCompare(b.name));
