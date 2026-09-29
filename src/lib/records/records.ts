@@ -9,8 +9,8 @@
  * **The measure is production, not a second definition of it.** Rows are
  * bucketed by `production_date` and summed with `premiumOf`, both from
  * `lib/production/source.ts`, so a record can never disagree with the
- * leaderboard printed above it. A status that is not production is not a
- * record either.
+ * leaderboard printed above it. Exception: not-taken policies still count
+ * toward records, because they were written in that period.
  *
  * **Buckets are UTC days.** `saleDateToTimestamp` stamps a sale at midday UTC
  * precisely so a local-midnight cast cannot move it a day; bucketing on the UTC
@@ -22,7 +22,12 @@
  * exercised by `scripts/records-check.ts`.
  */
 
-import { premiumOf, productionDate, countsAsProduction, type ProductionRow } from "@/lib/production/source";
+import { premiumOf, productionDate, type ProductionRow } from "@/lib/production/source";
+
+const NOT_WRITTEN = new Set(["withdrawn", "carrier_na"]);
+function countsAsWritten(row: ProductionRow): boolean {
+  return !NOT_WRITTEN.has(String((row as any).status ?? ""));
+}
 
 export const RECORD_KINDS = ["producer", "leader", "agency"] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -111,7 +116,11 @@ function ownByBucket(rows: ProductionRow[], period: RecordPeriod) {
   const own = new Map<string, Map<string, number>>();
   const agency = new Map<string, number>();
   for (const row of rows) {
-    if (!countsAsProduction(row)) continue;
+    // Records measure business WRITTEN in the period. A policy the client
+    // later did not take was still written that week, and a record must not
+    // vanish because of what happened after it was set. Only rows that were
+    // never real business (withdrawn, carrier-not-applicable) are dropped.
+    if (!countsAsWritten(row)) continue;
     const date = productionDate(row);
     if (!date) continue;
     const key = bucketKey(period, date);
