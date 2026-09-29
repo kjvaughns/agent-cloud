@@ -92,11 +92,17 @@ export const getAgencyFeed = createServerFn({ method: "GET" })
       .select("id, first_name, last_name, created_at")
       .eq("upline_id", userId);
 
-    const agentIds = (agents ?? []).map((r: any) => r.id);
-
     // Real onboarding completion from get_team_downline (agent_completion SQL fn):
     // pct + missing items across profile fields AND documents (E&O, banking, DL, AML).
     const { data: downlineRows } = await supabase.rpc("get_team_downline");
+    // The feed covers the whole downline, not just direct recruits, so a deal
+    // written two levels down still shows up for the leader above.
+    const agentIds = Array.from(
+      new Set<string>([
+        ...(agents ?? []).map((r: any) => r.id),
+        ...((downlineRows ?? []) as any[]).map((r) => r.id).filter((id: string) => id && id !== userId),
+      ]),
+    );
     const completionById = new Map<string, { pct: number; missing: string[] }>(
       ((downlineRows ?? []) as any[]).map((r) => [
         r.id,

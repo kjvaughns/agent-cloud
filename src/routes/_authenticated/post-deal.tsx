@@ -16,6 +16,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { useForm, useFieldArray } from "react-hook-form";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
 import { productsForCarrier } from "@/lib/products";
+import { WritingAgentPicker } from "@/components/deals/writing-agent-picker";
 import { saleMonthLabel, todaySaleDate } from "@/lib/sale-date";
 import { getCarrierDealOptions } from "@/lib/compensation/deal-pricing.server";
 import { Button } from "@/components/ui/button";
@@ -244,6 +245,7 @@ function PostDealPage() {
     };
   }, [paymentMethod, clientDob]);
   const selectedCarrierId = watch("carrier_id");
+  const [writingAgentId, setWritingAgentId] = useState("");
   const carrierMissing =
     selectedCarrierId && activeCarrierIds && !activeCarrierIds.includes(selectedCarrierId);
   const selectedCarrier = carriers?.find((c) => c.id === selectedCarrierId);
@@ -325,6 +327,7 @@ function PostDealPage() {
             percentage: Number(b.percentage || 0),
           })),
           notes: d.notes,
+          writing_agent_id: writingAgentId || undefined,
           // Omitted entirely when the agent left both blank, so posting a deal
           // before billing is arranged writes no client_banking row at all.
           billing: {
@@ -488,6 +491,14 @@ function PostDealPage() {
               <CardTitle className="text-base">Policy Details</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <WritingAgentPicker
+                  value={writingAgentId}
+                  onChange={setWritingAgentId}
+                  carrierId={selectedCarrierId || undefined}
+                  preferredAgentId={(prefill?.client as any)?.agent_id ?? null}
+                />
+              </div>
               <div className="col-span-2">
                 <Label>Carrier *</Label>
                 <Select value={selectedCarrierId} onValueChange={(v) => setValue("carrier_id", v)}>

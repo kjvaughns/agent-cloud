@@ -17,7 +17,7 @@ export const searchClients = createServerFn({ method: "POST" })
     const term = `%${data.q.trim()}%`;
     const { data: rows, error } = await context.supabase
       .from("clients")
-      .select("id, first_name, last_name, phone, date_of_birth")
+      .select("id, agent_id, first_name, last_name, phone, date_of_birth")
       .or(`first_name.ilike.${term},last_name.ilike.${term},phone.ilike.${term}`)
       .limit(10);
     if (error) throw new Error(error.message);
@@ -489,6 +489,7 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
 
     return {
       client: {
+        agent_id: (client as any).agent_id ?? null,
         id: client.id as string,
         first_name: client.first_name ?? "",
         last_name: client.last_name ?? "",
