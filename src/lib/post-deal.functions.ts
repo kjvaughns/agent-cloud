@@ -17,7 +17,7 @@ export const searchClients = createServerFn({ method: "POST" })
     const term = `%${data.q.trim()}%`;
     const { data: rows, error } = await context.supabase
       .from("clients")
-      .select("id, first_name, last_name, phone, date_of_birth")
+      .select("id, agent_id, first_name, last_name, phone, date_of_birth")
       .or(`first_name.ilike.${term},last_name.ilike.${term},phone.ilike.${term}`)
       .limit(10);
     if (error) throw new Error(error.message);
@@ -130,6 +130,13 @@ const PostDealSchema = z.object({
      */
     sale_date: z.string().optional().or(z.literal("")),
   }),
+  /**
+   * Who wrote the business. Defaults to the signed-in user. An upline or the
+   * agency owner posting a downline's deal names that agent here, so the
+   * production and commissions land on the agent (and their writing number
+   * for the carrier), not on whoever typed it in.
+   */
+  writing_agent_id: z.string().uuid().optional(),
   beneficiaries: z.array(BeneficiarySchema).max(10),
   notes: z.string().max(2000).optional().or(z.literal("")),
   /**
@@ -155,6 +162,19 @@ export const postDeal = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PostDealSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const writingAgentId = data.writing_agent_id ?? userId;
+    const forSomeoneElse = writingAgentId !== userId;
+    // The client that writes the policy. The caller's own client when they
+    // wrote it; the privileged one only after proving they may post for this
+    // agent (their downline, or the agency owner).
+    let writer: any = supabase;
+    let writerOrgId: string | null = null;
+    if (forSomeoneElse) {
+      await assertCanPostFor(supabase, userId, writingAgentId);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      writer = supabaseAdmin;
+      writerOrgId = await getMyPrimaryOrgId(writingAgentId);
+    }
 
     // Validate beneficiary percentages
     if (data.beneficiaries.length > 0) {
@@ -170,7 +190,7 @@ export const postDeal = createServerFn({ method: "POST" })
       const { data: newClient, error: clientErr } = await supabase
         .from("clients")
         .insert({
-          agent_id: userId,
+          agent_id: writingAgentId,
           first_name: data.client.first_name,
           last_name: data.client.last_name,
           phone: data.client.phone,
@@ -185,11 +205,12 @@ export const postDeal = createServerFn({ method: "POST" })
 
     // Create policy
     const annual = Number((data.policy.monthly_premium * 12).toFixed(2));
-    const { data: policy, error: polErr } = await supabase
+    const { data: policy, error: polErr } = await writer
       .from("policies")
       .insert({
         client_id: clientId,
-        agent_id: userId,
+        agent_id: writingAgentId,
+        ...(writerOrgId ? { organization_id: writerOrgId } : {}),
         carrier_id: data.policy.carrier_id,
         product: data.policy.product,
         policy_number: data.policy.policy_number || null,
@@ -252,9 +273,9 @@ export const postDeal = createServerFn({ method: "POST" })
     let compensation: { ok: boolean; messages: string[] } = { ok: true, messages: [] };
     try {
       const clientName = `${data.client.first_name} ${data.client.last_name}`.trim();
-      await calculateAndInsertAllCommissions(supabase, {
+      await calculateAndInsertAllCommissions(writer, {
         policyId: policy.id,
-        agentId: userId,
+        agentId: writingAgentId,
         carrierId: data.policy.carrier_id,
         product: data.policy.product,
         monthlyPremium: data.policy.monthly_premium,
@@ -266,7 +287,7 @@ export const postDeal = createServerFn({ method: "POST" })
       // read that back rather than inferring from the absence of an exception.
       // Cast: generated DB types predate 20260814210000. Same pattern the
       // other modules use until they are regenerated.
-      const { data: issue } = await (supabase as any)
+      const { data: issue } = await (writer as any)
         .from("commission_setup_issues")
         .select("messages")
         .eq("policy_id", policy.id)
@@ -324,6 +345,96 @@ export const postDeal = createServerFn({ method: "POST" })
     return { policyId: policy.id, clientId, compensation };
   });
 
+// ── Writing agent ───────────────────────────────────────────────────────────
+
+/** Throws unless `userId` may post business on behalf of `agentId`. */
+async function assertCanPostFor(supabase: any, userId: string, agentId: string) {
+  if (agentId === userId) return;
+  const { data: inDownline } = await supabase.rpc("is_in_downline", { _upline: userId, _target: agentId });
+  if (inDownline) return;
+  const agentOrg = await getMyPrimaryOrgId(agentId);
+  if (agentOrg) {
+    const { data: owner } = await supabase.rpc("is_org_owner", { _org: agentOrg });
+    if (owner) return;
+  }
+  throw new Error("You can only post deals for yourself or agents in your downline.");
+}
+
+/** The agents the caller may post a deal for: themselves plus their whole downline (the whole agency for the owner). */
+export const listWritingAgents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context as any;
+    const out = new Map<string, { id: string; name: string }>();
+    const name = (r: any) => `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "Unnamed agent";
+    const { data: me } = await supabase.from("profiles").select("id, first_name, last_name").eq("id", userId).maybeSingle();
+    if (me) out.set(me.id, { id: me.id, name: `${name(me)} (me)` });
+    const { data: down } = await supabase.rpc("get_team_downline");
+    for (const r of (down ?? []) as any[]) {
+      if (r.status === "inactive" || r.status === "terminated") continue;
+      if (!out.has(r.id)) out.set(r.id, { id: r.id, name: name(r) });
+    }
+    const orgId = await getMyPrimaryOrgId(userId);
+    if (orgId) {
+      const { data: owner } = await supabase.rpc("is_org_owner", { _org: orgId });
+      if (owner) {
+        const { data: rows } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, status")
+          .eq("organization_id", orgId);
+        for (const r of (rows ?? []) as any[]) {
+          if (r.status === "inactive" || r.status === "terminated") continue;
+          if (!out.has(r.id)) out.set(r.id, { id: r.id, name: name(r) });
+        }
+      }
+    }
+    const list = [...out.values()];
+    const self = list.filter((a) => a.id === userId);
+    return [...self, ...list.filter((a) => a.id !== userId).sort((a, b) => a.name.localeCompare(b.name))];
+  });
+
+/** The writing number the agent holds with this carrier, if any. */
+export const getWritingNumberFor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ agent_id: z.string().uuid(), carrier_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context as any;
+    await assertCanPostFor(supabase, userId, data.agent_id);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ocs } = await (supabaseAdmin as any)
+      .from("org_carriers")
+      .select("id")
+      .eq("carrier_id", data.carrier_id);
+    const ocIds = ((ocs ?? []) as any[]).map((r) => r.id);
+    if (ocIds.length === 0) return { writing_number: null as string | null, status: null as string | null };
+    const { data: rows } = await (supabaseAdmin as any)
+      .from("writing_numbers")
+      .select("writing_number, status")
+      .eq("agent_id", data.agent_id)
+      .in("org_carrier_id", ocIds)
+      .order("status", { ascending: true });
+    const best = ((rows ?? []) as any[]).find((r) => r.status === "active") ?? (rows ?? [])[0];
+    return { writing_number: (best?.writing_number as string) ?? null, status: (best?.status as string) ?? null };
+  });
+
+/**
+ * Deletes a policy (and, by cascade, its commission rows and history).
+ * The database decides who may: the writing agent or the agency owner.
+ */
+export const deletePolicy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as any;
+    const { error, count } = await supabase
+      .from("policies")
+      .delete({ count: "exact" })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    if (!count) throw new Error("You do not have permission to delete this policy. Only the writing agent or the agency owner can.");
+    return { ok: true };
+  });
+
 // ── Prefill from the pipeline ───────────────────────────────────────────────
 
 /**
@@ -378,6 +489,7 @@ export const getClientDealPrefill = createServerFn({ method: "POST" })
 
     return {
       client: {
+        agent_id: (client as any).agent_id ?? null,
         id: client.id as string,
         first_name: client.first_name ?? "",
         last_name: client.last_name ?? "",

@@ -35,7 +35,9 @@ import {
   logContact, saveNeedsAnswer, scheduleEvent, upsertClientHealth, upsertClientBanking,
   listCarriers, updatePolicy, markClientSold,
 } from "@/lib/pipeline.functions";
-import { postDeal } from "@/lib/post-deal.functions";
+import { postDeal, deletePolicy } from "@/lib/post-deal.functions";
+import { WritingAgentPicker } from "@/components/deals/writing-agent-picker";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { encodePolicyDraft, postDealStatus, stashPolicyDraft, clearStashedPolicyDraft, type PolicyDraft } from "@/lib/deals/policy-draft";
 import { saleMonthLabel, timestampToSaleDate, todaySaleDate } from "@/lib/sale-date";
 import { NotesTab } from "@/components/pipeline/notes-tab";
@@ -1027,6 +1029,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
   const qc = useQueryClient();
   const clientId = client.id as string;
   const [form, setForm] = useState(blankPolicyForm);
+  const [writingAgentId, setWritingAgentId] = useState("");
 
   // Publish what has been typed so the header's "Post Deal" button can take it
   // along instead of navigating away and losing it. Read-only from the
@@ -1072,6 +1075,7 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         status: "issued_not_paid" as const,
       },
       beneficiaries: [],
+      writing_agent_id: writingAgentId || undefined,
     }}),
     onSuccess: (res: any) => {
       invalidatePolicyViews(qc);
@@ -1113,6 +1117,12 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
 
   return (
     <div className="rounded-lg border bg-background p-4 space-y-3">
+      <WritingAgentPicker
+        value={writingAgentId}
+        onChange={setWritingAgentId}
+        carrierId={form.carrier_id || undefined}
+        preferredAgentId={client.agent_id ?? null}
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Carrier">
           <Select value={form.carrier_id} onValueChange={v => setForm(f => ({...f, carrier_id: v}))}>
@@ -1176,6 +1186,19 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
 function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; banking?: any }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const deleteFn = useServerFn(deletePolicy);
+  const del = useMutation({
+    mutationFn: () => deleteFn({ data: { id: pol.id } }),
+    onSuccess: () => {
+      invalidatePolicyViews(qc);
+      void syncRecordsAfterPolicyWrite(qc);
+      qc.invalidateQueries({ queryKey: ["pipeline", "detail", clientId] });
+      toast.success("Policy deleted");
+      setConfirmDelete(false);
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed to delete policy"),
+  });
   const [form, setForm] = useState({
     carrier_id: pol.carrier_id ?? "",
     policy_number: pol.policy_number ?? "",
@@ -1236,11 +1259,34 @@ function PolicyRow({ pol, clientId, banking }: { pol: any; clientId: string; ban
             <span className={cn("text-[10px] px-2 py-0.5 rounded-full border font-medium", statusCls[pol.status ?? ""] ?? "bg-muted text-muted-foreground border-border")}>
               {pol.status ?? "—"}
             </span>
-            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditing(true)}>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" aria-label="Edit policy" onClick={() => setEditing(true)}>
               <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" aria-label="Delete policy" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
+        <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this policy?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pol.carriers?.name ?? "Policy"} #{pol.policy_number ?? "—"} and its commissions will be removed from production, the leaderboard and finances. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={del.isPending}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={del.isPending}
+                onClick={(e) => { e.preventDefault(); del.mutate(); }}
+              >
+                {del.isPending ? "Deleting..." : "Delete policy"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <div className="px-4 pb-3 pt-0 text-xs grid grid-cols-2 gap-1 text-muted-foreground border-t">
           <div><span className="font-medium text-foreground">Face:</span> {money(pol.face_amount)}</div>
           <div><span className="font-medium text-foreground">Monthly:</span> {money(pol.monthly_premium)}</div>
