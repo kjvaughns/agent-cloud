@@ -120,10 +120,23 @@ function SyncWizard() {
   /** A PDF, a scan or a photo: read the pages, then let the assistant pull the rows. */
   async function rowsFromDocument(f: File): Promise<{ headers: string[]; rows: Record<string, string>[] } | null> {
     const { extractDocument } = await import("@/lib/document-extract");
-    const doc = await extractDocument(f, { maxPages: 12 });
+    const doc = await extractDocument(f, { maxPages: 40 });
     if (!doc.text.trim() && doc.images.length === 0) {
       toast.error("We couldn't read anything in that file.");
       return null;
+    }
+
+    // Known carrier statement layouts are read exactly, line by line.
+    const { looksLikeGtlStatement, parseGtlStatement } = await import("@/lib/carrier-statements/gtl");
+    if (looksLikeGtlStatement(doc.text)) {
+      const gtl = parseGtlStatement(doc.text);
+      if (gtl.length) {
+        toast.success(`Read ${gtl.length} policies from the Guarantee Trust Life statement.`);
+        return {
+          headers: ["Policy #", "Status", "Insured", "Status Date", "Writing Agent", "Effective Date"],
+          rows: gtl,
+        };
+      }
     }
     const report = await extractReportFn({
       data: {
