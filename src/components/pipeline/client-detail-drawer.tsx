@@ -1121,7 +1121,6 @@ function AddPolicyInlineForm({ client, onSaved, onCancel, showCancel }: { client
         value={writingAgentId}
         onChange={setWritingAgentId}
         carrierId={form.carrier_id || undefined}
-        preferredAgentId={client.agent_id ?? null}
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Carrier">

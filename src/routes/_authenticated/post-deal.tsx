@@ -496,7 +496,6 @@ function PostDealPage() {
                   value={writingAgentId}
                   onChange={setWritingAgentId}
                   carrierId={selectedCarrierId || undefined}
-                  preferredAgentId={(prefill?.client as any)?.agent_id ?? null}
                 />
               </div>
               <div className="col-span-2">
