@@ -24,7 +24,8 @@
 
 import { premiumOf, productionDate, type ProductionRow } from "@/lib/production/source";
 
-const NOT_WRITTEN = new Set(["withdrawn", "carrier_na"]);
+// Leaderboard/records count every policy regardless of status.
+const NOT_WRITTEN = new Set<string>([]);
 function countsAsWritten(row: ProductionRow): boolean {
   return !NOT_WRITTEN.has(String((row as any).status ?? ""));
 }
