@@ -15,7 +15,7 @@ export function computeAccess(input: {
   planType: string | null; ownerId: string | null; rows: Row[]; now?: number;
 }): { mode: AccessMode; reason: AccessReason } {
   if (input.isPlatformAdmin) return { mode: 'full', reason: 'platform_admin' };
-  if (!input.hasWorkspace) return { mode: 'read_only', reason: 'no_workspace' };
+  if (!input.hasWorkspace) return { mode: 'full', reason: 'no_workspace' }; // nothing to protect yet; lets onboarding run
   if (input.comped) return { mode: 'full', reason: 'comped' };
   const live = input.rows.filter(r => subscriptionHasAccess(r.status, r.current_period_end, input.now));
   const ok = input.planType === 'solo'
