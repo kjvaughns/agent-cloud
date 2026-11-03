@@ -1,35 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Lock } from "lucide-react";
-import { AuthShell } from "./login";
-import { PRICING } from "@/lib/billing/pricing";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/**
+ * /signup no longer gates on an invitation.
+ *
+ * The page used to tell visitors "Invitation Required", but every CTA on the
+ * marketing site points here before someone has an account — a dead end at
+ * the exact moment the visitor said yes. Accounts without an invitation can
+ * still be created at /signup/agent (solo), so the screen's job now is to
+ * route that first visit into the demo booking flow instead.
+ *
+ * The redirect carries the current query string, so UTM attribution captured
+ * on a /signup link survives into the demo form.
+ */
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Sign up — Agent Cloud" }] }),
-  component: SignupPage,
+  head: () => ({ meta: [{ title: "Book a demo — Agent Cloud" }] }),
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: "/demo", search });
+  },
 });
-
-function SignupPage() {
-  return (
-    <AuthShell title="Invitation Required" subtitle="Agent Cloud accounts are by invitation only">
-      <div className="flex flex-col items-center text-center space-y-4 py-4">
-        <div className="h-16 w-16 rounded-full bg-muted grid place-items-center">
-          <Lock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Ask your upline to send you an invite link. Invite links include your assigned carriers and commission levels so you start in the right place in the hierarchy.
-        </p>
-        <Link to="/login" className="text-sm text-primary font-medium hover:underline">
-          Already have an account? Sign in →
-        </Link>
-        <div className="pt-2 border-t border-border w-full">
-          <p className="text-xs text-muted-foreground mt-3">
-            Independent producer without an agency?{" "}
-            <Link to="/signup/agent" className="text-primary font-medium hover:underline">
-              Start as a Solo Agent — {`$${PRICING.soloAgent}`}/mo
-            </Link>
-          </p>
-        </div>
-      </div>
-    </AuthShell>
-  );
-}
