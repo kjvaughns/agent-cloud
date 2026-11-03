@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowUpRight, GraduationCap, FileSignature, Landmark } from "lucide-react";
+import { ArrowUpRight, GraduationCap, FileSignature, Landmark, School } from "lucide-react";
 import { LandingNav } from "@/components/landing/nav";
 import { LandingFooter } from "@/components/landing/support";
 import { display } from "@/components/landing/primitives";
@@ -26,10 +26,17 @@ const TOOLS = [
     blurb: "Generate voided checks and automatically complete direct deposit forms for your carriers.",
     tag: "Nothing is stored",
   },
+  {
+    name: "Academy",
+    href: "https://academy.useagentcloud.com",
+    icon: School,
+    blurb: "Your agency's own training academy: build courses and lessons, onboard new agents and track their progress.",
+    tag: "For agencies",
+  },
 ];
 
 const TITLE = "Free Tools for Insurance Agents — Agent Cloud";
-const DESC = "Agent Cloud's tools for life insurance agents: get licensed, generate carrier release forms, and complete direct deposit paperwork.";
+const DESC = "Agent Cloud's tools for life insurance agents: get licensed, generate carrier release forms, complete direct deposit paperwork, and train agents in your own academy.";
 
 export const Route = createFileRoute("/tools")({
   head: () => ({
@@ -58,7 +65,7 @@ function ToolsPage() {
         <p className="mt-4 max-w-xl text-lg text-muted-foreground">
           Standalone tools built by the Agent Cloud team. Use them on their own, no Agent Cloud account needed.
         </p>
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {TOOLS.map((t) => (
             <a
               key={t.name}
