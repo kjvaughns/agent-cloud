@@ -8,6 +8,7 @@ import { TopBar } from "@/components/top-bar";
 import { CommandPalette } from "@/components/command-palette";
 import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { DemoBanner } from "@/components/demo-banner";
+import { ReadOnlyGate } from "@/components/read-only-gate";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { requireSession } from "@/lib/require-session";
 
@@ -88,6 +89,7 @@ function AuthenticatedLayout() {
               than something to scroll past. Renders nothing at all outside
               the demo org. */}
           <DemoBanner />
+          <ReadOnlyGate />
           <TopBar />
           <main className="flex-1 min-w-1 content-container">
             <Outlet />
