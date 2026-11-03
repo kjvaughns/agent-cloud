@@ -10,3 +10,5 @@
 - [x] Add immediate branded noreply demo acknowledgment with replies to AgentMail before Allison's follow-up.
 - [x] Verify acknowledgment rendering, reply-routing rules, request idempotency, and unchanged Allison delay; ten checks passed.
 - [ ] Verify demo acknowledgment inbox delivery: preview email delivery is disabled; publish and submit a demo request.
+- [x] Make Allison gather escalation context before sending the owner a detailed project-specific problem report and suggestions; all 19 focused checks pass.
+- [ ] Verify a real escalation conversation and receipt in the owner's Gmail inbox after publishing; no live customer handoff was triggered for testing.
