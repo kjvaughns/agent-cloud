@@ -77,7 +77,9 @@ export function PricingSection({
         "Contracting operations",
         "Compensation levels and override tracking",
         "Agency reporting and administration",
-        
+        "Licensing partner access for your recruits",
+        "Bankdocs and Release Center built into contracting",
+        "Your agency's own Academy",
       ],
       cta: { label: "Book a demo", href: "/demo", event: "agency_cta_clicked" },
       note: "One flat price however many agents you have. Adding an agent does not change the bill.",
@@ -201,6 +203,7 @@ const ROWS: Row[] = [
   { feature: "Agency leaderboard", solo: false, agency: true, nova: false },
   { feature: "Contracting operations", solo: false, agency: true, nova: false },
   { feature: "Compensation levels and overrides", solo: false, agency: true, nova: false },
+  { feature: "Licensing partner access, Bankdocs, Release Center, Academy", solo: false, agency: true, nova: false },
   { feature: "Lapse-risk scoring across the book", solo: false, agency: false, nova: true },
   { feature: "Client message automations", solo: false, agency: false, nova: true },
   { feature: "Answers grounded in your records", solo: false, agency: false, nova: true },

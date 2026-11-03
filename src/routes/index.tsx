@@ -9,6 +9,7 @@ import { Hero } from "@/components/landing/hero";
 import { OwnershipSection } from "@/components/landing/story";
 import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
 import { NovaSection } from "@/components/landing/nova-section";
+import { AgencySuiteSection } from "@/components/landing/agency-suite";
 import { PricingSection } from "@/components/landing/pricing";
 import { DealJourney } from "@/components/landing/deal-journey";
 import {
@@ -203,7 +204,7 @@ function LandingPage() {
       <AudienceSplit ctaHref={ctaHref} />
 
       <NovaSection novaPrice={pricing.novaPro} />
-      
+      <AgencySuiteSection />
 
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
       <OwnershipSection />

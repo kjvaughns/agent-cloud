@@ -34,7 +34,9 @@ export type LandingEvent =
   | "agency_cta_clicked"
   | "demo_cta_clicked"
   | "nova_cta_clicked"
-  | "comparison_viewed";
+  | "comparison_viewed"
+  | "agency_suite_viewed"
+  | "tools_link_clicked";
 
 declare global {
   interface Window {
