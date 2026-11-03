@@ -177,6 +177,8 @@ import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedContractingOpsRequestsIndexRouteImport } from './routes/_authenticated/contracting-ops/requests/index'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
+import { Route as ApiPublicAgentmailWebhookRouteImport } from './routes/api/public/agentmail/webhook'
+import { Route as ApiPublicHooksAllisonRepliesRouteImport } from './routes/api/public/hooks/allison-replies'
 import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
 import { Route as ApiPublicHooksDispatchAnnouncementsRouteImport } from './routes/api/public/hooks/dispatch-announcements'
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
@@ -1115,6 +1117,18 @@ const AuthenticatedContractingOpsRequestsRequestIdRoute =
     path: '/$requestId',
     getParentRoute: () => AuthenticatedContractingOpsRequestsRoute,
   } as any)
+const ApiPublicAgentmailWebhookRoute =
+  ApiPublicAgentmailWebhookRouteImport.update({
+    id: '/api/public/agentmail/webhook',
+    path: '/api/public/agentmail/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksAllisonRepliesRoute =
+  ApiPublicHooksAllisonRepliesRouteImport.update({
+    id: '/api/public/hooks/allison-replies',
+    path: '/api/public/hooks/allison-replies',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDemoResetRoute = ApiPublicHooksDemoResetRouteImport.update({
   id: '/api/public/hooks/demo-reset',
   path: '/api/public/hooks/demo-reset',
@@ -1345,6 +1359,8 @@ export interface FileRoutesByFullPath {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
+  '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1520,6 +1536,8 @@ export interface FileRoutesByTo {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
+  '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1702,6 +1720,8 @@ export interface FileRoutesById {
   '/_authenticated/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
+  '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
   '/api/public/hooks/dispatch-announcements': typeof ApiPublicHooksDispatchAnnouncementsRoute
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
@@ -1884,6 +1904,8 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/agentmail/webhook'
+    | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
@@ -2059,6 +2081,8 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/agentmail/webhook'
+    | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
@@ -2240,6 +2264,8 @@ export interface FileRouteTypes {
     | '/_authenticated/agency/agents/$agentId'
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
+    | '/api/public/agentmail/webhook'
+    | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
     | '/api/public/hooks/dispatch-announcements'
     | '/api/public/hooks/fetch-news'
@@ -2294,6 +2320,8 @@ export interface RootRouteChildren {
   ApiV1ProductionRoute: typeof ApiV1ProductionRoute
   ApiV1WhoamiRoute: typeof ApiV1WhoamiRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicAgentmailWebhookRoute: typeof ApiPublicAgentmailWebhookRoute
+  ApiPublicHooksAllisonRepliesRoute: typeof ApiPublicHooksAllisonRepliesRoute
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
   ApiPublicHooksDispatchAnnouncementsRoute: typeof ApiPublicHooksDispatchAnnouncementsRoute
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
@@ -3484,6 +3512,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingOpsRequestsRequestIdRouteImport
       parentRoute: typeof AuthenticatedContractingOpsRequestsRoute
     }
+    '/api/public/agentmail/webhook': {
+      id: '/api/public/agentmail/webhook'
+      path: '/api/public/agentmail/webhook'
+      fullPath: '/api/public/agentmail/webhook'
+      preLoaderRoute: typeof ApiPublicAgentmailWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/allison-replies': {
+      id: '/api/public/hooks/allison-replies'
+      path: '/api/public/hooks/allison-replies'
+      fullPath: '/api/public/hooks/allison-replies'
+      preLoaderRoute: typeof ApiPublicHooksAllisonRepliesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/demo-reset': {
       id: '/api/public/hooks/demo-reset'
       path: '/api/public/hooks/demo-reset'
@@ -4010,6 +4052,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1ProductionRoute: ApiV1ProductionRoute,
   ApiV1WhoamiRoute: ApiV1WhoamiRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicAgentmailWebhookRoute: ApiPublicAgentmailWebhookRoute,
+  ApiPublicHooksAllisonRepliesRoute: ApiPublicHooksAllisonRepliesRoute,
   ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
   ApiPublicHooksDispatchAnnouncementsRoute:
     ApiPublicHooksDispatchAnnouncementsRoute,
