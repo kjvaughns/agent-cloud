@@ -51,6 +51,10 @@
   --color-gold-dim: var(--gold-dim);
   --color-gold-glow: var(--gold-glow);
   --color-gold-foreground: var(--gold-foreground);
+  --color-gold-deep: var(--gold-deep);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --shadow-card: var(--shadow-card);
   --color-text-dim: var(--text-dim);
   /* Foreground for a saturated filled surface (status badge, stage pill).
      Constant across themes on purpose: a filled --destructive block needs the
@@ -79,13 +83,13 @@
    LIGHT theme (default token set on :root; warm paper canvas)
    ============================================================ */
 :root {
-  --radius: 12px;
+  --radius: 0.75rem;
   --gap: 14px;
   --pad: 18px;
 
   /* Base surfaces */
-  --background: #F1EEE6;
-  --foreground: #201E18;
+  --background: oklch(0.951 0.012 85);
+  --foreground: oklch(0.22 0.012 85);
   --card: #FFFFFF;
   --card-foreground: #201E18;
   --popover: #FFFFFF;
@@ -97,10 +101,14 @@
   --border-soft: #EDEAE1;
 
   /* Brand gold — one accent, driven by --gold so accent themes swap cleanly */
-  --gold: #B08A38;
+  --gold: oklch(0.65 0.11 80);
+  --gold-deep: oklch(0.48 0.085 78);
+  --ink: oklch(0.21 0.01 85);
+  --ink-foreground: oklch(0.96 0.01 85);
+  --shadow-card: 0 1px 2px oklch(0.235 0.012 85 / 6%), 0 8px 24px -12px oklch(0.235 0.012 85 / 12%);
   --gold-bright: #7A5E22;   /* darker in light mode so numbers stay legible on white */
   --gold-dim: #9C8654;
-  --gold-glow: rgba(176,138,56,0.14);
+  --gold-glow: rgba(180,140,62,0.14);
   --gold-foreground: #1a1400;
 
   --primary: var(--gold);
@@ -109,11 +117,11 @@
   --secondary: #F4F1E9;
   --secondary-foreground: #201E18;
 
-  --muted: #F4F1E9;
-  --muted-foreground: #6C685C;
+  --muted: oklch(0.94 0.012 85);
+  --muted-foreground: oklch(0.5 0.015 85);
   --text-dim: #A7A294;
 
-  --accent: #EDE9DF;
+  --accent: oklch(0.92 0.03 85);
   --accent-foreground: #201E18;
 
   /* Status palette */
@@ -131,8 +139,8 @@
   --temp-warm: #C08018;
   --temp-cold: #3B7BC4;
 
-  --border: #E3DFD3;
-  --input: #E3DFD3;
+  --border: oklch(0.89 0.015 85);
+  --input: oklch(0.89 0.015 85);
   --ring: var(--gold);
 
   --chart-1: var(--gold);
