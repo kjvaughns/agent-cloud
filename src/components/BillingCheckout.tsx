@@ -36,7 +36,7 @@ export function PaymentSubscriptionStatus() {
  const fn = useServerFn(getManagedSubscriptions);
  const query = useQuery({ queryKey: ['billing','managed-subscriptions'], queryFn: () => fn({ data: { environment: getStripeEnvironment() } }), refetchInterval: 5000 });
  const rows = query.data ?? [];
- if (!rows.length) return null;
+ if (!rows.length) return <PaymentTestModeBanner />;
  return <section aria-label="Payment subscriptions" className="border-b border-border py-3 space-y-2">
   <PaymentTestModeBanner />
   {rows.map(row => <div key={row.id} className="flex justify-between gap-3 text-sm"><span>{row.kind === 'nova_personal' ? 'Nova AI Pro' : row.kind === 'solo' ? 'Solo Agent Plan' : row.kind === 'agency' ? 'Agency Plan' : row.kind === 'nova_seats' ? 'Sponsored Nova seats' : 'White Label'}</span><span className="capitalize">{row.status}{row.cancel_at_period_end ? ' · Ends at period end' : ''}</span></div>)}
