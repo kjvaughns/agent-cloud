@@ -7,3 +7,5 @@
 - [x] Connect signed payment updates with test/live isolation; verify the signed-in form, signature rejection, tax codes, and pricing checks.
 - [ ] Verify a completed test purchase: the automated browser did not submit successfully; requires a manual preview payment with test card 4242 4242 4242 4242.
 - [ ] Accept live payments: requires the user to claim/activate their account in Payments and publish.
+- [ ] Add immediate branded noreply demo acknowledgment with replies to AgentMail before Allison's follow-up.
+- [ ] Verify acknowledgment branding, delivery routing, and Allison follow-up scheduling.
