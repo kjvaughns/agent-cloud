@@ -16,7 +16,7 @@ import { TELEPHONY_CONNECTED, TELEPHONY_UNAVAILABLE } from "@/lib/telephony";
 import { useMyAccess } from "@/hooks/use-my-access";
 
 export const Route = createFileRoute("/_authenticated/settings/nova-pro")({
-  head: () => ({ meta: [{ title: "Nova Pro — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Nova Pro — Agent Cloud" }, { name: "description", content: "Manage your Nova AI Pro subscription and usage." }, { property: "og:title", content: "Nova Pro — Agent Cloud" }, { property: "og:description", content: "Manage your Nova AI Pro subscription and usage." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: NovaProPage,
 });
 

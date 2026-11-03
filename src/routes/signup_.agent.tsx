@@ -14,7 +14,7 @@ import { useServerFn } from "@/hooks/use-server-fn";
 import { PRICING } from "@/lib/billing/pricing";
 
 export const Route = createFileRoute("/signup_/agent")({
-  head: () => ({ meta: [{ title: "Solo Agent Signup — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Solo Agent Signup — Agent Cloud" }, { name: "description", content: "Start your Agent Cloud Solo Agent subscription for $49 per month." }, { property: "og:title", content: "Solo Agent Signup — Agent Cloud" }, { property: "og:description", content: "Start your Agent Cloud Solo Agent subscription for $49 per month." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: SoloSignupPage,
 });
 

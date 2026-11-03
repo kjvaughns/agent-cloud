@@ -24,7 +24,7 @@ import { Link } from "@tanstack/react-router";
 import { Check, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings/billing")({
-  head: () => ({ meta: [{ title: "Billing — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Billing — Agent Cloud" }, { name: "description", content: "Manage your Agent Cloud plan, subscriptions and sponsored Nova seats." }, { property: "og:title", content: "Billing — Agent Cloud" }, { property: "og:description", content: "Manage your Agent Cloud plan, subscriptions and sponsored Nova seats." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   // ?tab=white-label so the upsell panel below, and the old
   // /settings/white-label bookmark, both open the application in place.
   validateSearch: (s: Record<string, unknown>): { tab?: "white-label" } =>
