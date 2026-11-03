@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { createStripeClient, verifyPaymentEvent, type StripeEnv } from '@/lib/stripe.server';
 import { subscriptionHasAccess } from '@/lib/billing/payment-rules';
+import { applyBillingLifecycle } from '@/lib/billing/payment-lifecycle.server';
 
 async function processEvent(request: Request, environment: StripeEnv) {
  const event = await verifyPaymentEvent(request, environment);
@@ -11,9 +12,9 @@ async function processEvent(request: Request, environment: StripeEnv) {
  if (seen) return;
  const object: any = event.data.object;
  let subscriptionId: string | undefined;
- if (event.type.startsWith('customer.subscription.')) subscriptionId = object.id;
- else if (event.type.startsWith('checkout.session.')) subscriptionId = typeof object.subscription === 'string' ? object.subscription : object.subscription?.id;
- else if (event.type.startsWith('invoice.')) subscriptionId = object.parent?.subscription_details?.subscription ?? object.subscription;
+ if (['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted'].includes(event.type)) subscriptionId = object.id;
+ else if (['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed'].includes(event.type)) subscriptionId = typeof object.subscription === 'string' ? object.subscription : object.subscription?.id;
+ else if (['invoice.paid','invoice.payment_failed'].includes(event.type)) subscriptionId = object.parent?.subscription_details?.subscription ?? object.subscription;
  if (subscriptionId) {
   // Read the provider's current state, rather than replay stale event payloads.
   const stripe = createStripeClient(environment);
@@ -46,14 +47,14 @@ async function processEvent(request: Request, environment: StripeEnv) {
   // Preview payments never mutate the real agency/profile billing fields.
   if (environment === 'live') {
    const active = subscriptionHasAccess(subscription.status, end);
-   if (kind === 'nova_personal') {
+   if (kind === 'nova_personal' && (active || subscription.status === 'canceled')) {
     const { error: updateError } = await supabaseAdmin.from('profiles').update({
      nova_pro_status: active ? (subscription.status === 'past_due' ? 'past_due' : 'active') : 'grace_period',
      nova_pro_source: 'personal',
      nova_pro_expires_at: active ? null : new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
     }).eq('id', userId);
     if (updateError) throw updateError;
-   } else {
+   } else if (kind !== 'nova_personal' && (active || subscription.status === 'canceled')) {
     let targetOrgId: string | null = orgId;
     if (kind === 'solo') {
      const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', userId).maybeSingle();
@@ -69,6 +70,12 @@ async function processEvent(request: Request, environment: StripeEnv) {
      if (updateError) throw updateError;
     } else {
      const patch: any = { subscription_status: active ? (subscription.status === 'past_due' ? 'past_due' : 'active') : 'cancelled', subscription_current_period_end: end };
+     // White Label is an add-on; ending it must not cancel the Agency Plan.
+     if (kind === 'white_label') {
+      delete patch.subscription_status;
+      delete patch.subscription_current_period_end;
+      patch.plan_type = active ? 'white_label' : 'agency';
+     }
      if (active && kind === 'agency') patch.plan_type = 'agency';
      if (active && kind === 'white_label') patch.plan_type = 'white_label';
      let query = supabaseAdmin.from('organizations').update(patch).eq('id',targetOrgId);
@@ -77,6 +84,7 @@ async function processEvent(request: Request, environment: StripeEnv) {
      if (updateError) throw updateError;
     }
    }
+   await applyBillingLifecycle(supabaseAdmin,stripe,event,subscription);
   }
  }
  const { error } = await supabaseAdmin.from('payment_events').upsert({ environment, event_id: event.id }, { onConflict: 'environment,event_id' });
