@@ -1,0 +1,1 @@
+- Host split (marketing apex/www vs app.useagentcloud.com portal) lives only in src/lib/hosts.ts and the request middleware in src/start.ts; flip APP_SUBDOMAIN_ENABLED only once the app subdomain is Active, because logins are stored per address.
