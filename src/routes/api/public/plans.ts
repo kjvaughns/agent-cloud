@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/public/plans")({
         // Whether self-serve checkout can actually complete. The landing page
         // uses this to decide between "Start Free" and "Request a Demo" —
         // a CTA must never lead into an unfinished workflow.
-        const checkoutReady = Boolean(process.env.STRIPE_SECRET_KEY);
+        const checkoutReady = Boolean(process.env.STRIPE_LIVE_API_KEY);
 
         return new Response(JSON.stringify({ pricing, checkoutReady }), {
           headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "public, max-age=300" },

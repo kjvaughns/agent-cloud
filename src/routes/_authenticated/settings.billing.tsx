@@ -1,3 +1,4 @@
+import { useBillingCheckout, useBillingPortal } from '@/components/BillingCheckout';
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,7 +16,7 @@ import { money } from "@/lib/format";
 import { PRICING } from "@/lib/billing/pricing";
 import { TELEPHONY_CONNECTED } from "@/lib/telephony";
 import {
-  getBillingOverview, createCheckoutSession, createPortalSession,
+  getBillingOverview, 
   listNovaSeatAgents, assignNovaSeat, unassignNovaSeat, getSeatBreakdown, getNovaProStatus,
 } from "@/lib/billing.functions";
 import { getMyAccess } from "@/lib/permissions.functions";
@@ -145,24 +146,15 @@ function MemberBilling({ access }: { access: any }) {
 
 function SoloBilling({ access }: { access: any }) {
   const statusFn = useServerFn(getNovaProStatus);
-  const checkoutFn = useServerFn(createCheckoutSession);
-  const portalFn = useServerFn(createPortalSession);
   const { data: nova } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
   const badge = STATUS_BADGE[access.orgStatus] ?? STATUS_BADGE.inactive;
 
-  const upgrade = useMutation({
-    mutationFn: () => checkoutFn({ data: { product: "agency_plan" } }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Upgrade failed"),
-  });
-  const portal = useMutation({
-    mutationFn: () => portalFn({ data: { scope: "personal" } }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Couldn't open portal"),
-  });
+  const upgrade = useBillingCheckout();
+  const portal = useBillingPortal('personal');
 
   return (
     <PageShell>
+      {upgrade.element}
       <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand title="Billing & Plan" actions={<Badge variant={badge.v}>Solo Agent Plan · {badge.label}</Badge>} />
         <Panel title="Solo Agent Plan">
@@ -208,7 +200,7 @@ function SoloBilling({ access }: { access: any }) {
                 Your clients, policies, and commissions stay exactly as they are.
               </p>
               <p className="text-sm font-semibold mt-1.5 tnum">Agency Plan — {money(PRICING.agencyBase)}/month, unlimited agents</p>
-              <Button className="mt-3" onClick={() => upgrade.mutate()} disabled={upgrade.isPending}>
+              <Button className="mt-3" onClick={() => upgrade.mutate({ product: "agency_plan" })} disabled={upgrade.isPending}>
                 Upgrade to Agency Plan →
               </Button>
             </div>
@@ -223,8 +215,6 @@ function SoloBilling({ access }: { access: any }) {
 
 function OwnerBilling() {
   const overviewFn = useServerFn(getBillingOverview);
-  const checkoutFn = useServerFn(createCheckoutSession);
-  const portalFn = useServerFn(createPortalSession);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["billing", "overview"],
@@ -232,16 +222,8 @@ function OwnerBilling() {
     retry: false,
   });
 
-  const go = useMutation({
-    mutationFn: (p: { product: any; quantity?: number }) => checkoutFn({ data: p }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Checkout failed"),
-  });
-  const portal = useMutation({
-    mutationFn: () => portalFn({ data: { scope: "org" } }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Couldn't open billing portal"),
-  });
+  const go = useBillingCheckout();
+  const portal = useBillingPortal('org');
 
   if (isLoading) return <PageShell><Skeleton className="h-72" /></PageShell>;
   if (error) {
@@ -259,11 +241,13 @@ function OwnerBilling() {
     );
   }
 
-  const d = data!;
+  if (!data) return null;
+  const d = data;
   const badge = STATUS_BADGE[d.org.subscription_status] ?? STATUS_BADGE.inactive;
 
   return (
     <PageShell>
+      {go.element}
       <div className="max-w-4xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Billing"
@@ -282,7 +266,7 @@ function OwnerBilling() {
 
         {!d.configured && (
           <div className="rounded-[var(--radius)] border border-warning/30 bg-warning/10 p-3 text-sm text-muted-foreground">
-            Stripe isn't connected yet — checkout and the customer portal activate once the Stripe keys are added to the environment.
+            Payments are not configured for this environment yet.
             Everything below reflects live workspace data.
           </div>
         )}
@@ -469,7 +453,7 @@ function NovaSeatsPanel({ configured, onPurchase, purchasing }: { configured: bo
         <div className="py-6 text-center text-sm text-muted-foreground">No agents in your organization yet. Invite agents from the Team page first.</div>
       ) : (
         <div className="divide-y divide-border-soft">
-          {data!.agents.map((a: any) => {
+          {data?.agents?.map((a: any) => {
             const active = ["active", "grace_period", "past_due"].includes(a.nova_pro_status);
             return (
               <div key={a.id} className="flex items-center gap-3 py-2.5 text-sm">

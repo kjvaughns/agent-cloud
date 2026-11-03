@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { notifyPeople } from "@/lib/notify.server";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import {
-  getStripe, isStripeConfigured, PRICE_IDS, PRICING, NOVA_LIMITS, NON_BILLABLE_PROFILE_STATUSES,
+  isStripeConfigured, PRICING, NOVA_LIMITS, NON_BILLABLE_PROFILE_STATUSES,
   pricingFromPlans, type Pricing,
 } from "@/lib/billing/stripe";
 import { assertNotDemoCaller } from "@/lib/demo.server";
@@ -77,34 +77,6 @@ export const getSeatBreakdown = createServerFn({ method: "GET" })
       })),
     };
   });
-
-async function ensureStripeCustomerForOrg(org: any, email: string | null): Promise<string> {
-  if (org.stripe_customer_id) return org.stripe_customer_id;
-  const stripe = getStripe();
-  const customer = await stripe.customers.create({
-    name: org.name,
-    email: email ?? undefined,
-    metadata: { organization_id: org.id, kind: "organization" },
-  });
-  await supabaseAdmin.from("organizations").update({ stripe_customer_id: customer.id }).eq("id", org.id);
-  return customer.id;
-}
-
-async function ensureStripeCustomerForProfile(profile: any): Promise<string> {
-  if (profile.stripe_customer_id) return profile.stripe_customer_id;
-  const stripe = getStripe();
-  const customer = await stripe.customers.create({
-    name: `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || undefined,
-    email: profile.email ?? undefined,
-    metadata: { profile_id: profile.id, kind: "agent" },
-  });
-  await supabaseAdmin.from("profiles").update({ stripe_customer_id: customer.id }).eq("id", profile.id);
-  return customer.id;
-}
-
-function appOrigin(): string {
-  return process.env.APP_ORIGIN || "https://useagentcloud.com";
-}
 
 // ── Billing overview (agency owner) ──────────────────────────────────────────
 
@@ -332,137 +304,6 @@ export const getNovaProStatus = createServerFn({ method: "GET" })
       limits: NOVA_LIMITS,
       price: PRICING.novaPro,
     };
-  });
-
-// ── Checkout + portal sessions ───────────────────────────────────────────────
-
-const CheckoutSchema = z.object({
-  product: z.enum(["agency_plan", "nova_pro_personal", "nova_seats", "white_label", "solo_agent"]),
-  quantity: z.number().int().min(1).max(500).optional().default(1),
-});
-
-export const createCheckoutSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => CheckoutSchema.parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    await assertNotDemoCaller(userId, "start a checkout");
-    if (!isStripeConfigured()) throw new Error("Billing is not configured yet. Add the Stripe keys to enable checkout.");
-    const stripe = getStripe();
-    const origin = appOrigin();
-
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-
-    if (data.product === "nova_pro_personal") {
-      const price = PRICE_IDS.nova_pro_agent();
-      if (!price) throw new Error("Nova Pro price is not configured");
-      const customer = await ensureStripeCustomerForProfile(profile);
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        customer,
-        line_items: [{ price, quantity: 1 }],
-        success_url: `${origin}/settings/nova-pro?success=1`,
-        cancel_url: `${origin}/settings/nova-pro`,
-        metadata: { kind: "nova_personal", profile_id: userId },
-        subscription_data: { metadata: { kind: "nova_personal", profile_id: userId } },
-      });
-      return { url: session.url };
-    }
-
-    if (data.product === "solo_agent") {
-      const price = PRICE_IDS.solo_agent_plan();
-      if (!price) throw new Error("Solo plan price is not configured");
-      const customer = await ensureStripeCustomerForProfile(profile);
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        customer,
-        line_items: [{ price, quantity: 1 }],
-        success_url: `${origin}/dashboard?solo=1`,
-        cancel_url: `${origin}/signup/agent`,
-        metadata: { kind: "solo", profile_id: userId },
-        subscription_data: { metadata: { kind: "solo", profile_id: userId } },
-      });
-      return { url: session.url };
-    }
-
-    // Org-level products
-    const org = await getOwnedOrg(supabase, userId);
-    const customer = await ensureStripeCustomerForOrg(org, profile?.email ?? null);
-
-    if (data.product === "agency_plan") {
-      const price = PRICE_IDS.agency_plan();
-      if (!price) throw new Error("Agency plan price is not configured");
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        customer,
-        line_items: [{ price, quantity: 1 }],
-        success_url: `${origin}/settings/billing?success=1`,
-        cancel_url: `${origin}/settings/billing`,
-        metadata: { kind: "agency", organization_id: org.id },
-        subscription_data: { metadata: { kind: "agency", organization_id: org.id } },
-      });
-      return { url: session.url };
-    }
-
-    if (data.product === "nova_seats") {
-      const price = PRICE_IDS.nova_pro_agency_seat();
-      if (!price) throw new Error("Nova seat price is not configured");
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        customer,
-        line_items: [{ price, quantity: data.quantity }],
-        success_url: `${origin}/settings/billing?nova_seats=1`,
-        cancel_url: `${origin}/settings/billing`,
-        metadata: { kind: "nova_seats", organization_id: org.id, quantity: String(data.quantity) },
-        subscription_data: { metadata: { kind: "nova_seats", organization_id: org.id } },
-      });
-      return { url: session.url };
-    }
-
-    // white_label: $999 setup (one-time) + $499/month recurring
-    const setupPrice = PRICE_IDS.white_label_setup();
-    const monthlyPrice = PRICE_IDS.white_label_monthly();
-    if (!setupPrice || !monthlyPrice) throw new Error("White-label prices are not configured");
-    if ((org.subscription_status ?? "inactive") !== "active") {
-      throw new Error("White-label requires an active Agency Plan subscription");
-    }
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer,
-      line_items: [
-        { price: monthlyPrice, quantity: 1 },
-        { price: setupPrice, quantity: 1 },
-      ],
-      success_url: `${origin}/settings/billing?white_label=1`,
-      cancel_url: `${origin}/settings/billing`,
-      metadata: { kind: "white_label", organization_id: org.id },
-      subscription_data: { metadata: { kind: "white_label", organization_id: org.id } },
-    });
-    return { url: session.url };
-  });
-
-export const createPortalSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ scope: z.enum(["org", "personal"]) }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context as Ctx;
-    await assertNotDemoCaller(userId, "open the billing portal");
-    if (!isStripeConfigured()) throw new Error("Billing is not configured yet");
-    const stripe = getStripe();
-    let customerId: string | null = null;
-    if (data.scope === "org") {
-      const org = await getOwnedOrg(supabase, userId);
-      customerId = org.stripe_customer_id;
-    } else {
-      const { data: p } = await supabase.from("profiles").select("stripe_customer_id").eq("id", userId).maybeSingle();
-      customerId = p?.stripe_customer_id ?? null;
-    }
-    if (!customerId) throw new Error("No billing account yet — complete a checkout first");
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appOrigin()}/settings/${data.scope === "org" ? "billing" : "nova-pro"}`,
-    });
-    return { url: session.url };
   });
 
 // ── Solo agent workspace bootstrap ──────────────────────────────────────────

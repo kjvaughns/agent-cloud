@@ -1,3 +1,4 @@
+import { useBillingCheckout, useBillingPortal } from '@/components/BillingCheckout';
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -9,7 +10,7 @@ import { Sparkles, Phone, ExternalLink, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { getNovaProStatus, createCheckoutSession, createPortalSession } from "@/lib/billing.functions";
+import { getNovaProStatus } from "@/lib/billing.functions";
 import { NOVA_LIMITS } from "@/lib/billing/pricing";
 import { TELEPHONY_CONNECTED, TELEPHONY_UNAVAILABLE } from "@/lib/telephony";
 import { useMyAccess } from "@/hooks/use-my-access";
@@ -46,22 +47,12 @@ function UsageMeter({ label, used, included, overage }: { label: string; used: n
 
 export function NovaProPage() {
   const statusFn = useServerFn(getNovaProStatus);
-  const checkoutFn = useServerFn(createCheckoutSession);
-  const portalFn = useServerFn(createPortalSession);
   const { access } = useMyAccess();
 
   const { data: d, isLoading } = useQuery({ queryKey: ["nova-pro", "status"], queryFn: () => statusFn() });
 
-  const subscribe = useMutation({
-    mutationFn: () => checkoutFn({ data: { product: "nova_pro_personal" } }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Checkout failed"),
-  });
-  const portal = useMutation({
-    mutationFn: () => portalFn({ data: { scope: "personal" } }),
-    onSuccess: (r: any) => { if (r?.url) window.location.assign(r.url); },
-    onError: (e: any) => toast.error(e?.message ?? "Couldn't open portal"),
-  });
+  const subscribe = useBillingCheckout();
+  const portal = useBillingPortal('personal');
 
   if (isLoading || !d) return <PageShell><Skeleton className="h-72" /></PageShell>;
 
@@ -85,6 +76,7 @@ export function NovaProPage() {
 
   return (
     <PageShell>
+      {subscribe.element}
       <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Nova AI Pro"
@@ -100,7 +92,7 @@ export function NovaProPage() {
               <p className="text-muted-foreground mt-0.5">
                 Subscribe personally to keep your phone number and automations with no interruption.
               </p>
-              <Button size="sm" className="mt-2" onClick={() => subscribe.mutate()} disabled={!d.configured || subscribe.isPending}>
+              <Button size="sm" className="mt-2" onClick={() => subscribe.mutate({ product: "nova_pro_personal" })} disabled={!d.configured || subscribe.isPending}>
                 Subscribe Personally — {money(d.price)}/mo
               </Button>
             </div>
@@ -198,7 +190,7 @@ export function NovaProPage() {
                 runs per month, plus {NOVA_LIMITS.outbound_minutes.included} outbound and {NOVA_LIMITS.inbound_minutes.included} inbound
                 minutes and {NOVA_LIMITS.sms.included} messages held for when calling goes live. Your subscription follows you between agencies.
               </p>
-              <Button onClick={() => subscribe.mutate()} disabled={!d.configured || subscribe.isPending}>
+              <Button onClick={() => subscribe.mutate({ product: "nova_pro_personal" })} disabled={!d.configured || subscribe.isPending}>
                 {d.configured ? `Upgrade — ${money(d.price)}/mo` : "Billing not configured yet"}
               </Button>
             </div>
