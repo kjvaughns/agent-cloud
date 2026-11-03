@@ -21,11 +21,12 @@ import { display } from "./primitives";
 // and a visitor who cannot find their own half leaves rather than reading the
 // other one.
 const LINKS = [
-  { label: "Product", href: "#product" },
-  { label: "For agents", href: "#for-agents" },
-  { label: "For agencies", href: "#for-agencies" },
-  { label: "Nova AI", href: "#nova" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Product", href: "/#product" },
+  { label: "For agents", href: "/#for-agents" },
+  { label: "For agencies", href: "/#for-agencies" },
+  { label: "Nova AI", href: "/#nova" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Tools", href: "/tools" },
 ];
 
 export function AnnouncementBar() {

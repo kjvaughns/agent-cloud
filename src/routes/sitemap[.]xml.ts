@@ -5,6 +5,7 @@ const SITE = (process.env.APP_ORIGIN ?? "https://useagentcloud.com").replace(/\/
 // Public, indexable pages only. Authenticated routes are excluded by design.
 const PAGES: { path: string; priority: string; changefreq: string }[] = [
   { path: "/", priority: "1.0", changefreq: "weekly" },
+  { path: "/tools", priority: "0.7", changefreq: "monthly" },
   { path: "/demo", priority: "0.8", changefreq: "monthly" },
   { path: "/privacy", priority: "0.3", changefreq: "yearly" },
   { path: "/terms", priority: "0.3", changefreq: "yearly" },

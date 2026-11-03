@@ -18,7 +18,7 @@ export const isAppHost = (h: string) => stripPort(h) === APP_HOST;
 export function isMarketingPath(pathname: string): boolean {
   if (pathname === "/") return true;
   if (/\.[a-z0-9]+$/i.test(pathname)) return true; // static files
-  const exact = ["/privacy", "/terms", "/cookies", "/demo"];
+  const exact = ["/privacy", "/terms", "/cookies", "/demo", "/tools"];
   if (exact.includes(pathname)) return true;
   const prefixes = ["/api/", "/lovable/", "/email/", "/_serverFn", "/assets/", "/myagent/", "/agent/", "/join/", "/@"];
   return prefixes.some((p) => pathname.startsWith(p));
