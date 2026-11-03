@@ -6,7 +6,8 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { money } from "@/lib/format";
-import { getPlatformSubscriptions } from "@/lib/billing.functions";
+import { getPlatformSubscriptions, setOrgComped } from "@/lib/billing.functions";
+import { useQueryClient as useQC } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/admin/subscriptions")({
   head: () => ({ meta: [{ title: "Subscriptions — Agent Cloud Admin" }] }),
@@ -73,6 +74,7 @@ function SubscriptionsPage() {
                   <th className="px-2 py-2">Status</th>
                   <th className="px-2 py-2">Nova Seats</th>
                   <th className="px-2 py-2">Period Ends</th>
+                  <th className="px-2 py-2">Free (comped)</th>
                 </tr>
               </thead>
               <tbody>
@@ -83,6 +85,7 @@ function SubscriptionsPage() {
                     <td className="px-2 py-2"><Badge variant={STATUS_BADGE[o.subscription_status ?? "inactive"]}>{o.subscription_status ?? "inactive"}</Badge></td>
                     <td className="px-2 py-2 tnum">{o.nova_seats_purchased ?? 0}</td>
                     <td className="px-2 py-2 tnum text-muted-foreground">{o.subscription_current_period_end ? new Date(o.subscription_current_period_end).toLocaleDateString() : "—"}</td>
+                    <td className="px-2 py-2"><CompToggle orgId={o.id} comped={!!o.billing_comped} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -91,5 +94,14 @@ function SubscriptionsPage() {
         </Panel>
       </div>
     </PageShell>
+  );
+}
+
+function CompToggle({ orgId, comped }: { orgId: string; comped: boolean }) {
+  const fn = useServerFn(setOrgComped);
+  const qc = useQC();
+  return (
+    <input type="checkbox" aria-label="Complimentary access" checked={comped}
+      onChange={async (e) => { await fn({ data: { orgId, comped: e.target.checked } }); qc.invalidateQueries(); }} />
   );
 }
