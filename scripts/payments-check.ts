@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { PAYMENT_PRODUCTS, paymentEnvironment, subscriptionHasAccess } from '../src/lib/billing/payment-rules';
+assert.equal(PAYMENT_PRODUCTS.solo_agent.amount, 49);
+assert.equal(PAYMENT_PRODUCTS.agency_plan.amount, 399);
+assert.equal(PAYMENT_PRODUCTS.nova_seats.amount, 39);
+assert.equal(paymentEnvironment('pk_test_example'), 'sandbox');
+assert.equal(paymentEnvironment('pk_live_example'), 'live');
+assert.throws(() => paymentEnvironment(undefined));
+assert.equal(subscriptionHasAccess('active', null), true);
+assert.equal(subscriptionHasAccess('canceled', '2026-12-01T00:00:00Z', Date.parse('2026-11-03')), true);
+assert.equal(subscriptionHasAccess('canceled', '2026-11-01T00:00:00Z', Date.parse('2026-11-03')), false);
+assert.equal(subscriptionHasAccess('incomplete', null), false);
+console.log('PASS: 10 payment pricing, environment and access checks');

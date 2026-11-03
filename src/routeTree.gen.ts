@@ -167,7 +167,6 @@ import { Route as ApiPublicPageDataRouteImport } from './routes/api/public/page-
 import { Route as ApiPublicPlansRouteImport } from './routes/api/public/plans'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
-import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiV1CarriersRouteImport } from './routes/api/v1/carriers'
 import { Route as ApiV1LeaderboardRouteImport } from './routes/api/v1/leaderboard'
 import { Route as ApiV1ProductionRouteImport } from './routes/api/v1/production'
@@ -1063,11 +1062,6 @@ const ApiPublicWaitlistSignupRoute = ApiPublicWaitlistSignupRouteImport.update({
   path: '/api/public/waitlist-signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
-  id: '/api/stripe/webhook',
-  path: '/api/stripe/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiV1CarriersRoute = ApiV1CarriersRouteImport.update({
   id: '/api/v1/carriers',
   path: '/api/v1/carriers',
@@ -1346,7 +1340,6 @@ export interface FileRoutesByFullPath {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1523,7 +1516,6 @@ export interface FileRoutesByTo {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1707,7 +1699,6 @@ export interface FileRoutesById {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1891,7 +1882,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -2068,7 +2058,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -2251,7 +2240,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -2314,7 +2302,6 @@ export interface RootRouteChildren {
   ApiPublicPlansRoute: typeof ApiPublicPlansRoute
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
-  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiV1CarriersRoute: typeof ApiV1CarriersRoute
   ApiV1LeaderboardRoute: typeof ApiV1LeaderboardRoute
   ApiV1ProductionRoute: typeof ApiV1ProductionRoute
@@ -3442,13 +3429,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWaitlistSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/stripe/webhook': {
-      id: '/api/stripe/webhook'
-      path: '/api/stripe/webhook'
-      fullPath: '/api/stripe/webhook'
-      preLoaderRoute: typeof ApiStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/v1/carriers': {
       id: '/api/v1/carriers'
       path: '/api/v1/carriers'
@@ -4046,7 +4026,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlansRoute: ApiPublicPlansRoute,
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
-  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiV1CarriersRoute: ApiV1CarriersRoute,
   ApiV1LeaderboardRoute: ApiV1LeaderboardRoute,
   ApiV1ProductionRoute: ApiV1ProductionRoute,
