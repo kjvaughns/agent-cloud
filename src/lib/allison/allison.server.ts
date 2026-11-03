@@ -1,7 +1,9 @@
 // Server-only: import dynamically inside server handlers.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { callAiJson } from "@/lib/ai-gateway";
+import { generateResponse, GatewayError } from "@lovable.dev/ai-gateway";
+import { z } from "zod";
 import { agentCloudFacts } from "./knowledge";
+import { DEMO_NOTICE_MARKER, demoNotification } from "./demo-notification";
 import { ESCALATION_REPLY, SIGNATURE, SUPPORT_INBOX, forcedEscalation, replyDelayMs } from "./rules";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/udc_agentmail";
@@ -39,13 +41,34 @@ type Thread = {
 
 /** Open an Allison conversation for a new demo request; first email goes out after the human-feeling delay. */
 export async function startDemoThread(lead: { id: string; first_name: string; last_name: string; email: string; [k: string]: unknown }) {
-  const { data: t } = await db.from("allison_threads").insert({
+  const { data: t, error } = await db.from("allison_threads").insert({
     demo_request_id: lead.id, email: lead.email.toLowerCase(), name: `${lead.first_name} ${lead.last_name}`.trim(),
     subject: "Your Agent Cloud demo", reply_after: nextReplyAt(),
-  }).select("id").single();
+  }).select("*").single();
+  if (error || !t) throw new Error("Could not save Allison's demo conversation");
   const details = ["agency_name", "agent_count", "current_tools", "primary_challenge", "preferred_time", "phone"]
     .filter((k) => lead[k]).map((k) => `${k.replace(/_/g, " ")}: ${lead[k]}`).join("\n");
-  if (t) await db.from("allison_messages").insert({ thread_ref: t.id, sender: "lead", body: `(Demo request form)\n${details || "No extra details given."}` });
+  const { error: messageError } = await db.from("allison_messages").insert({ thread_ref: t.id, sender: "lead", body: `(Demo request form)\n${details || "No extra details given."}` });
+  if (messageError) throw new Error("Could not save demo request details");
+  // Failure leaves the notice unmarked so the scheduled job can retry it.
+  await notifyDemoInbox(t);
+}
+
+async function notifyDemoInbox(t: Thread) {
+  if (!t.demo_request_id) return;
+  const { data: delivered, error: lookupError } = await db.from("allison_messages")
+    .select("id").eq("thread_ref", t.id).eq("internal", true).eq("body", DEMO_NOTICE_MARKER).limit(1);
+  if (lookupError) throw new Error("Could not check demo notification delivery");
+  if (delivered?.length) return;
+  const { data: messages, error } = await db.from("allison_messages").select("body")
+    .eq("thread_ref", t.id).eq("sender", "lead").eq("internal", false).order("created_at").limit(1);
+  if (error) throw new Error("Could not read demo notification details");
+  const notice = demoNotification(t.name, t.email, messages?.[0]?.body || "No extra details given.");
+  const sent = await sendNewEmail(notice.to, notice.subject, notice.text);
+  const { error: saveError } = await db.from("allison_messages").insert({
+    thread_ref: t.id, sender: "team", internal: true, body: DEMO_NOTICE_MARKER, email_message_id: sent.message_id,
+  });
+  if (saveError) throw new Error("Demo email sent but its delivery record could not be saved");
 }
 
 async function deliver(t: Thread, text: string) {
@@ -61,11 +84,11 @@ type Decision = { reply: string; escalate: boolean; reason: string };
 
 async function askAllison(t: Thread, thread: { sender: string; body: string }[]): Promise<Decision> {
   const convo = thread.map((m) => `${m.sender === "lead" ? "Prospect" : m.sender === "allison" ? "Allison" : "Agent Cloud team"}: ${m.body}`).join("\n\n");
-  return callAiJson<Decision>({
+  const response = await generateResponse({
     model: "openai/gpt-6-astra",
-    temperature: 0.4,
-    maxTokens: 1200,
-    messages: [
+    max_output_tokens: 1200,
+    text: { format: { type: "json_object" } },
+    input: [
       {
         role: "system",
         content: `You are Allison, the official assistant at Agent Cloud. You handle demo requests by email: welcome people, answer questions about Agent Cloud, collect what the team needs for the demo, and help new customers get set up. Write like a real person: short, warm, plain English, no markdown, ask at most 2–3 questions at a time, don't re-ask what you already know. Greet by first name. Sign off exactly as:\n${SIGNATURE}\n\nOnly use the facts below. Never promise discounts, refunds, features that aren't listed, or a booked meeting time; never claim to have changed an account. If you can't confidently answer, or it's billing, account access, legal, a complaint, or a request for a human, set escalate=true. Reply with JSON {"reply": string, "escalate": boolean, "reason": string}.\n\nAGENT CLOUD FACTS:${agentCloudFacts()}`,
@@ -73,6 +96,10 @@ async function askAllison(t: Thread, thread: { sender: string; body: string }[])
       { role: "user", content: `Prospect: ${t.name ?? "unknown"} <${t.email}>\nSubject: ${t.subject}\n\nConversation so far:\n${convo}\n\nWrite Allison's next email.` },
     ],
   });
+  if (response.status !== "completed") throw new Error("Allison's reply was incomplete");
+  const raw = response.output.flatMap((item) => item.type === "message"
+    ? item.content.flatMap((part) => part.type === "output_text" ? [part.text] : []) : []).join("");
+  return z.object({ reply: z.string(), escalate: z.boolean(), reason: z.string() }).parse(JSON.parse(raw));
 }
 
 export async function processDueThreads(): Promise<{ processed: number; paused?: string }> {
@@ -90,6 +117,7 @@ export async function processDueThreads(): Promise<{ processed: number; paused?:
     for (const t of (due ?? []) as Thread[]) {
       await db.from("allison_threads").update({ reply_after: null }).eq("id", t.id);
       try {
+        await notifyDemoInbox(t);
         const { data: msgs } = await db.from("allison_messages").select("sender,body").eq("thread_ref", t.id).eq("internal", false).order("created_at");
         const thread = (msgs ?? []) as { sender: string; body: string }[];
         const leadText = thread.filter((m) => m.sender === "lead").map((m) => m.body).join("\n");
@@ -113,7 +141,7 @@ export async function processDueThreads(): Promise<{ processed: number; paused?:
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (/credits exhausted/i.test(msg)) await db.from("allison_job_lock").update({ paused_reason: msg }).eq("name", "replies");
+    if (/credits exhausted/i.test(msg) || (e instanceof GatewayError && [402, 403].includes(e.httpStatus ?? 0))) await db.from("allison_job_lock").update({ paused_reason: msg }).eq("name", "replies");
     console.error("allison job error", msg);
   } finally {
     await db.from("allison_job_lock").update({ locked_until: new Date().toISOString() }).eq("name", "replies");

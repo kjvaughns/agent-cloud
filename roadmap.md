@@ -1,0 +1,3 @@
+- [x] Diagnose the saved test demo and empty support inbox.
+- [x] Send demo forms to support and repair Allison's reply contract.
+- [ ] Verify delivery of the existing test requests and email checks.
