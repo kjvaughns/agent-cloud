@@ -6941,6 +6941,7 @@ export type Database = {
           accent_color: string | null
           active: boolean | null
           active_seat_count: number | null
+          billing_comped: boolean
           created_at: string | null
           custom_domain: string | null
           id: string
@@ -6965,6 +6966,7 @@ export type Database = {
           accent_color?: string | null
           active?: boolean | null
           active_seat_count?: number | null
+          billing_comped?: boolean
           created_at?: string | null
           custom_domain?: string | null
           id?: string
@@ -6989,6 +6991,7 @@ export type Database = {
           accent_color?: string | null
           active?: boolean | null
           active_seat_count?: number | null
+          billing_comped?: boolean
           created_at?: string | null
           custom_domain?: string | null
           id?: string
