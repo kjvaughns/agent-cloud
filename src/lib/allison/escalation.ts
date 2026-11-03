@@ -1,4 +1,4 @@
-import { SIGNATURE } from './rules';
+import { SIGNATURE, SUPPORT_INBOX } from './rules';
 
 export const ESCALATION_RECIPIENT = 'kjvaughns13@gmail.com';
 export const INTAKE_MARKER = 'ALLISON_ESCALATION_INTAKE';
@@ -44,6 +44,6 @@ export function escalationNotice(
   return {
     to: ESCALATION_RECIPIENT,
     subject: `[Needs you] ${details.project} — ${lead.name || lead.email}`,
-    text: `Allison gathered the following problem details.\nFrom: ${lead.name || ''} <${lead.email}>\nSubject: ${lead.subject}\nProject: ${details.project}\nReason for handoff: ${reason}\n\nProblem: ${details.problem}\nImpact: ${details.impact}\nStarted / frequency: ${details.timing}\nAlready tried: ${details.attempted}\nRequested outcome: ${details.desiredOutcome}\n\nSuggested next steps (recommendations only, not actions taken):\n${details.suggestions.map((s) => `- ${s}`).join('\n')}\n\nConversation:\n${conversation.map((m) => `${m.sender}: ${m.body}`).join('\n\n')}\n\nReply to ${lead.email} from ${'support@useagentcloud.com'}.`,
+    text: `Allison gathered the following problem details.\nFrom: ${lead.name || ''} <${lead.email}>\nSubject: ${lead.subject}\nProject: ${details.project}\nReason for handoff: ${reason}\n\nProblem: ${details.problem}\nImpact: ${details.impact}\nStarted / frequency: ${details.timing}\nAlready tried: ${details.attempted}\nRequested outcome: ${details.desiredOutcome}\n\nSuggested next steps (recommendations only, not actions taken):\n${details.suggestions.map((s) => `- ${s}`).join('\n')}\n\nConversation:\n${conversation.map((m) => `${m.sender}: ${m.body}`).join('\n\n')}\n\nReply to ${lead.email} from ${SUPPORT_INBOX}.`,
   };
 }
