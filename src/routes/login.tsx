@@ -143,6 +143,9 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.02em" }}>{title}</h1>
           <p className="text-sm text-muted-foreground mt-1 mb-6">{subtitle}</p>
           {children}
+          <p className="mt-6 flex items-center justify-center gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+            <BrandLogo size={16} rounded="rounded" className="border-0 shadow-none" alt="" /> Powered by <span className="font-medium text-foreground">Agent Cloud</span>
+          </p>
         </div>
       </div>
     </div>
