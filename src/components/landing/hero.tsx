@@ -66,7 +66,7 @@ export function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string 
               className="w-full sm:w-auto"
             >
               {/* 48px tall, full width on a phone: the one action in view. */}
-              <Button size="lg" className="h-12 w-full px-7 text-base sm:w-auto">
+              <Button size="lg" variant="ink" className="rounded-full h-12 w-full px-7 text-base sm:w-auto">
                 {ctaLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
               </Button>
             </Link>

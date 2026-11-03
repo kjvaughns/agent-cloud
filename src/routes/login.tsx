@@ -75,7 +75,7 @@ function LoginPage() {
         </div>
         <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
-      <Button type="submit" className="w-full" disabled={loading || !ready}>
+      <Button type="submit" variant="ink" className="w-full rounded-full" disabled={loading || !ready}>
         {loading || !ready ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign in"}
       </Button>
     </form>
