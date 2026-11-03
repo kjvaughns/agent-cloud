@@ -1,35 +1,25 @@
-# Keep the Vantage Financial book in Agent Cloud, synced from AgentLink
+# Send signed-in agents to app.useagentcloud.com
 
-## What you get
-- Your AgentLink book (clients and policies) shows up in Agent Cloud's Book of Business, Pipeline, Leaderboard and Finances like any other policy.
-- It refreshes on its own every few hours. Changes only flow from AgentLink into Agent Cloud — Agent Cloud never writes anything back to AgentLink.
-- A "Sync now" button and a "last synced" time go in Settings > Agency > Integrations, along with a count of what changed and any rows that could not be matched.
+## Goal
+useagentcloud.com (and www) stays the public landing page. Everything you do once signed in happens on app.useagentcloud.com.
 
-## What I found
-- Your key is an AgentLink "agency API key" (`al_…`). AgentLink offers three access types for these keys: Book of Business (client and deal data), Business Analytics, and Team Analytics.
-- AgentLink has no public documentation for the addresses that accept these keys. When I tried the most likely ones, they either don't exist or turn the key away, so the exact address for reading your book is still unknown.
+## Important things to know first
+- **app.useagentcloud.com isn't live yet.** It's connected but still waiting on its DNS records. Until those are added at your domain provider, sending people there would break sign-in. The change below only switches on when that address is live.
+- **Sign-ins don't carry across addresses.** A browser keeps a login per address, so a login on useagentcloud.com doesn't count on app.useagentcloud.com. That's why sign-in itself should happen on the app address, not get forwarded afterward.
 
-## Step 1 — Find the right address (needs you, about 2 minutes)
-In AgentLink, open the page where you created the key (Settings > API Keys) and check:
-1. That the key has **Book of Business** access turned on.
-2. Whether the page shows an example request or a "docs" link. If it does, paste it here. If it doesn't, ask AgentLink support: "Which address do I call with my agency API key to list deals/policies, and do I send the key as a Bearer token or an x-api-key header?"
-
-Once I have that, I test the key with a single read-only request and confirm the information it returns before building anything else.
-
-## Step 2 — Build the sync
-- Store the key securely as a backend secret for Vantage Financial only — never in the code.
-- A background job runs every 3 hours and pulls deals page by page.
-- Each AgentLink deal is matched to an Agent Cloud policy by policy number and carrier. Matches are updated; new ones are created under the right client (matched by name + date of birth / phone, or a new client is created).
-- The writing agent is matched by email, then NPN, then name. Deals that don't match an agent go to a review list instead of being credited to you.
-- Dates go through the existing date cleanup (Excel serial dates, etc.). Carriers are matched against your active carriers using the existing carrier aliases.
-- Commissions for new or changed policies are recalculated through the existing single commission calculator.
-- Every synced policy is tagged with its source (AgentLink) so a second sync never creates a duplicate.
+## What changes
+1. **Sign in / Sign up buttons on the landing page** take people to app.useagentcloud.com/auth.
+2. **Any portal page opened on useagentcloud.com or www** (dashboard, pipeline, etc., or the sign-in page) forwards to the same page on app.useagentcloud.com, links and search included, so old bookmarks and email links keep working.
+3. **After signing in, resetting a password, finishing a Google sign-in, or opening an invite**, people end up on app.useagentcloud.com/dashboard.
+4. **On app.useagentcloud.com**, the bare address goes straight to the dashboard (or to sign-in if logged out). The landing page isn't shown there.
+5. **Preview and the agent-cloud.lovable.app address keep working as they do now**, so testing isn't affected.
+6. Password reset, invite, and announcement emails link to app.useagentcloud.com.
+7. Google sign-in gets app.useagentcloud.com added as an allowed return address.
 
 ## Technical details
-- New table `external_integrations` (org_id, provider='agentlink', last_synced_at, last_status, counts) plus `external_policy_links` (provider, external_id, policy_id) for idempotent upserts; with GRANTs and owner-only RLS.
-- `src/lib/integrations/agentlink.server.ts` client; `agentlink.functions.ts` (owner-only `syncAgentLinkNow`, `getAgentLinkStatus`); cron route `src/routes/api/public/hooks/sync-agentlink.ts` protected by the existing hook-secret check.
-- Reuses `toIsoDate`, the carrier alias matching, and `calculateAndInsertAllCommissions`.
-- Secret `AGENTLINK_API_KEY_VANTAGE` (keyed by org so other agencies can be added later).
-
-## Open item
-- Blocked on Step 1: the AgentLink address and the way the key should be sent.
+- One shared helper, `src/lib/hosts.ts`: `APP_ORIGIN = "https://app.useagentcloud.com"`, plus `isMarketingHost(host)` (apex/www) and `isAppHost(host)`. A single `APP_SUBDOMAIN_ENABLED` flag, turned on once DNS shows Active.
+- Forwarding runs in the server request middleware (src/start.ts): on a marketing host, any path besides public marketing pages (/, /pricing, /support, legal, /api/public/*) gets a 302 to APP_ORIGIN + path + search. Running it on the server avoids a flash of the wrong page.
+- src/routes/index.tsx: on the app host, redirect to /dashboard. On the marketing host, drop the `?stay=1` signed-in redirect, since no session exists there.
+- Auth links (src/routes/auth.callback.tsx, reset-password, the email redirectTo/emailRedirectTo values, invite links) build from APP_ORIGIN when the flag is on, and from window.location.origin otherwise.
+- Agency-branding lookup by hostname keeps working; app.useagentcloud.com resolves the default AgentCloud branding.
+- Test: unit tests for host classification and forwarding paths. Then check with Playwright using Host header overrides.
