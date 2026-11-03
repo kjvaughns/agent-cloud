@@ -1,3 +1,4 @@
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import { createFileRoute, Outlet, redirect, useRouter, isRedirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AlertTriangle, RotateCcw, Home } from "lucide-react";
@@ -10,7 +11,7 @@ import { DemoBanner } from "@/components/demo-banner";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { requireSession } from "@/lib/require-session";
 
-function AuthErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function AuthErrorComponent({ error, reset }: ErrorComponentProps) {
   if (isRedirect(error)) throw error;
   console.error(error);
   const router = useRouter();
