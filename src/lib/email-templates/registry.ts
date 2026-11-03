@@ -39,6 +39,7 @@ import { template as caseDesignUpdated } from './case-design-updated'
 import { template as retentionCaseAssigned } from './retention-case-assigned'
 import { template as newLead } from './new-lead'
 import { template as demoRequest } from './demo-request'
+import { template as demoConfirmation } from './demo-confirmation'
 import { template as dailyDigest } from './daily-digest'
 import { template as clientMessage } from './client-message'
 
@@ -90,6 +91,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   // Marketing site / intake
   'waitlist-confirmation': waitlistConfirmation,
   'demo-request': demoRequest,
+  'demo-confirmation': demoConfirmation,
 
   // Onboarding & contracting
   'agent-invited': agentInvited,

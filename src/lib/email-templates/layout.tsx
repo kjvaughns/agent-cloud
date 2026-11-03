@@ -27,11 +27,11 @@ import {
  * Never add unsubscribe copy or links inside a template.
  */
 
-export const GOLD = '#C9A227'
-export const INK = '#0F172A'
-export const BODY_TEXT = '#475569'
-export const MUTED = '#94A3B8'
-export const BORDER = '#E2E8F0'
+export const GOLD = '#B48C3E'
+export const INK = '#242424'
+export const BODY_TEXT = '#525252'
+export const MUTED = '#737373'
+export const BORDER = '#E5E5E5'
 
 export interface EmailBrand {
   /** Display name in the wordmark + footer. */
@@ -172,14 +172,14 @@ const logo = { display: 'block' }
 const wordmark = {
   fontFamily: DISPLAY_FONT,
   fontSize: '24px',
-  letterSpacing: '0.18em',
+  letterSpacing: '0',
   color: INK,
   margin: 0,
   fontWeight: 700 as const,
 }
 const card = {
   border: `1px solid ${BORDER}`,
-  borderRadius: '12px',
+  borderRadius: '8px',
   padding: '32px',
   backgroundColor: '#ffffff',
   marginTop: '16px',
@@ -196,7 +196,7 @@ const leadStyle = { fontSize: '15px', lineHeight: '1.6', color: BODY_TEXT, margi
 const paragraph = { fontSize: '14px', lineHeight: '1.65', color: BODY_TEXT, margin: '0 0 14px' }
 const sectionHeading = {
   fontSize: '12px',
-  letterSpacing: '0.14em',
+  letterSpacing: '0',
   textTransform: 'uppercase' as const,
   color: INK,
   fontWeight: 700 as const,
@@ -222,7 +222,7 @@ const ctaStyle = {
   padding: '14px 28px',
   textDecoration: 'none',
   display: 'inline-block',
-  letterSpacing: '0.02em',
+  letterSpacing: '0',
 }
 const fine = { fontSize: '13px', lineHeight: '1.6', color: MUTED, margin: '18px 0 0' }
 const hr = { borderColor: BORDER, margin: '24px 0 16px' }
