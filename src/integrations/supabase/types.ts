@@ -7019,6 +7019,75 @@ export type Database = {
           },
         ]
       }
+      payment_events: {
+        Row: {
+          environment: string
+          event_id: string
+          processed_at: string
+        }
+        Insert: {
+          environment: string
+          event_id: string
+          processed_at?: string
+        }
+        Update: {
+          environment?: string
+          event_id?: string
+          processed_at?: string
+        }
+        Relationships: []
+      }
+      payment_subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          current_period_end: string | null
+          environment: string
+          id: string
+          kind: string
+          last_event_at: number
+          organization_id: string | null
+          price_id: string | null
+          quantity: number
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          environment: string
+          id?: string
+          kind: string
+          last_event_at?: number
+          organization_id?: string | null
+          price_id?: string | null
+          quantity?: number
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          environment?: string
+          id?: string
+          kind?: string
+          last_event_at?: number
+          organization_id?: string | null
+          price_id?: string | null
+          quantity?: number
+          status?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pdb_reviews: {
         Row: {
           agent_id: string

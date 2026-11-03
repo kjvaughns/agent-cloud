@@ -1,3 +1,4 @@
+import { useBillingCheckout } from '@/components/BillingCheckout';
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2, Check } from "lucide-react";
@@ -8,12 +9,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell } from "./login";
-import { initSoloWorkspace, createCheckoutSession } from "@/lib/billing.functions";
+import { initSoloWorkspace } from "@/lib/billing.functions";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { PRICING } from "@/lib/billing/pricing";
 
 export const Route = createFileRoute("/signup_/agent")({
-  head: () => ({ meta: [{ title: "Solo Agent Signup — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Solo Agent Signup — Agent Cloud" }, { name: "description", content: "Start your Agent Cloud Solo Agent subscription for $49 per month." }, { property: "og:title", content: "Solo Agent Signup — Agent Cloud" }, { property: "og:description", content: "Start your Agent Cloud Solo Agent subscription for $49 per month." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: SoloSignupPage,
 });
 
@@ -37,7 +38,7 @@ function SoloSignupPage() {
   const [withSampleData, setWithSampleData] = useState(true);
 
   const initFn = useServerFn(initSoloWorkspace);
-  const checkoutFn = useServerFn(createCheckoutSession);
+  const checkout = useBillingCheckout();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
@@ -47,12 +48,8 @@ function SoloSignupPage() {
     setBusy(true);
     try {
       await initFn({ data: { withSampleData } });
-      const r: any = await checkoutFn({ data: { product: "solo_agent" } });
-      if (r?.url) {
-        window.location.assign(r.url);
-        return;
-      }
-      window.location.assign("/dashboard");
+      checkout.mutate({ product: "solo_agent" });
+      setBusy(false);
     } catch (e: any) {
       if (String(e?.message ?? "").includes("not configured")) {
         toast.info("Workspace created — billing activates once Stripe is connected.");
@@ -86,6 +83,7 @@ function SoloSignupPage() {
 
   return (
     <AuthShell title="Start as a Solo Agent" subtitle={`$${PRICING.soloAgent}/month — the full platform, no invite needed`}>
+      {checkout.element}
       <ul className="mb-5 space-y-1.5 text-sm text-muted-foreground">
         {PERKS.map((p) => (
           <li key={p} className="flex items-start gap-2">

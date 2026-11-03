@@ -167,7 +167,6 @@ import { Route as ApiPublicPageDataRouteImport } from './routes/api/public/page-
 import { Route as ApiPublicPlansRouteImport } from './routes/api/public/plans'
 import { Route as ApiPublicWaitlistCountRouteImport } from './routes/api/public/waitlist-count'
 import { Route as ApiPublicWaitlistSignupRouteImport } from './routes/api/public/waitlist-signup'
-import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as ApiV1CarriersRouteImport } from './routes/api/v1/carriers'
 import { Route as ApiV1LeaderboardRouteImport } from './routes/api/v1/leaderboard'
 import { Route as ApiV1ProductionRouteImport } from './routes/api/v1/production'
@@ -184,6 +183,7 @@ import { Route as ApiPublicHooksDispatchAnnouncementsRouteImport } from './route
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as ApiPublicHooksProcessImportsRouteImport } from './routes/api/public/hooks/process-imports'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -1063,11 +1063,6 @@ const ApiPublicWaitlistSignupRoute = ApiPublicWaitlistSignupRouteImport.update({
   path: '/api/public/waitlist-signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
-  id: '/api/stripe/webhook',
-  path: '/api/stripe/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiV1CarriersRoute = ApiV1CarriersRouteImport.update({
   id: '/api/v1/carriers',
   path: '/api/v1/carriers',
@@ -1155,6 +1150,12 @@ const ApiPublicHooksRunAutomationsRoute =
   ApiPublicHooksRunAutomationsRouteImport.update({
     id: '/api/public/hooks/run-automations',
     path: '/api/public/hooks/run-automations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPaymentsWebhookRoute =
+  ApiPublicPaymentsWebhookRouteImport.update({
+    id: '/api/public/payments/webhook',
+    path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
@@ -1346,7 +1347,6 @@ export interface FileRoutesByFullPath {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1366,6 +1366,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1523,7 +1524,6 @@ export interface FileRoutesByTo {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1543,6 +1543,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1707,7 +1708,6 @@ export interface FileRoutesById {
   '/api/public/plans': typeof ApiPublicPlansRoute
   '/api/public/waitlist-count': typeof ApiPublicWaitlistCountRoute
   '/api/public/waitlist-signup': typeof ApiPublicWaitlistSignupRoute
-  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/api/v1/carriers': typeof ApiV1CarriersRoute
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
@@ -1727,6 +1727,7 @@ export interface FileRoutesById {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1891,7 +1892,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -1911,6 +1911,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2068,7 +2069,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -2088,6 +2088,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2251,7 +2252,6 @@ export interface FileRouteTypes {
     | '/api/public/plans'
     | '/api/public/waitlist-count'
     | '/api/public/waitlist-signup'
-    | '/api/stripe/webhook'
     | '/api/v1/carriers'
     | '/api/v1/leaderboard'
     | '/api/v1/production'
@@ -2271,6 +2271,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2314,7 +2315,6 @@ export interface RootRouteChildren {
   ApiPublicPlansRoute: typeof ApiPublicPlansRoute
   ApiPublicWaitlistCountRoute: typeof ApiPublicWaitlistCountRoute
   ApiPublicWaitlistSignupRoute: typeof ApiPublicWaitlistSignupRoute
-  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
   ApiV1CarriersRoute: typeof ApiV1CarriersRoute
   ApiV1LeaderboardRoute: typeof ApiV1LeaderboardRoute
   ApiV1ProductionRoute: typeof ApiV1ProductionRoute
@@ -2327,6 +2327,7 @@ export interface RootRouteChildren {
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
   ApiPublicHooksProcessImportsRoute: typeof ApiPublicHooksProcessImportsRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
+  ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -3442,13 +3443,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWaitlistSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/stripe/webhook': {
-      id: '/api/stripe/webhook'
-      path: '/api/stripe/webhook'
-      fullPath: '/api/stripe/webhook'
-      preLoaderRoute: typeof ApiStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/v1/carriers': {
       id: '/api/v1/carriers'
       path: '/api/v1/carriers'
@@ -3559,6 +3553,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/hooks/run-automations'
       fullPath: '/api/public/hooks/run-automations'
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/payments/webhook': {
+      id: '/api/public/payments/webhook'
+      path: '/api/public/payments/webhook'
+      fullPath: '/api/public/payments/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lovable/email/auth/preview': {
@@ -4046,7 +4047,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPlansRoute: ApiPublicPlansRoute,
   ApiPublicWaitlistCountRoute: ApiPublicWaitlistCountRoute,
   ApiPublicWaitlistSignupRoute: ApiPublicWaitlistSignupRoute,
-  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
   ApiV1CarriersRoute: ApiV1CarriersRoute,
   ApiV1LeaderboardRoute: ApiV1LeaderboardRoute,
   ApiV1ProductionRoute: ApiV1ProductionRoute,
@@ -4060,6 +4060,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
   ApiPublicHooksProcessImportsRoute: ApiPublicHooksProcessImportsRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
+  ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
