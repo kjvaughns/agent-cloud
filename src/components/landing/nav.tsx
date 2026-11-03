@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BrandLogo } from "@/components/brand-logo";
+import { BrandWordmark } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/landing-analytics";
 import { display } from "./primitives";
@@ -85,7 +85,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
 
   const cta = (
     <Link to={ctaHref} onClick={() => track("nav_cta_clicked", { label: ctaLabel })}>
-      <Button size="sm">
+      <Button size="sm" variant="ink" className="rounded-full px-4">
         {ctaLabel} <ArrowRight className="ml-1.5 h-4 w-4" />
       </Button>
     </Link>
@@ -96,15 +96,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <a href="#top" className="flex items-center gap-2.5" aria-label="Agent Cloud home">
-          <BrandLogo size={34} />
-          <div className="flex flex-col leading-none">
-            <span className="text-lg sm:text-xl font-bold tracking-[0.14em] text-foreground" style={display}>
-              AGENT CLOUD
-            </span>
-            <span className="hidden sm:block text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-              Insurance OS
-            </span>
-          </div>
+          <BrandWordmark />
         </a>
 
         <nav className="hidden lg:flex items-center gap-7 text-sm text-muted-foreground">
@@ -196,7 +188,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
               Log in
             </Link>
             <Link to={ctaHref} onClick={() => { setOpen(false); track("nav_cta_clicked", { label: ctaLabel, surface: "mobile" }); }} className="mt-4">
-              <Button className="w-full h-12 text-base">{ctaLabel}</Button>
+              <Button variant="ink" className="w-full h-12 text-base rounded-full">{ctaLabel}</Button>
             </Link>
           </nav>
       </div>
@@ -225,7 +217,7 @@ export function StickyMobileCta({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHr
       )}
     >
       <Link to={ctaHref} onClick={() => track("hero_cta_clicked", { surface: "sticky" })}>
-        <Button className="w-full h-12 text-base">{ctaLabel}</Button>
+        <Button variant="ink" className="w-full h-12 text-base rounded-full">{ctaLabel}</Button>
       </Link>
     </div>
   );
