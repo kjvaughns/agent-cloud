@@ -1,3 +1,4 @@
+import { APP_ORIGIN, APP_SUBDOMAIN_ENABLED, isMarketingHost } from "@/lib/hosts";
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -132,6 +133,10 @@ function useSignedInRedirect(enabled: boolean) {
       }
       if (cancelled) return;
       if (session) {
+        if (APP_SUBDOMAIN_ENABLED && isMarketingHost(window.location.host)) {
+          window.location.replace(`${APP_ORIGIN}/dashboard`);
+          return;
+        }
         navigate({ to: "/dashboard", replace: true });
         return;
       }
