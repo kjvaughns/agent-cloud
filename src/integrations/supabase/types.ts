@@ -932,6 +932,110 @@ export type Database = {
           },
         ]
       }
+      allison_job_lock: {
+        Row: {
+          locked_until: string
+          name: string
+          paused_reason: string | null
+        }
+        Insert: {
+          locked_until?: string
+          name: string
+          paused_reason?: string | null
+        }
+        Update: {
+          locked_until?: string
+          name?: string
+          paused_reason?: string | null
+        }
+        Relationships: []
+      }
+      allison_messages: {
+        Row: {
+          body: string
+          created_at: string
+          email_message_id: string | null
+          id: string
+          internal: boolean
+          sender: string
+          thread_ref: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          email_message_id?: string | null
+          id?: string
+          internal?: boolean
+          sender: string
+          thread_ref: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          email_message_id?: string | null
+          id?: string
+          internal?: boolean
+          sender?: string
+          thread_ref?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allison_messages_thread_ref_fkey"
+            columns: ["thread_ref"]
+            isOneToOne: false
+            referencedRelation: "allison_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      allison_threads: {
+        Row: {
+          created_at: string
+          demo_request_id: string | null
+          email: string
+          escalated: boolean
+          escalation_reason: string | null
+          id: string
+          last_message_id: string | null
+          name: string | null
+          reply_after: string | null
+          status: string
+          subject: string
+          thread_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          demo_request_id?: string | null
+          email: string
+          escalated?: boolean
+          escalation_reason?: string | null
+          id?: string
+          last_message_id?: string | null
+          name?: string | null
+          reply_after?: string | null
+          status?: string
+          subject: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          demo_request_id?: string | null
+          email?: string
+          escalated?: boolean
+          escalation_reason?: string | null
+          id?: string
+          last_message_id?: string | null
+          name?: string | null
+          reply_after?: string | null
+          status?: string
+          subject?: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics_insight_cache: {
         Row: {
           agent_id: string

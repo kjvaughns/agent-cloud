@@ -109,6 +109,14 @@ export const Route = createFileRoute("/api/public/demo-request")({
         }
 
 
+        // Allison (support@useagentcloud.com) takes the conversation from here.
+        try {
+          const { startDemoThread } = await import("@/lib/allison/allison.server");
+          await startDemoThread({ ...row, id: lead.id } as any);
+        } catch (e) {
+          console.error("allison start failed", e);
+        }
+
         return json({ ok: true, id: lead.id });
       },
     },
