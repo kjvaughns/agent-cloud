@@ -183,6 +183,7 @@ import { Route as ApiPublicHooksDispatchAnnouncementsRouteImport } from './route
 import { Route as ApiPublicHooksFetchNewsRouteImport } from './routes/api/public/hooks/fetch-news'
 import { Route as ApiPublicHooksProcessImportsRouteImport } from './routes/api/public/hooks/process-imports'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
@@ -1151,6 +1152,12 @@ const ApiPublicHooksRunAutomationsRoute =
     path: '/api/public/hooks/run-automations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPaymentsWebhookRoute =
+  ApiPublicPaymentsWebhookRouteImport.update({
+    id: '/api/public/payments/webhook',
+    path: '/api/public/payments/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   id: '/lovable/email/auth/preview',
   path: '/lovable/email/auth/preview',
@@ -1359,6 +1366,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1535,6 +1543,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1718,6 +1727,7 @@ export interface FileRoutesById {
   '/api/public/hooks/fetch-news': typeof ApiPublicHooksFetchNewsRoute
   '/api/public/hooks/process-imports': typeof ApiPublicHooksProcessImportsRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -1901,6 +1911,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2077,6 +2088,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2259,6 +2271,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/fetch-news'
     | '/api/public/hooks/process-imports'
     | '/api/public/hooks/run-automations'
+    | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -2314,6 +2327,7 @@ export interface RootRouteChildren {
   ApiPublicHooksFetchNewsRoute: typeof ApiPublicHooksFetchNewsRoute
   ApiPublicHooksProcessImportsRoute: typeof ApiPublicHooksProcessImportsRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
+  ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -3541,6 +3555,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/webhook': {
+      id: '/api/public/payments/webhook'
+      path: '/api/public/payments/webhook'
+      fullPath: '/api/public/payments/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/auth/preview': {
       id: '/lovable/email/auth/preview'
       path: '/lovable/email/auth/preview'
@@ -4039,6 +4060,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksFetchNewsRoute: ApiPublicHooksFetchNewsRoute,
   ApiPublicHooksProcessImportsRoute: ApiPublicHooksProcessImportsRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
+  ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
