@@ -18,6 +18,8 @@ export interface SendEmailArgs {
   template: string;
   /** Explicit recipient. Optional when `profileId` is given. */
   to?: string | null;
+  /** Reply address for this event; does not change the verified noreply sender. */
+  replyTo?: string;
   /** Recipient profile — resolves the address and drives may_notify(). */
   profileId?: string | null;
   /** Organization that owns the event; drives org-level consent + branding. */
@@ -320,6 +322,7 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
         message_id: key,
         to: recipient,
         from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+        ...(args.replyTo ? { reply_to: args.replyTo } : {}),
         sender_domain: SENDER_DOMAIN,
         subject,
         html,

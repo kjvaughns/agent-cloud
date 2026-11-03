@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { guardPublicEndpoint } from "@/lib/rate-limit";
+import { demoConfirmation } from '@/lib/allison/demo-confirmation';
 
 /**
  * Demo request capture.
@@ -66,6 +67,13 @@ export const Route = createFileRoute("/api/public/demo-request")({
           .single();
 
         if (error) return json({ error: "Something went wrong. Please try again." }, 500);
+
+        // Customer acknowledgment is queued first, independently of admin notices.
+        const { queueEmail: confirmEmail } = await import('@/lib/email/send.server');
+        const confirmation = await confirmEmail(demoConfirmation({ ...row, id: lead.id }));
+        if (!confirmation.sent && confirmation.reason !== 'duplicate_event') {
+          console.error('demo acknowledgment not queued', { id: lead.id, reason: confirmation.reason });
+        }
 
         // Notify platform admins and give them a task, so the lead has an
         // owner rather than sitting in a table nobody watches.
