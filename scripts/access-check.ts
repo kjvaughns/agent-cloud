@@ -1,0 +1,17 @@
+import { computeAccess } from '../src/lib/billing/access';
+const now = Date.parse('2026-11-03T00:00:00Z');
+const future = '2026-12-01T00:00:00Z', past = '2026-10-01T00:00:00Z';
+const base = { hasWorkspace: true, comped: false, isPlatformAdmin: false, planType: 'agency', ownerId: 'o', rows: [] as any[], now };
+let fail = 0;
+const check = (name: string, got: string, want: string) => { const ok = got === want; if (!ok) fail++; console.log(`${ok ? 'PASS' : 'FAIL'} ${name}: ${got}`); };
+check('unpaid agency is read-only', computeAccess(base).mode, 'read_only');
+check('comped agency has full access', computeAccess({ ...base, comped: true }).mode, 'full');
+check('active agency plan unlocks', computeAccess({ ...base, rows: [{ kind: 'agency', status: 'active', current_period_end: future }] }).mode, 'full');
+check('past-due keeps access during retries', computeAccess({ ...base, rows: [{ kind: 'agency', status: 'past_due', current_period_end: future }] }).mode, 'full');
+check('unpaid after retries locks', computeAccess({ ...base, rows: [{ kind: 'agency', status: 'unpaid', current_period_end: future }] }).mode, 'read_only');
+check('canceled keeps access until period end', computeAccess({ ...base, rows: [{ kind: 'agency', status: 'canceled', current_period_end: future }] }).mode, 'full');
+check('canceled after period end locks', computeAccess({ ...base, rows: [{ kind: 'agency', status: 'canceled', current_period_end: past }] }).mode, 'read_only');
+check('Nova seats alone do not unlock', computeAccess({ ...base, rows: [{ kind: 'nova_seats', status: 'active', current_period_end: future }] }).mode, 'read_only');
+check('solo owner subscription unlocks solo', computeAccess({ ...base, planType: 'solo', rows: [{ kind: 'solo', status: 'active', current_period_end: future, user_id: 'o' }] }).mode, 'full');
+check('platform admin always full', computeAccess({ ...base, isPlatformAdmin: true }).mode, 'full');
+if (fail) process.exit(1);

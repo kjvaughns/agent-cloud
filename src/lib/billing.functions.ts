@@ -401,7 +401,7 @@ export const getPlatformSubscriptions = createServerFn({ method: "GET" })
 
     const { data: orgs } = await supabaseAdmin
       .from("organizations")
-      .select("id, name, plan_type, subscription_status, nova_seats_purchased, subscription_current_period_end, created_at")
+      .select("id, name, plan_type, subscription_status, nova_seats_purchased, subscription_current_period_end, created_at, billing_comped")
       .order("created_at", { ascending: false });
 
     const { data: novaProfiles } = await supabaseAdmin
@@ -495,3 +495,16 @@ export async function trackNovaUsage(
     }
   }
 }
+
+export const setOrgComped = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ orgId: z.string().uuid(), comped: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: roleRow } = await context.supabase
+      .from("user_roles").select("role").eq("user_id", context.userId).eq("role", "super_admin").maybeSingle();
+    if (!roleRow) throw new Error("Super admin only");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("organizations").update({ billing_comped: data.comped }).eq("id", data.orgId);
+    if (error) throw error;
+    return { ok: true };
+  });

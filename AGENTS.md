@@ -5,3 +5,4 @@
 - Allison escalation intake stays non-escalated until a customer answers follow-up questions and a complete structured report is available; owner delivery uses an internal message marker before closing automation. Why: humans receive actionable context and failed email sends remain retryable without claiming a handoff.
 
 - Payment calls use the shared gateway-backed stripe.server.ts and embedded checkout; payment_subscriptions/payment_events isolate test and live state, and only live payment events update workspace entitlements. Why: test purchases cannot change real customer access or reuse legacy Stripe customer IDs.
+- Workspace write access is decided only by computeAccess in src/lib/billing/access.ts (via getAccessFor, using the build's payment environment); checkout/portal reject any environment other than the build's. Why: test purchases unlock only the preview and can't grant live access.

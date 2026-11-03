@@ -22,7 +22,13 @@ async function processEvent(request: Request, environment: StripeEnv) {
   const meta = subscription.metadata;
   const userId = meta.userId;
   const kind = meta.kind;
-  if (!userId || !['agency','solo','nova_personal','nova_seats','white_label'].includes(kind)) throw new Error('Missing subscription attribution');
+  if (!userId || !['agency','solo','nova_personal','nova_seats','white_label'].includes(kind)) {
+   // Not started from this app (e.g. created by hand): acknowledge and ignore so it isn't retried for days.
+   console.warn('[payments webhook] ignoring unattributed subscription', subscription.id);
+   const { error } = await supabaseAdmin.from('payment_events').upsert({ environment, event_id: event.id }, { onConflict: 'environment,event_id' });
+   if (error) throw error;
+   return;
+  }
   const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
   const customer = await stripe.customers.retrieve(customerId);
   if (customer.deleted || customer.metadata.userId !== userId) throw new Error('Invalid customer attribution');

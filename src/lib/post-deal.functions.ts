@@ -8,6 +8,7 @@ import { calculateAndInsertAllCommissions } from "@/lib/commission-calculator";
 import { announceDeal } from "@/lib/discord.functions";
 import { getMyPrimaryOrgId } from "@/lib/org-guard";
 import { saleDateToTimestamp } from "@/lib/sale-date";
+import { assertWriteAccess } from "@/lib/billing/access.server";
 
 export const searchClients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -162,6 +163,7 @@ export const postDeal = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PostDealSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    await assertWriteAccess(userId);
     const writingAgentId = data.writing_agent_id ?? userId;
     const forSomeoneElse = writingAgentId !== userId;
     // The client that writes the policy. The caller's own client when they

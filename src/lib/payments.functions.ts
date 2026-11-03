@@ -5,6 +5,11 @@ import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
 import { createStripeClient, getStripeErrorMessage } from '@/lib/stripe.server';
 import { PAYMENT_PRODUCTS, subscriptionHasAccess } from '@/lib/billing/payment-rules';
 import { assertNotDemoCaller } from '@/lib/demo.server';
+import { buildPaymentEnvironment, getAccessFor } from '@/lib/billing/access.server';
+
+function assertBuildEnvironment(env: 'sandbox' | 'live') {
+ if (env !== buildPaymentEnvironment()) throw new Error('This payment mode is not available here.');
+}
 
 const environment = z.enum(['sandbox', 'live']);
 function trustedReturnUrl(value: string) {
@@ -48,6 +53,7 @@ export const createManagedCheckout = createServerFn({ method: 'POST' })
   try {
    const { userId, supabase } = context;
    await assertNotDemoCaller(userId, 'start a checkout');
+   assertBuildEnvironment(data.environment);
    const config = PAYMENT_PRODUCTS[data.product];
    const org = config.org ? await ownedOrg(supabase, userId) : null;
    const stripe = createStripeClient(data.environment);
@@ -56,7 +62,7 @@ export const createManagedCheckout = createServerFn({ method: 'POST' })
    const customer = await resolveOrCreateCustomer(stripe, { userId, email: user.email });
    const subscriptions = await stripe.subscriptions.list({ customer, status: 'all', limit: 100 });
    const existing = subscriptions.data.find(s => s.metadata.kind === config.kind && (!org || s.metadata.organization_id === org.id) && ['active','trialing','past_due','incomplete'].includes(s.status));
-   if (existing) throw new Error('You already have this subscription. Use Manage Billing to change it.');
+   if (existing) throw new Error(data.product === 'nova_seats' ? 'You already pay for Nova seats. Use Change seat count instead.' : 'You already have this subscription. Use Manage Billing to change it.');
    if (data.product === 'white_label') {
     const agency = subscriptions.data.find(s => s.metadata.kind === 'agency' && s.metadata.organization_id === org?.id && ['active','trialing'].includes(s.status));
     if (!agency) throw new Error('White Label requires an active Agency Plan in this payment environment.');
@@ -86,6 +92,7 @@ export const createManagedPortal = createServerFn({ method: 'POST' })
   try {
    const { userId, supabase } = context;
    await assertNotDemoCaller(userId, 'open the billing portal');
+   assertBuildEnvironment(data.environment);
    if (data.scope === 'org') await ownedOrg(supabase, userId);
    const stripe = createStripeClient(data.environment);
    const found = await stripe.customers.search({ query: `metadata['userId']:'${userId}'`, limit: 1 });
@@ -102,4 +109,33 @@ export const getManagedSubscriptions = createServerFn({ method: 'POST' })
   const { data: rows, error } = await context.supabase.from('payment_subscriptions').select('*').eq('user_id', context.userId).eq('environment', data.environment);
   if (error) throw error;
   return (rows ?? []).map(row => ({ ...row, hasAccess: subscriptionHasAccess(row.status, row.current_period_end) }));
+ });
+
+export const getAccessState = createServerFn({ method: 'GET' })
+ .middleware([requireSupabaseAuth])
+ .handler(async ({ context }) => getAccessFor(context.userId));
+
+export const updateNovaSeats = createServerFn({ method: 'POST' })
+ .middleware([requireSupabaseAuth])
+ .inputValidator((d: unknown) => z.object({ quantity: z.number().int().min(1).max(500), environment }).parse(d))
+ .handler(async ({ data, context }): Promise<{ ok: true; quantity: number } | { error: string }> => {
+  try {
+   const { userId, supabase } = context;
+   await assertNotDemoCaller(userId, 'start a checkout');
+   assertBuildEnvironment(data.environment);
+   const org = await ownedOrg(supabase, userId);
+   const { data: row, error } = await supabase.from('payment_subscriptions').select('stripe_subscription_id,status').eq('environment', data.environment).eq('organization_id', org.id).eq('kind', 'nova_seats').in('status', ['active', 'trialing', 'past_due']).limit(1).maybeSingle();
+   if (error) throw error;
+   if (!row) throw new Error('No Nova seat subscription yet. Buy seats first.');
+   const stripe = createStripeClient(data.environment);
+   const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+   const item = sub.items.data[0];
+   if (!item) throw new Error('Seat subscription has no items');
+   await stripe.subscriptions.update(sub.id, {
+    items: [{ id: item.id, quantity: data.quantity }],
+    proration_behavior: 'create_prorations',
+    metadata: { ...sub.metadata, quantity: String(data.quantity) },
+   });
+   return { ok: true, quantity: data.quantity };
+  } catch (error) { return { error: getStripeErrorMessage(error) }; }
  });
