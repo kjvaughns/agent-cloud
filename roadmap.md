@@ -1,3 +1,7 @@
 - [x] Diagnose the saved test demo and empty support inbox.
 - [x] Send demo forms to support and repair Allison's reply contract.
 - [x] Verify the latest test form arrived in support, Allison sent its reply, and all seven checks passed.
+- [x] Enable Lovable built-in Stripe payments in the test environment.
+- [ ] Confirm Solo Agent price: live plan settings say $50/month; signup page says $49/month.
+- [ ] Recreate the existing catalog and replace the old checkout/portal with built-in payments.
+- [ ] Connect payment updates with test/live isolation and verify a test purchase.
