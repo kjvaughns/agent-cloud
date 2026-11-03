@@ -121,7 +121,7 @@ export const updateNovaSeats = createServerFn({ method: 'POST' })
  .handler(async ({ data, context }): Promise<{ ok: true; quantity: number } | { error: string }> => {
   try {
    const { userId, supabase } = context;
-   await assertNotDemoCaller(userId, 'change seats');
+   await assertNotDemoCaller(userId, 'start a checkout');
    assertBuildEnvironment(data.environment);
    const org = await ownedOrg(supabase, userId);
    const { data: row, error } = await supabase.from('payment_subscriptions').select('stripe_subscription_id,status').eq('environment', data.environment).eq('organization_id', org.id).eq('kind', 'nova_seats').in('status', ['active', 'trialing', 'past_due']).limit(1).maybeSingle();
