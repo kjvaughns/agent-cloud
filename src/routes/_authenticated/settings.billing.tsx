@@ -1,4 +1,4 @@
-import { useBillingCheckout, useBillingPortal } from '@/components/BillingCheckout';
+import { useBillingCheckout, useBillingPortal, PaymentSubscriptionStatus } from '@/components/BillingCheckout';
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -155,6 +155,7 @@ function SoloBilling({ access }: { access: any }) {
   return (
     <PageShell>
       {upgrade.element}
+      <PaymentSubscriptionStatus />
       <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand title="Billing & Plan" actions={<Badge variant={badge.v}>Solo Agent Plan · {badge.label}</Badge>} />
         <Panel title="Solo Agent Plan">
@@ -248,6 +249,7 @@ function OwnerBilling() {
   return (
     <PageShell>
       {go.element}
+      <PaymentSubscriptionStatus />
       <div className="max-w-4xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Billing"

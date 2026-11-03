@@ -1,4 +1,4 @@
-import { useBillingCheckout, useBillingPortal } from '@/components/BillingCheckout';
+import { useBillingCheckout, useBillingPortal, PaymentSubscriptionStatus } from '@/components/BillingCheckout';
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -77,6 +77,7 @@ export function NovaProPage() {
   return (
     <PageShell>
       {subscribe.element}
+      <PaymentSubscriptionStatus />
       <div className="max-w-2xl mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Nova AI Pro"
