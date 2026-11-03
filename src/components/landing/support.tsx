@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/format";
 import { track } from "@/lib/landing-analytics";
-import { BrandLogo } from "@/components/brand-logo";
+import { BrandWordmark, BrandLogo } from "@/components/brand-logo";
 import { LandingSection, SectionHead, display } from "./primitives";
 
 // ── FAQ ─────────────────────────────────────────────────────────────────────
@@ -183,8 +183,7 @@ export function LandingFooter() {
         <div className="grid gap-10 md:grid-cols-[1.4fr_repeat(4,1fr)]">
           <div>
             <div className="flex items-center gap-2">
-              <BrandLogo size={28} rounded="rounded-md" />
-              <span className="font-bold tracking-[0.14em] text-foreground" style={display}>AGENT CLOUD</span>
+              <BrandWordmark size={28} />
             </div>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground leading-relaxed">
               The operating system for independent insurance agencies.
