@@ -1,6 +1,8 @@
 import { forcedEscalation, replyDelayMs, SUPPORT_INBOX } from "../src/lib/allison/rules";
+import { demoNotification } from "../src/lib/allison/demo-notification";
 const checks: [string, boolean][] = [
   ["uses support@useagentcloud.com", SUPPORT_INBOX === "support@useagentcloud.com"],
+  ["demo forms go to support inbox", demoNotification("Test", "requester@example.com", "agency: Test").to === "support@useagentcloud.com"],
   ["waits at least 3 minutes", replyDelayMs(0) === 180_000],
   ["waits at most 5 minutes", replyDelayMs(0.999999) <= 300_000],
   ["refunds go to a person", forcedEscalation("can I get a refund") === "Refund or billing dispute"],

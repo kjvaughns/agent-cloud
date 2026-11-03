@@ -58,7 +58,7 @@ function generateToken(): string {
 function environmentBlocked(): string | null {
   if (process.env.EMAILS_DISABLED === "true") return "emails_disabled";
   const liveOverride = process.env.EMAILS_LIVE === "true";
-  const isDevServer = Boolean((import.meta as any)?.env?.DEV);
+  const isDevServer = import.meta.env.DEV;
   if (isDevServer && !liveOverride) return "non_production_environment";
   return null;
 }
@@ -327,8 +327,8 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
         purpose: "transactional",
         label: templateName,
         idempotency_key: key,
-        // Exempt (security/billing-failure) mail carries no unsubscribe link.
-        ...(exempt ? {} : { unsubscribe_token: unsubscribeToken }),
+        // The delivery service requires a token even for consent-exempt mail.
+        unsubscribe_token: unsubscribeToken,
         queued_at: new Date().toISOString(),
       },
     });
