@@ -23,4 +23,4 @@ export function forcedEscalation(text: string): string | null {
 }
 
 export const ESCALATION_REPLY = (name?: string | null) =>
-  `Hi${name ? ` ${name.split(" ")[0]}` : ""},\n\nThanks for the note. I want to make sure this is handled the right way, so I've passed it to our team and someone will follow up with you directly, usually within one business day.\n\n${SIGNATURE}`;
+  `Hi${name ? ` ${name.split(" ")[0]}` : ""},\n\nThanks for helping me understand the situation. I've emailed Kaeden the full picture, including the project involved and suggested next steps. The team will follow up with you directly.\n\n${SIGNATURE}`;
