@@ -162,6 +162,7 @@ export function LandingFooter() {
     {
       title: "Company",
       links: [
+        { label: "Free agent tools", href: "/tools", to: true },
         { label: "Request a demo", href: "/demo", to: true },
         { label: "Contact", href: "mailto:hello@useagentcloud.com" },
         { label: "Sign in", href: "/login", to: true },
