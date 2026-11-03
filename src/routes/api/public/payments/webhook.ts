@@ -54,7 +54,7 @@ async function processEvent(request: Request, environment: StripeEnv) {
     }).eq('id', userId);
     if (updateError) throw updateError;
    } else {
-    let targetOrgId = orgId;
+    let targetOrgId: string | null = orgId;
     if (kind === 'solo') {
      const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('organization_id').eq('id', userId).maybeSingle();
      if (profileError) throw profileError;
