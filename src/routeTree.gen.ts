@@ -156,6 +156,7 @@ import { Route as AuthenticatedSettingsWhiteLabelRouteImport } from './routes/_a
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
+import { Route as ApiPublicAdminRouteImport } from './routes/api/public/admin'
 import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as ApiPublicDemoRequestRouteImport } from './routes/api/public/demo-request'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
@@ -1008,6 +1009,11 @@ const AgentAgentSlugTemplateSlugRoute =
     path: '/agent/$agentSlug/$templateSlug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAdminRoute = ApiPublicAdminRouteImport.update({
+  id: '/api/public/admin',
+  path: '/api/public/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBrandingRoute = ApiPublicBrandingRouteImport.update({
   id: '/api/public/branding',
   path: '/api/public/branding',
@@ -1336,6 +1342,7 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/admin': typeof ApiPublicAdminRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1513,6 +1520,7 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/admin': typeof ApiPublicAdminRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1697,6 +1705,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
+  '/api/public/admin': typeof ApiPublicAdminRoute
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1881,6 +1890,7 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/admin'
     | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
@@ -2058,6 +2068,7 @@ export interface FileRouteTypes {
     | '/tools/leads'
     | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/admin'
     | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
@@ -2241,6 +2252,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
+    | '/api/public/admin'
     | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
@@ -2304,6 +2316,7 @@ export interface RootRouteChildren {
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
   SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
+  ApiPublicAdminRoute: typeof ApiPublicAdminRoute
   ApiPublicBrandingRoute: typeof ApiPublicBrandingRoute
   ApiPublicDemoRequestRoute: typeof ApiPublicDemoRequestRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
@@ -3366,6 +3379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentAgentSlugTemplateSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/admin': {
+      id: '/api/public/admin'
+      path: '/api/public/admin'
+      fullPath: '/api/public/admin'
+      preLoaderRoute: typeof ApiPublicAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/branding': {
       id: '/api/public/branding'
       path: '/api/public/branding'
@@ -4036,6 +4056,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
   SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
+  ApiPublicAdminRoute: ApiPublicAdminRoute,
   ApiPublicBrandingRoute: ApiPublicBrandingRoute,
   ApiPublicDemoRequestRoute: ApiPublicDemoRequestRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
