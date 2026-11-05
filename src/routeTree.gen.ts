@@ -177,6 +177,7 @@ import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedContractingOpsRequestsIndexRouteImport } from './routes/_authenticated/contracting-ops/requests/index'
 import { Route as AuthenticatedContractingOpsRequestsRequestIdRouteImport } from './routes/_authenticated/contracting-ops/requests/$requestId'
+import { Route as ApiPublicAdminSplatRouteImport } from './routes/api/public/admin/$'
 import { Route as ApiPublicAgentmailWebhookRouteImport } from './routes/api/public/agentmail/webhook'
 import { Route as ApiPublicHooksAllisonRepliesRouteImport } from './routes/api/public/hooks/allison-replies'
 import { Route as ApiPublicHooksDemoResetRouteImport } from './routes/api/public/hooks/demo-reset'
@@ -1118,6 +1119,11 @@ const AuthenticatedContractingOpsRequestsRequestIdRoute =
     path: '/$requestId',
     getParentRoute: () => AuthenticatedContractingOpsRequestsRoute,
   } as any)
+const ApiPublicAdminSplatRoute = ApiPublicAdminSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => ApiPublicAdminRoute,
+} as any)
 const ApiPublicAgentmailWebhookRoute =
   ApiPublicAgentmailWebhookRouteImport.update({
     id: '/api/public/agentmail/webhook',
@@ -1342,7 +1348,7 @@ export interface FileRoutesByFullPath {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
-  '/api/public/admin': typeof ApiPublicAdminRoute
+  '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1366,6 +1372,7 @@ export interface FileRoutesByFullPath {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
   '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
   '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
@@ -1520,7 +1527,7 @@ export interface FileRoutesByTo {
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
-  '/api/public/admin': typeof ApiPublicAdminRoute
+  '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1544,6 +1551,7 @@ export interface FileRoutesByTo {
   '/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/back-office/case-design/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
   '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
   '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
@@ -1705,7 +1713,7 @@ export interface FileRoutesById {
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
-  '/api/public/admin': typeof ApiPublicAdminRoute
+  '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
   '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
@@ -1729,6 +1737,7 @@ export interface FileRoutesById {
   '/_authenticated/agency/agents/$agentId': typeof AuthenticatedAgencyAgentsAgentIdRoute
   '/_authenticated/back-office/case-design_/admin': typeof AuthenticatedBackOfficeCaseDesignAdminRoute
   '/_authenticated/contracting-ops/requests/$requestId': typeof AuthenticatedContractingOpsRequestsRequestIdRoute
+  '/api/public/admin/$': typeof ApiPublicAdminSplatRoute
   '/api/public/agentmail/webhook': typeof ApiPublicAgentmailWebhookRoute
   '/api/public/hooks/allison-replies': typeof ApiPublicHooksAllisonRepliesRoute
   '/api/public/hooks/demo-reset': typeof ApiPublicHooksDemoResetRoute
@@ -1914,6 +1923,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/admin/$'
     | '/api/public/agentmail/webhook'
     | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
@@ -2092,6 +2102,7 @@ export interface FileRouteTypes {
     | '/agency/agents/$agentId'
     | '/back-office/case-design/admin'
     | '/contracting-ops/requests/$requestId'
+    | '/api/public/admin/$'
     | '/api/public/agentmail/webhook'
     | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
@@ -2276,6 +2287,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agency/agents/$agentId'
     | '/_authenticated/back-office/case-design_/admin'
     | '/_authenticated/contracting-ops/requests/$requestId'
+    | '/api/public/admin/$'
     | '/api/public/agentmail/webhook'
     | '/api/public/hooks/allison-replies'
     | '/api/public/hooks/demo-reset'
@@ -2316,7 +2328,7 @@ export interface RootRouteChildren {
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
   SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
-  ApiPublicAdminRoute: typeof ApiPublicAdminRoute
+  ApiPublicAdminRoute: typeof ApiPublicAdminRouteWithChildren
   ApiPublicBrandingRoute: typeof ApiPublicBrandingRoute
   ApiPublicDemoRequestRoute: typeof ApiPublicDemoRequestRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
@@ -3526,6 +3538,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContractingOpsRequestsRequestIdRouteImport
       parentRoute: typeof AuthenticatedContractingOpsRequestsRoute
     }
+    '/api/public/admin/$': {
+      id: '/api/public/admin/$'
+      path: '/$'
+      fullPath: '/api/public/admin/$'
+      preLoaderRoute: typeof ApiPublicAdminSplatRouteImport
+      parentRoute: typeof ApiPublicAdminRoute
+    }
     '/api/public/agentmail/webhook': {
       id: '/api/public/agentmail/webhook'
       path: '/api/public/agentmail/webhook'
@@ -4033,6 +4052,18 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface ApiPublicAdminRouteChildren {
+  ApiPublicAdminSplatRoute: typeof ApiPublicAdminSplatRoute
+}
+
+const ApiPublicAdminRouteChildren: ApiPublicAdminRouteChildren = {
+  ApiPublicAdminSplatRoute: ApiPublicAdminSplatRoute,
+}
+
+const ApiPublicAdminRouteWithChildren = ApiPublicAdminRoute._addFileChildren(
+  ApiPublicAdminRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
@@ -4056,7 +4087,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
   SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
-  ApiPublicAdminRoute: ApiPublicAdminRoute,
+  ApiPublicAdminRoute: ApiPublicAdminRouteWithChildren,
   ApiPublicBrandingRoute: ApiPublicBrandingRoute,
   ApiPublicDemoRequestRoute: ApiPublicDemoRequestRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
