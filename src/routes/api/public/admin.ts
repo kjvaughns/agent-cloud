@@ -123,7 +123,9 @@ async function handle(action: string, payload: unknown): Promise<Response> {
     case "update_ticket_status": {
       const data = updateTicketSchema.parse(payload ?? {});
       const now = new Date().toISOString();
-      const patch: Record<string, unknown> = { status: STATUS_IN[data.status], updated_at: now };
+      // `any`: the generated Update type rejects a conditionally-added
+      // resolved_at, and the project's other ticket writes do the same.
+      const patch: any = { status: STATUS_IN[data.status], updated_at: now };
       if (data.status === "resolved") patch.resolved_at = now;
 
       const { data: touched, error } = await supabaseAdmin
