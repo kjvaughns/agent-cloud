@@ -74,7 +74,6 @@ import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminSupportRouteImport } from './routes/admin.support'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
-import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as MyagentAgentSlugRouteImport } from './routes/myagent.$agentSlug'
@@ -172,7 +171,6 @@ import { Route as ApiV1LeaderboardRouteImport } from './routes/api/v1/leaderboar
 import { Route as ApiV1ProductionRouteImport } from './routes/api/v1/production'
 import { Route as ApiV1WhoamiRouteImport } from './routes/api/v1/whoami'
 import { Route as LovableEmailEventsRouteImport } from './routes/lovable/email/events'
-import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
 import { Route as AuthenticatedContractingOpsRequestsIndexRouteImport } from './routes/_authenticated/contracting-ops/requests/index'
@@ -188,9 +186,7 @@ import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/p
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
-import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
-import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as AuthenticatedContractingOpsRequestsAgentAgentIdRouteImport } from './routes/_authenticated/contracting-ops/requests/agent.$agentId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -523,11 +519,6 @@ const AdminSupportRoute = AdminSupportRouteImport.update({
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
-  id: '/email/unsubscribe',
-  path: '/email/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -1089,11 +1080,6 @@ const LovableEmailEventsRoute = LovableEmailEventsRouteImport.update({
   path: '/lovable/email/events',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
-  id: '/lovable/email/suppression',
-  path: '/lovable/email/suppression',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthenticatedAgencyAgentsAgentIdRoute =
   AuthenticatedAgencyAgentsAgentIdRouteImport.update({
     id: '/agency/agents/$agentId',
@@ -1179,22 +1165,10 @@ const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
   path: '/lovable/email/auth/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LovableEmailQueueProcessRoute =
-  LovableEmailQueueProcessRouteImport.update({
-    id: '/lovable/email/queue/process',
-    path: '/lovable/email/queue/process',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const LovableEmailTransactionalPreviewRoute =
   LovableEmailTransactionalPreviewRouteImport.update({
     id: '/lovable/email/transactional/preview',
     path: '/lovable/email/transactional/preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const LovableEmailTransactionalSendRoute =
-  LovableEmailTransactionalSendRouteImport.update({
-    id: '/lovable/email/transactional/send',
-    path: '/lovable/email/transactional/send',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AuthenticatedContractingOpsRequestsAgentAgentIdRoute =
@@ -1268,7 +1242,6 @@ export interface FileRoutesByFullPath {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
@@ -1363,7 +1336,6 @@ export interface FileRoutesByFullPath {
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/events': typeof LovableEmailEventsRoute
-  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency/': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting/': typeof AuthenticatedContractingIndexRoute
@@ -1382,9 +1354,7 @@ export interface FileRoutesByFullPath {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
-  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
   '/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
@@ -1448,7 +1418,6 @@ export interface FileRoutesByTo {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
@@ -1542,7 +1511,6 @@ export interface FileRoutesByTo {
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/events': typeof LovableEmailEventsRoute
-  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
   '/contracting': typeof AuthenticatedContractingIndexRoute
@@ -1561,9 +1529,7 @@ export interface FileRoutesByTo {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
-  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/contracting-ops/requests': typeof AuthenticatedContractingOpsRequestsIndexRoute
   '/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
@@ -1633,7 +1599,6 @@ export interface FileRoutesById {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/support': typeof AdminSupportRoute
   '/auth/callback': typeof AuthCallbackRoute
-  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/invite/$token': typeof InviteTokenRoute
   '/join/$slug': typeof JoinSlugRoute
   '/myagent/$agentSlug': typeof MyagentAgentSlugRoute
@@ -1728,7 +1693,6 @@ export interface FileRoutesById {
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
   '/lovable/email/events': typeof LovableEmailEventsRoute
-  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/agency/': typeof AuthenticatedAgencyIndexRoute
   '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
   '/_authenticated/contracting/': typeof AuthenticatedContractingIndexRoute
@@ -1747,9 +1711,7 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
-  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
-  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_authenticated/contracting-ops/requests/': typeof AuthenticatedContractingOpsRequestsIndexRoute
   '/_authenticated/contracting-ops/requests/agent/$agentId': typeof AuthenticatedContractingOpsRequestsAgentAgentIdRoute
 }
@@ -1819,7 +1781,6 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
-    | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
@@ -1914,7 +1875,6 @@ export interface FileRouteTypes {
     | '/api/v1/production'
     | '/api/v1/whoami'
     | '/lovable/email/events'
-    | '/lovable/email/suppression'
     | '/agency/'
     | '/contracting-ops/'
     | '/contracting/'
@@ -1933,9 +1893,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
-    | '/lovable/email/transactional/send'
     | '/contracting-ops/requests/'
     | '/contracting-ops/requests/agent/$agentId'
   fileRoutesByTo: FileRoutesByTo
@@ -1999,7 +1957,6 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
-    | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
@@ -2093,7 +2050,6 @@ export interface FileRouteTypes {
     | '/api/v1/production'
     | '/api/v1/whoami'
     | '/lovable/email/events'
-    | '/lovable/email/suppression'
     | '/agency'
     | '/contracting-ops'
     | '/contracting'
@@ -2112,9 +2068,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
-    | '/lovable/email/transactional/send'
     | '/contracting-ops/requests'
     | '/contracting-ops/requests/agent/$agentId'
   id:
@@ -2183,7 +2137,6 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/support'
     | '/auth/callback'
-    | '/email/unsubscribe'
     | '/invite/$token'
     | '/join/$slug'
     | '/myagent/$agentSlug'
@@ -2278,7 +2231,6 @@ export interface FileRouteTypes {
     | '/api/v1/production'
     | '/api/v1/whoami'
     | '/lovable/email/events'
-    | '/lovable/email/suppression'
     | '/_authenticated/agency/'
     | '/_authenticated/contracting-ops/'
     | '/_authenticated/contracting/'
@@ -2297,9 +2249,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
-    | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
-    | '/lovable/email/transactional/send'
     | '/_authenticated/contracting-ops/requests/'
     | '/_authenticated/contracting-ops/requests/agent/$agentId'
   fileRoutesById: FileRoutesById
@@ -2322,7 +2272,6 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   ToolsRoute: typeof ToolsRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
-  EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   InviteTokenRoute: typeof InviteTokenRoute
   JoinSlugRoute: typeof JoinSlugRoute
   MyagentAgentSlugRoute: typeof MyagentAgentSlugRoute
@@ -2344,7 +2293,6 @@ export interface RootRouteChildren {
   ApiV1ProductionRoute: typeof ApiV1ProductionRoute
   ApiV1WhoamiRoute: typeof ApiV1WhoamiRoute
   LovableEmailEventsRoute: typeof LovableEmailEventsRoute
-  LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicAgentmailWebhookRoute: typeof ApiPublicAgentmailWebhookRoute
   ApiPublicHooksAllisonRepliesRoute: typeof ApiPublicHooksAllisonRepliesRoute
   ApiPublicHooksDemoResetRoute: typeof ApiPublicHooksDemoResetRoute
@@ -2355,9 +2303,7 @@ export interface RootRouteChildren {
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
-  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
-  LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2815,13 +2761,6 @@ declare module '@tanstack/react-router' {
       path: '/auth/callback'
       fullPath: '/auth/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/email/unsubscribe': {
-      id: '/email/unsubscribe'
-      path: '/email/unsubscribe'
-      fullPath: '/email/unsubscribe'
-      preLoaderRoute: typeof EmailUnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -3503,13 +3442,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailEventsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/suppression': {
-      id: '/lovable/email/suppression'
-      path: '/lovable/email/suppression'
-      fullPath: '/lovable/email/suppression'
-      preLoaderRoute: typeof LovableEmailSuppressionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authenticated/agency/agents/$agentId': {
       id: '/_authenticated/agency/agents/$agentId'
       path: '/agency/agents/$agentId'
@@ -3615,25 +3547,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/queue/process': {
-      id: '/lovable/email/queue/process'
-      path: '/lovable/email/queue/process'
-      fullPath: '/lovable/email/queue/process'
-      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/lovable/email/transactional/preview': {
       id: '/lovable/email/transactional/preview'
       path: '/lovable/email/transactional/preview'
       fullPath: '/lovable/email/transactional/preview'
       preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lovable/email/transactional/send': {
-      id: '/lovable/email/transactional/send'
-      path: '/lovable/email/transactional/send'
-      fullPath: '/lovable/email/transactional/send'
-      preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/contracting-ops/requests/agent/$agentId': {
@@ -4080,7 +3998,6 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   ToolsRoute: ToolsRoute,
   AuthCallbackRoute: AuthCallbackRoute,
-  EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   InviteTokenRoute: InviteTokenRoute,
   JoinSlugRoute: JoinSlugRoute,
   MyagentAgentSlugRoute: MyagentAgentSlugRoute,
@@ -4102,7 +4019,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1ProductionRoute: ApiV1ProductionRoute,
   ApiV1WhoamiRoute: ApiV1WhoamiRoute,
   LovableEmailEventsRoute: LovableEmailEventsRoute,
-  LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicAgentmailWebhookRoute: ApiPublicAgentmailWebhookRoute,
   ApiPublicHooksAllisonRepliesRoute: ApiPublicHooksAllisonRepliesRoute,
   ApiPublicHooksDemoResetRoute: ApiPublicHooksDemoResetRoute,
@@ -4114,9 +4030,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
-  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
-  LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
