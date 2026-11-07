@@ -185,7 +185,7 @@ export const Route = createFileRoute("/api/v1/production")({
             status: r.status ?? null,
             agent_id: r.agent_id ?? null,
             agent_name: (r.agent_id && aName.get(r.agent_id)) || null,
-            annual_premium: optMoney(r.annual_premium),
+            annual_premium: optMoney(r["annual_premium"] ?? null),
             monthly_premium: optMoney(r.monthly_premium),
             effective_date: r.effective_date ?? null,
             production_date: r.production_date ?? null,
