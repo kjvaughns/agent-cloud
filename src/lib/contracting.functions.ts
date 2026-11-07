@@ -756,12 +756,16 @@ export const listDownlineMatrix = createServerFn({ method: "GET" })
     const { data: orgCarriers, error: cErr } = await supabase
       .from("org_carriers")
       .select("carrier_id, carriers(id,name,is_annuity_carrier)")
+      .eq("organization_id", me?.organization_id ?? "00000000-0000-0000-0000-000000000000")
       .eq("status", "active");
     if (cErr) throw new Error(cErr.message);
 
+    // Scoped to the caller's agency above; dedupe by carrier id in case the
+    // agency holds more than one row for the same carrier.
+    const seen = new Set<string>();
     const carriers = (orgCarriers ?? [])
       .map((oc: any) => oc.carriers)
-      .filter((c: any) => c && c.id)
+      .filter((c: any) => c && c.id && !seen.has(c.id) && (seen.add(c.id), true))
       .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name)));
 
     const agentIds = (agents ?? []).map((a: any) => a.id);
