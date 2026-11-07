@@ -24,7 +24,7 @@ export function suiteLinks(code: string) {
 /** Owners who haven't finished setup get sent to it, except on pages they need to get there. */
 export function shouldRedirectToSetup(needsSetup: boolean, pathname: string): boolean {
   if (!needsSetup) return false;
-  return !["/setup", "/settings/billing", "/import", "/carrier-sync", "/team"].some((p) => pathname.startsWith(p));
+  return !["/setup", "/settings", "/account", "/import", "/carrier-sync", "/team"].some((p) => pathname.startsWith(p));
 }
 
 /** Help video key for a page, or null. */

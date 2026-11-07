@@ -12,7 +12,7 @@ export function SetupRedirect() {
   const getState = useServerFn(getSetupState);
   const { data } = useQuery({ queryKey: ["setup-state"], queryFn: () => getState(), staleTime: 60_000 });
   useEffect(() => {
-    if (data && shouldRedirectToSetup(data.needsSetup, pathname)) navigate({ to: "/setup" });
+    if (data && shouldRedirectToSetup(data.needsSetup, pathname)) navigate({ to: "/settings/agency" });
   }, [data, pathname, navigate]);
   return null;
 }

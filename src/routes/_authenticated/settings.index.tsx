@@ -1,18 +1,18 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { useMyAccess } from "@/hooks/use-my-access";
+import { PageShell } from "@/components/page-shell";
+import { PageSkeleton } from "@/components/page-skeleton";
 
-/**
- * Settings has no overview page.
- *
- * Clients and Agency earn theirs by showing something — counts of work
- * waiting, agents who cannot sell yet. A Settings overview would only be a
- * menu of its own contents. So /settings opens its first section.
- *
- * That first section used to be Billing. Billing is agency money and lives
- * under Agency now, so this points at the first thing that is actually
- * personal.
- */
+/** /settings opens Agency settings for people who run the agency, Billing for solo agents, Notifications otherwise. */
 export const Route = createFileRoute("/_authenticated/settings/")({
-  beforeLoad: () => {
-    throw redirect({ to: "/settings/notifications" });
-  },
+  ssr: false,
+  component: SettingsLanding,
 });
+
+function SettingsLanding() {
+  const { access, loading } = useMyAccess();
+  if (loading) return <PageShell><PageSkeleton metrics={0} panels={1} /></PageShell>;
+  if (access?.canEditAgencySettings && access?.inAgency) return <Navigate to="/settings/agency" replace />;
+  if (access?.isOwner) return <Navigate to="/settings/billing" replace />;
+  return <Navigate to="/settings/notifications" replace />;
+}
