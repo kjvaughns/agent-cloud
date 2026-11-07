@@ -383,7 +383,7 @@ function PostDealPage() {
 
   return (
     <PageShell>
-      <div className="max-w-3xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-[var(--gap)]">
           <HeroBand
             title="Post a Deal"
@@ -391,7 +391,8 @@ function PostDealPage() {
           />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <form onSubmit={handleSubmit(onSubmit)} className="min-w-0 space-y-6">
           {/* Client type */}
           <Card>
             <CardContent className="pt-6">
@@ -838,7 +839,45 @@ function PostDealPage() {
             </Button>
           </div>
         </form>
+        <DealPreview
+          agent={null}
+          carrier={selectedCarrierName}
+          product={watch("product")}
+          monthly={Number(watch("monthly_premium") || 0)}
+          face={Number(watch("face_amount") || 0)}
+          client={`${watch("first_name") ?? ""} ${watch("last_name") ?? ""}`.trim()}
+        />
+        </div>
       </div>
     </PageShell>
+  );
+}
+
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+/** Live summary of the deal being entered, like the Agency settings previews. */
+function DealPreview({ carrier, product, monthly, face, client }: {
+  agent: string | null; carrier?: string; product?: string; monthly: number; face: number; client: string;
+}) {
+  return (
+    <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Live preview</p>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="h-1.5 bg-primary" />
+        <div className="space-y-3 p-4">
+          <div>
+            <p className="text-xs text-muted-foreground">Annual premium</p>
+            <p className="tnum text-3xl font-semibold tracking-tight text-primary">{usd(monthly * 12)}</p>
+          </div>
+          <dl className="grid grid-cols-2 gap-3 text-xs">
+            <div><dt className="text-muted-foreground">Client</dt><dd className="truncate font-medium">{client || "—"}</dd></div>
+            <div><dt className="text-muted-foreground">Carrier</dt><dd className="truncate font-medium">{carrier || "—"}</dd></div>
+            <div><dt className="text-muted-foreground">Product</dt><dd className="truncate font-medium">{product || "—"}</dd></div>
+            <div><dt className="text-muted-foreground">Face amount</dt><dd className="tnum font-medium">{face ? usd(face) : "—"}</dd></div>
+          </dl>
+          <p className="border-t border-border pt-3 text-[11px] text-muted-foreground">Counts toward the leaderboard as soon as you post it.</p>
+        </div>
+      </div>
+    </aside>
   );
 }

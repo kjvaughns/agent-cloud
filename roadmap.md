@@ -23,3 +23,8 @@
 - [x] Launchpad (progress ring, "Launch my agency"); /setup retired → /settings/agency
 - [x] Carrier cards with on/off + "Use standard levels" preset (grid editor behind Advanced)
 - [x] Sales feed card: paste link → Send test → pick message style; raw settings under Advanced
+
+## App-wide redesign (plan 2026-11-07)
+- [x] Layer 1: shared frame restyled (headers, cards, spacing, tables, empty states) + ui-kit primitives
+- [x] Post a Deal live preview
+- [ ] Group passes 1–6 (summary/preview columns + Advanced sections per page): continue page by page
