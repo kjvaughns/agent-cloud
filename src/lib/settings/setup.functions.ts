@@ -108,6 +108,7 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
         supabase.from("org_carriers").select("*").eq("organization_id", orgId),
         supabase.from("org_carrier_methods").select("id").eq("organization_id", orgId),
       ]);
+    const { data: feeds } = await supabase.from("discord_integrations").select("id").eq("organization_id", orgId).limit(1);
 
     const orgRow = (org ?? [])[0] as any;
     const levelRows = (levels ?? []) as any[];
@@ -127,7 +128,7 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
     const items = [
       {
         id: "profile",
-        label: "Agency profile complete",
+        label: "Add your name & logo",
         done: profileDone,
         tab: "general",
         missing: !orgRow?.name
@@ -136,7 +137,7 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
       },
       {
         id: "levels",
-        label: "Levels created",
+        label: "Use standard levels",
         done: levelsDone,
         tab: "levels",
         missing: levelRows.length === 0
@@ -145,7 +146,7 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
       },
       {
         id: "carriers",
-        label: "At least one carrier configured",
+        label: "Switch on a carrier",
         done: carrierDone,
         tab: "carriers",
         missing: carrierRows.length === 0
@@ -154,7 +155,7 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
       },
       {
         id: "method",
-        label: "Contracting method ready",
+        label: "Choose how contracts are sent",
         done: methodDone && advancesDone,
         tab: "carriers",
         missing: !methodDone
@@ -162,8 +163,15 @@ export const getAgencySetupProgress = createServerFn({ method: "GET" })
           : "One or more active carriers have no advance option chosen.",
       },
       {
+        id: "feed",
+        label: "Connect your sales feed",
+        done: ((feeds ?? []) as any[]).length > 0,
+        tab: "automations",
+        missing: "Paste a Discord link so wins post to your team.",
+      },
+      {
         id: "ready",
-        label: "Agency ready for agents",
+        label: "Open to your agents",
         done: readyForAgents,
         tab: "contracting",
         missing: "Finish the steps above, and make at least one carrier visible to agents.",
