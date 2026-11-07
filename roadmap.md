@@ -1,4 +1,4 @@
-- [ ] Prepare and verify the email update, preserving branding, Reply-To, consent, audit history, and AgentMail conversations; do not publish.
+- [x] Prepare and verify the email update, preserving branding, Reply-To, consent, audit history, and AgentMail conversations; do not publish. Nine email tests, nineteen support checks, six account previews, thirty-three registered previews, and unsigned-request rejection pass; real inbox delivery awaits publishing.
 - [x] Diagnose the saved test demo and empty support inbox.
 - [x] Send demo forms to support and repair Allison's reply contract.
 - [x] Verify the latest test form arrived in support, Allison sent its reply, and all seven checks passed.
