@@ -104,14 +104,14 @@ export function CarriersQuick({ onAdvanced }: { onAdvanced: () => void }) {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+        <div className="grid gap-3 sm:grid-cols-1 xl:grid-cols-2">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
       ) : carriers.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-8 text-center">
           <p className="text-sm font-medium">No carriers yet</p>
           <Button size="sm" variant="outline" className="mt-3 rounded-full" onClick={onAdvanced}>Add a carrier</Button>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid gap-3 sm:grid-cols-1 2xl:grid-cols-2">
           {carriers.map((c) => {
             const on = c.state?.status === "active";
             const may = on || Boolean(c.state?.canActivate);

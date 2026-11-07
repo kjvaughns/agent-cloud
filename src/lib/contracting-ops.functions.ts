@@ -188,17 +188,13 @@ export const listOrgCarriers = createServerFn({ method: "GET" })
     if (!access.orgId) return { carriers: [], access };
 
     const { data, error } = await supabase
+      // Directory facts (hours, pay frequency, links) let older carriers prefill
+      // their setup form. No comments inside the select string: they break it.
       .from("org_carriers")
       .select(`
         *,
         carriers (
           id, name, logo_url, is_private, website, phone,
-          -- The directory facts an agency has not overridden yet. Without
-          -- these, a carrier added before the directory fields existed opened
-          -- its setup form with pay frequency, contracting speed, hours,
-          -- portal and training links all blank — even though the shared
-          -- library knew them — so the form looked like it had lost the
-          -- "new stuff" on exactly the older carriers.
           hours, pay_frequency, contracting_speed_days, agent_portal_url, training_url
         ),
         org_carrier_methods ( id, method, applies_to, target_url, target_email, is_default, sort_order ),
