@@ -1,6 +1,6 @@
 export const SUPPORT_INBOX = "support@useagentcloud.com";
-export const ASSISTANT_NAME = "Agent Cloud Support";
-export const SIGNATURE = "Agent Cloud Support Team";
+export const ASSISTANT_NAME = "Allison";
+export const SIGNATURE = "Allison\nAgent Cloud Support";
 
 /** Allison waits a random 3–5 minutes before replying so it feels human. */
 export function replyDelayMs(rand: number = Math.random()): number {
