@@ -184,6 +184,8 @@ function BuilderPage() {
       const res = await applyFn({ data: {
         accent_color: hexColor(a.color), logoPath: a.logo?.path, carriers: a.carriers, teamSize: path === "agency" ? a.teamSize : 1, monthlyGoal: a.goal,
         documentName: a.documents.map((d) => d.name).join(", ").slice(0, 200) || undefined, activateSuite: path === "agency",
+        invites: path === "agency" ? a.invites.split(/[\s,;]+/).map((e) => e.trim()).filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) : [],
+        documentPaths: a.documents.filter((d) => d.path).map((d) => ({ name: d.name, path: d.path })),
       } });
       setPartnerCode(res.suite?.partnerCode ?? null);
       await completeFn().catch(() => {});
@@ -700,6 +702,9 @@ function Reveal({ a, path, name, price, partnerCode, done, onLaunch, busy }: {
               <div className="text-3xl font-semibold md:text-4xl">${price}<span className="text-base font-normal text-muted-foreground">/month</span></div>
               <div className="text-xs text-muted-foreground">{path === "agency" ? "Agency · unlimited agents" : "Agent"} · keep 100% of your comp</div>
             </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+              By continuing you agree to our <a href="/terms" className="underline">Terms</a> and <a href="/privacy" className="underline">Privacy Policy</a> and authorize a recurring charge of ${price}/month until you cancel in Billing settings.
+            </p>
             <Button variant="ink" size="lg" className="w-full" onClick={onLaunch} disabled={busy}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : `Launch ${name}`}
             </Button>

@@ -48,7 +48,7 @@ async function resolveOrCreateCustomer(
 }
 export const createManagedCheckout = createServerFn({ method: 'POST' })
  .middleware([requireSupabaseAuth])
- .inputValidator((d: unknown) => z.object({ product: z.enum(['agency_plan', 'solo_agent', 'nova_pro_personal', 'nova_seats', 'white_label']), quantity: z.number().int().min(1).max(500).default(1), environment, returnUrl: z.string().transform(trustedReturnUrl) }).parse(d))
+ .inputValidator((d: unknown) => z.object({ product: z.enum(['agency_plan', 'solo_agent', 'nova_pro_personal', 'nova_seats']), quantity: z.number().int().min(1).max(500).default(1), environment, returnUrl: z.string().transform(trustedReturnUrl) }).parse(d))
  .handler(async ({ data, context }): Promise<{ clientSecret: string } | { error: string }> => {
   try {
    const { userId, supabase } = context;
@@ -63,10 +63,6 @@ export const createManagedCheckout = createServerFn({ method: 'POST' })
    const subscriptions = await stripe.subscriptions.list({ customer, status: 'all', limit: 100 });
    const existing = subscriptions.data.find(s => s.metadata.kind === config.kind && (!org || s.metadata.organization_id === org.id) && ['active','trialing','past_due','incomplete'].includes(s.status));
    if (existing) throw new Error(data.product === 'nova_seats' ? 'You already pay for Nova seats. Use Change seat count instead.' : 'You already have this subscription. Use Manage Billing to change it.');
-   if (data.product === 'white_label') {
-    const agency = subscriptions.data.find(s => s.metadata.kind === 'agency' && s.metadata.organization_id === org?.id && ['active','trialing'].includes(s.status));
-    if (!agency) throw new Error('White Label requires an active Agency Plan in this payment environment.');
-   }
    const resolvePrice = async (key: string) => {
     const result = await stripe.prices.list({ lookup_keys: [key], active: true, limit: 1 });
     const price = result.data[0];
@@ -75,7 +71,6 @@ export const createManagedCheckout = createServerFn({ method: 'POST' })
    };
    const meta: Record<string,string> = { userId, kind: config.kind, ...(org ? { organization_id: org.id } : { profile_id: userId }), quantity: String(data.product === 'nova_seats' ? data.quantity : 1), managed_payments: 'true' };
    const line_items = [{ price: await resolvePrice(config.price), quantity: data.product === 'nova_seats' ? data.quantity : 1 }];
-   if (data.product === 'white_label') line_items.push({ price: await resolvePrice('white_label_setup'), quantity: 1 });
    const session = await stripe.checkout.sessions.create({
     mode: 'subscription', ui_mode: 'embedded_page', customer, line_items,
     return_url: data.returnUrl, metadata: meta, subscription_data: { metadata: meta },

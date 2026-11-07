@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { BrandLogo } from "@/components/brand-logo";
-import { useDomainBranding } from "@/hooks/use-domain-branding";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): { redirect?: string } => ({
@@ -99,9 +98,7 @@ function LoginPage() {
 }
 
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  // White-label agencies on a custom domain get their own mark here; every
-  // other host falls through to Agent Cloud branding.
-  const brand = useDomainBranding();
+  const brand = null as { logo_url?: string; name?: string; tagline?: string } | null;
 
   return (
     // Auth always renders in the premium dark look regardless of stored theme.

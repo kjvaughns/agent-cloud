@@ -42,7 +42,7 @@ function SubscriptionsPage() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-[var(--gap)]">
           <Panel><StatTile label="Total MRR" value={money(d.mrrTotal)} tone="gold" /></Panel>
-          <Panel><StatTile label="Agency Plans" value={String(d.counts.agency)} delta={`${d.counts.white_label} white-label`} /></Panel>
+          <Panel><StatTile label="Agency Plans" value={String(d.counts.agency)} /></Panel>
           <Panel><StatTile label="Solo Agents" value={String(d.counts.solo)} /></Panel>
           <Panel><StatTile label="Nova Pro Subscribers" value={String(d.counts.nova_total)} delta={`${d.counts.nova_by_source.personal ?? 0} personal · ${d.counts.nova_by_source.agency ?? 0} seats · ${d.counts.nova_by_source.solo ?? 0} solo`} /></Panel>
         </div>
