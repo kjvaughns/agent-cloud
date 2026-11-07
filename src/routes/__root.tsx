@@ -123,7 +123,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 // Light is the default; only an explicit stored "dark" opts in.
 const THEME_INIT = `(function(){try{
   var d=document.documentElement;
-  var t=localStorage.getItem("agentcloud-theme");
+  var t=localStorage.getItem("agentcloud-theme-v2");
   if(t==="dark"){d.classList.add("dark");}
   var den=localStorage.getItem("agentcloud-density");
   if(den&&den!=="regular"){d.setAttribute("data-density",den);}

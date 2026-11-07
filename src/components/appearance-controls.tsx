@@ -39,7 +39,7 @@ export function AppearanceControls() {
   return (
     <div className="p-3 space-y-3 min-w-[260px]">
       <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Appearance</div>
-      <Segmented label="Theme" value={theme} options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} onChange={setTheme} />
+      <Segmented label="Theme" value={theme} options={[{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }]} onChange={setTheme} />
       <Segmented label="Accent" value={accent} options={[{ value: "gold", label: "Gold" }, { value: "champagne", label: "Champagne" }, { value: "bronze", label: "Bronze" }]} onChange={setAccent} />
       <Segmented label="Density" value={density} options={[{ value: "compact", label: "Compact" }, { value: "regular", label: "Regular" }, { value: "comfy", label: "Comfy" }]} onChange={setDensity} />
       <div className="flex items-center justify-between gap-3 pt-1 border-t border-border">
