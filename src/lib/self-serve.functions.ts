@@ -155,7 +155,8 @@ async function seedBuilderData(
   // Carriers → agency carrier list (match the shared catalog by name).
   if (data.carriers.length) {
     const { data: cats } = await admin.from("carriers").select("id,name").eq("active", true).is("owner_organization_id", null);
-    const want = new Set(data.carriers.map((c) => c.trim().toLowerCase()));
+    const ALIAS: Record<string, string> = { gtl: "guarantee trust life", corebridge: "aig / corebridge" };
+    const want = new Set(data.carriers.map((c) => { const k = c.trim().toLowerCase(); return ALIAS[k] ?? k; }));
     const ids = (cats ?? []).filter((c: any) => want.has(String(c.name).trim().toLowerCase())).map((c: any) => c.id);
     if (ids.length) {
       const { data: have } = await admin.from("org_carriers").select("carrier_id").eq("organization_id", org.id);
