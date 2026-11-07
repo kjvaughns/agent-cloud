@@ -108,6 +108,8 @@ export const applyBuilderSetup = createServerFn({ method: "POST" })
     documentName: z.string().max(200).optional(),
     activateSuite: z.boolean().default(false),
     logoPath: z.string().max(400).optional(),
+    invites: z.array(z.string().email().max(200)).max(50).default([]),
+    documentPaths: z.array(z.object({ name: z.string().max(200), path: z.string().max(400) })).max(10).default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const userId = (context as Ctx).userId;
@@ -137,9 +139,72 @@ export const applyBuilderSetup = createServerFn({ method: "POST" })
     }
     const { error } = await supabaseAdmin.from("organizations").update(patch as any).eq("id", org.id);
     if (error) throw new Error(error.message);
+    await seedBuilderData(supabaseAdmin, userId, org, data);
     await supabaseAdmin.from("funnel_events").insert({
       event: "builder_completed", user_id: userId, organization_id: org.id,
       meta: { carriers: data.carriers, teamSize: data.teamSize, monthlyGoal: data.monthlyGoal, documentName: data.documentName },
     } as any);
     return { ok: true, suite };
   });
+
+/** Carriers, team invites and documents chosen during signup land in the real workspace. Each part is idempotent. */
+async function seedBuilderData(
+  admin: any, userId: string, org: { id: string; name?: string | null },
+  data: { carriers: string[]; invites: string[]; documentPaths: { name: string; path: string }[] },
+) {
+  // Carriers → agency carrier list (match the shared catalog by name).
+  if (data.carriers.length) {
+    const { data: cats } = await admin.from("carriers").select("id,name").eq("active", true).is("owner_organization_id", null);
+    const want = new Set(data.carriers.map((c) => c.trim().toLowerCase()));
+    const ids = (cats ?? []).filter((c: any) => want.has(String(c.name).trim().toLowerCase())).map((c: any) => c.id);
+    if (ids.length) {
+      const { data: have } = await admin.from("org_carriers").select("carrier_id").eq("organization_id", org.id);
+      const existing = new Set((have ?? []).map((r: any) => r.carrier_id));
+      const rows = ids.filter((id: string) => !existing.has(id)).map((carrier_id: string) => ({ organization_id: org.id, carrier_id, created_by: userId }));
+      if (rows.length) {
+        const { error } = await admin.from("org_carriers").insert(rows);
+        if (error) console.error("[builder] carriers", error.message);
+      }
+    }
+  }
+
+  // Team invites → personal invite links + invite email.
+  if (data.invites.length) {
+    const { data: owner } = await admin.from("profiles").select("first_name,last_name,email").eq("id", userId).maybeSingle();
+    const inviterName = [owner?.first_name, owner?.last_name].filter(Boolean).join(" ") || undefined;
+    const { queueEmail, APP_ORIGIN } = await import("@/lib/email/send.server");
+    for (const raw of Array.from(new Set(data.invites.map((e) => e.trim().toLowerCase())))) {
+      if (raw === String(owner?.email ?? "").toLowerCase()) continue;
+      const { data: dupe } = await admin.from("invitation_links").select("id").eq("organization_id", org.id).eq("new_agent_email", raw).neq("status", "revoked").maybeSingle();
+      if (dupe) continue;
+      const token = crypto.randomUUID();
+      const { error } = await admin.from("invitation_links").insert({
+        created_by: userId, name: `Invite for ${raw}`, token, new_agent_email: raw,
+        upline_id: userId, organization_id: org.id, is_reusable: false, carrier_assignments: [],
+      });
+      if (error) { console.error("[builder] invite", error.message); continue; }
+      await queueEmail({
+        template: "agent-invited", to: raw, profileId: null, category: "transactional", key: `agent-invited:${token}`,
+        data: { inviterName, orgName: org.name ?? undefined, inviteUrl: `${APP_ORIGIN}/join/${token}` },
+      } as any).catch((e: any) => console.error("[builder] invite email", e?.message));
+    }
+  }
+
+  // Documents → owner's producer documents (license/E&O/other).
+  for (const doc of data.documentPaths) {
+    if (!doc.path.startsWith(`${userId}/`)) continue;
+    const n = doc.name.toLowerCase();
+    const docType = /e\s*&\s*o|errors|omission|\beo\b/.test(n) ? "eo_certificate" : /pdb|license|licence/.test(n) ? "pdb_report" : "other_document";
+    const { data: exists } = await admin.from("producer_documents").select("id").eq("agent_id", userId).eq("doc_type", docType).maybeSingle();
+    if (exists) continue;
+    const { data: blob } = await admin.storage.from("onboarding-uploads").download(doc.path);
+    if (!blob) continue;
+    const dest = `${userId}/${docType}/${Date.now()}_${doc.name.replace(/[^\w.\- ]/g, "_")}`;
+    const up = await admin.storage.from("agent-documents").upload(dest, blob, { contentType: blob.type || undefined, upsert: true });
+    if (up.error) { console.error("[builder] doc upload", up.error.message); continue; }
+    const { error } = await admin.from("producer_documents").insert({
+      agent_id: userId, organization_id: org.id, uploaded_by: userId, doc_type: docType, file_url: dest, file_name: doc.name, review_status: "pending",
+    });
+    if (error) console.error("[builder] doc row", error.message);
+  }
+}

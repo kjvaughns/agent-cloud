@@ -184,6 +184,8 @@ function BuilderPage() {
       const res = await applyFn({ data: {
         accent_color: hexColor(a.color), logoPath: a.logo?.path, carriers: a.carriers, teamSize: path === "agency" ? a.teamSize : 1, monthlyGoal: a.goal,
         documentName: a.documents.map((d) => d.name).join(", ").slice(0, 200) || undefined, activateSuite: path === "agency",
+        invites: path === "agency" ? a.invites.split(/[\s,;]+/).map((e) => e.trim()).filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) : [],
+        documentPaths: a.documents.filter((d) => d.path).map((d) => ({ name: d.name, path: d.path })),
       } });
       setPartnerCode(res.suite?.partnerCode ?? null);
       await completeFn().catch(() => {});
