@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import * as React from "react";
-import { render } from "@react-email/render";
 import { guardPublicEndpoint } from "@/lib/rate-limit";
 
 const Schema = z.object({
@@ -21,106 +19,30 @@ const cors = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const SITE_NAME = "Agent Cloud";
-const SENDER_DOMAIN = "notify.useagentcloud.com";
-const FROM_DOMAIN = "notify.useagentcloud.com";
-
-function generateToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function enqueueWaitlistEmail(
+async function sendWaitlistEmail(
   supabaseAdmin: any,
   recipient: string,
   first_name: string,
 ) {
-  const normalized = recipient.toLowerCase();
-
-  // Suppression check
-  const { data: suppressed } = await supabaseAdmin
-    .from("suppressed_emails")
-    .select("id")
-    .eq("email", normalized)
-    .maybeSingle();
-  if (suppressed) return { skipped: "suppressed" as const };
-
-  // Unsubscribe token (get or create)
-  let unsubscribeToken: string;
-  const { data: existing } = await supabaseAdmin
-    .from("email_unsubscribe_tokens")
-    .select("token, used_at")
-    .eq("email", normalized)
-    .maybeSingle();
-
-  if (existing && !existing.used_at) {
-    unsubscribeToken = existing.token;
-  } else if (!existing) {
-    unsubscribeToken = generateToken();
-    await supabaseAdmin
-      .from("email_unsubscribe_tokens")
-      .upsert({ token: unsubscribeToken, email: normalized }, { onConflict: "email", ignoreDuplicates: true });
-    const { data: stored } = await supabaseAdmin
-      .from("email_unsubscribe_tokens")
-      .select("token")
-      .eq("email", normalized)
-      .maybeSingle();
-    unsubscribeToken = stored?.token ?? unsubscribeToken;
-  } else {
-    return { skipped: "suppressed" as const };
-  }
-
-  const { TEMPLATES } = await import("@/lib/email-templates/registry");
-  const template = TEMPLATES["waitlist-confirmation"];
-  if (!template) return { skipped: "no_template" as const };
-
-  const element = React.createElement(template.component, { first_name });
-  const html = await render(element);
-  const text = await render(element, { plainText: true });
-  const subject =
-    typeof template.subject === "function" ? template.subject({ first_name }) : template.subject;
-
-  const messageId = crypto.randomUUID();
-  const idempotencyKey = `waitlist-confirm-${normalized}`;
-
-  await supabaseAdmin.from("email_send_log").insert({
-    message_id: messageId,
-    template_name: "waitlist-confirmation",
-    recipient_email: recipient,
-    status: "pending",
-  });
-
-  const { error: enqueueError } = await supabaseAdmin.rpc("enqueue_email", {
-    queue_name: "transactional_emails",
-    payload: {
-      message_id: messageId,
-      to: recipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
-      subject,
-      html,
-      text,
-      purpose: "transactional",
-      label: "waitlist-confirmation",
-      idempotency_key: idempotencyKey,
-      unsubscribe_token: unsubscribeToken,
-      queued_at: new Date().toISOString(),
-    },
-  });
-
-  if (enqueueError) {
-    await supabaseAdmin.from("email_send_log").insert({
-      message_id: messageId,
-      template_name: "waitlist-confirmation",
-      recipient_email: recipient,
-      status: "failed",
-      error_message: enqueueError.message,
+  const { sendTemplateEmail } = await import("@/lib/email-templates/send-email");
+  const key = `waitlist-confirm-${recipient.toLowerCase()}`;
+  const log = async (status: "sent" | "suppressed" | "failed", reason?: string) => {
+    const { error } = await supabaseAdmin.from("email_send_log").insert({
+      message_id: key, template_name: "waitlist-confirmation",
+      recipient_email: recipient, status, error_message: reason ?? null,
     });
-    return { skipped: "enqueue_failed" as const };
+    if (error && error.code !== "23505") console.error("waitlist email log failed", { code: error.code, message: error.message });
+  };
+  try {
+    const result = await sendTemplateEmail("waitlist-confirmation", recipient, {
+      templateData: { first_name }, idempotencyKey: key,
+    });
+    await log(result.sent ? "sent" : "suppressed", result.sent ? undefined : result.reason);
+    return result;
+  } catch (error) {
+    await log("failed", error instanceof Error ? error.message.slice(0, 1000) : "Email send failed");
+    return { sent: false, reason: "send_failed" };
   }
-
-  return { ok: true };
 }
 
 export const Route = createFileRoute("/api/public/waitlist-signup")({
@@ -178,12 +100,12 @@ export const Route = createFileRoute("/api/public/waitlist-signup")({
           });
         }
 
-        // Only email on first join. Do it in the background so the response is fast.
+        // Only send the expected confirmation on first join.
         if (!existing) {
           try {
-            await enqueueWaitlistEmail(supabaseAdmin, d.email, d.first_name);
+            await sendWaitlistEmail(supabaseAdmin, d.email, d.first_name);
           } catch (e) {
-            console.error("waitlist email enqueue failed", e);
+            console.error("waitlist email send failed", e);
           }
         }
 

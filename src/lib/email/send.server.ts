@@ -1,5 +1,4 @@
-import * as React from "react";
-import { render } from "@react-email/render";
+import { sendTemplateEmail } from "@/lib/email-templates/send-email";
 import { supabaseAdmin as _admin } from "@/integrations/supabase/client.server";
 import { TEMPLATES } from "@/lib/email-templates/registry";
 import type { EmailBrand } from "@/lib/email-templates/layout";
@@ -8,10 +7,8 @@ import { EXEMPT_CATEGORIES, type EmailCategory } from "@/lib/email/categories";
 const supabaseAdmin = _admin as any;
 
 const SITE_NAME = "Agent Cloud";
-const SENDER_DOMAIN = "notify.useagentcloud.com";
-const FROM_DOMAIN = "notify.useagentcloud.com";
-
-export const APP_ORIGIN = process.env.APP_ORIGIN || "https://useagentcloud.com";
+export { APP_ORIGIN } from "@/lib/hosts";
+import { APP_ORIGIN } from "@/lib/hosts";
 
 export interface SendEmailArgs {
   /** Registered template name (see src/lib/email-templates/registry.ts). */
@@ -44,14 +41,6 @@ function redact(email?: string | null): string {
   return `${local[0]}***@${domain}`;
 }
 
-function generateToken(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 /**
  * Nothing sends from a local dev server unless explicitly enabled, and a
  * global kill switch is always available. Preview deployments are additionally
@@ -66,11 +55,11 @@ function environmentBlocked(): string | null {
 }
 
 async function logDecision(
-  status: "suppressed" | "failed" | "pending",
+  status: "suppressed" | "failed" | "sent",
   args: { key: string; template: string; recipient: string | null; reason?: string },
 ) {
   try {
-    await supabaseAdmin.from("email_send_log").insert({
+    const { error } = await supabaseAdmin.from("email_send_log").insert({
       message_id: args.key,
       send_key: args.key,
       template_name: args.template,
@@ -78,6 +67,9 @@ async function logDecision(
       status,
       error_message: args.reason ?? null,
     });
+    if (error && error.code !== "23505") {
+      console.error("[email] failed to write send log", { code: error.code, message: error.message });
+    }
   } catch (err) {
     console.error("[email] failed to write send log", err);
   }
@@ -109,7 +101,7 @@ export async function resolveBrand(orgId?: string | null): Promise<EmailBrand | 
  * The single way Agent Cloud sends email.
  *
  * Gate order: environment → idempotency → recipient → org consent →
- * recipient consent → suppression → enqueue. Never throws: a failed email must
+ * recipient consent → managed send. Never throws: a failed email must
  * not break the operation that triggered it, and the in-app notification still
  * stands on its own. Every refusal is logged with its reason.
  */
@@ -170,7 +162,6 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
       console.warn("[email] no recipient resolved", { templateName, key });
       return { sent: false, reason: "no_recipient" };
     }
-    const normalized = recipient.toLowerCase();
 
     // Org consent applies even when the caller didn't know the org — resolve it
     // from the recipient's membership so no call site can skip the gate.
@@ -243,113 +234,29 @@ export async function sendTransactionalEmail(args: SendEmailArgs): Promise<SendE
       }
     }
 
-    // --- suppression (bounces, complaints, unsubscribes) ---
-    const { data: suppressed, error: suppressionError } = await supabaseAdmin
-      .from("suppressed_emails")
-      .select("id")
-      .eq("email", normalized)
-      .maybeSingle();
-    if (suppressionError) {
-      await logDecision("failed", {
-        key,
-        template: templateName,
-        recipient,
-        reason: "suppression_check_failed",
-      });
-      return { sent: false, reason: "suppression_check_failed" };
-    }
-    if (suppressed) {
-      await logDecision("suppressed", {
-        key,
-        template: templateName,
-        recipient,
-        reason: "address_suppressed",
-      });
-      return { sent: false, reason: "address_suppressed" };
-    }
-
-    // --- unsubscribe token (one per address; reused across sends) ---
-    let unsubscribeToken: string | null = null;
-    const { data: existingToken } = await supabaseAdmin
-      .from("email_unsubscribe_tokens")
-      .select("token, used_at")
-      .eq("email", normalized)
-      .maybeSingle();
-    if (existingToken?.token && !existingToken.used_at) {
-      unsubscribeToken = existingToken.token;
-    } else if (!existingToken) {
-      const token = generateToken();
-      await supabaseAdmin
-        .from("email_unsubscribe_tokens")
-        .upsert({ token, email: normalized }, { onConflict: "email", ignoreDuplicates: true });
-      const { data: stored } = await supabaseAdmin
-        .from("email_unsubscribe_tokens")
-        .select("token")
-        .eq("email", normalized)
-        .maybeSingle();
-      unsubscribeToken = stored?.token ?? token;
-    }
-
-    // --- render ---
+    // Managed delivery is the authority for bounce/complaint/unsubscribe suppression.
     const brand = await resolveBrand(orgId);
     const templateData = { appUrl: APP_ORIGIN, ...(args.data ?? {}), ...(brand ? { brand } : {}) };
-    const element = React.createElement(template.component, templateData);
-    const html = await render(element);
-    const text = await render(element, { plainText: true });
-    const subject =
-      typeof template.subject === "function" ? template.subject(templateData) : template.subject;
-
-    // Log pending (also claims the idempotency key) BEFORE enqueue.
-    const { error: logError } = await supabaseAdmin.from("email_send_log").insert({
-      message_id: key,
-      send_key: key,
-      template_name: templateName,
-      recipient_email: recipient,
-      status: "pending",
-    });
-    if (logError) {
-      // Unique violation = another worker already claimed this event.
-      if ((logError as any).code === "23505") {
-        return { sent: false, reason: "duplicate_event" };
-      }
-      console.error("[email] failed to claim send key", logError);
-      return { sent: false, reason: "log_write_failed" };
-    }
-
-    const { error: enqueueError } = await supabaseAdmin.rpc("enqueue_email", {
-      queue_name: "transactional_emails",
-      payload: {
-        message_id: key,
-        to: recipient,
-        from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-        ...(args.replyTo ? { reply_to: args.replyTo } : {}),
-        sender_domain: SENDER_DOMAIN,
-        subject,
-        html,
-        text,
-        purpose: "transactional",
-        label: templateName,
-        idempotency_key: key,
-        // The delivery service requires a token even for consent-exempt mail.
-        unsubscribe_token: unsubscribeToken,
-        queued_at: new Date().toISOString(),
-      },
-    });
-
-    if (enqueueError) {
-      console.error("[email] enqueue failed", {
-        templateName,
-        recipient: redact(recipient),
-        error: enqueueError,
+    try {
+      const result = await sendTemplateEmail(templateName, recipient, {
+        templateData,
+        idempotencyKey: key,
+        replyTo: args.replyTo,
       });
-      await supabaseAdmin
-        .from("email_send_log")
-        .update({ status: "failed", error_message: "Failed to enqueue email" })
-        .eq("send_key", key);
-      return { sent: false, reason: "enqueue_failed" };
+      await logDecision(result.sent ? "sent" : "suppressed", {
+        key, template: templateName, recipient,
+        reason: result.sent ? undefined : result.reason,
+      });
+      if (!result.sent) return result;
+    } catch (error) {
+      await logDecision("failed", {
+        key, template: templateName, recipient,
+        reason: error instanceof Error ? error.message.slice(0, 1000) : "Email send failed",
+      });
+      console.error("[email] send failed", { templateName, recipient: redact(recipient), key });
+      return { sent: false, reason: "send_failed" };
     }
-
-    console.log("[email] queued", { templateName, recipient: redact(recipient), key });
+    console.log("[email] sent", { templateName, recipient: redact(recipient), key });
     return { sent: true, messageId: key };
   } catch (err) {
     // Rule 6: email failure must never break the caller.
