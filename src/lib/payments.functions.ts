@@ -48,7 +48,7 @@ async function resolveOrCreateCustomer(
 }
 export const createManagedCheckout = createServerFn({ method: 'POST' })
  .middleware([requireSupabaseAuth])
- .inputValidator((d: unknown) => z.object({ product: z.enum(['agency_plan', 'solo_agent', 'nova_pro_personal', 'nova_seats', 'white_label']), quantity: z.number().int().min(1).max(500).default(1), environment, returnUrl: z.string().transform(trustedReturnUrl) }).parse(d))
+ .inputValidator((d: unknown) => z.object({ product: z.enum(['agency_plan', 'solo_agent', 'nova_pro_personal', 'nova_seats']), quantity: z.number().int().min(1).max(500).default(1), environment, returnUrl: z.string().transform(trustedReturnUrl) }).parse(d))
  .handler(async ({ data, context }): Promise<{ clientSecret: string } | { error: string }> => {
   try {
    const { userId, supabase } = context;

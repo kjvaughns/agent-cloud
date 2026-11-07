@@ -368,46 +368,6 @@ function GeneralTab() {
             </div>
           </div>
 
-          {/* Subdomain — still White Label, because nothing here provisions DNS */}
-          <div className="space-y-1.5">
-            <Label>Your Subdomain</Label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Input
-                value={form.slug}
-                disabled={!whiteLabel || !canEditSlug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-") })}
-                className="max-w-[180px] font-mono text-sm"
-              />
-              <span className="text-muted-foreground text-sm">.agentcloud.com</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {!whiteLabel
-                ? "A domain of your own is set up with our team as part of White Label — it needs DNS pointed at us, so it isn't something this page can switch on."
-                : !canEditSlug
-                  ? "Only the agency owner can change the subdomain."
-                  : <>Your team will access your platform at <strong>{form.slug || "…"}.agentcloud.com</strong></>}
-            </p>
-          </div>
-
-          {!whiteLabel && (
-            <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-4">
-              <p className="text-sm font-medium">Want your own domain too?</p>
-              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                The logo and colour above are yours on every plan and apply as soon as you save.
-                White Label adds the part that needs setting up with us: your own domain, a
-                sign-in page on it carrying your brand rather than ours, and a call to get it live.
-              </p>
-              <Button asChild variant="outline" size="sm" className="mt-3">
-                {/* Straight to the panel. `/settings/white-label` is a
-                    beforeLoad redirect to this same place, so linking to it
-                    just adds a hop. */}
-                <Link to="/settings/billing" search={{ tab: "white-label" } as any}>
-                  Apply for White Label →
-                </Link>
-              </Button>
-            </div>
-          )}
-
           <Button onClick={save} disabled={saving} className="w-full">
             {saving ? "Saving..." : "Save Agency Settings"}
           </Button>
