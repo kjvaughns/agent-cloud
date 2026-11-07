@@ -99,7 +99,7 @@ export function AgencySuiteSection() {
           </Link>
         </Button>
         <Button asChild size="lg" onClick={() => track("agency_cta_clicked", { surface: "suite" })}>
-          <Link to="/demo">Book a demo</Link>
+          <Link to="/start" search={{ plan: "agency" }}>Start</Link>
         </Button>
       </div>
       <p className="mt-3 text-center text-xs text-muted-foreground" style={display}>

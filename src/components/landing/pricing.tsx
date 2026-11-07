@@ -54,8 +54,8 @@ export function PricingSection({
         "Retention tracking",
       ],
       cta: {
-        label: checkoutReady ? "Start solo" : "Request a demo",
-        href: checkoutReady ? "/signup?plan=solo" : "/demo",
+        label: "Start",
+        href: "/start?plan=solo",
         event: "solo_cta_clicked",
       },
     },
@@ -80,7 +80,7 @@ export function PricingSection({
         "Bankdocs and Release Center built into contracting",
         "Your agency's own Academy",
       ],
-      cta: { label: checkoutReady ? "Start your agency" : "Book a demo", href: checkoutReady ? "/signup?plan=agency" : "/demo", event: "agency_cta_clicked" },
+      cta: { label: "Start", href: "/start?plan=agency", event: "agency_cta_clicked" },
       note: "One flat price however many agents you have. Adding an agent does not change the bill.",
     },
     {

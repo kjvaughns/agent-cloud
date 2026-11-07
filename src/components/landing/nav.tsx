@@ -119,7 +119,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
               when checkout is unconfigured the primary action IS the demo, and
               printing "Book a demo" twice in one header reads as a bug — so
               this link only appears when the two differ. */}
-          {ctaHref !== "/demo" && (
+          {false && (
           <Link
             to="/demo"
             onClick={() => track("demo_cta_clicked")}
@@ -179,7 +179,7 @@ export function LandingNav({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: s
                 {l.label}
               </a>
             ))}
-            {ctaHref !== "/demo" && (
+            {false && (
               <Link to="/demo" onClick={() => setOpen(false)} className="py-4 text-lg font-medium text-muted-foreground">
                 Book a demo
               </Link>
