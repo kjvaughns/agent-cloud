@@ -1,48 +1,33 @@
 /**
- * Nova, told as outcomes — and labelled honestly.
+ * Nova, kept simple — and labelled honestly.
  *
  * ── The labels are the point ──
  *
  * The temptation on an AI section is to list everything the roadmap contains
  * and let the reader assume it all works. An agency owner who buys on that and
- * finds three of the four groups empty does not come back, and in this market
- * they tell everyone.
+ * finds half of it empty does not come back, and in this market they tell
+ * everyone.
  *
- * So every line below carries the state it is actually in, and the states were
- * read off the code rather than guessed:
- *
- *   live      `lapse_scan`, `review_prep` and `compliance_screen` are the three
- *             gated Nova features in `nova-features.ts`; the automation worker
- *             sends on `birthday`, `policy_anniversary`, `lapse_follow_up` and
- *             `custom_date` triggers; `askAiAssistant` answers against the
- *             records the asker is allowed to see.
- *
- *   soon      Everything with no code behind it today. Not a soft claim — an
- *             explicit "not yet", so nobody buys the licence for it.
- *
- * If a capability moves, the label moves with it. A line that says "live" here
- * and does nothing in the product is the worst thing on this page.
+ * So every line below carries the state it is actually in, read off the code
+ * rather than guessed — but the section stays quiet about it: no group cards,
+ * no per-feature essays. Two flat lists, one for what works today and one for
+ * what does not yet. The states themselves live in
+ * `src/lib/landing/nova-capabilities.ts` and are asserted by
+ * `scripts/landing-check.ts`; if a capability ships, move its state there and
+ * the page follows.
  */
 
 import { Link } from "@tanstack/react-router";
-import {
-  ShieldAlert, HeartHandshake, Route, Brain, ArrowRight, Building2, FileSignature,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, Clock, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { money } from "@/lib/format";
 import { track } from "@/lib/landing-analytics";
-import { LandingSection, SectionHead, FadeUp, StatusPill, display } from "./primitives";
-import { NOVA_GROUPS, type NovaGroup } from "@/lib/landing/nova-capabilities";
+import { LandingSection, SectionHead, FadeUp } from "./primitives";
+import { NOVA_GROUPS } from "@/lib/landing/nova-capabilities";
 
-const ICONS: Record<NovaGroup["key"], LucideIcon> = {
-  retention: ShieldAlert,
-  relationships: HeartHandshake,
-  pipeline: Route,
-  intelligence: Brain,
-  carriers: Building2,
-  contracting: FileSignature,
-};
+const ALL_ITEMS = NOVA_GROUPS.flatMap((g) => g.items);
+const LIVE = ALL_ITEMS.filter((i) => i.state === "available");
+const SOON = ALL_ITEMS.filter((i) => i.state === "soon");
 
 export function NovaSection({ novaPrice }: { novaPrice: number }) {
   return (
@@ -53,44 +38,40 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
         copy="Nova watches your book, follows up with clients and — soon — signs into your carrier portals every morning and starts contracting for new agents on its own."
       />
 
-      {/* Said once, plainly, above the grid — so nobody has to infer it from
-          the pills and nobody can say they were misled. */}
+      {/* Said once, plainly, above the lists — so nobody has to infer it and
+          nobody can say they were misled. */}
       <p className="mx-auto mt-5 max-w-2xl text-center text-sm text-muted-foreground">
         Marked <span className="font-semibold text-success">Available</span> means it works
         today. <span className="font-semibold text-foreground">Coming soon</span> means it does
         not yet — do not buy the licence for those.
       </p>
 
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        {NOVA_GROUPS.map((g, i) => (
-          <FadeUp key={g.title} delay={i * 60}>
-            <div className="h-full rounded-[var(--radius)] border border-border bg-card p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary"
-                  aria-hidden
-                >
-                  {(() => { const Icon = ICONS[g.key]; return <Icon className="h-4.5 w-4.5" />; })()}
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-foreground">{g.title}</h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{g.blurb}</p>
-                </div>
-              </div>
-              <ul className="mt-4 space-y-2.5">
-                {g.items.map((it) => (
-                  <li key={it.text} className="flex items-start justify-between gap-3">
-                    <span className="text-sm leading-relaxed text-muted-foreground">{it.text}</span>
-                    <span className="shrink-0 pt-0.5">
-                      <StatusPill status={it.state} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </FadeUp>
-        ))}
-      </div>
+      <FadeUp className="mx-auto mt-10 max-w-4xl">
+        <div className="grid gap-8 rounded-[var(--radius)] border border-border bg-card p-6 shadow-sm sm:grid-cols-2 sm:p-8">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Works today</p>
+            <ul className="mt-4 space-y-3">
+              {LIVE.map((it) => (
+                <li key={it.text} className="flex items-start gap-2.5">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span className="text-sm leading-relaxed text-foreground">{it.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="border-t border-border pt-8 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Coming soon</p>
+            <ul className="mt-4 space-y-3">
+              {SOON.map((it) => (
+                <li key={it.text} className="flex items-start gap-2.5">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="text-sm leading-relaxed text-muted-foreground">{it.text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </FadeUp>
 
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <Button asChild size="lg" onClick={() => track("nova_cta_clicked")}>
@@ -104,6 +85,11 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
       </div>
       <p className="mt-3 text-center text-xs text-muted-foreground">
         Nova requires an active Solo or Agency licence.
+      </p>
+      <p className="mx-auto mt-2 max-w-2xl text-center text-xs text-muted-foreground">
+        Nova partners also earn a share of subscription profit — not an investment, not guaranteed income,
+        and subject to payout, refund, attribution and eligibility terms. Sponsored
+        subscriptions do not also earn profit share.
       </p>
     </LandingSection>
   );
