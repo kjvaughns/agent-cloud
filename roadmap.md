@@ -11,4 +11,7 @@
 - [x] Verify acknowledgment rendering, reply-routing rules, request idempotency, and unchanged Allison delay; ten checks passed.
 - [ ] Verify demo acknowledgment inbox delivery: preview email delivery is disabled; publish and submit a demo request.
 - [x] Make Allison gather escalation context before sending the owner a detailed project-specific problem report and suggestions; all 19 focused checks pass.
-- [ ] Verify a real escalation conversation and receipt in the owner's Gmail inbox after publishing; no live customer handoff was triggered for testing.
+- [ ] Verify a real escalation conversation and receipt in the owner's Gmail inbox after publishing; no live customer handoff was triggered for testing.- [x] Self-serve funnel: /signup with plan choice, pay-then-setup, 4-step setup wizard, help video slots, in-app Allison chat, signup funnel admin page.
+- [ ] Record the 7 how-to videos: needs recordings from the user (slots show "coming soon").
+- [ ] Day 1/3/7 nudge emails: not sent through app email (counts as marketing); needs a marketing email service.
+- [ ] Verify a full signup + test payment + setup in the preview by hand.

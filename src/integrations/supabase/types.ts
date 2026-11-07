@@ -932,6 +932,39 @@ export type Database = {
           },
         ]
       }
+      allison_chat_messages: {
+        Row: {
+          body: string
+          created_at: string
+          escalated: boolean
+          id: string
+          organization_id: string | null
+          page: string | null
+          sender: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          escalated?: boolean
+          id?: string
+          organization_id?: string | null
+          page?: string | null
+          sender: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          escalated?: boolean
+          id?: string
+          organization_id?: string | null
+          page?: string | null
+          sender?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       allison_job_lock: {
         Row: {
           locked_until: string
@@ -5320,6 +5353,33 @@ export type Database = {
         }
         Relationships: []
       }
+      funnel_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          meta: Json
+          organization_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       handbook_sections: {
         Row: {
           content_html: string | null
@@ -5377,6 +5437,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      help_video_dismissals: {
+        Row: {
+          created_at: string
+          page_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          page_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          page_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      help_videos: {
+        Row: {
+          page_key: string
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          page_key: string
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          page_key?: string
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
       }
       hierarchy_change_approvals: {
         Row: {
@@ -6951,14 +7050,18 @@ export type Database = {
           nova_partner_commission_rate: number | null
           nova_partner_commission_ytd: number | null
           nova_seats_purchased: number | null
+          onboarding_completed_at: string | null
+          onboarding_step: number
           owner_id: string | null
           parent_org_id: string | null
+          partner_code: string | null
           plan_type: string | null
           slug: string
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_current_period_end: string | null
           subscription_status: string | null
+          suite_activated_at: string | null
           tagline: string | null
           updated_at: string | null
         }
@@ -6976,14 +7079,18 @@ export type Database = {
           nova_partner_commission_rate?: number | null
           nova_partner_commission_ytd?: number | null
           nova_seats_purchased?: number | null
+          onboarding_completed_at?: string | null
+          onboarding_step?: number
           owner_id?: string | null
           parent_org_id?: string | null
+          partner_code?: string | null
           plan_type?: string | null
           slug: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null
+          suite_activated_at?: string | null
           tagline?: string | null
           updated_at?: string | null
         }
@@ -7001,14 +7108,18 @@ export type Database = {
           nova_partner_commission_rate?: number | null
           nova_partner_commission_ytd?: number | null
           nova_seats_purchased?: number | null
+          onboarding_completed_at?: string | null
+          onboarding_step?: number
           owner_id?: string | null
           parent_org_id?: string | null
+          partner_code?: string | null
           plan_type?: string | null
           slug?: string
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null
+          suite_activated_at?: string | null
           tagline?: string | null
           updated_at?: string | null
         }

@@ -314,7 +314,11 @@ export const initSoloWorkspace = createServerFn({ method: "POST" })
   // empty product cannot demonstrate itself, and somebody's first minute
   // deciding whether this thing works is the one that matters.
   .inputValidator((d: unknown) =>
-    z.object({ withSampleData: z.boolean().default(true) }).parse(d ?? {}),
+    z.object({
+      withSampleData: z.boolean().default(true),
+      plan: z.enum(["solo", "agency"]).default("solo"),
+      agencyName: z.string().trim().max(80).optional(),
+    }).parse(d ?? {}),
   )
   .handler(async ({ data, context }) => {
     const { userId } = context as Ctx;
@@ -333,10 +337,12 @@ export const initSoloWorkspace = createServerFn({ method: "POST" })
     const { data: org, error } = await supabaseAdmin
       .from("organizations")
       .insert({
-        name: `${profile.first_name ?? "My"} ${profile.last_name ?? "Agency"}`.trim(),
+        name: data.agencyName || `${profile.first_name ?? "My"} ${profile.last_name ?? "Agency"}`.trim(),
         slug,
         owner_id: userId,
-        plan_type: "solo",
+        plan_type: data.plan,
+        onboarding_step: 0,
+        onboarding_completed_at: null,
         subscription_status: "inactive",
       })
       .select("id")
@@ -382,6 +388,7 @@ export const initSoloWorkspace = createServerFn({ method: "POST" })
       }
     }
 
+    await supabaseAdmin.from("funnel_events").insert({ event: "signup", user_id: userId, organization_id: org.id, meta: { plan: data.plan } });
     return { ok: true, existing: false, sampleData };
   });
 

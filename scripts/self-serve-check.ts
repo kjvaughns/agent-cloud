@@ -1,0 +1,12 @@
+import { shouldRedirectToSetup, helpVideoKey, partnerCodeFor, SETUP_STEPS } from "../src/lib/onboarding/setup";
+let fail = 0;
+const ok = (c: boolean, m: string) => { console.log(c ? "PASS" : "FAIL", m); if (!c) fail++; };
+ok(shouldRedirectToSetup(true, "/dashboard"), "unfinished owner is sent to setup");
+ok(!shouldRedirectToSetup(false, "/dashboard"), "finished owner stays put");
+ok(!shouldRedirectToSetup(true, "/settings/billing"), "billing page reachable during setup");
+ok(!shouldRedirectToSetup(true, "/import"), "import reachable during setup");
+ok(helpVideoKey("/post-deal") === "post-deal", "post deal has a video");
+ok(helpVideoKey("/dashboard") === null, "dashboard has no video");
+ok(partnerCodeFor("vantage-financial-ab12cd") === "VANTAGEFINAN", "partner code from slug");
+ok(SETUP_STEPS.length === 4, "four setup steps");
+if (fail) process.exit(1);

@@ -13,7 +13,6 @@
  * licence. Nova adds automation and prioritisation on top.
  */
 
-import { Link } from "@tanstack/react-router";
 import { Check, Minus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -56,7 +55,7 @@ export function PricingSection({
       ],
       cta: {
         label: checkoutReady ? "Start solo" : "Request a demo",
-        href: checkoutReady ? "/signup" : "/demo",
+        href: checkoutReady ? "/signup?plan=solo" : "/demo",
         event: "solo_cta_clicked",
       },
     },
@@ -81,7 +80,7 @@ export function PricingSection({
         "Bankdocs and Release Center built into contracting",
         "Your agency's own Academy",
       ],
-      cta: { label: "Book a demo", href: "/demo", event: "agency_cta_clicked" },
+      cta: { label: checkoutReady ? "Start your agency" : "Book a demo", href: checkoutReady ? "/signup?plan=agency" : "/demo", event: "agency_cta_clicked" },
       note: "One flat price however many agents you have. Adding an agent does not change the bill.",
     },
     {
@@ -157,7 +156,7 @@ export function PricingSection({
                 variant={p.featured ? "default" : "outline"}
                 onClick={() => track(p.cta.event)}
               >
-                <Link to={p.cta.href}>{p.cta.label}</Link>
+                <a href={p.cta.href}>{p.cta.label}</a>
               </Button>
             </div>
           </FadeUp>

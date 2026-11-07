@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import type { PaymentProduct } from '@/lib/billing/payment-rules';
 import { useServerFn } from '@/hooks/use-server-fn';
 import { toast } from 'sonner';
-export function useBillingCheckout() {
+export function useBillingCheckout(opts?: { onPaid?: () => void }) {
  const [clientSecret, setClientSecret] = useState<string | null>(null);
  const checkoutFn = useServerFn(createManagedCheckout);
  const qc = useQueryClient();
@@ -27,7 +27,7 @@ export function useBillingCheckout() {
   <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto p-0">
    <DialogHeader className="p-5 pb-0"><DialogTitle>Complete your subscription</DialogTitle><DialogDescription>Secure subscription payment</DialogDescription></DialogHeader>
    <PaymentTestModeBanner />
-   {clientSecret && <EmbeddedCheckoutProvider key={clientSecret} stripe={getStripe()} options={{ clientSecret, onComplete: () => { toast.success('Payment received. Your plan updates in a few seconds.'); setTimeout(() => { setClientSecret(null); qc.invalidateQueries({ queryKey: ['billing'] }); qc.invalidateQueries({ queryKey: ['access'] }); }, 1500); } }}><EmbeddedCheckout /></EmbeddedCheckoutProvider>}
+   {clientSecret && <EmbeddedCheckoutProvider key={clientSecret} stripe={getStripe()} options={{ clientSecret, onComplete: () => { toast.success('Payment received. Your plan updates in a few seconds.'); setTimeout(() => { setClientSecret(null); qc.invalidateQueries({ queryKey: ['billing'] }); qc.invalidateQueries({ queryKey: ['access'] }); opts?.onPaid?.(); }, 1500); } }}><EmbeddedCheckout /></EmbeddedCheckoutProvider>}
    <div className="p-4"><Button variant="outline" onClick={() => setClientSecret(null)}>Close</Button></div>
   </DialogContent>
  </Dialog>;

@@ -8,7 +8,7 @@ import { useServerFn } from '@/hooks/use-server-fn';
 
 // Buttons whose label means "change something". Navigation, filters and dialogs stay usable.
 const WRITE_WORDS = /\b(save|post|add|create|new|delete|remove|submit|import|upload|send|update|assign|invite|approve|edit|sync|archive|confirm)\b/i;
-const ALLOWED_PATHS = ['/settings/billing', '/settings/nova-pro', '/onboarding'];
+const ALLOWED_PATHS = ['/settings/billing', '/settings/nova-pro', '/onboarding', '/setup'];
 
 export function useAccessState() {
   const fn = useServerFn(getAccessState);
