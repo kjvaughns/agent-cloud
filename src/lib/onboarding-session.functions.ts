@@ -23,7 +23,8 @@ export const saveOnboarding = createServerFn({ method: "POST" })
   }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context as Ctx;
-    const answers = JSON.parse(JSON.stringify(data.answers).slice(0, 20000) === JSON.stringify(data.answers) ? JSON.stringify(data.answers) : "{}");
+    if (JSON.stringify(data.answers).length > 20000) throw new Error("Too much setup data");
+    const answers = data.answers as Record<string, any>;
     const { data: row, error } = await supabase.from("onboarding_sessions")
       .upsert({ user_id: userId, path: data.path, current_step: data.current_step, answers, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
       .select("welcome_sent_at").single();
