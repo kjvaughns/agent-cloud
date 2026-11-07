@@ -33,7 +33,7 @@ describe("managed template sends", () => {
   });
   test("suppression is a normal managed outcome", async () => {
     process.env.LOVABLE_API_KEY = "test-key";
-    globalThis.fetch = (async () => Response.json({ code: "recipient_suppressed", message: "Suppressed" }, { status: 403 })) as typeof fetch;
+    globalThis.fetch = (async () => Response.json({ type: "recipient_suppressed", message: "Suppressed" }, { status: 403 })) as typeof fetch;
     expect(await sendTemplateEmail("demo-confirmation", "requester@example.com")).toEqual({ sent: false, reason: "recipient_suppressed" });
   });
   test("rate limits throw with retry delay rather than immediately retrying", async () => {
@@ -41,7 +41,7 @@ describe("managed template sends", () => {
     let requests = 0;
     globalThis.fetch = (async () => {
       requests++;
-      return Response.json({ code: "rate_limited", message: "Wait" }, { status: 429, headers: { "Retry-After": "17" } });
+      return Response.json({ type: "rate_limited", message: "Wait" }, { status: 429, headers: { "Retry-After": "17" } });
     }) as typeof fetch;
     await expect(sendTemplateEmail("demo-confirmation", "requester@example.com")).rejects.toMatchObject({ status: 429, retryAfterSeconds: 17 });
     expect(requests).toBe(1);
