@@ -96,3 +96,36 @@ export const getFunnelReport = createServerFn({ method: "GET" })
     }
     return Object.fromEntries([...users].map(([k, v]) => [k, v.size])) as Record<string, number>;
   });
+
+/** Saves everything the /start builder collected, after the account exists. */
+export const applyBuilderSetup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    accent_color: z.string().max(40).nullable().optional(),
+    carriers: z.array(z.string().max(60)).max(40).default([]),
+    teamSize: z.number().int().min(1).max(5000).optional(),
+    monthlyGoal: z.number().int().min(0).max(100000000).optional(),
+    documentName: z.string().max(200).optional(),
+    activateSuite: z.boolean().default(false),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userId = (context as Ctx).userId;
+    const { supabaseAdmin, org } = await ownedOrg(userId);
+    if (!org) throw new Error("Only the workspace owner can finish setup");
+    const patch: Record<string, any> = { onboarding_completed_at: new Date().toISOString(), onboarding_step: 99 };
+    if (data.accent_color) patch.accent_color = data.accent_color;
+    let suite = null as ReturnType<typeof suiteLinks> | null;
+    if (data.activateSuite) {
+      const code = org.partner_code ?? partnerCodeFor(org.slug);
+      patch.partner_code = code;
+      patch.suite_activated_at = org.suite_activated_at ?? new Date().toISOString();
+      suite = suiteLinks(code);
+    }
+    const { error } = await supabaseAdmin.from("organizations").update(patch as any).eq("id", org.id);
+    if (error) throw new Error(error.message);
+    await supabaseAdmin.from("funnel_events").insert({
+      event: "builder_completed", user_id: userId, organization_id: org.id,
+      meta: { carriers: data.carriers, teamSize: data.teamSize, monthlyGoal: data.monthlyGoal, documentName: data.documentName },
+    } as any);
+    return { ok: true, suite };
+  });
