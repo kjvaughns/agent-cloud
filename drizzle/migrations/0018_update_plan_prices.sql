@@ -1,0 +1,2 @@
+UPDATE public.plans SET monthly_price = 199, updated_at = now() WHERE key = 'solo_agent';
+UPDATE public.plans SET monthly_price = 999, description = 'Unlimited agents, hierarchy, contracting and analytics, plus Licensing, Bankdocs, Release Center and Academy.', updated_at = now() WHERE key = 'agency_plan';
