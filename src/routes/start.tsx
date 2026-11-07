@@ -310,10 +310,10 @@ function PathPanel({ kind, selected, onHover, onPick, title, sub, price, icon }:
   kind: Path; selected: boolean; onHover: () => void; onPick: () => void; title: string; sub: string; price: number; icon: React.ReactNode;
 }) {
   return (
-    <motion.button type="button" layout onMouseEnter={onHover} onFocus={onHover} onClick={onPick}
+    <motion.button type="button" onMouseEnter={onHover} onFocus={onHover} onClick={onPick}
       initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0, flexGrow: selected ? 1.5 : 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: kind === "agent" ? 0.2 : 0.35 }}
-      className={cn("group relative flex basis-auto md:basis-0 flex-col justify-between overflow-hidden rounded-3xl border p-7 text-left transition-colors md:p-9",
+      className={cn("group relative flex shrink-0 basis-auto md:shrink md:basis-0 flex-col justify-between overflow-hidden rounded-3xl border p-7 text-left transition-colors md:p-9",
         selected ? "border-gold bg-card shadow-2xl" : "border-border bg-card/60 backdrop-blur")}>
       <div>
         <div className={cn("inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors", selected ? "bg-gold text-gold-foreground" : "bg-muted")}>{icon}</div>
