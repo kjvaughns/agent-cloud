@@ -203,7 +203,7 @@ async function seedBuilderData(
     const up = await admin.storage.from("agent-documents").upload(dest, blob, { contentType: blob.type || undefined, upsert: true });
     if (up.error) { console.error("[builder] doc upload", up.error.message); continue; }
     const { error } = await admin.from("producer_documents").insert({
-      agent_id: userId, organization_id: org.id, uploaded_by: userId, doc_type: docType, file_url: dest, file_name: doc.name, review_status: "pending",
+      agent_id: userId, organization_id: org.id, uploaded_by: userId, doc_type: docType, file_url: dest, file_name: doc.name, review_status: "uploaded",
     });
     if (error) console.error("[builder] doc row", error.message);
   }
