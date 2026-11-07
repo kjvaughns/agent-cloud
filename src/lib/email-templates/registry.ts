@@ -22,6 +22,7 @@ import { template as waitlistConfirmation } from './waitlist-confirmation'
 import { template as agentInvited } from './agent-invited'
 import { template as inviteAccepted } from './invite-accepted'
 import { template as onboardingNudge } from './onboarding-nudge'
+import { welcomeTemplate, resumeTemplate, liveTemplate } from './onboarding-journey'
 import { template as carrierAdded } from './carrier-added'
 import { template as contractStatusChanged } from './contract-status-changed'
 import { template as transferRequest } from './transfer-request'
@@ -97,6 +98,9 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'agent-invited': agentInvited,
   'invite-accepted': inviteAccepted,
   'onboarding-nudge': onboardingNudge,
+  'onboarding-welcome': welcomeTemplate,
+  'onboarding-resume': resumeTemplate,
+  'onboarding-live': liveTemplate,
   'carrier-added': carrierAdded,
   'contract-status-changed': contractStatusChanged,
   'transfer-request': transferRequest,
