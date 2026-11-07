@@ -209,3 +209,17 @@ async function seedBuilderData(
     if (error) console.error("[builder] doc row", error.message);
   }
 }
+
+/** Agency owner invites agents by email from Settings → Team & roles. Same path as onboarding invites. */
+export const sendTeamInvites = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ emails: z.array(z.string().trim().email().max(200)).min(1).max(50) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { userId } = context as Ctx;
+    const { assertAgencyPlan } = await import("@/lib/billing/access.server");
+    await assertAgencyPlan(userId);
+    const { supabaseAdmin, org } = await ownedOrg(userId);
+    if (!org) throw new Error("Only the agency owner can invite agents here.");
+    await seedBuilderData(supabaseAdmin, userId, org, { carriers: [], invites: data.emails, documentPaths: [] });
+    return { ok: true, count: data.emails.length };
+  });

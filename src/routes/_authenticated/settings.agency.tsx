@@ -12,8 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Palette, Building2, FileSignature, Plug, Users, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IdentityHub } from "@/components/settings/identity-hub";
-import { CarriersQuick } from "@/components/settings/carriers-quick";
-import { SalesFeedQuick } from "@/components/settings/sales-feed-quick";
+import { CarriersHub } from "@/components/settings/carriers-hub";
+import { ContractingHub } from "@/components/settings/contracting-hub";
+import { ConnectionsHub } from "@/components/settings/connections-hub";
+import { TeamHub } from "@/components/settings/team-hub";
+import { useAccessState } from "@/components/read-only-gate";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -235,7 +238,7 @@ function AgencySettingsPage() {
   const hubs = HUBS.filter((h) => h.tabs.some((t) => allowed.includes(t)));
   const activeHub = hubFor(active);
   const [carrierAdv, setCarrierAdv] = useState(false);
-  const [feedAdv, setFeedAdv] = useState(false);
+  const { data: accessState } = useAccessState();
   const openHub = (h: Hub) => setActive(HUBS.find((x) => x.id === h)!.tabs.find((t) => allowed.includes(t)) ?? "general");
   const has = (t: SettingsTab) => allowed.includes(t);
 
@@ -258,11 +261,6 @@ function AgencySettingsPage() {
                 <h.icon className="h-4 w-4 shrink-0" /> {h.label}
               </button>
             ))}
-            {has("roles") && (
-              <Link to="/team" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground">
-                <Users className="h-4 w-4" /> Team & roles <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
-              </Link>
-            )}
           </nav>
 
           <div className="min-w-0 space-y-6 overflow-hidden">
@@ -274,49 +272,27 @@ function AgencySettingsPage() {
               </>
             )}
             {activeHub === "carriers" && (
-              <>
-                {has("carriers") && (
-                  <section>
-                    <SectionHead title="Carriers" blurb="Turn on the carriers you write with." />
-                    <CarriersQuick onAdvanced={() => setCarrierAdv(true)} />
-                    <AdvancedToggle open={carrierAdv} onToggle={() => setCarrierAdv((v) => !v)} label="full carrier list & comp grid" />
-                  </section>
-                )}
-                {carrierAdv && has("carriers") && (
-                  <section>
-                    <SuggestedCarriersPanel />
-                    <div className="mt-4"><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></div>
-                  </section>
-                )}
-                {carrierAdv && has("levels") && (
-                  <section>
-                    <SectionHead title="Levels & comp" blurb="Your ladder and what each level earns." />
-                    <LevelsPanel />
-                    <RenewalsPanel />
-                  </section>
-                )}
-              </>
+              <CarriersHub
+                advancedOpen={carrierAdv}
+                onAdvancedChange={setCarrierAdv}
+                advanced={<>
+                  {has("carriers") && <><SuggestedCarriersPanel /><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></>}
+                  {has("levels") && <><LevelsPanel /><RenewalsPanel /></>}
+                </>}
+              />
             )}
             {activeHub === "contracting" && <ContractingTab />}
             {activeHub === "connections" && (
-              <>
-                {has("automations") && (
-                  <section>
-                    <SectionHead title="Sales feed" blurb="Post wins to your team's Discord automatically." />
-                    <SalesFeedQuick />
-                    <AdvancedToggle open={feedAdv} onToggle={() => setFeedAdv((v) => !v)} label="bots, events & thresholds" />
-                    {feedAdv && <div className="mt-4"><DiscordSettings /></div>}
-                  </section>
-                )}
-                {has("integrations") && (
-                  <section className="space-y-6">
-                    <SectionHead title="Integrations" blurb="Connect other tools and issue API keys." />
-                    <IntegrationsCatalog onOpenTab={(t) => setActive(normalizeTab(t) ?? "automations")} />
-                    <ApiKeysPanel />
-                  </section>
-                )}
-              </>
+              <ConnectionsHub
+                showFeed={has("automations")}
+                integrations={has("integrations") ? <IntegrationsCatalog onOpenTab={(t) => setActive(normalizeTab(t) ?? "automations")} /> : null}
+                advanced={<>
+                  {has("automations") && <DiscordSettings />}
+                  {has("integrations") && <ApiKeysPanel />}
+                </>}
+              />
             )}
+            {activeHub === "team" && <TeamHub isSolo={accessState?.plan === "solo"} isOwner={Boolean(accessState?.isOwner)} />}
           </div>
         </div>
       </div>
@@ -324,21 +300,13 @@ function AgencySettingsPage() {
   );
 }
 
-function AdvancedToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
-  return (
-    <button type="button" onClick={onToggle} aria-expanded={open}
-      className="mt-4 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline">
-      {open ? "Hide advanced" : `Advanced — ${label}`}
-    </button>
-  );
-}
-
-type Hub = "identity" | "carriers" | "contracting" | "connections";
+type Hub = "identity" | "carriers" | "contracting" | "connections" | "team";
 const HUBS: { id: Hub; label: string; icon: typeof Palette; tabs: SettingsTab[] }[] = [
   { id: "identity", label: "Identity", icon: Palette, tabs: ["general"] },
   { id: "carriers", label: "Carriers & Comp", icon: Building2, tabs: ["carriers", "levels"] },
   { id: "contracting", label: "Contracting", icon: FileSignature, tabs: ["contracting"] },
   { id: "connections", label: "Connections", icon: Plug, tabs: ["automations", "integrations"] },
+  { id: "team", label: "Team & roles", icon: Users, tabs: ["roles"] },
 ];
 function hubFor(t: SettingsTab): Hub {
   return HUBS.find((h) => h.tabs.includes(t))?.id ?? "identity";
@@ -359,29 +327,14 @@ function ContractingTab() {
     queryKey: ["settings", "contracting-setup"],
     queryFn: () => getContractingSetupStatus(),
   });
-
   return (
-    <>
-      <div>
-        <SectionHead
-          title="Contracting rules"
-          blurb="Who can request carriers and what needs approval."
-        />
-        {setup?.available && (
-          <div className="mb-4">
-            <SetupChecklist steps={setup.steps} progress={setup.progress} ready={setup.ready} />
-          </div>
-        )}
+    <ContractingHub
+      progress={setup?.available ? { done: setup.progress.done, total: setup.progress.total } : null}
+      advanced={<>
+        {setup?.available && <SetupChecklist steps={setup.steps} progress={setup.progress} ready={setup.ready} />}
         <ContractingSettingsPanel />
-      </div>
-      <div>
-        <SectionHead
-          title="Submission templates"
-          blurb="What your submission packets look like."
-        />
         <TemplatesPanel />
-      </div>
-    </>
+      </>}
+    />
   );
 }
-
