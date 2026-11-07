@@ -167,8 +167,8 @@ function LandingPage() {
    * Stripe is configured the primary action is the demo rather than a signup
    * that would dead-end.
    */
-  const ctaLabel = checkoutReady ? "Start now" : "Book a demo";
-  const ctaHref = checkoutReady ? "/signup" : "/demo";
+  const ctaLabel = "Start";
+  const ctaHref = "/start";
 
   if (checking) {
     return (

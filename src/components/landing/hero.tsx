@@ -13,7 +13,7 @@ const STATS = [
 
 export function Hero({ ctaLabel, ctaHref }: { ctaLabel: string; ctaHref: string }) {
   const secondary =
-    ctaHref === "/demo" ? { label: "See pricing", href: "#pricing" } : { label: "Book a demo", href: "/demo" };
+    { label: "See pricing", href: "#pricing" };
 
   return (
     <section id="top" className="relative overflow-hidden">
