@@ -10,6 +10,7 @@ import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { DemoBanner } from "@/components/demo-banner";
 import { ReadOnlyGate } from "@/components/read-only-gate";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { SetupRedirect, HelpVideoButton, AllisonBubble } from "@/components/self-serve-furniture";
 import { requireSession } from "@/lib/require-session";
 
 function AuthErrorComponent({ error, reset }: ErrorComponentProps) {
@@ -101,6 +102,9 @@ function AuthenticatedLayout() {
       {/* Outside <main> on purpose: it is fixed-position furniture, not page
           content, and nesting it would put it inside the scroll container. */}
       <OnboardingChecklist />
+      <SetupRedirect />
+      <HelpVideoButton />
+      <AllisonBubble />
     </SidebarProvider>
   );
 }

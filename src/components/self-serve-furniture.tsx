@@ -51,7 +51,7 @@ export function HelpVideoButton() {
 
   return (
     <>
-      <div className="fixed bottom-5 left-5 z-40 flex items-center gap-1 rounded-full border border-border bg-card px-1 py-1 shadow-lg md:left-[calc(var(--sidebar-width,16rem)+1.25rem)]">
+      <div className="fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-full border border-border bg-card px-1 py-1 shadow-lg sm:bottom-5">
         <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setOpen(true)}>
           <PlayCircle className="mr-1.5 h-4 w-4 text-primary" /> Watch how it works
         </Button>
@@ -101,12 +101,12 @@ export function AllisonBubble() {
   return (
     <>
       {!open && (
-        <Button onClick={() => setOpen(true)} variant="ink" className="fixed bottom-5 right-5 z-40 h-12 rounded-full px-4 shadow-lg" aria-label="Chat with Allison">
+        <Button onClick={() => setOpen(true)} variant="ink" className="fixed bottom-5 left-5 z-40 h-12 rounded-full px-4 shadow-lg" aria-label="Chat with Allison">
           <MessageCircle className="mr-1.5 h-5 w-5" /> Help
         </Button>
       )}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 flex h-[32rem] max-h-[80vh] w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-2xl" role="dialog" aria-label="Allison support chat">
+        <div className="fixed bottom-5 left-5 z-50 flex h-[32rem] max-h-[80vh] w-[22rem] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-2xl" role="dialog" aria-label="Allison support chat">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div><div className="text-sm font-semibold">Allison</div><div className="text-xs text-muted-foreground">Agent Cloud support</div></div>
             <Button size="icon" variant="ghost" aria-label="Close chat" onClick={() => setOpen(false)}><X className="h-4 w-4" /></Button>
