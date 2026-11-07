@@ -13,6 +13,8 @@ import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses 
 import { listCompLevels } from "@/lib/contracting-records.functions";
 import { Card } from "@/components/ui/card";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { FilterChips } from "@/components/ui-kit/states";
+import { HubLayout, AdvancedDrawer, SummaryCard } from "@/components/ui-kit/hub";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,9 +139,9 @@ function ContractingHome() {
 type Section = "my" | "coverage" | "requests";
 
 function MySummary() {
-  const { scope } = useScope();
-  const { data } = useQuery(myContractsQuery(scope as Scope));
-  const rows: any[] = ((data as any)?.contracts ?? (Array.isArray(data) ? data : [])) as any[];
+  const { scope, ready } = useScope();
+  const { data } = useQuery({ ...myContractsQuery(scope), enabled: ready });
+  const rows: any[] = ((data as any)?.rows ?? []) as any[];
   const active = rows.filter((r) => r.status === "active").length;
   const pending = rows.filter((r) => ["requested", "submitted", "assigned", "processing", "draft"].includes(r.status)).length;
   const issues = rows.filter((r) => r.status === "issue").length;
