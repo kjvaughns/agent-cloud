@@ -130,7 +130,7 @@ export const CHECKLIST: ChecklistItem[] = [
   {
     id: "brand_agency",
     label: "Name your agency",
-    description: "Agency name, subdomain and logo, so the workspace looks like yours.",
+    description: "Agency name, logo and colour, so the workspace looks like yours.",
     roles: ["owner"],
     completion: "agency_branded",
     ctaRoute: "/settings/agency",
