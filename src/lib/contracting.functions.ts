@@ -114,7 +114,7 @@ export const listCarriers = createServerFn({ method: "GET" })
     const { data: orgRows, error: orgErr } = await supabase
       .from("org_carriers")
       .select(
-        "carrier_id, status, enabled, phone, business_hours, website," +
+        "id, carrier_id, status, enabled, phone, business_hours, website," +
         " contracting_speed_days, pay_frequency, agent_portal_url, training_url," +
         " turnaround_days, support_phone",
       )
@@ -155,6 +155,7 @@ export const listCarriers = createServerFn({ method: "GET" })
         const o = overrides.get(c.id) ?? {};
         return {
           ...c,
+          org_carrier_id: o.id ?? null,
           phone: pick(o.phone, c.phone),
           hours: pick(o.business_hours, c.hours),
           website: pick(o.website, c.website),
