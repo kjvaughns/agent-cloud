@@ -16,7 +16,7 @@ import { CarriersHub } from "@/components/settings/carriers-hub";
 import { ContractingHub } from "@/components/settings/contracting-hub";
 import { ConnectionsHub } from "@/components/settings/connections-hub";
 import { TeamHub } from "@/components/settings/team-hub";
-import { useAccessState } from "@/hooks/use-access-state";
+import { useAccessState } from "@/components/read-only-gate";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
