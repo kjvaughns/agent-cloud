@@ -3,7 +3,10 @@
  * The full directory and comp grid live behind "Advanced" in the hub.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { Check, Loader2, Sparkles, Pencil, ExternalLink } from "lucide-react";
+import { CarrierDetailsDialog, CarrierFactsRow, factsFromOrgCarrier } from "@/components/carriers/carrier-card";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -33,6 +36,7 @@ export function CarriersQuick({ onAdvanced }: { onAdvanced: () => void }) {
   const carriers = ((data?.carriers ?? []) as any[]).filter((c) => c.state?.status !== "archived");
   const canManage = Boolean(data?.access?.canManageCarriers);
   const levels = (levelData?.rows ?? []) as any[];
+  const [editFor, setEditFor] = useState<any | null>(null);
 
   const toggle = useMutation({
     mutationFn: ({ id, on }: { id: string; on: boolean }) =>
@@ -126,7 +130,13 @@ export function CarriersQuick({ onAdvanced }: { onAdvanced: () => void }) {
                   <p className="truncate text-xs text-muted-foreground">
                     {on ? "Live for agents" : may ? "Off" : (c.state?.problems?.[0] ?? "Needs setup")}
                   </p>
+                  <div className="mt-1.5"><CarrierFactsRow c={factsFromOrgCarrier(c)} compact /></div>
                 </div>
+                {canManage && (
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 rounded-full" aria-label={`Edit ${c.name} details`} onClick={() => setEditFor(c)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 {may ? (
                   <Switch checked={on} disabled={!canManage || busy} aria-label={`${on ? "Switch off" : "Switch on"} ${c.name}`}
                     onCheckedChange={(v) => toggle.mutate({ id: c.id, on: v })} />
@@ -138,6 +148,13 @@ export function CarriersQuick({ onAdvanced }: { onAdvanced: () => void }) {
           })}
         </ul>
       )}
+      <div className="flex justify-end">
+        <Button asChild size="sm" variant="ghost" className="rounded-full text-xs">
+          <Link to="/contracting/carriers"><ExternalLink className="mr-1 h-3.5 w-3.5" />View directory as agents see it</Link>
+        </Button>
+      </div>
+      <CarrierDetailsDialog open={!!editFor} onOpenChange={(o) => !o && setEditFor(null)}
+        orgCarrierId={editFor?.id ?? null} carrier={editFor ? factsFromOrgCarrier(editFor) : null} />
     </div>
   );
 }
