@@ -219,9 +219,9 @@ function BuilderPage() {
           <motion.main key="path" exit={{ opacity: 0, y: -30 }} className="mx-auto max-w-6xl px-5 pb-16 pt-6 md:pt-14">
             <div className="text-center">
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-medium uppercase tracking-[0.3em] text-gold">Let's build yours</motion.p>
-              <RevealTitle text="Who are you building for?" className="mt-3 text-4xl md:text-6xl" />
+              <RevealTitle text="Who are you building for?" className="mt-3 text-3xl md:text-6xl" />
             </div>
-            <div className="mt-10 flex flex-col gap-4 md:mt-14 md:h-[460px] md:flex-row">
+            <div className="mt-6 flex flex-col gap-3 md:mt-14 md:h-[460px] md:flex-row">
               <PathPanel kind="agent" selected={path === "agent"} onHover={() => setPath("agent")}
                 onPick={() => { setPath("agent"); setPhase("account"); }}
                 title="I'm an agent" sub="My own book, my own carriers, my own comp." price={PRICING.soloAgent} icon={<User className="h-5 w-5" />} />
@@ -236,7 +236,7 @@ function BuilderPage() {
         {phase === "account" && (
           <Scene key="account">
             <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">{path === "agency" ? "Agency" : "Agent"} · save your progress</p>
-            <RevealTitle text={path === "agency" ? "First, claim your agency." : "First, claim your book."} className="mt-3 text-4xl md:text-5xl" />
+            <RevealTitle text={path === "agency" ? "First, claim your agency." : "First, claim your book."} className="mt-3 text-3xl md:text-5xl" />
             <p className="mt-3 text-muted-foreground">Your account saves every choice as you go, so you can finish on any device.</p>
             <form onSubmit={createAccount} className="mt-8 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -266,14 +266,14 @@ function BuilderPage() {
 
         {phase === "steps" && (
           <motion.main key="steps" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="mx-auto grid max-w-6xl gap-10 px-5 py-8 md:grid-cols-[1fr_360px] md:py-14">
+            className="mx-auto grid max-w-6xl gap-6 px-5 pb-28 pt-4 md:grid-cols-[1fr_360px] md:gap-10 md:py-14">
             <section>
               <AnimatePresence mode="wait">
                 <motion.div key={current} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}>
                   <StepBody current={current} a={a} set={set} path={path} />
                 </motion.div>
               </AnimatePresence>
-              <div className="mt-10 flex items-center justify-between">
+              <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between border-t border-border bg-background/90 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:static md:mt-10 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
                 <Button variant="ghost" onClick={back}><ArrowLeft className="h-4 w-4" /> Back</Button>
                 <Button variant="ink" size="lg" onClick={next} disabled={!canContinue}>
                   {stepIdx === steps.length - 1 ? <>Build {path === "agency" ? "my agency" : "my book"} <Sparkles className="h-4 w-4" /></>
@@ -299,7 +299,7 @@ function BuilderPage() {
 function Scene({ children, center }: { children: React.ReactNode; center?: boolean }) {
   return (
     <motion.main initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }} transition={{ duration: 0.5 }}
-      className={cn("mx-auto max-w-md px-5 py-10 md:py-16", center && "text-center")}>{children}</motion.main>
+      className={cn("mx-auto max-w-md px-5 py-6 md:py-16", center && "text-center")}>{children}</motion.main>
   );
 }
 function Field({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
@@ -313,14 +313,14 @@ function PathPanel({ kind, selected, onHover, onPick, title, sub, price, icon }:
     <motion.button type="button" onMouseEnter={onHover} onFocus={onHover} onClick={onPick}
       initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0, flexGrow: selected ? 1.5 : 1 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: kind === "agent" ? 0.2 : 0.35 }}
-      className={cn("group relative flex shrink-0 basis-auto md:shrink md:basis-0 flex-col justify-between overflow-hidden rounded-3xl border p-7 text-left transition-colors md:p-9",
+      className={cn("group relative flex shrink-0 basis-auto md:shrink md:basis-0 flex-col justify-between overflow-hidden rounded-3xl border p-5 text-left transition-colors md:p-9",
         selected ? "border-gold bg-card shadow-2xl" : "border-border bg-card/60 backdrop-blur")}>
       <div>
         <div className={cn("inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors", selected ? "bg-gold text-gold-foreground" : "bg-muted")}>{icon}</div>
-        <h2 className="mt-5 font-display text-3xl font-semibold md:text-4xl">{title}</h2>
+        <h2 className="mt-3 font-display text-2xl font-semibold md:mt-5 md:text-4xl">{title}</h2>
         <p className="mt-2 text-muted-foreground">{sub}</p>
       </div>
-      <div className="my-6">{kind === "agent" ? <AgentScene active={selected} /> : <AgencyScene active={selected} />}</div>
+      <div className="my-3 origin-center scale-75 md:my-6 md:scale-100 -my-2">{kind === "agent" ? <AgentScene active={selected} /> : <AgencyScene active={selected} />}</div>
       <div className="flex items-end justify-between">
         <div className="text-sm text-muted-foreground"><span className="text-2xl font-semibold text-foreground">${price}</span>/month</div>
         <span className={cn("inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all", selected ? "bg-ink text-ink-foreground" : "bg-muted")}>
@@ -333,9 +333,9 @@ function PathPanel({ kind, selected, onHover, onPick, title, sub, price, icon }:
 
 function Title({ eyebrow, title, sub }: { eyebrow: string; title: string; sub: string }) {
   return (
-    <div className="mb-8">
+    <div className="mb-6 md:mb-8">
       <p className="text-xs font-medium uppercase tracking-[0.3em] text-gold">{eyebrow}</p>
-      <RevealTitle text={title} className="mt-3 text-3xl md:text-5xl" />
+      <RevealTitle text={title} className="mt-2 text-[1.75rem] leading-tight md:mt-3 md:text-5xl" />
       <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="mt-3 text-muted-foreground">{sub}</motion.p>
     </div>
   );
@@ -376,10 +376,10 @@ function StepBody({ current, a, set, path }: { current: string; a: Answers; set:
       return (
         <>
           <Title eyebrow="Licensing" title="Where are you licensed?" sub="Tap every state you can write in." />
-          <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8">
+          <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8">
             {STATES.map((s) => (
               <motion.button key={s} type="button" whileTap={{ scale: 0.9 }} onClick={() => toggle("states", s)}
-                className={cn("rounded-lg border py-2 text-xs font-medium transition-colors", a.states.includes(s) ? "border-gold bg-gold text-gold-foreground" : "border-border bg-card/70 hover:border-gold/50")}>{s}</motion.button>
+                className={cn("rounded-lg border py-2.5 text-xs font-medium transition-colors", a.states.includes(s) ? "border-gold bg-gold text-gold-foreground" : "border-border bg-card/70 hover:border-gold/50")}>{s}</motion.button>
             ))}
           </div>
         </>
@@ -517,19 +517,20 @@ function LivePreview({ a, path, name }: { a: Answers; path: Path; name: string }
   ], [a, path]);
   return (
     <aside className="order-first md:order-none">
-      <motion.div layout className="sticky top-8 overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
+      <motion.div layout className="overflow-hidden rounded-2xl border md:sticky md:top-8 md:rounded-3xl border-border bg-card shadow-2xl">
         <motion.div className="h-2" animate={{ background: a.color }} />
-        <div className="p-5">
+        <div className="p-3 md:p-5">
           <div className="flex items-center gap-3">
-            <motion.div layout className="flex h-12 w-12 items-center justify-center rounded-2xl font-semibold text-primary-foreground" animate={{ background: a.color }}>
+            <motion.div layout className="flex h-10 w-10 shrink-0 md:h-12 md:w-12 items-center justify-center rounded-2xl font-semibold text-primary-foreground" animate={{ background: a.color }}>
               {initials(path === "agency" ? a.agencyName : `${a.firstName} ${a.lastName}`)}
             </motion.div>
             <div className="min-w-0">
               <div className="truncate font-semibold">{name}</div>
               <div className="truncate text-xs text-muted-foreground">{path === "agency" ? "Agency workspace" : "Agent workspace"}</div>
             </div>
+            <div className="ml-auto shrink-0 text-right text-[11px] text-muted-foreground md:hidden">{a.carriers.length} carriers<br />${a.goal.toLocaleString()}/mo</div>
           </div>
-          <div className="mt-5 grid grid-cols-2 gap-2 text-xs">
+          <div className="mt-5 hidden grid-cols-2 gap-2 text-xs md:grid">
             {tiles.map((t) => (
               <div key={t.k} className="rounded-xl bg-muted p-3">
                 <div className="text-muted-foreground">{t.k}</div>
@@ -537,7 +538,7 @@ function LivePreview({ a, path, name }: { a: Answers; path: Path; name: string }
               </div>
             ))}
           </div>
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-3 hidden flex-wrap gap-1.5 md:flex">
             <AnimatePresence>
               {[...a.carriers, ...a.states].slice(0, 18).map((c) => (
                 <motion.span key={c} layout initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }}
@@ -588,8 +589,8 @@ function Reveal({ a, path, name, price, partnerCode, done, onLaunch, busy }: {
         <div className="mt-4 flex flex-wrap gap-2">{a.carriers.map((c) => <span key={c} className="rounded-full border border-border px-2 py-0.5 text-xs">{c}</span>)}</div>
       </motion.div>
 
-      <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1.6 }}
-        className="self-center rounded-3xl border border-gold/50 bg-card p-7 text-center shadow-2xl">
+      <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 }}
+        className="order-first self-center rounded-3xl border border-gold/50 bg-card p-6 md:order-none md:p-7 text-center shadow-2xl">
         {done ? (
           <>
             <Sparkles className="mx-auto h-10 w-10 text-gold" />
@@ -607,7 +608,7 @@ function Reveal({ a, path, name, price, partnerCode, done, onLaunch, busy }: {
             </p>
             {partnerCode && <p className="mt-3 text-xs">Partner code: <b className="text-gold">{partnerCode}</b></p>}
             <div className="my-6 rounded-2xl bg-muted p-4">
-              <div className="text-4xl font-semibold">${price}<span className="text-base font-normal text-muted-foreground">/month</span></div>
+              <div className="text-3xl font-semibold md:text-4xl">${price}<span className="text-base font-normal text-muted-foreground">/month</span></div>
               <div className="text-xs text-muted-foreground">{path === "agency" ? "Agency · unlimited agents" : "Agent"} · keep 100% of your comp</div>
             </div>
             <Button variant="ink" size="lg" className="w-full" onClick={onLaunch} disabled={busy}>

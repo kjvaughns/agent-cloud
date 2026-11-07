@@ -54,7 +54,7 @@ export function PricingSection({
         "Retention tracking",
       ],
       cta: {
-        label: checkoutReady ? "Start solo" : "Request a demo",
+        label: "Start",
         href: "/start?plan=solo",
         event: "solo_cta_clicked",
       },
