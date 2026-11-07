@@ -6486,6 +6486,42 @@ export type Database = {
           },
         ]
       }
+      onboarding_sessions: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          created_at: string
+          current_step: string
+          path: string
+          resume_sent_at: string | null
+          updated_at: string
+          user_id: string
+          welcome_sent_at: string | null
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string
+          path?: string
+          resume_sent_at?: string | null
+          updated_at?: string
+          user_id: string
+          welcome_sent_at?: string | null
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          created_at?: string
+          current_step?: string
+          path?: string
+          resume_sent_at?: string | null
+          updated_at?: string
+          user_id?: string
+          welcome_sent_at?: string | null
+        }
+        Relationships: []
+      }
       org_carrier_methods: {
         Row: {
           applies_to: string[]
