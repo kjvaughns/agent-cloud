@@ -27,7 +27,7 @@ import {
 } from "@/lib/calendar.functions";
 import { metaFor, EVENT_META } from "@/lib/calendar-meta";
 import { supabase } from "@/integrations/supabase/client";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { PageShell, Panel, HeroBand, HubLayout, PreviewCard } from "@/components/page-shell";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({
@@ -155,6 +155,7 @@ function CalendarPage() {
         </div>
       </div>
 
+      <HubLayout label="Coming up" preview={<UpcomingList events={events} onOpen={setSelected} />}>
       {isLoading ? (
         <SkeletonGrid />
       ) : view === "month" ? (
@@ -172,6 +173,7 @@ function CalendarPage() {
       ) : (
         <DayView cursor={cursor} events={events} onEventClick={setSelected} />
       )}
+      </HubLayout>
 
       <CreateEventModal
         open={createOpen}
@@ -189,6 +191,41 @@ function CalendarPage() {
         }}
       />
     </PageShell>
+  );
+}
+
+function UpcomingList({ events, onOpen }: { events: CalendarEvent[]; onOpen: (e: CalendarEvent) => void }) {
+  const now = Date.now();
+  const next = events.filter((e) => new Date(e.start_at).getTime() >= now - 36e5).slice(0, 7);
+  return (
+    <PreviewCard>
+      {next.length === 0 ? (
+        <p className="px-4 py-5 text-sm text-muted-foreground">Nothing else on the calendar in this view.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {next.map((e) => {
+            const m = (EVENT_META as any)[e.event_type];
+            const d = new Date(e.start_at);
+            return (
+              <li key={e.id + e.start_at}>
+                <button type="button" onClick={() => onOpen(e)} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-primary/5">
+                  <span className="w-11 shrink-0 text-center">
+                    <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">{d.toLocaleDateString(undefined, { month: "short" })}</span>
+                    <span className="block text-lg font-semibold leading-none tnum">{d.getDate()}</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{e.title}</span>
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={cn("h-2 w-2 rounded-full", m?.bg)} />{m?.label ?? "Event"}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </PreviewCard>
   );
 }
 
