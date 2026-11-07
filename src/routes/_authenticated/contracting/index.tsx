@@ -925,6 +925,8 @@ function DownlineTab() {
   const [cell, setCell] = useState<{ agent: any; carrier: any; existing?: any; level?: any } | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [carrierFilter, setCarrierFilter] = useState<string>("all");
+  const [chip, setChip] = useState<"all" | "full" | "missing" | "pending">("all");
+  const [view, setView] = useState<"cards" | "grid">("cards");
 
   if (isLoading) return <Skeleton className="h-64" />;
 
@@ -1046,7 +1048,6 @@ function DownlineTab() {
       <>
       <div className="flex items-center justify-end gap-3 flex-wrap">
         <div className="flex gap-2 items-center">
-          <Input className="h-8 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
           <Select value={carrierFilter} onValueChange={setCarrierFilter}>
             <SelectTrigger className="h-8 w-40 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -1067,7 +1068,7 @@ function DownlineTab() {
             </tr>
           </thead>
           <tbody>
-            {filteredAgents.map((a: any) => (
+            {chipAgents.map((a: any) => (
               <tr key={a.id} className="border-t border-border">
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">
                   {a.first_name} {a.last_name}
@@ -1094,11 +1095,11 @@ function DownlineTab() {
                       >
                         {existing ? (
                           <>
-                            <span>{pct ?? "·"}</span>
-                            <span className={cn("h-2.5 w-2.5 rounded-full", statusDot(existing.status))} />
+                            <ContractStatusBadge status={existing.status} />
+                            {pct && <span className="text-muted-foreground">{pct}</span>}
                           </>
                         ) : (
-                          <span className="text-text-dim">—</span>
+                          <span className="rounded-full border border-dashed border-border px-2 py-0.5 font-medium text-muted-foreground">Missing</span>
                         )}
                       </button>
                     </td>
@@ -1109,6 +1110,8 @@ function DownlineTab() {
           </tbody>
         </table>
       </Panel>
+      </>
+      )}
 
       {cell && (
         <DownlineCellDialog
@@ -1117,7 +1120,7 @@ function DownlineTab() {
           onUpdated={() => { qc.invalidateQueries({ queryKey: ["contracting"] }); setCell(null); }}
         />
       )}
-    </>
+    </HubLayout>
   );
 }
 
