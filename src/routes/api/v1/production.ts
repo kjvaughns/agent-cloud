@@ -159,7 +159,7 @@ export const Route = createFileRoute("/api/v1/production")({
             .sort((a, b) => b.premium - a.premium);
         }
 
-        // Opt-in policy-level detail: policy number, carrier, product, etc.
+        // Opt-in policy-level detail: carrier, product, etc.
         // No client names or contact data are ever included.
         if ((key.scopes ?? []).includes("policies:read")) {
           const all = rows as any[];
@@ -179,16 +179,14 @@ export const Route = createFileRoute("/api/v1/production")({
           ]));
           body.policies = all.map((r) => ({
             id: r.id,
-            policy_number: r.policy_number ?? null,
             carrier_id: r.carrier_id ?? null,
             carrier: (r.carrier_id && cName.get(r.carrier_id)) || r.carrier_name || null,
             product: r.product ?? null,
             status: r.status ?? null,
             agent_id: r.agent_id ?? null,
             agent_name: (r.agent_id && aName.get(r.agent_id)) || null,
-            annual_premium: r.annual_premium != null ? round2(Number(r.annual_premium)) : null,
-            monthly_premium: r.monthly_premium != null ? round2(Number(r.monthly_premium)) : null,
-            face_amount: r.face_amount != null ? Number(r.face_amount) : null,
+            annual_premium: optMoney(r.annual_premium),
+            monthly_premium: optMoney(r.monthly_premium),
             effective_date: r.effective_date ?? null,
             production_date: r.production_date ?? null,
             posted_at: r.posted_at ?? null,
@@ -204,4 +202,8 @@ export const Route = createFileRoute("/api/v1/production")({
 /** Money, to the cent. Floating point sums otherwise publish 12345.670000000001. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function optMoney(v: unknown): number | null {
+  return v == null ? null : Math.round(Number(v) * 100) / 100;
 }
