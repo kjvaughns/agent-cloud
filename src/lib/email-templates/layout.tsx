@@ -120,6 +120,7 @@ export function EmailLayout({
                 {siteLabel}
               </Link>
             </Text>
+            {BUSINESS_ADDRESS && <Text style={footerBrand}>{BUSINESS_ADDRESS}</Text>}
           </Section>
         </Container>
       </Body>
@@ -226,6 +227,9 @@ const ctaStyle = {
 }
 const fine = { fontSize: '13px', lineHeight: '1.6', color: MUTED, margin: '18px 0 0' }
 const hr = { borderColor: BORDER, margin: '24px 0 16px' }
+/** Physical mailing address shown in every email footer (CAN-SPAM). Set once the real address is known. */
+export const BUSINESS_ADDRESS = ''
+
 const footer = { padding: '0 8px' }
 const footerBrand = { fontSize: '12px', color: MUTED, margin: 0 }
 const footerLink = { textDecoration: 'none', fontWeight: 600 as const }
