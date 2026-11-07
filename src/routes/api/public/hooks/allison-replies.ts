@@ -9,7 +9,10 @@ export const Route = createFileRoute("/api/public/hooks/allison-replies")({
         const provided = request.headers.get("apikey") ?? request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
         if (!expected || provided !== expected) return new Response("Unauthorized", { status: 401 });
         const { processDueThreads } = await import("@/lib/allison/allison.server");
-        return Response.json(await processDueThreads());
+        const result = await processDueThreads();
+        const { sendOnboardingResumes } = await import("@/lib/onboarding/resume.server");
+        const onboardingResumes = await sendOnboardingResumes().catch(() => 0);
+        return Response.json({ ...(result as any), onboardingResumes });
       },
     },
   },
