@@ -11,3 +11,4 @@
 
 - Marketing pages (src/lib/hosts.ts isMarketingPath) live on useagentcloud.com; every other page, including login/signup/invites, lives on app.useagentcloud.com via a client-side host redirect in __root. Why: sessions are per-host, so account flows must share the product's host.
 - vite.config.ts aliases for `entities` must be exact-match regexes. Why: a prefix alias hijacked htmlparser2's nested `entities/decode` and hung the dev preview.
+- Agency settings is one route grouped into hubs (identity/carriers/contracting/connections) built from the per-tab permissions in src/lib/settings/tab-access.ts; /setup redirects there. Why: one place to configure the agency with the existing permission checks.

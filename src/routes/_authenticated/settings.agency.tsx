@@ -9,7 +9,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload } from "lucide-react";
+import { Palette, Building2, FileSignature, Plug, Users, ArrowUpRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { IdentityHub } from "@/components/settings/identity-hub";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -166,223 +168,6 @@ function VisibilityPanel() {
   );
 }
 
-function GeneralTab() {
-  const { org } = useOrganization();
-  const qc = useQueryClient();
-  const updateFn = useServerFn(updateOrganization);
-
-  const [form, setForm] = useState({
-    name:         org?.name ?? "",
-    tagline:      org?.tagline ?? "",
-    accent_color: org?.accent_color ?? "#C9A227",
-    slug:         org?.slug ?? "",
-  });
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
-  const { access } = useMyAccess();
-
-  // Logo and accent colour are every agency's, on every plan. They used to be
-  // hidden unless `plan_type === "white_label"`, which left an owner with a
-  // name field, a tagline field and an advert — and the accent they could not
-  // set was the only thing standing between the product and looking like
-  // theirs.
-  //
-  // What White Label still buys is the part that needs a human: a custom
-  // domain, the branded sign-in page on it, and the setup conversation. The
-  // subdomain field below stays with it, because nothing in this codebase
-  // provisions DNS and a field that quietly does nothing is worse than no
-  // field at all.
-  const whiteLabel = org?.plan_type === "white_label";
-
-  // The subdomain is globally unique and decides where traffic goes, so the
-  // server keeps it owner-only. Disabling it here means the refusal is visible
-  // before somebody types into it rather than after they press save.
-  const canEditSlug = Boolean(access?.isOwner);
-
-  // Sync form when org loads
-  useQuery({
-    queryKey: ["organization-init", org?.id],
-    queryFn: () => {
-      if (org) {
-        setForm({
-          name:         org.name,
-          tagline:      org.tagline ?? "",
-          accent_color: org.accent_color ?? "#C9A227",
-          slug:         org.slug,
-        });
-      }
-      return null;
-    },
-    enabled: !!org,
-  });
-
-  // Revoked on change and on unmount. Without this every file the user picks
-  // leaks a blob for the lifetime of the tab.
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!logoFile) { setPreviewUrl(null); return; }
-    const url = URL.createObjectURL(logoFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [logoFile]);
-
-  const logoPreview = previewUrl ?? org?.logo_url ?? null;
-
-  /**
-   * Save, and tell the truth about what saved.
-   *
-   * The old version uploaded to a path row-level security always rejected,
-   * swallowed the rejection with a bare `if (!uploadErr)`, saved the rest of
-   * the form and then said "Agency settings saved!". The logo on screen was a
-   * local `blob:` URL, so it looked right until the first reload and then was
-   * simply gone — with nothing anywhere reporting a failure.
-   *
-   * The upload is now its own step with its own failure. A logo that did not
-   * upload does not stop the name and tagline being saved — losing typing
-   * because a picture failed is its own annoyance — but it is reported
-   * separately and never counted as success.
-   */
-  async function save() {
-    setSaving(true);
-    try {
-      let logo_url: string | undefined;
-      let logoError: string | null = null;
-
-      if (logoFile && org?.id) {
-        try {
-          logo_url = (await uploadOrgLogo(org.id, logoFile)).url;
-        } catch (e: any) {
-          logoError = e?.message ?? "The logo could not be uploaded.";
-        }
-      }
-
-      await updateFn({
-        data: {
-          name: form.name,
-          tagline: form.tagline,
-          accent_color: form.accent_color,
-          // Omitted entirely rather than sent unchanged when this person may
-          // not change it — the server rejects the field, not the value.
-          ...(canEditSlug ? { slug: form.slug } : {}),
-          ...(logo_url ? { logo_url } : {}),
-        },
-      });
-
-      qc.invalidateQueries({ queryKey: ["organization"] });
-      if (logo_url) setLogoFile(null);
-
-      if (logoError) toast.error(`Saved, but the logo did not upload. ${logoError}`);
-      else toast.success("Agency settings saved");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="max-w-2xl space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Your agency name and tagline appear in the sidebar and on every email your
-        agency sends.
-      </p>
-
-      <Card>
-        <CardContent className="p-6 space-y-5">
-          {/* Logo — every plan */}
-          <div className="space-y-2">
-            <Label>Agency Logo</Label>
-            <div className="flex items-center gap-4">
-              {logoPreview ? (
-                <img
-                  src={logoPreview}
-                  className="h-14 w-14 rounded-xl object-contain border"
-                  alt="Logo preview"
-                />
-              ) : (
-                <div className="h-14 w-14 rounded-xl bg-muted border grid place-items-center text-muted-foreground text-xs">
-                  Logo
-                </div>
-              )}
-              <label htmlFor="logo-upload" className="cursor-pointer">
-                <Button variant="outline" size="sm" asChild>
-                  <span><Upload className="h-3.5 w-3.5 mr-1.5" /> Upload Logo</span>
-                </Button>
-                <input
-                  id="logo-upload"
-                  type="file"
-                  accept={LOGO_LIMIT.accept}
-                  className="hidden"
-                  onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              PNG or SVG recommended. Square logos work best. Up to {LOGO_LIMIT.label}.
-              {logoFile && " Not uploaded until you save."}
-            </p>
-          </div>
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <Label>Agency Name</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="e.g. APEX Financial Empire"
-            />
-          </div>
-
-          {/* Tagline */}
-          <div className="space-y-1.5">
-            <Label>Tagline <span className="text-muted-foreground text-xs">(optional)</span></Label>
-            <Input
-              value={form.tagline}
-              onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-              placeholder="e.g. Building generational wealth"
-              maxLength={60}
-            />
-          </div>
-
-          {/* Accent colour — every plan */}
-          <div className="space-y-1.5">
-            <Label>Accent Color</Label>
-            <div className="flex items-center gap-3 flex-wrap">
-              <input
-                type="color"
-                value={form.accent_color}
-                onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                className="h-10 w-16 rounded-md border cursor-pointer p-1"
-              />
-              <Input
-                value={form.accent_color}
-                onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                className="w-28 font-mono text-sm"
-                maxLength={7}
-              />
-              <div
-                className="h-10 w-10 rounded-md border shrink-0"
-                style={{ backgroundColor: form.accent_color }}
-              />
-              <p className="text-xs text-muted-foreground">Used for buttons, badges, and highlights.</p>
-            </div>
-          </div>
-
-          <Button onClick={save} disabled={saving} className="w-full">
-            {saving ? "Saving..." : "Save Agency Settings"}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Below the agency's own settings rather than tucked into a tab of its
-          own: this is the button somebody looks for when they have decided the
-          made-up clients have to go, and a search for it should end on the
-          first page they open. */}
-      <SampleDataPanel />
-    </div>
-  );
-}
-
 // Derived, not retyped. A second list of tab names is how the rail, the
 // permission map and the alias table stop agreeing about what exists.
 const TABS = SETTINGS_TABS;
@@ -445,92 +230,97 @@ function AgencySettingsPage() {
     if (landing && !allowed.includes(active)) setActive(landing);
   }, [landing, allowed, active]);
 
+  const hubs = HUBS.filter((h) => h.tabs.some((t) => allowed.includes(t)));
+  const activeHub = hubFor(active);
+  const openHub = (h: Hub) => setActive(HUBS.find((x) => x.id === h)!.tabs.find((t) => allowed.includes(t)) ?? "general");
+  const has = (t: SettingsTab) => allowed.includes(t);
+
   return (
     <PageShell>
       <div className="space-y-[var(--gap)]">
-        <HeroBand
-          title="Agency settings"
-          subtitle="Your agency, your ladder, your carriers, and how this workspace connects"
-        />
-
+        <HeroBand title="Agency settings" subtitle="Everything about how your agency looks and runs." />
         <InheritParentPanel />
+        <AgencySetupProgress onOpenTab={(t) => setActive(normalizeTab(t) ?? "general")} />
 
-        <AgencySetupProgress onOpenTab={(t) => setActive((normalizeTab(t) ?? "general"))} />
-
-
-        <Tabs value={active} onValueChange={(v) => setActive(v as SettingsTab)}>
-          {/* A scrolling rail rather than a wrapping row. Seven pills that
-              re-flow to two or three lines move under the cursor as the window
-              changes, and the second line reads as less important than the
-              first when it is not. */}
-          <div className="-mx-1 overflow-x-auto px-1 pb-px">
-            <TabsList className="inline-flex h-auto w-max gap-1 rounded-lg bg-surface-2 p-1">
-              {allowed.map((t) => (
-                <TabsTrigger
-                  key={t}
-                  value={t}
-                  className="whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium data-[state=active]:bg-surface-1 data-[state=active]:shadow-sm"
-                >
-                  {TAB_LABEL[t]}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
-          <TabsContent value="general" className="mt-4"><GeneralTab /><VisibilityPanel /></TabsContent>
-
-          <TabsContent value="roles" className="mt-4">
-            {access?.canManageRoles ? (
-              <AgencyTeamPage embedded />
-            ) : (
-              <Panel title="Roles are limited to administrators">
-                <p className="text-sm text-muted-foreground">
-                  Changing who can do what is reserved for the agency owner and the admins they
-                  have granted access to.
-                </p>
-              </Panel>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
+          <nav aria-label="Agency settings sections" className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:flex md:flex-col md:self-start md:sticky md:top-4">
+            {hubs.map((h) => (
+              <button
+                key={h.id} type="button" onClick={() => openHub(h.id)}
+                aria-current={activeHub === h.id ? "page" : undefined}
+                className={cn("flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                  activeHub === h.id ? "bg-ink text-ink-foreground shadow-sm" : "text-muted-foreground hover:bg-surface-2 hover:text-foreground")}
+              >
+                <h.icon className="h-4 w-4 shrink-0" /> {h.label}
+              </button>
+            ))}
+            {has("roles") && (
+              <Link to="/team" className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-foreground">
+                <Users className="h-4 w-4" /> Team & roles <ArrowUpRight className="ml-auto h-3.5 w-3.5" />
+              </Link>
             )}
-          </TabsContent>
+          </nav>
 
-          <TabsContent value="levels" className="mt-4">
-            <SectionHead
-              title="Levels & Positions"
-              blurb="Your ladder. Each position has a base percentage and a mapping to every active carrier's own levels."
-            />
-            <LevelsPanel />
-            <RenewalsPanel />
-          </TabsContent>
-
-
-          <TabsContent value="carriers" className="mt-4">
-            {/* One surface. The comp grid editor used to sit open underneath
-                this list, so the tab showed every carrier AND every rate at
-                once and neither was findable. The grid belongs to a carrier,
-                so it opens from that carrier. */}
-            <SuggestedCarriersPanel />
-            <div className="mt-4">
-              <CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="contracting" className="mt-4 space-y-6">
-            <ContractingTab />
-          </TabsContent>
-
-          <TabsContent value="automations" className="mt-4 space-y-6">
-            <DiscordSettings />
-          </TabsContent>
-          <TabsContent value="integrations" className="mt-4 space-y-6">
-            <IntegrationsCatalog onOpenTab={(t) => setActive((normalizeTab(t) ?? "automations"))} />
-            {/* Directly below the catalogue that lists it, rather than behind a
-                tab of its own: issuing a key is the only thing "API Access"
-                means, so there is nothing to navigate to. */}
-            <ApiKeysPanel />
-          </TabsContent>
-        </Tabs>
+          <div className="min-w-0 space-y-6 overflow-hidden">
+            {activeHub === "identity" && (
+              <>
+                <IdentityHub />
+                <VisibilityPanel />
+                <SampleDataPanel />
+              </>
+            )}
+            {activeHub === "carriers" && (
+              <>
+                {has("carriers") && (
+                  <section>
+                    <SectionHead title="Carriers" blurb="Turn on the carriers you write with." />
+                    <SuggestedCarriersPanel />
+                    <div className="mt-4"><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></div>
+                  </section>
+                )}
+                {has("levels") && (
+                  <section>
+                    <SectionHead title="Levels & comp" blurb="Your ladder and what each level earns." />
+                    <LevelsPanel />
+                    <RenewalsPanel />
+                  </section>
+                )}
+              </>
+            )}
+            {activeHub === "contracting" && <ContractingTab />}
+            {activeHub === "connections" && (
+              <>
+                {has("automations") && (
+                  <section>
+                    <SectionHead title="Sales feed" blurb="Post wins to your team's Discord automatically." />
+                    <DiscordSettings />
+                  </section>
+                )}
+                {has("integrations") && (
+                  <section className="space-y-6">
+                    <SectionHead title="Integrations" blurb="Connect other tools and issue API keys." />
+                    <IntegrationsCatalog onOpenTab={(t) => setActive(normalizeTab(t) ?? "automations")} />
+                    <ApiKeysPanel />
+                  </section>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </PageShell>
   );
+}
+
+type Hub = "identity" | "carriers" | "contracting" | "connections";
+const HUBS: { id: Hub; label: string; icon: typeof Palette; tabs: SettingsTab[] }[] = [
+  { id: "identity", label: "Identity", icon: Palette, tabs: ["general"] },
+  { id: "carriers", label: "Carriers & Comp", icon: Building2, tabs: ["carriers", "levels"] },
+  { id: "contracting", label: "Contracting", icon: FileSignature, tabs: ["contracting"] },
+  { id: "connections", label: "Connections", icon: Plug, tabs: ["automations", "integrations"] },
+];
+function hubFor(t: SettingsTab): Hub {
+  return HUBS.find((h) => h.tabs.includes(t))?.id ?? "identity";
 }
 
 function SectionHead({ title, blurb }: { title: string; blurb: string }) {
@@ -553,8 +343,8 @@ function ContractingTab() {
     <>
       <div>
         <SectionHead
-          title="How contracting works"
-          blurb="Who can request, what needs approval, and how fast requests should move."
+          title="Contracting rules"
+          blurb="Who can request carriers and what needs approval."
         />
         {setup?.available && (
           <div className="mb-4">
@@ -566,7 +356,7 @@ function ContractingTab() {
       <div>
         <SectionHead
           title="Submission templates"
-          blurb="The email bodies and spreadsheet layouts submission packets are generated from."
+          blurb="What your submission packets look like."
         />
         <TemplatesPanel />
       </div>

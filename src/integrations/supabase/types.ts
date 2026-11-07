@@ -10718,18 +10718,9 @@ export type Database = {
         Returns: Json
       }
       client_ids_for_agents: { Args: { _agents: string[] }; Returns: string[] }
-      delete_email: {
-        Args: { message_id: number; queue_name: string }
-        Returns: boolean
-      }
       delete_org_carrier_cascade: {
         Args: { _org: string; _org_carrier: string }
         Returns: Json
-      }
-      email_queue_dispatch: { Args: never; Returns: undefined }
-      enqueue_email: {
-        Args: { payload: Json; queue_name: string }
-        Returns: number
       }
       get_agent_analytics: {
         Args: { _agent: string; _end: string; _start: string }
@@ -10892,15 +10883,6 @@ export type Database = {
       }
       may_write_academy_media: { Args: { _folder: string }; Returns: boolean }
       may_write_org_branding: { Args: { _folder: string }; Returns: boolean }
-      move_to_dlq: {
-        Args: {
-          dlq_name: string
-          message_id: number
-          payload: Json
-          source_queue: string
-        }
-        Returns: number
-      }
       my_org_ids: { Args: never; Returns: string[] }
       my_scopes: { Args: never; Returns: Json }
       normalize_policy_number: { Args: { _s: string }; Returns: string }
@@ -10916,14 +10898,6 @@ export type Database = {
       }
       prune_rate_limits: { Args: never; Returns: undefined }
       prune_usage_events: { Args: never; Returns: number }
-      read_email_batch: {
-        Args: { batch_size: number; queue_name: string; vt: number }
-        Returns: {
-          message: Json
-          msg_id: number
-          read_ct: number
-        }[]
-      }
       reconcile_statement: {
         Args: { _statement_id: string }
         Returns: {
