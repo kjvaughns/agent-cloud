@@ -174,7 +174,7 @@ function LandingPage() {
 
   if (checking) {
     return (
-      <div className="dark min-h-screen grid place-items-center bg-background text-foreground">
+      <div className="min-h-screen grid place-items-center bg-background text-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );

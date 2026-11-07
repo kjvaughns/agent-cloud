@@ -120,20 +120,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 // Runs before first paint to prevent a flash of the wrong theme/density.
-// Dark is the default; only an explicit stored "light" opts out.
+// Light is the default; only an explicit stored "dark" opts in.
 const THEME_INIT = `(function(){try{
   var d=document.documentElement;
-  var t=localStorage.getItem("agentcloud-theme");
-  if(t!=="light"){d.classList.add("dark");}
+  var t=localStorage.getItem("agentcloud-theme-v2");
+  if(t==="dark"){d.classList.add("dark");}
   var den=localStorage.getItem("agentcloud-density");
   if(den&&den!=="regular"){d.setAttribute("data-density",den);}
   var ac=localStorage.getItem("agentcloud-accent");
   if(ac&&ac!=="gold"){d.setAttribute("data-accent",ac);}
-}catch(e){document.documentElement.classList.add("dark");}})();`;
+}catch(e){}})();`;
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         <HeadContent />

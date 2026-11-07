@@ -73,18 +73,18 @@ function JoinPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen grid place-items-center bg-gradient-to-br from-slate-950 to-slate-900 text-white p-6">
-        <Card className="max-w-md p-8 text-center bg-white/10 border-white/20 text-white">
+      <div className="min-h-screen grid place-items-center bg-background text-foreground p-6">
+        <Card className="max-w-md p-8 text-center bg-card border-border text-card-foreground">
           <CheckCircle2 className="h-16 w-16 mx-auto mb-4 text-success" />
           <h1 className="text-2xl font-bold mb-2">Application Received!</h1>
-          <p className="text-white/80">We'll be in touch shortly.</p>
+          <p className="text-muted-foreground">We'll be in touch shortly.</p>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <header className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Cloud className="h-7 w-7" />
@@ -97,7 +97,7 @@ function JoinPage() {
       <main className="max-w-4xl mx-auto px-6 pb-16">
         <section className="py-12">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">Get Contracted With {agentName}'s Team</h1>
-          <p className="text-xl text-white/80">Start Writing Business in as Little as 3-5 Days</p>
+          <p className="text-xl text-muted-foreground">Start Writing Business in as Little as 3-5 Days</p>
         </section>
         <section className="grid md:grid-cols-2 gap-3 mb-12">
           {[
@@ -106,15 +106,15 @@ function JoinPage() {
             "Free training and sales support",
             "No minimums, no fees",
           ].map((b) => (
-            <div key={b} className="flex items-start gap-2 text-white/90">
+            <div key={b} className="flex items-start gap-2 text-foreground">
               <CheckCircle2 className="h-5 w-5 text-success mt-0.5 shrink-0" />
               <span>{b}</span>
             </div>
           ))}
         </section>
         <Card className="p-6 md:p-8 bg-white/5 border-white/10">
-          <h2 className="text-2xl font-bold mb-6 text-white">Get Started</h2>
-          <form onSubmit={onSubmit} className="space-y-4 [&_label]:text-white/80 [&_input]:bg-white/10 [&_input]:border-white/20 [&_input]:text-white [&_textarea]:bg-white/10 [&_textarea]:border-white/20 [&_textarea]:text-white">
+          <h2 className="text-2xl font-bold mb-6 text-foreground">Get Started</h2>
+          <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div><Label htmlFor="first_name">First Name *</Label><Input id="first_name" name="first_name" required maxLength={60} /></div>
               <div><Label htmlFor="last_name">Last Name *</Label><Input id="last_name" name="last_name" required maxLength={60} /></div>
@@ -139,7 +139,7 @@ function JoinPage() {
             </Button>
           </form>
         </Card>
-        <p className="text-center mt-6 text-white/60 text-sm">
+        <p className="text-center mt-6 text-muted-foreground text-sm">
           Already contracted? <Link to="/login" className="underline">Sign in →</Link>
         </p>
       </main>

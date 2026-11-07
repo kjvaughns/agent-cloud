@@ -105,7 +105,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
 
   return (
     // Auth always renders in the premium dark look regardless of stored theme.
-    <div className="dark min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background text-foreground">
       <div className="hidden lg:flex flex-col justify-between bg-card border-r border-border p-12 relative overflow-hidden">
         <div
           className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full"

@@ -4,17 +4,18 @@ type Theme = "light" | "dark";
 type Density = "compact" | "regular" | "comfy";
 type Accent = "gold" | "champagne" | "bronze";
 
-const THEME_KEY = "agentcloud-theme";
+// v2: the old key was auto-saved as "dark" for everyone, so it can't tell real choices apart.
+const THEME_KEY = "agentcloud-theme-v2";
 const DENSITY_KEY = "agentcloud-density";
 const ACCENT_KEY = "agentcloud-accent";
 const NOVA_KEY = "agentcloud-nova-rail";
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "dark";
+    if (typeof window === "undefined") return "light";
     const stored = localStorage.getItem(THEME_KEY) as Theme | null;
-    // Dark is the default; only an explicit "light" opts out.
-    return stored === "light" ? "light" : "dark";
+    // Light is the default; only an explicit "dark" opts in.
+    return stored === "dark" ? "dark" : "light";
   });
 
   const [density, setDensityState] = useState<Density>(() => {

@@ -223,7 +223,7 @@ function Field({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="dark min-h-screen bg-background text-foreground antialiased">
+    <div className="min-h-screen bg-background text-foreground antialiased">
       <header className="border-b border-border/60">
         <div className="mx-auto flex h-16 max-w-3xl items-center px-4 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5">

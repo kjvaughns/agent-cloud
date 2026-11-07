@@ -107,7 +107,7 @@ export function DealJourney() {
 
         {/* The product panel keeps the app's own dark palette so it reads as
             the product rather than an illustration of it. */}
-        <div className="dark mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
           <div className="flex items-center gap-2 border-b border-border bg-surface-2 px-4 py-2.5">
             <span className="flex gap-1.5">
               {["#ff5f57", "#febc2e", "#28c840"].map((c) => (
