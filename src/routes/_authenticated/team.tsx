@@ -43,6 +43,9 @@ import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { getMyAccess } from "@/lib/permissions.functions";
 import { StatTile } from "@/components/ui/stat-tile";
 import { cn } from "@/lib/utils";
+import { HubLayout } from "@/components/ui-kit/hub";
+import { LayoutGrid } from "lucide-react";
+import { AgentCardGrid, TeamFilterBar, TeamPulse, filterRows, type TeamChip } from "@/components/team/team-cards";
 import {
   STAGE_LABELS,
   type ComplianceLevel,
@@ -250,13 +253,15 @@ function TeamPage() {
 
   // Which lens on the roster, remembered per person. An owner who thinks in
   // legs and one who thinks in rows should each find the page as they left it.
-  const [view, setView] = useState<"table" | "org">(() => {
-    if (typeof window === "undefined") return "table";
-    return window.localStorage.getItem("team.view") === "org" ? "org" : "table";
-  });
+  const [view, setView] = useState<"cards" | "table">("cards");
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem("team.view", view);
-  }, [view]);
+    if (window.localStorage.getItem("team.view") === "table") setView("table");
+  }, []);
+  useEffect(() => { window.localStorage.setItem("team.view", view); }, [view]);
+  const [chip, setChip] = useState<TeamChip>("all");
+  const [search, setSearch] = useState("");
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const cardRows = useMemo(() => filterRows(downlineForRoster, chip, search), [downlineForRoster, chip, search]);
 
   return (
     <PageShell>
@@ -284,27 +289,33 @@ function TeamPage() {
           </div>
         </Panel>
       ) : (<>
-        <KpiRow />
+        <HubLayout
+          label="Team pulse"
+          preview={
+            <TeamPulse rows={downlineForRoster} onOpen={setOpenAgent}
+              attentionOpen={attentionOpen} onAttention={() => setAttentionOpen((v) => !v)} />
+          }
+        >
+        {attentionOpen && (
+          <div className="space-y-4">
+            <NeedsYou rows={downlineForRoster} onOpen={setOpenAgent} />
+            <TeamAlertsCard />
+          </div>
+        )}
 
-        {/* Region A. The reason you opened the page: who is stuck, and who has
-            gone quiet. Everything below is reference material you go looking
-            for. */}
-        <NeedsYou rows={downlineForRoster} onOpen={setOpenAgent} />
-        {/* Renders nothing when there is nothing wrong. Kept because it
-            carries two warnings neither list above covers: lapse-pending
-            policies and contract requests stuck in Issue. */}
-        <TeamAlertsCard />
-
-        {/* Region B. The same people, two lenses. */}
-        <div data-tour="team-roster" className="space-y-3">
-          <div className="flex items-center gap-1 rounded-[10px] border border-border-soft bg-surface-2 p-1 w-fit">
-            {([["table", "Table", LayoutList], ["org", "Org", Network]] as const).map(([v, label, Ico]) => (
+        <div data-tour="team-roster" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+          {view === "cards" ? (
+            <TeamFilterBar rows={downlineForRoster} chip={chip} onChip={setChip} search={search} onSearch={setSearch} />
+          ) : <span />}
+          <div className="flex items-center gap-1 rounded-full border border-border-soft bg-surface-2 p-1 w-fit shrink-0">
+            {([["cards", "Cards", LayoutGrid], ["table", "Table", LayoutList]] as const).map(([v, label, Ico]) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
                 aria-pressed={view === v}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
+                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors",
                   view === v ? "bg-surface-1 font-medium shadow-sm" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -312,8 +323,11 @@ function TeamPage() {
               </button>
             ))}
           </div>
+          </div>
 
-          {view === "table" ? (
+          {view === "cards" ? (
+            <AgentCardGrid rows={cardRows} onOpen={setOpenAgent} />
+          ) : (
             <RosterTable
               downline={downlineForRoster}
               onOpen={setOpenAgent}
@@ -323,10 +337,13 @@ function TeamPage() {
               customRange={customRange}
               onCustomRange={setCustomRange}
             />
-          ) : (
-            <OrgList downline={downlineForRoster} onOpen={setOpenAgent} />
           )}
         </div>
+        </HubLayout>
+
+        <Panel title="Org chart" blurb="Who reports to whom. Tap anyone to open their profile.">
+          <OrgList downline={downlineForRoster} onOpen={setOpenAgent} />
+        </Panel>
       </>)}
 
       <AgentProfileDrawer agentId={openAgent} onClose={() => setOpenAgent(null)} isAdmin={isAdmin} />
