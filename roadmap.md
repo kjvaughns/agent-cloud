@@ -27,4 +27,6 @@
 ## App-wide redesign (plan 2026-11-07)
 - [x] Layer 1: shared frame restyled (headers, cards, spacing, tables, empty states) + ui-kit primitives
 - [x] Post a Deal live preview
-- [ ] Group passes 1–6 (summary/preview columns + Advanced sections per page): continue page by page
+- [x] Group 1 daily work: Dashboard (More insights drawer), Clients (quick actions), Pipeline (chips + More menu), Book (status chips, export in Advanced), Tasks (focus chips + summary), Calendar (Coming up column)
+- [ ] Group 1 leftover: client detail stacked cards
+- [ ] Groups 2–6: Money, Agency & team, Contracting, Account & settings, Nova/Resources/Tools
