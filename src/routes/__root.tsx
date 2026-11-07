@@ -10,7 +10,9 @@ import {
   HeadContent,
   Scripts,
   isRedirect,
+  useRouterState,
 } from "@tanstack/react-router";
+import { hostRedirectTarget } from "@/lib/hosts";
 import { Cloud, AlertTriangle, RotateCcw, Home } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -173,6 +175,13 @@ function RootComponent() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useEffect(() => {
+    const { host, search, hash } = window.location;
+    const target = hostRedirectTarget(host, pathname, search + hash);
+    if (target) window.location.replace(target);
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
