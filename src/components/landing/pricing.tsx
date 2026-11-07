@@ -55,7 +55,7 @@ export function PricingSection({
       ],
       cta: {
         label: checkoutReady ? "Start solo" : "Request a demo",
-        href: checkoutReady ? "/signup?plan=solo" : "/demo",
+        href: "/start?plan=solo",
         event: "solo_cta_clicked",
       },
     },
