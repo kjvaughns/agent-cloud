@@ -52,6 +52,7 @@ import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedRetentionRouteImport } from './routes/_authenticated/retention'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedWhiteLabelRouteImport } from './routes/_authenticated/white-label'
@@ -413,6 +414,11 @@ const AuthenticatedRetentionRoute = AuthenticatedRetentionRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedSetupRoute = AuthenticatedSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
@@ -1248,6 +1254,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/retention': typeof AuthenticatedRetentionRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/setup': typeof AuthenticatedSetupRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/white-label': typeof AuthenticatedWhiteLabelRoute
@@ -1428,6 +1435,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/retention': typeof AuthenticatedRetentionRoute
+  '/setup': typeof AuthenticatedSetupRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
   '/white-label': typeof AuthenticatedWhiteLabelRoute
@@ -1613,6 +1621,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRouteWithChildren
   '/_authenticated/retention': typeof AuthenticatedRetentionRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
   '/_authenticated/white-label': typeof AuthenticatedWhiteLabelRoute
@@ -1799,6 +1808,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/retention'
     | '/settings'
+    | '/setup'
     | '/tasks'
     | '/team'
     | '/white-label'
@@ -1979,6 +1989,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/resources'
     | '/retention'
+    | '/setup'
     | '/tasks'
     | '/team'
     | '/white-label'
@@ -2163,6 +2174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/retention'
     | '/_authenticated/settings'
+    | '/_authenticated/setup'
     | '/_authenticated/tasks'
     | '/_authenticated/team'
     | '/_authenticated/white-label'
@@ -2661,6 +2673,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/setup': {
+      id: '/_authenticated/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof AuthenticatedSetupRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tasks': {
@@ -3935,6 +3954,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRouteWithChildren
   AuthenticatedRetentionRoute: typeof AuthenticatedRetentionRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
+  AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedWhiteLabelRoute: typeof AuthenticatedWhiteLabelRoute
@@ -3984,6 +4004,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedResourcesRoute: AuthenticatedResourcesRouteWithChildren,
   AuthenticatedRetentionRoute: AuthenticatedRetentionRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
+  AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedWhiteLabelRoute: AuthenticatedWhiteLabelRoute,
