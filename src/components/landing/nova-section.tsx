@@ -76,10 +76,10 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Works today</p>
             <ul className="mt-4 space-y-3">
-              {LIVE.map((it) => (
-                <li key={it.text} className="flex items-start gap-2.5">
+              {LIVE.map((text) => (
+                <li key={text} className="flex items-start gap-2.5">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  <span className="text-sm leading-relaxed text-foreground">{it.text}</span>
+                  <span className="text-sm leading-relaxed text-foreground">{text}</span>
                 </li>
               ))}
             </ul>
@@ -87,10 +87,10 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
           <div className="border-t border-border pt-8 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Coming soon</p>
             <ul className="mt-4 space-y-3">
-              {SOON.map((it) => (
-                <li key={it.text} className="flex items-start gap-2.5">
+              {SOON.map((text) => (
+                <li key={text} className="flex items-start gap-2.5">
                   <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="text-sm leading-relaxed text-muted-foreground">{it.text}</span>
+                  <span className="text-sm leading-relaxed text-muted-foreground">{text}</span>
                 </li>
               ))}
             </ul>
