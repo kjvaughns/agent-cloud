@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowRight, Building2, FilePlus, IdCard, Percent, UploadCloud, Users,
+  ArrowRight, CheckCircle2, Building2, FilePlus, IdCard, Percent, UploadCloud, Users,
 } from "lucide-react";
-import { Panel } from "@/components/page-shell";
+import { AdvancedDrawer, HubCard, HubLayout, PreviewCard, SummaryCard } from "@/components/ui-kit/hub";
+import { EmptyCard } from "@/components/ui-kit/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -30,7 +31,7 @@ function Metric({
   const body = (
     <div
       className={cn(
-        "h-full rounded-xl border bg-card p-4 transition-colors",
+        "h-full rounded-2xl border bg-card p-4 transition-colors",
         to && "hover:border-primary/40",
         tone === "warning" && "border-warning/30",
         tone === "danger" && "border-destructive/30",
@@ -97,61 +98,78 @@ function OverviewPage() {
     { label: "Pending hierarchy changes", value: m.pending_hierarchy_changes, to: "/contracting-ops/requests", search: { tab: "changes" } },
   ].filter((a) => a.value > 0);
 
+  const total = Object.values(m.by_status).reduce((a: number, b) => a + Number(b), 0);
+  const readyPct = m.active_agents ? Math.round((m.agents_ready_to_sell / m.active_agents) * 100) : 0;
+
+  const sidebar = (
+    <>
+      <Link to="/contracting-ops/requests" className="block">
+        <Button className="w-full"><FilePlus className="mr-1.5 h-4 w-4" /> New request</Button>
+      </Link>
+      <SummaryCard
+        title="Pipeline health"
+        rows={[
+          { label: "Agents ready to sell", value: `${readyPct}%`, tone: "gold" },
+          { label: "Open requests", value: total },
+          { label: "Overdue", value: m.overdue, tone: m.overdue > 0 ? "red" : "default" },
+          { label: "Avg. turnaround", value: m.avg_turnaround_days === null ? "—" : `${m.avg_turnaround_days} days` },
+        ]}
+      />
+      <PreviewCard>
+        <div className="border-b border-border px-4 py-3 text-sm font-semibold">Quick actions</div>
+        <div className="grid gap-2 p-3">
+          <QuickAction to="/contracting-ops/requests" search={{ tab: "numbers" }} icon={IdCard} label="Add a writing number" />
+          <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
+          <QuickAction to="/settings/agency" search={{ tab: "carriers" }} icon={Building2} label="Manage carriers" />
+          <QuickAction to="/contracting-ops/queue" icon={Users} label="Staff queue" />
+        </div>
+        {access && !access.canManageCarriers && (
+          <p className="border-t border-border px-4 py-3 text-[11px] text-text-dim">
+            Some actions are limited by your permissions. Your agency owner can grant more.
+          </p>
+        )}
+      </PreviewCard>
+    </>
+  );
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Active agents" value={m.active_agents} />
-        <Metric
-          label="Ready to sell"
-          value={m.agents_ready_to_sell}
-          sub={`of ${m.active_agents} agents`}
-          tone={m.agents_ready_to_sell > 0 ? "success" : "neutral"}
-          to="/contracting-ops/requests"
-        />
-        <Metric label="Requests in progress" value={m.in_progress} to="/contracting-ops/requests" />
-        <Metric
-          label="Ready to submit"
-          value={m.ready_to_submit}
-          sub="Nothing outstanding"
-          tone={m.ready_to_submit > 0 ? "success" : "neutral"}
-          to="/contracting-ops/queue"
-        />
+        <Metric label="Ready to sell" value={m.agents_ready_to_sell} sub={`of ${m.active_agents} agents`} to="/contracting-ops/requests" />
+        <Metric label="In progress" value={m.in_progress} to="/contracting-ops/requests" />
+        <Metric label="Ready to submit" value={m.ready_to_submit} sub="Nothing outstanding" to="/contracting-ops/queue" />
       </div>
 
-      {attention.length > 0 && (
-        <Panel title="Needs attention">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {attention.map((a) => (
-              <Link
-                key={a.label}
-                to={a.to}
-                search={(a as any).search}
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-surface-2/40 px-3 py-2.5 transition-colors hover:border-primary/40"
-              >
-                <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{a.label}</span>
-                <span className="tnum text-sm font-bold text-foreground">{a.value}</span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-text-dim" />
-              </Link>
-            ))}
-          </div>
-        </Panel>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <Panel title="Requests by status">
-          {Object.keys(m.by_status).length === 0 ? (
-            <EmptyState
-              title="No contracting requests yet"
-              body="Create a contracting request when an agent needs a new carrier contract, transfer, state appointment or hierarchy change."
-              action={
-                <Link to="/contracting-ops/requests">
-                  <Button size="sm">Create a request</Button>
+      <HubLayout preview={sidebar} label="Summary">
+        <HubCard title="Needs you" blurb={attention.length ? "Tap any item to open just those records." : undefined}>
+          {attention.length === 0 ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-success" /> All clear. Nothing is waiting on you.
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {attention.map((a) => (
+                <Link key={a.label} to={a.to} search={(a as any).search}
+                  className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:border-primary/50">
+                  {a.label}
+                  <span className="tnum rounded-full bg-warning/15 px-1.5 text-warning">{a.value}</span>
+                  <ArrowRight className="h-3 w-3 text-text-dim" />
                 </Link>
-              }
+              ))}
+            </div>
+          )}
+        </HubCard>
+
+        <HubCard title="Where requests stand">
+          {Object.keys(m.by_status).length === 0 ? (
+            <EmptyCard
+              title="No contracting requests yet"
+              body="Create one when an agent needs a new carrier contract, transfer, state appointment or hierarchy change."
+              action={<Link to="/contracting-ops/requests"><Button size="sm">Create a request</Button></Link>}
             />
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               {Object.entries(m.by_status)
                 .sort((a, b) => (b[1] as number) - (a[1] as number))
                 .map(([status, count]) => {
@@ -159,62 +177,39 @@ function OverviewPage() {
                   const max = Math.max(...Object.values(m.by_status).map(Number));
                   return (
                     <div key={status} className="flex items-center gap-3">
-                      <span className="w-40 shrink-0 truncate text-xs text-muted-foreground">
-                        {meta?.label ?? status}
-                      </span>
+                      <span className="w-36 shrink-0 truncate text-xs text-muted-foreground">{meta?.label ?? status}</span>
                       <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        <span
-                          className="block h-full rounded-full bg-primary"
-                          style={{ width: `${max ? (Number(count) / max) * 100 : 0}%` }}
-                        />
+                        <span className="block h-full rounded-full bg-primary" style={{ width: `${max ? (Number(count) / max) * 100 : 0}%` }} />
                       </span>
-                      <span className="tnum w-8 text-right text-xs font-semibold text-foreground">
-                        {String(count)}
-                      </span>
+                      <span className="tnum w-8 text-right text-xs font-semibold text-foreground">{String(count)}</span>
                     </div>
                   );
                 })}
             </div>
           )}
-        </Panel>
+        </HubCard>
 
-        <div className="space-y-4">
-          <Panel title="Carrier turnaround">
-            {m.avg_turnaround_days === null ? (
-              <p className="text-sm text-muted-foreground">
-                Measured once requests have been both submitted and approved. Nothing has completed
-                that round trip yet.
-              </p>
-            ) : (
-              <>
-                <div className="tnum text-3xl font-bold text-foreground">
-                  {m.avg_turnaround_days}
-                  <span className="ml-1 text-base font-normal text-muted-foreground">days</span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Average from submission to carrier approval, across your own history.
-                </p>
-              </>
-            )}
-          </Panel>
-
-          <Panel title="Quick actions">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <QuickAction to="/settings/carriers" icon={Building2} label="Add a carrier" />
-              <QuickAction to="/contracting-ops/requests" icon={FilePlus} label="Create a request" />
-              <QuickAction to="/contracting-ops/licensing" icon={UploadCloud} label="Upload a PDB report" />
-              <QuickAction to="/contracting-ops/requests" search={{ tab: "numbers" }} icon={IdCard} label="Add a writing number" />
-              <QuickAction to="/settings/levels" icon={Percent} label="Add a comp level" />
-              <QuickAction to="/contracting-ops/queue" icon={Users} label="Staff queue" />
+        <HubCard title="Carrier turnaround">
+          {m.avg_turnaround_days === null ? (
+            <p className="text-sm text-muted-foreground">Shows up once a request has been submitted and approved.</p>
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <span className="tnum text-3xl font-bold text-foreground">{m.avg_turnaround_days}</span>
+              <span className="text-sm text-muted-foreground">days from submission to approval, on average</span>
             </div>
-            {access && !access.canManageCarriers && (
-              <p className="mt-3 text-[11px] text-text-dim">
-                Some actions are limited by your permissions. Your agency owner can grant more.
-              </p>
-            )}
-          </Panel>
-        </div>
-      </div>
+          )}
+        </HubCard>
+
+        <AdvancedDrawer label="More tools">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <QuickAction to="/contracting-ops/import" icon={UploadCloud} label="Import records" />
+            <QuickAction to="/contracting-ops/templates" icon={FilePlus} label="Templates" />
+            <QuickAction to="/contracting-ops/documents" icon={FilePlus} label="Documents" />
+            <QuickAction to="/contracting-ops/licensing" icon={IdCard} label="Licensing" />
+            <QuickAction to="/settings/levels" icon={Percent} label="Comp levels" />
+          </div>
+        </AdvancedDrawer>
+      </HubLayout>
     </div>
   );
 }
