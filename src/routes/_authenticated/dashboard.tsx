@@ -22,7 +22,7 @@ import { useScopeCapabilities } from "@/hooks/use-scope";
 
 import { sendAgentReminder } from "@/lib/team.functions";
 import { AiDailyBriefing } from "@/components/ai/daily-briefing";
-import { WorkQueue } from "@/components/work-queue";
+import { DashboardActionBanner } from "@/components/dashboard-action-banner";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PageShell, Panel, AdvancedDrawer } from "@/components/page-shell";
@@ -32,8 +32,6 @@ import { Icon } from "@/components/ui/icon";
 import { SmoothAreaChart } from "@/components/ui/area-chart";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { NovaRail } from "@/components/nova-rail";
-import { PendingAgentNotice } from "@/components/pending-agent-notice";
-import { MyOnboarding } from "@/components/onboarding/my-onboarding";
 import { useTheme } from "@/hooks/use-theme";
 import { useMyAccess } from "@/hooks/use-my-access";
 import { audienceFor } from "@/lib/navigation";
@@ -255,24 +253,7 @@ function Dashboard() {
 
   return (
     <PageShell>
-      {/* The "Producer Profile Incomplete" banner used to sit here, listing
-          five outstanding items above a checklist answering the same question
-          one step at a time. The two disagreed — 40% and five items remaining
-          against four of six — and named different next actions, which is
-          worse than merely repeating each other. Its items are steps in the
-          checklist below now. */}
-      {/* A nudge to finish the producer profile, shown until it is complete or
-          dismissed. Nothing waits on it — it is where the details carriers ask
-          for are kept, so they are typed once. */}
-      <div className="mb-[var(--gap)] empty:mb-0"><PendingAgentNotice /></div>
-      {/* And the agent's own path to selling. A new agent's first question is
-          "what do I do now"; this answers it with one step rather than five
-          pages, and disappears once they are ready. */}
-      <div className="mb-[var(--gap)] empty:mb-0"><MyOnboarding /></div>
-      {/* Actions first, scoreboard second. The numbers below say how the
-          agency is doing; this says what to do about it, and that is the
-          question somebody actually has when they open the app. */}
-      <div className="mb-[var(--gap)]"><WorkQueue /></div>
+      <DashboardActionBanner />
 
       <div className={cn("cgrid", !novaRail && "nonova")}>
         <div className="col">
