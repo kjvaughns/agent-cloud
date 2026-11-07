@@ -6,6 +6,6 @@ export function demoNotification(name: string | null, email: string, details: st
   return {
     to: SUPPORT_INBOX,
     subject: `New demo request — ${name || "New agency"}`,
-    text: `New Agent Cloud demo request\n\nName: ${name || "Not provided"}\nEmail: ${email}\n\n${details}\n\nAllison will follow up with the requester.`,
+    text: `New Agent Cloud demo request\n\nName: ${name || "Not provided"}\nEmail: ${email}\n\n${details}\n\nThe support team will follow up with the requester.`,
   };
 }
