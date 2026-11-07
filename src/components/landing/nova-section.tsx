@@ -87,8 +87,8 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
         Nova requires an active Solo or Agency licence.
       </p>
       <p className="mx-auto mt-2 max-w-2xl text-center text-xs text-muted-foreground">
-        Nova partners also earn a share of subscription profit — not an investment, not guaranteed
-        income, and subject to payout, refund, attribution and eligibility terms. Sponsored
+        Nova partners also earn a share of subscription profit — not an investment, not guaranteed income,
+        and subject to payout, refund, attribution and eligibility terms. Sponsored
         subscriptions do not also earn profit share.
       </p>
     </LandingSection>
