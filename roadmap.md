@@ -32,4 +32,4 @@
 - [ ] Groups 2–6: Money, Agency & team, Contracting, Account & settings, Nova/Resources/Tools
 
 ## Dashboard action banner
-- [ ] Combine profile reminders, personal setup progress, and work items into one compact banner; verify signed-in desktop and phone interactions.
+- [x] Combine profile reminders, personal setup progress, and work items into one compact banner; verified real signed-in counts, checklist, profile navigation, dismissal, and desktop/phone layouts without overflow.
