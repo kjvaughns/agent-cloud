@@ -1,138 +1,139 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Search, Settings2, Building2 } from "lucide-react";
 import { listCarriers } from "@/lib/contracting.functions";
+import { listOrgCarriers } from "@/lib/contracting-ops.functions";
+import { useServerFn } from "@/hooks/use-server-fn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Globe, Phone, Clock, Zap, DollarSign, Lock, User, ExternalLink, GraduationCap, Info, Search } from "lucide-react";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { PageShell, HeroBand } from "@/components/page-shell";
+import { HubLayout, SummaryCard } from "@/components/ui-kit/hub";
+import { EmptyCard, CardSkeleton, FilterChips } from "@/components/ui-kit/states";
+import { CarrierCard, CarrierDetailsDialog, CarrierFactsRow, hasDetails } from "@/components/carriers/carrier-card";
 
 export const Route = createFileRoute("/_authenticated/contracting/carriers")({
   component: CarriersPage,
-  head: () => ({ meta: [{ title: "Carriers | Agent Cloud" }] }),
+  head: () => ({
+    meta: [
+      { title: "Carrier directory | Agent Cloud" },
+      { name: "description", content: "Portals, phone numbers, pay schedules and training for your agency's carriers." },
+    ],
+  }),
 });
 
-type Filter = "all" | "weekly" | "monthly" | "fast";
+type Filter = "all" | "weekly" | "monthly" | "fast" | "annuity";
+
+const match = (c: any, f: Filter) => {
+  const pay = String(c.pay_frequency ?? "").toLowerCase();
+  if (f === "weekly") return pay.includes("week");
+  if (f === "monthly") return pay.includes("month");
+  if (f === "fast") return (c.contracting_speed_days ?? 999) < 5;
+  if (f === "annuity") return Boolean(c.is_annuity_carrier);
+  return true;
+};
 
 function CarriersPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["contracting","carriers"], queryFn: () => listCarriers() });
+  const { data, isLoading } = useQuery({ queryKey: ["contracting", "carriers"], queryFn: () => listCarriers() });
+  const orgFn = useServerFn(listOrgCarriers);
+  // Only used to learn whether this person may edit carrier details.
+  const { data: org } = useQuery({ queryKey: ["contracting-ops", "carriers"], queryFn: () => orgFn(), retry: false });
+  const canEdit = Boolean((org as any)?.access?.canManageCarriers);
+
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [aboutFor, setAboutFor] = useState<any | null>(null);
+  const [editFor, setEditFor] = useState<any | null>(null);
 
-  const filtered = useMemo(() => {
-    let rows = (data?.carriers ?? []) as any[];
-    if (search) rows = rows.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
-    if (filter === "weekly") rows = rows.filter(c => c.pay_frequency === "weekly");
-    if (filter === "monthly") rows = rows.filter(c => c.pay_frequency === "monthly");
-    if (filter === "fast") rows = rows.filter(c => (c.contracting_speed_days ?? 999) < 5);
-    return rows;
-  }, [data, search, filter]);
+  const all = (data?.carriers ?? []) as any[];
+  const filtered = useMemo(() => all.filter((c) =>
+    match(c, filter) && (!search || c.name.toLowerCase().includes(search.toLowerCase()))), [all, search, filter]);
+
+  const count = (f: Filter) => all.filter((c) => match(c, f)).length;
+  const fastest = all.filter((c) => c.contracting_speed_days != null)
+    .sort((a, b) => a.contracting_speed_days - b.contracting_speed_days)[0];
+  const missing = all.filter((c) => !hasDetails(c)).length;
+
+  const summary = (
+    <SummaryCard
+      title="At a glance"
+      rows={[
+        { label: "Active carriers", value: all.length, tone: "gold" },
+        { label: "Fastest contracting", value: fastest ? `${fastest.name} · ${fastest.contracting_speed_days}d` : "—" },
+        { label: "Weekly pay", value: count("weekly") },
+        ...(canEdit ? [{ label: "Missing details", value: missing, tone: missing ? ("red" as const) : ("green" as const) }] : []),
+      ]}
+      footer={canEdit ? (
+        <Button asChild variant="outline" size="sm" className="w-full rounded-full">
+          <Link to="/settings/agency" search={{ tab: "carriers" } as any}><Settings2 className="mr-1.5 h-4 w-4" />Manage carriers</Link>
+        </Button>
+      ) : undefined}
+    />
+  );
 
   return (
     <PageShell>
-      {/* Read-only on purpose. Adding a carrier is agency configuration and
-          lives at Settings ▸ Carriers, which also knows about submission
-          methods and private carriers — this page had its own "+ Add Carrier"
-          dialog writing through a second code path. */}
-      <HeroBand title="Carriers" subtitle="Reference directory — contacts, pay schedules, and portals. Contracts and comp live in the Contracts hub." />
-
-      <div className="flex flex-col md:flex-row gap-3 mt-[var(--gap)]">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search carriers..." className="pl-9" />
-        </div>
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList className="bg-surface-2 border border-border">
-            {(["all","weekly","monthly","fast"] as const).map((v) => (
-              <TabsTrigger key={v} value={v}
-                className="data-[state=active]:bg-gold-glow data-[state=active]:text-gold-bright data-[state=active]:shadow-none text-muted-foreground">
-                {v === "all" ? "All" : v === "weekly" ? "Weekly Pay" : v === "monthly" ? "Monthly Pay" : "Fast (<5 days)"}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+      <HeroBand
+        title="Carrier directory"
+        subtitle="Portals, phone numbers and pay schedules for every carrier your agency writes."
+        actions={canEdit ? (
+          <Button asChild variant="ink" className="rounded-full">
+            <Link to="/settings/agency" search={{ tab: "carriers" } as any}>Manage carriers</Link>
+          </Button>
+        ) : undefined}
+      />
 
       <div className="mt-[var(--gap)]">
-        {isLoading ? (
-          <div className="grid md:grid-cols-2 gap-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-56" />)}</div>
-        ) : filtered.length === 0 ? (
-          <Panel><div className="py-10 text-center text-sm text-muted-foreground">
-            {(data?.carriers ?? []).length === 0
-              ? "No carriers set up yet. Add the carriers your agency holds under Settings ▸ Carriers."
-              : "No carriers match."}
-          </div></Panel>
-        ) : (
-          <div className="grid md:grid-cols-2 gap-4">
-            {filtered.map((c: any) => (
-              <div
-                key={c.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setAboutFor(c)}
-                onKeyDown={(e) => { if (e.key === "Enter") setAboutFor(c); }}
-                className="flex flex-col gap-3 rounded-[var(--radius)] border border-border bg-card p-5 transition-colors hover:border-primary/40 hover:bg-surface-2 cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-display text-lg font-bold text-gold-bright" style={{ fontFamily: "var(--font-display)" }}>{c.name}</div>
-                    {c.is_annuity_carrier && <Badge variant="secondary" className="mt-1">Annuity</Badge>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {c.website && <Row Icon={Globe} label={<a href={c.website} target="_blank" rel="noreferrer" className="hover:underline">Website</a>} />}
-                  {c.phone && <Row Icon={Phone} label={<span className="tnum">{c.phone}</span>} />}
-                  {c.hours && <Row Icon={Clock} label={c.hours} />}
-                  {c.contracting_speed_days != null && <Row Icon={Zap} label={<span className="tnum">{`${c.contracting_speed_days} days avg`}</span>} />}
-                  {c.pay_frequency && <Row Icon={DollarSign} label={`Pay: ${cap(c.pay_frequency)}`} />}
-                  {(c.advance_cap || c.advance_cap_amount) && <Row Icon={Lock} label={<span>Advance Cap: <span className="tnum">{c.advance_cap ?? `$${Number(c.advance_cap_amount).toLocaleString()}`}</span></span>} />}
-                  {c.ideal_client && <Row Icon={User} label={<span><span className="text-muted-foreground">Ideal:</span> {c.ideal_client}</span>} full />}
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                  {c.agent_portal_url && (
-                    <a href={c.agent_portal_url} target="_blank" rel="noreferrer">
-                      <Button variant="outline" size="sm" className="w-full"><ExternalLink className="h-3.5 w-3.5" /> Agent Portal</Button>
-                    </a>
-                  )}
-                  {c.training_url && (
-                    <a href={c.training_url} target="_blank" rel="noreferrer">
-                      <Button variant="outline" size="sm" className="w-full"><GraduationCap className="h-3.5 w-3.5" /> Carrier Training</Button>
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
+        <HubLayout preview={summary} label="Summary">
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search carriers…" className="rounded-full pl-9" />
+            </div>
+            <FilterChips value={filter} onChange={setFilter} options={[
+              { value: "all", label: "All", count: all.length },
+              { value: "weekly", label: "Weekly pay", count: count("weekly") },
+              { value: "monthly", label: "Monthly pay", count: count("monthly") },
+              { value: "fast", label: "Fast (under 5 days)", count: count("fast") },
+              { value: "annuity", label: "Annuity", count: count("annuity") },
+            ]} />
           </div>
-        )}
+
+          {isLoading ? (
+            <div className="grid gap-4 md:grid-cols-2">{[1, 2, 3, 4].map((i) => <CardSkeleton key={i} />)}</div>
+          ) : filtered.length === 0 ? (
+            <EmptyCard
+              icon={<Building2 className="h-5 w-5" />}
+              title={all.length === 0 ? "No carriers switched on yet" : "No carriers match"}
+              body={all.length === 0 ? "Switch carriers on in Agency settings and they'll show up here for your agents." : "Try a different search or filter."}
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {filtered.map((c) => (
+                <CarrierCard key={c.id} c={c} onOpen={() => setAboutFor(c)}
+                  onEdit={canEdit && c.org_carrier_id ? () => setEditFor(c) : undefined} />
+              ))}
+            </div>
+          )}
+        </HubLayout>
       </div>
 
       <Sheet open={!!aboutFor} onOpenChange={(o) => !o && setAboutFor(null)}>
-        <SheetContent className="bg-card border-border">
+        <SheetContent className="border-border bg-card">
           <SheetHeader>
-            <SheetTitle className="font-display text-gold-bright" style={{ fontFamily: "var(--font-display)" }}>{aboutFor?.name}</SheetTitle>
-            <SheetDescription className="text-muted-foreground">{aboutFor?.ideal_client}</SheetDescription>
+            <SheetTitle>{aboutFor?.name}</SheetTitle>
+            {aboutFor?.ideal_client && <SheetDescription>Ideal client: {aboutFor.ideal_client}</SheetDescription>}
           </SheetHeader>
-          <div className="mt-4 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-            {aboutFor?.about_text ?? "No additional information available."}
+          <div className="mt-4 space-y-4">
+            {aboutFor && <CarrierFactsRow c={aboutFor} />}
+            <p className="whitespace-pre-wrap text-sm leading-relaxed">{aboutFor?.about_text ?? "No additional information yet."}</p>
           </div>
         </SheetContent>
       </Sheet>
+
+      <CarrierDetailsDialog open={!!editFor} onOpenChange={(o) => !o && setEditFor(null)}
+        orgCarrierId={editFor?.org_carrier_id ?? null} carrier={editFor} />
     </PageShell>
   );
 }
-
-function Row({ Icon, label, full }: { Icon: any; label: React.ReactNode; full?: boolean }) {
-  return (
-    <div className={`flex items-center gap-2 ${full ? "col-span-2" : ""}`}>
-      <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="truncate">{label}</span>
-    </div>
-  );
-}
-
-function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
