@@ -1,0 +1,1 @@
+ALTER TABLE public.discord_integrations ADD COLUMN IF NOT EXISTS message_style text NOT NULL DEFAULT 'classic' CHECK (message_style IN ('classic','celebrate','minimal'));
