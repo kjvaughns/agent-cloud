@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FilterChips } from "@/components/ui-kit/states";
+import { AdvancedDrawer, HubLayout, SummaryCard } from "@/components/ui-kit/hub";
 import { WritingNumbersPage } from "@/components/contracting/writing-numbers-panel";
 import { HierarchiesPage } from "@/components/contracting/hierarchies-panel";
 import { HierarchyChangesPage } from "@/components/contracting/hierarchy-changes-panel";
@@ -83,19 +84,25 @@ export const Route = createFileRoute("/_authenticated/contracting-ops/requests/"
  */
 function RequestsTabs() {
   const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const current: Tab = tab ?? "requests";
   return (
-    <Tabs defaultValue={tab ?? "requests"} className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="requests">Agents</TabsTrigger>
-        <TabsTrigger value="numbers">Writing numbers</TabsTrigger>
-        <TabsTrigger value="hierarchies">Current hierarchy</TabsTrigger>
-        <TabsTrigger value="changes">Change requests</TabsTrigger>
-      </TabsList>
-      <TabsContent value="requests"><AgentsQueue /></TabsContent>
-      <TabsContent value="numbers"><WritingNumbersPage /></TabsContent>
-      <TabsContent value="hierarchies"><HierarchiesPage /></TabsContent>
-      <TabsContent value="changes"><HierarchyChangesPage /></TabsContent>
-    </Tabs>
+    <div className="space-y-5">
+      <FilterChips<Tab>
+        value={current}
+        onChange={(v) => navigate({ search: { tab: v === "requests" ? undefined : v } as any })}
+        options={[
+          { value: "requests", label: "Agents" },
+          { value: "numbers", label: "Writing numbers" },
+          { value: "hierarchies", label: "Hierarchy" },
+          { value: "changes", label: "Change requests" },
+        ]}
+      />
+      {current === "requests" && <AgentsQueue />}
+      {current === "numbers" && <WritingNumbersPage />}
+      {current === "hierarchies" && <HierarchiesPage />}
+      {current === "changes" && <HierarchyChangesPage />}
+    </div>
   );
 }
 
@@ -169,81 +176,72 @@ function AgentsQueue() {
   const setSearchParam = (patch: Record<string, unknown>) =>
     navigate({ search: (p: any) => ({ ...p, ...patch }) });
 
+  const [view, setView] = useState<"cards" | "table">("cards");
+  useEffect(() => {
+    const v = localStorage.getItem("contracting.requests.view");
+    if (v === "cards" || v === "table") setView(v);
+  }, []);
+  const switchView = (v: "cards" | "table") => { setView(v); localStorage.setItem("contracting.requests.view", v); };
+
+  const chipKeys = ["all", "needs_attention", "new_requests", "awaiting_agent", "submitted", "fully_contracted"];
+  const chipValue = chipKeys.includes(filter) ? filter : "all";
+
+  const summary = (
+    <>
+      <Button className="w-full" onClick={() => setCreating(true)}>
+        <Plus className="mr-1.5 h-4 w-4" /> New request
+      </Button>
+      <SummaryCard
+        title="At a glance"
+        rows={[
+          { label: "Needs attention", value: counts?.needs_attention ?? "—", tone: (counts?.needs_attention ?? 0) > 0 ? "red" : "default" },
+          { label: "New requests", value: counts?.new_requests ?? "—", tone: "gold" },
+          { label: "Waiting on agent", value: counts?.waiting_on_agent ?? "—" },
+          { label: "Waiting on carrier", value: counts?.waiting_on_carrier ?? "—" },
+          { label: "Fully contracted", value: counts?.fully_contracted ?? "—", tone: "green" },
+        ]}
+        footer="You see the agents your role covers."
+      />
+    </>
+  );
+
   return (
-    <div className="space-y-3">
-      {/* Summary counts: compact, one line, and each one is a filter. */}
-      {counts && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {[
-            { label: "Needs attention", value: counts.needs_attention, key: "needs_attention", tone: "warning" },
-            { label: "New requests", value: counts.new_requests, key: "new_requests", tone: "neutral" },
-            { label: "Waiting on agent", value: counts.waiting_on_agent, key: "awaiting_agent", tone: "neutral" },
-            { label: "Waiting on carrier", value: counts.waiting_on_carrier, key: "submitted", tone: "neutral" },
-            { label: "Fully contracted", value: counts.fully_contracted, key: "fully_contracted", tone: "success" },
-          ].map((c) => (
-            <button
-              key={c.key}
-              onClick={() => setSearchParam({ filter: filter === c.key ? undefined : c.key, page: undefined })}
-              className={cn(
-                "rounded-lg border px-3 py-2 text-left transition-colors",
-                filter === c.key ? "border-primary/50 bg-primary/5" : "border-border bg-card hover:bg-surface-2/40",
-              )}
-            >
-              <span className={cn(
-                "tnum block text-lg font-semibold leading-none",
-                c.tone === "warning" && c.value > 0 ? "text-warning" : c.tone === "success" ? "text-success" : "text-foreground",
-              )}>
-                {c.value}
-              </span>
-              <span className="mt-1 block text-[11px] text-muted-foreground">{c.label}</span>
-            </button>
-          ))}
+    <HubLayout preview={summary} label="Summary">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-dim" />
+            <Input
+              value={draftQuery}
+              onChange={(e) => setDraftQuery(e.target.value)}
+              placeholder="Search agent, NPN, upline, carrier or writing number"
+              aria-label="Search agents"
+              className="rounded-full pl-8"
+            />
+          </div>
+          <div className="ml-auto flex rounded-full border border-border bg-card p-0.5 text-xs">
+            {(["cards", "table"] as const).map((v) => (
+              <button key={v} type="button" onClick={() => switchView(v)} aria-pressed={view === v}
+                className={cn("rounded-full px-3 py-1 font-medium capitalize", view === v ? "bg-ink text-ink-foreground" : "text-muted-foreground hover:text-foreground")}>
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-dim" />
-          <Input
-            value={draftQuery}
-            onChange={(e) => setDraftQuery(e.target.value)}
-            placeholder="Agent, NPN, email, phone, upline, carrier or writing number"
-            aria-label="Search agents"
-            className="pl-8"
-          />
-        </div>
-
-        <label className="sr-only" htmlFor="agent-sort">Sort agents</label>
-        <select
-          id="agent-sort"
-          value={sort}
-          onChange={(e) => setSearchParam({ sort: e.target.value, page: undefined })}
-          className="h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-        >
-          {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-        </select>
-
-        <Button size="sm" className="ml-auto" onClick={() => setCreating(true)}>
-          <Plus className="mr-1.5 h-3.5 w-3.5" /> New request
-        </Button>
+        <FilterChips
+          value={chipValue}
+          onChange={(v) => setSearchParam({ filter: v === "all" ? undefined : v, page: undefined })}
+          options={[
+            { value: "all", label: "All" },
+            { value: "needs_attention", label: "Needs attention", count: counts?.needs_attention },
+            { value: "new_requests", label: "New", count: counts?.new_requests },
+            { value: "awaiting_agent", label: "Waiting on agent", count: counts?.waiting_on_agent },
+            { value: "submitted", label: "Waiting on carrier", count: counts?.waiting_on_carrier },
+            { value: "fully_contracted", label: "Fully contracted", count: counts?.fully_contracted },
+          ]}
+        />
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setSearchParam({ filter: f.key === "all" ? undefined : f.key, page: undefined })}
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-              (filter === f.key || (f.key === "all" && filter === "all"))
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
 
       <Panel pad={false}>
         {isLoading ? (
@@ -274,6 +272,49 @@ function AgentsQueue() {
               }
             />
           </div>
+        ) : view === "cards" ? (
+          <ul className={cn("grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3", isFetching && "opacity-60 transition-opacity")}>
+            {rows.map((a) => (
+              <li key={a.agent_id}>
+                <Link
+                  to="/contracting-ops/requests/agent/$agentId"
+                  params={{ agentId: a.agent_id }}
+                  search={search as any}
+                  className="flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/50"
+                >
+                  <span className="flex items-center gap-3">
+                    <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                      {a.initials}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-foreground">{a.agent_name}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {a.npn ? `NPN ${a.npn}` : "No NPN"}{a.upline_name ? ` · ${a.upline_name}` : ""}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="block">
+                    <span className="tnum flex justify-between text-[11px] text-muted-foreground">
+                      <span>{a.active_count} of {a.carrier_count} active</span>
+                      <span>{timeAgo(a.last_updated)}</span>
+                    </span>
+                    <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+                      <span className={cn("block h-full rounded-full", a.fully_contracted ? "bg-success" : "bg-primary")}
+                        style={{ width: `${a.carrier_count ? (a.active_count / a.carrier_count) * 100 : 0}%` }} />
+                    </span>
+                  </span>
+                  <span className="mt-auto flex flex-wrap items-center gap-2">
+                    <StatusBadge status={a.urgent_status} />
+                    {a.needs_attention > 0 && (
+                      <span className="rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning">
+                        {a.needs_attention} to fix
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         ) : (
           <>
             <div className="hidden items-center gap-3 border-b border-border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground lg:flex">
@@ -390,6 +431,23 @@ function AgentsQueue() {
           )}
         </div>
       )}
+      <AdvancedDrawer label="More filters and sorting">
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">Status</p>
+          <FilterChips
+            value={filter}
+            onChange={(v) => setSearchParam({ filter: v === "all" ? undefined : v, page: undefined })}
+            options={FILTERS.map((f) => ({ value: f.key as string, label: f.label }))}
+          />
+          <p className="text-xs font-medium text-muted-foreground">Sort by</p>
+          <FilterChips
+            value={sort}
+            onChange={(v) => setSearchParam({ sort: v === "updated" ? undefined : v, page: undefined })}
+            options={SORTS.map((s) => ({ value: s.key as string, label: s.label }))}
+          />
+        </div>
+      </AdvancedDrawer>
+
 
       <CreateRequestDialog
         open={creating}
@@ -399,7 +457,7 @@ function AgentsQueue() {
         onClose={() => setCreating(false)}
         onSave={(p) => create.mutate(p)}
       />
-    </div>
+    </HubLayout>
   );
 }
 
