@@ -1,3 +1,4 @@
+import { buildDealEmbed, asDealStyle, DEAL_STYLES } from "@/lib/discord/deal-style";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -118,6 +119,7 @@ const WebhookSchema = z.object({
   // the control is gone from Settings rather than left as a switch a person
   // can set that can never do anything.
   min_annual_premium: z.number().min(0).max(1_000_000).optional(),
+  message_style: z.enum(DEAL_STYLES).optional(),
 });
 
 export const saveDiscordSettings = createServerFn({ method: "POST" })
@@ -572,30 +574,19 @@ export async function announceDeal(policyId: string): Promise<void> {
     const agentName = `${agent?.first_name ?? ""} ${agent?.last_name ?? ""}`.trim() || "An agent";
 
     // No client name, no policy number — a Discord channel is not a place for
-    // customer identity, and these servers often have wide membership.
-    const fields = [
-      { name: "Agent", value: agentName, inline: true },
-      { name: "Carrier", value: carrier?.name ?? "—", inline: true },
-      // A category, never the specific plan a named client bought.
-      { name: "Product", value: productCategory(policy.product) ?? "—", inline: true },
-      { name: "Annual Premium", value: money(annual), inline: true },
-      { name: "Monthly", value: money(Number(policy.monthly_premium ?? 0)), inline: true },
-      { name: "Face Amount", value: policy.face_amount ? money(Number(policy.face_amount)) : "—", inline: true },
-    ];
-
-    const body = {
-      username: "Agent Cloud",
-      embeds: [
-        {
-          title: "💰 New Deal Posted",
-          description: clamp(`**${agentName}** just wrote ${money(annual)} of annual premium.`),
-          color: GOLD,
-          fields,
-          timestamp: new Date().toISOString(),
-          footer: { text: "Agent Cloud" },
-        },
-      ],
+    // customer identity. Product is a category, never the specific plan.
+    const facts = {
+      agentName,
+      carrier: carrier?.name ?? "—",
+      product: productCategory(policy.product) ?? "—",
+      annual: money(annual),
+      monthly: money(Number(policy.monthly_premium ?? 0)),
+      face: policy.face_amount ? money(Number(policy.face_amount)) : "—",
     };
+    const bodyFor = (cfg: any) => ({
+      username: "Agent Cloud",
+      embeds: [buildDealEmbed(asDealStyle(cfg.message_style), facts, GOLD)],
+    });
 
     // One channel refusing, or failing, must not stop the others.
     await Promise.all(
@@ -620,7 +611,7 @@ export async function announceDeal(policyId: string): Promise<void> {
           // or a double submit is recognised rather than posted twice.
           if (await alreadySent(cfg.id, key)) return;
 
-          const status = await postToDiscord(cfg.webhook_url, body);
+          const status = await postToDiscord(cfg.webhook_url, bodyFor(cfg));
 
           await recordDelivery({
             orgId: cfg.organization_id,
@@ -787,7 +778,7 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
 
     const { data: cfg } = await supabaseAdmin
       .from("discord_integrations")
-      .select("id, webhook_url")
+      .select("id, webhook_url, message_style, consecutive_failures")
       .eq("id", data.id)
       .eq("organization_id", orgId)
       .maybeSingle();
@@ -796,12 +787,11 @@ export const sendDiscordTest = createServerFn({ method: "POST" })
     try {
       const status = await postToDiscord(cfg.webhook_url, {
         username: "Agent Cloud",
-        embeds: [{
-          title: "✅ Agent Cloud is connected",
-          description: "Posted deals will announce in this channel.",
-          color: GOLD,
-          timestamp: new Date().toISOString(),
-        }],
+        content: "✅ Agent Cloud is connected. Here's how your deals will look:",
+        embeds: [buildDealEmbed(asDealStyle((cfg as any).message_style), {
+          agentName: "Jordan Example", carrier: "Mutual of Omaha", product: "Final Expense",
+          annual: "$1,200", monthly: "$100", face: "$15,000",
+        }, GOLD)],
       });
       await markSuccess(cfg.id);
       return { ok: true, status };

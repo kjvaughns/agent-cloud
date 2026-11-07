@@ -21,5 +21,5 @@
 - [x] 4 hubs (Identity, Carriers & Comp, Contracting, Connections), /settings lands on Agency settings, Roles → /team
 - [x] Identity hub with autosave, swatches, drag-drop logo, live preview
 - [x] Launchpad (progress ring, "Launch my agency"); /setup retired → /settings/agency
-- [ ] Carrier cards with on/off + "Use standard levels" preset (grid editor behind Advanced)
-- [ ] Sales feed card: paste link → Send test → pick message style; raw settings under Advanced
+- [x] Carrier cards with on/off + "Use standard levels" preset (grid editor behind Advanced)
+- [x] Sales feed card: paste link → Send test → pick message style; raw settings under Advanced

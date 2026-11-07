@@ -4926,6 +4926,7 @@ export type Database = {
           last_error: string | null
           last_error_at: string | null
           last_success_at: string | null
+          message_style: string
           min_annual_premium: number
           name: string
           next_retry_at: string | null
@@ -4949,6 +4950,7 @@ export type Database = {
           last_error?: string | null
           last_error_at?: string | null
           last_success_at?: string | null
+          message_style?: string
           min_annual_premium?: number
           name?: string
           next_retry_at?: string | null
@@ -4972,6 +4974,7 @@ export type Database = {
           last_error?: string | null
           last_error_at?: string | null
           last_success_at?: string | null
+          message_style?: string
           min_annual_premium?: number
           name?: string
           next_retry_at?: string | null

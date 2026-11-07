@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Palette, Building2, FileSignature, Plug, Users, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IdentityHub } from "@/components/settings/identity-hub";
+import { CarriersQuick } from "@/components/settings/carriers-quick";
+import { SalesFeedQuick } from "@/components/settings/sales-feed-quick";
 import { toast } from "sonner";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -232,6 +234,8 @@ function AgencySettingsPage() {
 
   const hubs = HUBS.filter((h) => h.tabs.some((t) => allowed.includes(t)));
   const activeHub = hubFor(active);
+  const [carrierAdv, setCarrierAdv] = useState(false);
+  const [feedAdv, setFeedAdv] = useState(false);
   const openHub = (h: Hub) => setActive(HUBS.find((x) => x.id === h)!.tabs.find((t) => allowed.includes(t)) ?? "general");
   const has = (t: SettingsTab) => allowed.includes(t);
 
@@ -274,11 +278,17 @@ function AgencySettingsPage() {
                 {has("carriers") && (
                   <section>
                     <SectionHead title="Carriers" blurb="Turn on the carriers you write with." />
+                    <CarriersQuick onAdvanced={() => setCarrierAdv(true)} />
+                    <AdvancedToggle open={carrierAdv} onToggle={() => setCarrierAdv((v) => !v)} label="full carrier list & comp grid" />
+                  </section>
+                )}
+                {carrierAdv && has("carriers") && (
+                  <section>
                     <SuggestedCarriersPanel />
                     <div className="mt-4"><CarrierDirectoryPage onConfigureLevels={() => setActive("levels")} /></div>
                   </section>
                 )}
-                {has("levels") && (
+                {carrierAdv && has("levels") && (
                   <section>
                     <SectionHead title="Levels & comp" blurb="Your ladder and what each level earns." />
                     <LevelsPanel />
@@ -293,7 +303,9 @@ function AgencySettingsPage() {
                 {has("automations") && (
                   <section>
                     <SectionHead title="Sales feed" blurb="Post wins to your team's Discord automatically." />
-                    <DiscordSettings />
+                    <SalesFeedQuick />
+                    <AdvancedToggle open={feedAdv} onToggle={() => setFeedAdv((v) => !v)} label="bots, events & thresholds" />
+                    {feedAdv && <div className="mt-4"><DiscordSettings /></div>}
                   </section>
                 )}
                 {has("integrations") && (
@@ -309,6 +321,15 @@ function AgencySettingsPage() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+function AdvancedToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={open}
+      className="mt-4 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-primary hover:underline">
+      {open ? "Hide advanced" : `Advanced — ${label}`}
+    </button>
   );
 }
 
