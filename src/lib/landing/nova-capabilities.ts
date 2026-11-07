@@ -37,13 +37,36 @@ export type Capability = { text: string; state: CapabilityState };
 
 export type NovaGroup = {
   /** Matches the icon chosen in the component; kept out of the data. */
-  key: "retention" | "relationships" | "pipeline" | "intelligence";
+  key: "retention" | "relationships" | "pipeline" | "intelligence" | "carriers" | "contracting";
   title: string;
   blurb: string;
   items: Capability[];
 };
 
 export const NOVA_GROUPS: NovaGroup[] = [
+  {
+    // Nothing here has shipped. Sarah-style carrier automation, planned.
+    key: "carriers",
+    title: "Morning carrier run",
+    blurb: "Nova signs into your carrier portals every morning so you don't have to.",
+    items: [
+      { text: "Connect your email so Nova can read carrier notices and sign-in codes", state: "soon" },
+      { text: "Securely save your carrier portal logins in an encrypted vault", state: "soon" },
+      { text: "Daily sync of pending, issued and lapse updates into your book", state: "soon" },
+      { text: "Commission statements pulled and matched to your policies", state: "soon" },
+      { text: "A morning briefing of everything that changed overnight", state: "soon" },
+    ],
+  },
+  {
+    key: "contracting",
+    title: "Hands-free contracting",
+    blurb: "New agent added, contracting started — for carriers that allow self-serve invites.",
+    items: [
+      { text: "Carrier contracting invites sent automatically for new agents", state: "soon" },
+      { text: "Bankdocs voided check and direct deposit attached for you", state: "soon" },
+      { text: "Packet progress tracked until every carrier is approved", state: "soon" },
+    ],
+  },
   {
     key: "retention",
     title: "Retention autopilot",
@@ -100,4 +123,4 @@ export const NOVA_GROUPS: NovaGroup[] = [
 ];
 
 /** Groups where nothing has shipped yet — every item must be marked `soon`. */
-export const UNSHIPPED_GROUPS: NovaGroup["key"][] = ["pipeline"];
+export const UNSHIPPED_GROUPS: NovaGroup["key"][] = ["pipeline", "carriers", "contracting"];

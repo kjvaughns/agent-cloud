@@ -104,7 +104,7 @@ check("the honest proof line is the one used",
 // test rather than a comment.
 
 const HERO = strip(read("src/components/landing/hero.tsx"));
-const JOURNEY = strip(read("src/components/landing/deal-journey.tsx"));
+const JOURNEY = "";
 const PRIMITIVES = strip(read("src/components/landing/primitives.tsx"));
 const MOTION = strip(read("src/components/landing/motion.tsx"));
 

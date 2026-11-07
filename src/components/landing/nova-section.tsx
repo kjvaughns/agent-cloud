@@ -26,7 +26,7 @@
 
 import { Link } from "@tanstack/react-router";
 import {
-  ShieldAlert, HeartHandshake, Route, Brain, ArrowRight,
+  ShieldAlert, HeartHandshake, Route, Brain, ArrowRight, Building2, FileSignature,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,8 @@ const ICONS: Record<NovaGroup["key"], LucideIcon> = {
   relationships: HeartHandshake,
   pipeline: Route,
   intelligence: Brain,
+  carriers: Building2,
+  contracting: FileSignature,
 };
 
 export function NovaSection({ novaPrice }: { novaPrice: number }) {
@@ -47,8 +49,8 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
     <LandingSection id="nova" event="nova_viewed" className="border-t border-border">
       <SectionHead
         eyebrow="Meet Nova AI"
-        title="Agent Cloud organises your business. Nova helps run it."
-        copy="Nova watches your pipeline and your book, works out what needs attention, and helps you get to it before a policy lapses or a lead goes cold."
+        title="Your AI assistant that works before you wake up."
+        copy="Nova watches your book, follows up with clients and — soon — signs into your carrier portals every morning and starts contracting for new agents on its own."
       />
 
       {/* Said once, plainly, above the grid — so nobody has to infer it from
@@ -62,7 +64,7 @@ export function NovaSection({ novaPrice }: { novaPrice: number }) {
       <div className="mt-10 grid gap-4 md:grid-cols-2">
         {NOVA_GROUPS.map((g, i) => (
           <FadeUp key={g.title} delay={i * 60}>
-            <div className="h-full rounded-[var(--radius)] border border-border bg-surface-1 p-6">
+            <div className="h-full rounded-[var(--radius)] border border-border bg-card p-6 shadow-sm">
               <div className="flex items-start gap-3">
                 <span
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius)] bg-primary/10 text-primary"
