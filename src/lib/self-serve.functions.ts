@@ -107,13 +107,27 @@ export const applyBuilderSetup = createServerFn({ method: "POST" })
     monthlyGoal: z.number().int().min(0).max(100000000).optional(),
     documentName: z.string().max(200).optional(),
     activateSuite: z.boolean().default(false),
+    logoPath: z.string().max(400).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
     const userId = (context as Ctx).userId;
     const { supabaseAdmin, org } = await ownedOrg(userId);
     if (!org) throw new Error("Only the workspace owner can finish setup");
     const patch: Record<string, any> = { onboarding_completed_at: new Date().toISOString(), onboarding_step: 99 };
-    if (data.accent_color) patch.accent_color = data.accent_color;
+    if (data.accent_color && /^#[0-9a-f]{6}$/i.test(data.accent_color)) patch.accent_color = data.accent_color;
+    // Copy the onboarding logo (private, per-user) into the agency's branding bucket.
+    if (data.logoPath && data.logoPath.startsWith(`${userId}/`)) {
+      const { data: blob } = await supabaseAdmin.storage.from("onboarding-uploads").download(data.logoPath);
+      if (blob) {
+        const name = data.logoPath.split("/").pop()!.replace(/^logo-\d+-/, "");
+        const dest = `${org.id}/logo-${Date.now()}-${name}`;
+        const up = await supabaseAdmin.storage.from("org-branding").upload(dest, blob, { contentType: blob.type || undefined, upsert: true });
+        if (!up.error) {
+          const { data: signed } = await supabaseAdmin.storage.from("org-branding").createSignedUrl(dest, 60 * 60 * 24 * 365 * 10);
+          if (signed?.signedUrl) patch.logo_url = signed.signedUrl;
+        }
+      }
+    }
     let suite = null as ReturnType<typeof suiteLinks> | null;
     if (data.activateSuite) {
       const code = org.partner_code ?? partnerCodeFor(org.slug);

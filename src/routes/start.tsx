@@ -36,7 +36,13 @@ export const Route = createFileRoute("/start")({
   component: BuilderPage,
 });
 
-const COLORS = ["oklch(0.65 0.11 80)", "oklch(0.45 0.12 255)", "oklch(0.5 0.13 155)", "oklch(0.52 0.18 25)", "oklch(0.45 0.15 300)", "oklch(0.25 0.01 85)"];
+// Hex only: the workspace theme derives its accent ramp from a hex value.
+const COLORS = ["#CBA35A", "#2F5DA8", "#2E8B57", "#C0392B", "#7B3FA0", "#2B2925"];
+const LEGACY_COLORS: Record<string, string> = {
+  "oklch(0.65 0.11 80)": "#CBA35A", "oklch(0.45 0.12 255)": "#2F5DA8", "oklch(0.5 0.13 155)": "#2E8B57",
+  "oklch(0.52 0.18 25)": "#C0392B", "oklch(0.45 0.15 300)": "#7B3FA0", "oklch(0.25 0.01 85)": "#2B2925",
+};
+const hexColor = (c: string) => LEGACY_COLORS[c] ?? (/^#[0-9a-f]{6}$/i.test(c) ? c : COLORS[0]!);
 const CARRIERS = ["Mutual of Omaha", "Americo", "Aetna", "GTL", "Corebridge", "Foresters", "Transamerica", "American Amicable", "Royal Neighbors", "Ethos", "F&G", "SBLI"];
 const STATES = "AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY".split(" ");
 const SUITE = [
@@ -95,6 +101,8 @@ function BuilderPage() {
   const steps = STEPS[path];
   const current = steps[Math.min(stepIdx, steps.length - 1)]!;
   const set = (p: Partial<Answers>) => setA((o) => ({ ...o, ...p }));
+  // Older saved answers used non-hex colours; normalise so the picker and workspace match.
+  useEffect(() => { if (a.color !== hexColor(a.color)) set({ color: hexColor(a.color) }); }, [a.color]);
   const name = path === "agency" ? a.agencyName || "Your agency" : a.agencyName || `${a.firstName || "Your"}${a.firstName ? "'s" : ""} book`;
   const price = path === "agency" ? PRICING.agencyBase : PRICING.soloAgent;
 
@@ -174,7 +182,7 @@ function BuilderPage() {
       await saveFn({ data: { path, current_step: "build", answers: a } });
       await initFn({ data: { withSampleData: false, plan: path === "agency" ? "agency" : "solo", agencyName: path === "agency" ? a.agencyName || undefined : a.agencyName || `${a.firstName} ${a.lastName}`.trim() || undefined } });
       const res = await applyFn({ data: {
-        accent_color: a.color, carriers: a.carriers, teamSize: path === "agency" ? a.teamSize : 1, monthlyGoal: a.goal,
+        accent_color: hexColor(a.color), logoPath: a.logo?.path, carriers: a.carriers, teamSize: path === "agency" ? a.teamSize : 1, monthlyGoal: a.goal,
         documentName: a.documents.map((d) => d.name).join(", ").slice(0, 200) || undefined, activateSuite: path === "agency",
       } });
       setPartnerCode(res.suite?.partnerCode ?? null);
