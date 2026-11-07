@@ -44,6 +44,6 @@ export function escalationNotice(
   return {
     to: ESCALATION_RECIPIENT,
     subject: `[Needs you] ${details.project} — ${lead.name || lead.email}`,
-    text: `Allison gathered the following problem details.\nFrom: ${lead.name || ''} <${lead.email}>\nSubject: ${lead.subject}\nProject: ${details.project}\nReason for handoff: ${reason}\n\nProblem: ${details.problem}\nImpact: ${details.impact}\nStarted / frequency: ${details.timing}\nAlready tried: ${details.attempted}\nRequested outcome: ${details.desiredOutcome}\n\nSuggested next steps (recommendations only, not actions taken):\n${details.suggestions.map((s) => `- ${s}`).join('\n')}\n\nConversation:\n${conversation.map((m) => `${m.sender}: ${m.body}`).join('\n\n')}\n\nReply to ${lead.email} from ${SUPPORT_INBOX}.`,
+    text: `The support team gathered the following problem details.\nFrom: ${lead.name || ''} <${lead.email}>\nSubject: ${lead.subject}\nProject: ${details.project}\nReason for handoff: ${reason}\n\nProblem: ${details.problem}\nImpact: ${details.impact}\nStarted / frequency: ${details.timing}\nAlready tried: ${details.attempted}\nRequested outcome: ${details.desiredOutcome}\n\nSuggested next steps (recommendations only, not actions taken):\n${details.suggestions.map((s) => `- ${s}`).join('\n')}\n\nConversation:\n${conversation.map((m) => `${m.sender}: ${m.body}`).join('\n\n')}\n\nReply to ${lead.email} from ${SUPPORT_INBOX}.`,
   };
 }

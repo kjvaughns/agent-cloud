@@ -37,7 +37,7 @@ const Resume = ({ brand, firstName, path = 'agent', appUrl }: Props) => (
     heading={path === 'agency' ? 'Your agency is waiting' : 'Your book is waiting'}
     lead={`${hi(firstName)}you started building ${path === 'agency' ? 'your agency' : 'your book of business'} on Agent Cloud. Everything you entered is saved.`}
     cta={{ label: 'Finish building', href: `${origin(appUrl)}/start` }}
-    note="Questions? Reply to this email and Allison will help."
+    note="Questions? Reply to this email and our support team will help."
   />
 )
 

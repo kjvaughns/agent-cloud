@@ -10,7 +10,7 @@ import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { DemoBanner } from "@/components/demo-banner";
 import { ReadOnlyGate } from "@/components/read-only-gate";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { SetupRedirect, PaywallRedirect, HelpVideoButton, AllisonBubble } from "@/components/self-serve-furniture";
+import { SetupRedirect, PaywallRedirect, SupportBubble } from "@/components/self-serve-furniture";
 import { requireSession } from "@/lib/require-session";
 
 function AuthErrorComponent({ error, reset }: ErrorComponentProps) {
@@ -104,8 +104,7 @@ function AuthenticatedLayout() {
       <OnboardingChecklist />
       <SetupRedirect />
       <PaywallRedirect />
-      <HelpVideoButton />
-      <AllisonBubble />
+      <SupportBubble />
     </SidebarProvider>
   );
 }
