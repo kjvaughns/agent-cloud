@@ -183,7 +183,7 @@ export function PricingSection({
         </div>
       </FadeUp>
 
-      <ComparisonTable />
+      <p className="mt-8 text-center text-sm font-medium text-muted-foreground">No $50,000 setup fee. No cut of your comp. Month-to-month.</p>
     </LandingSection>
   );
 }
