@@ -65,9 +65,26 @@ export const listEmailSends = createServerFn({ method: "POST" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
+    // Read current outcomes from managed delivery; retain legacy audit history.
+    const apiKey = process.env['LOVABLE_API_KEY'];
+    if (!apiKey) throw new Error("Email reporting is not configured");
+    const { listEmailLogs } = await import("@lovable.dev/email-js");
+    const managed = await listEmailLogs({ since, limit: 100, ...(data.template ? { tag: data.template } : {}) }, { apiKey });
+    const managedRows: EmailLogRow[] = managed.data.map((event, index) => ({
+      id: `managed:${event.message_id ?? index}:${event.timestamp}:${event.event_type}`,
+      message_id: event.message_id ?? null,
+      template_name: event.tags?.[0] ?? "system",
+      recipient_email: event.recipient,
+      status: ({ rejected: "failed", unsubscribed: "suppressed", rate_limited: "failed" } as Record<string, string>)[event.event_type] ?? event.event_type,
+      error_message: event.status ?? null,
+      created_at: event.timestamp,
+    }));
+    const allRows = [...managedRows, ...((rows ?? []) as EmailLogRow[])]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+
     // Latest row per event.
     const latest = new Map<string, EmailLogRow>();
-    for (const r of (rows ?? []) as EmailLogRow[]) {
+    for (const r of allRows) {
       const k = r.message_id ?? r.id;
       if (!latest.has(k)) latest.set(k, r);
     }
@@ -83,7 +100,7 @@ export const listEmailSends = createServerFn({ method: "POST" })
     }
 
     const templates = Array.from(
-      new Set(((rows ?? []) as EmailLogRow[]).map((r) => r.template_name).filter(Boolean) as string[]),
+      new Set(allRows.map((r) => r.template_name).filter(Boolean) as string[]),
     ).sort();
 
     return { rows: list.slice(0, 200), stats, templates };
