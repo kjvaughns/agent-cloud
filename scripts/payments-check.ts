@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { PAYMENT_PRODUCTS, paymentEnvironment, subscriptionHasAccess } from '../src/lib/billing/payment-rules';
-assert.equal(PAYMENT_PRODUCTS.solo_agent.amount, 49);
-assert.equal(PAYMENT_PRODUCTS.agency_plan.amount, 399);
+assert.equal(PAYMENT_PRODUCTS.solo_agent.amount, 199);
+assert.equal(PAYMENT_PRODUCTS.agency_plan.amount, 999);
 assert.equal(PAYMENT_PRODUCTS.nova_seats.amount, 39);
 assert.equal(paymentEnvironment('pk_test_example'), 'sandbox');
 assert.equal(paymentEnvironment('pk_live_example'), 'live');

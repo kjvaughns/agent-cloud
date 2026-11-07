@@ -25,7 +25,7 @@ export const PRICING = {
    * billed a cent of it. Removing it takes no revenue and stops the product
    * quoting a charge it does not make.
    */
-  agencyBase: 399,
+  agencyBase: 999,
   novaPro: 49,
   /**
    * What an AGENCY pays to sponsor Nova for one of its agents, per agent.
@@ -36,7 +36,7 @@ export const PRICING = {
    */
   novaSponsored: 39,
   /** Solo plan does NOT include Nova Pro — it is bought separately at novaPro. */
-  soloAgent: 49,
+  soloAgent: 199,
   whiteLabelSetup: 999,
   whiteLabelMonthly: 499,
   novaPartnerRate: 0.2, // default; per-org override in organizations.nova_partner_commission_rate
