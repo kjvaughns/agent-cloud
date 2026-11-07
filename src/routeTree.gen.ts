@@ -171,6 +171,7 @@ import { Route as ApiV1CarriersRouteImport } from './routes/api/v1/carriers'
 import { Route as ApiV1LeaderboardRouteImport } from './routes/api/v1/leaderboard'
 import { Route as ApiV1ProductionRouteImport } from './routes/api/v1/production'
 import { Route as ApiV1WhoamiRouteImport } from './routes/api/v1/whoami'
+import { Route as LovableEmailEventsRouteImport } from './routes/lovable/email/events'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as AuthenticatedAgencyAgentsAgentIdRouteImport } from './routes/_authenticated/agency/agents/$agentId'
 import { Route as AuthenticatedBackOfficeCaseDesignAdminRouteImport } from './routes/_authenticated/back-office/case-design_.admin'
@@ -1083,6 +1084,11 @@ const ApiV1WhoamiRoute = ApiV1WhoamiRouteImport.update({
   path: '/api/v1/whoami',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LovableEmailEventsRoute = LovableEmailEventsRouteImport.update({
+  id: '/lovable/email/events',
+  path: '/lovable/email/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
@@ -1356,6 +1362,7 @@ export interface FileRoutesByFullPath {
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
+  '/lovable/email/events': typeof LovableEmailEventsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency/': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1534,6 +1541,7 @@ export interface FileRoutesByTo {
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
+  '/lovable/email/events': typeof LovableEmailEventsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/agency': typeof AuthenticatedAgencyIndexRoute
   '/contracting-ops': typeof AuthenticatedContractingOpsIndexRoute
@@ -1719,6 +1727,7 @@ export interface FileRoutesById {
   '/api/v1/leaderboard': typeof ApiV1LeaderboardRoute
   '/api/v1/production': typeof ApiV1ProductionRoute
   '/api/v1/whoami': typeof ApiV1WhoamiRoute
+  '/lovable/email/events': typeof LovableEmailEventsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/agency/': typeof AuthenticatedAgencyIndexRoute
   '/_authenticated/contracting-ops/': typeof AuthenticatedContractingOpsIndexRoute
@@ -1904,6 +1913,7 @@ export interface FileRouteTypes {
     | '/api/v1/leaderboard'
     | '/api/v1/production'
     | '/api/v1/whoami'
+    | '/lovable/email/events'
     | '/lovable/email/suppression'
     | '/agency/'
     | '/contracting-ops/'
@@ -2082,6 +2092,7 @@ export interface FileRouteTypes {
     | '/api/v1/leaderboard'
     | '/api/v1/production'
     | '/api/v1/whoami'
+    | '/lovable/email/events'
     | '/lovable/email/suppression'
     | '/agency'
     | '/contracting-ops'
@@ -2266,6 +2277,7 @@ export interface FileRouteTypes {
     | '/api/v1/leaderboard'
     | '/api/v1/production'
     | '/api/v1/whoami'
+    | '/lovable/email/events'
     | '/lovable/email/suppression'
     | '/_authenticated/agency/'
     | '/_authenticated/contracting-ops/'
@@ -2331,6 +2343,7 @@ export interface RootRouteChildren {
   ApiV1LeaderboardRoute: typeof ApiV1LeaderboardRoute
   ApiV1ProductionRoute: typeof ApiV1ProductionRoute
   ApiV1WhoamiRoute: typeof ApiV1WhoamiRoute
+  LovableEmailEventsRoute: typeof LovableEmailEventsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicAgentmailWebhookRoute: typeof ApiPublicAgentmailWebhookRoute
   ApiPublicHooksAllisonRepliesRoute: typeof ApiPublicHooksAllisonRepliesRoute
@@ -3483,6 +3496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1WhoamiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/events': {
+      id: '/lovable/email/events'
+      path: '/lovable/email/events'
+      fullPath: '/lovable/email/events'
+      preLoaderRoute: typeof LovableEmailEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
       path: '/lovable/email/suppression'
@@ -4081,6 +4101,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiV1LeaderboardRoute: ApiV1LeaderboardRoute,
   ApiV1ProductionRoute: ApiV1ProductionRoute,
   ApiV1WhoamiRoute: ApiV1WhoamiRoute,
+  LovableEmailEventsRoute: LovableEmailEventsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicAgentmailWebhookRoute: ApiPublicAgentmailWebhookRoute,
   ApiPublicHooksAllisonRepliesRoute: ApiPublicHooksAllisonRepliesRoute,
