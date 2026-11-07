@@ -12,7 +12,7 @@ import { applyBuilderSetup, trackFunnel } from "@/lib/self-serve.functions";
 import { useServerFn } from "@/hooks/use-server-fn";
 import { useBillingCheckout } from "@/components/BillingCheckout";
 import { PRICING } from "@/lib/billing/pricing";
-import { BrandWordmark } from "@/components/brand-wordmark";
+import { BrandWordmark } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 
 type Plan = "solo" | "agency";
