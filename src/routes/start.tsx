@@ -128,7 +128,7 @@ function BuilderPage() {
         accent_color: saved.color, carriers: saved.carriers, teamSize: saved.teamSize, monthlyGoal: saved.goal,
         documentName: saved.documentName, activateSuite: saved.plan === "agency",
       } });
-      setPartnerCode(res.suite?.code ?? null);
+      setPartnerCode(res.suite?.partnerCode ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? "Something went wrong building your agency");
       setPhase("steps");
