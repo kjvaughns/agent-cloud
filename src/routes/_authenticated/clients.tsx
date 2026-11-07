@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, BookOpen, Heart, KanbanSquare } from "lucide-react";
-import { PageShell, Panel } from "@/components/page-shell";
+import { ArrowRight, BookOpen, Heart, KanbanSquare, FilePlus2, Upload, UserPlus } from "lucide-react";
+import { PageShell, Panel, HubLayout, PreviewCard } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useServerFn } from "@/hooks/use-server-fn";
@@ -17,6 +17,10 @@ export const Route = createFileRoute("/_authenticated/clients")({
     meta: [
       { title: "Clients — Agent Cloud" },
       { name: "description", content: "Your pipeline, your book of business and your retention queue in one place." },
+      { property: "og:title", content: "Clients — Agent Cloud" },
+      { property: "og:description", content: "Your pipeline, your book of business and your retention queue in one place." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
 });
@@ -140,12 +144,13 @@ function ClientsOverviewPage() {
           </p>
         </div>
 
+        <HubLayout label="Quick actions" preview={<QuickActions />}>
         {isLoading || !data ? (
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-4">
             {blocks.map((b) => <Skeleton key={b.id} className="h-40 rounded-xl" />)}
           </div>
         ) : (
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-4">
             {blocks.map((b) => {
               const empty = b.empty(data);
               return (
@@ -182,10 +187,38 @@ function ClientsOverviewPage() {
           </div>
         )}
 
+        </HubLayout>
         <p className="text-[11px] text-text-dim">
           Production numbers over time live in Reports. Commissions live under Contracting.
         </p>
       </div>
     </PageShell>
+  );
+}
+
+const ACTIONS = [
+  { to: "/pipeline", label: "Add a lead", hint: "Start working someone new", icon: UserPlus },
+  { to: "/post-deal", label: "Post a deal", hint: "Log a policy you just wrote", icon: FilePlus2 },
+  { to: "/import", label: "Import clients", hint: "Bring a spreadsheet over", icon: Upload },
+] as const;
+
+function QuickActions() {
+  return (
+    <PreviewCard>
+      <ul className="divide-y divide-border">
+        {ACTIONS.map((a) => (
+          <li key={a.to}>
+            <Link to={a.to} className="group flex items-center gap-3 px-4 py-3 hover:bg-primary/5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><a.icon className="h-4 w-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{a.label}</span>
+                <span className="block text-xs text-muted-foreground">{a.hint}</span>
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </PreviewCard>
   );
 }
