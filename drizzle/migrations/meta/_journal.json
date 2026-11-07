@@ -127,6 +127,13 @@
       "when": 1794046794172,
       "tag": "0017_self_serve_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794048045546,
+      "tag": "0018_update_plan_prices",
+      "breakpoints": true
     }
   ]
 }
