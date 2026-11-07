@@ -110,6 +110,6 @@ export function HeroBand({
 }
 
 export {
-  HubCard, HubLayout, PreviewCard, AdvancedDrawer, ChoiceCards, SavedIndicator, type SaveStatus,
+  HubCard, HubLayout, PreviewCard, AdvancedDrawer, ChoiceCards, SavedIndicator, SummaryCard, type SaveStatus,
 } from "@/components/ui-kit/hub";
 export { EmptyCard, CardSkeleton, FilterChips } from "@/components/ui-kit/states";
