@@ -22,8 +22,7 @@ import { display } from "./primitives";
 // other one.
 const LINKS = [
   { label: "Product", href: "/#product" },
-  { label: "For agents", href: "/#for-agents" },
-  { label: "For agencies", href: "/#for-agencies" },
+  { label: "Agency Suite", href: "/#agency-suite" },
   { label: "Nova AI", href: "/#nova" },
   { label: "Pricing", href: "/#pricing" },
   { label: "Tools", href: "/tools" },

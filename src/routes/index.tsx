@@ -4,14 +4,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { useLandingPricing } from "@/hooks/use-landing-pricing";
-import { AnnouncementBar, LandingNav, StickyMobileCta } from "@/components/landing/nav";
+import { LandingNav, StickyMobileCta } from "@/components/landing/nav";
 import { Hero } from "@/components/landing/hero";
-import { OwnershipSection } from "@/components/landing/story";
-import { ProductStories, AudienceSplit } from "@/components/landing/product-stories";
+import { PillarsSection } from "@/components/landing/pillars";
 import { NovaSection } from "@/components/landing/nova-section";
 import { AgencySuiteSection } from "@/components/landing/agency-suite";
 import { PricingSection } from "@/components/landing/pricing";
-import { DealJourney } from "@/components/landing/deal-journey";
 import {
   FaqSection, FinalCta, LandingFooter, faqItems,
 } from "@/components/landing/support";
@@ -75,7 +73,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Run your whole life insurance business from one place — pipeline, deals, book of business, leaderboard, contracts, finances and Nova AI. Software, not an IMO: we never take an override.",
+          "Run your agency, own your book and keep 100% of your comp. $1.8M+ production tracked, 1,000+ clients managed — no $50k setup fee, no commission cut.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: SITE },
@@ -186,7 +184,6 @@ function LandingPage() {
        accent rather than a wash — the rendered product screens carry `.dark`
        locally too, so they read as the application rather than illustrations. */
     <div id="top" className="min-h-screen bg-background text-foreground antialiased">
-      <AnnouncementBar />
       <LandingNav ctaLabel={ctaLabel} ctaHref={ctaHref} />
 
       <Hero ctaLabel={ctaLabel} ctaHref={ctaHref} />
@@ -199,15 +196,12 @@ function LandingPage() {
       {/* The old "one connected record" step strip lived here. The demo
           below makes the same point by doing it, so keeping both cost a
           viewport and a half of phone height to say it twice. */}
-      <ProductStories />
-      <DealJourney />
-      <AudienceSplit ctaHref={ctaHref} />
-
-      <NovaSection novaPrice={pricing.novaPro} />
+      <PillarsSection />
       <AgencySuiteSection />
 
+      <NovaSection novaPrice={pricing.novaPro} />
+
       <PricingSection pricing={pricing} checkoutReady={checkoutReady} />
-      <OwnershipSection />
       <FaqSection pricing={pricing} />
 
       <FinalCta ctaLabel={ctaLabel} ctaHref={ctaHref} />
