@@ -91,8 +91,8 @@ export function IdentityHub() {
     : <span className="text-xs font-bold" style={{ color }}>{initials}</span>;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-6 rounded-2xl border border-border bg-card p-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 space-y-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Your agency</h2>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
@@ -149,8 +149,8 @@ export function IdentityHub() {
                 {form.accent_color.toLowerCase() === c.toLowerCase() && <Check className="h-4 w-4 text-primary-foreground" />}
               </button>
             ))}
-            <label className="relative grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-dashed border-border hover:border-primary" aria-label="Custom color">
-              <Pipette className="h-4 w-4 text-muted-foreground" />
+            <label className={cn("relative grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-dashed border-border ring-offset-2 ring-offset-card hover:border-primary", !BRAND_SWATCHES.some((c) => c.toLowerCase() === form.accent_color.toLowerCase()) && "ring-2 ring-foreground")} style={!BRAND_SWATCHES.some((c) => c.toLowerCase() === form.accent_color.toLowerCase()) ? { backgroundColor: color } : undefined} aria-label="Custom color">
+              <Pipette className="h-4 w-4 text-muted-foreground mix-blend-difference" />
               <input type="color" value={color} onChange={(e) => set({ accent_color: e.target.value })} className="absolute inset-0 cursor-pointer opacity-0" />
             </label>
           </div>
@@ -159,7 +159,7 @@ export function IdentityHub() {
         <div className="space-y-1.5">
           <Label htmlFor="id-slug">Portal link</Label>
           <div className="flex items-center rounded-md border border-input bg-background pl-3 text-sm focus-within:ring-1 focus-within:ring-ring">
-            <span className="text-muted-foreground">app.useagentcloud.com/join/</span>
+            <span className="shrink-0 text-muted-foreground"><span className="hidden sm:inline">app.useagentcloud.com</span>/join/</span>
             <input id="id-slug" disabled={!canEditSlug} value={form.slug} onChange={(e) => set({ slug: e.target.value.toLowerCase() })} className="h-9 min-w-0 flex-1 bg-transparent px-1 outline-none disabled:opacity-60" />
           </div>
           {canEditSlug && form.slug && !SLUG.test(form.slug) && <p className="text-xs text-destructive">3–40 letters, numbers or dashes.</p>}

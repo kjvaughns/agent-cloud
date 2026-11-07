@@ -261,7 +261,7 @@ function AgencySettingsPage() {
             )}
           </nav>
 
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 space-y-6 overflow-hidden">
             {activeHub === "identity" && (
               <>
                 <IdentityHub />
