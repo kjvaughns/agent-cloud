@@ -41,7 +41,7 @@ import { productionWindowEnd } from "@/lib/production/source";
 import { StaffDashboard } from "@/components/staff-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }, { name: "description", content: "Your production, team and what needs attention today." }, { property: "og:title", content: "Dashboard — Agent Cloud" }, { property: "og:description", content: "Your production, team and what needs attention today." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: DashboardRoute,
 });
 
