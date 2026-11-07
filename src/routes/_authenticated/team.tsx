@@ -304,7 +304,7 @@ function TeamPage() {
         )}
 
         <div data-tour="team-roster" className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
           {view === "cards" ? (
             <TeamFilterBar rows={downlineForRoster} chip={chip} onChip={setChip} search={search} onSearch={setSearch} />
           ) : <span />}

@@ -45,8 +45,8 @@ export function TeamFilterBar({ rows, chip, onChip, search, onSearch }: {
     attention: attentionIds(rows).size,
   }), [rows]);
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative sm:w-64">
+    <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center [&_button]:whitespace-nowrap">
+      <div className="relative xl:w-56">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search your team…" className="pl-9 rounded-full" />
       </div>
