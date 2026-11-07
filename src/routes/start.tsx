@@ -56,7 +56,7 @@ const BUILD_LINES: Record<Path, string[]> = {
 
 type Answers = {
   firstName: string; lastName: string; agencyName: string; color: string; states: string[];
-  carriers: string[]; goal: number; teamSize: number; invites: string; documents: { name: string; path: string }[];
+  carriers: string[]; goal: number; teamSize: number; invites: string; logo?: { name: string; path: string }; documents: { name: string; path: string }[];
 };
 const EMPTY: Answers = { firstName: "", lastName: "", agencyName: "", color: COLORS[0]!, states: [], carriers: [], goal: 25000, teamSize: 5, invites: "", documents: [] };
 const LOCAL = "ac-journey-v2";
@@ -360,6 +360,7 @@ function StepBody({ current, a, set, path }: { current: string; a: Answers; set:
           <div className="space-y-4">
             <Field id="fn2" label="First name"><Input id="fn2" className="h-12" value={a.firstName} onChange={(e) => set({ firstName: e.target.value })} /></Field>
             <Field id="biz" label="Business name (optional)"><Input id="biz" className="h-12" placeholder="e.g. Jordan Reed Insurance" value={a.agencyName} onChange={(e) => set({ agencyName: e.target.value })} /></Field>
+            <LogoPick a={a} set={set} />
             <ColorPick a={a} set={set} />
           </div>
         </>
@@ -369,6 +370,7 @@ function StepBody({ current, a, set, path }: { current: string; a: Answers; set:
         <>
           <Title eyebrow="Your agency" title="Name your agency." sub="This is what your agents, recruits and clients will see." />
           <Input autoFocus className="h-16 text-2xl" placeholder="e.g. Vantage Financial" value={a.agencyName} onChange={(e) => set({ agencyName: e.target.value })} />
+          <div className="mt-6"><LogoPick a={a} set={set} /></div>
           <div className="mt-6"><ColorPick a={a} set={set} /></div>
         </>
       );
@@ -388,14 +390,8 @@ function StepBody({ current, a, set, path }: { current: string; a: Answers; set:
       return (
         <>
           <Title eyebrow="Your team" title="How big is your team?" sub="We'll shape hierarchy and splits around it." />
-          <div className="rounded-2xl border border-border bg-card/70 p-6">
-            <div className="font-display text-5xl font-semibold"><CountUp to={a.teamSize} duration={0.3} />{a.teamSize >= 100 ? "+" : ""} <span className="text-lg font-normal text-muted-foreground">agents</span></div>
-            <Slider className="mt-5" min={1} max={100} value={[a.teamSize]} onValueChange={([v]) => set({ teamSize: v! })} />
-          </div>
-          <div className="mt-6"><Field id="inv" label="Agents to invite after launch (optional, one email per line)">
-            <textarea id="inv" rows={3} value={a.invites} onChange={(e) => set({ invites: e.target.value })}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="agent@example.com" />
-          </Field></div>
+          <NumberPick value={a.teamSize} min={1} max={500} sliderMax={100} step={1} suffix="agents" onChange={(v) => set({ teamSize: v })} />
+          <div className="mt-6"><InviteList value={a.invites} onChange={(v) => set({ invites: v })} /></div>
         </>
       );
     case "carriers":
@@ -411,10 +407,7 @@ function StepBody({ current, a, set, path }: { current: string; a: Answers; set:
       return (
         <>
           <Title eyebrow="Ambition" title={path === "agency" ? "What should your agency write each month?" : "What do you want to write each month?"} sub="We'll track you against it from day one." />
-          <div className="rounded-2xl border border-border bg-card/70 p-6">
-            <div className="font-display text-5xl font-semibold text-gold"><CountUp to={a.goal} prefix="$" duration={0.4} /></div>
-            <Slider className="mt-5" min={5000} max={path === "agency" ? 1000000 : 200000} step={5000} value={[a.goal]} onValueChange={([v]) => set({ goal: v! })} />
-          </div>
+          <NumberPick value={a.goal} min={1000} max={10000000} sliderMax={path === "agency" ? 1000000 : 200000} step={5000} prefix="$" gold onChange={(v) => set({ goal: v })} />
         </>
       );
     case "documents":
@@ -434,6 +427,94 @@ function ColorPick({ a, set }: { a: Answers; set: (p: Partial<Answers>) => void 
           <motion.button key={c} type="button" aria-label="Pick color" whileHover={{ scale: 1.15 }} whileTap={{ scale: 0.9 }} onClick={() => set({ color: c })}
             className={cn("h-10 w-10 rounded-full border-2", a.color === c ? "border-foreground" : "border-transparent")} style={{ background: c }} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+function NumberPick({ value, min, max, sliderMax, step, prefix = "", suffix, gold, onChange }: { value: number; min: number; max: number; sliderMax: number; step: number; prefix?: string; suffix?: string; gold?: boolean; onChange: (v: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => { setText((t) => (Number(t.replace(/[^\d]/g, "")) === value ? t : String(value))); }, [value]);
+  const commit = (raw: string) => { const n = Number(raw.replace(/[^\d]/g, "")); onChange(Math.min(max, Math.max(min, n || min))); };
+  return (
+    <div className="rounded-2xl border border-border bg-card/70 p-6">
+      <div className="flex items-baseline gap-2">
+        {prefix && <span className={cn("font-display text-4xl font-semibold", gold && "text-gold")}>{prefix}</span>}
+        <input inputMode="numeric" aria-label="Type a number" value={Number(text.replace(/[^\d]/g, "") || 0).toLocaleString()}
+          onChange={(e) => { const d = e.target.value.replace(/[^\d]/g, ""); setText(d); if (d) onChange(Math.min(max, Number(d))); }}
+          onBlur={(e) => commit(e.target.value)}
+          className={cn("w-full min-w-0 border-b border-dashed border-border bg-transparent font-display text-5xl font-semibold outline-none focus:border-gold", gold && "text-gold")} />
+        {suffix && <span className="shrink-0 text-lg text-muted-foreground">{suffix}</span>}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">Type a number or drag the slider.</p>
+      <Slider className="mt-6 py-2 [&_[role=slider]]:h-7 [&_[role=slider]]:w-7" min={min} max={sliderMax} step={step} value={[Math.min(value, sliderMax)]} onValueChange={([v]) => onChange(v!)} />
+    </div>
+  );
+}
+
+function InviteList({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [draft, setDraft] = useState("");
+  const list = value.split(/\s+/).filter(Boolean);
+  const add = () => {
+    const e = draft.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return toast.error("Enter a valid email");
+    if (!list.includes(e)) onChange([...list, e].join("\n"));
+    setDraft("");
+  };
+  return (
+    <div>
+      <label htmlFor="inv" className="mb-1.5 block text-sm font-medium">Agents to invite after launch (optional)</label>
+      <div className="flex gap-2">
+        <Input id="inv" type="email" className="h-12" placeholder="agent@example.com" value={draft} onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <Button type="button" variant="outline" className="h-12 shrink-0" onClick={add}>Add</Button>
+      </div>
+      {list.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {list.map((m) => (
+            <li key={m} className="flex items-center justify-between rounded-lg border border-border bg-card/70 px-3 py-2 text-sm">
+              <span className="truncate">{m}</span>
+              <button type="button" aria-label={`Remove ${m}`} className="text-muted-foreground hover:text-foreground" onClick={() => onChange(list.filter((x) => x !== m).join("\n"))}>✕</button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function LogoPick({ a, set }: { a: Answers; set: (p: Partial<Answers>) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!a.logo) return setUrl(null);
+    void supabase.storage.from("onboarding-uploads").createSignedUrl(a.logo.path, 3600).then(({ data }) => setUrl(data?.signedUrl ?? null));
+  }, [a.logo?.path]);
+  async function pick(f?: File) {
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return toast.error("Please choose an image");
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return toast.error("Please sign in again");
+    setBusy(true);
+    const key = `${u.user.id}/logo-${Date.now()}-${f.name.replace(/[^\w.\-]+/g, "_")}`;
+    const { error } = await supabase.storage.from("onboarding-uploads").upload(key, f);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    set({ logo: { name: f.name, path: key } });
+  }
+  return (
+    <div>
+      <div className="mb-1.5 text-sm font-medium">Logo (optional)</div>
+      <div className="flex items-center gap-4">
+        <button type="button" onClick={() => input.current?.click()}
+          className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-card/70 text-xs text-muted-foreground hover:border-gold">
+          {url ? <img src={url} alt="Your logo" className="h-full w-full object-contain" /> : busy ? "…" : "+ Logo"}
+        </button>
+        <div className="text-xs text-muted-foreground">
+          {a.logo ? <>{a.logo.name} · <button type="button" className="underline" onClick={() => set({ logo: undefined })}>Remove</button></> : "PNG, JPG or SVG. Square works best."}
+        </div>
+        <input ref={input} type="file" accept="image/*" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} />
       </div>
     </div>
   );
