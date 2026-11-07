@@ -17,11 +17,14 @@ const config = defineConfig({
   nitro: { preset: "vercel" },
   vite: {
     resolve: {
-      alias: {
-        "entities/lib/decode.js": path.resolve("node_modules/entities/lib/decode.js"),
-        "entities/lib/encode.js": path.resolve("node_modules/entities/lib/encode.js"),
-        entities: path.resolve("node_modules/entities"),
-      },
+      // Exact-match only: a bare "entities" prefix alias also captured
+      // htmlparser2's own "entities/decode" (a newer nested copy) and broke
+      // dependency pre-bundling, leaving the dev preview stuck loading.
+      alias: [
+        { find: /^entities\/lib\/decode\.js$/, replacement: path.resolve("node_modules/entities/lib/decode.js") },
+        { find: /^entities\/lib\/encode\.js$/, replacement: path.resolve("node_modules/entities/lib/encode.js") },
+        { find: /^entities$/, replacement: path.resolve("node_modules/entities") },
+      ],
     },
   },
 });
