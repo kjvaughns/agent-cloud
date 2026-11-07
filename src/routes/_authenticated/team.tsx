@@ -250,13 +250,15 @@ function TeamPage() {
 
   // Which lens on the roster, remembered per person. An owner who thinks in
   // legs and one who thinks in rows should each find the page as they left it.
-  const [view, setView] = useState<"table" | "org">(() => {
-    if (typeof window === "undefined") return "table";
-    return window.localStorage.getItem("team.view") === "org" ? "org" : "table";
-  });
+  const [view, setView] = useState<"cards" | "table">("cards");
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem("team.view", view);
-  }, [view]);
+    if (window.localStorage.getItem("team.view") === "table") setView("table");
+  }, []);
+  useEffect(() => { window.localStorage.setItem("team.view", view); }, [view]);
+  const [chip, setChip] = useState<TeamChip>("all");
+  const [search, setSearch] = useState("");
+  const [attentionOpen, setAttentionOpen] = useState(false);
+  const cardRows = useMemo(() => filterRows(downlineForRoster, chip, search), [downlineForRoster, chip, search]);
 
   return (
     <PageShell>
