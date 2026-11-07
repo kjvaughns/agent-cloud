@@ -44,10 +44,10 @@ export const saveSetupStep = createServerFn({ method: "POST" })
     const userId = (context as Ctx).userId;
     const { supabaseAdmin, org } = await ownedOrg(userId);
     if (!org) throw new Error("Only the workspace owner can run setup");
-    const patch: Record<string, unknown> = { onboarding_step: Math.max(org.onboarding_step ?? 0, data.step) };
+    const patch: Record<string, any> = { onboarding_step: Math.max(org.onboarding_step ?? 0, data.step) };
     for (const k of ["name", "logo_url", "accent_color", "slug"] as const) if (data[k] !== undefined) patch[k] = data[k];
     if (data.finish) patch.onboarding_completed_at = new Date().toISOString();
-    const { error } = await supabaseAdmin.from("organizations").update(patch).eq("id", org.id);
+    const { error } = await supabaseAdmin.from("organizations").update(patch as any).eq("id", org.id);
     if (error) throw new Error(error.message.includes("duplicate") ? "That web address is taken — try another." : error.message);
     await supabaseAdmin.from("funnel_events").insert({
       event: data.finish ? "setup_completed" : `setup_step_${data.step}`, user_id: userId, organization_id: org.id,

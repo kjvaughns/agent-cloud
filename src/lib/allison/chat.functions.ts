@@ -50,7 +50,7 @@ export const sendAllisonChat = createServerFn({ method: "POST" })
       const raw = response.output.flatMap((i: any) => i.type === "message" ? i.content.flatMap((p: any) => p.type === "output_text" ? [p.text] : []) : []).join("");
       parsed = z.object({ reply: z.string(), escalate: z.boolean(), ready: z.boolean(), summary: z.string() }).parse(JSON.parse(raw));
     } catch (e) {
-      const msg = e instanceof GatewayError && (e.status === 402 || e.status === 429)
+      const msg = e instanceof GatewayError && [402, 429].includes((e as any).status ?? (e as any).statusCode)
         ? "I'm a little swamped right now — try again in a minute, or email support@useagentcloud.com."
         : "Sorry, something went wrong on my side. Try again, or email support@useagentcloud.com.";
       return { reply: msg };

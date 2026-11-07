@@ -13,7 +13,6 @@
  * licence. Nova adds automation and prioritisation on top.
  */
 
-import { Link } from "@tanstack/react-router";
 import { Check, Minus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

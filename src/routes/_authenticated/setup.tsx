@@ -35,7 +35,7 @@ function SetupWizard() {
     setLogo(data.org.logo_url ?? "");
     setColor(data.org.accent_color ?? "");
     setSlug(data.org.slug ?? "");
-    setSuite(data.suite);
+    setSuite(data.suite ?? null);
     setI(Math.min(data.org.onboarding_step ?? 0, (data.steps?.length ?? 1) - 1));
   }, [data]);
 
