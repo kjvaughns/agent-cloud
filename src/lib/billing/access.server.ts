@@ -30,7 +30,9 @@ export async function getAccessFor(userId: string) {
     isPlatformAdmin: !!(profile as any)?.is_platform_admin || !!adminRole?.length,
     planType: (org as any)?.plan_type ?? null, ownerId: (org as any)?.owner_id ?? null, rows,
   });
-  return { ...result, environment: env, isOwner: !!org && org.owner_id === userId };
+  // Never-paid self-serve workspaces get a hard paywall (sent back to /start);
+  // lapsed ones keep the read-only grace behaviour.
+  return { ...result, environment: env, isOwner: !!org && org.owner_id === userId, neverPaid: !!org && rows.length === 0 };
 }
 
 export async function assertWriteAccess(userId: string) {
