@@ -1,0 +1,2 @@
+import {test,expect} from "vitest";import {hostRedirectTarget as t} from "/dev-server/src/lib/hosts";
+test("x",()=>{expect(t("useagentcloud.com","/","")).toBe(null);expect(t("useagentcloud.com","/dashboard","?a=1")).toBe("https://app.useagentcloud.com/dashboard?a=1");expect(t("app.useagentcloud.com","/","")).toBe("https://app.useagentcloud.com/dashboard");expect(t("app.useagentcloud.com","/tools","")).toBe("https://useagentcloud.com/tools");expect(t("app.useagentcloud.com","/login","")).toBe(null);expect(t("localhost:8080","/dashboard","")).toBe(null);});
