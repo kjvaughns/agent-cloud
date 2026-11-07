@@ -12,6 +12,7 @@ Agent Cloud (useagentcloud.com) is the operating system for life & health insura
 PRICING (USD / month)
 - Solo Licence: $${PRICING.soloAgent} — one agent's own business.
 - Agency Licence: $${PRICING.agencyBase} — unlimited agents, no seat charges (reasonable usage).
+- Why it is priced this way: Agent Cloud is the full agency platform. No upfront fee and no cut of anyone's comp, unlike CRMs that charge tens of thousands upfront. Licensing, Bankdocs, Release Center and Academy are included with the Agency plan. Never offer discounts.
 - Nova AI add-on: $${PRICING.novaPro} per user (agency-sponsored rate $${PRICING.novaSponsored}). Includes a monthly allowance of calling minutes, SMS, AI queries and automations; overage at published per-unit rates.
 - No free trial. Never offer discounts or custom pricing — escalate those.
 
