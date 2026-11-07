@@ -13,6 +13,8 @@ import { checkSureLcStatus, getSureLcSsoUrl, submitToSureLc, syncSureLcStatuses 
 import { listCompLevels } from "@/lib/contracting-records.functions";
 import { Card } from "@/components/ui/card";
 import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { FilterChips } from "@/components/ui-kit/states";
+import { HubLayout, AdvancedDrawer, SummaryCard } from "@/components/ui-kit/hub";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,31 +87,75 @@ function ContractingHome() {
     setTab("transfer-requests");
   };
 
+  // Five old tabs fold into three sections; old ?tab= links still land right.
+  const section: Section =
+    tab === "downline" && hasTeam ? "coverage"
+    : tab === "inbox" || tab === "transfer-requests" ? "requests"
+    : "my";
+  const [gridsOpen, setGridsOpen] = useState(tab === "comp-grids");
+  const go = (s: Section) => { setTab(s === "coverage" ? "downline" : s === "requests" ? "inbox" : "my"); setTransferPrefill(null); };
+
+  const sections: { value: Section; label: string }[] = [
+    { value: "my", label: "My appointments" },
+    ...(hasTeam ? [{ value: "coverage" as Section, label: "Team coverage" }] : []),
+    { value: "requests", label: "Requests" },
+  ];
+
   return (
     <PageShell>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <HeroBand
-          title="Contracts"
-          subtitle="Carrier appointments, commission levels, writing numbers, and transfers — all in one place"
+          title="Contracting"
+          subtitle="Your carrier appointments, your team's coverage, and every request in one place."
         />
-        <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v !== "transfer-requests") setTransferPrefill(null); }}>
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="my">Contracts</TabsTrigger>
-            {hasTeam && <TabsTrigger value="downline">Team matrix</TabsTrigger>}
-            <TabsTrigger value="comp-grids">Comp Grids</TabsTrigger>
-            <TabsTrigger value="transfer-requests">Transfer Requests</TabsTrigger>
-            <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
-          </TabsList>
-          <TabsContent value="my" className="mt-4"><MyContractsTab onViewGrid={() => setTab("comp-grids")} onRequestTransfer={openTransferFor} /></TabsContent>
-          {hasTeam && <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>}
-          <TabsContent value="comp-grids" className="mt-4"><CompGridsContent /></TabsContent>
-          <TabsContent value="transfer-requests" className="mt-4">
-            <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
-          </TabsContent>
-          <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
-        </Tabs>
+        <FilterChips value={section} options={sections} onChange={go} />
+
+        {section === "my" && (
+          <HubLayout label="At a glance" preview={<MySummary />}>
+            <MyContractsTab onViewGrid={() => setGridsOpen(true)} onRequestTransfer={openTransferFor} />
+            <AdvancedDrawer label="comp grids" open={gridsOpen} onOpenChange={setGridsOpen}>
+              <CompGridsContent />
+            </AdvancedDrawer>
+          </HubLayout>
+        )}
+        {section === "coverage" && <DownlineTab />}
+        {section === "requests" && (
+          <div className="space-y-6">
+            <InboxTab />
+            <Panel title="Transfer requests" blurb="Moving an appointment from another agency or upline to yours.">
+              <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
+            </Panel>
+            <p className="text-sm text-muted-foreground">
+              Staff tools (queue, documents, licensing) live in{" "}
+              <Link to="/contracting-ops" className="font-medium text-primary hover:underline">Contracting ops</Link>.
+            </p>
+          </div>
+        )}
       </div>
     </PageShell>
+  );
+}
+
+type Section = "my" | "coverage" | "requests";
+
+function MySummary() {
+  const { scope, ready } = useScope();
+  const { data } = useQuery({ ...myContractsQuery(scope), enabled: ready });
+  const rows: any[] = ((data as any)?.rows ?? []) as any[];
+  const active = rows.filter((r) => r.status === "active").length;
+  const pending = rows.filter((r) => ["requested", "submitted", "assigned", "processing", "draft"].includes(r.status)).length;
+  const issues = rows.filter((r) => r.status === "issue").length;
+  const noNumber = rows.filter((r) => r.status === "active" && !r.writing_number).length;
+  return (
+    <SummaryCard
+      title="Your appointments"
+      rows={[
+        { label: "Active", value: active, tone: "green" },
+        { label: "In progress", value: pending, tone: "gold" },
+        { label: "Issues", value: issues, tone: issues ? "red" : "default" },
+        { label: "Missing writing number", value: noNumber, tone: noNumber ? "red" : "default" },
+      ]}
+    />
   );
 }
 
@@ -879,6 +925,8 @@ function DownlineTab() {
   const [cell, setCell] = useState<{ agent: any; carrier: any; existing?: any; level?: any } | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [carrierFilter, setCarrierFilter] = useState<string>("all");
+  const [chip, setChip] = useState<"all" | "full" | "missing" | "pending">("all");
+  const [view, setView] = useState<"cards" | "grid">("cards");
 
   if (isLoading) return <Skeleton className="h-64" />;
 
@@ -909,14 +957,97 @@ function DownlineTab() {
     .sort((a: any, b: any) => (a.id === (data as any)?.selfId ? -1 : b.id === (data as any)?.selfId ? 1 : 0));
   const visibleCarriers = carrierFilter === "all" ? carriers : carriers.filter((c: any) => c.id === carrierFilter);
 
+  const PENDING = ["requested", "submitted", "assigned", "processing", "draft"];
+  const coverage = (a: any) => {
+    let active = 0, pending = 0;
+    const missing: any[] = [];
+    carriers.forEach((c: any) => {
+      const r = map.get(`${a.id}:${c.id}`);
+      if (r?.status === "active") active++;
+      else if (r && PENDING.includes(r.status)) pending++;
+      else missing.push(c);
+    });
+    return { active, pending, missing };
+  };
+  const chipCounts = {
+    all: filteredAgents.length,
+    full: filteredAgents.filter((a: any) => coverage(a).missing.length === 0).length,
+    missing: filteredAgents.filter((a: any) => coverage(a).missing.length > 0).length,
+    pending: filteredAgents.filter((a: any) => coverage(a).pending > 0).length,
+  };
+  const chipAgents = filteredAgents.filter((a: any) => {
+    const cv = coverage(a);
+    return chip === "all" ? true : chip === "full" ? cv.missing.length === 0 : chip === "missing" ? cv.missing.length > 0 : cv.pending > 0;
+  });
+
   return (
-    <>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm text-muted-foreground tnum">
-          {agents.length} agents · {carriers.length} carriers · <span className="text-success font-medium">{activeCnt} active</span> · <span className="text-warning font-medium">{pendingCnt} pending</span>{issueCnt > 0 && <> · <span className="text-destructive font-medium">{issueCnt} issue{issueCnt === 1 ? "" : "s"}</span></>}
+    <HubLayout label="Coverage" preview={
+      <SummaryCard title="Team coverage" rows={[
+        { label: "Agents", value: agents.length },
+        { label: "Agency carriers", value: carriers.length },
+        { label: "Active appointments", value: activeCnt, tone: "green" },
+        { label: "Pending", value: pendingCnt, tone: "gold" },
+        { label: "Issues", value: issueCnt, tone: issueCnt ? "red" : "default" },
+      ]} />
+    }>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FilterChips value={chip} onChange={setChip} options={[
+          { value: "all", label: "All", count: chipCounts.all },
+          { value: "full", label: "Fully contracted", count: chipCounts.full },
+          { value: "missing", label: "Missing carriers", count: chipCounts.missing },
+          { value: "pending", label: "Pending", count: chipCounts.pending },
+        ]} />
+        <div className="flex items-center gap-2">
+          <Input className="h-9 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
+          <FilterChips value={view} onChange={setView} options={[{ value: "cards", label: "Cards" }, { value: "grid", label: "Grid" }]} />
         </div>
+      </div>
+
+      {view === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {chipAgents.map((a: any) => {
+            const cv = coverage(a);
+            return (
+              <div key={a.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">
+                      {a.first_name} {a.last_name}
+                      {a.id === selfId && <span className="ml-2 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">You</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground tnum">
+                      {cv.active} of {carriers.length} active{cv.pending ? ` · ${cv.pending} pending` : ""}
+                    </div>
+                  </div>
+                  {cv.missing.length === 0
+                    ? <Badge variant="outline" className="border-success/40 text-success">Fully contracted</Badge>
+                    : <Badge variant="outline" className="border-warning/40 text-warning">Missing {cv.missing.length}</Badge>}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {carriers.map((c: any) => {
+                    const r = map.get(`${a.id}:${c.id}`);
+                    const st = r?.status === "active" ? "active" : r && PENDING.includes(r.status) ? "pending" : r?.status === "issue" ? "issue" : "missing";
+                    return (
+                      <button key={c.id} type="button" onClick={() => setCell({ agent: a, carrier: c, existing: r, level: levelMap.get(`${a.id}:${c.id}`) })}
+                        className={cn("rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/60",
+                          st === "active" && "border-success/30 bg-success/10 text-success",
+                          st === "pending" && "border-warning/30 bg-warning/10 text-warning",
+                          st === "issue" && "border-destructive/30 bg-destructive/10 text-destructive",
+                          st === "missing" && "border-dashed border-border text-muted-foreground")}>
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {chipAgents.length === 0 && <p className="text-sm text-muted-foreground">No agents match.</p>}
+        </div>
+      ) : (
+      <>
+      <div className="flex items-center justify-end gap-3 flex-wrap">
         <div className="flex gap-2 items-center">
-          <Input className="h-8 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
           <Select value={carrierFilter} onValueChange={setCarrierFilter}>
             <SelectTrigger className="h-8 w-40 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -937,7 +1068,7 @@ function DownlineTab() {
             </tr>
           </thead>
           <tbody>
-            {filteredAgents.map((a: any) => (
+            {chipAgents.map((a: any) => (
               <tr key={a.id} className="border-t border-border">
                 <td className="sticky left-0 bg-card px-3 py-2 font-medium whitespace-nowrap">
                   {a.first_name} {a.last_name}
@@ -964,11 +1095,11 @@ function DownlineTab() {
                       >
                         {existing ? (
                           <>
-                            <span>{pct ?? "·"}</span>
-                            <span className={cn("h-2.5 w-2.5 rounded-full", statusDot(existing.status))} />
+                            <ContractStatusBadge status={existing.status} />
+                            {pct && <span className="text-muted-foreground">{pct}</span>}
                           </>
                         ) : (
-                          <span className="text-text-dim">—</span>
+                          <span className="rounded-full border border-dashed border-border px-2 py-0.5 font-medium text-muted-foreground">Missing</span>
                         )}
                       </button>
                     </td>
@@ -979,6 +1110,8 @@ function DownlineTab() {
           </tbody>
         </table>
       </Panel>
+      </>
+      )}
 
       {cell && (
         <DownlineCellDialog
@@ -987,7 +1120,7 @@ function DownlineTab() {
           onUpdated={() => { qc.invalidateQueries({ queryKey: ["contracting"] }); setCell(null); }}
         />
       )}
-    </>
+    </HubLayout>
   );
 }
 
