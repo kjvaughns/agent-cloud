@@ -147,7 +147,11 @@ function useSignedInRedirect(enabled: boolean) {
 
 function LandingPage() {
   const { stay } = Route.useSearch();
-  const checking = useSignedInRedirect(stay !== "1");
+  // Signed-in people are no longer bounced off the landing page; the product
+  // lives on app.useagentcloud.com. Kept only for non-production hosts.
+  const checking = useSignedInRedirect(
+    stay !== "1" && typeof window !== "undefined" && !window.location.host.endsWith("useagentcloud.com"),
+  );
   const { pricing, checkoutReady } = useLandingPricing();
 
   /**
