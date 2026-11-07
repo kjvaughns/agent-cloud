@@ -6,11 +6,8 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
-  Link,
   Preview,
-  Section,
   Text,
 } from '@react-email/components'
 
@@ -24,44 +21,24 @@ export const RecoveryEmail = ({
   confirmationUrl,
 }: RecoveryEmailProps) => (
   <Html lang="en" dir="ltr">
-    <Head />
-    <Preview>Reset your {siteName} password</Preview>
+    <Head>
+      <style>{darkModeCss}</style>
+    </Head>
+    <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Section style={topRule} />
-        <Section style={header}>
-          <Text style={wordmark}>AGENT CLOUD</Text>
-          
-        </Section>
-
-        <Section style={card}>
-          <Heading style={h1}>Reset your password</Heading>
-          <Text style={lead}>
-            We received a request to reset your {siteName} password. Click the button below to choose a new one. This link expires in 1 hour.
-          </Text>
-
-          <Section style={buttonWrap}>
-            <Button style={cta} href={confirmationUrl}>
-              Reset password
-            </Button>
-          </Section>
-
-          <Text style={fallbackLabel}>Button not working? Paste this link:</Text>
-          <Text style={fallbackUrl}>{confirmationUrl}</Text>
-        </Section>
-
-        <Hr style={hr} />
-        <Section style={footer}>
-          <Text style={footerText}>
-            If you didn't request a password reset, you can safely ignore this email — your password won't be changed.
-          </Text>
-          <Text style={footerBrand}>
-            © {new Date().getFullYear()} Agent Cloud ·{' '}
-            <Link href="https://useagentcloud.com" style={footerLink}>
-              useagentcloud.com
-            </Link>
-          </Text>
-        </Section>
+        <Heading style={h1}>Reset your password</Heading>
+        <Text style={text}>
+          We received a request to reset your password for {siteName}. Click
+          the button below to choose a new password.
+        </Text>
+        <Button className="dm-btn" style={button} href={confirmationUrl}>
+          Reset Password
+        </Button>
+        <Text style={footer}>
+          If you didn't request a password reset, you can safely ignore this
+          email. Your password will not be changed.
+        </Text>
       </Container>
     </Body>
   </Html>
@@ -69,75 +46,35 @@ export const RecoveryEmail = ({
 
 export default RecoveryEmail
 
-const GOLD = '#C9A227'
-const INK = '#0F172A'
-const BODY = '#475569'
-const MUTED = '#94A3B8'
-const BORDER = '#E2E8F0'
-const SURFACE = '#F8FAFC'
-
-const main = {
-  backgroundColor: '#ffffff',
-  fontFamily: "Inter, -apple-system, 'Segoe UI', Arial, sans-serif",
-  color: BODY,
-  margin: 0,
-  padding: '32px 16px',
-}
-const container = { maxWidth: '600px', margin: '0 auto' }
-const topRule = { height: '4px', backgroundColor: GOLD, borderRadius: '2px' }
-const header = { padding: '24px 0 8px' }
-const wordmark = {
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
-  fontSize: '24px',
-  letterSpacing: '0.18em',
-  color: INK,
-  margin: 0,
-  fontWeight: 700 as const,
-}
-const tagline = { fontSize: '12px', color: MUTED, margin: '4px 0 0', letterSpacing: '0.04em' }
-const card = {
-  border: `1px solid ${BORDER}`,
-  borderRadius: '12px',
-  padding: '32px',
-  backgroundColor: '#ffffff',
-  marginTop: '16px',
-}
+const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
+const container = { padding: '20px 25px' }
 const h1 = {
-  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif",
-  fontSize: '32px',
-  letterSpacing: '0.04em',
-  color: INK,
-  margin: '0 0 16px',
-  fontWeight: 700 as const,
-  textTransform: 'uppercase' as const,
+  fontSize: '22px',
+  fontWeight: 'bold' as const,
+  color: '#000000',
+  margin: '0 0 20px',
 }
-const lead = { fontSize: '15px', lineHeight: '1.6', color: BODY, margin: '0 0 24px' }
-const buttonWrap = { textAlign: 'center' as const, padding: '8px 0 20px' }
-const cta = {
-  backgroundColor: GOLD,
+const text = {
+  fontSize: '14px',
+  color: '#55575d',
+  lineHeight: '1.5',
+  margin: '0 0 25px',
+}
+const button = {
+  backgroundColor: '#000000',
   color: '#ffffff',
   fontSize: '14px',
-  fontWeight: 600 as const,
+  border: '1px solid #000000',
   borderRadius: '8px',
-  padding: '14px 28px',
+  padding: '12px 20px',
   textDecoration: 'none',
-  display: 'inline-block',
-  letterSpacing: '0.02em',
 }
-const fallbackLabel = { fontSize: '12px', color: MUTED, margin: '12px 0 4px' }
-const fallbackUrl = {
-  fontSize: '12px',
-  color: BODY,
-  wordBreak: 'break-all' as const,
-  backgroundColor: SURFACE,
-  border: `1px solid ${BORDER}`,
-  borderRadius: '6px',
-  padding: '10px 12px',
-  margin: 0,
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-}
-const hr = { borderColor: BORDER, margin: '24px 0 16px' }
-const footer = { padding: '0 8px' }
-const footerText = { fontSize: '12px', color: MUTED, margin: '0 0 8px', lineHeight: '1.5' }
-const footerBrand = { fontSize: '12px', color: MUTED, margin: 0 }
-const footerLink = { color: GOLD, textDecoration: 'none', fontWeight: 600 as const }
+const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+// Rendered as a text child, which React may HTML-escape: keep this CSS free of >, &, and quotes.
+const darkModeCss = `
+  @media (prefers-color-scheme: dark) {
+    .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+  }
+  [data-ogsc] .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+  [data-ogsb] .dm-btn { background-color: #ffffff !important; color: #000000 !important; }
+`
