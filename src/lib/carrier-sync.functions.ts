@@ -366,6 +366,7 @@ export const applyCarrierSync = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ApplySchema.parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as Ctx;
     await assertOwnerOrAdmin(supabase, userId);
     const teamIds = new Set(await getHierarchyIds(supabase, userId));

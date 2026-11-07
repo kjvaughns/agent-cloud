@@ -1295,6 +1295,7 @@ export const createOnboardingInvite = createServerFn({ method: "POST" })
     assignments:  z.array(FullAssignmentSchema).max(50).optional().default([]),
   }).parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertAgencyPlan((context as any).userId);
     const { supabase, userId } = context as Ctx;
 
     // Validate every level ≤ upline's

@@ -1273,6 +1273,7 @@ export const createContractingRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateRequestSchema.parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { userId } = context as Ctx;
     const access = await resolveAccess(userId);
     const orgId = requireOrg(access);

@@ -82,6 +82,7 @@ export const createTransferRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateSchema.parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { userId } = context as Ctx;
     const agentId = data.agent_id ?? userId;
     const { memberOf, owns } = await myOrgIds(userId);

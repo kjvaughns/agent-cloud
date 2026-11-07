@@ -157,6 +157,7 @@ export const importBook = createServerFn({ method: "POST" })
       .parse(d)
   )
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as any;
 
     const { data: job, error: jobErr } = await supabase
@@ -493,6 +494,7 @@ export const basicImportFromBookImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({}).parse(d))
   .handler(async ({ context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as any;
 
     const bobData = await alCall(supabase, userId, "/api/v1/book-of-business");

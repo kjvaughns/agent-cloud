@@ -324,6 +324,7 @@ export const importContractingRecords = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ImportSchema.parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { userId } = context as Ctx;
     return runContractingImport(userId, data.kind, data.rows, data.commit);
   });

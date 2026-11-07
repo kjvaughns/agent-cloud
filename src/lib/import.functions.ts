@@ -143,6 +143,7 @@ export const createImportBatch = createServerFn({ method: "POST" })
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as Ctx;
 
     const batchId = data.batch_id ?? crypto.randomUUID();
@@ -469,6 +470,7 @@ export const applyProposals = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ document_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as Ctx;
 
     const { data: batch, error } = await supabase
