@@ -31,13 +31,13 @@ export function HubCard({ title, blurb, status = "idle", action, children }: {
   );
 }
 
-export function HubLayout({ preview, children }: { preview?: ReactNode; children: ReactNode }) {
+export function HubLayout({ preview, children, label = "Live preview" }: { preview?: ReactNode; children: ReactNode; label?: string }) {
   if (!preview) return <div className="min-w-0 space-y-6">{children}</div>;
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-6">{children}</div>
       <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Live preview</p>
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{label}</p>
         {preview}
       </div>
     </div>
@@ -82,5 +82,28 @@ export function ChoiceCards<T extends string | number>({ value, options, onChang
         </button>
       ))}
     </div>
+  );
+}
+
+/** Right-column summary: a titled list of label/value rows. */
+export function SummaryCard({ title, rows, footer }: {
+  title: string;
+  rows: { label: string; value: ReactNode; tone?: "default" | "gold" | "red" | "green" }[];
+  footer?: ReactNode;
+}) {
+  const tone = { default: "text-foreground", gold: "text-primary", red: "text-destructive", green: "text-success" } as const;
+  return (
+    <PreviewCard>
+      <div className="border-b border-border px-4 py-3 text-sm font-semibold">{title}</div>
+      <ul className="divide-y divide-border">
+        {rows.map((r) => (
+          <li key={r.label} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+            <span className="text-muted-foreground">{r.label}</span>
+            <span className={cn("tnum font-semibold", tone[r.tone ?? "default"])}>{r.value}</span>
+          </li>
+        ))}
+      </ul>
+      {footer && <div className="border-t border-border px-4 py-3 text-xs text-muted-foreground">{footer}</div>}
+    </PreviewCard>
   );
 }
