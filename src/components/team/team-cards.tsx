@@ -45,13 +45,13 @@ export function TeamFilterBar({ rows, chip, onChip, search, onSearch }: {
     attention: attentionIds(rows).size,
   }), [rows]);
   return (
-    <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center [&_button]:whitespace-nowrap">
-      <div className="relative xl:w-56">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 2xl:flex-row 2xl:items-center [&_button]:whitespace-nowrap">
+      <div className="relative w-full max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search your team…" className="pl-9 rounded-full" />
       </div>
       <FilterChips<TeamChip>
-        className="flex-nowrap overflow-x-auto"
+        className="min-w-0"
         value={chip} onChange={onChip}
         options={[
           { value: "all", label: "All", count: counts.all },
@@ -118,7 +118,7 @@ export function AgentCardGrid({ rows, onOpen }: { rows: RosterAgent[]; onOpen: (
   if (rows.length === 0) return <EmptyCard title="No agents match" body="Try another filter or clear the search." />;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
         {rows.slice(0, limit).map((a) => <AgentCard key={a.id} a={a} onOpen={onOpen} />)}
       </div>
       {rows.length > limit && (
