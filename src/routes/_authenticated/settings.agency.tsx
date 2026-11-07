@@ -242,7 +242,7 @@ function AgencySettingsPage() {
         <InheritParentPanel />
         <AgencySetupProgress onOpenTab={(t) => setActive(normalizeTab(t) ?? "general")} />
 
-        <div className="grid gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
           <nav aria-label="Agency settings sections" className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:flex md:flex-col md:self-start md:sticky md:top-4">
             {hubs.map((h) => (
               <button
