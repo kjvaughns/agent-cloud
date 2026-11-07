@@ -510,6 +510,7 @@ export const createContractRequest = createServerFn({ method: "POST" })
     npn: z.string().trim().max(20).optional(),
   }).parse(d))
   .handler(async ({ data, context }) => {
+    await (await import("@/lib/billing/access.server")).assertWriteAccess((context as any).userId);
     const { supabase, userId } = context as Ctx;
 
     const { data: carrier, error: cErr } = await supabase

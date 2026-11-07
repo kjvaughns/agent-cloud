@@ -451,7 +451,14 @@ export const getMyAccess = createServerFn({ method: "GET" })
       ? (await resolveCanManagePermissions(userId, org.id)) !== null
       : false;
 
-    const inAgency = Boolean(org) && org?.plan_type !== "solo";
+    // A paid Agency subscription upgrades a solo workspace immediately, even
+    // before the plan field is rewritten — same answer the paywall gives.
+    let effectivePlan: string = org?.plan_type ?? "agency";
+    if (org && effectivePlan === "solo") {
+      const { getAccessFor } = await import("@/lib/billing/access.server");
+      effectivePlan = (await getAccessFor(userId).catch(() => null))?.plan ?? "solo";
+    }
+    const inAgency = Boolean(org) && effectivePlan !== "solo";
 
     // Count only, no rows: all anyone asks is whether the number is zero.
     const { count: policyCount } = await supabaseAdmin
@@ -491,14 +498,14 @@ export const getMyAccess = createServerFn({ method: "GET" })
       // answers differ.
       canEditAgencySettings: Boolean(org) && (org?.owner_id === userId || canManageRoles),
       hasNoBookYet: (policyCount ?? 0) === 0,
-      isSolo: org?.plan_type === "solo" && org?.owner_id === userId,
+      isSolo: effectivePlan === "solo" && org?.owner_id === userId,
       isOwner: org?.owner_id === userId,
       hasSubAgencies,
       canInvite,
       orgId: org?.id ?? null,
       orgName: org?.name ?? null,
       orgStatus: org?.subscription_status ?? "inactive",
-      planType: org?.plan_type ?? "agency",
+      planType: effectivePlan,
       permissions,
     } as MyAccess;
   });

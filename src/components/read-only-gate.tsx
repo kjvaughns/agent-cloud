@@ -39,13 +39,24 @@ export function ReadOnlyGate() {
     return () => { document.removeEventListener('click', onClick, true); document.removeEventListener('submit', onSubmit, true); };
   }, [readOnly]);
 
+  if (data?.reason === 'past_due') {
+    return (
+      <div role="status" className="w-full border-b border-border bg-muted px-4 py-2 text-sm text-foreground flex items-center justify-center gap-2" data-billing-allowed>
+        <Lock className="h-4 w-4 text-primary" aria-hidden />
+        <span>Your last payment didn't go through. We'll keep retrying for about two weeks.</span>
+        {data.isOwner
+          ? <Link to="/settings/billing" className="font-medium underline">Update your card</Link>
+          : <span className="text-muted-foreground">Let your agency owner know.</span>}
+      </div>
+    );
+  }
   if (data?.mode !== 'read_only') return null;
   return (
     <div role="status" className="w-full border-b border-border bg-muted px-4 py-2 text-sm text-foreground flex items-center justify-center gap-2" data-billing-allowed>
       <Lock className="h-4 w-4 text-primary" aria-hidden />
-      <span>Your workspace is read-only until a plan is active.</span>
+      <span>Your plan has ended, so your workspace is view-only.</span>
       {data.isOwner
-        ? <Link to="/settings/billing" className="font-medium underline">Choose a plan</Link>
+        ? <Link to="/settings/billing" className="font-medium underline">Renew your plan</Link>
         : <span className="text-muted-foreground">Ask your agency owner to renew.</span>}
     </div>
   );

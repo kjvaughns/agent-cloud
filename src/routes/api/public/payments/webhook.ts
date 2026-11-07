@@ -50,6 +50,15 @@ async function processEvent(request: Request, environment: StripeEnv) {
    last_event_at: event.created, updated_at: new Date().toISOString(),
   }, { onConflict: 'environment,stripe_subscription_id' });
   if (error) throw error;
+  // Solo → Agency upgrade: once the Agency plan is paid, end the owner's Solo
+  // plan right away with a prorated credit so they never pay for both.
+  if (kind === 'agency' && ['active', 'trialing'].includes(subscription.status)) {
+   const { data: soloRows, error: soloError } = await supabaseAdmin.from('payment_subscriptions').select('stripe_subscription_id,status').eq('environment', environment).eq('user_id', userId).eq('kind', 'solo').in('status', ['active', 'trialing', 'past_due']);
+   if (soloError) throw soloError;
+   for (const solo of soloRows ?? []) {
+    await stripe.subscriptions.cancel(solo.stripe_subscription_id, { prorate: true, invoice_now: true });
+   }
+  }
   // Preview payments never mutate the real agency/profile billing fields.
   if (environment === 'live') {
    const active = subscriptionHasAccess(subscription.status, end);
