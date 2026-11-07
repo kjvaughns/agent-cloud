@@ -320,7 +320,7 @@ function PathPanel({ kind, selected, onHover, onPick, title, sub, price, icon }:
         <h2 className="mt-3 font-display text-2xl font-semibold md:mt-5 md:text-4xl">{title}</h2>
         <p className="mt-2 text-muted-foreground">{sub}</p>
       </div>
-      <div className="my-3 origin-center scale-75 md:my-6 md:scale-100 -my-2">{kind === "agent" ? <AgentScene active={selected} /> : <AgencyScene active={selected} />}</div>
+      <div className="-my-3 origin-center scale-75 md:my-6 md:scale-100">{kind === "agent" ? <AgentScene active={selected} /> : <AgencyScene active={selected} />}</div>
       <div className="flex items-end justify-between">
         <div className="text-sm text-muted-foreground"><span className="text-2xl font-semibold text-foreground">${price}</span>/month</div>
         <span className={cn("inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all", selected ? "bg-ink text-ink-foreground" : "bg-muted")}>

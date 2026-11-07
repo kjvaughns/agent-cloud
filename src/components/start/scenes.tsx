@@ -71,7 +71,7 @@ export function Constellation({ steps, index }: { steps: string[]; index: number
             {i < index && <span className="absolute inset-0 rounded-full bg-gold/50 blur-[3px]" />}
           </motion.div>
           {i < steps.length - 1 && (
-            <div className="h-px w-5 overflow-hidden bg-border sm:w-8">
+            <div className="h-px w-3 overflow-hidden bg-border sm:w-8">
               <motion.div className="h-full bg-gold" initial={false} animate={{ width: i < index ? "100%" : "0%" }} transition={{ duration: 0.6 }} />
             </div>
           )}
