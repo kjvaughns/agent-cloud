@@ -42,6 +42,7 @@ export function PageShell({ children, className }: { children: React.ReactNode; 
  */
 export function Panel({
   title,
+  blurb,
   action,
   children,
   className,
@@ -50,6 +51,7 @@ export function Panel({
   ...rest
 }: {
   title?: React.ReactNode;
+  blurb?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -60,11 +62,11 @@ export function Panel({
 } & Omit<React.HTMLAttributes<HTMLElement>, "title" | "style" | "className">) {
   return (
     <section
-      className={cn("flex flex-col min-w-0 rounded-[var(--radius)] border border-border bg-card", className)}
+      className={cn("flex flex-col min-w-0 rounded-[var(--radius)] border border-border bg-card shadow-[var(--shadow-card)]", className)}
       style={{ padding: pad ? "var(--pad)" : 0, ...style }}
       {...rest}
     >
-      {title && <SectionHeader label={title} action={action} />}
+      {title && <SectionHeader label={title} blurb={blurb} action={action} className={pad ? undefined : "px-[var(--pad)] pt-[var(--pad)]"} />}
       {children}
     </section>
   );
@@ -88,16 +90,16 @@ export function HeroBand({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col gap-3", className)}>
+    <div className={cn("flex flex-col gap-4", className)}>
       {(title || actions) && (
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             {title && (
-              <h1 className="font-display font-bold tracking-tight text-2xl" style={{ fontFamily: "var(--font-display)" }}>
+              <h1 className="font-display font-semibold tracking-tight text-2xl sm:text-3xl" style={{ fontFamily: "var(--font-display)" }}>
                 {title}
               </h1>
             )}
-            {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+            {subtitle && <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">{subtitle}</p>}
           </div>
           {actions && <div className="flex items-center gap-2 flex-wrap">{actions}</div>}
         </div>
@@ -106,3 +108,8 @@ export function HeroBand({
     </div>
   );
 }
+
+export {
+  HubCard, HubLayout, PreviewCard, AdvancedDrawer, ChoiceCards, SavedIndicator, type SaveStatus,
+} from "@/components/ui-kit/hub";
+export { EmptyCard, CardSkeleton, FilterChips } from "@/components/ui-kit/states";

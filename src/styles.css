@@ -83,9 +83,9 @@
    LIGHT theme (default token set on :root; warm paper canvas)
    ============================================================ */
 :root {
-  --radius: 0.75rem;
-  --gap: 14px;
-  --pad: 18px;
+  --radius: 1rem;
+  --gap: 20px;
+  --pad: 22px;
 
   /* Base surfaces */
   --background: oklch(0.951 0.012 85);
@@ -238,8 +238,8 @@
 /* ============================================================
    Density — set data-density on <html>
    ============================================================ */
-[data-density="compact"] { --gap: 10px; --pad: 13px; --radius: 10px; }
-[data-density="comfy"]   { --gap: 18px; --pad: 24px; --radius: 14px; }
+[data-density="compact"] { --gap: 12px; --pad: 15px; --radius: 12px; }
+[data-density="comfy"]   { --gap: 24px; --pad: 28px; --radius: 18px; }
 
 /* ============================================================
    Accent themes — set data-accent on <html>. Only the gold
