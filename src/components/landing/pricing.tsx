@@ -157,7 +157,7 @@ export function PricingSection({
                 variant={p.featured ? "default" : "outline"}
                 onClick={() => track(p.cta.event)}
               >
-                <Link to={p.cta.href}>{p.cta.label}</Link>
+                <a href={p.cta.href}>{p.cta.label}</a>
               </Button>
             </div>
           </FadeUp>
