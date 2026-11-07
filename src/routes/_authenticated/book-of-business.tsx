@@ -28,7 +28,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PolicyDetailSheet } from "@/components/book-of-business/policy-detail-sheet";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
+import { PageShell, Panel, HeroBand, FilterChips, AdvancedDrawer } from "@/components/page-shell";
 import { ScopeToggle, ScopeAgentFilter } from "@/components/scope-toggle";
 import { useScope } from "@/hooks/use-scope";
 import { SCOPES, type Scope } from "@/lib/scope";
@@ -39,6 +39,10 @@ export const Route = createFileRoute("/_authenticated/book-of-business")({
     meta: [
       { title: "Book of Business — Agent Cloud" },
       { name: "description", content: "All placed policies across your hierarchy with filtering, sorting, and export." },
+      { property: "og:title", content: "Book of Business — Agent Cloud" },
+      { property: "og:description", content: "All placed policies across your hierarchy with filtering, sorting, and export." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   validateSearch: (s: Record<string, unknown>): { policy?: string; scope?: Scope } => ({
@@ -231,9 +235,6 @@ function BookPage() {
                   <Link to="/carrier-sync"><RefreshCw className="h-4 w-4 mr-1.5" /> Sync from Carrier</Link>
                 </Button>
               )}
-              <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
-                <Download className="h-4 w-4 mr-1.5" /> Export CSV
-              </Button>
             </>
           }
         />
@@ -293,16 +294,6 @@ function BookPage() {
 
             <div className="flex-1" />
 
-            <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
-              <SelectTrigger className="w-[170px]"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {POLICY_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -313,6 +304,18 @@ function BookPage() {
               />
             </div>
           </div>
+
+          <FilterChips
+            className="mt-3"
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setStatusToggles(new Set()); setPage(0); }}
+            options={[
+              { value: "all", label: "All", count: allRows.length },
+              ...POLICY_STATUSES.filter((s) => (statusCounts.get(s.value) ?? 0) > 0).map((s) => ({
+                value: s.value as string, label: s.label, count: statusCounts.get(s.value) ?? 0,
+              })),
+            ]}
+          />
 
           {/* Active filter chips */}
           {activeChips.length > 0 && (
@@ -331,35 +334,6 @@ function BookPage() {
             Showing <span className="tnum text-foreground">{filtered.length}</span> of <span className="tnum text-foreground">{allRows.length}</span> policies
           </div>
         </Panel>
-
-        {/* Status summary toggle cards */}
-        <div className="grid grid-cols-2 gap-gap sm:grid-cols-3 lg:grid-cols-6">
-          {POLICY_STATUSES.map((s) => {
-            const active = statusToggles.has(s.value);
-            return (
-              <button
-                key={s.value}
-                onClick={() => toggleStatusCard(s.value)}
-                className={cn(
-                  "rounded-[var(--radius)] border p-3 text-left transition",
-                  s.cardCls,
-                  active ? "ring-2 ring-primary" : "hover:opacity-90",
-                )}
-              >
-                <div className="text-[10px] font-semibold uppercase tracking-[0.07em] opacity-80">{s.label}</div>
-                <div className="tnum font-display font-bold mt-1.5 text-[22px] leading-none" style={{ fontFamily: "var(--font-display)" }}>
-                  {number(statusCounts.get(s.value) ?? 0)}
-                </div>
-              </button>
-            );
-          })}
-          <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.07em] text-muted-foreground">Total</div>
-            <div className="tnum font-display font-bold mt-1.5 text-[22px] leading-none" style={{ fontFamily: "var(--font-display)" }}>
-              {number(allRows.length)}
-            </div>
-          </div>
-        </div>
 
         {/* Table */}
         <Panel pad={false} className="overflow-hidden">
@@ -461,6 +435,14 @@ function BookPage() {
             </div>
           )}
         </Panel>
+        <AdvancedDrawer label="export">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Download the {number(filtered.length)} policies matching your filters as a spreadsheet.</p>
+            <Button variant="outline" onClick={exportCSV} disabled={!filtered.length}>
+              <Download className="h-4 w-4 mr-1.5" /> Export CSV
+            </Button>
+          </div>
+        </AdvancedDrawer>
       </div>
 
       <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
