@@ -25,7 +25,7 @@ import { AiDailyBriefing } from "@/components/ai/daily-briefing";
 import { WorkQueue } from "@/components/work-queue";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { PageShell, Panel } from "@/components/page-shell";
+import { PageShell, Panel, AdvancedDrawer } from "@/components/page-shell";
 import { StatTile } from "@/components/ui/stat-tile";
 import { LinkAction } from "@/components/ui/section-label";
 import { Icon } from "@/components/ui/icon";
@@ -41,7 +41,7 @@ import { productionWindowEnd } from "@/lib/production/source";
 import { StaffDashboard } from "@/components/staff-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — Agent Cloud" }, { name: "description", content: "Your production, team and what needs attention today." }, { property: "og:title", content: "Dashboard — Agent Cloud" }, { property: "og:description", content: "Your production, team and what needs attention today." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: DashboardRoute,
 });
 
@@ -306,6 +306,7 @@ function Dashboard() {
 
           <OnboardingPanel feed={agencyFeed} loading={agencyFeedLoading} />
 
+          <AdvancedDrawer label="more insights: trends, enrollment, policy status">
           {/* Detailed analytics (preserved features) */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex gap-1">
@@ -390,6 +391,8 @@ function Dashboard() {
               ))}
             </div>
           </Panel>
+
+          </AdvancedDrawer>
 
           <AiDailyBriefing />
         </div>

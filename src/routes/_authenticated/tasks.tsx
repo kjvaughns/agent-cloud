@@ -2,8 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/hooks/use-server-fn";
-import { PageShell, Panel, HeroBand } from "@/components/page-shell";
-import { StatTile } from "@/components/ui/stat-tile";
+import { PageShell, Panel, HeroBand, HubLayout, SummaryCard, FilterChips, AdvancedDrawer } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +27,14 @@ import { EmptyState } from "@/components/empty-state";
 import { EMPTY_STATES, ghostFor } from "@/lib/empty-states";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
-  head: () => ({ meta: [{ title: "Tasks — Agent Cloud" }] }),
+  head: () => ({ meta: [
+    { title: "Tasks — Agent Cloud" },
+    { name: "description", content: "Follow-ups, reminders and work assigned across your team." },
+    { property: "og:title", content: "Tasks — Agent Cloud" },
+    { property: "og:description", content: "Follow-ups, reminders and work assigned across your team." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (s: Record<string, unknown>): { scope?: Scope } => ({
     scope: SCOPES.includes(s.scope as Scope) ? (s.scope as Scope) : undefined,
   }),
@@ -59,6 +65,7 @@ function TasksPage() {
   // Separate from scope: this asks whose task it is, not how wide to look.
   const [assignedByMe, setAssignedByMe] = useState(false);
   const [showDone, setShowDone] = useState(false);
+  const [focus, setFocus] = useState<"all" | "today" | "overdue" | "week">("all");
 
   const listFn = useServerFn(listTasks);
   const updateFn = useServerFn(updateTask);
@@ -88,38 +95,52 @@ function TasksPage() {
   const open = tasks.filter((t) => t.status !== "done" && t.status !== "cancelled");
   const overdue = open.filter((t) => t.due_date && t.due_date < today()).length;
   const dueToday = open.filter((t) => t.due_date === today()).length;
+  const weekEnd = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const thisWeek = open.filter((t) => t.due_date && t.due_date >= today() && t.due_date <= weekEnd).length;
+  const shown = tasks.filter((t) => {
+    if (focus === "all") return true;
+    if (!t.due_date) return false;
+    if (focus === "today") return t.due_date === today();
+    if (focus === "overdue") return t.due_date < today() && t.status !== "done";
+    return t.due_date >= today() && t.due_date <= weekEnd;
+  });
+  const nextUp = open.filter((t) => t.due_date).sort((a, b) => a.due_date!.localeCompare(b.due_date!))[0];
 
   return (
     <PageShell>
-      <div className="max-w-[1000px] mx-auto flex flex-col gap-[var(--gap)]">
+      <div className="max-w-[1200px] mx-auto flex flex-col gap-[var(--gap)]">
         <HeroBand
           title="Tasks"
           subtitle="Follow-ups, reminders, and work assigned across your team"
           actions={<NewTaskDialog onCreated={invalidate} />}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--gap)]">
-          <Panel><StatTile label="Open" value={String(open.length)} /></Panel>
-          <Panel><StatTile label="Due Today" value={String(dueToday)} tone={dueToday > 0 ? "gold" : undefined} /></Panel>
-          <Panel><StatTile label="Overdue" value={String(overdue)} tone={overdue > 0 ? "red" : undefined} /></Panel>
-        </div>
-
+        <HubLayout label="At a glance" preview={
+          <SummaryCard
+            title="Your tasks"
+            rows={[
+              { label: "Open", value: open.length },
+              { label: "Due today", value: dueToday, tone: dueToday > 0 ? "gold" : "default" },
+              { label: "Overdue", value: overdue, tone: overdue > 0 ? "red" : "default" },
+              { label: "This week", value: thisWeek },
+            ]}
+            footer={nextUp ? <>Next up: <span className="font-medium text-foreground">{nextUp.title}</span></> : "Nothing scheduled. Nice."}
+          />
+        }>
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 flex-wrap">
-            <ScopeToggle />
-            <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-              <Checkbox checked={assignedByMe} onCheckedChange={(v) => setAssignedByMe(!!v)} />
-              Assigned by me
-            </label>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-            <Checkbox checked={showDone} onCheckedChange={(v) => setShowDone(!!v)} />
-            Show completed
-          </label>
+          <FilterChips value={focus} onChange={setFocus} options={[
+            { value: "all", label: "All", count: open.length },
+            { value: "today", label: "Today", count: dueToday },
+            { value: "week", label: "This week", count: thisWeek },
+            { value: "overdue", label: "Overdue", count: overdue },
+          ]} />
+          <ScopeToggle />
         </div>
 
         {isLoading ? (
           <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+        ) : shown.length === 0 && focus !== "all" ? (
+          <Panel><p className="text-sm text-muted-foreground">Nothing here. Switch to All to see every task.</p></Panel>
         ) : tasks.length === 0 ? (
           <EmptyState
             title={EMPTY_STATES.tasks.title}
@@ -137,7 +158,7 @@ function TasksPage() {
         ) : (
           <Panel pad={false} className="overflow-hidden">
             <ul className="divide-y divide-border-soft">
-              {tasks.map((t) => {
+              {shown.map((t) => {
                 const due = dueLabel(t.due_date);
                 const done = t.status === "done";
                 return (
@@ -184,6 +205,20 @@ function TasksPage() {
             </ul>
           </Panel>
         )}
+
+        <AdvancedDrawer label="more filters">
+          <div className="flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <Checkbox checked={assignedByMe} onCheckedChange={(v) => setAssignedByMe(!!v)} />
+              Only tasks I assigned to others
+            </label>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <Checkbox checked={showDone} onCheckedChange={(v) => setShowDone(!!v)} />
+              Show completed tasks
+            </label>
+          </div>
+        </AdvancedDrawer>
+        </HubLayout>
       </div>
     </PageShell>
   );
