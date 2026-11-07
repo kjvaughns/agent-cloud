@@ -955,12 +955,96 @@ function DownlineTab() {
     .sort((a: any, b: any) => (a.id === (data as any)?.selfId ? -1 : b.id === (data as any)?.selfId ? 1 : 0));
   const visibleCarriers = carrierFilter === "all" ? carriers : carriers.filter((c: any) => c.id === carrierFilter);
 
+  const PENDING = ["requested", "submitted", "assigned", "processing", "draft"];
+  const coverage = (a: any) => {
+    let active = 0, pending = 0;
+    const missing: any[] = [];
+    carriers.forEach((c: any) => {
+      const r = map.get(`${a.id}:${c.id}`);
+      if (r?.status === "active") active++;
+      else if (r && PENDING.includes(r.status)) pending++;
+      else missing.push(c);
+    });
+    return { active, pending, missing };
+  };
+  const chipCounts = {
+    all: filteredAgents.length,
+    full: filteredAgents.filter((a: any) => coverage(a).missing.length === 0).length,
+    missing: filteredAgents.filter((a: any) => coverage(a).missing.length > 0).length,
+    pending: filteredAgents.filter((a: any) => coverage(a).pending > 0).length,
+  };
+  const chipAgents = filteredAgents.filter((a: any) => {
+    const cv = coverage(a);
+    return chip === "all" ? true : chip === "full" ? cv.missing.length === 0 : chip === "missing" ? cv.missing.length > 0 : cv.pending > 0;
+  });
+
   return (
-    <>
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-sm text-muted-foreground tnum">
-          {agents.length} agents · {carriers.length} carriers · <span className="text-success font-medium">{activeCnt} active</span> · <span className="text-warning font-medium">{pendingCnt} pending</span>{issueCnt > 0 && <> · <span className="text-destructive font-medium">{issueCnt} issue{issueCnt === 1 ? "" : "s"}</span></>}
+    <HubLayout label="Coverage" preview={
+      <SummaryCard title="Team coverage" rows={[
+        { label: "Agents", value: agents.length },
+        { label: "Agency carriers", value: carriers.length },
+        { label: "Active appointments", value: activeCnt, tone: "green" },
+        { label: "Pending", value: pendingCnt, tone: "gold" },
+        { label: "Issues", value: issueCnt, tone: issueCnt ? "red" : "default" },
+      ]} />
+    }>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <FilterChips value={chip} onChange={setChip} options={[
+          { value: "all", label: "All", count: chipCounts.all },
+          { value: "full", label: "Fully contracted", count: chipCounts.full },
+          { value: "missing", label: "Missing carriers", count: chipCounts.missing },
+          { value: "pending", label: "Pending", count: chipCounts.pending },
+        ]} />
+        <div className="flex items-center gap-2">
+          <Input className="h-9 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
+          <FilterChips value={view} onChange={setView} options={[{ value: "cards", label: "Cards" }, { value: "grid", label: "Grid" }]} />
         </div>
+      </div>
+
+      {view === "cards" ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {chipAgents.map((a: any) => {
+            const cv = coverage(a);
+            return (
+              <div key={a.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">
+                      {a.first_name} {a.last_name}
+                      {a.id === selfId && <span className="ml-2 rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-primary">You</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground tnum">
+                      {cv.active} of {carriers.length} active{cv.pending ? ` · ${cv.pending} pending` : ""}
+                    </div>
+                  </div>
+                  {cv.missing.length === 0
+                    ? <Badge variant="outline" className="border-success/40 text-success">Fully contracted</Badge>
+                    : <Badge variant="outline" className="border-warning/40 text-warning">Missing {cv.missing.length}</Badge>}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {carriers.map((c: any) => {
+                    const r = map.get(`${a.id}:${c.id}`);
+                    const st = r?.status === "active" ? "active" : r && PENDING.includes(r.status) ? "pending" : r?.status === "issue" ? "issue" : "missing";
+                    return (
+                      <button key={c.id} type="button" onClick={() => setCell({ agent: a, carrier: c, existing: r, level: levelMap.get(`${a.id}:${c.id}`) })}
+                        className={cn("rounded-full border px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/60",
+                          st === "active" && "border-success/30 bg-success/10 text-success",
+                          st === "pending" && "border-warning/30 bg-warning/10 text-warning",
+                          st === "issue" && "border-destructive/30 bg-destructive/10 text-destructive",
+                          st === "missing" && "border-dashed border-border text-muted-foreground")}>
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {chipAgents.length === 0 && <p className="text-sm text-muted-foreground">No agents match.</p>}
+        </div>
+      ) : (
+      <>
+      <div className="flex items-center justify-end gap-3 flex-wrap">
         <div className="flex gap-2 items-center">
           <Input className="h-8 w-44 text-sm" placeholder="Search agents…" value={agentSearch} onChange={(e) => setAgentSearch(e.target.value)} />
           <Select value={carrierFilter} onValueChange={setCarrierFilter}>
