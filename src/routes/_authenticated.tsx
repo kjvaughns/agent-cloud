@@ -10,7 +10,8 @@ import { WhiteLabelTheme } from "@/components/white-label-theme";
 import { DemoBanner } from "@/components/demo-banner";
 import { ReadOnlyGate } from "@/components/read-only-gate";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { SetupRedirect, PaywallRedirect } from "@/components/self-serve-furniture";
+import { SetupRedirect } from "@/components/self-serve-furniture";
+import { AccessGate } from "@/components/access-gate";
 import { requireSession } from "@/lib/require-session";
 
 function AuthErrorComponent({ error, reset }: ErrorComponentProps) {
@@ -93,7 +94,9 @@ function AuthenticatedLayout() {
           <ReadOnlyGate />
           <TopBar />
           <main className="flex-1 min-w-1 content-container">
-            <Outlet />
+            <AccessGate>
+              <Outlet />
+            </AccessGate>
           </main>
         </div>
       </div>
@@ -103,7 +106,6 @@ function AuthenticatedLayout() {
           content, and nesting it would put it inside the scroll container. */}
       <OnboardingChecklist />
       <SetupRedirect />
-      <PaywallRedirect />
     </SidebarProvider>
   );
 }
