@@ -85,31 +85,75 @@ function ContractingHome() {
     setTab("transfer-requests");
   };
 
+  // Five old tabs fold into three sections; old ?tab= links still land right.
+  const section: Section =
+    tab === "downline" && hasTeam ? "coverage"
+    : tab === "inbox" || tab === "transfer-requests" ? "requests"
+    : "my";
+  const [gridsOpen, setGridsOpen] = useState(tab === "comp-grids");
+  const go = (s: Section) => { setTab(s === "coverage" ? "downline" : s === "requests" ? "inbox" : "my"); setTransferPrefill(null); };
+
+  const sections: { value: Section; label: string }[] = [
+    { value: "my", label: "My appointments" },
+    ...(hasTeam ? [{ value: "coverage" as Section, label: "Team coverage" }] : []),
+    { value: "requests", label: "Requests" },
+  ];
+
   return (
     <PageShell>
-      <div className="space-y-4">
+      <div className="space-y-5">
         <HeroBand
-          title="Contracts"
-          subtitle="Carrier appointments, commission levels, writing numbers, and transfers — all in one place"
+          title="Contracting"
+          subtitle="Your carrier appointments, your team's coverage, and every request in one place."
         />
-        <Tabs value={tab} onValueChange={(v) => { setTab(v); if (v !== "transfer-requests") setTransferPrefill(null); }}>
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="my">Contracts</TabsTrigger>
-            {hasTeam && <TabsTrigger value="downline">Team matrix</TabsTrigger>}
-            <TabsTrigger value="comp-grids">Comp Grids</TabsTrigger>
-            <TabsTrigger value="transfer-requests">Transfer Requests</TabsTrigger>
-            <TabsTrigger value="inbox">Work Inbox</TabsTrigger>
-          </TabsList>
-          <TabsContent value="my" className="mt-4"><MyContractsTab onViewGrid={() => setTab("comp-grids")} onRequestTransfer={openTransferFor} /></TabsContent>
-          {hasTeam && <TabsContent value="downline" className="mt-4"><DownlineTab /></TabsContent>}
-          <TabsContent value="comp-grids" className="mt-4"><CompGridsContent /></TabsContent>
-          <TabsContent value="transfer-requests" className="mt-4">
-            <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
-          </TabsContent>
-          <TabsContent value="inbox" className="mt-4"><InboxTab /></TabsContent>
-        </Tabs>
+        <FilterChips value={section} options={sections} onChange={go} />
+
+        {section === "my" && (
+          <HubLayout label="At a glance" preview={<MySummary />}>
+            <MyContractsTab onViewGrid={() => setGridsOpen(true)} onRequestTransfer={openTransferFor} />
+            <AdvancedDrawer label="comp grids" open={gridsOpen} onOpenChange={setGridsOpen}>
+              <CompGridsContent />
+            </AdvancedDrawer>
+          </HubLayout>
+        )}
+        {section === "coverage" && <DownlineTab />}
+        {section === "requests" && (
+          <div className="space-y-6">
+            <InboxTab />
+            <Panel title="Transfer requests" blurb="Moving an appointment from another agency or upline to yours.">
+              <TransferRequestsTab carriers={carrierOptions} prefillCarrierId={transferPrefill} />
+            </Panel>
+            <p className="text-sm text-muted-foreground">
+              Staff tools (queue, documents, licensing) live in{" "}
+              <Link to="/contracting-ops" className="font-medium text-primary hover:underline">Contracting ops</Link>.
+            </p>
+          </div>
+        )}
       </div>
     </PageShell>
+  );
+}
+
+type Section = "my" | "coverage" | "requests";
+
+function MySummary() {
+  const { scope } = useScope();
+  const { data } = useQuery(myContractsQuery(scope as Scope));
+  const rows: any[] = ((data as any)?.contracts ?? (Array.isArray(data) ? data : [])) as any[];
+  const active = rows.filter((r) => r.status === "active").length;
+  const pending = rows.filter((r) => ["requested", "submitted", "assigned", "processing", "draft"].includes(r.status)).length;
+  const issues = rows.filter((r) => r.status === "issue").length;
+  const noNumber = rows.filter((r) => r.status === "active" && !r.writing_number).length;
+  return (
+    <SummaryCard
+      title="Your appointments"
+      rows={[
+        { label: "Active", value: active, tone: "green" },
+        { label: "In progress", value: pending, tone: "gold" },
+        { label: "Issues", value: issues, tone: issues ? "red" : "default" },
+        { label: "Missing writing number", value: noNumber, tone: noNumber ? "red" : "default" },
+      ]}
+    />
   );
 }
 
