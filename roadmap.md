@@ -16,3 +16,10 @@
 - [ ] Record the 7 how-to videos: needs recordings from the user (slots show "coming soon").
 - [ ] Day 1/3/7 nudge emails: not sent through app email (counts as marketing); needs a marketing email service.
 - [ ] Verify a full signup + test payment + setup in the preview by hand.
+
+## Agency settings simplification (plan 2026-11-07)
+- [x] 4 hubs (Identity, Carriers & Comp, Contracting, Connections), /settings lands on Agency settings, Roles → /team
+- [x] Identity hub with autosave, swatches, drag-drop logo, live preview
+- [x] Launchpad (progress ring, "Launch my agency"); /setup retired → /settings/agency
+- [ ] Carrier cards with on/off + "Use standard levels" preset (grid editor behind Advanced)
+- [ ] Sales feed card: paste link → Send test → pick message style; raw settings under Advanced
