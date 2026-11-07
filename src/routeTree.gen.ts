@@ -56,7 +56,6 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedSetupRouteImport } from './routes/_authenticated/setup'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
-import { Route as AuthenticatedWhiteLabelRouteImport } from './routes/_authenticated/white-label'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAgentsRouteImport } from './routes/admin.agents'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
@@ -154,12 +153,10 @@ import { Route as AuthenticatedSettingsSubAgenciesRouteImport } from './routes/_
 import { Route as AuthenticatedSettingsSupportRouteImport } from './routes/_authenticated/settings.support'
 import { Route as AuthenticatedSettingsTemplatesRouteImport } from './routes/_authenticated/settings.templates'
 import { Route as AuthenticatedSettingsUsageRouteImport } from './routes/_authenticated/settings.usage'
-import { Route as AuthenticatedSettingsWhiteLabelRouteImport } from './routes/_authenticated/settings.white-label'
 import { Route as AuthenticatedToolsLeadsRouteImport } from './routes/_authenticated/tools/leads'
 import { Route as AuthenticatedToolsQuoterRouteImport } from './routes/_authenticated/tools/quoter'
 import { Route as AgentAgentSlugTemplateSlugRouteImport } from './routes/agent.$agentSlug.$templateSlug'
 import { Route as ApiPublicAdminRouteImport } from './routes/api/public/admin'
-import { Route as ApiPublicBrandingRouteImport } from './routes/api/public/branding'
 import { Route as ApiPublicDemoRequestRouteImport } from './routes/api/public/demo-request'
 import { Route as ApiPublicFunnelApplyRouteImport } from './routes/api/public/funnel-apply'
 import { Route as ApiPublicFunnelViewRouteImport } from './routes/api/public/funnel-view'
@@ -435,11 +432,6 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
 const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
   id: '/team',
   path: '/team',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedWhiteLabelRoute = AuthenticatedWhiteLabelRouteImport.update({
-  id: '/white-label',
-  path: '/white-label',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -999,12 +991,6 @@ const AuthenticatedSettingsUsageRoute =
     path: '/usage',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsWhiteLabelRoute =
-  AuthenticatedSettingsWhiteLabelRouteImport.update({
-    id: '/white-label',
-    path: '/white-label',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
 const AuthenticatedToolsLeadsRoute = AuthenticatedToolsLeadsRouteImport.update({
   id: '/tools/leads',
   path: '/tools/leads',
@@ -1025,11 +1011,6 @@ const AgentAgentSlugTemplateSlugRoute =
 const ApiPublicAdminRoute = ApiPublicAdminRouteImport.update({
   id: '/api/public/admin',
   path: '/api/public/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBrandingRoute = ApiPublicBrandingRouteImport.update({
-  id: '/api/public/branding',
-  path: '/api/public/branding',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicDemoRequestRoute = ApiPublicDemoRequestRouteImport.update({
@@ -1264,7 +1245,6 @@ export interface FileRoutesByFullPath {
   '/setup': typeof AuthenticatedSetupRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
-  '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -1358,12 +1338,10 @@ export interface FileRoutesByFullPath {
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
-  '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
-  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -1446,7 +1424,6 @@ export interface FileRoutesByTo {
   '/setup': typeof AuthenticatedSetupRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/team': typeof AuthenticatedTeamRoute
-  '/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -1539,12 +1516,10 @@ export interface FileRoutesByTo {
   '/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/settings/usage': typeof AuthenticatedSettingsUsageRoute
-  '/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
-  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -1633,7 +1608,6 @@ export interface FileRoutesById {
   '/_authenticated/setup': typeof AuthenticatedSetupRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
-  '/_authenticated/white-label': typeof AuthenticatedWhiteLabelRoute
   '/admin/agents': typeof AdminAgentsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
@@ -1727,12 +1701,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/support': typeof AuthenticatedSettingsSupportRoute
   '/_authenticated/settings/templates': typeof AuthenticatedSettingsTemplatesRoute
   '/_authenticated/settings/usage': typeof AuthenticatedSettingsUsageRoute
-  '/_authenticated/settings/white-label': typeof AuthenticatedSettingsWhiteLabelRoute
   '/_authenticated/tools/leads': typeof AuthenticatedToolsLeadsRoute
   '/_authenticated/tools/quoter': typeof AuthenticatedToolsQuoterRoute
   '/agent/$agentSlug/$templateSlug': typeof AgentAgentSlugTemplateSlugRoute
   '/api/public/admin': typeof ApiPublicAdminRouteWithChildren
-  '/api/public/branding': typeof ApiPublicBrandingRoute
   '/api/public/demo-request': typeof ApiPublicDemoRequestRoute
   '/api/public/funnel-apply': typeof ApiPublicFunnelApplyRoute
   '/api/public/funnel-view': typeof ApiPublicFunnelViewRoute
@@ -1821,7 +1793,6 @@ export interface FileRouteTypes {
     | '/setup'
     | '/tasks'
     | '/team'
-    | '/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -1915,12 +1886,10 @@ export interface FileRouteTypes {
     | '/settings/support'
     | '/settings/templates'
     | '/settings/usage'
-    | '/settings/white-label'
     | '/tools/leads'
     | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/admin'
-    | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -2003,7 +1972,6 @@ export interface FileRouteTypes {
     | '/setup'
     | '/tasks'
     | '/team'
-    | '/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -2096,12 +2064,10 @@ export interface FileRouteTypes {
     | '/settings/support'
     | '/settings/templates'
     | '/settings/usage'
-    | '/settings/white-label'
     | '/tools/leads'
     | '/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/admin'
-    | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -2189,7 +2155,6 @@ export interface FileRouteTypes {
     | '/_authenticated/setup'
     | '/_authenticated/tasks'
     | '/_authenticated/team'
-    | '/_authenticated/white-label'
     | '/admin/agents'
     | '/admin/analytics'
     | '/admin/announcements'
@@ -2283,12 +2248,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/support'
     | '/_authenticated/settings/templates'
     | '/_authenticated/settings/usage'
-    | '/_authenticated/settings/white-label'
     | '/_authenticated/tools/leads'
     | '/_authenticated/tools/quoter'
     | '/agent/$agentSlug/$templateSlug'
     | '/api/public/admin'
-    | '/api/public/branding'
     | '/api/public/demo-request'
     | '/api/public/funnel-apply'
     | '/api/public/funnel-view'
@@ -2354,7 +2317,6 @@ export interface RootRouteChildren {
   SignupAgentRoute: typeof SignupAgentRoute
   AgentAgentSlugTemplateSlugRoute: typeof AgentAgentSlugTemplateSlugRoute
   ApiPublicAdminRoute: typeof ApiPublicAdminRouteWithChildren
-  ApiPublicBrandingRoute: typeof ApiPublicBrandingRoute
   ApiPublicDemoRequestRoute: typeof ApiPublicDemoRequestRoute
   ApiPublicFunnelApplyRoute: typeof ApiPublicFunnelApplyRoute
   ApiPublicFunnelViewRoute: typeof ApiPublicFunnelViewRoute
@@ -2714,13 +2676,6 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof AuthenticatedTeamRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/white-label': {
-      id: '/_authenticated/white-label'
-      path: '/white-label'
-      fullPath: '/white-label'
-      preLoaderRoute: typeof AuthenticatedWhiteLabelRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/admin/': {
@@ -3402,13 +3357,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsUsageRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/settings/white-label': {
-      id: '/_authenticated/settings/white-label'
-      path: '/white-label'
-      fullPath: '/settings/white-label'
-      preLoaderRoute: typeof AuthenticatedSettingsWhiteLabelRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
-    }
     '/_authenticated/tools/leads': {
       id: '/_authenticated/tools/leads'
       path: '/tools/leads'
@@ -3435,13 +3383,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/admin'
       fullPath: '/api/public/admin'
       preLoaderRoute: typeof ApiPublicAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/branding': {
-      id: '/api/public/branding'
-      path: '/api/public/branding'
-      fullPath: '/api/public/branding'
-      preLoaderRoute: typeof ApiPublicBrandingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/demo-request': {
@@ -3911,7 +3852,6 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsSupportRoute: typeof AuthenticatedSettingsSupportRoute
   AuthenticatedSettingsTemplatesRoute: typeof AuthenticatedSettingsTemplatesRoute
   AuthenticatedSettingsUsageRoute: typeof AuthenticatedSettingsUsageRoute
-  AuthenticatedSettingsWhiteLabelRoute: typeof AuthenticatedSettingsWhiteLabelRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
@@ -3936,7 +3876,6 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsSupportRoute: AuthenticatedSettingsSupportRoute,
   AuthenticatedSettingsTemplatesRoute: AuthenticatedSettingsTemplatesRoute,
   AuthenticatedSettingsUsageRoute: AuthenticatedSettingsUsageRoute,
-  AuthenticatedSettingsWhiteLabelRoute: AuthenticatedSettingsWhiteLabelRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
@@ -3977,7 +3916,6 @@ interface AuthenticatedRouteChildren {
   AuthenticatedSetupRoute: typeof AuthenticatedSetupRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
-  AuthenticatedWhiteLabelRoute: typeof AuthenticatedWhiteLabelRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
@@ -4027,7 +3965,6 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedSetupRoute: AuthenticatedSetupRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
-  AuthenticatedWhiteLabelRoute: AuthenticatedWhiteLabelRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,
   AuthenticatedAccountMyLandingPageRoute:
@@ -4130,7 +4067,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignupAgentRoute: SignupAgentRoute,
   AgentAgentSlugTemplateSlugRoute: AgentAgentSlugTemplateSlugRoute,
   ApiPublicAdminRoute: ApiPublicAdminRouteWithChildren,
-  ApiPublicBrandingRoute: ApiPublicBrandingRoute,
   ApiPublicDemoRequestRoute: ApiPublicDemoRequestRoute,
   ApiPublicFunnelApplyRoute: ApiPublicFunnelApplyRoute,
   ApiPublicFunnelViewRoute: ApiPublicFunnelViewRoute,

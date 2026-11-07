@@ -243,9 +243,6 @@ function InvitePage({ options }: { options: any }) {
                 <div className="font-medium text-sm flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-primary" />
                   <span>Agency Owner</span>
-                  <span className="inline-flex items-center rounded-full bg-primary/15 text-primary border border-primary/30 px-2 py-0.5 text-[10px] font-semibold ml-1">
-                    White Label
-                  </span>
                   {invitedRole === "agency_owner" && <CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
