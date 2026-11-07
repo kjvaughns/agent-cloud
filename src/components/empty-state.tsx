@@ -71,7 +71,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[var(--radius)] border border-dashed border-border bg-surface-2/30",
+        "relative overflow-hidden rounded-2xl border border-dashed border-border bg-card/60",
         // Generous on a desktop, not on a phone: 48px of vertical padding on a
         // 375px screen pushes the CTA below the fold, and a call to action you
         // have to scroll to is not one.
