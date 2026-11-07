@@ -30,3 +30,6 @@
 - [x] Group 1 daily work: Dashboard (More insights drawer), Clients (quick actions), Pipeline (chips + More menu), Book (status chips, export in Advanced), Tasks (focus chips + summary), Calendar (Coming up column)
 - [ ] Group 1 leftover: client detail stacked cards
 - [ ] Groups 2–6: Money, Agency & team, Contracting, Account & settings, Nova/Resources/Tools
+
+## Dashboard action banner
+- [x] Combine profile reminders, personal setup progress, and work items into one compact banner; verified real signed-in counts, checklist, profile navigation, dismissal, and desktop/phone layouts without overflow.
