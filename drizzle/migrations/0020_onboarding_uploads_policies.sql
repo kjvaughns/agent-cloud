@@ -1,0 +1,3 @@
+CREATE POLICY "onboarding uploads own read" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'onboarding-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "onboarding uploads own insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'onboarding-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
+CREATE POLICY "onboarding uploads own delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'onboarding-uploads' AND (storage.foldername(name))[1] = auth.uid()::text);
