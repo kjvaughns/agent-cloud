@@ -27,7 +27,7 @@ export const getProducerFile = createServerFn({ method: "POST" })
       if (!owner.data && !staff.data && !admin.data) throw new Error("Not allowed");
     }
     const [p, docs, bg, ag, cp] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,street_address,city,state,zip_code,drivers_license_expiry").eq("id", agentId).maybeSingle(),
+      supabaseAdmin.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,street_address,city,state,zip_code,drivers_license_expiry,ssn_last4").eq("id", agentId).maybeSingle(),
       supabaseAdmin.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,carrier_name,policy_number,coverage_amount,certificate_number").eq("agent_id", agentId),
       supabaseAdmin.from("background_questions").select("question_number,answer,explanation").eq("agent_id", agentId),
       supabaseAdmin.from("producer_agreements").select("signature_name,signed_date,agreement_version").eq("agent_id", agentId).maybeSingle(),
@@ -66,4 +66,45 @@ export const saveGuidedProfile = createServerFn({ method: "POST" })
     const { error } = await context.supabase.from("profiles").update(patch as never).eq("id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/** Saves the agent's own SSN, encrypted server-side; only the last 4 is stored readable. */
+export const saveMySsn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ ssn: z.string().max(20) }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { normalizeSsn, encryptSsn } = await import("@/lib/producer/ssn-crypto.server");
+    const ssn = normalizeSsn(data.ssn);
+    if (!ssn) throw new Error("Enter a valid 9-digit Social Security number");
+    const { error } = await context.supabase.from("profiles")
+      .update({ ssn_encrypted: await encryptSsn(ssn), ssn_last4: ssn.slice(5) } as never).eq("id", context.userId);
+    if (error) throw new Error(error.message);
+    return { last4: ssn.slice(5) };
+  });
+
+/** Reveals an agent's full SSN to their owner/contracting staff. Every reveal is logged. */
+export const revealProducerSsn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ agentId: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: t } = await supabaseAdmin.from("profiles").select("organization_id,ssn_encrypted").eq("id", data.agentId).maybeSingle();
+    if (!t) throw new Error("Agent not found");
+    if (data.agentId !== userId) {
+      const org = t.organization_id as string | null;
+      if (!org) throw new Error("Not allowed");
+      const [owner, staff, admin] = await Promise.all([
+        supabase.rpc("is_org_owner", { _org: org }),
+        supabase.rpc("can_view_contracting", { _org: org }),
+        supabase.rpc("is_admin_of_agent", { _agent: data.agentId }),
+      ]);
+      if (!owner.data && !staff.data && !admin.data) throw new Error("Not allowed");
+    }
+    if (!t.ssn_encrypted) return { ssn: null };
+    const { decryptSsn } = await import("@/lib/producer/ssn-crypto.server");
+    const plain = await decryptSsn(t.ssn_encrypted as string);
+    if (!plain) throw new Error("This SSN was saved in an older format — ask the agent to re-enter it");
+    await supabaseAdmin.from("ssn_audit_log").insert({ agent_id: data.agentId, revealed_by: userId } as never);
+    return { ssn: `${plain.slice(0, 3)}-${plain.slice(3, 5)}-${plain.slice(5)}` };
   });

@@ -74,7 +74,7 @@ const DocInput = z.object({
   // nobody could write to.
   doc_type: z.enum([
     "pdb_report", "eo_certificate", "aml_certificate",
-    "government_id", "voided_check", "background_questionnaire", "w9", "other_document",
+    "government_id", "drivers_license_front", "drivers_license_back", "voided_check", "background_questionnaire", "w9", "other_document",
   ]),
   file_path: z.string().trim().min(1).max(500).optional().nullable(),
   file_name: z.string().trim().min(1).max(200).optional().nullable(),
