@@ -102,8 +102,8 @@ function GetStarted() {
       case 1: return /^\d{5,10}$/.test(f.npn_number);
       case 2: return f.street_address && f.city && f.state && f.zip_code;
       case 3: return (ssnLast4 || ssn.replace(/\D/g, "").length === 9) && (dlFront.has || dlFront.file) && (dlBack.has || dlBack.file);
-      case 4: return (eo.has || eo.file) && eo.expiration_date;
-      case 5: return (aml.has || aml.file) && aml.expiration_date;
+      case 4: return true;
+      case 5: return true;
       case 6: return answers.every((a) => a.answer !== null && (!a.answer || a.explanation.trim()));
       case 7: return signature.trim().length >= 2;
     }
@@ -121,8 +121,8 @@ function GetStarted() {
         if (dlFront.file) { await upload("drivers_license_front", dlFront.file, {}); setDlFront({ file: null, has: true }); }
         if (dlBack.file) { await upload("drivers_license_back", dlBack.file, {}); setDlBack({ file: null, has: true }); }
       }
-      if (step === 4) await upload("eo_certificate", eo.file, { start_date: eo.start_date, expiration_date: eo.expiration_date, policy_number: eo.policy_number, carrier_name: eo.carrier_name, coverage_amount: eo.coverage_amount });
-      if (step === 5) await upload("aml_certificate", aml.file, { start_date: aml.start_date, expiration_date: aml.expiration_date, provider_name: aml.provider_name });
+      if (step === 4 && (eo.file || eo.has || eo.expiration_date || eo.policy_number)) await upload("eo_certificate", eo.file, { start_date: eo.start_date, expiration_date: eo.expiration_date, policy_number: eo.policy_number, carrier_name: eo.carrier_name, coverage_amount: eo.coverage_amount });
+      if (step === 5 && (aml.file || aml.has || aml.expiration_date)) await upload("aml_certificate", aml.file, { start_date: aml.start_date, expiration_date: aml.expiration_date, provider_name: aml.provider_name });
       if (step === 7) {
         await signFn({ data: { signature_name: signature, answers: answers.map((a, i) => ({ question_number: i + 1, answer: !!a.answer, explanation: a.explanation || null })) } });
         qc.invalidateQueries();
@@ -209,6 +209,7 @@ function GetStarted() {
                 <Field label="Insurance company"><Input value={eo.carrier_name} onChange={(e) => setEo((s) => ({ ...s, carrier_name: e.target.value }))} /></Field>
               </div>
               <Field label="Coverage limit"><Input placeholder="$1,000,000" value={eo.coverage_amount} onChange={(e) => setEo((s) => ({ ...s, coverage_amount: e.target.value }))} /></Field>
+              <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">Don't have it yet? Just tap Continue — you can upload it anytime from <Link to="/account/producer-profile" className="font-medium text-primary hover:underline">your Producer Profile</Link>.</p>
             </Section>
           )}
           {step === 5 && (
@@ -218,6 +219,7 @@ function GetStarted() {
                 <Field label="Completed on"><Input type="date" value={aml.start_date} onChange={(e) => setAml((s) => ({ ...s, start_date: e.target.value }))} /></Field>
                 <Field label="Expiration date"><Input type="date" value={aml.expiration_date} onChange={(e) => setAml((s) => ({ ...s, expiration_date: e.target.value }))} /></Field>
               </div>
+              <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">Don't have it yet? Just tap Continue — you can upload it anytime from <Link to="/account/producer-profile" className="font-medium text-primary hover:underline">your Producer Profile</Link>.</p>
             </Section>
           )}
           {step === 6 && (
