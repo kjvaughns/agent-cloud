@@ -10884,6 +10884,7 @@ export type Database = {
         Args: { _category: string; _profile: string }
         Returns: boolean
       }
+      may_read_org_folder: { Args: { _folder: string }; Returns: boolean }
       may_write_academy_media: { Args: { _folder: string }; Returns: boolean }
       may_write_org_branding: { Args: { _folder: string }; Returns: boolean }
       my_org_ids: { Args: never; Returns: string[] }
