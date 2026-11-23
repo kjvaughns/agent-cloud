@@ -347,12 +347,12 @@ function Welcome({ uplineName }: { uplineName: string }) {
       </div>
       <h2 className="text-2xl font-bold">You're in</h2>
       <p className="text-muted-foreground">
-        You've joined <strong>{uplineName}'s</strong> team. Your dashboard shows the next step
-        towards being ready to sell — one at a time, and it saves as you go.
+        You've joined <strong>{uplineName}'s</strong> team. Next, a few quick steps set up your producer profile so your
+        agency can get you contracted. It saves as you go.
       </p>
       {/* A full page load rather than a client navigation: the session was just
           created, and the app shell needs to boot with it. */}
-      <Button asChild className="mt-2"><a href="/dashboard">Go to my dashboard →</a></Button>
+      <Button asChild className="mt-2"><a href="/account/get-started">Set up my profile →</a></Button>
     </Card>
   );
 }

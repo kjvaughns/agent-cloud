@@ -11,6 +11,7 @@ import { getAgentDetail } from "@/lib/team.functions";
 import { getAgentOnboarding, type OnboardingStep } from "@/lib/agent-onboarding.functions";
 import { AgentContractingTab } from "@/components/contracting/agent-contracting-tab";
 import { cn } from "@/lib/utils";
+import { ProducerFileView } from "@/components/producer/producer-file-view";
 
 /**
  * The agency owner's view of one agent.
@@ -32,7 +33,7 @@ import { cn } from "@/lib/utils";
  * outstanding, and what the owner can clear themselves — and deliberately not
  * the agent's personal details.
  */
-const TABS = ["overview", "readiness", "contracting"] as const;
+const TABS = ["overview", "readiness", "file", "contracting"] as const;
 type AgentTab = (typeof TABS)[number];
 
 export const Route = createFileRoute("/_authenticated/agency/agents/$agentId")({
@@ -164,6 +165,7 @@ function AgentView() {
           <TabsTrigger value="readiness">
             Readiness{outstanding.length ? ` (${outstanding.length})` : ""}
           </TabsTrigger>
+          <TabsTrigger value="file">Producer file</TabsTrigger>
           <TabsTrigger value="contracting">Contracting</TabsTrigger>
         </TabsList>
 
@@ -226,6 +228,10 @@ function AgentView() {
               </ul>
             )}
           </Panel>
+        </TabsContent>
+
+        <TabsContent value="file" className="mt-4">
+          <ProducerFileView agentId={agentId} />
         </TabsContent>
 
         <TabsContent value="contracting" className="mt-4 space-y-4">

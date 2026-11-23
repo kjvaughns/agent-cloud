@@ -1,0 +1,22 @@
+/** The carrier background questionnaire. Position (1-based) is the stored question_number. */
+export const BACKGROUND_QUESTIONS: { id: string; text: string }[] = [
+  { id: "criminal", text: "Have you ever been charged with, convicted of, or pled guilty or no contest to any felony or misdemeanor, or to any violation of federal/state insurance, securities, or investment laws or regulations? Have you ever been placed on probation?" },
+  { id: "investigation", text: "Are you currently, or have you ever been, under investigation, subject to any pending indictments, or involved in lawsuits or legal proceedings—especially involving an insurance company?" },
+  { id: "fraud_accused", text: "Have you ever been accused or alleged to have engaged in fraud?" },
+  { id: "fraud_found", text: "Have you ever been found, determined, or adjudicated to have engaged in fraud?" },
+  { id: "terminated", text: "Has any insurance/financial services company or broker-dealer ever terminated your contract/appointment, or permitted you to resign, for reasons other than lack of production?" },
+  { id: "appointment_denied", text: "Have you ever had an insurance company appointment terminated for cause, or been denied an appointment?" },
+  { id: "chargeback", text: "Does any insurer, insured, or other party claim any commission chargeback or other indebtedness from you arising from insurance business?" },
+  { id: "bond_eo", text: "Has any lawsuit or claim ever been made against your surety/bond company or Errors & Omissions (E&O) carrier arising from your sales/business practices, or have you ever been denied surety bonding or E&O coverage?" },
+  { id: "license_action", text: "Have you ever had an insurance or securities license denied, suspended, canceled, or revoked?" },
+  { id: "regulator_cause", text: "Has any state or federal regulator ever determined that you were a cause of an insurance- or investment-related business having its authorization denied, suspended, revoked, restricted, or otherwise limited?" },
+  { id: "other_license", text: "Has any state or federal agency ever revoked or suspended a license you held as an attorney, accountant, or federal contractor?" },
+  { id: "false_statement", text: "Has any state or federal agency ever found that you made a false statement/omission, or acted dishonestly, unfairly, or unethically?" },
+  { id: "license_gaps", text: "Have you had any gaps or interruptions in required licensing (for any reason)?" },
+  { id: "complaints", text: "Has any state, federal, or self-regulatory authority ever filed a complaint against you, or fined/sanctioned/censured/penalized/disciplined you for violating laws or regulations? Have you ever been the subject of a consumer-initiated complaint?" },
+  { id: "bankruptcy", text: "Have you personally, or has any insurance/securities brokerage firm with which you were associated, ever filed for or been declared bankrupt?" },
+  { id: "judgments", text: "Have you ever had any judgments, garnishments, or liens filed against you?" },
+  { id: "financial_institution", text: "Are you connected in any way (owner, employee, contractor, officer, etc.) with a bank, savings & loan, lending company, or other financial institution?" },
+  { id: "alias", text: "Have you ever used any other name, alias, or legal name variation (including maiden name or former legal name)?" },
+  { id: "tax", text: "Do you have any unresolved or pending matters with the IRS or any other tax authority?" },
+];

@@ -79,6 +79,7 @@ import { Route as JoinSlugRouteImport } from './routes/join.$slug'
 import { Route as MyagentAgentSlugRouteImport } from './routes/myagent.$agentSlug'
 import { Route as SignupAgentRouteImport } from './routes/signup_.agent'
 import { Route as AuthenticatedAccountFaqRouteImport } from './routes/_authenticated/account/faq'
+import { Route as AuthenticatedAccountGetStartedRouteImport } from './routes/_authenticated/account/get-started'
 import { Route as AuthenticatedAccountHelpRouteImport } from './routes/_authenticated/account/help'
 import { Route as AuthenticatedAccountMyLandingPageRouteImport } from './routes/_authenticated/account/my-landing-page'
 import { Route as AuthenticatedAccountProducerProfileRouteImport } from './routes/_authenticated/account/producer-profile'
@@ -546,6 +547,12 @@ const AuthenticatedAccountFaqRoute = AuthenticatedAccountFaqRouteImport.update({
   path: '/account/faq',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAccountGetStartedRoute =
+  AuthenticatedAccountGetStartedRouteImport.update({
+    id: '/account/get-started',
+    path: '/account/get-started',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedAccountHelpRoute =
   AuthenticatedAccountHelpRouteImport.update({
     id: '/account/help',
@@ -1248,6 +1255,7 @@ export interface FileRoutesByFullPath {
   '/signup/agent': typeof SignupAgentRoute
   '/admin/': typeof AdminIndexRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/account/get-started': typeof AuthenticatedAccountGetStartedRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
@@ -1424,6 +1432,7 @@ export interface FileRoutesByTo {
   '/signup/agent': typeof SignupAgentRoute
   '/admin': typeof AdminIndexRoute
   '/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/account/get-started': typeof AuthenticatedAccountGetStartedRoute
   '/account/help': typeof AuthenticatedAccountHelpRoute
   '/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
@@ -1605,6 +1614,7 @@ export interface FileRoutesById {
   '/signup_/agent': typeof SignupAgentRoute
   '/admin/': typeof AdminIndexRoute
   '/_authenticated/account/faq': typeof AuthenticatedAccountFaqRoute
+  '/_authenticated/account/get-started': typeof AuthenticatedAccountGetStartedRoute
   '/_authenticated/account/help': typeof AuthenticatedAccountHelpRoute
   '/_authenticated/account/my-landing-page': typeof AuthenticatedAccountMyLandingPageRoute
   '/_authenticated/account/producer-profile': typeof AuthenticatedAccountProducerProfileRoute
@@ -1787,6 +1797,7 @@ export interface FileRouteTypes {
     | '/signup/agent'
     | '/admin/'
     | '/account/faq'
+    | '/account/get-started'
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
@@ -1963,6 +1974,7 @@ export interface FileRouteTypes {
     | '/signup/agent'
     | '/admin'
     | '/account/faq'
+    | '/account/get-started'
     | '/account/help'
     | '/account/my-landing-page'
     | '/account/producer-profile'
@@ -2143,6 +2155,7 @@ export interface FileRouteTypes {
     | '/signup_/agent'
     | '/admin/'
     | '/_authenticated/account/faq'
+    | '/_authenticated/account/get-started'
     | '/_authenticated/account/help'
     | '/_authenticated/account/my-landing-page'
     | '/_authenticated/account/producer-profile'
@@ -2796,6 +2809,13 @@ declare module '@tanstack/react-router' {
       path: '/account/faq'
       fullPath: '/account/faq'
       preLoaderRoute: typeof AuthenticatedAccountFaqRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/account/get-started': {
+      id: '/_authenticated/account/get-started'
+      path: '/account/get-started'
+      fullPath: '/account/get-started'
+      preLoaderRoute: typeof AuthenticatedAccountGetStartedRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/account/help': {
@@ -3855,6 +3875,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
   AuthenticatedAccountFaqRoute: typeof AuthenticatedAccountFaqRoute
+  AuthenticatedAccountGetStartedRoute: typeof AuthenticatedAccountGetStartedRoute
   AuthenticatedAccountHelpRoute: typeof AuthenticatedAccountHelpRoute
   AuthenticatedAccountMyLandingPageRoute: typeof AuthenticatedAccountMyLandingPageRoute
   AuthenticatedAccountProducerProfileRoute: typeof AuthenticatedAccountProducerProfileRoute
@@ -3904,6 +3925,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
   AuthenticatedAccountFaqRoute: AuthenticatedAccountFaqRoute,
+  AuthenticatedAccountGetStartedRoute: AuthenticatedAccountGetStartedRoute,
   AuthenticatedAccountHelpRoute: AuthenticatedAccountHelpRoute,
   AuthenticatedAccountMyLandingPageRoute:
     AuthenticatedAccountMyLandingPageRoute,

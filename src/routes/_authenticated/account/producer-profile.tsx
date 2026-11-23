@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { NpnLookupLink } from "@/components/npn-lookup-link";
 import { PageShell, HeroBand } from "@/components/page-shell";
+import { BACKGROUND_QUESTIONS } from "@/lib/producer/background-questions";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
   head: () => ({
@@ -80,18 +81,7 @@ const WHY: Record<string, string> = {
   "AML Certificate":   "Carriers ask for anti-money-laundering training before annuity business.",
 };
 
-const BACKGROUND_QUESTIONS = [
-  { id: "felony", text: "Have you ever been convicted of a felony?" },
-  { id: "misdemeanor", text: "Have you ever been convicted of any crime other than a minor traffic violation?" },
-  { id: "license_action", text: "Have you ever had an insurance license suspended, revoked, or refused in any state?" },
-  { id: "regulatory", text: "Have you ever been subject to a regulatory action, fine, or sanction by any state insurance department?" },
-  { id: "bankruptcy", text: "Have you filed for bankruptcy within the last 10 years?" },
-  { id: "civil_judgment", text: "Do you have any unsatisfied judgments or liens against you?" },
-  { id: "terminated", text: "Have you ever been terminated for cause by any insurance company, broker-dealer, or financial institution?" },
-  { id: "investigation_pending", text: "Are you currently the subject of any pending investigation by an insurance department, FINRA, or law enforcement?" },
-  { id: "restraining_order", text: "Have you ever had a restraining order or injunction entered against you in connection with a financial services business?" },
-  { id: "military_discharge", text: "Have you ever been discharged from the military under other than honorable conditions?" },
-];
+
 
 // The names here are the ones the contracting review queue understands —
 // `DOCUMENT_REQUIREMENTS` in `@/lib/contracting-ops/types`. They used to be a
