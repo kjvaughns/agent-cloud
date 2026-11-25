@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { NpnLookupLink } from "@/components/npn-lookup-link";
 import { PageShell, HeroBand } from "@/components/page-shell";
 import { BACKGROUND_QUESTIONS } from "@/lib/producer/background-questions";
+import { saveMySsn } from "@/lib/producer-file.functions";
 
 export const Route = createFileRoute("/_authenticated/account/producer-profile")({
   head: () => ({
@@ -110,7 +111,19 @@ function ProducerProfilePage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const search = Route.useSearch();
-  const [tab, setTab] = useState<ProfileTab>(search.tab ?? "profile");
+  const initial = search.tab;
+  const [tab, setTabRaw] = useState<ProfileTab>(initial === "contracting" || initial === "documents" || !initial ? "profile" : initial);
+  const setTab = (t: ProfileTab) => {
+    if (t === "contracting" || t === "documents" || t === "profile") {
+      setTabRaw("profile");
+      const id = t === "contracting" ? "pp-contracting" : t === "documents" ? "pp-eo-aml" : "pp-personal";
+      setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    } else setTabRaw(t);
+  };
+  useEffect(() => {
+    if (initial === "contracting" || initial === "documents") setTab(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { data, isLoading } = useQuery({
     queryKey: ["account", "producerProfile"],
     queryFn: () => getProducerProfile(),
@@ -154,9 +167,7 @@ function ProducerProfilePage() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as ProfileTab)}>
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="flex w-max">
-            <TabsTrigger value="profile" className="whitespace-nowrap">Profile Information</TabsTrigger>
-            <TabsTrigger value="contracting" className="whitespace-nowrap">Contracting</TabsTrigger>
-            <TabsTrigger value="documents" className="whitespace-nowrap">Documents</TabsTrigger>
+            <TabsTrigger value="profile" className="whitespace-nowrap">Producer Profile</TabsTrigger>
             <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
             <TabsTrigger value="integrations" className="whitespace-nowrap">Integrations</TabsTrigger>
           </TabsList>
@@ -164,14 +175,14 @@ function ProducerProfilePage() {
 
         <TabsContent value="profile" className="mt-4 space-y-4">
           <ProfileInfoTab profile={profile} documents={documents} agreement={agreement} onSaved={invalidate} />
-        </TabsContent>
-
-        <TabsContent value="contracting" className="mt-4">
-          <ContractingProfileTab />
-        </TabsContent>
-
-        <TabsContent value="documents" className="mt-4">
-          <DocumentsTab documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
+          <section id="pp-contracting" className="scroll-mt-24 space-y-2">
+            <h2 className="text-lg font-semibold">Licensing &amp; contracting</h2>
+            <ContractingProfileTab />
+          </section>
+          <section id="pp-documents" className="scroll-mt-24 space-y-2">
+            <h2 className="text-lg font-semibold">Other documents</h2>
+            <DocumentsTab documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
+          </section>
         </TabsContent>
 
         <TabsContent value="background" className="mt-4">
@@ -324,11 +335,17 @@ function ProfileInfoTab({ profile, documents, agreement, onSaved }: { profile: a
 
   return (
     <div className="space-y-4">
-      <PersonalCard profile={profile} onSave={save} />
-      <AddressCard profile={profile} onSave={save} />
-      <ContactCard profile={profile} onSave={save} />
-      <EoCard doc={eoDoc} onSaved={onSaved} />
-      <AmlCard doc={amlDoc} onSaved={onSaved} />
+      <div id="pp-personal" className="scroll-mt-24 space-y-4">
+        <PersonalCard profile={profile} onSave={save} />
+        <AddressCard profile={profile} onSave={save} />
+        <ContactCard profile={profile} onSave={save} />
+      </div>
+      <IdentityCard profile={profile} documents={documents} onSave={save} onSaved={onSaved} />
+      <section id="pp-eo-aml" className="scroll-mt-24 space-y-4">
+        <SureLcCard />
+        <EoCard doc={eoDoc} onSaved={onSaved} />
+        <AmlCard doc={amlDoc} onSaved={onSaved} />
+      </section>
       <UserAccountCard profile={profile} />
       <AgreementCard agreement={agreement} />
       {(isAdmin || isManager) && profile?.id && (
@@ -768,7 +785,7 @@ function DocumentsTab({ documents, userId, onSaved }: { documents: any[]; userId
     <Card>
       <CardContent className="p-0">
         <div className="divide-y">
-          {DOC_CATEGORIES.map(({ type, label, note }) => {
+          {DOC_CATEGORIES.filter((c) => c.type !== "eo_certificate" && c.type !== "aml_certificate").map(({ type, label, note }) => {
             const doc = documents.find((d: any) => d.doc_type === type);
             return (
               <div key={type} className="flex items-center gap-4 p-4">
@@ -981,6 +998,146 @@ function IntegrationsTab() {
             will appear here rather than as buttons that do nothing.
           </p>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Identity: DOB, gender, SSN, driver's license
+// ─────────────────────────────────────────────
+function IdentityCard({ profile, documents, onSave, onSaved }: { profile: any; documents: any[]; onSave: (p: Record<string, unknown>) => void; onSaved: () => void }) {
+  const { user } = useAuth();
+  const ssnFn = useServerFn(saveMySsn);
+  const [ssn, setSsn] = useState("");
+  const [editingSsn, setEditingSsn] = useState(!profile?.ssn_last4);
+  const [savingSsn, setSavingSsn] = useState(false);
+  const [f, setF] = useState({
+    date_of_birth: profile?.date_of_birth ?? "",
+    gender: profile?.gender ?? "",
+    drivers_license_number: profile?.drivers_license_number ?? "",
+    drivers_license_state: profile?.drivers_license_state ?? "",
+    drivers_license_expiry: profile?.drivers_license_expiry ?? "",
+  });
+  const front = documents.find((d: any) => d.doc_type === "drivers_license_front");
+  const back = documents.find((d: any) => d.doc_type === "drivers_license_back");
+
+  async function saveSsn() {
+    setSavingSsn(true);
+    try {
+      await ssnFn({ data: { ssn } });
+      setSsn(""); setEditingSsn(false); onSaved(); toast.success("SSN saved securely");
+    } catch (e: any) { toast.error(e?.message ?? "Couldn't save SSN"); }
+    finally { setSavingSsn(false); }
+  }
+
+  return (
+    <Card id="pp-identity" className="scroll-mt-24">
+      <CardHeader><CardTitle>Identity</CardTitle></CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Date of birth</Label>
+            <Input type="date" value={f.date_of_birth} onChange={(e) => setF({ ...f, date_of_birth: e.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Gender</Label>
+            <Select value={f.gender || undefined} onValueChange={(v) => setF({ ...f, gender: v })}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Social Security number</Label>
+          {editingSsn ? (
+            <div className="flex gap-2">
+              <Input inputMode="numeric" autoComplete="off" placeholder="123-45-6789" value={ssn} onChange={(e) => setSsn(e.target.value)} className="max-w-xs" />
+              <Button size="sm" onClick={saveSsn} disabled={savingSsn || ssn.replace(/\D/g, "").length !== 9}>{savingSsn ? "Saving…" : "Save SSN"}</Button>
+              {profile?.ssn_last4 && <Button size="sm" variant="ghost" onClick={() => setEditingSsn(false)}>Cancel</Button>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-sm">
+              <span className="font-mono">•••-••-{profile?.ssn_last4}</span>
+              <Button size="sm" variant="outline" onClick={() => setEditingSsn(true)}>Replace</Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">Encrypted. Only your agency's contracting team can view it.</p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="text-sm font-medium">Driver's license</div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">License number</Label>
+              <Input value={f.drivers_license_number} onChange={(e) => setF({ ...f, drivers_license_number: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Issuing state</Label>
+              <Select value={f.drivers_license_state || undefined} onValueChange={(v) => setF({ ...f, drivers_license_state: v })}>
+                <SelectTrigger><SelectValue placeholder="State" /></SelectTrigger>
+                <SelectContent>{US_STATES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Expiration date</Label>
+              <Input type="date" value={f.drivers_license_expiry} onChange={(e) => setF({ ...f, drivers_license_expiry: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <LicensePhoto label="Front of license" docType="drivers_license_front" doc={front} userId={user?.id ?? ""} onSaved={onSaved} />
+            <LicensePhoto label="Back of license" docType="drivers_license_back" doc={back} userId={user?.id ?? ""} onSaved={onSaved} />
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => { onSave(f); toast.success("Identity saved"); }}>Save identity</Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LicensePhoto({ label, docType, doc, userId, onSaved }: { label: string; docType: string; doc?: any; userId: string; onSaved: () => void }) {
+  const dlFn = useServerFn(getDocumentSignedUrl);
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!doc?.id || !doc?.file_url) { setPreview(null); return; }
+    dlFn({ data: { doc_id: doc.id } }).then((r: any) => setPreview(r.url)).catch(() => setPreview(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc?.id, doc?.file_url]);
+  const isPdf = (doc?.file_name ?? "").toLowerCase().endsWith(".pdf");
+  return (
+    <div className="rounded-xl border border-dashed border-border p-3 space-y-2">
+      <div className="text-xs font-medium">{label}</div>
+      <div className="aspect-[1.6] rounded-lg bg-surface-2 grid place-items-center overflow-hidden">
+        {preview && !isPdf ? <img src={preview} alt={label} className="h-full w-full object-cover" />
+          : doc ? <span className="text-xs text-muted-foreground flex items-center gap-1"><FileText className="h-4 w-4" />{doc.file_name}</span>
+          : <IdCard className="h-8 w-8 text-muted-foreground" />}
+      </div>
+      <DocUploadButton docType={docType} userId={userId} currentDoc={doc} onSaved={onSaved} label={doc ? "Replace" : "Upload"} />
+    </div>
+  );
+}
+
+const SURELC_URL = "https://surelc.surancebay.com";
+
+function SureLcCard() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5">
+        <div>
+          <div className="text-sm font-semibold">E&amp;O and AML</div>
+          <div className="text-xs text-muted-foreground">Get or update your E&amp;O and AML in SureLC, then upload the certificates below.</div>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <a href={SURELC_URL} target="_blank" rel="noreferrer">Open SureLC <ExternalLink className="h-3 w-3 ml-1" /></a>
+        </Button>
       </CardContent>
     </Card>
   );

@@ -38,6 +38,7 @@ export function ProducerFileView({ agentId }: { agentId: string }) {
               {!ssn && <button type="button" className="text-xs text-primary hover:underline" onClick={async () => {
                 try { const r = await revealFn({ data: { agentId } }); setSsn(r.ssn); } catch (e: any) { toast.error(e?.message ?? "Could not reveal"); }
               }}>Reveal</button>}</span>) : null],
+          ["Driver's license #", p.drivers_license_number ? `${p.drivers_license_number}${p.drivers_license_state ? ` (${p.drivers_license_state})` : ""}` : null],
           ["Driver's license exp.", fmt(p.drivers_license_expiry)],
         ]} />
       </Panel>

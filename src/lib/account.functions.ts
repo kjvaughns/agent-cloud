@@ -11,7 +11,7 @@ export const getProducerProfile = createServerFn({ method: "GET" })
       // the drivers_license_* columns still exist and still hold whatever they
       // held; they are simply not read. A value that reaches the browser is a
       // value that can leak from it, and nothing displays these any more.
-      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,street_address,city,state,zip_code,agent_slug,google_oauth_connected,avatar_url").eq("id", userId).maybeSingle(),
+      supabase.from("profiles").select("id,first_name,last_name,email,phone,npn_number,street_address,city,state,zip_code,date_of_birth,gender,ssn_last4,drivers_license_number,drivers_license_state,drivers_license_expiry,agent_slug,google_oauth_connected,avatar_url").eq("id", userId).maybeSingle(),
       supabase.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,created_at,carrier_name,policy_number,coverage_amount,provider_name,certificate_number").eq("agent_id", userId),
       supabase.from("background_questions").select("question_number,answer,explanation").eq("agent_id", userId),
       supabase.from("producer_agreements").select("signature_name,signed_date,agreement_version").eq("agent_id", userId).maybeSingle(),
@@ -46,6 +46,11 @@ const ProfilePatch = z.object({
   city: z.string().trim().max(80).optional().or(z.literal("")),
   state: z.string().trim().max(2).optional().or(z.literal("")),
   zip_code: z.string().trim().max(10).optional().or(z.literal("")),
+  date_of_birth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  gender: z.string().trim().max(30).optional().or(z.literal("")),
+  drivers_license_number: z.string().trim().max(40).optional().or(z.literal("")),
+  drivers_license_state: z.string().trim().max(2).optional().or(z.literal("")),
+  drivers_license_expiry: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
 });
 
 export const updateProducerProfile = createServerFn({ method: "POST" })

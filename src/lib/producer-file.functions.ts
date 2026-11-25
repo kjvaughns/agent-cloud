@@ -27,7 +27,7 @@ export const getProducerFile = createServerFn({ method: "POST" })
       if (!owner.data && !staff.data && !admin.data) throw new Error("Not allowed");
     }
     const [p, docs, bg, ag, cp] = await Promise.all([
-      supabaseAdmin.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,street_address,city,state,zip_code,drivers_license_expiry,ssn_last4").eq("id", agentId).maybeSingle(),
+      supabaseAdmin.from("profiles").select("id,first_name,last_name,email,phone,npn_number,date_of_birth,gender,street_address,city,state,zip_code,drivers_license_expiry,drivers_license_number,drivers_license_state,ssn_last4").eq("id", agentId).maybeSingle(),
       supabaseAdmin.from("producer_documents").select("id,doc_type,file_name,file_url,start_date,expiration_date,carrier_name,policy_number,coverage_amount,certificate_number").eq("agent_id", agentId),
       supabaseAdmin.from("background_questions").select("question_number,answer,explanation").eq("agent_id", agentId),
       supabaseAdmin.from("producer_agreements").select("signature_name,signed_date,agreement_version").eq("agent_id", agentId).maybeSingle(),
