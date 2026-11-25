@@ -1,3 +1,5 @@
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ProducerFileView } from "@/components/producer/producer-file-view";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -664,6 +666,15 @@ function RequestDetailPage() {
                 >
                   Open agent record <ExternalLink className="h-3 w-3" />
                 </Link>
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button type="button" className="ac-no-print inline-flex items-center gap-1 text-[11px] text-primary hover:underline">View producer file</button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+                    <SheetHeader><SheetTitle>Producer file</SheetTitle></SheetHeader>
+                    <div className="mt-4"><ProducerFileView agentId={request.agent_id} /></div>
+                  </SheetContent>
+                </Sheet>
                 <CopyButton label="Copy agent" text={agentBlock(packet)} />
               </span>
             }

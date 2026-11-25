@@ -1,3 +1,4 @@
+import { ProducerFileView } from "@/components/producer/producer-file-view";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -178,6 +179,11 @@ function AgentWorkspace() {
             </ul>
           </>
         )}
+      </Panel>
+
+      <Panel className="p-5">
+        <h2 className="mb-4 text-base font-semibold">Producer file</h2>
+        <ProducerFileView agentId={agentId} />
       </Panel>
     </div>
   );

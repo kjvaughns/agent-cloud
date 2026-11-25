@@ -112,16 +112,16 @@ function ProducerProfilePage() {
   const { user } = useAuth();
   const search = Route.useSearch();
   const initial = search.tab;
-  const [tab, setTabRaw] = useState<ProfileTab>(initial === "contracting" || initial === "documents" || !initial ? "profile" : initial);
+  const [tab, setTabRaw] = useState<ProfileTab>(initial === "contracting" || initial === "documents" || initial === "background" || !initial ? "profile" : initial);
   const setTab = (t: ProfileTab) => {
-    if (t === "contracting" || t === "documents" || t === "profile") {
+    if (t === "contracting" || t === "documents" || t === "background" || t === "profile") {
       setTabRaw("profile");
-      const id = t === "contracting" ? "pp-contracting" : t === "documents" ? "pp-eo-aml" : "pp-personal";
+      const id = t === "contracting" ? "pp-contracting" : t === "documents" ? "pp-eo-aml" : t === "background" ? "pp-background" : "pp-personal";
       setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } else setTabRaw(t);
   };
   useEffect(() => {
-    if (initial === "contracting" || initial === "documents") setTab(initial);
+    if (initial === "contracting" || initial === "documents" || initial === "background") setTab(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const { data, isLoading } = useQuery({
@@ -168,7 +168,6 @@ function ProducerProfilePage() {
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="flex w-max">
             <TabsTrigger value="profile" className="whitespace-nowrap">Producer Profile</TabsTrigger>
-            <TabsTrigger value="background" className="whitespace-nowrap">Background Questions</TabsTrigger>
             <TabsTrigger value="integrations" className="whitespace-nowrap">Integrations</TabsTrigger>
           </TabsList>
         </div>
@@ -183,11 +182,12 @@ function ProducerProfilePage() {
             <h2 className="text-lg font-semibold">Other documents</h2>
             <DocumentsTab documents={documents} userId={user?.id ?? ""} onSaved={invalidate} />
           </section>
+          <section id="pp-background" className="scroll-mt-24 space-y-2">
+            <h2 className="text-lg font-semibold">Background questions &amp; signature</h2>
+            <BackgroundTab background={background} agreement={agreement} onSaved={invalidate} />
+                </section>
         </TabsContent>
 
-        <TabsContent value="background" className="mt-4">
-          <BackgroundTab background={background} agreement={agreement} onSaved={invalidate} />
-        </TabsContent>
 
         <TabsContent value="integrations" className="mt-4">
           <IntegrationsTab />
@@ -761,7 +761,7 @@ function AgreementCard({ agreement }: { agreement: any }) {
     <Card>
       <CardHeader><CardTitle>Signed Producer Agreement</CardTitle></CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <div className="flex justify-between"><span className="text-muted-foreground">Signature</span><span className="font-medium">{agreement.signature_name}</span></div>
+        <div className="rounded-lg border border-dashed border-border p-4"><div className="text-xs text-muted-foreground">Signature</div><div className="font-serif text-2xl italic">{agreement.signature_name}</div></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Signed Date</span><span>{agreement.signed_date ? new Date(agreement.signed_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</span></div>
         <div className="flex justify-between"><span className="text-muted-foreground">Version</span><span>{agreement.agreement_version}</span></div>
       </CardContent>
