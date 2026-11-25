@@ -65,7 +65,8 @@ type ProfileTab = (typeof PROFILE_TABS)[number];
  * An unrecognised label falls back to the profile tab, which is where a new
  * field would most likely live.
  */
-const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string }> = {
+const FIX_LOCATION: Record<string, { tab: ProfileTab; action: string; href?: string }> = {
+  "State license":     { tab: "profile",   action: "Add a license", href: "/licensing" },
   "Personal details":  { tab: "profile",   action: "Add your details" },
   "NPN Number":        { tab: "profile",   action: "Add your NPN" },
   "Home address":      { tab: "profile",   action: "Add your address" },
@@ -80,6 +81,7 @@ const WHY: Record<string, string> = {
   "Home address":      "Appointment paperwork is filed against your residential address.",
   "E&O Certificate":   "Carriers ask for current errors-and-omissions cover when they appoint you.",
   "AML Certificate":   "Carriers ask for anti-money-laundering training before annuity business.",
+  "State license":     "Add at least one current state license (or sync from NIPR) on the Licensing page.",
 };
 
 
@@ -263,7 +265,7 @@ function NextStep({
             <div className="mt-1 text-xs text-muted-foreground">
               Nothing here is required — the rest of Agent Cloud is open either way.
             </div>
-            <Button size="sm" className="mt-3" onClick={() => onGo(where.tab)}>
+            <Button size="sm" className="mt-3" onClick={() => (where.href ? window.location.assign(where.href) : onGo(where.tab))}>
               {where.action}
             </Button>
           </div>
@@ -303,7 +305,7 @@ function NextStep({
                       <span className="min-w-0 flex-1 truncate">{item}</span>
                       <button
                         type="button"
-                        onClick={() => onGo(w.tab)}
+                        onClick={() => (w.href ? window.location.assign(w.href) : onGo(w.tab))}
                         className="shrink-0 text-xs font-medium text-primary hover:underline"
                       >
                         {w.action}
